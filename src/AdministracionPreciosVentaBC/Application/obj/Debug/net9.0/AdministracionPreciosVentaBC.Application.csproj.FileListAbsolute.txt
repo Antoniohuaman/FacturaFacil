@@ -1,0 +1,15 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\bin\Debug\net9.0\AdministracionPreciosVentaBC.Application.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\bin\Debug\net9.0\AdministracionPreciosVentaBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\bin\Debug\net9.0\AdministracionPreciosVentaBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\bin\Debug\net9.0\AdministracionPreciosVentaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\bin\Debug\net9.0\AdministracionPreciosVentaBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\AdministracionPreciosVentaBC.Application.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\AdministracionPreciosVentaBC.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\AdministracionPreciosVentaBC.Application.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\AdministracionPreciosVentaBC.Application.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\AdministracionPreciosVentaBC.Application.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\Administ.7DB58D2F.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\AdministracionPreciosVentaBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\refint\AdministracionPreciosVentaBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\AdministracionPreciosVentaBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\ref\AdministracionPreciosVentaBC.Application.dll

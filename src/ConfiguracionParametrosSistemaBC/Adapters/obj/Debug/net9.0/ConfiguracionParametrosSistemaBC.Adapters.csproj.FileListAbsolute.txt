@@ -1,0 +1,17 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\Configur.C95C7FA8.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\refint\ConfiguracionParametrosSistemaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ref\ConfiguracionParametrosSistemaBC.Adapters.dll

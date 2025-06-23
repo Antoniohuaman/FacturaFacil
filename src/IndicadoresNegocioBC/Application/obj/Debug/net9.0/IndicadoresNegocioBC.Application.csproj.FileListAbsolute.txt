@@ -1,0 +1,15 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\bin\Debug\net9.0\IndicadoresNegocioBC.Application.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\bin\Debug\net9.0\IndicadoresNegocioBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\bin\Debug\net9.0\IndicadoresNegocioBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\bin\Debug\net9.0\IndicadoresNegocioBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\bin\Debug\net9.0\IndicadoresNegocioBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\IndicadoresNegocioBC.Application.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\IndicadoresNegocioBC.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\IndicadoresNegocioBC.Application.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\IndicadoresNegocioBC.Application.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\IndicadoresNegocioBC.Application.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\Indicado.11BBF251.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\IndicadoresNegocioBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\refint\IndicadoresNegocioBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\IndicadoresNegocioBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Application\obj\Debug\net9.0\ref\IndicadoresNegocioBC.Application.dll

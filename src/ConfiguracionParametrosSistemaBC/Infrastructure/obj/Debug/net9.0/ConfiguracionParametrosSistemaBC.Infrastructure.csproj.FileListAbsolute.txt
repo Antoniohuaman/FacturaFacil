@@ -1,0 +1,17 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\bin\Debug\net9.0\ConfiguracionParametrosSistemaBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\Configur.D61AF6BE.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\refint\ConfiguracionParametrosSistemaBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Infrastructure.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Infrastructure\obj\Debug\net9.0\ref\ConfiguracionParametrosSistemaBC.Infrastructure.dll

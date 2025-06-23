@@ -1,0 +1,17 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\bin\Debug\net9.0\ControlCajaBC.Adapters.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\bin\Debug\net9.0\ControlCajaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\bin\Debug\net9.0\ControlCajaBC.Adapters.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\bin\Debug\net9.0\ControlCajaBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\bin\Debug\net9.0\ControlCajaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\bin\Debug\net9.0\ControlCajaBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\bin\Debug\net9.0\ControlCajaBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\ControlCajaBC.Adapters.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\ControlCajaBC.Adapters.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\ControlCajaBC.Adapters.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\ControlCajaBC.Adapters.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\ControlCajaBC.Adapters.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\ControlC.F7454BA7.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\ControlCajaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\refint\ControlCajaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\ControlCajaBC.Adapters.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Adapters\obj\Debug\net9.0\ref\ControlCajaBC.Adapters.dll

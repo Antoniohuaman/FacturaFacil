@@ -1,0 +1,117 @@
+{
+  "version": 3,
+  "targets": {
+    "net9.0": {
+      "GestionClientesBC.Application/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "dependencies": {
+          "GestionClientesBC.Domain": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/GestionClientesBC.Application.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GestionClientesBC.Application.dll": {}
+        }
+      },
+      "GestionClientesBC.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "compile": {
+          "bin/placeholder/GestionClientesBC.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GestionClientesBC.Domain.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "GestionClientesBC.Application/1.0.0": {
+      "type": "project",
+      "path": "../Application/GestionClientesBC.Application.csproj",
+      "msbuildProject": "../Application/GestionClientesBC.Application.csproj"
+    },
+    "GestionClientesBC.Domain/1.0.0": {
+      "type": "project",
+      "path": "../Domain/GestionClientesBC.Domain.csproj",
+      "msbuildProject": "../Domain/GestionClientesBC.Domain.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net9.0": [
+      "GestionClientesBC.Application >= 1.0.0",
+      "GestionClientesBC.Domain >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\Asus\\.nuget\\packages\\": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\Users\\Asus\\OneDrive - CONTASIS\\FacturaFacil\\src\\GestionClientesBC\\Adapters\\GestionClientesBC.Adapters.csproj",
+      "projectName": "GestionClientesBC.Adapters",
+      "projectPath": "C:\\Users\\Asus\\OneDrive - CONTASIS\\FacturaFacil\\src\\GestionClientesBC\\Adapters\\GestionClientesBC.Adapters.csproj",
+      "packagesPath": "C:\\Users\\Asus\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Asus\\OneDrive - CONTASIS\\FacturaFacil\\src\\GestionClientesBC\\Adapters\\obj\\",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "C:\\Users\\Asus\\AppData\\Roaming\\NuGet\\NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net9.0"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "projectReferences": {
+            "C:\\Users\\Asus\\OneDrive - CONTASIS\\FacturaFacil\\src\\GestionClientesBC\\Application\\GestionClientesBC.Application.csproj": {
+              "projectPath": "C:\\Users\\Asus\\OneDrive - CONTASIS\\FacturaFacil\\src\\GestionClientesBC\\Application\\GestionClientesBC.Application.csproj"
+            },
+            "C:\\Users\\Asus\\OneDrive - CONTASIS\\FacturaFacil\\src\\GestionClientesBC\\Domain\\GestionClientesBC.Domain.csproj": {
+              "projectPath": "C:\\Users\\Asus\\OneDrive - CONTASIS\\FacturaFacil\\src\\GestionClientesBC\\Domain\\GestionClientesBC.Domain.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.300"
+    },
+    "frameworks": {
+      "net9.0": {
+        "targetAlias": "net9.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

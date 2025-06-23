@@ -1,0 +1,56 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "AdministracionPreciosVentaBC.Infrastructure/1.0.0": {
+        "dependencies": {
+          "AdministracionPreciosVentaBC.Application": "1.0.0",
+          "AdministracionPreciosVentaBC.Domain": "1.0.0"
+        },
+        "runtime": {
+          "AdministracionPreciosVentaBC.Infrastructure.dll": {}
+        }
+      },
+      "AdministracionPreciosVentaBC.Application/1.0.0": {
+        "dependencies": {
+          "AdministracionPreciosVentaBC.Domain": "1.0.0"
+        },
+        "runtime": {
+          "AdministracionPreciosVentaBC.Application.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "AdministracionPreciosVentaBC.Domain/1.0.0": {
+        "runtime": {
+          "AdministracionPreciosVentaBC.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "AdministracionPreciosVentaBC.Infrastructure/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "AdministracionPreciosVentaBC.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "AdministracionPreciosVentaBC.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

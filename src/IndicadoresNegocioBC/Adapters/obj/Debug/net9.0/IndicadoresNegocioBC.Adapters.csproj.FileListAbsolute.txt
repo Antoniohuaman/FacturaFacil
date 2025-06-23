@@ -1,0 +1,17 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\bin\Debug\net9.0\IndicadoresNegocioBC.Adapters.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\bin\Debug\net9.0\IndicadoresNegocioBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\bin\Debug\net9.0\IndicadoresNegocioBC.Adapters.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\bin\Debug\net9.0\IndicadoresNegocioBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\bin\Debug\net9.0\IndicadoresNegocioBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\bin\Debug\net9.0\IndicadoresNegocioBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\bin\Debug\net9.0\IndicadoresNegocioBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\IndicadoresNegocioBC.Adapters.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\IndicadoresNegocioBC.Adapters.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\IndicadoresNegocioBC.Adapters.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\IndicadoresNegocioBC.Adapters.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\IndicadoresNegocioBC.Adapters.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\Indicado.E1CED9C0.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\IndicadoresNegocioBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\refint\IndicadoresNegocioBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\IndicadoresNegocioBC.Adapters.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\ref\IndicadoresNegocioBC.Adapters.dll

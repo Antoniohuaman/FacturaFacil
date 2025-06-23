@@ -1,0 +1,17 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\bin\Debug\net9.0\GestionClientesBC.Infrastructure.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\bin\Debug\net9.0\GestionClientesBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\bin\Debug\net9.0\GestionClientesBC.Infrastructure.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\bin\Debug\net9.0\GestionClientesBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\bin\Debug\net9.0\GestionClientesBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\bin\Debug\net9.0\GestionClientesBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\bin\Debug\net9.0\GestionClientesBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\GestionClientesBC.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\GestionClientesBC.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\GestionClientesBC.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\GestionClientesBC.Infrastructure.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\GestionClientesBC.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\GestionC.CA69428A.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\GestionClientesBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\refint\GestionClientesBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\GestionClientesBC.Infrastructure.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Infrastructure\obj\Debug\net9.0\ref\GestionClientesBC.Infrastructure.dll

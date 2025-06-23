@@ -1,0 +1,11 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\bin\Debug\net9.0\IndicadoresNegocioBC.Domain.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\bin\Debug\net9.0\IndicadoresNegocioBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\bin\Debug\net9.0\IndicadoresNegocioBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\obj\Debug\net9.0\IndicadoresNegocioBC.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\obj\Debug\net9.0\IndicadoresNegocioBC.Domain.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\obj\Debug\net9.0\IndicadoresNegocioBC.Domain.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\obj\Debug\net9.0\IndicadoresNegocioBC.Domain.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\obj\Debug\net9.0\IndicadoresNegocioBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\obj\Debug\net9.0\refint\IndicadoresNegocioBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\obj\Debug\net9.0\IndicadoresNegocioBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Domain\obj\Debug\net9.0\ref\IndicadoresNegocioBC.Domain.dll

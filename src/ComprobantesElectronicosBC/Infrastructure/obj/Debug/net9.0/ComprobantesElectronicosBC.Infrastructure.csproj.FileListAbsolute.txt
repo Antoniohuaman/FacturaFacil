@@ -1,0 +1,17 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\bin\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\bin\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\bin\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\bin\Debug\net9.0\ComprobantesElectronicosBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\bin\Debug\net9.0\ComprobantesElectronicosBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\bin\Debug\net9.0\ComprobantesElectronicosBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\bin\Debug\net9.0\ComprobantesElectronicosBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\Comproba.2A0086B1.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\refint\ComprobantesElectronicosBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\ComprobantesElectronicosBC.Infrastructure.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Infrastructure\obj\Debug\net9.0\ref\ComprobantesElectronicosBC.Infrastructure.dll

@@ -1,0 +1,15 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\bin\Debug\net9.0\GestionProductosServiciosBC.Application.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\bin\Debug\net9.0\GestionProductosServiciosBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\bin\Debug\net9.0\GestionProductosServiciosBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\bin\Debug\net9.0\GestionProductosServiciosBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\bin\Debug\net9.0\GestionProductosServiciosBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionProductosServiciosBC.Application.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionProductosServiciosBC.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionProductosServiciosBC.Application.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionProductosServiciosBC.Application.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionProductosServiciosBC.Application.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionP.04DCC28F.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionProductosServiciosBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\refint\GestionProductosServiciosBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionProductosServiciosBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\ref\GestionProductosServiciosBC.Application.dll

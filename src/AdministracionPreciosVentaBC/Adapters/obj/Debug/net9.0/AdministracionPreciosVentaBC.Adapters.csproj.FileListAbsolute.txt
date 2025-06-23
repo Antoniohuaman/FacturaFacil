@@ -1,0 +1,17 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\bin\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\bin\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\bin\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\bin\Debug\net9.0\AdministracionPreciosVentaBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\bin\Debug\net9.0\AdministracionPreciosVentaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\bin\Debug\net9.0\AdministracionPreciosVentaBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\bin\Debug\net9.0\AdministracionPreciosVentaBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\Administ.C0DB8EF4.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\refint\AdministracionPreciosVentaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\AdministracionPreciosVentaBC.Adapters.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Adapters\obj\Debug\net9.0\ref\AdministracionPreciosVentaBC.Adapters.dll

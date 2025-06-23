@@ -1,0 +1,17 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\bin\Debug\net9.0\ControlCajaBC.Infrastructure.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\bin\Debug\net9.0\ControlCajaBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\bin\Debug\net9.0\ControlCajaBC.Infrastructure.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\bin\Debug\net9.0\ControlCajaBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\bin\Debug\net9.0\ControlCajaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\bin\Debug\net9.0\ControlCajaBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\bin\Debug\net9.0\ControlCajaBC.Application.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\ControlCajaBC.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\ControlCajaBC.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\ControlCajaBC.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\ControlCajaBC.Infrastructure.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\ControlCajaBC.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\ControlC.3BECD6F8.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\ControlCajaBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\refint\ControlCajaBC.Infrastructure.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\ControlCajaBC.Infrastructure.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Infrastructure\obj\Debug\net9.0\ref\ControlCajaBC.Infrastructure.dll

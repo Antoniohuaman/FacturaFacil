@@ -1,0 +1,11 @@
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\bin\Debug\net9.0\ControlCajaBC.Domain.deps.json
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\bin\Debug\net9.0\ControlCajaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\bin\Debug\net9.0\ControlCajaBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ControlCajaBC.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ControlCajaBC.Domain.AssemblyInfoInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ControlCajaBC.Domain.AssemblyInfo.cs
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ControlCajaBC.Domain.csproj.CoreCompileInputs.cache
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ControlCajaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\refint\ControlCajaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ControlCajaBC.Domain.pdb
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ref\ControlCajaBC.Domain.dll
