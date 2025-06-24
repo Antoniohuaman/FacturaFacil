@@ -97,3 +97,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\IndicadoresNegocioBC.Tests\
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\IndicadoresNegocioBC.Tests\obj\Debug\net9.0\IndicadoresNegocioBC.Tests.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\IndicadoresNegocioBC.Tests\obj\Debug\net9.0\IndicadoresNegocioBC.Tests.genruntimeconfig.cache
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\IndicadoresNegocioBC.Tests\obj\Debug\net9.0\ref\IndicadoresNegocioBC.Tests.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\IndicadoresNegocioBC.Tests\obj\Debug\net9.0\IndicadoresNegocioBC.Tests.sourcelink.json

@@ -97,3 +97,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\AdministracionPreciosVentaB
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\AdministracionPreciosVentaBC.Tests\obj\Debug\net9.0\AdministracionPreciosVentaBC.Tests.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\AdministracionPreciosVentaBC.Tests\obj\Debug\net9.0\AdministracionPreciosVentaBC.Tests.genruntimeconfig.cache
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\AdministracionPreciosVentaBC.Tests\obj\Debug\net9.0\ref\AdministracionPreciosVentaBC.Tests.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\AdministracionPreciosVentaBC.Tests\obj\Debug\net9.0\AdministracionPreciosVentaBC.Tests.sourcelink.json

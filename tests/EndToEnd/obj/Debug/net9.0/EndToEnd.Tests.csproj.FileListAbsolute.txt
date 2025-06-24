@@ -97,3 +97,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\EndToEnd\obj\Debug\net9.0\r
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\EndToEnd\obj\Debug\net9.0\EndToEnd.Tests.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\EndToEnd\obj\Debug\net9.0\EndToEnd.Tests.genruntimeconfig.cache
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\EndToEnd\obj\Debug\net9.0\ref\EndToEnd.Tests.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\EndToEnd\obj\Debug\net9.0\EndToEnd.Tests.sourcelink.json

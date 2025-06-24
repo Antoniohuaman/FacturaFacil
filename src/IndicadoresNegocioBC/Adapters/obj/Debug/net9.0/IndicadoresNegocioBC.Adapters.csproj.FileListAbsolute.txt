@@ -15,3 +15,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\refint\IndicadoresNegocioBC.Adapters.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\IndicadoresNegocioBC.Adapters.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\ref\IndicadoresNegocioBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\IndicadoresNegocioBC\Adapters\obj\Debug\net9.0\IndicadoresNegocioBC.Adapters.sourcelink.json

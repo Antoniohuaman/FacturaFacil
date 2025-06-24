@@ -15,3 +15,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistem
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\refint\ConfiguracionParametrosSistemaBC.Adapters.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ref\ConfiguracionParametrosSistemaBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Adapters\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Adapters.sourcelink.json

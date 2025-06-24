@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ControlCajaBC.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3e21e0dc86b4df47a09294a0d96be81b71097a94")]
 [assembly: System.Reflection.AssemblyProductAttribute("ControlCajaBC.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ControlCajaBC.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

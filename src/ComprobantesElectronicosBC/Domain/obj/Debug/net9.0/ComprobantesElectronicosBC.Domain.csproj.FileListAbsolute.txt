@@ -9,3 +9,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Do
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Domain\obj\Debug\net9.0\refint\ComprobantesElectronicosBC.Domain.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Domain\obj\Debug\net9.0\ComprobantesElectronicosBC.Domain.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Domain\obj\Debug\net9.0\ref\ComprobantesElectronicosBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ComprobantesElectronicosBC\Domain\obj\Debug\net9.0\ComprobantesElectronicosBC.Domain.sourcelink.json

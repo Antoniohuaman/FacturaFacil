@@ -13,3 +13,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\refint\AdministracionPreciosVentaBC.Application.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\AdministracionPreciosVentaBC.Application.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\ref\AdministracionPreciosVentaBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Application\obj\Debug\net9.0\AdministracionPreciosVentaBC.Application.sourcelink.json

@@ -9,3 +9,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\SharedKernel\obj\Debug\net9.0
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\SharedKernel\obj\Debug\net9.0\refint\SharedKernel.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\SharedKernel\obj\Debug\net9.0\SharedKernel.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\SharedKernel\obj\Debug\net9.0\ref\SharedKernel.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\SharedKernel\obj\Debug\net9.0\SharedKernel.sourcelink.json

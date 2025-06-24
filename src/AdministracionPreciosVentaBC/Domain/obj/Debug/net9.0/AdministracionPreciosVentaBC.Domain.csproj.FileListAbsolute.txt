@@ -9,3 +9,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Domain\obj\Debug\net9.0\refint\AdministracionPreciosVentaBC.Domain.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Domain\obj\Debug\net9.0\AdministracionPreciosVentaBC.Domain.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Domain\obj\Debug\net9.0\ref\AdministracionPreciosVentaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\AdministracionPreciosVentaBC\Domain\obj\Debug\net9.0\AdministracionPreciosVentaBC.Domain.sourcelink.json

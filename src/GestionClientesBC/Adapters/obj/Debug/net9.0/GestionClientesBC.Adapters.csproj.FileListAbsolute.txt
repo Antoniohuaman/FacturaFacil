@@ -15,3 +15,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Adapters\ob
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Adapters\obj\Debug\net9.0\refint\GestionClientesBC.Adapters.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Adapters\obj\Debug\net9.0\GestionClientesBC.Adapters.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Adapters\obj\Debug\net9.0\ref\GestionClientesBC.Adapters.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionClientesBC\Adapters\obj\Debug\net9.0\GestionClientesBC.Adapters.sourcelink.json

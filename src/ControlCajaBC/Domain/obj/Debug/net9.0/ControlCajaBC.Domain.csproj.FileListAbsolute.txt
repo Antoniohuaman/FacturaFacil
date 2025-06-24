@@ -9,3 +9,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debu
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\refint\ControlCajaBC.Domain.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ControlCajaBC.Domain.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ref\ControlCajaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ControlCajaBC\Domain\obj\Debug\net9.0\ControlCajaBC.Domain.sourcelink.json

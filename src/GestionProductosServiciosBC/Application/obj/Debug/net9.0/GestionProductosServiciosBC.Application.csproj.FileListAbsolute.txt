@@ -13,3 +13,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\A
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\refint\GestionProductosServiciosBC.Application.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionProductosServiciosBC.Application.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\ref\GestionProductosServiciosBC.Application.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\GestionProductosServiciosBC\Application\obj\Debug\net9.0\GestionProductosServiciosBC.Application.sourcelink.json

@@ -9,3 +9,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistem
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Domain\obj\Debug\net9.0\refint\ConfiguracionParametrosSistemaBC.Domain.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Domain\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Domain.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Domain\obj\Debug\net9.0\ref\ConfiguracionParametrosSistemaBC.Domain.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\ConfiguracionParametrosSistemaBC\Domain\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Domain.sourcelink.json

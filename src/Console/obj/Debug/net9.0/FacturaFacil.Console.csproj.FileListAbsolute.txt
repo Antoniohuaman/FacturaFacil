@@ -18,3 +18,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Console\bin\Debug\net9.0\Comp
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Console\bin\Debug\net9.0\ComprobantesElectronicosBC.Domain.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Console\obj\Debug\net9.0\FacturaFacil.Console.csproj.AssemblyReference.cache
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Console\obj\Debug\net9.0\FacturaF.E87D8518.Up2Date
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Console\obj\Debug\net9.0\FacturaFacil.Console.sourcelink.json

@@ -97,3 +97,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ConfiguracionParametrosSist
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ConfiguracionParametrosSistemaBC.Tests\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Tests.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ConfiguracionParametrosSistemaBC.Tests\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Tests.genruntimeconfig.cache
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ConfiguracionParametrosSistemaBC.Tests\obj\Debug\net9.0\ref\ConfiguracionParametrosSistemaBC.Tests.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ConfiguracionParametrosSistemaBC.Tests\obj\Debug\net9.0\ConfiguracionParametrosSistemaBC.Tests.sourcelink.json

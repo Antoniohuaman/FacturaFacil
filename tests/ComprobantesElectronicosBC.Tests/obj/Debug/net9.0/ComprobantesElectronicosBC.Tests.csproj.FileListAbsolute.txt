@@ -97,3 +97,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ComprobantesElectronicosBC.
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ComprobantesElectronicosBC.Tests\obj\Debug\net9.0\ComprobantesElectronicosBC.Tests.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ComprobantesElectronicosBC.Tests\obj\Debug\net9.0\ComprobantesElectronicosBC.Tests.genruntimeconfig.cache
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ComprobantesElectronicosBC.Tests\obj\Debug\net9.0\ref\ComprobantesElectronicosBC.Tests.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ComprobantesElectronicosBC.Tests\obj\Debug\net9.0\ComprobantesElectronicosBC.Tests.sourcelink.json

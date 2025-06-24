@@ -97,3 +97,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ControlCajaBC.Tests\obj\Deb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ControlCajaBC.Tests\obj\Debug\net9.0\ControlCajaBC.Tests.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ControlCajaBC.Tests\obj\Debug\net9.0\ControlCajaBC.Tests.genruntimeconfig.cache
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ControlCajaBC.Tests\obj\Debug\net9.0\ref\ControlCajaBC.Tests.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\tests\ControlCajaBC.Tests\obj\Debug\net9.0\ControlCajaBC.Tests.sourcelink.json

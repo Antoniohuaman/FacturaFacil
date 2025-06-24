@@ -9,3 +9,4 @@ C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Integration\obj\Debug\net9.0\
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Integration\obj\Debug\net9.0\refint\Integration.dll
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Integration\obj\Debug\net9.0\Integration.pdb
 C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Integration\obj\Debug\net9.0\ref\Integration.dll
+C:\Users\Asus\OneDrive - CONTASIS\FacturaFacil\src\Integration\obj\Debug\net9.0\Integration.sourcelink.json
