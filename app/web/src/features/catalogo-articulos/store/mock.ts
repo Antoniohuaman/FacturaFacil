@@ -1,0 +1,296 @@
+import type { Producto, MovimientoKardex, ResumenStock } from '../models/types';
+
+export const mockProductos: Producto[] = [
+  {
+    id: '1',
+    codigo: '7K-9212',
+    nombre: 'SELLO CTP',
+    unidad: 'UNIDAD',
+    precio: 20.00,
+    precioConIgv: 23.60,
+    igv: 18,
+    cantidad: 10,
+    categoria: 'REPUESTOS',
+    stock: 10,
+    stockMinimo: 5,
+    descripcion: 'Sello para sistema CTP de alta calidad',
+    activo: true,
+    fechaCreacion: new Date('2024-01-15'),
+    fechaActualizacion: new Date('2024-01-20'),
+    variantes: [
+      { id: '1a', nombre: 'Estándar', precio: 20.00, stock: 8, sku: '7K-9212-STD' },
+      { id: '1b', nombre: 'Premium', precio: 25.00, stock: 2, sku: '7K-9212-PRM' }
+    ]
+  },
+  {
+    id: '2',
+    codigo: '1V-8953',
+    nombre: 'PIN ART CENTRAL - CTP',
+    unidad: 'UNIDAD',
+    precio: 250.00,
+    precioConIgv: 295.00,
+    igv: 18,
+    cantidad: 0,
+    categoria: 'REPUESTOS',
+    stock: 0,
+    stockMinimo: 2,
+    descripcion: 'Pin art central para sistema CTP',
+    activo: true,
+    fechaCreacion: new Date('2024-01-10'),
+    fechaActualizacion: new Date('2024-01-18'),
+    variantes: []
+  },
+  {
+    id: '3',
+    codigo: '8R-3946',
+    nombre: 'Collet CTP',
+    unidad: 'UNIDAD',
+    precio: 115.00,
+    precioConIgv: 135.70,
+    igv: 18,
+    cantidad: 0,
+    categoria: 'REPUESTOS',
+    stock: 0,
+    stockMinimo: 3,
+    descripcion: 'Collet de precisión para CTP',
+    activo: true,
+    fechaCreacion: new Date('2024-01-12'),
+    fechaActualizacion: new Date('2024-01-19'),
+    variantes: []
+  },
+  {
+    id: '4',
+    codigo: 'a',
+    nombre: 'a',
+    unidad: 'DOCENA',
+    precio: 10.17,
+    precioConIgv: 12.00,
+    igv: 18,
+    cantidad: 0,
+    categoria: 'FRUTALES',
+    stock: 0,
+    stockMinimo: 12,
+    descripcion: 'Producto de prueba categoría frutales',
+    activo: true,
+    fechaCreacion: new Date('2024-01-08'),
+    fechaActualizacion: new Date('2024-01-16'),
+    variantes: []
+  },
+  {
+    id: '5',
+    codigo: '3738383',
+    nombre: 'Sjsjsksjwjw',
+    unidad: 'DOCENA',
+    precio: 4.24,
+    precioConIgv: 5.00,
+    igv: 18,
+    cantidad: -1,
+    categoria: 'VARIOS',
+    stock: -1,
+    stockMinimo: 0,
+    descripcion: 'Producto temporal de prueba',
+    activo: false,
+    fechaCreacion: new Date('2024-01-05'),
+    fechaActualizacion: new Date('2024-01-14'),
+    variantes: []
+  },
+  {
+    id: '6',
+    codigo: 'HABSU',
+    nombre: 'HABITACION SUITH',
+    unidad: 'DOCENA',
+    precio: 25.42,
+    precioConIgv: 30.00,
+    igv: 18,
+    cantidad: 0,
+    categoria: 'HABITACIONES X TIPO',
+    stock: 0,
+    stockMinimo: 1,
+    descripcion: 'Suite de lujo para hospedaje',
+    activo: true,
+    fechaCreacion: new Date('2024-01-20'),
+    fechaActualizacion: new Date('2024-01-22'),
+    variantes: [
+      { id: '6a', nombre: 'Individual', precio: 25.42, stock: 0, sku: 'HABSU-IND' },
+      { id: '6b', nombre: 'Doble', precio: 35.42, stock: 0, sku: 'HABSU-DBL' }
+    ]
+  },
+  {
+    id: '7',
+    codigo: 'HABST',
+    nombre: 'HABITACION STANDARD',
+    unidad: 'DOCENA',
+    precio: 16.95,
+    precioConIgv: 20.00,
+    igv: 18,
+    cantidad: 0,
+    categoria: 'HABITACIONES X TIPO',
+    stock: 0,
+    stockMinimo: 2,
+    descripcion: 'Habitación estándar confortable',
+    activo: true,
+    fechaCreacion: new Date('2024-01-18'),
+    fechaActualizacion: new Date('2024-01-21'),
+    variantes: []
+  },
+  {
+    id: '8',
+    codigo: '4251',
+    nombre: 'terokal',
+    unidad: 'DOCENA',
+    precio: 28.81,
+    precioConIgv: 34.00,
+    igv: 18,
+    cantidad: -3,
+    categoria: 'ADHESIVOS',
+    stock: -3,
+    stockMinimo: 5,
+    descripcion: 'Adhesivo industrial terokal',
+    activo: true,
+    fechaCreacion: new Date('2024-01-25'),
+    fechaActualizacion: new Date('2024-01-28'),
+    variantes: []
+  },
+  {
+    id: '9',
+    codigo: '003',
+    nombre: 'HIDROGEL HD',
+    unidad: 'DOCENA',
+    precio: 16.95,
+    precioConIgv: 20.00,
+    igv: 18,
+    cantidad: -2,
+    categoria: 'COSMETICOS',
+    stock: -2,
+    stockMinimo: 10,
+    descripcion: 'Hidrogel de alta definición para cuidado de la piel',
+    activo: true,
+    fechaCreacion: new Date('2024-01-22'),
+    fechaActualizacion: new Date('2024-01-26'),
+    variantes: [
+      { id: '9a', nombre: '50ml', precio: 16.95, stock: -1, sku: '003-50ML' },
+      { id: '9b', nombre: '100ml', precio: 28.00, stock: -1, sku: '003-100ML' }
+    ]
+  },
+  {
+    id: '10',
+    codigo: '001',
+    nombre: 'CASE 360 DISEÑO',
+    unidad: 'DOCENA',
+    precio: 29.66,
+    precioConIgv: 35.00,
+    igv: 18,
+    cantidad: -1,
+    categoria: 'ACCESORIOS',
+    stock: -1,
+    stockMinimo: 5,
+    descripcion: 'Case protector 360 con diseño personalizado',
+    activo: true,
+    fechaCreacion: new Date('2024-01-30'),
+    fechaActualizacion: new Date('2024-02-02'),
+    variantes: []
+  },
+  {
+    id: '11',
+    codigo: '0068',
+    nombre: '1/4 de pollo',
+    unidad: 'UNIDAD',
+    precio: 16.10,
+    precioConIgv: 19.00,
+    igv: 18,
+    cantidad: 38,
+    categoria: 'pollo a la brasa',
+    stock: 38,
+    stockMinimo: 10,
+    descripcion: 'Cuarto de pollo a la brasa',
+    activo: true,
+    fechaCreacion: new Date('2024-02-01'),
+    fechaActualizacion: new Date('2024-02-03'),
+    variantes: []
+  },
+  {
+    id: '12',
+    codigo: '0069',
+    nombre: 'polo entero',
+    unidad: 'UNIDAD',
+    precio: 55.08,
+    precioConIgv: 65.00,
+    igv: 18,
+    cantidad: -2,
+    categoria: 'pollo a la brasa',
+    stock: -2,
+    stockMinimo: 5,
+    descripcion: 'Pollo entero a la brasa',
+    activo: true,
+    fechaCreacion: new Date('2024-02-05'),
+    fechaActualizacion: new Date('2024-02-07'),
+    variantes: [
+      { id: '12a', nombre: 'Pequeño', precio: 45.00, stock: 0, sku: '0069-P' },
+      { id: '12b', nombre: 'Grande', precio: 65.00, stock: -2, sku: '0069-G' }
+    ]
+  }
+];
+
+export const mockMovimientosKardex: MovimientoKardex[] = [
+  {
+    id: '1',
+    fecha: new Date('2024-02-10'),
+    tipoMovimiento: 'ENTRADA',
+    documento: 'FC001-0001',
+    descripcion: 'Compra inicial',
+    cantidad: 50,
+    precioUnitario: 20.00,
+    total: 1000.00,
+    saldoCantidad: 50,
+    saldoValor: 1000.00
+  },
+  {
+    id: '2',
+    fecha: new Date('2024-02-12'),
+    tipoMovimiento: 'SALIDA',
+    documento: 'VT001-0125',
+    descripcion: 'Venta a cliente',
+    cantidad: 15,
+    precioUnitario: 20.00,
+    total: 300.00,
+    saldoCantidad: 35,
+    saldoValor: 700.00
+  },
+  {
+    id: '3',
+    fecha: new Date('2024-02-15'),
+    tipoMovimiento: 'SALIDA',
+    documento: 'VT001-0138',
+    descripcion: 'Venta mayorista',
+    cantidad: 25,
+    precioUnitario: 20.00,
+    total: 500.00,
+    saldoCantidad: 10,
+    saldoValor: 200.00
+  },
+  {
+    id: '4',
+    fecha: new Date('2024-02-18'),
+    tipoMovimiento: 'AJUSTE',
+    documento: 'AJ001-0005',
+    descripcion: 'Ajuste por inventario',
+    cantidad: 2,
+    precioUnitario: 20.00,
+    total: 40.00,
+    saldoCantidad: 12,
+    saldoValor: 240.00
+  }
+];
+
+export const mockResumenStock: ResumenStock = {
+  totalProductos: 12,
+  totalStock: 45,
+  valorInventario: 15750.80,
+  productosStockBajo: 4,
+  productosAgotados: 6
+};
+
+export const obtenerCategorias = (): string[] => {
+  const categorias = Array.from(new Set(mockProductos.map(p => p.categoria)));
+  return ['TODAS', ...categorias];
+};
