@@ -2,7 +2,8 @@ import { createBrowserRouter } from "react-router-dom";
 import AppShell from "../layouts/AppShell";
 
 // Pages por módulo
-import ComprobantesPanel from "../../features/comprobantes-electronicos/pages/Panel";
+// import NuevoComprobante from "../../features/comprobantes-electronicos/pages/NuevoComprobante";
+import NuevoComprobante from "../../features/comprobantes-electronicos/pages/NuevoComprobante";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
 import { Panel } from "../../features/catalogo-articulos/pages/Panel";
 import ClientesHome from "../../features/gestion-clientes/pages/Home";
@@ -14,8 +15,9 @@ export const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
-      { path: "/", element: <ComprobantesPanel /> },
-      { path: "/comprobantes/panel", element: <ComprobantesPanel /> },
+  { path: "/", element: <NuevoComprobante /> },
+  { path: "/comprobantes/panel", element: <NuevoComprobante /> },
+  { path: "/comprobantes/nuevo", element: <NuevoComprobante /> },
       { path: "/control-caja", element: <ControlCajaHome /> },
   { path: "/catalogo", element: <Panel /> },
       { path: "/clientes", element: <ClientesHome /> },
