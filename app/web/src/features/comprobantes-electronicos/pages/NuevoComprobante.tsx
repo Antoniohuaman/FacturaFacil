@@ -37,6 +37,7 @@ const SalesInvoiceSystem = () => {
       total: 18.00
     }
   ]);
+  const [showExtraFields, setShowExtraFields] = useState(false);
 
   const calculateTotals = () => {
     const subtotal = products.reduce((sum, product) => sum + product.subtotal, 0);
@@ -137,13 +138,50 @@ const SalesInvoiceSystem = () => {
 
           {/* Products Section */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-sm text-blue-600">Editar cliente</div>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center space-x-2">
+            <div className="flex items-center justify-end mb-4">
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center space-x-2"
+                onClick={() => setShowExtraFields(f => !f)}
+              >
                 <FileText className="w-4 h-4" />
-                <span>Más campos</span>
+                <span>{showExtraFields ? 'Ocultar campos' : 'Más campos'}</span>
               </button>
             </div>
+
+            {showExtraFields && (
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                    <input type="text" placeholder="Ingrese dirección" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de vencimiento</label>
+                    <input type="date" value="2025-09-10" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dirección de envío</label>
+                    <input type="text" placeholder="Ingrese centro de costo" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Orden de compra</label>
+                    <input type="text" placeholder="Ejem OC01-0000236" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">N° de guía</label>
+                    <input type="text" placeholder="Ingresa Serie y N°. Ejem T001-00000256" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Correo</label>
+                    <input type="email" placeholder="Ingresa correo electrónico" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Centro de costo</label>
+                    <input type="text" placeholder="Ingrese centro de costos" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Add Product Form */}
             <div className="mb-6 p-4 bg-blue-50 rounded-lg">
@@ -161,7 +199,8 @@ const SalesInvoiceSystem = () => {
                   <input 
                     type="number" 
                     placeholder="0" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
+                    style={{ minWidth: 60, maxWidth: 80 }}
                   />
                 </div>
                 <div className="col-span-2">
@@ -169,27 +208,30 @@ const SalesInvoiceSystem = () => {
                   <input 
                     type="number" 
                     placeholder="0" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
+                    style={{ minWidth: 60, maxWidth: 80 }}
                   />
                 </div>
                 <div className="col-span-1">
-                  <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
+                  <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm h-10 flex items-center justify-center">
                     Agregar
                   </button>
                 </div>
                 <div className="col-span-1 flex items-center justify-center">
-                  <div className="flex items-center space-x-2">
-                    <input 
-                      type="checkbox" 
-                      id="multiSelect"
-                      checked={multipleSelection}
-                      onChange={(e) => setMultipleSelection(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <label htmlFor="multiSelect" className="text-xs text-gray-700 whitespace-nowrap">
-                      Selección múltiple
-                    </label>
-                  </div>
+                  <label htmlFor="multiSelect" className="flex items-center cursor-pointer select-none h-10 space-x-2">
+                    <div className="relative flex items-center" style={{ minWidth: 44 }}>
+                      <input
+                        type="checkbox"
+                        id="multiSelect"
+                        checked={multipleSelection}
+                        onChange={e => setMultipleSelection(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div className={`w-9 h-5 rounded-full shadow-inner transition-colors duration-200 ${multipleSelection ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                      <div className={`absolute left-1 top-1 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform duration-200 ${multipleSelection ? 'translate-x-4' : ''}`}></div>
+                    </div>
+                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">Selección múltiple</span>
+                  </label>
                 </div>
               </div>
             </div>
