@@ -1,7 +1,12 @@
 import { useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, User, FileText, ArrowLeft, Eye } from 'lucide-react';
 
 const SalesInvoiceSystem = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tipoComprobante = searchParams.get('tipo') === 'boleta' ? 'boleta' : 'factura';
+  const [tipo, setTipo] = useState<'factura' | 'boleta'>(tipoComprobante);
   const [selectedClient] = useState('FLORES CANALES CARMEN ROSA');
   const [currency, setCurrency] = useState('PEN');
   const [multipleSelection, setMultipleSelection] = useState(false);
@@ -78,6 +83,20 @@ const SalesInvoiceSystem = () => {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-xl font-semibold text-gray-900">Nuevo comprobante</h1>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              className={`px-4 py-2 rounded-l-md border border-blue-600 text-sm font-medium focus:outline-none ${tipo === 'boleta' ? 'bg-blue-600 text-white' : 'bg-white text-blue-600'}`}
+              onClick={() => setTipo('boleta')}
+            >
+              Boleta
+            </button>
+            <button
+              className={`px-4 py-2 rounded-r-md border border-blue-600 text-sm font-medium focus:outline-none ${tipo === 'factura' ? 'bg-blue-600 text-white' : 'bg-white text-blue-600'}`}
+              onClick={() => setTipo('factura')}
+            >
+              Factura
+            </button>
           </div>
         </div>
       </div>
@@ -266,7 +285,10 @@ const SalesInvoiceSystem = () => {
                 <span>Vista previa</span>
               </button>
               <div className="flex space-x-3">
-                <button className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm">
+                <button
+                  className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm"
+                  onClick={() => navigate('/comprobantes')}
+                >
                   Cancelar
                 </button>
                 <button className="px-6 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors text-sm">

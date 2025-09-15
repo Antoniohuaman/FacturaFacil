@@ -4,7 +4,7 @@ import { useState } from "react";
 
 
 const mainItems = [
-  { to: "/comprobantes/panel", label: "Comprobantes", icon: (
+  { to: "/comprobantes", label: "Comprobantes", icon: (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M9 12h6M9 16h6M9 8h6" /><path d="M8 2v4M16 2v4" /></svg>
   ) },
   { to: "/catalogo", label: "Productos", icon: (
