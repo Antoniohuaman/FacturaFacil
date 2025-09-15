@@ -36,12 +36,26 @@ export const ListaProductos: React.FC<ListaProductosProps> = ({
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 h-full flex flex-col">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Lista de Productos</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          {paginacion.totalItems} productos • Selecciona uno para ver detalles
-        </p>
+      {/* Header superior personalizado */}
+      <div className="flex items-center justify-between px-6 pt-4 pb-2 border-b-2 border-green-500">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold text-gray-900">Productos</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg px-6 py-2 transition-colors">
+            Nuevo producto / servicio
+          </button>
+          <button className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-lg px-6 py-2 transition-colors">
+            Importar productos
+          </button>
+          <button className="bg-white border border-gray-300 rounded-lg p-2 hover:bg-gray-100 transition-colors" title="Descargar">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" /></svg>
+          </button>
+          {/* Avatar de usuario de ejemplo */}
+          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center text-white font-bold shadow">
+            JD
+          </div>
+        </div>
       </div>
 
       {/* Tabla */}
