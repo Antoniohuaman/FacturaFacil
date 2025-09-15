@@ -1,0 +1,583 @@
+import React, { useState } from 'react';
+import { Search, Filter, Download, Printer, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Calendar, Edit, Copy, Trash2, Send, Clock, AlertTriangle, FileText } from 'lucide-react';
+
+type DraftStatus = 'Vigente' | 'Por vencer' | 'Vencido';
+type StatusColor = 'green' | 'orange' | 'red';
+interface Draft {
+  id: string;
+  type: string;
+  clientDoc: string;
+  client: string;
+  createdDate: string;
+  expiryDate: string;
+  vendor: string;
+  total: number;
+  status: DraftStatus;
+  daysLeft: number;
+  statusColor: StatusColor;
+}
+
+interface DraftInvoicesModuleProps {
+  hideSidebar?: boolean;
+}
+
+const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }) => {
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [showTotals, setShowTotals] = useState<boolean>(false);
+  const [selectedDrafts, setSelectedDrafts] = useState<string[]>([]);
+
+  // Mock data para los borradores
+  const drafts: Draft[] = [
+    {
+      id: 'DRAFT-B001-00000015',
+      type: 'Boleta de venta',
+      clientDoc: '08661829',
+      client: 'Apolo Guerra Lu',
+      createdDate: '22 ago. 2025 14:30',
+      expiryDate: '29 ago. 2025',
+      vendor: 'Carlos Rueda',
+      total: 145.50,
+      status: 'Vigente',
+      daysLeft: 2,
+      statusColor: 'green'
+    },
+    {
+      id: 'DRAFT-F001-00000008',
+      type: 'Factura',
+      clientDoc: '20236523658',
+      client: 'Tienda S.A.C.',
+      createdDate: '21 ago. 2025 16:45',
+      expiryDate: '28 ago. 2025',
+      vendor: 'Carlos Rueda',
+      total: 320.00,
+      status: 'Por vencer',
+      daysLeft: 1,
+      statusColor: 'orange'
+    },
+    {
+      id: 'DRAFT-B001-00000014',
+      type: 'Boleta de venta',
+      clientDoc: '08664589',
+      client: 'María Martínez Sánchez',
+      createdDate: '20 ago. 2025 11:20',
+      expiryDate: '27 ago. 2025',
+      vendor: 'Bertha Flores',
+      total: 89.99,
+      status: 'Vencido',
+      daysLeft: -1,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000013',
+      type: 'Boleta de venta',
+      clientDoc: '45878965',
+      client: 'Gonzalo Romero Castillo',
+      createdDate: '19 ago. 2025 09:15',
+      expiryDate: '26 ago. 2025',
+      vendor: 'Carlos Rueda',
+      total: 75.30,
+      status: 'Vigente',
+      daysLeft: 5,
+      statusColor: 'green'
+    },
+    {
+      id: 'DRAFT-B001-00000012',
+      type: 'Boleta de venta',
+      clientDoc: '89658965',
+      client: 'Alex Guerrero Londres',
+      createdDate: '18 ago. 2025 15:40',
+      expiryDate: '25 ago. 2025',
+      vendor: 'Carlos Rueda',
+      total: 120.75,
+      status: 'Por vencer',
+      daysLeft: 1,
+      statusColor: 'orange'
+    },
+    {
+      id: 'DRAFT-F001-00000007',
+      type: 'Factura',
+      clientDoc: '10236526589',
+      client: 'Market S.A.C.',
+      createdDate: '17 ago. 2025 13:25',
+      expiryDate: '24 ago. 2025',
+      vendor: 'Carlos Rueda',
+      total: 450.00,
+      status: 'Vencido',
+      daysLeft: -3,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000011',
+      type: 'Boleta de venta',
+      clientDoc: '00000000',
+      client: 'Clientes varios',
+      createdDate: '16 ago. 2025 10:30',
+      expiryDate: '23 ago. 2025',
+      vendor: 'Carlos Rueda',
+      total: 65.20,
+      status: 'Vigente',
+      daysLeft: 8,
+      statusColor: 'green'
+    }
+  ];
+
+  const getStatusBadge = (status: DraftStatus, color: StatusColor, daysLeft: number) => {
+    const colorClasses: Record<StatusColor, string> = {
+      green: 'bg-green-100 text-green-800 border-green-200',
+      orange: 'bg-orange-100 text-orange-800 border-orange-200',
+      red: 'bg-red-100 text-red-800 border-red-200'
+    };
+
+    const getStatusText = (): string => {
+      if (status === 'Vencido') return 'Vencido';
+      if (status === 'Por vencer') return `Vence en ${daysLeft}d`;
+      return `${daysLeft} días`;
+    };
+
+    return (
+      <div className="flex items-center space-x-2">
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colorClasses[color]}`}>
+          {getStatusText()}
+        </span>
+        {status === 'Vencido' && (
+          <AlertTriangle className="w-4 h-4 text-red-500" />
+        )}
+        {status === 'Por vencer' && (
+          <Clock className="w-4 h-4 text-orange-500" />
+        )}
+      </div>
+    );
+  };
+
+  const handleSelectDraft = (draftId: string) => {
+    if (selectedDrafts.includes(draftId)) {
+      setSelectedDrafts(selectedDrafts.filter(id => id !== draftId));
+    } else {
+      setSelectedDrafts([...selectedDrafts, draftId]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedDrafts.length === drafts.length) {
+      setSelectedDrafts([]);
+    } else {
+      setSelectedDrafts(drafts.map((draft) => draft.id));
+    }
+  };
+
+  const totalRecords = 47;
+  const recordsPerPage = 25;
+  const startRecord = (currentPage - 1) * recordsPerPage + 1;
+  const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
+
+  // Calculate summary stats
+  const vigenteDrafts = drafts.filter(d => d.status === 'Vigente').length;
+  const porVencerDrafts = drafts.filter(d => d.status === 'Por vencer').length;
+  const vencidoDrafts = drafts.filter(d => d.status === 'Vencido').length;
+  const totalValue = drafts.reduce((sum, draft) => sum + draft.total, 0);
+
+  return (
+    <div className={`min-h-screen bg-gray-50 ${hideSidebar ? '' : 'flex'}`}>
+      {/* Sidebar */}
+      {!hideSidebar && (
+        <div className="w-64 bg-white border-r border-gray-200">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">Comprobantes</h2>
+            <nav className="space-y-2">
+              <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+                <FileText className="w-4 h-4 mr-3" />
+                Comprobantes
+              </a>
+              <a href="#" className="flex items-center px-3 py-2 bg-blue-100 text-blue-600 rounded-md font-medium">
+                <Edit className="w-4 h-4 mr-3" />
+                Borradores
+                <span className="ml-auto bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">
+                  {drafts.length}
+                </span>
+              </a>
+              <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+                <FileText className="w-4 h-4 mr-3" />
+                Productos
+              </a>
+              <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+                <FileText className="w-4 h-4 mr-3" />
+                Precios
+              </a>
+              <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+                <FileText className="w-4 h-4 mr-3" />
+                Clientes
+              </a>
+              <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+                <FileText className="w-4 h-4 mr-3" />
+                Indicadores
+              </a>
+            </nav>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <ChevronLeft className="w-5 h-5 text-gray-400" />
+                  <h1 className="text-xl font-semibold text-gray-900">Borradores</h1>
+                </div>
+
+                {/* Date filters */}
+                <div className="flex items-center space-x-3 ml-8">
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Desde</label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Hasta</label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action icons */}
+                <div className="flex items-center space-x-2 ml-6">
+                  <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
+                    <Download className="w-5 h-5" />
+                  </button>
+                  <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
+                    <Printer className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center space-x-3">
+                <button className="px-4 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors text-sm font-medium">
+                  Nueva factura
+                </button>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
+                  Nueva boleta
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Bulk Actions Bar */}
+          {selectedDrafts.length > 0 && (
+            <div className="bg-blue-50 border-b border-blue-200 px-6 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-blue-900">
+                  {selectedDrafts.length} borrador{selectedDrafts.length > 1 ? 'es' : ''} seleccionado{selectedDrafts.length > 1 ? 's' : ''}
+                </span>
+                <div className="flex items-center space-x-3">
+                  <button className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    Emitir seleccionados
+                  </button>
+                  <button className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    Duplicar seleccionados
+                  </button>
+                  <button className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 font-medium">
+                    Eliminar seleccionados
+                  </button>
+                  <button 
+                    onClick={() => setSelectedDrafts([])}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Stats Cards */}
+        <div className="px-6 py-4 bg-gray-50">
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Borradores Vigentes</p>
+                  <p className="text-2xl font-bold text-green-600">{vigenteDrafts}</p>
+                </div>
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Edit className="w-5 h-5 text-green-600" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Por Vencer (24h)</p>
+                  <p className="text-2xl font-bold text-orange-600">{porVencerDrafts}</p>
+                </div>
+                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-orange-600" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Vencidos</p>
+                  <p className="text-2xl font-bold text-red-600">{vencidoDrafts}</p>
+                </div>
+                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Valor Total</p>
+                  <p className="text-2xl font-bold text-blue-600">S/ {totalValue.toFixed(2)}</p>
+                </div>
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 px-6 py-6">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedDrafts.length === drafts.length}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <div className="flex items-center space-x-2">
+                        <span>N° Borrador</span>
+                        <Search className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <div className="flex items-center space-x-2">
+                        <span>Tipo</span>
+                        <Filter className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <div className="flex items-center space-x-2">
+                        <span>N° Doc Cliente</span>
+                        <Search className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <div className="flex items-center space-x-2">
+                        <span>Cliente</span>
+                        <Search className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <div className="flex items-center space-x-2">
+                        <span>Creado</span>
+                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <div className="flex items-center space-x-2">
+                        <span>Vence</span>
+                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <div className="flex items-center space-x-2">
+                        <span>Vendedor</span>
+                        <Search className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <div className="flex items-center space-x-2">
+                        <span>Estado</span>
+                        <Filter className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {drafts.map((draft, index) => (
+                    <tr key={index} className={`hover:bg-gray-50 transition-colors ${selectedDrafts.includes(draft.id) ? 'bg-blue-50' : ''}`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedDrafts.includes(draft.id)}
+                          onChange={() => handleSelectDraft(draft.id)}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {draft.id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {draft.type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {draft.clientDoc}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {draft.client}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {draft.createdDate}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {draft.expiryDate}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {draft.vendor}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        S/ {draft.total.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(draft.status, draft.statusColor, draft.daysLeft)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                        <div className="flex items-center space-x-2">
+                          <button 
+                            className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded transition-colors"
+                            title="Editar"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-100 rounded transition-colors"
+                            title="Emitir"
+                          >
+                            <Send className="w-4 h-4" />
+                          </button>
+                          <button 
+                            className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-100 rounded transition-colors"
+                            title="Duplicar"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                          <button 
+                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            title="Más opciones"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <button 
+                    onClick={() => setShowTotals(!showTotals)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Mostrar totales
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm text-gray-700">
+                    {startRecord} – {endRecord} de {totalRecords}
+                  </span>
+                  
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setCurrentPage(Math.min(Math.ceil(totalRecords / recordsPerPage), currentPage + 1))}
+                      disabled={currentPage >= Math.ceil(totalRecords / recordsPerPage)}
+                      className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Totals Panel (conditionally shown) */}
+          {showTotals && (
+            <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Resumen de Borradores</h3>
+              <div className="grid grid-cols-4 gap-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{vigenteDrafts}</div>
+                  <div className="text-sm text-gray-600">Borradores Vigentes</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">{porVencerDrafts}</div>
+                  <div className="text-sm text-gray-600">Por Vencer (24h)</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">{vencidoDrafts}</div>
+                  <div className="text-sm text-gray-600">Vencidos</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">S/ {totalValue.toFixed(2)}</div>
+                  <div className="text-sm text-gray-600">Valor Total</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DraftInvoicesModule;
