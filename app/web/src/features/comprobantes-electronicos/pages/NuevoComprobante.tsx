@@ -8,6 +8,7 @@ const SalesInvoiceSystem = () => {
   const [selectedDocumentType] = useState('boleta');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [customAmount, setCustomAmount] = useState('');
+  const [multiSelect, setMultiSelect] = useState(false);
   // POS product list (mock)
   const availableProducts = [
     { id: 1, code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00 },
@@ -274,50 +275,50 @@ const SalesInvoiceSystem = () => {
 
                 {/* Add Product Form */}
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                  <div className="grid grid-cols-12 gap-3 items-end">
-                    <div className="col-span-6">
+                  <div className="grid grid-cols-6 gap-3 items-end">
+                    <div className="col-span-2">
                       <label className="block text-xs font-medium text-gray-700 mb-1">Producto / Servicio</label>
                       <input 
                         type="text" 
                         placeholder="BO" 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1">
                       <label className="block text-xs font-medium text-gray-700 mb-1">Cantidad</label>
                       <input 
                         type="number" 
                         placeholder="0" 
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
-                        style={{ minWidth: 60, maxWidth: 80 }}
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1">
                       <label className="block text-xs font-medium text-gray-700 mb-1">Precio</label>
                       <input 
                         type="number" 
                         placeholder="0" 
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
-                        style={{ minWidth: 60, maxWidth: 80 }}
                       />
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-1 flex items-center">
                       <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm h-10 flex items-center justify-center">
                         Agregar
                       </button>
                     </div>
-                    <div className="col-span-1 flex items-center justify-center">
-                      <label htmlFor="multiSelect" className="flex items-center cursor-pointer select-none h-10 space-x-2">
+                    <div className="col-span-1 flex items-center">
+                      <label htmlFor="multiSelect" className="flex items-center cursor-pointer select-none w-full h-10 justify-center">
                         <div className="relative flex items-center" style={{ minWidth: 44 }}>
                           <input
                             type="checkbox"
                             id="multiSelect"
+                            checked={multiSelect}
+                            onChange={() => setMultiSelect(v => !v)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 rounded-full shadow-inner transition-colors duration-200 bg-gray-300`}></div>
-                          <div className={`absolute left-1 top-1 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform duration-200`}></div>
+                          <div className={`w-9 h-5 rounded-full shadow-inner transition-colors duration-200 ${multiSelect ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                          <div className={`absolute top-1 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform duration-200 ${multiSelect ? 'translate-x-4' : 'left-1'}`}></div>
                         </div>
-                        <span className="text-sm text-gray-700 font-medium whitespace-nowrap">Selección múltiple</span>
+                        <span className={`text-sm font-medium whitespace-nowrap ml-2 ${multiSelect ? 'text-blue-600' : 'text-gray-700'}`}>Selección múltiple</span>
                       </label>
                     </div>
                   </div>
