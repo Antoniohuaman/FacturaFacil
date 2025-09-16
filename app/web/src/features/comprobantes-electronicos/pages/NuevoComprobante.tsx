@@ -1,14 +1,22 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ProductSearchSelector from '../components/ProductSearchSelector';
 import { ArrowLeft, ShoppingCart, Trash2, Minus, Plus, List, Grid3X3, X } from 'lucide-react';
 
 const SalesInvoiceSystem = () => {
+  const [cashBills, setCashBills] = useState<number[]>([]);
   const [viewMode, setViewMode] = useState<'form' | 'pos'>('form');
+  const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedDocumentType] = useState('boleta');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [customAmount, setCustomAmount] = useState('');
   const [multiSelect, setMultiSelect] = useState(false);
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [productQty, setProductQty] = useState(1);
+  const [productPrice, setProductPrice] = useState(0);
   // POS product list (mock)
   const availableProducts = [
     { id: 1, code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00 },
@@ -36,9 +44,6 @@ const SalesInvoiceSystem = () => {
   const handleConfirmSale = () => {
     setShowPaymentModal(true);
   };
-  const handleQuickPayment = (amount: number) => {
-    setReceivedAmount(amount.toString());
-  };
   const calculateTotals = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.subtotal || item.price * item.quantity / 1.18), 0);
     const igv = cartItems.reduce((sum, item) => sum + ((item.total || item.price * item.quantity) - (item.subtotal || item.price * item.quantity / 1.18)), 0);
@@ -46,9 +51,11 @@ const SalesInvoiceSystem = () => {
     return { subtotal, igv, total };
   };
   const totals = calculateTotals();
-  const quickPaymentAmounts = [totals.total, 60.00, 70.00, 100.00];
+  const quickPaymentAmounts = [totals.total, 20.00, 50.00, 100.00, 200.00];
   const calculateChange = () => {
-    const received = parseFloat(receivedAmount || customAmount) || 0;
+    const received =
+      cashBills.reduce((sum, bill) => sum + bill, 0) ||
+      parseFloat(receivedAmount || customAmount) || 0;
     const change = received - totals.total;
     return change;
   };
@@ -57,30 +64,28 @@ const SalesInvoiceSystem = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button className="text-gray-500 hover:text-gray-700">
-              <ArrowLeft className="w-5 h-5" />
+        <div className="flex items-center space-x-4">
+          <button className="text-gray-500 hover:text-gray-700" onClick={() => navigate('/comprobantes')}>
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-xl font-semibold text-gray-900">Nuevo comprobante</h1>
+          {/* View Toggle */}
+          <div className="flex items-center space-x-2 ml-8">
+            <button
+              onClick={() => setViewMode('form')}
+              className={`p-2 rounded-md transition-colors ${viewMode === 'form' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <List className="w-5 h-5" />
             </button>
-            <h1 className="text-xl font-semibold text-gray-900">Nuevo comprobante</h1>
-            {/* View Toggle */}
-            <div className="flex items-center space-x-2 ml-8">
-              <button
-                onClick={() => setViewMode('form')}
-                className={`p-2 rounded-md transition-colors ${viewMode === 'form' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <List className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('pos')}
-                className={`p-2 rounded-md transition-colors ${viewMode === 'pos' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <Grid3X3 className="w-5 h-5" />
-              </button>
-              <span className="text-sm text-gray-600 ml-2">
-                {viewMode === 'pos' ? 'Punto de Venta' : 'Formulario'}
-              </span>
-            </div>
+            <button
+              onClick={() => setViewMode('pos')}
+              className={`p-2 rounded-md transition-colors ${viewMode === 'pos' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <Grid3X3 className="w-5 h-5" />
+            </button>
+            <span className="text-sm text-gray-600 ml-2">
+              {viewMode === 'pos' ? 'Punto de Venta' : 'Formulario'}
+            </span>
           </div>
         </div>
       </div>
@@ -232,7 +237,7 @@ const SalesInvoiceSystem = () => {
           <>
             {/* Formulario principal */}
             <div className="flex-1 p-6 space-y-6">
-              {/* Document Info */}
+              {/* Document Info principal + campos opcionales */}
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <div className="grid grid-cols-3 gap-4">
                   <div>
@@ -261,67 +266,139 @@ const SalesInvoiceSystem = () => {
                     />
                   </div>
                 </div>
+                {/* Botón para mostrar/ocultar campos opcionales */}
+                <div className="mt-4">
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                    onClick={() => setShowOptionalFields(v => !v)}
+                  >
+                    {showOptionalFields ? 'Ocultar campos' : 'Más campos'}
+                  </button>
+                </div>
+                {/* Campos opcionales */}
+                {showOptionalFields && (
+                  <div className="mt-6 bg-blue-50 rounded-lg p-4">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+                        <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="Ingrese dirección" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de vencimiento</label>
+                        <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" value="2025-10-09" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Dirección de envío</label>
+                        <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="Ingrese centro de costo" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Orden de compra</label>
+                        <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="Ejem OC01-0000236" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">N° de guía</label>
+                        <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="Ingresa Serie y  N°. Ejem T001-00000256" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Correo</label>
+                        <input type="email" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="Ingresa correo electrónico" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Centro de costo</label>
+                        <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="Ingrese centro de costos" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Products Section */}
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <div className="flex items-center justify-end mb-4">
-                  <button
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center space-x-2"
-                  >
-                    Más campos
-                  </button>
+                  {/* Switch para selección múltiple */}
+                  <label htmlFor="multiSelect" className="flex items-center cursor-pointer select-none relative">
+                    <input
+                      type="checkbox"
+                      id="multiSelect"
+                      checked={multiSelect}
+                      onChange={() => setMultiSelect(v => !v)}
+                      className="sr-only"
+                    />
+                    <div className={`w-9 h-5 rounded-full shadow-inner transition-colors duration-200 ${multiSelect ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                    <div
+                      className={`absolute left-0 top-0 mt-1 ml-1 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform duration-200`
+                        + (multiSelect ? ' translate-x-4' : '')}
+                    ></div>
+                    <span className={`text-sm font-medium whitespace-nowrap ml-2 ${multiSelect ? 'text-blue-600' : 'text-gray-700'}`}>Selección múltiple</span>
+                  </label>
                 </div>
 
-                {/* Add Product Form */}
+                {/* Add Product Form - flujo ágil */}
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                  <div className="grid grid-cols-6 gap-3 items-end">
-                    <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Producto / Servicio</label>
-                      <input 
-                        type="text" 
-                        placeholder="BO" 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
-                      />
+
+                  {/* Buscador y selección de productos */}
+                  <ProductSearchSelector
+                    products={availableProducts}
+                    multiple={multiSelect}
+                    onSelect={(selected) => {
+                      if (!multiSelect && selected.length === 1) {
+                        // Producto individual: mostrar campos cantidad/precio y botón agregar
+                        setSelectedProduct(selected[0]);
+                        setProductQty(1);
+                        setProductPrice(selected[0].price);
+                      } else if (multiSelect && selected.length > 0) {
+                        // Selección múltiple: agregar todos al carrito
+                        selected.forEach(product => addToCart(product));
+                        setSelectedProduct(null);
+                      }
+                    }}
+                  />
+
+                  {/* Campos editables para producto individual */}
+                  {selectedProduct && !multiSelect && (
+                    <div className="grid grid-cols-6 gap-3 items-end mt-4">
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Producto / Servicio</label>
+                        <input 
+                          type="text" 
+                          value={selectedProduct.name}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
+                          readOnly
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Cantidad</label>
+                        <input 
+                          type="number" 
+                          value={productQty}
+                          min={1}
+                          onChange={e => setProductQty(Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Precio</label>
+                        <input 
+                          type="number" 
+                          value={productPrice}
+                          min={0}
+                          onChange={e => setProductPrice(Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
+                        />
+                      </div>
+                      <div className="col-span-1 flex items-center">
+                        <button
+                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm h-10 flex items-center justify-center"
+                          onClick={() => {
+                            addToCart({ ...selectedProduct, price: productPrice, quantity: productQty });
+                            setSelectedProduct(null);
+                          }}
+                        >
+                          Agregar
+                        </button>
+                      </div>
                     </div>
-                    <div className="col-span-1">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Cantidad</label>
-                      <input 
-                        type="number" 
-                        placeholder="0" 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Precio</label>
-                      <input 
-                        type="number" 
-                        placeholder="0" 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
-                      />
-                    </div>
-                    <div className="col-span-1 flex items-center">
-                      <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm h-10 flex items-center justify-center">
-                        Agregar
-                      </button>
-                    </div>
-                    <div className="col-span-1 flex items-center">
-                      <label htmlFor="multiSelect" className="flex items-center cursor-pointer select-none w-full h-10 justify-center">
-                        <div className="relative flex items-center" style={{ minWidth: 44 }}>
-                          <input
-                            type="checkbox"
-                            id="multiSelect"
-                            checked={multiSelect}
-                            onChange={() => setMultiSelect(v => !v)}
-                            className="sr-only"
-                          />
-                          <div className={`w-9 h-5 rounded-full shadow-inner transition-colors duration-200 ${multiSelect ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
-                          <div className={`absolute top-1 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform duration-200 ${multiSelect ? 'translate-x-4' : 'left-1'}`}></div>
-                        </div>
-                        <span className={`text-sm font-medium whitespace-nowrap ml-2 ${multiSelect ? 'text-blue-600' : 'text-gray-700'}`}>Selección múltiple</span>
-                      </label>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Products Table */}
@@ -459,12 +536,28 @@ const SalesInvoiceSystem = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                    <option value="PLUMA">PLUMA</option>
+                    <option value="PEN">Soles (PEN)</option>
+                    <option value="USD">Dólares (USD)</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Forma de Pago</label>
-                  <input type="text" value="contado" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" readOnly />
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    <option value="contado">Contado</option>
+                    <option value="deposito">Depósito en cuenta</option>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="plin">Plin</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="yape">Yape</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="mt-2 text-blue-600 hover:underline text-sm"
+                    onClick={() => alert('Funcionalidad para crear nueva forma de pago')}
+                  >
+                    Nueva Forma de Pago
+                  </button>
                 </div>
               </div>
 
@@ -636,15 +729,19 @@ const SalesInvoiceSystem = () => {
                 <div className="mb-4">
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Efectivo rápido</h4>
                   <div className="grid grid-cols-2 gap-2 mb-4">
-                    {quickPaymentAmounts.map((amount, index) => (
-                      <button 
-                        key={index}
-                        onClick={() => handleQuickPayment(amount)}
-                        className={`px-3 py-2 text-sm border rounded-md transition-colors ${
-                          parseFloat(receivedAmount) === amount 
-                            ? 'bg-green-100 border-green-500 text-green-700' 
-                            : 'border-gray-300 hover:bg-gray-50'
-                        }`}
+                    {/* Primer botón: total de la venta */}
+                    <button
+                      className={`px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 ${cashBills.includes(totals.total) ? 'bg-green-100 border-green-500 text-green-700' : 'hover:bg-gray-50'}`}
+                      onClick={() => setCashBills([totals.total])}
+                    >
+                      S/ {totals.total.toFixed(2)}
+                    </button>
+                    {/* Billetes comunes */}
+                    {quickPaymentAmounts.slice(1).map((amount) => (
+                      <button
+                        key={amount}
+                        className={`px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 ${cashBills.includes(amount) ? 'bg-blue-100 border-blue-500 text-blue-700' : 'hover:bg-gray-50'}`}
+                        onClick={() => setCashBills(prev => [...prev, amount])}
                       >
                         S/ {amount.toFixed(2)}
                       </button>
@@ -653,10 +750,13 @@ const SalesInvoiceSystem = () => {
                   {/* Custom amount input */}
                   <div className="mb-4">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Monto recibido</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value)}
+                      onChange={e => {
+                        setCustomAmount(e.target.value);
+                        setCashBills([]);
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                       placeholder="Ingrese monto personalizado"
                     />
@@ -669,7 +769,7 @@ const SalesInvoiceSystem = () => {
                     </div>
                     <div className="flex justify-between text-sm mb-2">
                       <span className="text-gray-600">Monto recibido:</span>
-                      <span className="font-medium">S/ {(parseFloat(receivedAmount || customAmount) || 0).toFixed(2)}</span>
+                      <span className="font-medium">S/ {(cashBills.reduce((sum, bill) => sum + bill, 0) || parseFloat(receivedAmount || customAmount) || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm font-bold border-t border-gray-300 pt-2">
                       <span className={calculateChange() >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -709,6 +809,7 @@ const SalesInvoiceSystem = () => {
                         setCartItems([]);
                         setReceivedAmount('');
                         setCustomAmount('');
+                        setCashBills([]);
                       } else {
                         alert('El monto recibido es insuficiente');
                       }
