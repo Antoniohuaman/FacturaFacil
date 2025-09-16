@@ -15,6 +15,10 @@ const mainItems = [
     // Icono de etiqueta de precio
     <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M7 7l10 10M7 17V7h10" /><circle cx="17" cy="17" r="1.5" /></svg>
   ) },
+  { to: "/control-caja", label: "Caja", icon: (
+    // Icono de caja registradora
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="10" rx="2" /><path d="M8 8V6a4 4 0 018 0v2" /><path d="M4 12h16" /></svg>
+  ) },
   { to: "/clientes", label: "Clientes", icon: (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20v-2a4 4 0 014-4h8a4 4 0 014 4v2" /></svg>
   ) },
