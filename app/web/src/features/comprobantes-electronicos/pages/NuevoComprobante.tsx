@@ -540,7 +540,7 @@ const SalesInvoiceSystem = () => {
                     Vista previa
                   </button>
                   <div className="flex space-x-3">
-                    <button className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm">Cancelar</button>
+                    <button className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm" onClick={() => navigate('/comprobantes')}>Cancelar</button>
                     <button className="px-6 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors text-sm">Guardar borrador</button>
                     <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">Crear comprobante</button>
                   </div>
