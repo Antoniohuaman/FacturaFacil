@@ -10,7 +10,6 @@ const SalesInvoiceSystem = () => {
   const location = useLocation();
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedDocumentType] = useState('boleta');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [customAmount, setCustomAmount] = useState('');
   const [multiSelect, setMultiSelect] = useState(false);
@@ -674,7 +673,12 @@ const SalesInvoiceSystem = () => {
                 <div className="relative mb-4">
                   <input type="text" placeholder="Seleccionar cliente" className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
-                <button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm mb-4">Nuevo cliente</button>
+                <button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm mb-4">
+                  <span className="inline-flex items-center">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user mr-1"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                  </span>
+                  <span>Nuevo cliente</span>
+                </button>
                 <div className="space-y-3">
                   <div className="flex items-start space-x-3">
                     <div className="flex-1 min-w-0">
@@ -716,7 +720,7 @@ const SalesInvoiceSystem = () => {
             <div className="bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Procesar Pago - {selectedDocumentType.toUpperCase()}
+                  Procesar Pago
                 </h2>
                 <button 
                   onClick={() => setShowPaymentModal(false)}
@@ -766,11 +770,45 @@ const SalesInvoiceSystem = () => {
                     <span className="text-gray-900">S/ {totals.total.toFixed(2)}</span>
                   </div>
                 </div>
-                {/* Client Info */}
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Cliente</h4>
-                  <p className="text-sm text-gray-700">FLORES CANALES CARMEN ROSA</p>
-                  <p className="text-xs text-gray-500">DNI: 09661829</p>
+                {/* Selector de tipo de comprobante */}
+                <div className="mt-6 mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de comprobante</label>
+                  <div className="flex space-x-2">
+                    <button
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium border ${tipoComprobante === 'boleta' ? 'bg-blue-600 text-white' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                      onClick={() => setTipoComprobante('boleta')}
+                    >
+                      Boleta
+                    </button>
+                    <button
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium border ${tipoComprobante === 'factura' ? 'bg-blue-600 text-white' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                      onClick={() => setTipoComprobante('factura')}
+                    >
+                      Factura
+                    </button>
+                  </div>
+                </div>
+                {/* Campos de cliente según tipo */}
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Datos del cliente</h4>
+                  <div className="mb-2">
+                    <input type="text" placeholder="Seleccionar cliente" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2" />
+                    <button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm mb-2">
+                      <span className="inline-flex items-center">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user mr-1"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                      </span>
+                      <span>Nuevo cliente</span>
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-medium text-gray-900 text-sm">Nombre</div>
+                    <div className="text-sm font-medium text-gray-900">FLORES CANALES CARMEN ROSA</div>
+                    <div className="text-xs font-medium text-gray-700 mt-2">Dni</div>
+                    <div className="text-sm text-gray-700">09661829</div>
+                    <div className="text-xs font-medium text-gray-700 mt-2">Dirección</div>
+                    <div className="text-sm text-gray-700">Dirección no definida</div>
+                    <button className="text-blue-600 hover:text-blue-700 text-sm mt-2">Editar cliente</button>
+                  </div>
                 </div>
               </div>
 
@@ -856,7 +894,9 @@ const SalesInvoiceSystem = () => {
                   <button 
                     onClick={() => {
                       if (calculateChange() >= 0) {
-                        alert(`¡Venta procesada exitosamente!\nTipo: ${selectedDocumentType}\nTotal: S/ ${totals.total.toFixed(2)}\nVuelto: S/ ${calculateChange().toFixed(2)}`);
+                        // Validar campos obligatorios según tipo
+                        // ...validación aquí si lo deseas...
+                        alert(`¡Venta procesada exitosamente!\nTipo: ${tipoComprobante}\nTotal: S/ ${totals.total.toFixed(2)}\nVuelto: S/ ${calculateChange().toFixed(2)}`);
                         setShowPaymentModal(false);
                         setCartItems([]);
                         setReceivedAmount('');
