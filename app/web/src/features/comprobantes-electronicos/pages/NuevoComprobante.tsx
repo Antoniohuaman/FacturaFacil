@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ProductSearchSelector from '../components/ProductSearchSelector';
 import { ArrowLeft, ShoppingCart, Trash2, Minus, Plus, List, Grid3X3, X } from 'lucide-react';
 
@@ -7,6 +7,7 @@ const SalesInvoiceSystem = () => {
   const [cashBills, setCashBills] = useState<number[]>([]);
   const [viewMode, setViewMode] = useState<'form' | 'pos'>('form');
   const navigate = useNavigate();
+  const location = useLocation();
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedDocumentType] = useState('boleta');
@@ -17,6 +18,43 @@ const SalesInvoiceSystem = () => {
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [productQty, setProductQty] = useState(1);
   const [productPrice, setProductPrice] = useState(0);
+  // Series disponibles
+  const series = ["B001", "B002", "F001"];
+  const [tipoComprobante, setTipoComprobante] = useState<'boleta' | 'factura'>(() => {
+    // Detectar tipo desde la URL
+    const params = new URLSearchParams(window.location.search);
+    const tipo = params.get('tipo');
+    if (tipo === 'factura') return 'factura';
+    if (tipo === 'boleta') return 'boleta';
+    return 'boleta';
+  });
+  const [serieSeleccionada, setSerieSeleccionada] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tipo = params.get('tipo');
+    if (tipo === 'factura') return series.find(s => s.startsWith('F')) || series[0];
+    if (tipo === 'boleta') return series.find(s => s.startsWith('B')) || series[0];
+    return series[0];
+  });
+
+  // Si el usuario navega manualmente y cambia el tipo en la URL, actualiza el estado
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tipo = params.get('tipo');
+    if (tipo === 'factura' && tipoComprobante !== 'factura') {
+      setTipoComprobante('factura');
+      setSerieSeleccionada(series.find(s => s.startsWith('F')) || series[0]);
+    }
+    if (tipo === 'boleta' && tipoComprobante !== 'boleta') {
+      setTipoComprobante('boleta');
+      setSerieSeleccionada(series.find(s => s.startsWith('B')) || series[0]);
+    }
+  }, [location.search]);
+
+  // Filtrar series según tipo
+  const seriesFiltradas = tipoComprobante === 'boleta'
+    ? series.filter(s => s.startsWith('B'))
+    : series.filter(s => s.startsWith('F'));
+
   // POS product list (mock)
   const availableProducts = [
     { id: 1, code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00 },
@@ -242,10 +280,14 @@ const SalesInvoiceSystem = () => {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">N°</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                      <option>B001</option>
-                      <option>B002</option>
-                      <option>F001</option>
+                    <select
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      value={serieSeleccionada}
+                      onChange={e => setSerieSeleccionada(e.target.value)}
+                    >
+                      {seriesFiltradas.map(serie => (
+                        <option key={serie} value={serie}>{serie}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -526,8 +568,18 @@ const SalesInvoiceSystem = () => {
               {/* Document Type */}
               <div>
                 <div className="flex space-x-2 mb-4">
-                  <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium">Boleta</button>
-                  <button className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-md text-sm hover:bg-gray-50">Factura</button>
+                  <button
+                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium ${tipoComprobante === 'boleta' ? 'bg-blue-600 text-white' : 'text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                    onClick={() => { setTipoComprobante('boleta'); setSerieSeleccionada(series.filter(s => s.startsWith('B'))[0]); }}
+                  >
+                    Boleta
+                  </button>
+                  <button
+                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium ${tipoComprobante === 'factura' ? 'bg-blue-600 text-white' : 'text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                    onClick={() => { setTipoComprobante('factura'); setSerieSeleccionada(series.filter(s => s.startsWith('F'))[0]); }}
+                  >
+                    Factura
+                  </button>
                 </div>
               </div>
 
