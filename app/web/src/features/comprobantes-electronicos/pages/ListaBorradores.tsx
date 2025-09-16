@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, Download, Printer, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Calendar, Edit, Copy, Trash2, Send, Clock, AlertTriangle, FileText } from 'lucide-react';
+import { Search, Filter, Download, Printer, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Edit, Copy, Trash2, Send, Clock, AlertTriangle, FileText } from 'lucide-react';
 
 type DraftStatus = 'Vigente' | 'Por vencer' | 'Vencido';
 type StatusColor = 'green' | 'orange' | 'red';
@@ -287,7 +287,6 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                         onChange={(e) => setDateFrom(e.target.value)}
                         className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
                     </div>
                   </div>
                   <div className="relative">
@@ -299,7 +298,6 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                         onChange={(e) => setDateTo(e.target.value)}
                         className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
                     </div>
                   </div>
                 </div>

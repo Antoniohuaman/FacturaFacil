@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { Search, Filter, Download, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const InvoiceListDashboard = () => {
+  // Estado para selección masiva y popup de impresión
+  const [massPrintMode, setMassPrintMode] = useState(false);
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [showPrintPopup, setShowPrintPopup] = useState(false);
+  const [printFormat, setPrintFormat] = useState<'A4' | 'ticket'>('A4');
   const navigate = useNavigate();
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -167,6 +172,32 @@ const InvoiceListDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Popup de confirmación de impresión masiva */}
+      {showPrintPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirmar impresión masiva</h3>
+            <p className="mb-4 text-sm text-gray-700">Se van a imprimir <span className="font-bold">{selectedInvoices.length}</span> comprobante(s).</p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Formato de impresión</label>
+              <div className="flex space-x-4">
+                <label className="flex items-center">
+                  <input type="radio" name="printFormat" value="A4" checked={printFormat === 'A4'} onChange={() => setPrintFormat('A4')} className="mr-2" />
+                  A4
+                </label>
+                <label className="flex items-center">
+                  <input type="radio" name="printFormat" value="ticket" checked={printFormat === 'ticket'} onChange={() => setPrintFormat('ticket')} className="mr-2" />
+                  Ticket
+                </label>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm" onClick={() => setShowPrintPopup(false)}>Cancelar</button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm" onClick={() => { setShowPrintPopup(false); /* Aquí va la lógica de impresión */ }}>Confirmar impresión</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="px-6 py-4">
@@ -183,7 +214,6 @@ const InvoiceListDashboard = () => {
                       onChange={(e) => setDateFrom(e.target.value)}
                       className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
                   </div>
                 </div>
                 <div className="relative">
@@ -195,7 +225,6 @@ const InvoiceListDashboard = () => {
                       onChange={(e) => setDateTo(e.target.value)}
                       className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
                   </div>
                 </div>
               </div>
@@ -205,9 +234,25 @@ const InvoiceListDashboard = () => {
                 <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
                   <Download className="w-5 h-5" />
                 </button>
-                <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
-                  <Printer className="w-5 h-5" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button className={`p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors ${massPrintMode ? 'bg-blue-100 text-blue-600' : ''}`} onClick={() => {
+                    setMassPrintMode(v => !v);
+                    setSelectedInvoices([]);
+                  }}>
+                    <Printer className="w-5 h-5" />
+                  </button>
+                  {massPrintMode && (
+                    <>
+                      <button className="px-2 py-1 text-xs text-blue-600 hover:text-blue-700 font-medium border border-blue-200 rounded" onClick={() => setSelectedInvoices(invoices.map(inv => inv.id))}>Seleccionar página</button>
+                      <button className="px-2 py-1 text-xs text-blue-600 hover:text-blue-700 font-medium border border-blue-200 rounded" onClick={() => {
+                        setMassPrintMode(false);
+                        setSelectedInvoices([]);
+                      }}>Cancelar selección</button>
+                      <button className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium text-xs" disabled={selectedInvoices.length === 0} onClick={() => setShowPrintPopup(true)}>Imprimir seleccionados</button>
+                      <span className="ml-2 text-xs text-blue-900 font-semibold">{selectedInvoices.length} seleccionado(s)</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -238,6 +283,14 @@ const InvoiceListDashboard = () => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  {massPrintMode && (
+                    <th className="px-2 py-3">
+                      <input type="checkbox" checked={selectedInvoices.length === invoices.length} onChange={e => {
+                        if (e.target.checked) setSelectedInvoices(invoices.map(inv => inv.id));
+                        else setSelectedInvoices([]);
+                      }} />
+                    </th>
+                  )}
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
                     <div className="flex items-center space-x-2">
                       <span>N° Comprobante</span>
@@ -290,7 +343,15 @@ const InvoiceListDashboard = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {invoices.map((invoice, index) => (
-                  <tr key={index} className="hover:bg-gray-50 transition-colors">
+                  <tr key={index} className={`hover:bg-gray-50 transition-colors ${massPrintMode && selectedInvoices.includes(invoice.id) ? 'bg-blue-50' : ''}`}>
+                    {massPrintMode && (
+                      <td className="px-2 py-4">
+                        <input type="checkbox" checked={selectedInvoices.includes(invoice.id)} onChange={e => {
+                          if (e.target.checked) setSelectedInvoices(prev => [...prev, invoice.id]);
+                          else setSelectedInvoices(prev => prev.filter(id => id !== invoice.id));
+                        }} />
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {invoice.id}
                     </td>
@@ -330,6 +391,7 @@ const InvoiceListDashboard = () => {
                     </td>
                   </tr>
                 ))}
+      {/* Barra de acciones masivas para impresión */}
               </tbody>
             </table>
           </div>
