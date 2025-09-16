@@ -4,6 +4,28 @@ import ProductSearchSelector from '../components/ProductSearchSelector';
 import { ArrowLeft, ShoppingCart, Trash2, Minus, Plus, List, Grid3X3, X } from 'lucide-react';
 
 const SalesInvoiceSystem = () => {
+  // Estado para mostrar toast de confirmación
+  const [showDraftToast, setShowDraftToast] = useState(false);
+  // Estado para opción de navegación tras guardar borrador
+  const [draftAction, setDraftAction] = useState<'borradores' | 'continuar' | 'terminar'>('terminar');
+  // Simulación de guardado de borrador
+  const handleSaveDraft = () => {
+  setShowDraftToast(true);
+    // Recopilar datos relevantes del formulario
+    const draftData = {
+      tipo: tipoComprobante,
+      serie: serieSeleccionada,
+      productos: cartItems,
+      fechaEmision: new Date().toISOString().slice(0, 10),
+      fechaVencimiento: draftExpiryDate,
+      // Aquí se pueden agregar más campos según necesidad
+    };
+    // Simular guardado en localStorage (o API)
+    const drafts = JSON.parse(localStorage.getItem('borradores') || '[]');
+    drafts.push({ ...draftData, id: `DRAFT-${serieSeleccionada}-${Math.floor(Math.random()*100000).toString().padStart(8, '0')}` });
+    localStorage.setItem('borradores', JSON.stringify(drafts));
+    // No navegar aquí, la navegación se controla en el modal según la opción elegida
+  };
   const [cashBills, setCashBills] = useState<number[]>([]);
   const [viewMode, setViewMode] = useState<'form' | 'pos'>('form');
   const navigate = useNavigate();
@@ -17,6 +39,9 @@ const SalesInvoiceSystem = () => {
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [productQty, setProductQty] = useState(1);
   const [productPrice, setProductPrice] = useState(0);
+  // Estado para modal de guardar borrador
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftExpiryDate, setDraftExpiryDate] = useState<string>('');
   // Series disponibles
   const series = ["B001", "B002", "F001"];
   const [tipoComprobante, setTipoComprobante] = useState<'boleta' | 'factura'>(() => {
@@ -541,8 +566,83 @@ const SalesInvoiceSystem = () => {
                   </button>
                   <div className="flex space-x-3">
                     <button className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm" onClick={() => navigate('/comprobantes')}>Cancelar</button>
-                    <button className="px-6 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors text-sm">Guardar borrador</button>
+                    <button className="px-6 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors text-sm" onClick={() => setShowDraftModal(true)}>Guardar borrador</button>
                     <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">Crear comprobante</button>
+      {/* Modal para guardar borrador */}
+      {/* Toast de confirmación de borrador guardado */}
+      {showDraftToast && (
+        <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-green-600 text-white px-6 py-3 rounded shadow-lg flex items-center space-x-2 animate-fade-in">
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Borrador guardado exitosamente</span>
+            <button className="ml-4 text-white/80 hover:text-white" onClick={() => setShowDraftToast(false)}>&times;</button>
+          </div>
+        </div>
+      )}
+      {showDraftModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Guardar borrador</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de vencimiento (opcional)</label>
+              <input
+                type="date"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                value={draftExpiryDate}
+                onChange={e => setDraftExpiryDate(e.target.value)}
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">¿Qué deseas hacer después de guardar?</label>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input type="radio" name="draftAction" value="borradores" checked={draftAction === 'borradores'} onChange={() => setDraftAction('borradores')} className="mr-2" />
+                  Ir a lista de borradores
+                </label>
+                <label className="flex items-center">
+                  <input type="radio" name="draftAction" value="continuar" checked={draftAction === 'continuar'} onChange={() => setDraftAction('continuar')} className="mr-2" />
+                  Continuar emitiendo (formulario vacío)
+                </label>
+                <label className="flex items-center">
+                  <input type="radio" name="draftAction" value="terminar" checked={draftAction === 'terminar'} onChange={() => setDraftAction('terminar')} className="mr-2" />
+                  Terminar (ir a lista de comprobantes)
+                </label>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm"
+                onClick={() => setShowDraftModal(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                onClick={() => {
+                  setShowDraftModal(false);
+                  handleSaveDraft();
+                  setTimeout(() => setShowDraftToast(false), 2500);
+                  if (draftAction === 'continuar') {
+                    setCartItems([]);
+                    setSelectedProduct(null);
+                    setProductQty(1);
+                    setProductPrice(0);
+                  } else if (draftAction === 'borradores') {
+                    navigate('/comprobantes');
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('showBorradoresTab'));
+                    }, 100);
+                  } else {
+                    navigate('/comprobantes');
+                  }
+                }}
+              >
+                Guardar borrador
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
                   </div>
                 </div>
               </div>

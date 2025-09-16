@@ -5,6 +5,13 @@ import InvoiceListDashboard from './ListaComprobantes';
 const ComprobantesTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'comprobantes' | 'borradores'>('comprobantes');
 
+  // Escuchar evento global para mostrar la pestaña de borradores
+  React.useEffect(() => {
+    const handler = () => setActiveTab('borradores');
+    window.addEventListener('showBorradoresTab', handler);
+    return () => window.removeEventListener('showBorradoresTab', handler);
+  }, []);
+
   return (
     <div className="w-full bg-white rounded-lg shadow border">
       {/* Tabs Header */}

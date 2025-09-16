@@ -29,7 +29,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   const [selectedDrafts, setSelectedDrafts] = useState<string[]>([]);
 
   // Mock data para los borradores
-  const drafts: Draft[] = [
+  const mockDrafts: Draft[] = [
     {
       id: 'DRAFT-B001-00000015',
       type: 'Boleta de venta',
@@ -122,6 +122,52 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
       statusColor: 'green'
     }
   ];
+
+  // Leer borradores guardados en localStorage y mapearlos a Draft
+  const localDraftsRaw = localStorage.getItem('borradores');
+  let localDrafts: Draft[] = [];
+  if (localDraftsRaw) {
+    try {
+      const parsed = JSON.parse(localDraftsRaw);
+      localDrafts = parsed.map((d: any) => {
+        // Calcular columnas faltantes
+        const today = new Date('2025-09-16');
+        let expiryDate = d.fechaVencimiento || '';
+        let daysLeft = 0;
+        let status: DraftStatus = 'Vigente';
+        let statusColor: StatusColor = 'green';
+        if (expiryDate) {
+          const expDate = new Date(expiryDate);
+          daysLeft = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysLeft < 0) {
+            status = 'Vencido';
+            statusColor = 'red';
+          } else if (daysLeft <= 1) {
+            status = 'Por vencer';
+            statusColor = 'orange';
+          }
+        }
+        return {
+          id: d.id,
+          type: d.tipo === 'factura' ? 'Factura' : 'Boleta de venta',
+          clientDoc: d.clienteDoc || '',
+          client: d.cliente || '',
+          createdDate: today.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + today.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+          expiryDate: expiryDate ? new Date(expiryDate).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) : '',
+          vendor: d.vendedor || 'Sin asignar',
+          total: d.productos?.reduce?.((sum: number, p: any) => sum + (p.price * (p.quantity || 1)), 0) || 0,
+          status,
+          daysLeft,
+          statusColor
+        };
+      });
+    } catch (e) {
+      localDrafts = [];
+    }
+  }
+
+  // Unir mockDrafts y localDrafts
+  const drafts: Draft[] = [...mockDrafts, ...localDrafts];
 
   const getStatusBadge = (status: DraftStatus, color: StatusColor, daysLeft: number) => {
     const colorClasses: Record<StatusColor, string> = {
