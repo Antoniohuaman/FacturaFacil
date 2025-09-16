@@ -492,7 +492,10 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {draft.id}
+                        {/* Mostrar solo la serie para borradores nuevos (sin correlativo) */}
+                        {draft.id.startsWith('DRAFT-')
+                          ? draft.id.replace(/^DRAFT-([A-Z0-9]+)-.*/, '$1')
+                          : draft.id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                         {draft.type}
