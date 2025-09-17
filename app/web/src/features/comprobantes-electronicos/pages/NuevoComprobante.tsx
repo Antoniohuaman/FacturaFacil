@@ -482,11 +482,11 @@ const SalesInvoiceSystem = () => {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Subtotal</span>
-                        <span className="text-gray-900">S/ 66.10</span>
+                        <span className="text-gray-900">S/ {totals.subtotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">I.G.V.</span>
-                        <span className="text-gray-900">S/ 11.90</span>
+                        <span className="text-gray-900">S/ {totals.igv.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Redondeo</span>
@@ -497,7 +497,7 @@ const SalesInvoiceSystem = () => {
                       </div>
                       <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-3">
                         <span className="text-gray-900">Total</span>
-                        <span className="text-gray-900">S/ 78.00</span>
+                        <span className="text-gray-900">S/ {totals.total.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
