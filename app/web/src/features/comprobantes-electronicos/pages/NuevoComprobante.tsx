@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useCaja } from '../../control-caja/store/CajaContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ProductSelector from './ProductSelector';
 import { ArrowLeft, ShoppingCart, Trash2, Minus, Plus, List, Grid3X3, X } from 'lucide-react';
@@ -99,7 +100,12 @@ const SalesInvoiceSystem = () => {
   const updateCartQuantity = (id: number, change: number) => {
     setCartItems(prev => prev.map(item => item.id === id ? { ...item, quantity: Math.max(1, item.quantity + change) } : item));
   };
+  const { status: cajaStatus } = useCaja();
   const handleConfirmSale = () => {
+    if (cajaStatus === 'cerrada') {
+      alert('No se puede vender: la caja está cerrada.');
+      return;
+    }
     setShowPaymentModal(true);
   };
   const calculateTotals = () => {
@@ -275,9 +281,10 @@ const SalesInvoiceSystem = () => {
                   <div className="space-y-2">
                     <button 
                       onClick={handleConfirmSale}
-                      className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      className={`w-full px-4 py-3 rounded-lg font-medium transition-colors ${cajaStatus === 'cerrada' ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                      disabled={cajaStatus === 'cerrada'}
                     >
-                      Confirmar Venta
+                      {cajaStatus === 'cerrada' ? 'Caja cerrada' : 'Confirmar Venta'}
                     </button>
                     <button 
                       onClick={() => setViewMode('form')}

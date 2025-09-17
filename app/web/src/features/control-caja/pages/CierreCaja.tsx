@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useCaja } from '../store/CajaContext';
 import { Lock, CheckCircle2 } from 'lucide-react';
 
 interface ResumenCaja {
@@ -21,6 +22,7 @@ const CierreCaja: React.FC = () => {
   const [cerrado, setCerrado] = useState(false);
   const [error, setError] = useState('');
 
+  const { status, cerrarCaja } = useCaja();
   const handleCierre = (e: React.FormEvent) => {
     e.preventDefault();
     const monto = parseFloat(montoCierre);
@@ -33,6 +35,7 @@ const CierreCaja: React.FC = () => {
       return;
     }
     setError('');
+    cerrarCaja();
     setCerrado(true);
   };
 
@@ -91,9 +94,10 @@ const CierreCaja: React.FC = () => {
           {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2"
+            className={`w-full font-bold py-2 px-4 rounded flex items-center justify-center gap-2 ${status === 'cerrada' ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+            disabled={status === 'cerrada'}
           >
-            <CheckCircle2 className="w-5 h-5" /> Registrar cierre de caja
+            <CheckCircle2 className="w-5 h-5" /> {status === 'cerrada' ? 'Caja Cerrada' : 'Registrar cierre de caja'}
           </button>
         </form>
       ) : (

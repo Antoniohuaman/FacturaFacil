@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useCaja } from '../store/CajaContext';
 import { DollarSign, Save } from 'lucide-react';
 
 // Tipos básicos
@@ -15,9 +16,10 @@ const AperturaCaja: React.FC = () => {
   const [fechaApertura, setFechaApertura] = useState(new Date().toISOString().slice(0,16));
   const [guardado, setGuardado] = useState(false);
 
+  const { status, abrirCaja } = useCaja();
   const handleApertura = (e: React.FormEvent) => {
     e.preventDefault();
-    // Aquí iría la lógica para guardar la sesión
+    abrirCaja();
     setGuardado(true);
     setTimeout(() => setGuardado(false), 2000);
   };
@@ -94,8 +96,8 @@ const AperturaCaja: React.FC = () => {
             placeholder="Observaciones, comentarios, etc."
           />
         </div>
-        <button type="submit" className="w-full px-4 py-2 bg-green-600 text-white rounded-md font-semibold flex items-center justify-center gap-2">
-          <Save className="w-5 h-5" /> Abrir Caja
+        <button type="submit" className="w-full px-4 py-2 bg-green-600 text-white rounded-md font-semibold flex items-center justify-center gap-2" disabled={status === 'abierta'}>
+          <Save className="w-5 h-5" /> {status === 'abierta' ? 'Caja Abierta' : 'Abrir Caja'}
         </button>
         {guardado && (
           <div className="text-green-600 text-center mt-2">¡Apertura registrada correctamente!</div>
