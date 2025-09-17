@@ -743,25 +743,25 @@ const SalesInvoiceSystem = () => {
                   </button>
                   <button
                     className="px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 hover:bg-gray-50"
-                    onClick={() => setReceivedAmount('20.00')}
+                    onClick={() => setReceivedAmount(prev => ((parseFloat(prev) || 0) + 20).toFixed(2))}
                   >
                     S/ 20.00
                   </button>
                   <button
                     className="px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 hover:bg-gray-50"
-                    onClick={() => setReceivedAmount('50.00')}
+                    onClick={() => setReceivedAmount(prev => ((parseFloat(prev) || 0) + 50).toFixed(2))}
                   >
                     S/ 50.00
                   </button>
                   <button
                     className="px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 hover:bg-gray-50"
-                    onClick={() => setReceivedAmount('100.00')}
+                    onClick={() => setReceivedAmount(prev => ((parseFloat(prev) || 0) + 100).toFixed(2))}
                   >
                     S/ 100.00
                   </button>
                   <button
                     className="px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 hover:bg-gray-50"
-                    onClick={() => setReceivedAmount('200.00')}
+                    onClick={() => setReceivedAmount(prev => ((parseFloat(prev) || 0) + 200).toFixed(2))}
                   >
                     S/ 200.00
                   </button>
