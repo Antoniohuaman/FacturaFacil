@@ -438,46 +438,33 @@ const SalesInvoiceSystem = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-4">
-                          <div>
-                            <div className="font-medium text-gray-900 text-sm">Hojas Bond A4 ATLAS</div>
-                            <div className="text-xs text-gray-500">00156389</div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-center space-x-2">
-                            <button className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold">−</button>
-                            <span className="w-8 text-center text-sm">1</span>
-                            <button className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold">+</button>
-                          </div>
-                          <div className="text-center text-xs text-gray-500 mt-1">NIU</div>
-                        </td>
-                        <td className="px-4 py-4 text-right text-sm">S/ 60.00 ⌄</td>
-                        <td className="px-4 py-4 text-center text-sm">IGV 18%</td>
-                        <td className="px-4 py-4 text-right text-sm">S/ 50.85</td>
-                        <td className="px-4 py-4 text-right font-medium text-sm">S/ 60.00</td>
-                      </tr>
-                      <tr className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-4">
-                          <div>
-                            <div className="font-medium text-gray-900 text-sm">Sketch ARTESCO</div>
-                            <div className="text-xs text-gray-500">00168822</div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-center space-x-2">
-                            <button className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold">−</button>
-                            <span className="w-8 text-center text-sm">1</span>
-                            <button className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold">+</button>
-                          </div>
-                          <div className="text-center text-xs text-gray-500 mt-1">NIU</div>
-                        </td>
-                        <td className="px-4 py-4 text-right text-sm">S/ 18.00 ⌄</td>
-                        <td className="px-4 py-4 text-center text-sm">IGV 18%</td>
-                        <td className="px-4 py-4 text-right text-sm">S/ 15.25</td>
-                        <td className="px-4 py-4 text-right font-medium text-sm">S/ 18.00</td>
-                      </tr>
+                      {cartItems.map(item => (
+                        <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-4">
+                            <div>
+                              <div className="font-medium text-gray-900 text-sm">{item.name}</div>
+                              <div className="text-xs text-gray-500">{item.code}</div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center justify-center space-x-2">
+                              <button className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold"
+                                onClick={() => updateCartQuantity(item.id, -1)}
+                                disabled={item.quantity <= 1}
+                              >−</button>
+                              <span className="w-8 text-center text-sm">{item.quantity}</span>
+                              <button className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold"
+                                onClick={() => updateCartQuantity(item.id, 1)}
+                              >+</button>
+                            </div>
+                            <div className="text-center text-xs text-gray-500 mt-1">NIU</div>
+                          </td>
+                          <td className="px-4 py-4 text-right text-sm">S/ {item.price.toFixed(2)} ⌄</td>
+                          <td className="px-4 py-4 text-center text-sm">IGV 18%</td>
+                          <td className="px-4 py-4 text-right text-sm">S/ {(item.price * item.quantity / 1.18).toFixed(2)}</td>
+                          <td className="px-4 py-4 text-right font-medium text-sm">S/ {(item.price * item.quantity).toFixed(2)}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
