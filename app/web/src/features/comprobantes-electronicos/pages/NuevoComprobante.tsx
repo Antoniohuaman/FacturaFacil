@@ -768,7 +768,35 @@ const SalesInvoiceSystem = () => {
                 </div>
                 <div className="mb-4">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Monto recibido</label>
-                  <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Ingrese monto personalizado" />
+                  <input
+                    type="number"
+                    value={receivedAmount}
+                    onChange={e => setReceivedAmount(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    placeholder="Ingrese monto personalizado"
+                  />
+                  <div className="bg-gray-50 rounded-lg p-4 mt-3">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-600">Monto a pagar:</span>
+                      <span className="font-bold text-gray-900">S/ {totals.total.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-600">Monto recibido:</span>
+                      <span className="font-bold text-gray-900">S/ {(parseFloat(receivedAmount) || 0).toFixed(2)}</span>
+                    </div>
+                    <hr className="my-2" />
+                    {parseFloat(receivedAmount) >= totals.total ? (
+                      <div className="flex justify-between text-base font-bold">
+                        <span className="text-green-600">Vuelto:</span>
+                        <span className="text-green-600">S/ {(parseFloat(receivedAmount) - totals.total).toFixed(2)}</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between text-base font-bold">
+                        <span className="text-red-600">Falta:</span>
+                        <span className="text-red-600">S/ {(totals.total - (parseFloat(receivedAmount) || 0)).toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
