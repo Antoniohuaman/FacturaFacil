@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import ProductSearchSelector from '../components/ProductSearchSelector';
+import ProductSelector from './ProductSelector';
 import { ArrowLeft, ShoppingCart, Trash2, Minus, Plus, List, Grid3X3, X } from 'lucide-react';
 
 const SalesInvoiceSystem = () => {
@@ -34,11 +34,7 @@ const SalesInvoiceSystem = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [receivedAmount, setReceivedAmount] = useState('');
   const [customAmount, setCustomAmount] = useState('');
-  const [multiSelect, setMultiSelect] = useState(false);
   const [showOptionalFields, setShowOptionalFields] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-  const [productQty, setProductQty] = useState(1);
-  const [productPrice, setProductPrice] = useState(0);
   // Estado para modal de guardar borrador
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [draftExpiryDate, setDraftExpiryDate] = useState<string>('');
@@ -380,91 +376,23 @@ const SalesInvoiceSystem = () => {
 
               {/* Products Section */}
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="flex items-center justify-end mb-4">
-                  {/* Switch para selección múltiple */}
-                  <label htmlFor="multiSelect" className="flex items-center cursor-pointer select-none relative">
-                    <input
-                      type="checkbox"
-                      id="multiSelect"
-                      checked={multiSelect}
-                      onChange={() => setMultiSelect(v => !v)}
-                      className="sr-only"
-                    />
-                    <div className={`w-9 h-5 rounded-full shadow-inner transition-colors duration-200 ${multiSelect ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
-                    <div
-                      className={`absolute left-0 top-0 mt-1 ml-1 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform duration-200`
-                        + (multiSelect ? ' translate-x-4' : '')}
-                    ></div>
-                    <span className={`text-sm font-medium whitespace-nowrap ml-2 ${multiSelect ? 'text-blue-600' : 'text-gray-700'}`}>Selección múltiple</span>
-                  </label>
-                </div>
 
                 {/* Add Product Form - flujo ágil */}
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg">
 
                   {/* Buscador y selección de productos */}
-                  <ProductSearchSelector
-                    products={availableProducts}
-                    multiple={multiSelect}
-                    onSelect={(selected) => {
-                      if (!multiSelect && selected.length === 1) {
-                        // Producto individual: mostrar campos cantidad/precio y botón agregar
-                        setSelectedProduct(selected[0]);
-                        setProductQty(1);
-                        setProductPrice(selected[0].price);
-                      } else if (multiSelect && selected.length > 0) {
-                        // Selección múltiple: agregar todos al carrito
-                        selected.forEach(product => addToCart(product));
-                        setSelectedProduct(null);
+                  <ProductSelector
+                    onAddProducts={(products: { product: any; quantity: number }[]) => {
+                      if (products.length > 0) {
+                        products.forEach(({ product, quantity }: { product: any; quantity: number }) => {
+                          addToCart({ ...product, quantity });
+                        });
                       }
                     }}
+                    existingProducts={cartItems.map(item => String(item.id))}
                   />
 
                   {/* Campos editables para producto individual */}
-                  {selectedProduct && !multiSelect && (
-                    <div className="grid grid-cols-6 gap-3 items-end mt-4">
-                      <div className="col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Producto / Servicio</label>
-                        <input 
-                          type="text" 
-                          value={selectedProduct.name}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
-                          readOnly
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Cantidad</label>
-                        <input 
-                          type="number" 
-                          value={productQty}
-                          min={1}
-                          onChange={e => setProductQty(Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Precio</label>
-                        <input 
-                          type="number" 
-                          value={productPrice}
-                          min={0}
-                          onChange={e => setProductPrice(Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm h-10"
-                        />
-                      </div>
-                      <div className="col-span-1 flex items-center">
-                        <button
-                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm h-10 flex items-center justify-center"
-                          onClick={() => {
-                            addToCart({ ...selectedProduct, price: productPrice, quantity: productQty });
-                            setSelectedProduct(null);
-                          }}
-                        >
-                          Agregar
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Products Table */}
@@ -624,9 +552,6 @@ const SalesInvoiceSystem = () => {
                   setTimeout(() => setShowDraftToast(false), 2500);
                   if (draftAction === 'continuar') {
                     setCartItems([]);
-                    setSelectedProduct(null);
-                    setProductQty(1);
-                    setProductPrice(0);
                   } else if (draftAction === 'borradores') {
                     navigate('/comprobantes');
                     setTimeout(() => {

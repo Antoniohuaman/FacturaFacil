@@ -1,1037 +1,487 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
 
-// Tipos para productos y carrito
 interface Product {
-  id: number;
+  id: string;
   code: string;
   name: string;
   price: number;
-  category?: string;
-  stock?: number;
-  image?: string;
+  stock: number;
+  category: string;
 }
 
-interface CartItem extends Product {
-  quantity: number;
+interface ProductSelectorProps {
+  onAddProducts: (products: { product: Product; quantity: number }[]) => void;
+  existingProducts?: string[]; // IDs of products already in cart
 }
-import { Plus, Minus, Search, User, FileText, X, ArrowLeft, Eye, Grid3X3, List, ShoppingCart, Trash2 } from 'lucide-react';
 
-const HybridPOSSystem = () => {
-  const [viewMode, setViewMode] = useState('form'); // 'form' or 'pos'
-  const [selectedClient] = useState('FLORES CANALES CARMEN ROSA');
-  const [currency, setCurrency] = useState('PEN');
-  const [multipleSelection, setMultipleSelection] = useState(false);
-  const [receivedAmount, setReceivedAmount] = useState('');
-  const [customAmount, setCustomAmount] = useState('');
-  const [showDocumentTypeModal, setShowDocumentTypeModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedDocumentType, setSelectedDocumentType] = useState('');
+const ProductSelector: React.FC<ProductSelectorProps> = ({ 
+  onAddProducts, 
+  existingProducts = [] 
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isMultipleMode, setIsMultipleMode] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [hoveredIndex, setHoveredIndex] = useState(-1);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Estados para el selector de productos
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [showDropdown, setShowDropdown] = useState<boolean>(false);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
-  const searchRef = useRef<HTMLInputElement | null>(null);
-  const [tempSelectedProducts, setTempSelectedProducts] = useState<CartItem[]>([]); // para selección múltiple
-  const [selectedProducts, setSelectedProducts] = useState<CartItem[]>([]); // para selección unitaria
-  const [quantity, setQuantity] = useState<number>(1);
-  const [price, setPrice] = useState<string>('');
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  
-  // Mock products data
-  const availableProducts = [
-    {
-      id: 1,
-      code: '00156389',
-      name: 'MARTILLO',
-      price: 12.00,
-      image: '/api/placeholder/150/120',
-      category: 'Herramientas'
-    },
-    {
-      id: 2,
-      code: '00168822',
-      name: 'CELULAR',
-      price: 1500.00,
-      image: '/api/placeholder/150/120',
-      category: 'Electrónicos'
-    },
-    {
-      id: 3,
-      code: '00135567',
-      name: 'Polo de mujer',
-      price: 10.00,
-      image: '/api/placeholder/150/120',
-      category: 'Ropa'
-    },
-    {
-      id: 4,
-      code: '00145678',
-      name: 'Leche',
-      price: 10.00,
-      image: '/api/placeholder/150/120',
-      category: 'Alimentos'
-    },
-    {
-      id: 5,
-      code: '00198765',
-      name: 'Hojas Bond A4',
-      price: 60.00,
-      image: '/api/placeholder/150/120',
-      category: 'Oficina'
-    },
-    {
-      id: 6,
-      code: '00187654',
-      name: 'Sketch ARTESCO',
-      price: 18.00,
-      image: '/api/placeholder/150/120',
-      category: 'Oficina'
-    }
-  ];
+  const searchRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Mock products database
-  const allProducts = [
-    {
-      id: 1,
-      code: '00156389',
-      name: 'Hojas Bond A4 ATLAS',
-      price: 60.00,
-      category: 'Oficina',
-      stock: 150
-    },
-    {
-      id: 2,
-      code: '00168822',
-      name: 'Sketch ARTESCO',
-      price: 18.00,
-      category: 'Oficina',
-      stock: 80
-    },
-    {
-      id: 3,
-      code: '00145678',
-      name: 'Martillo de acero',
-      price: 45.50,
-      category: 'Herramientas',
-      stock: 25
-    },
-    {
-      id: 4,
-      code: '00187654',
-      name: 'Destornillador Phillips',
-      price: 12.00,
-      category: 'Herramientas',
-      stock: 60
-    },
-    {
-      id: 5,
-      code: '00198765',
-      name: 'Cuaderno espiral A4',
-      price: 8.50,
-      category: 'Oficina',
-      stock: 200
-    },
-    {
-      id: 6,
-      code: '00176543',
-      name: 'Bolígrafo azul BIC',
-      price: 2.50,
-      category: 'Oficina',
-      stock: 300
-    }
+  const allProducts: Product[] = [
+    { id: '1', code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00, stock: 150, category: 'Oficina' },
+    { id: '2', code: '00168822', name: 'Sketch ARTESCO', price: 18.00, stock: 80, category: 'Oficina' },
+    { id: '3', code: '00170001', name: 'Resma Bond A3', price: 120.00, stock: 45, category: 'Oficina' },
+    { id: '4', code: '00180001', name: 'Lapicero BIC', price: 2.50, stock: 300, category: 'Oficina' },
+    { id: '5', code: '00190001', name: 'Cuaderno Loro', price: 8.00, stock: 200, category: 'Oficina' },
+    { id: '6', code: '00145678', name: 'Martillo de acero', price: 45.50, stock: 25, category: 'Herramientas' },
+    { id: '7', code: '00187654', name: 'Destornillador Phillips', price: 12.00, stock: 60, category: 'Herramientas' },
+    { id: '8', code: '00198765', name: 'Taladro eléctrico', price: 250.00, stock: 15, category: 'Herramientas' }
   ];
 
-  // Filter products based on search term
-  const filteredProducts = allProducts.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Intelligent search with prioritization
+  const getFilteredProducts = useCallback(() => {
+    if (!searchTerm.trim()) return [];
+    
+    const term = searchTerm.toLowerCase();
+    const results = allProducts.filter(product => {
+      const nameMatch = product.name.toLowerCase().includes(term);
+      const codeMatch = product.code.toLowerCase().includes(term);
+      const categoryMatch = product.category.toLowerCase().includes(term);
+      return nameMatch || codeMatch || categoryMatch;
+    });
 
-  // Handle click outside to close dropdown
+    // Prioritize exact matches and code matches
+    return results.sort((a, b) => {
+      const aExactName = a.name.toLowerCase() === term;
+      const bExactName = b.name.toLowerCase() === term;
+      if (aExactName !== bExactName) return aExactName ? -1 : 1;
+      
+      const aCodeMatch = a.code.toLowerCase().includes(term);
+      const bCodeMatch = b.code.toLowerCase().includes(term);
+      if (aCodeMatch !== bCodeMatch) return aCodeMatch ? -1 : 1;
+      
+      return a.name.localeCompare(b.name);
+    }).slice(0, 8); // Limit results for better performance
+  }, [searchTerm]);
+
+  const filteredProducts = getFilteredProducts();
+
+  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent | Event) => {
-      const target = event.target as Node;
-      if (dropdownRef.current && !dropdownRef.current.contains(target) &&
-          searchRef.current && !searchRef.current.contains(target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target as Node) &&
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
         setShowDropdown(false);
+        setHoveredIndex(-1);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Handle search input focus
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!showDropdown || filteredProducts.length === 0) return;
+
+      switch (event.key) {
+        case 'ArrowDown':
+          event.preventDefault();
+          setHoveredIndex(prev => 
+            prev < filteredProducts.length - 1 ? prev + 1 : prev
+          );
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          setHoveredIndex(prev => prev > 0 ? prev - 1 : prev);
+          break;
+        case 'Enter':
+          event.preventDefault();
+          if (hoveredIndex >= 0) {
+            handleProductSelect(filteredProducts[hoveredIndex]);
+          }
+          break;
+        case 'Escape':
+          setShowDropdown(false);
+          setHoveredIndex(-1);
+          break;
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showDropdown, hoveredIndex, filteredProducts]);
+
+  // Scroll hovered item into view
+  useEffect(() => {
+    if (hoveredIndex >= 0 && itemRefs.current[hoveredIndex]) {
+      itemRefs.current[hoveredIndex]?.scrollIntoView({
+        block: 'nearest',
+        behavior: 'smooth'
+      });
+    }
+  }, [hoveredIndex]);
+
+  // Auto-focus search when opening dropdown
   const handleSearchFocus = () => {
     setShowDropdown(true);
+    setHoveredIndex(-1);
   };
 
-  // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-    setShowDropdown(true);
+    const value = e.target.value;
+    setSearchTerm(value);
+    setShowDropdown(value.length > 0);
+    setHoveredIndex(-1);
   };
 
-  // Handle product selection (single or multiple)
   const handleProductSelect = (product: Product) => {
-    if (multipleSelection) {
-      setTempSelectedProducts((prev: CartItem[]) => {
-        const isAlreadySelected = prev.find((p: CartItem) => p.id === (product as Product).id);
-        if (isAlreadySelected) {
-          return prev.filter((p: CartItem) => p.id !== (product as Product).id);
-        } else {
-          return [...prev, { ...(product as Product), quantity: 1 }];
-        }
-      });
+    if (isMultipleMode) {
+      // Multiple selection mode
+      const newSelected = new Set(selectedProducts);
+      if (selectedProducts.has(product.id)) {
+        newSelected.delete(product.id);
+        const newQuantities = { ...quantities };
+        delete newQuantities[product.id];
+        setQuantities(newQuantities);
+      } else {
+        newSelected.add(product.id);
+        setQuantities(prev => ({ ...prev, [product.id]: 1 }));
+      }
+      setSelectedProducts(newSelected);
     } else {
-      setSelectedProducts([{ ...(product as Product), quantity: 1 }]);
-      setSearchTerm((product as Product).name);
-      setPrice((product as Product).price.toFixed(2));
-      setShowDropdown(false);
-    }
-  };
-
-  // Get display text for search input
-  const getSearchDisplayText = () => {
-    if (multipleSelection) {
-      if (tempSelectedProducts.length === 0) return searchTerm;
-      return `${tempSelectedProducts.length} producto${tempSelectedProducts.length > 1 ? 's' : ''} seleccionado${tempSelectedProducts.length > 1 ? 's' : ''}`;
-    } else {
-      return searchTerm;
-    }
-  };
-
-  // Agregar productos seleccionados al carrito
-  const handleAddSelectedProducts = () => {
-    if (multipleSelection) {
-      tempSelectedProducts.forEach(product => {
-        addToCart(product);
-      });
-      setTempSelectedProducts([]);
+      // Single selection mode - immediate add
+      const quantity = quantities[product.id] || 1;
+      onAddProducts([{ product, quantity }]);
+      
+      // Clear and close
       setSearchTerm('');
       setShowDropdown(false);
-    } else {
-      if (selectedProducts.length > 0) {
-        addToCart(selectedProducts[0]);
-        setSelectedProducts([]);
-        setSearchTerm('');
-        setShowDropdown(false);
-      }
+      setSelectedProducts(new Set());
+      setQuantities({});
+      setHoveredIndex(-1);
+      
+      // Optional: show brief success feedback
+      setIsLoading(true);
+      setTimeout(() => setIsLoading(false), 300);
     }
   };
 
-  const addToCart = (product: CartItem) => {
-    const existingItem = cartItems.find((item: CartItem) => item.id === (product as CartItem).id);
-    if (existingItem) {
-      setCartItems(cartItems.map((item: CartItem) => 
-        item.id === (product as CartItem).id 
-          ? { ...item, quantity: item.quantity + ((product as CartItem).quantity || 1) }
-          : item
-      ));
-    } else {
-      setCartItems([...cartItems, { ...(product as CartItem), quantity: (product as CartItem).quantity || 1 }]);
-    }
-  };
-
-  const updateCartQuantity = (id: number, change: number) => {
-    setCartItems(cartItems.map((item: CartItem) => {
-      if (item.id === id) {
-        const newQuantity = item.quantity + change;
-        return newQuantity > 0 ? { ...item, quantity: newQuantity } : item;
-      }
-      return item;
+  const handleQuantityChange = (productId: string, delta: number) => {
+    setQuantities(prev => ({
+      ...prev,
+      [productId]: Math.max(1, (prev[productId] || 1) + delta)
     }));
   };
 
-  const removeFromCart = (id: number) => {
-    setCartItems(cartItems.filter((item: CartItem) => item.id !== id));
-  };
-
-  const calculateTotals = () => {
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity / 1.18), 0);
-    const igv = cartItems.reduce((sum, item) => sum + (item.price * item.quantity) - (item.price * item.quantity / 1.18), 0);
-    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const handleAddSelected = () => {
+    if (selectedProducts.size === 0) return;
     
-    return { subtotal, igv, total };
+    const productsToAdd = Array.from(selectedProducts).map(productId => {
+      const product = allProducts.find(p => p.id === productId);
+      const quantity = quantities[productId] || 1;
+      return { product: product!, quantity };
+    });
+
+    onAddProducts(productsToAdd);
+    
+    // Clear everything
+    setSearchTerm('');
+    setShowDropdown(false);
+    setSelectedProducts(new Set());
+    setQuantities({});
+    setHoveredIndex(-1);
+    
+    // Success feedback
+    setIsLoading(true);
+    setTimeout(() => setIsLoading(false), 300);
   };
 
-  const totals = calculateTotals();
+  const handleModeChange = (multipleMode: boolean) => {
+    setIsMultipleMode(multipleMode);
+    // Clear selections when switching modes
+    setSelectedProducts(new Set());
+    setQuantities({});
+    setSearchTerm('');
+    setShowDropdown(false);
+  };
 
-  const handleConfirmSale = () => {
-    if (cartItems.length === 0) {
-      alert('Agrega productos al carrito primero');
-      return;
+  const getDisplayText = () => {
+    if (isMultipleMode && selectedProducts.size > 0) {
+      return `${selectedProducts.size} producto${selectedProducts.size > 1 ? 's' : ''} seleccionado${selectedProducts.size > 1 ? 's' : ''}`;
     }
-    setShowDocumentTypeModal(true);
+    return searchTerm;
   };
 
-  const handleDocumentTypeSelect = (type: string) => {
-    setSelectedDocumentType(type as string);
-    setShowDocumentTypeModal(false);
-    setShowPaymentModal(true);
+  const highlightMatch = (text: string, term: string) => {
+    if (!term.trim()) return text;
+    
+    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 font-semibold">
+          {part}
+        </mark>
+      ) : part
+    );
   };
 
-  const quickPaymentAmounts = [totals.total, 60.00, 70.00, 100.00];
-
-  const handleQuickPayment = (amount: number) => {
-    setReceivedAmount((amount as number).toString());
-  };
-
-  const calculateChange = () => {
-    const received = parseFloat(receivedAmount || customAmount) || 0;
-    const change = received - totals.total;
-    return change > 0 ? change : 0;
-  };
-
-  // POS View Component
-  const POSView = () => (
-    <div className="flex h-full">
-      {/* Products Grid */}
-      <div className="flex-1 p-6">
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input 
-              type="text" 
-              placeholder="Buscar producto..." 
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+  return (
+    <div className="space-y-4">
+      {/* Mode Toggle */}
+      <div className="flex items-center justify-end">
+        <div className="flex items-center space-x-3">
+          <span className="text-sm text-gray-600">Selección múltiple</span>
+          <button
+            onClick={() => handleModeChange(!isMultipleMode)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              isMultipleMode ? 'bg-blue-600' : 'bg-gray-200'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isMultipleMode ? 'translate-x-6' : 'translate-x-1'
+              }`}
             />
-          </div>
-      </div>
-
-        {/* Products Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {availableProducts.map((product) => (
-            <div 
-              key={product.id}
-              onClick={() => addToCart({ ...product, quantity: 1 })}
-              className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer hover:scale-105 relative"
-            >
-              <div className="aspect-square bg-blue-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
-                <div className="w-12 h-12 bg-blue-300 rounded-full flex items-center justify-center">
-                  <div className="w-6 h-6 border-2 border-white rounded-full"></div>
-                </div>
-                {/* Notification badge if item is in cart */}
-                {cartItems.find(item => item.id === product.id) && (
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                    {cartItems.find(item => item.id === product.id)?.quantity}
-                  </div>
-                )}
-              </div>
-              <h3 className="font-medium text-gray-900 text-sm mb-1">{product.name}</h3>
-              <p className="text-lg font-bold text-blue-600">S/ {product.price.toFixed(2)}</p>
-              <p className="text-xs text-gray-500">{product.code}</p>
-            </div>
-          ))}
+          </button>
         </div>
       </div>
 
-      {/* Cart Sidebar */}
-      <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
-        {/* Cart Header */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-              <ShoppingCart className="w-5 h-5 mr-2" />
-              Carrito ({cartItems.reduce((sum, item) => sum + item.quantity, 0)})
-            </h2>
-            {cartItems.length > 0 && (
-              <button 
-                onClick={() => setCartItems([])}
-                className="text-red-500 hover:text-red-700 text-sm"
-              >
-                Vaciar
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto">
-          {cartItems.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <ShoppingCart className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p>No hay productos en el carrito</p>
-              <p className="text-sm">Haz clic en los productos para agregar</p>
+      {/* Search Input */}
+      <div className="relative" ref={searchRef}>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Buscar producto por nombre, código o categoría..."
+            value={getDisplayText()}
+            onChange={handleSearchChange}
+            onFocus={handleSearchFocus}
+            className="w-full px-4 py-3 pr-10 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+            disabled={isLoading}
+          />
+          
+          {isLoading ? (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
             </div>
           ) : (
-            <div className="p-4 space-y-3">
-              {cartItems.map((item) => (
-                <div key={item.id} className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm text-gray-900">{item.name}</h4>
-                      <p className="text-xs text-gray-500">{item.code}</p>
-                    </div>
-                    <button 
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-red-500 hover:text-red-700 ml-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => updateCartQuantity(item.id, -1)}
-                        className="w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="w-8 text-center font-medium">{item.quantity}</span>
-                      <button 
-                        onClick={() => updateCartQuantity(item.id, 1)}
-                        className="w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-gray-900">S/ {(item.price * item.quantity).toFixed(2)}</p>
-                      <p className="text-xs text-gray-500">S/ {item.price.toFixed(2)} c/u</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           )}
         </div>
 
-        {/* Cart Footer */}
-        {cartItems.length > 0 && (
-          <div className="border-t border-gray-200 p-4 space-y-4">
-            {/* Totals */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="text-gray-900">S/ {totals.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">IGV (18%)</span>
-                <span className="text-gray-900">S/ {totals.igv.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
-                <span className="text-gray-900">Total</span>
-                <span className="text-gray-900">S/ {totals.total.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="space-y-2">
-              <button 
-                onClick={handleConfirmSale}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Confirmar Venta
-              </button>
-              <button 
-                onClick={() => setViewMode('form')}
-                className="w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-              >
-                Ver Formulario Completo
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  // Form View (existing implementation)
-  const FormView = () => (
-    <div className="flex-1 p-6 space-y-6">
-      {/* Document Info ...existing code... */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="grid grid-cols-3 gap-4">
-          {/* ...existing code... */}
-        </div>
-      </div>
-
-      {/* Products Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-sm text-blue-600">Editar cliente</div>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center space-x-2">
-            <FileText className="w-4 h-4" />
-            <span>Más campos</span>
-          </button>
-        </div>
-
-        {/* Add Product Form con dropdown de favoritos */}
-        <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-          <div className="grid grid-cols-12 gap-3 items-end">
-            <div className="col-span-6 relative">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Producto / Servicio</label>
-              <input 
-                ref={searchRef}
-                type="text" 
-                value={getSearchDisplayText()}
-                onFocus={handleSearchFocus}
-                onChange={handleSearchChange}
-                placeholder="Buscar producto..." 
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                readOnly={multipleSelection && tempSelectedProducts.length > 0}
-              />
-              {/* Dropdown de favoritos */}
-              {showDropdown && (
-                <div ref={dropdownRef} className="absolute z-10 left-0 w-full mt-2 bg-white border border-gray-200 rounded shadow-lg max-h-64 overflow-y-auto">
-                  {filteredProducts.length === 0 ? (
-                    <div className="p-4 text-gray-500 text-sm">No hay productos favoritos</div>
-                  ) : (
-                    filteredProducts.slice(0, 20).map(product => (
-                      <div key={product.id} className="flex items-center px-4 py-2 hover:bg-blue-50 cursor-pointer">
-                        {multipleSelection ? (
-                          <input
-                            type="checkbox"
-                            checked={!!tempSelectedProducts.find(p => p.id === product.id)}
-                            onChange={() => handleProductSelect(product)}
-                            className="mr-2"
-                          />
-                        ) : null}
-                        <span onClick={() => handleProductSelect(product)} className="flex-1">
-                          {product.name} <span className="text-xs text-gray-400">({product.code})</span>
-                        </span>
-                        <span className="text-xs text-gray-500 ml-2">S/ {product.price.toFixed(2)}</span>
-                      </div>
-                    ))
-                  )}
-                  <div className="p-2 border-t border-gray-100 flex justify-end">
-                    <button
-                      onClick={handleAddSelectedProducts}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                    >Agregar</button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Cantidad</label>
-              <input 
-                type="number" 
-                value={quantity}
-                onChange={e => setQuantity(Number(e.target.value))}
-                min={1}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Precio</label>
-              <input 
-                type="number" 
-                value={price}
-                onChange={e => setPrice(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
-            <div className="col-span-1">
-              <button 
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-                onClick={handleAddSelectedProducts}
-              >Agregar</button>
-            </div>
-            <div className="col-span-1 flex items-center justify-center">
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  id="multiSelect"
-                  checked={multipleSelection}
-                  onChange={e => setMultipleSelection(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="multiSelect" className="text-xs text-gray-700 whitespace-nowrap">
-                  Selección múltiple
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Products Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-700 uppercase">Producto</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-gray-700 uppercase">Cantidad</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-700 uppercase">Precio U.</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-gray-700 uppercase">Impuesto</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-700 uppercase">Subtotal</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-700 uppercase">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cartItems.map((item) => (
-                <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-4">
-                    <div>
-                      <div className="font-medium text-gray-900 text-sm">{item.name}</div>
-                      <div className="text-xs text-gray-500">{item.code}</div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center justify-center space-x-2">
-                      <button 
-                        onClick={() => updateCartQuantity(item.id, -1)}
-                        className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold"
-                      >
-                        −
-                      </button>
-                      <span className="w-8 text-center text-sm">{item.quantity}</span>
-                      <button 
-                        onClick={() => updateCartQuantity(item.id, 1)}
-                        className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold"
-                      >
-                        +
-                      </button>
-                    </div>
-                    <div className="text-center text-xs text-gray-500 mt-1">NIU</div>
-                  </td>
-                  <td className="px-4 py-4 text-right text-sm">S/ {item.price.toFixed(2)} ⌄</td>
-                  <td className="px-4 py-4 text-center text-sm">IGV 18%</td>
-                  <td className="px-4 py-4 text-right text-sm">S/ {(item.price * item.quantity / 1.18).toFixed(2)}</td>
-                  <td className="px-4 py-4 text-right font-medium text-sm">S/ {(item.price * item.quantity).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Totals Section */}
-        <div className="mt-6 border-t border-gray-200 pt-6">
-          <div className="flex justify-end">
-            <div className="w-96 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Descuentos</span>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-900">S/</span>
-                  <input type="number" value="0" className="w-16 px-2 py-1 text-right text-sm border border-gray-300 rounded" readOnly />
-                </div>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="text-gray-900">S/ {totals.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">I.G.V.</span>
-                <span className="text-gray-900">S/ {totals.igv.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Redondeo</span>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-900">S/</span>
-                  <input type="number" value="0" className="w-16 px-2 py-1 text-right text-sm border border-gray-300 rounded" readOnly />
-                </div>
-              </div>
-              <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-3">
-                <span className="text-gray-900">Total</span>
-                <span className="text-gray-900">S/ {totals.total.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center space-x-4 mt-6">
-          <button className="flex items-center space-x-2 px-4 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors text-sm">
-            <Eye className="w-4 h-4" />
-            <span>Vista previa</span>
-          </button>
-          <div className="flex space-x-3">
-            <button className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm">
-              Cancelar
-            </button>
-            <button className="px-6 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors text-sm">
-              Guardar borrador
-            </button>
-            <button 
-              onClick={handleConfirmSale}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-            >
-              Crear comprobante
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button className="text-gray-500 hover:text-gray-700">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-xl font-semibold text-gray-900">Nuevo comprobante</h1>
-            
-            {/* View Toggle */}
-            <div className="flex items-center space-x-2 ml-8">
-              <button
-                onClick={() => setViewMode('form')}
-                className={`p-2 rounded-md transition-colors ${viewMode === 'form' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <List className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('pos')}
-                className={`p-2 rounded-md transition-colors ${viewMode === 'pos' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <Grid3X3 className="w-5 h-5" />
-              </button>
-              <span className="text-sm text-gray-600 ml-2">
-                {viewMode === 'pos' ? 'Punto de Venta' : 'Formulario'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex">
-        {viewMode === 'pos' ? <POSView /> : (
-          <>
-            <FormView />
-            {/* Right Sidebar - Same as before */}
-            <div className="w-80 border-l border-gray-200 bg-white p-6 space-y-6">
-              {/* Document Type */}
-              <div>
-                <div className="flex space-x-2 mb-4">
-                  <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium">
-                    Boleta
-                  </button>
-                  <button className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-md text-sm hover:bg-gray-50">
-                    Factura
-                  </button>
-                </div>
-              </div>
-
-              {/* Currency and Payment Method */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
-                  <select 
-                    value={currency} 
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  >
-                    <option value="PEN">PEN</option>
-                    <option value="USD">USD</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Forma de Pago</label>
-                  <input 
-                    type="text" 
-                    value="contado" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    readOnly
-                  />
-                </div>
-              </div>
-
-              {/* Client Selection */}
-              <div>
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input 
-                    type="text" 
-                    placeholder="Seleccionar cliente" 
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm mb-4">
-                  <User className="w-4 h-4" />
-                  <span>Nuevo cliente</span>
-                </button>
-
-                {/* Selected Client Info */}
-                <div className="space-y-3">
-                  <div className="flex items-start space-x-3">
-                    <User className="w-4 h-4 text-gray-400 mt-1" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="text-xs font-medium text-gray-700">Nombre</span>
-                      </div>
-                      <p className="text-sm font-medium text-gray-900">{selectedClient}</p>
-                      
-                      <div className="flex items-center space-x-2 mt-2 mb-1">
-                        <span className="text-xs font-medium text-gray-700">Dirección</span>
-                      </div>
-                      <p className="text-sm text-gray-700">Dirección no definida</p>
-                    </div>
-                  </div>
-                  <button className="text-blue-600 hover:text-blue-700 text-sm">
-                    Editar cliente
-                  </button>
-                </div>
-              </div>
-
-              {/* Vendor Info */}
-              <div className="border-t border-gray-200 pt-4">
-                <div className="text-sm">
-                  <span className="font-medium text-gray-700">Vendedor: </span>
-                  <span className="text-gray-900">Javier Masías Loza - 001</span>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Document Type Modal */}
-      {showDocumentTypeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-            <h2 className="text-xl font-semibold text-gray-900 text-center mb-6">
-              TIPO DE COMPROBANTE
-            </h2>
-            
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <button
-                onClick={() => handleDocumentTypeSelect('nota')}
-                className="p-6 border-2 border-blue-300 rounded-lg hover:bg-blue-50 transition-colors text-center"
-              >
-                <div className="text-blue-600 font-medium text-sm">
-                  NV - NOTA DE
-                </div>
-                <div className="text-blue-600 font-medium text-sm">
-                  VENTA
-                </div>
-              </button>
+        {/* Selected Products Preview (Multiple Mode) */}
+        {isMultipleMode && selectedProducts.size > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {Array.from(selectedProducts).slice(0, 3).map(productId => {
+              const product = allProducts.find(p => p.id === productId);
+              if (!product) return null;
               
-              <button
-                onClick={() => handleDocumentTypeSelect('boleta')}
-                className="p-6 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-center"
-              >
-                <div className="text-gray-700 font-medium text-sm">
-                  B - BOLETA
-                </div>
-              </button>
-              
-              <button
-                onClick={() => handleDocumentTypeSelect('factura')}
-                className="p-6 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-center"
-              >
-                <div className="text-gray-700 font-medium text-sm">
-                  F - FACTURA
-                </div>
-              </button>
-            </div>
-            
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowDocumentTypeModal(false)}
-                className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="bg-white border-b border-gray-200 px-6 py-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Procesar Pago - {selectedDocumentType.toUpperCase()}
-                </h2>
-                <button 
-                  onClick={() => setShowPaymentModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+              return (
+                <div
+                  key={productId}
+                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
                 >
-                  <X className="w-6 h-6" />
+                  <span>{product.name}</span>
+                  <span className="ml-1 font-semibold">×{quantities[productId] || 1}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleProductSelect(product);
+                    }}
+                    className="ml-2 hover:bg-blue-200 rounded-full p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
+            {selectedProducts.size > 3 && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                +{selectedProducts.size - 3} más
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Dropdown */}
+        {showDropdown && filteredProducts.length > 0 && (
+          <div
+            ref={dropdownRef}
+            className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto"
+          >
+            {/* Multiple mode header */}
+            {isMultipleMode && (
+              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-900">
+                    Modo selección múltiple
+                  </span>
+                  {selectedProducts.size > 0 && (
+                    <span className="text-xs text-blue-700">
+                      {selectedProducts.size} seleccionados
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Product list */}
+            <div className="py-1">
+              {filteredProducts.map((product, index) => {
+                const isSelected = selectedProducts.has(product.id);
+                const isHovered = hoveredIndex === index;
+                const isInCart = existingProducts.includes(product.id);
+                
+                return (
+                  <div
+                    key={product.id}
+                    ref={el => { itemRefs.current[index] = el; }}
+                    onClick={() => handleProductSelect(product)}
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    className={`px-4 py-3 cursor-pointer transition-colors ${
+                      isHovered ? 'bg-blue-50' : 'hover:bg-gray-50'
+                    } ${isSelected ? 'bg-blue-100' : ''}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        {/* Checkbox for multiple mode */}
+                        {isMultipleMode && (
+                          <div className={`w-4 h-4 border-2 rounded flex items-center justify-center flex-shrink-0 ${
+                            isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                        )}
+
+                        {/* Product info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900">
+                            {highlightMatch(product.name, searchTerm)}
+                          </div>
+                          <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                            <span>{highlightMatch(product.code, searchTerm)}</span>
+                            <span>•</span>
+                            <span>{product.category}</span>
+                            <span>•</span>
+                            <span className={product.stock > 10 ? 'text-green-600' : 'text-orange-600'}>
+                              Stock: {product.stock}
+                            </span>
+                            {isInCart && (
+                              <>
+                                <span>•</span>
+                                <span className="text-blue-600 font-medium">En carrito</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Price and quantity controls */}
+                      <div className="flex items-center space-x-3 flex-shrink-0">
+                        {/* Quantity controls for selected items in multiple mode */}
+                        {isMultipleMode && isSelected && (
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuantityChange(product.id, -1);
+                              }}
+                              className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center text-sm font-medium">
+                              {quantities[product.id] || 1}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuantityChange(product.id, 1);
+                              }}
+                              className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                        
+                        {/* Price */}
+                        <div className="text-right">
+                          <div className="font-bold text-blue-600">
+                            S/ {product.price.toFixed(2)}
+                          </div>
+                          {isMultipleMode && isSelected && (
+                            <div className="text-xs text-gray-500">
+                              Total: S/ {((quantities[product.id] || 1) * product.price).toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add button for multiple mode */}
+            {isMultipleMode && selectedProducts.size > 0 && (
+              <div className="p-3 bg-gray-50 border-t border-gray-200">
+                <button
+                  onClick={handleAddSelected}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>
+                    Agregar {selectedProducts.size} producto{selectedProducts.size > 1 ? 's' : ''}
+                  </span>
                 </button>
               </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="flex max-h-[calc(90vh-80px)]">
-              {/* Left Side - Order Summary */}
-              <div className="flex-1 p-6 border-r border-gray-200 overflow-y-auto">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Resumen de la Orden</h3>
-                
-                {/* Products List */}
-                <div className="space-y-3 mb-6">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm text-gray-900">{item.name}</h4>
-                        <p className="text-xs text-gray-500">{item.code}</p>
-                      </div>
-                      <div className="text-center mx-4">
-                        <span className="text-sm font-medium">{item.quantity}</span>
-                        <p className="text-xs text-gray-500">cant.</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-gray-900">S/ {(item.price * item.quantity).toFixed(2)}</p>
-                        <p className="text-xs text-gray-500">S/ {item.price.toFixed(2)} c/u</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Totals */}
-                <div className="border-t border-gray-200 pt-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="text-gray-900">S/ {totals.subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">IGV (18%)</span>
-                    <span className="text-gray-900">S/ {totals.igv.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
-                    <span className="text-gray-900">Total</span>
-                    <span className="text-gray-900">S/ {totals.total.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {/* Client Info */}
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Cliente</h4>
-                  <p className="text-sm text-gray-700">{selectedClient}</p>
-                  <p className="text-xs text-gray-500">DNI: 09661829</p>
-                </div>
-              </div>
-
-              {/* Right Side - Payment Methods */}
-              <div className="w-96 p-6 overflow-y-auto">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Método de Pago</h3>
-                
-                {/* Quick Payment Buttons */}
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Efectivo rápido</h4>
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    {quickPaymentAmounts.map((amount, index) => (
-                      <button 
-                        key={index}
-                        onClick={() => handleQuickPayment(amount)}
-                        className={`px-3 py-2 text-sm border rounded-md transition-colors ${
-                          parseFloat(receivedAmount) === amount 
-                            ? 'bg-green-100 border-green-500 text-green-700' 
-                            : 'border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        S/ {amount.toFixed(2)}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Custom amount input */}
-                  <div className="mb-4">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Monto recibido</label>
-                    <input 
-                      type="number" 
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      placeholder="Ingrese monto personalizado"
-                    />
-                  </div>
-
-                  {/* Payment Summary */}
-                  <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600">Monto a pagar:</span>
-                      <span className="font-medium">S/ {totals.total.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600">Monto recibido:</span>
-                      <span className="font-medium">S/ {(parseFloat(receivedAmount || customAmount) || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-bold border-t border-gray-300 pt-2">
-                      <span className={calculateChange() >= 0 ? 'text-green-600' : 'text-red-600'}>
-                        {calculateChange() >= 0 ? 'Vuelto:' : 'Falta:'}
-                      </span>
-                      <span className={calculateChange() >= 0 ? 'text-green-600' : 'text-red-600'}>
-                        S/ {Math.abs(calculateChange()).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Payment Methods */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Métodos de pago activos</h4>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                          <span className="text-sm font-medium">Efectivo</span>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm">S/ {(parseFloat(receivedAmount || customAmount) || 0).toFixed(2)}</div>
-                          <button className="text-xs text-gray-500 hover:text-gray-700">×</button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="space-y-3">
-                  <button 
-                    onClick={() => {
-                      if (calculateChange() >= 0) {
-                        alert(`¡Venta procesada exitosamente!\nTipo: ${selectedDocumentType}\nTotal: S/ ${totals.total.toFixed(2)}\nVuelto: S/ ${calculateChange().toFixed(2)}`);
-                        setShowPaymentModal(false);
-                        setCartItems([]);
-                        setReceivedAmount('');
-                        setCustomAmount('');
-                      } else {
-                        alert('El monto recibido es insuficiente');
-                      }
-                    }}
-                    disabled={calculateChange() < 0}
-                    className={`w-full px-4 py-3 rounded-lg font-medium transition-colors ${
-                      calculateChange() >= 0
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {calculateChange() >= 0 ? 'Completar Venta' : 'Monto Insuficiente'}
-                  </button>
-                  
-                  <button 
-                    onClick={() => setShowPaymentModal(false)}
-                    className="w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  
-                  <button 
-                    onClick={() => {
-                      setShowPaymentModal(false);
-                      setViewMode('form');
-                    }}
-                    className="w-full px-4 py-2 text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors text-sm"
-                  >
-                    Ir a Formulario Completo
-                  </button>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* No results */}
+        {showDropdown && searchTerm && filteredProducts.length === 0 && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-center text-gray-500">
+            <Search className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+            <p className="text-sm">No se encontraron productos</p>
+            <p className="text-xs text-gray-400">
+              Intenta con otro término de búsqueda
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Help text */}
+      <div className="text-xs text-gray-500 flex items-center justify-between">
+        <span>
+          {isMultipleMode 
+            ? 'Selecciona varios productos con checkboxes y presiona "Agregar"' 
+            : 'Busca un producto y se agregará automáticamente al seleccionarlo'
+          }
+        </span>
+        {showDropdown && filteredProducts.length > 0 && (
+          <span className="text-gray-400">
+            Use ↑↓ para navegar, Enter para seleccionar, Esc para cerrar
+          </span>
+        )}
+      </div>
     </div>
   );
-}
+};
 
-export default HybridPOSSystem;
+export default ProductSelector;
