@@ -735,6 +735,15 @@ const SalesInvoiceSystem = () => {
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Efectivo rápido</h3>
                 <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="col-span-2 flex justify-end mt-2">
+                    <button
+                      className="text-blue-600 hover:text-blue-800 text-sm underline px-2 py-1"
+                      type="button"
+                      onClick={() => setReceivedAmount('0')}
+                    >
+                      Limpiar
+                    </button>
+                  </div>
                   <button
                     className="px-3 py-2 text-sm border-2 rounded-md transition-colors border-green-500 bg-green-100 text-green-700 font-semibold"
                     onClick={() => setReceivedAmount(totals.total.toFixed(2))}
