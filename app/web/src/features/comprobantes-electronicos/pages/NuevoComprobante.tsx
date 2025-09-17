@@ -78,11 +78,14 @@ const SalesInvoiceSystem = () => {
 
   // POS product list (mock)
   const availableProducts = [
-    { id: 1, code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00 },
-    { id: 2, code: '00168822', name: 'Sketch ARTESCO', price: 18.00 },
-    { id: 3, code: '00170001', name: 'Resma Bond A3', price: 120.00 },
-    { id: 4, code: '00180001', name: 'Lapicero BIC', price: 2.50 },
-    { id: 5, code: '00190001', name: 'Cuaderno Loro', price: 8.00 }
+  { id: '1', code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00, category: 'Útiles' },
+  { id: '2', code: '00168822', name: 'Sketch ARTESCO', price: 18.00, category: 'Útiles' },
+  { id: '3', code: '00170001', name: 'Resma Bond A3', price: 120.00, category: 'Útiles' },
+  { id: '4', code: '00180001', name: 'Lapicero BIC', price: 2.50, category: 'Útiles' },
+  { id: '5', code: '00190001', name: 'Cuaderno Loro', price: 8.00, category: 'Útiles' },
+  { id: '6', code: '00145678', name: 'Martillo de acero', price: 45.50, category: 'Herramientas' },
+  { id: '7', code: '00187654', name: 'Destornillador Phillips', price: 12.00, category: 'Herramientas' },
+  { id: '8', code: '00198765', name: 'Taladro eléctrico', price: 250.00, category: 'Herramientas' }
   ];
   // POS cart logic
   const addToCart = (product: any) => {
@@ -391,8 +394,27 @@ const SalesInvoiceSystem = () => {
                   <ProductSelector
                     onAddProducts={(products: { product: any; quantity: number }[]) => {
                       if (products.length > 0) {
-                        products.forEach(({ product, quantity }: { product: any; quantity: number }) => {
-                          addToCart({ ...product, quantity });
+                        setCartItems(prev => {
+                          let updated = [...prev];
+                          products.forEach(({ product, quantity }) => {
+                            const idx = updated.findIndex(item => item.id === product.id);
+                            if (idx !== -1) {
+                              // Si ya existe, incrementar cantidad
+                              updated[idx] = {
+                                ...updated[idx],
+                                quantity: updated[idx].quantity + quantity
+                              };
+                            } else {
+                              // Si no existe, agregar nuevo
+                              updated.push({
+                                ...product,
+                                quantity,
+                                subtotal: product.price / 1.18,
+                                total: product.price
+                              });
+                            }
+                          });
+                          return updated;
                         });
                       }
                     }}
