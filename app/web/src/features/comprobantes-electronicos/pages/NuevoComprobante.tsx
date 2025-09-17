@@ -735,7 +735,7 @@ const SalesInvoiceSystem = () => {
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Efectivo rápido</h3>
                 <div className="grid grid-cols-2 gap-2 mb-4">
-                  <button className="px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 hover:bg-gray-50">S/ 78.00</button>
+                  <button className="px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 hover:bg-gray-50">S/ {totals.total.toFixed(2)}</button>
                   <button className="px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 hover:bg-gray-50">S/ 60.00</button>
                   <button className="px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 hover:bg-gray-50">S/ 70.00</button>
                   <button className="px-3 py-2 text-sm border rounded-md transition-colors border-gray-300 hover:bg-gray-50">S/ 100.00</button>
