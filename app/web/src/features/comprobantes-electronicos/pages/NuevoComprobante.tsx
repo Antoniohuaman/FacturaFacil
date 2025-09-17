@@ -677,26 +677,7 @@ const SalesInvoiceSystem = () => {
               {/* Payment Methods */}
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-sm font-medium">Efectivo</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm">S/ 20.00</div>
-                      <button className="text-xs text-gray-500 hover:text-gray-700">×</button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                      <span className="text-sm font-medium">Sí.</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm">S/ 36.50</div>
-                      <button className="text-xs text-gray-500 hover:text-gray-700">×</button>
-                    </div>
-                  </div>
+                  {/* Métodos de pago 'Efectivo' y 'Sí.' eliminados según solicitud del usuario */}
                 </div>
               </div>
 
