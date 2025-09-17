@@ -770,21 +770,6 @@ const SalesInvoiceSystem = () => {
                   <label className="block text-xs font-medium text-gray-700 mb-1">Monto recibido</label>
                   <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Ingrese monto personalizado" />
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ingresa el monto</span>
-                    <div className="text-right">
-                      <div className="font-medium">S/ 78.00</div>
-                      <div className="text-xs text-gray-500">S/ 0.00</div>
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">S/ 78.00</span>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-500">S/ 0.00</div>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Payment Methods */}
