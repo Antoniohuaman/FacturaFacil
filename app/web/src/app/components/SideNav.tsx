@@ -1,6 +1,7 @@
 
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
+import SidebarHeader from "../../components/SidebarHeader";
 
 
 const mainItems = [
@@ -35,9 +36,21 @@ const configItem = {
 
 
 export default function SideNav() {
+  // Datos de ejemplo, reemplaza por los reales o props/context
+  const empresa = {
+    logoUrl: "/starbucks-logo.png",
+    razonSocial: "Mi Empresa SAC",
+    ruc: "20123456789",
+    multiEmpresa: true,
+  };
+  const usuario = {
+    nombre: "Antonio Huamán",
+    rol: "Administrador",
+  };
   const [collapsed, setCollapsed] = useState(false);
   return (
     <aside className={`h-full flex flex-col bg-white border-r border-slate-200 transition-all duration-300 ${collapsed ? 'w-16' : 'w-56'}`}>
+      <SidebarHeader empresa={empresa} usuario={usuario} collapsed={collapsed} />
       {/* Botón de colapso/expandir */}
       <button
         className="mx-auto my-2 p-1 rounded hover:bg-slate-100 transition-colors"

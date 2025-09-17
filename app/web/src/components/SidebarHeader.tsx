@@ -16,21 +16,24 @@ interface SidebarHeaderProps {
   empresa: Empresa;
   usuario: Usuario;
   onEmpresaChange?: () => void;
+  collapsed?: boolean;
 }
 
-const SidebarHeader: React.FC<SidebarHeaderProps> = ({ empresa, usuario, onEmpresaChange }) => (
-  <div className="flex flex-col items-center py-6 bg-white border-b">
-    <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mb-3 overflow-hidden">
+const SidebarHeader: React.FC<SidebarHeaderProps> = ({ empresa, usuario, onEmpresaChange, collapsed }) => (
+  <div className={`flex flex-col items-center py-6 bg-white border-b ${collapsed ? 'justify-center' : ''}`}>
+    <div className={`rounded-full bg-gray-100 flex items-center justify-center overflow-hidden ${collapsed ? 'w-12 h-12 mb-0' : 'w-24 h-24 mb-3'}`}>
       <img
         src="/starbucks-logo.png"
         alt="Logo"
-        className="w-20 h-20 object-contain rounded-full shadow"
+        className={collapsed ? 'w-10 h-10 object-contain rounded-full shadow' : 'w-20 h-20 object-contain rounded-full shadow'}
         style={{ background: 'white', display: 'block' }}
       />
     </div>
-    <div className="text-sm font-bold text-gray-800 text-center">{empresa.razonSocial}</div>
-    <div className="text-xs text-gray-500 mb-2 text-center">RUC: {empresa.ruc}</div>
-    {empresa.multiEmpresa && (
+    {!collapsed && (
+      <>
+        <div className="text-sm font-bold text-gray-800 text-center">{empresa.razonSocial}</div>
+        <div className="text-xs text-gray-500 mb-2 text-center">RUC: {empresa.ruc}</div>
+        {empresa.multiEmpresa && (
           <button
             className="text-blue-600 text-xs flex items-center gap-1 hover:underline mb-2"
             onClick={onEmpresaChange}
@@ -43,9 +46,11 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({ empresa, usuario, onEmpre
               </svg>
             </span>
           </button>
+        )}
+        <div className="mt-2 text-xs text-gray-700 text-center">{usuario.nombre}</div>
+        <div className="text-xs text-gray-400 text-center">{usuario.rol}</div>
+      </>
     )}
-    <div className="mt-2 text-xs text-gray-700 text-center">{usuario.nombre}</div>
-    <div className="text-xs text-gray-400 text-center">{usuario.rol}</div>
   </div>
 );
 
