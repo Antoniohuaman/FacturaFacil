@@ -8,6 +8,8 @@ interface CajaContextValue {
 	status: CajaStatus;
 	abrirCaja: () => void;
 	cerrarCaja: () => void;
+	margenDescuadre: number;
+	setMargenDescuadre: (margen: number) => void;
 }
 
 const CajaContext = createContext<CajaContextValue | undefined>(undefined);
@@ -26,12 +28,13 @@ interface CajaProviderProps {
 
 export const CajaProvider = ({ children }: CajaProviderProps) => {
 	const [status, setStatus] = useState<CajaStatus>("cerrada");
+	const [margenDescuadre, setMargenDescuadre] = useState<number>(1.00); // Margen por defecto S/ 1.00
 
 	const abrirCaja = () => setStatus("abierta");
 	const cerrarCaja = () => setStatus("cerrada");
 
 	return (
-		<CajaContext.Provider value={{ status, abrirCaja, cerrarCaja }}>
+		<CajaContext.Provider value={{ status, abrirCaja, cerrarCaja, margenDescuadre, setMargenDescuadre }}>
 			{children}
 		</CajaContext.Provider>
 	);

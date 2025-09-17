@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useCaja } from '../store/CajaContext';
 import { Settings2, User, CreditCard, Save } from 'lucide-react';
 
 const mediosPagoDefault = [
@@ -19,6 +20,7 @@ const ConfiguracionCaja: React.FC = () => {
   const [usuarios, setUsuarios] = useState<string[]>(usuariosDefault);
   const [nuevoUsuario, setNuevoUsuario] = useState('');
   const [limiteCaja, setLimiteCaja] = useState(1000);
+  const { margenDescuadre, setMargenDescuadre } = useCaja();
 
   const agregarMedio = () => {
     if (nuevoMedio && !mediosPago.includes(nuevoMedio)) {
@@ -96,6 +98,18 @@ const ConfiguracionCaja: React.FC = () => {
             min="0"
             value={limiteCaja}
             onChange={e => setLimiteCaja(Number(e.target.value))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+        </div>
+        {/* Margen de descuadre */}
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Margen de descuadre permitido (S/)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={margenDescuadre}
+            onChange={e => setMargenDescuadre(Number(e.target.value))}
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
           />
         </div>
