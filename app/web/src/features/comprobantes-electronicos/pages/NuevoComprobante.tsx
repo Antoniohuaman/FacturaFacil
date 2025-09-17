@@ -112,9 +112,13 @@ const SalesInvoiceSystem = () => {
     setShowPaymentModal(true);
   };
   const calculateTotals = () => {
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.subtotal || item.price * item.quantity / 1.18), 0);
-    const igv = cartItems.reduce((sum, item) => sum + ((item.total || item.price * item.quantity) - (item.subtotal || item.price * item.quantity / 1.18)), 0);
-    const total = cartItems.reduce((sum, item) => sum + (item.total || item.price * item.quantity), 0);
+    // Calcula usando el IGV actual de cada producto
+    const subtotal = cartItems.reduce((sum, item) => {
+      const igvPercent = item.igv !== undefined ? item.igv : 18;
+      return sum + (item.price * item.quantity) / (1 + igvPercent / 100);
+    }, 0);
+    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const igv = total - subtotal;
     return { subtotal, igv, total };
   };
   const totals = calculateTotals();
@@ -449,20 +453,85 @@ const SalesInvoiceSystem = () => {
                           <td className="px-4 py-4">
                             <div className="flex items-center justify-center space-x-2">
                               <button className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold"
-                                onClick={() => updateCartQuantity(item.id, -1)}
-                                disabled={item.quantity <= 1}
+                                onClick={() => setCartItems(prev => prev.map(ci => ci.id === item.id ? {
+                                  ...ci,
+                                  quantity: Math.max(0.01, parseFloat((ci.quantity - 1).toFixed(2)))
+                                } : ci))}
+                                disabled={item.quantity <= 0.01}
                               >−</button>
-                              <span className="w-8 text-center text-sm">{item.quantity}</span>
+                              <input
+                                type="number"
+                                min={0.01}
+                                step={0.01}
+                                value={item.quantity}
+                                className="w-14 h-8 px-2 py-0 border border-gray-400 rounded text-center font-semibold text-sm align-middle focus:border-blue-500 focus:outline-none transition-all"
+                                style={{ verticalAlign: 'middle' }}
+                                onChange={e => {
+                                  const newQty = parseFloat(e.target.value) || 0.01;
+                                  setCartItems(prev => prev.map(ci => ci.id === item.id ? {
+                                    ...ci,
+                                    quantity: newQty
+                                  } : ci));
+                                }}
+                              />
                               <button className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold"
-                                onClick={() => updateCartQuantity(item.id, 1)}
+                                onClick={() => setCartItems(prev => prev.map(ci => ci.id === item.id ? {
+                                  ...ci,
+                                  quantity: parseFloat((ci.quantity + 1).toFixed(2))
+                                } : ci))}
                               >+</button>
                             </div>
                             <div className="text-center text-xs text-gray-500 mt-1">NIU</div>
                           </td>
-                          <td className="px-4 py-4 text-right text-sm">S/ {item.price.toFixed(2)} ⌄</td>
-                          <td className="px-4 py-4 text-center text-sm">IGV 18%</td>
-                          <td className="px-4 py-4 text-right text-sm">S/ {(item.price * item.quantity / 1.18).toFixed(2)}</td>
-                          <td className="px-4 py-4 text-right font-medium text-sm">S/ {(item.price * item.quantity).toFixed(2)}</td>
+                          <td className="px-4 py-4 text-right text-sm">
+                            <input
+                              type="number"
+                              value={item.price}
+                              min={0}
+                              step={0.01}
+                              className="w-24 px-2 py-1 border rounded text-right"
+                              onChange={e => {
+                                const newPrice = parseFloat(e.target.value) || 0;
+                                setCartItems(prev => prev.map(ci => ci.id === item.id ? {
+                                  ...ci,
+                                  price: newPrice
+                                } : ci));
+                              }}
+                            />
+                          </td>
+                          <td className="px-4 py-4 text-center text-sm">
+                            <select
+                              value={item.igvType || 'igv18'}
+                              className="w-32 px-2 py-1 border rounded text-center"
+                              onChange={e => {
+                                const igvOptions: Record<string, { igv: number; label: string }> = {
+                                  igv18: { igv: 18, label: 'IGV 18%' },
+                                  igv10: { igv: 10, label: 'IGV 10%' },
+                                  exonerado: { igv: 0, label: 'Exonerado 0%' },
+                                  inafecto: { igv: 0, label: 'Inafecto 0%' },
+                                  gratuita: { igv: 0, label: 'por premio 0% [Gratuita]' }
+                                };
+                                const selected = igvOptions[e.target.value];
+                                setCartItems(prev => prev.map(ci => ci.id === item.id ? {
+                                  ...ci,
+                                  igv: selected.igv,
+                                  igvType: e.target.value
+                                } : ci));
+                              }}
+                            >
+                              <option value="igv18">IGV 18%</option>
+                              <option value="igv10">IGV 10%</option>
+                              <option value="exonerado">Exonerado 0%</option>
+                              <option value="inafecto">Inafecto 0%</option>
+                              <option value="gratuita">por premio 0% [Gratuita]</option>
+                            </select>
+                          </td>
+                          <td className="px-4 py-4 text-right text-sm">
+                            S/ {((item.price * item.quantity) / (1 + ((item.igv !== undefined ? item.igv : 18) / 100))).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-4 text-right font-medium text-sm">
+                            S/ {(item.price * item.quantity).toFixed(2)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
