@@ -33,11 +33,11 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   // Mock products database
   const allProducts: Product[] = [
-    { id: '1', code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00, stock: 150, category: 'Oficina' },
-    { id: '2', code: '00168822', name: 'Sketch ARTESCO', price: 18.00, stock: 80, category: 'Oficina' },
-    { id: '3', code: '00170001', name: 'Resma Bond A3', price: 120.00, stock: 45, category: 'Oficina' },
-    { id: '4', code: '00180001', name: 'Lapicero BIC', price: 2.50, stock: 300, category: 'Oficina' },
-    { id: '5', code: '00190001', name: 'Cuaderno Loro', price: 8.00, stock: 200, category: 'Oficina' },
+  { id: '1', code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00, stock: 150, category: 'Útiles' },
+  { id: '2', code: '00168822', name: 'Sketch ARTESCO', price: 18.00, stock: 80, category: 'Útiles' },
+  { id: '3', code: '00170001', name: 'Resma Bond A3', price: 120.00, stock: 45, category: 'Útiles' },
+  { id: '4', code: '00180001', name: 'Lapicero BIC', price: 2.50, stock: 300, category: 'Útiles' },
+  { id: '5', code: '00190001', name: 'Cuaderno Loro', price: 8.00, stock: 200, category: 'Útiles' },
     { id: '6', code: '00145678', name: 'Martillo de acero', price: 45.50, stock: 25, category: 'Herramientas' },
     { id: '7', code: '00187654', name: 'Destornillador Phillips', price: 12.00, stock: 60, category: 'Herramientas' },
     { id: '8', code: '00198765', name: 'Taladro eléctrico', price: 250.00, stock: 15, category: 'Herramientas' }
@@ -245,7 +245,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       {/* Mode Toggle */}
       <div className="flex items-center justify-end">
         <div className="flex items-center space-x-3">
-          <span className="text-sm text-gray-600">Selección múltiple</span>
+          <span className="text-sm text-gray-600 font-bold">Selección múltiple</span>
           <button
             onClick={() => handleModeChange(!isMultipleMode)}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -376,10 +376,6 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                             <span>{highlightMatch(product.code, searchTerm)}</span>
                             <span>•</span>
                             <span>{product.category}</span>
-                            <span>•</span>
-                            <span className={product.stock > 10 ? 'text-green-600' : 'text-orange-600'}>
-                              Stock: {product.stock}
-                            </span>
                             {isInCart && (
                               <>
                                 <span>•</span>
