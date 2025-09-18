@@ -1,61 +1,100 @@
-export interface Producto {
+// src/features/catalogo-articulos/models/types.ts
+
+export interface Product {
   id: string;
   codigo: string;
   nombre: string;
-  unidad: 'UNIDAD' | 'DOCENA' | 'KILOGRAMO' | 'LITRO' | 'METRO';
+  unidad: 'DOCENA' | 'UNIDAD' | 'KILOGRAMO' | 'LITRO' | 'METRO';
   precio: number;
-  precioConIgv: number;
-  igv: number;
   cantidad: number;
   categoria: string;
-  stock: number;
-  stockMinimo: number;
-  descripcion?: string;
   imagen?: string;
-  activo: boolean;
+  conImpuestos: boolean;
+  impuesto?: string;
+  descripcion?: string;
   fechaCreacion: Date;
   fechaActualizacion: Date;
-  variantes?: ProductoVariante[];
 }
 
-export interface ProductoVariante {
+export interface Category {
   id: string;
   nombre: string;
-  precio: number;
-  stock: number;
-  sku: string;
+  descripcion?: string;
+  color?: string;
+  productCount: number;
+  fechaCreacion: Date;
 }
 
-export interface MovimientoKardex {
+export interface Package {
   id: string;
-  fecha: Date;
-  tipoMovimiento: 'ENTRADA' | 'SALIDA' | 'AJUSTE';
-  documento: string;
-  descripcion: string;
+  nombre: string;
+  descripcion?: string;
+  productos: PackageProduct[];
+  precio: number;
+  descuento?: number;
+  imagen?: string;
+  fechaCreacion: Date;
+}
+
+export interface PackageProduct {
+  productId: string;
   cantidad: number;
   precioUnitario: number;
-  total: number;
-  saldoCantidad: number;
-  saldoValor: number;
 }
 
-export interface ResumenStock {
-  totalProductos: number;
-  totalStock: number;
-  valorInventario: number;
-  productosStockBajo: number;
-  productosAgotados: number;
+export interface ImportConfig {
+  tipo: 'basica' | 'completa';
+  archivo?: File;
+  mapeoColumnas: Record<string, string>;
+  validaciones: boolean;
 }
 
-export interface FiltrosProducto {
+export interface FilterOptions {
   busqueda: string;
   categoria: string;
-  activo?: boolean;
+  unidad: string;
+  conImpuestos?: boolean;
+  rangoPrecios: {
+    min: number;
+    max: number;
+  };
+  ordenarPor: 'nombre' | 'precio' | 'cantidad' | 'fechaCreacion';
+  direccion: 'asc' | 'desc';
 }
 
-export interface PaginacionState {
-  pagina: number;
-  totalPaginas: number;
-  itemsPorPagina: number;
+export interface ProductFormData {
+  nombre: string;
+  codigo: string;
+  precio: number;
+  unidad: 'DOCENA' | 'UNIDAD';
+  categoria: string;
+  cantidad: number;
+  conImpuestos: boolean;
+  impuesto?: string;
+  descripcion?: string;
+  imagen?: File | string;
+}
+
+export interface TableColumn {
+  key: string;
+  label: string;
+  sortable: boolean;
+  filterable: boolean;
+  type: 'text' | 'number' | 'currency' | 'select' | 'date';
+}
+
+export type TabKey = 'productos' | 'paquetes' | 'categorias' | 'importar';
+
+export interface TabConfig {
+  key: TabKey;
+  label: string;
+  icon: string;
+  component: React.ComponentType;
+}
+
+export interface PaginationConfig {
+  currentPage: number;
+  totalPages: number;
+  itemsPerPage: number;
   totalItems: number;
 }
