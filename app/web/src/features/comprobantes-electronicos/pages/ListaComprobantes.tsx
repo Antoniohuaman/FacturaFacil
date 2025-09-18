@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+// import { useNavigate } from 'react-router-dom'; // Eliminado porque no se usa
+import { Search, Filter, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 function getToday() {
   const d = new Date();
@@ -13,7 +13,7 @@ const InvoiceListDashboard = () => {
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [showPrintPopup, setShowPrintPopup] = useState(false);
   const [printFormat, setPrintFormat] = useState<'A4' | 'ticket'>('A4');
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Eliminado porque no se usa
   const [dateFrom, setDateFrom] = useState(getToday());
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -207,7 +207,7 @@ const InvoiceListDashboard = () => {
       <div className="bg-white border-b border-gray-200">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 flex-1">
               {/* Date filters */}
               <div className="flex items-center space-x-3">
                 <div className="relative">
@@ -224,53 +224,46 @@ const InvoiceListDashboard = () => {
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Hasta (dd/mm/aaaa)"
                   />
                 </div>
               </div>
-
-              {/* Action icons */}
-              <div className="flex items-center space-x-2 ml-6">
-                <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
-                  <Download className="w-5 h-5" />
-                </button>
-                <div className="flex items-center space-x-2">
-                  <button className={`p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors ${massPrintMode ? 'bg-blue-100 text-blue-600' : ''}`} onClick={() => {
-                    setMassPrintMode(v => !v);
-                    setSelectedInvoices([]);
-                  }}>
-                    <Printer className="w-5 h-5" />
-                  </button>
-                  {massPrintMode && (
-                    <>
-                      <button className="px-2 py-1 text-xs text-blue-600 hover:text-blue-700 font-medium border border-blue-200 rounded" onClick={() => setSelectedInvoices(invoices.map(inv => inv.id))}>Seleccionar página</button>
-                      <button className="px-2 py-1 text-xs text-blue-600 hover:text-blue-700 font-medium border border-blue-200 rounded" onClick={() => {
-                        setMassPrintMode(false);
-                        setSelectedInvoices([]);
-                      }}>Cancelar selección</button>
-                      <button className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium text-xs" disabled={selectedInvoices.length === 0} onClick={() => setShowPrintPopup(true)}>Imprimir seleccionados</button>
-                      <span className="ml-2 text-xs text-blue-900 font-semibold">{selectedInvoices.length} seleccionado(s)</span>
-                    </>
-                  )}
-                </div>
-              </div>
             </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center space-x-3">
-              <button
-                className="px-4 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors text-sm font-medium"
-                onClick={() => navigate('/comprobantes/nuevo?tipo=factura')}
-              >
-                Nueva factura
-              </button>
-              <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-                onClick={() => navigate('/comprobantes/nuevo?tipo=boleta')}
-              >
-                Nueva boleta
-              </button>
+            {/* Impresión masiva alineada a la derecha, con lógica y botones condicionales */}
+            <div className="flex items-center space-x-2">
+              {!massPrintMode ? (
+                <button
+                  className={`flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium`}
+                  onClick={() => {
+                    setMassPrintMode(true);
+                    setSelectedInvoices([]);
+                  }}
+                >
+                  <Printer className="w-5 h-5 text-gray-600" />
+                  <span className="text-gray-700">Impresión masiva</span>
+                </button>
+              ) : (
+                <>
+                  <span className="font-semibold text-base text-gray-900">{selectedInvoices.length} seleccionados</span>
+                  <button
+                    className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium"
+                    onClick={() => {
+                      setMassPrintMode(false);
+                      setSelectedInvoices([]);
+                    }}
+                  >Cancelar</button>
+                  <button
+                    className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium"
+                    onClick={() => setSelectedInvoices(invoices.map(inv => inv.id))}
+                  >Seleccionar página</button>
+                  <button
+                    className="px-6 py-2 rounded-md bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-colors"
+                    disabled={selectedInvoices.length === 0}
+                    onClick={() => setShowPrintPopup(true)}
+                  >Imprimir seleccionados</button>
+                </>
+              )}
             </div>
           </div>
         </div>
