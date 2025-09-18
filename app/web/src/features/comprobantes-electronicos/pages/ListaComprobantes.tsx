@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 // import { useNavigate } from 'react-router-dom'; // Eliminado porque no se usa
 import { Search, Filter, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -9,6 +10,7 @@ function getToday() {
 
 const InvoiceListDashboard = () => {
   // Estado para selección masiva y popup de impresión
+  const navigate = useNavigate();
   const [massPrintMode, setMassPrintMode] = useState(false);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [showPrintPopup, setShowPrintPopup] = useState(false);
@@ -230,8 +232,20 @@ const InvoiceListDashboard = () => {
                 </div>
               </div>
             </div>
-            {/* Impresión masiva alineada a la derecha, con lógica y botones condicionales */}
+            {/* Botones NUEVA BOLETA y NUEVA FACTURA + Impresión masiva */}
             <div className="flex items-center space-x-2">
+              <button
+                className="px-4 py-2 border border-blue-500 text-blue-600 bg-white rounded-md font-semibold text-sm hover:bg-blue-50 transition-colors"
+                onClick={() => navigate('/comprobantes/nuevo?tipo=factura')}
+              >
+                Nueva factura
+              </button>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md font-semibold text-sm hover:bg-blue-700 transition-colors"
+                onClick={() => navigate('/comprobantes/nuevo?tipo=boleta')}
+              >
+                Nueva boleta
+              </button>
               {!massPrintMode ? (
                 <button
                   className={`flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium`}
