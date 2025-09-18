@@ -22,11 +22,15 @@ interface DraftInvoicesModuleProps {
 }
 
 const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }) => {
+  const [showEmitPopup, setShowEmitPopup] = useState<boolean>(false);
+  const [invalidDrafts, setInvalidDrafts] = useState<Draft[]>([]);
+  const [validDrafts, setValidDrafts] = useState<Draft[]>([]);
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [showTotals, setShowTotals] = useState<boolean>(false);
   const [selectedDrafts, setSelectedDrafts] = useState<string[]>([]);
+  const [showPrintPopup, setShowPrintPopup] = useState<boolean>(false);
 
   // Mock data para los borradores
   const mockDrafts: Draft[] = [
@@ -169,6 +173,51 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   // Unir mockDrafts y localDrafts
   const drafts: Draft[] = [...mockDrafts, ...localDrafts];
 
+  // Validación de fecha de creación para emisión masiva
+  const validateDraftsForEmit = (selectedIds: string[]) => {
+    const today = new Date();
+    const invalid: Draft[] = [];
+    const valid: Draft[] = [];
+    selectedIds.forEach(id => {
+      const draft = drafts.find(d => d.id === id);
+      if (!draft) return;
+      // Parsear fecha de creación
+      let createdDate = draft.createdDate;
+      let dateParts = createdDate.split(' ');
+      let dateStr = dateParts[0];
+      let [day, month, year] = dateStr.split(' ');
+      // Convertir mes corto a número
+      const months = {
+        'ene.': 0, 'feb.': 1, 'mar.': 2, 'abr.': 3, 'may.': 4, 'jun.': 5,
+        'jul.': 6, 'ago.': 7, 'set.': 8, 'oct.': 9, 'nov.': 10, 'dic.': 11
+      } as const;
+      let monthNum = months[month as keyof typeof months] ?? 0;
+      let yearNum = parseInt(year);
+      let dayNum = parseInt(day);
+      let created = new Date(yearNum, monthNum, dayNum);
+      // Calcular diferencia en días
+      const diffDays = Math.floor((today.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+      if (draft.type === 'Boleta de venta') {
+        if (diffDays > 5) {
+          invalid.push(draft);
+        } else {
+          valid.push(draft);
+        }
+      } else if (draft.type === 'Factura') {
+        if (diffDays > 1) {
+          invalid.push(draft);
+        } else {
+          valid.push(draft);
+        }
+      } else {
+        valid.push(draft);
+      }
+    });
+    setInvalidDrafts(invalid);
+    setValidDrafts(valid);
+    setShowEmitPopup(true);
+  };
+
   const getStatusBadge = (status: DraftStatus, color: StatusColor, daysLeft: number) => {
     const colorClasses: Record<StatusColor, string> = {
       green: 'bg-green-100 text-green-800 border-green-200',
@@ -307,9 +356,6 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                   <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
                     <Download className="w-5 h-5" />
                   </button>
-                  <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
-                    <Printer className="w-5 h-5" />
-                  </button>
                 </div>
               </div>
 
@@ -332,22 +378,40 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                 <span className="text-sm font-medium text-blue-900">
                   {selectedDrafts.length} borrador{selectedDrafts.length > 1 ? 'es' : ''} seleccionado{selectedDrafts.length > 1 ? 's' : ''}
                 </span>
-                <div className="flex items-center space-x-3">
-                  <button className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                    Emitir seleccionados
-                  </button>
-                  <button className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                    Duplicar seleccionados
-                  </button>
-                  <button className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 font-medium">
-                    Eliminar seleccionados
-                  </button>
-                  <button 
-                    onClick={() => setSelectedDrafts([])}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center space-x-3">
+                    <button className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      Emitir seleccionados
+                    </button>
+                    <button
+                      className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-2 border border-blue-300 rounded-md bg-white hover:bg-blue-50"
+                      onClick={() => validateDraftsForEmit(selectedDrafts)}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      <span>Emitir seleccionados</span>
+                    </button>
+                    <button className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      Duplicar seleccionados
+                    </button>
+                    <button className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 font-medium">
+                      Eliminar seleccionados
+                    </button>
+                    <button 
+                      onClick={() => setSelectedDrafts([])}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center ml-auto">
+                    <button
+                      className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-2 border border-blue-300 rounded-md bg-white hover:bg-blue-50 ml-4"
+                      onClick={() => setShowPrintPopup(true)}
+                    >
+                      <Printer className="w-4 h-4 mr-2" />
+                      <span>Imprimir seleccionados</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -598,6 +662,74 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
           </div>
 
           {/* Totals Panel (conditionally shown) */}
+      {/* Popup de confirmación de impresión masiva */}
+      {/* Popup de validación de emisión masiva */}
+      {showEmitPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-lg p-8 min-w-[340px] max-w-[90vw]">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">Emisión masiva de borradores</h2>
+            {invalidDrafts.length > 0 ? (
+              <>
+                <p className="mb-4 text-red-700 font-medium">Algunos borradores no pueden emitirse por exceder el plazo permitido por SUNAT:</p>
+                <ul className="mb-4 text-sm text-gray-700 list-disc pl-5">
+                  {invalidDrafts.map(draft => (
+                    <li key={draft.id}>
+                      <span className="font-semibold">{draft.id}</span> - {draft.type} - Fecha creación: {draft.createdDate}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mb-4 text-gray-700">Solo se emitirán los borradores válidos. Los inválidos serán deseleccionados.</p>
+              </>
+            ) : (
+              <p className="mb-6 text-gray-700">¿Desea emitir {validDrafts.length} borrador{validDrafts.length > 1 ? 'es' : ''} seleccionado{validDrafts.length > 1 ? 's' : ''}?</p>
+            )}
+            <div className="flex justify-end space-x-3">
+              <button
+                className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                onClick={() => setShowEmitPopup(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className={`px-4 py-2 text-sm text-white rounded-md ${validDrafts.length > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                disabled={validDrafts.length === 0}
+                onClick={() => {
+                  // Aquí iría la lógica de emisión masiva solo para los válidos
+                  setSelectedDrafts(validDrafts.map(d => d.id));
+                  setShowEmitPopup(false);
+                }}
+              >
+                Emitir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showPrintPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-lg p-8 min-w-[320px]">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">¿Imprimir borradores seleccionados?</h2>
+            <p className="mb-6 text-gray-700">Se imprimirán {selectedDrafts.length} borrador{selectedDrafts.length > 1 ? 'es' : ''}.</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                onClick={() => setShowPrintPopup(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                onClick={() => {
+                  // Aquí iría la lógica de impresión masiva
+                  setShowPrintPopup(false);
+                }}
+              >
+                Imprimir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
           {showTotals && (
             <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Resumen de Borradores</h3>
