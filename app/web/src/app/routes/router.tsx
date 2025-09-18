@@ -7,9 +7,9 @@ import NuevoComprobante from "../../features/comprobantes-electronicos/pages/Nue
 import ComprobantesTabs from "../../features/comprobantes-electronicos/pages/ComprobantesTabs";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
 import { Panel } from "../../features/catalogo-articulos/pages/Panel";
-import ClientesHome from "../../features/gestion-clientes/pages/Home";
+import ClientesPage from "../../features/gestion-clientes/pages/ClientesPage";
 import ListaPreciosHome from "../../features/lista-precios/pages/Home";
-import IndicadoresHome from "../../features/indicadores-negocio/pages/Home";
+import IndicadoresPage from "../../features/indicadores-negocio/pages/IndicadoresPage";
 import ConfiguracionHome from "../../features/configuracion-sistema/pages/Home";
 
 export const router = createBrowserRouter([
@@ -21,9 +21,9 @@ export const router = createBrowserRouter([
   { path: "/comprobantes/nuevo", element: <NuevoComprobante /> },
       { path: "/control-caja", element: <ControlCajaHome /> },
   { path: "/catalogo", element: <Panel /> },
-      { path: "/clientes", element: <ClientesHome /> },
+      { path: "/clientes", element: <ClientesPage /> },
       { path: "/lista-precios", element: <ListaPreciosHome /> },
-      { path: "/indicadores", element: <IndicadoresHome /> },
+  { path: "/indicadores", element: <IndicadoresPage /> },
       { path: "/configuracion", element: <ConfiguracionHome /> },
     ],
   },
