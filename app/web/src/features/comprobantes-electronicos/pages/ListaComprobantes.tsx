@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Download, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
+function getToday() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
 const InvoiceListDashboard = () => {
   // Estado para selección masiva y popup de impresión
   const [massPrintMode, setMassPrintMode] = useState(false);
@@ -9,7 +14,7 @@ const InvoiceListDashboard = () => {
   const [showPrintPopup, setShowPrintPopup] = useState(false);
   const [printFormat, setPrintFormat] = useState<'A4' | 'ticket'>('A4');
   const navigate = useNavigate();
-  const [dateFrom, setDateFrom] = useState('');
+  const [dateFrom, setDateFrom] = useState(getToday());
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showTotals, setShowTotals] = useState(false);
@@ -206,26 +211,22 @@ const InvoiceListDashboard = () => {
               {/* Date filters */}
               <div className="flex items-center space-x-3">
                 <div className="relative">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Desde</label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
-                      className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Desde (dd/mm/aaaa)"
+                  />
                 </div>
                 <div className="relative">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Hasta</label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
-                      className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+                    placeholder="Hasta (dd/mm/aaaa)"
+                  />
                 </div>
               </div>
 
