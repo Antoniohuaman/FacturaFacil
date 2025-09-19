@@ -252,8 +252,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
                   <option value="IGV (18.00%)">IGV (18.00%)</option>
-                  <option value="ISC (10.00%)">ISC (10.00%)</option>
-                  <option value="IVAP (2.00%)">IVAP (2.00%)</option>
+                  <option value="IGV (10.00%)">IGV (10.00%)</option>
+                  <option value="Exonerado (0.00%)">Exonerado (0.00%)</option>
+                  <option value="Inafecto (0.00%)">Inafecto (0.00%)</option>
                 </select>
               </div>
             )}
@@ -269,8 +270,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 onChange={(e) => setFormData(prev => ({ ...prev, unidad: e.target.value as 'DOCENA' | 'UNIDAD' }))}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
               >
-                <option value="UNIDAD">UNIDAD</option>
+                <option value="UNIDAD">(NIU)UNIDAD</option>
                 <option value="DOCENA">(DZN) DOCENA</option>
+                <option value="CENTIMOS">(CMT) CENTIMOS</option>
+                <option value="KILOGRAMO">(KGM) KILOGRAMO</option>
               </select>
               <button
                 type="button"

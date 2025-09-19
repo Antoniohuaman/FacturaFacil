@@ -7,12 +7,12 @@ import { useState, useMemo, useCallback } from 'react';
 const mockProducts: Product[] = [
   {
     id: '1',
-    codigo: '99',
+    codigo: 'JU-966699',
     nombre: 'PAGO FINAL CONSTRUCCION LOSA',
     unidad: 'DOCENA',
     precio: 3000.00,
     cantidad: 0,
-    categoria: 'FRUTALES',
+    categoria: 'HERRAMIENTAS',
     conImpuestos: true,
     impuesto: 'IGV (18.00%)',
     fechaCreacion: new Date('2024-01-15'),
@@ -20,12 +20,12 @@ const mockProducts: Product[] = [
   },
   {
     id: '2',
-    codigo: '0111',
-    nombre: 'test',
+    codigo: 'D0111',
+    nombre: 'CEMENTO SOL 50KG',
     unidad: 'UNIDAD',
     precio: 200.00,
-    cantidad: -1,
-    categoria: 'FRUTALES',
+    cantidad: 50,
+    categoria: 'HERRAMIENTAS',
     conImpuestos: true,
     impuesto: 'IGV (18.00%)',
     fechaCreacion: new Date('2024-01-14'),
@@ -33,12 +33,12 @@ const mockProducts: Product[] = [
   },
   {
     id: '3',
-    codigo: 'ISC',
-    nombre: 'PRUEBA ISC',
+    codigo: 'Y89659644855',
+    nombre: 'ROPERO PARA NIÑOS',
     unidad: 'DOCENA',
     precio: 100.00,
-    cantidad: -2,
-    categoria: 'FRUTALES',
+    cantidad: 30,
+    categoria: 'HERRAMIENTAS',
     conImpuestos: true,
     impuesto: 'IGV (18.00%)',
     fechaCreacion: new Date('2024-01-13'),
@@ -46,8 +46,8 @@ const mockProducts: Product[] = [
   },
   {
     id: '4',
-    codigo: '6657567',
-    nombre: 'KK',
+    codigo: 'PL-6657567',
+    nombre: 'PARLANTE BLUETOOTH',
     unidad: 'DOCENA',
     precio: 100.00,
     cantidad: 0,
@@ -60,7 +60,7 @@ const mockProducts: Product[] = [
   {
     id: '5',
     codigo: '092512',
-    nombre: 'polo',
+    nombre: 'Polo manga corta',
     unidad: 'UNIDAD',
     precio: 10000.00,
     cantidad: 0,
@@ -73,7 +73,7 @@ const mockProducts: Product[] = [
 ];
 
 const mockCategories: Category[] = [
-  { id: '1', nombre: 'FRUTALES', productCount: 3, fechaCreacion: new Date('2024-01-01') },
+  { id: '1', nombre: 'HERRAMIENTAS', productCount: 3, fechaCreacion: new Date('2024-01-01') },
   { id: '2', nombre: 'Alimentos y Bebidas', productCount: 1, fechaCreacion: new Date('2024-01-01') },
   { id: '3', nombre: 'Accesorios', productCount: 1, fechaCreacion: new Date('2024-01-01') },
   { id: '4', nombre: 'CERRAJERIA', productCount: 0, fechaCreacion: new Date('2024-01-01') },

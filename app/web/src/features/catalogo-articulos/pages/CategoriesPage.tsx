@@ -8,7 +8,6 @@ const CategoriesPage: React.FC = () => {
   const { categories, addCategory, updateCategory, deleteCategory } = useProductStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [formData, setFormData] = useState({ nombre: '', descripcion: '', color: '#ef4444' });
   const [searchTerm, setSearchTerm] = useState('');
 
   const colors = [
@@ -28,40 +27,16 @@ const CategoriesPage: React.FC = () => {
   );
 
   const handleCreateCategory = () => {
-    setEditingCategory(null);
-    setFormData({ nombre: '', descripcion: '', color: '#ef4444' });
-    setShowCreateModal(true);
+  setEditingCategory(null);
+  setShowCreateModal(true);
   };
 
   const handleEditCategory = (category: Category) => {
     setEditingCategory(category);
-    setFormData({
-      nombre: category.nombre,
-      descripcion: category.descripcion || '',
-      color: category.color || '#ef4444'
-    });
     setShowCreateModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.nombre.trim()) return;
-
-    if (editingCategory) {
-      updateCategory(editingCategory.id, {
-        nombre: formData.nombre,
-        descripcion: formData.descripcion || undefined,
-        color: formData.color
-      });
-    } else {
-      addCategory(formData.nombre, formData.descripcion || undefined);
-    }
-
-    setShowCreateModal(false);
-    setEditingCategory(null);
-    setFormData({ nombre: '', descripcion: '', color: '#ef4444' });
-  };
+  // Moved to CategoryModal
 
   const handleDeleteCategory = (category: Category) => {
     if (category.productCount > 0) {
@@ -74,93 +49,111 @@ const CategoriesPage: React.FC = () => {
     }
   };
 
-  const CategoryModal = () => (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={() => setShowCreateModal(false)}
-        />
+  const CategoryModal: React.FC<{ category?: Category; onClose: () => void }> = ({ category, onClose }) => {
+    const [formData, setFormData] = useState({
+      nombre: category?.nombre || '',
+      descripcion: category?.descripcion || '',
+      color: category?.color || '#ef4444'
+    });
 
-        <div className="relative inline-block w-full max-w-md my-8 overflow-hidden rounded-lg bg-white text-left align-middle shadow-xl transition-all transform">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">
-              {editingCategory ? 'Editar categoría' : 'Nueva categoría'}
-            </h3>
-          </div>
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!formData.nombre.trim()) return;
+      if (category) {
+        updateCategory(category.id, {
+          nombre: formData.nombre,
+          descripcion: formData.descripcion || undefined,
+          color: formData.color
+        });
+      } else {
+        addCategory(formData.nombre, formData.descripcion || undefined);
+      }
+      onClose();
+    };
 
-          <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.nombre}
-                onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="Nombre de la categoría"
-                required
-              />
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+          <div
+            className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+            onClick={onClose}
+          />
+          <div className="relative inline-block w-full max-w-md my-8 overflow-hidden rounded-lg bg-white text-left align-middle shadow-xl transition-all transform">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">
+                {category ? 'Editar categoría' : 'Nueva categoría'}
+              </h3>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Descripción
-              </label>
-              <textarea
-                value={formData.descripcion}
-                onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
-                rows={3}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="Descripción opcional"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Color
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {colors.map((color) => (
-                  <button
-                    key={color.value}
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, color: color.value }))}
-                    className={`
-                      w-full h-10 rounded-md border-2 transition-all
-                      ${formData.color === color.value 
-                        ? 'border-gray-400 ring-2 ring-gray-300' 
-                        : 'border-gray-200 hover:border-gray-300'
-                      }
-                    `}
-                    style={{ backgroundColor: color.value }}
-                    title={color.name}
-                  />
-                ))}
+            <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Nombre de la categoría"
+                  required
+                />
               </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 transition-colors"
-              >
-                {editingCategory ? 'Actualizar' : 'Crear'}
-              </button>
-            </div>
-          </form>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  value={formData.descripcion}
+                  onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Descripción opcional"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Color
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {colors.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, color: color.value }))}
+                      className={`
+                        w-full h-10 rounded-md border-2 transition-all
+                        ${formData.color === color.value
+                          ? 'border-gray-400 ring-2 ring-gray-300'
+                          : 'border-gray-200 hover:border-gray-300'
+                        }
+                      `}
+                      style={{ backgroundColor: color.value }}
+                      title={color.name}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 transition-colors"
+                >
+                  {category ? 'Actualizar' : 'Crear'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -385,7 +378,15 @@ const CategoriesPage: React.FC = () => {
       )}
 
       {/* Modal */}
-      {showCreateModal && <CategoryModal />}
+      {showCreateModal && (
+        <CategoryModal
+          category={editingCategory ?? undefined}
+          onClose={() => {
+            setShowCreateModal(false);
+            setEditingCategory(null);
+          }}
+        />
+      )}
     </div>
   );
 };
