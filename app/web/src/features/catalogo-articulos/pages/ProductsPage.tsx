@@ -5,6 +5,7 @@ import type { Product } from '../models/types';
 import ProductTable from '../components/ProductTable';
 import BulkDeleteToolbar from '../components/BulkDeleteToolbar';
 import ProductModal from '../components/ProductModal';
+import ExportProductsModal from '../components/ExportProductsModal';
 import { useProductStore } from '../hooks/useProductStore';
 
 const ProductsPage: React.FC = () => {
@@ -27,6 +28,9 @@ const ProductsPage: React.FC = () => {
 
   // Estado para selección de productos
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+
+  // Estado para mostrar el modal de exportación
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Eliminar productos seleccionados
   const handleBulkDeleteProducts = (productIds: string[]) => {
@@ -266,8 +270,17 @@ const ProductsPage: React.FC = () => {
         
         <div className="flex items-center space-x-3">
           <button
+            onClick={() => setShowExportModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors shadow-sm"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Exportar productos
+          </button>
+          <button
             onClick={handleCreateProduct}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+            className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors shadow-sm"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -365,7 +378,14 @@ const ProductsPage: React.FC = () => {
         product={editingProduct}
         categories={categories}
       />
-    </div>
+    <ExportProductsModal
+      isOpen={showExportModal}
+      onClose={() => setShowExportModal(false)}
+      products={products}
+      totalProductsCount={allProducts.length}
+      currentFilters={filters}
+    />
+  </div>
   );
 };
 
