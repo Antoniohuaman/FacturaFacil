@@ -82,9 +82,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       newErrors.codigo = 'El código es requerido';
     }
 
-    if (formData.precio <= 0) {
-      newErrors.precio = 'El precio debe ser mayor a 0';
-    }
+    // El precio de venta ahora es opcional
 
     if (!formData.categoria) {
       newErrors.categoria = 'La categoría es requerida';
@@ -213,7 +211,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
                 <label htmlFor="precio" className="block text-sm font-medium text-gray-700 mb-1">
-                  Precio de venta <span className="text-red-500">*</span>
+                  Precio de venta
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -233,7 +231,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     placeholder="0.00"
                   />
                 </div>
-                {errors.precio && <p className="text-red-600 text-xs mt-1">{errors.precio}</p>}
+                {/* El precio de venta es opcional, no se muestra error */}
               </div>
               
               <div className="flex items-end">
