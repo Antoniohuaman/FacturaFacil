@@ -65,7 +65,7 @@ const CatalogoArticulosMain: React.FC = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Catálogo de Artículos</h1>
                 <p className="text-sm text-gray-600">
-                  Gestiona tu inventario completo de productos y servicios
+                  Gestiona tu catálogo completo de productos y servicios
                 </p>
               </div>
             </div>
@@ -153,15 +153,7 @@ const CatalogoArticulosMain: React.FC = () => {
         </div>
       </div>
 
-      {/* Keyboard shortcuts hint */}
-      <div className="hidden lg:block fixed bottom-6 left-6 bg-white rounded-lg shadow-lg border border-gray-200 p-3 text-xs text-gray-600">
-        <div className="font-medium mb-1">Atajos de teclado:</div>
-        <div className="space-y-1">
-          <div><kbd className="px-1 py-0.5 bg-gray-100 rounded">Ctrl+N</kbd> Nuevo producto</div>
-          <div><kbd className="px-1 py-0.5 bg-gray-100 rounded">Ctrl+F</kbd> Buscar</div>
-          <div><kbd className="px-1 py-0.5 bg-gray-100 rounded">Tab</kbd> Cambiar pestaña</div>
-        </div>
-      </div>
+      {/* ...Atajos de teclado eliminados... */}
 
       {/* Background pattern */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
