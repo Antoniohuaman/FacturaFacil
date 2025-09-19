@@ -1,3 +1,5 @@
+import CategoryModal from './CategoryModal';
+import { useProductStore } from '../hooks/useProductStore';
 import type { Product, ProductFormData, Category } from '../models/types';
 // src/features/catalogo-articulos/components/ProductModal.tsx
 
@@ -18,6 +20,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
   product,
   categories
 }) => {
+  // Usar el store global para agregar categoría
+  const { addCategory, categories: globalCategories } = useProductStore();
   type FormError = {
     [K in keyof ProductFormData]?: string;
   };
@@ -38,6 +42,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
+  // Estado para mostrar el modal de categoría
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -310,7 +316,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   `}
                 >
                   <option value="">Seleccionar categoría</option>
-                  {categories.map(cat => (
+                  {globalCategories.map(cat => (
                     <option key={cat.id} value={cat.nombre}>
                       {cat.nombre}
                     </option>
@@ -319,6 +325,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 <button
                   type="button"
                   className="px-4 py-2 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors"
+                  onClick={() => setShowCategoryModal(true)}
                 >
                   Crear categoría
                 </button>
@@ -450,6 +457,19 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         </div>
       </div>
+      {/* Modal de categoría */}
+      {showCategoryModal && (
+        <CategoryModal
+          isOpen={showCategoryModal}
+          onClose={() => setShowCategoryModal(false)}
+          colors={[{ name: 'Rojo', value: '#ef4444' }, { name: 'Azul', value: '#3b82f6' }, { name: 'Verde', value: '#10b981' }, { name: 'Amarillo', value: '#f59e0b' }, { name: 'Purple', value: '#8b5cf6' }, { name: 'Rosa', value: '#ec4899' }, { name: 'Gris', value: '#6b7280' }, { name: 'Naranja', value: '#f97316' }]}
+          onSave={(data) => {
+            addCategory(data.nombre, data.descripcion, data.color);
+            setFormData(prev => ({ ...prev, categoria: data.nombre }));
+            setShowCategoryModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };

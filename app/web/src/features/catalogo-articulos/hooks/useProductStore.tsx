@@ -203,16 +203,22 @@ export const useProductStore = () => {
   }, [products]);
 
   // CRUD Categorías
-  const addCategory = useCallback((nombre: string, descripcion?: string) => {
-    const newCategory: Category = {
-      id: Date.now().toString(),
-      nombre,
-      descripcion,
-      productCount: 0,
-      fechaCreacion: new Date()
-    };
-    
-    setCategories(prev => [...prev, newCategory]);
+  const addCategory = useCallback((nombre: string, descripcion?: string, color?: string) => {
+    setCategories(prev => {
+      // Evitar duplicados por nombre (case-insensitive)
+      if (prev.some(cat => cat.nombre.trim().toLowerCase() === nombre.trim().toLowerCase())) {
+        return prev;
+      }
+      const newCategory: Category = {
+        id: Date.now().toString(),
+        nombre,
+        descripcion,
+        color,
+        productCount: 0,
+        fechaCreacion: new Date()
+      };
+      return [...prev, newCategory];
+    });
   }, []);
 
   const updateCategory = useCallback((id: string, updates: Partial<Category>) => {
