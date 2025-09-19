@@ -157,7 +157,6 @@ export const ListaProductos: React.FC<ListaProductosProps> = ({
             <div className="text-sm text-gray-700">
               Mostrando {(paginacion.pagina - 1) * paginacion.itemsPorPagina + 1} - {Math.min(paginacion.pagina * paginacion.itemsPorPagina, paginacion.totalItems)} de {paginacion.totalItems} productos
             </div>
-            
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => onCambiarPagina(paginacion.pagina - 1)}

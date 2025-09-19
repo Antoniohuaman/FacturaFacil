@@ -95,6 +95,16 @@ function ClientesPage() {
 		address: '',
 		phone: ''
 	});
+	const filteredClients = clients.filter(client => {
+		return (
+			client.name.toLowerCase().includes(searchFilters.name.toLowerCase()) &&
+			client.document.toLowerCase().includes(searchFilters.document.toLowerCase()) &&
+			client.type.toLowerCase().includes(searchFilters.type.toLowerCase()) &&
+			client.address.toLowerCase().includes(searchFilters.address.toLowerCase()) &&
+			client.phone.includes(searchFilters.phone)
+		);
+	});
+	// ...existing code...
 
 	const handleCreateClient = () => {
 		const newId = Math.max(...clients.map(c => c.id)) + 1;
@@ -151,15 +161,7 @@ function ClientesPage() {
 		setSearchFilters(prev => ({ ...prev, [field]: value }));
 	};
 
-	const filteredClients = clients.filter(client => {
-		return (
-			client.name.toLowerCase().includes(searchFilters.name.toLowerCase()) &&
-			client.document.toLowerCase().includes(searchFilters.document.toLowerCase()) &&
-			client.type.toLowerCase().includes(searchFilters.type.toLowerCase()) &&
-			client.address.toLowerCase().includes(searchFilters.address.toLowerCase()) &&
-			client.phone.includes(searchFilters.phone)
-		);
-	});
+	// Sin paginación
 
 	return (
 		<div className="h-full flex flex-col">
@@ -167,7 +169,6 @@ function ClientesPage() {
 			<div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
 				<div className="flex items-center">
 					<button className="mr-4 p-2 hover:bg-gray-100 rounded-md transition-colors">
-						{/* Icono de retroceso, puedes importar ChevronLeft si lo tienes */}
 						<span className="text-gray-600">←</span>
 					</button>
 					<h1 className="text-xl font-semibold text-gray-800">Clientes</h1>
