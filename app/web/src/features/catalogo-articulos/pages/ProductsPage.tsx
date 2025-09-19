@@ -239,7 +239,7 @@ const ProductsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Gestiona tu catálogo de productos y servicios
+            Centraliza tus productos y servicios en un solo lugar
           </p>
         </div>
         
