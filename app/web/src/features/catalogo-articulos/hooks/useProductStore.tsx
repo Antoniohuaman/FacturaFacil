@@ -190,7 +190,6 @@ export const useProductStore = () => {
     const product = products.find(p => p.id === id);
     if (product) {
       setProducts(prev => prev.filter(p => p.id !== id));
-      
       // Actualizar contador de categoría
       setCategories(prev => 
         prev.map(cat => 
@@ -201,6 +200,14 @@ export const useProductStore = () => {
       );
     }
   }, [products]);
+
+  // Eliminar todos los productos y resetear contadores de categorías
+  const deleteAllProducts = useCallback(() => {
+    setProducts([]);
+    setCategories(prev =>
+      prev.map(cat => ({ ...cat, productCount: 0 }))
+    );
+  }, []);
 
   // CRUD Categorías
   const addCategory = useCallback((nombre: string, descripcion?: string, color?: string) => {
@@ -280,6 +287,7 @@ export const useProductStore = () => {
     addProduct,
     updateProduct,
     deleteProduct,
+    deleteAllProducts, // NUEVO
     
     // Categorías
     addCategory,

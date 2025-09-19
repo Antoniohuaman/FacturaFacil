@@ -3,12 +3,14 @@
 import React, { useState } from 'react';
 import type { Product } from '../models/types';
 import ProductTable from '../components/ProductTable';
+import BulkDeleteToolbar from '../components/BulkDeleteToolbar';
 import ProductModal from '../components/ProductModal';
 import { useProductStore } from '../hooks/useProductStore';
 
 const ProductsPage: React.FC = () => {
   const {
     products,
+    allProducts,
     categories,
     filters,
     pagination,
@@ -16,11 +18,30 @@ const ProductsPage: React.FC = () => {
     addProduct,
     updateProduct,
     deleteProduct,
+    deleteAllProducts,
     updateFilters,
     resetFilters,
     changePage,
     changeItemsPerPage
   } = useProductStore();
+
+  // Estado para selección de productos
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+
+  // Eliminar productos seleccionados
+  const handleBulkDeleteProducts = (productIds: string[]) => {
+    productIds.forEach(id => deleteProduct(id));
+  };
+
+  // Eliminar todos los productos
+  const handleDeleteAllProducts = () => {
+    deleteAllProducts();
+  };
+
+  // Limpiar selección
+  const handleClearSelection = () => {
+    setSelectedProducts(new Set());
+  };
 
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
@@ -295,6 +316,16 @@ const ProductsPage: React.FC = () => {
         {renderFilterBar()}
       </div>
 
+      {/* Bulk Delete Toolbar */}
+      <BulkDeleteToolbar
+        selectedProducts={selectedProducts}
+        currentPageProducts={products}
+        totalProductsCount={allProducts.length}
+        onDeleteProducts={handleBulkDeleteProducts}
+        onDeleteAllProducts={handleDeleteAllProducts}
+        onClearSelection={handleClearSelection}
+      />
+
       {/* Table */}
       <ProductTable
         products={products}
@@ -303,6 +334,8 @@ const ProductsPage: React.FC = () => {
         onEditProduct={handleEditProduct}
         onDeleteProduct={deleteProduct}
         loading={loading}
+        selectedProducts={selectedProducts}
+        onSelectedProductsChange={setSelectedProducts}
       />
 
       {/* Pagination */}

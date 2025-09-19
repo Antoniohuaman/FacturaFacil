@@ -1,6 +1,6 @@
 import type { Product, FilterOptions } from '../models/types';
 // src/features/catalogo-articulos/components/ProductTable.tsx
-import React, { useState } from 'react';
+import React from 'react';
 
 interface ProductTableProps {
   products: Product[];
@@ -9,6 +9,8 @@ interface ProductTableProps {
   onEditProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   loading?: boolean;
+  selectedProducts: Set<string>; // NUEVA
+  onSelectedProductsChange: (selected: Set<string>) => void; // NUEVA
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({
@@ -17,15 +19,17 @@ const ProductTable: React.FC<ProductTableProps> = ({
   onFiltersChange,
   onEditProduct,
   onDeleteProduct,
-  loading = false
+  loading = false,
+  selectedProducts,
+  onSelectedProductsChange
 }) => {
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  // selectedProducts y onSelectedProductsChange vienen de props
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedProducts(new Set(products.map(p => p.id)));
+      onSelectedProductsChange(new Set(products.map(p => p.id)));
     } else {
-      setSelectedProducts(new Set());
+      onSelectedProductsChange(new Set());
     }
   };
 
@@ -36,7 +40,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
     } else {
       newSelected.delete(productId);
     }
-    setSelectedProducts(newSelected);
+    onSelectedProductsChange(newSelected);
   };
 
   const handleSort = (field: keyof Product) => {
