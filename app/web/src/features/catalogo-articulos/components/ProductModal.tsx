@@ -182,17 +182,30 @@ const ProductModal: React.FC<ProductModalProps> = ({
               <label htmlFor="codigo" className="block text-sm font-medium text-gray-700 mb-1">
                 Código <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                id="codigo"
-                value={formData.codigo}
-                onChange={(e) => setFormData(prev => ({ ...prev, codigo: e.target.value }))}
-                className={`
-                  w-full rounded-md border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors
-                  ${errors.codigo ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-                `}
-                placeholder="Código único del producto"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  id="codigo"
+                  value={formData.codigo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, codigo: e.target.value }))}
+                  className={`
+                    flex-1 rounded-md border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors
+                    ${errors.codigo ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+                  `}
+                  placeholder="Código único del producto"
+                />
+                <button
+                  type="button"
+                  className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+                  title="Generar código automático"
+                  onClick={() => {
+                    const randomSku = `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+                    setFormData(prev => ({ ...prev, codigo: randomSku }));
+                  }}
+                >
+                  Generar
+                </button>
+              </div>
               {errors.codigo && <p className="text-red-600 text-xs mt-1">{errors.codigo}</p>}
             </div>
 
