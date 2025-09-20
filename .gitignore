@@ -1,0 +1,30 @@
+# Dependencias
+node_modules/
+app/web/node_modules/
+
+# Builds / artefactos
+dist/
+build/
+out/
+.vite/
+*.log
+
+# Caches
+.npm/
+.pnpm-store/
+.yarn/
+.yarn-cache/
+.cache/
+
+# Config locales de herramientas/IDE
+.vscode/
+.idea/
+
+# Archivos del SO
+.DS_Store
+Thumbs.db
+
+# Env / secretos
+.env
+.env.*
+!.env.example
