@@ -42,8 +42,8 @@ export const usePreview = () => {
     observations?: string,
     internalNotes?: string
   ): PreviewData => {
-    // Generar número correlativo mock
-    const mockNumber = String(Math.floor(Math.random() * 1000000) + 1).padStart(8, '0');
+    // En vista previa no asignamos correlativo, solo mostramos la serie
+    const mockNumber = null; // No correlativo en preview
     
     // Fecha actual
     const now = new Date();

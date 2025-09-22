@@ -225,7 +225,7 @@ export interface PreviewData {
   clientData: ClientData;
   documentType: TipoComprobante;
   series: string;
-  number: string;
+  number: string | null; // Puede ser null en vista previa
   issueDate: string;
   dueDate?: string;
   currency: string;

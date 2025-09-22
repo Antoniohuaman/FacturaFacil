@@ -12,7 +12,6 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
     clientData,
     documentType,
     series,
-    number,
     issueDate,
     currency,
     paymentMethod,
@@ -64,7 +63,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
             <span className="font-bold text-sm">R.U.C. {companyData.ruc}</span>
           </div>
           <h2 className="font-bold text-base mb-2 text-gray-900">{documentTitle}</h2>
-          <p className="font-bold text-lg text-gray-900">{series}-{number}</p>
+          <p className="font-bold text-lg text-gray-900">{series}-</p>
         </div>
       </div>
 

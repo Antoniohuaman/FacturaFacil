@@ -94,7 +94,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Vista Previa del Comprobante</h2>
                 <p className="text-sm text-gray-600">
-                  {documentType === 'boleta' ? 'Boleta' : 'Factura'} {series}-{previewData.number}
+                  {documentType === 'boleta' ? 'Boleta' : 'Factura'} {series}-
                 </p>
               </div>
             </div>

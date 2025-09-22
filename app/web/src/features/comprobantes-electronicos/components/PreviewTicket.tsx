@@ -12,7 +12,6 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
     clientData,
     documentType,
     series,
-    number,
     currency,
     paymentMethod,
     cartItems,
@@ -66,7 +65,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
       <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
         <div className="border border-black p-2 mb-2">
           <p className="font-bold text-sm">{documentTitle}</p>
-          <p className="font-bold text-lg">{series}-{number}</p>
+          <p className="font-bold text-lg">{series}-</p>
         </div>
         <p className="text-xs">Fecha: {currentDateTime}</p>
         <p className="text-xs">Vendedor: Betzabe</p>
