@@ -7,6 +7,7 @@ import { useCart } from '../hooks/useCart';
 import { usePayment } from '../hooks/usePayment';
 import { useDrafts } from '../hooks/useDrafts';
 import { useDocumentType } from '../hooks/useDocumentType';
+import { usePreview } from '../hooks/usePreview';
 
 // Importar componentes
 import { ComprobantHeader } from '../components/ComprobantHeader';
@@ -20,6 +21,8 @@ import PaymentMethodsSection from '../components/PaymentMethodsSection';
 import { Toast } from '../components/Toast';
 import { DraftModal } from '../components/DraftModal';
 import { PaymentModal } from '../components/PaymentModal';
+import { PreviewModal } from '../components/PreviewModal';
+import ActionButtonsSection from '../components/ActionButtonsSection';
 
 const NuevoComprobante = () => {
   // Use custom hooks
@@ -27,6 +30,7 @@ const NuevoComprobante = () => {
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
   const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleSaveDraft, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
+  const { openPreview, showPreview, closePreview } = usePreview();
 
   // UI state
   const [viewMode, setViewMode] = useState<'form' | 'pos'>('form');
@@ -53,6 +57,28 @@ const NuevoComprobante = () => {
 
   // Calculate totals
   const totals = calculateTotals(cartItems);
+
+  // Handlers para vista previa
+  const handleVistaPrevia = () => {
+    if (cartItems.length === 0) {
+      // Mostrar toast de error - aquí podrías agregar tu sistema de toast
+      console.log('Debe agregar al menos un producto');
+      return;
+    }
+    openPreview();
+  };
+
+  const handleCrearComprobante = () => {
+    // Tu lógica existente para crear comprobante
+    console.log('Crear comprobante:', {
+      tipo: tipoComprobante,
+      serie: serieSeleccionada,
+      productos: cartItems,
+      totales: totals
+    });
+    // Aquí normalmente harías la llamada a la API y luego navegarías
+    // navigate('/comprobantes');
+  };
 
   const handleConfirmSale = () => {
     if (cajaStatus === 'cerrada') {
@@ -133,7 +159,6 @@ const NuevoComprobante = () => {
               tipoComprobante={tipoComprobante}
               serieSeleccionada={serieSeleccionada}
               clearCart={clearCart}
-              navigate={navigate}
             />
               {/* Notes Section Component */}
               <NotesSection 
@@ -141,6 +166,15 @@ const NuevoComprobante = () => {
                 setObservaciones={setObservaciones}
                 notaInterna={notaInterna}
                 setNotaInterna={setNotaInterna}
+              />
+
+              {/* Action Buttons Section */}
+              <ActionButtonsSection
+                onVistaPrevia={handleVistaPrevia}
+                onCancelar={() => navigate('/comprobantes')}
+                onGuardarBorrador={() => setShowDraftModal(true)}
+                onCrearComprobante={() => setShowPaymentModal(true)}
+                isCartEmpty={cartItems.length === 0}
               />
             </div>
 
@@ -195,6 +229,21 @@ const NuevoComprobante = () => {
           setShowPaymentModal(false);
           setViewMode('form');
         }}
+      />
+
+      {/* Preview Modal Component */}
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={closePreview}
+        cartItems={cartItems}
+        documentType={tipoComprobante}
+        series={serieSeleccionada}
+        totals={totals}
+        paymentMethod="CONTADO"
+        currency="PEN"
+        observations={observaciones}
+        internalNotes={notaInterna}
+        onCreateDocument={handleCrearComprobante}
       />
     </div>
   );

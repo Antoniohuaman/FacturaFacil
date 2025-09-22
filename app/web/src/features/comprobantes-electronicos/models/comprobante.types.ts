@@ -7,6 +7,7 @@ export type TipoComprobante = 'boleta' | 'factura';
 export type ViewMode = 'form' | 'pos';
 export type DraftAction = 'borradores' | 'continuar' | 'terminar';
 export type IgvType = 'igv18' | 'igv10' | 'exonerado' | 'inafecto';
+export type PreviewFormat = 'a4' | 'ticket';
 
 // ===================================================================
 // INTERFACES DE PRODUCTOS Y CARRITO
@@ -205,3 +206,40 @@ export type CartUpdateHandler = (id: string, updates: Partial<CartItem>) => void
 export type ProductAddHandler = (products: { product: Product; quantity: number }[]) => void;
 export type PaymentHandler = (amount: number) => void;
 export type ClientSelectHandler = (client: ClientData) => void;
+
+// ===================================================================
+// INTERFACES PARA VISTA PREVIA DE COMPROBANTES
+// ===================================================================
+
+export interface CompanyData {
+  name: string;
+  businessName: string;
+  ruc: string;
+  address: string;
+  phone: string;
+  email: string;
+}
+
+export interface PreviewData {
+  companyData: CompanyData;
+  clientData: ClientData;
+  documentType: TipoComprobante;
+  series: string;
+  number: string;
+  issueDate: string;
+  dueDate?: string;
+  currency: string;
+  paymentMethod: string;
+  cartItems: CartItem[];
+  totals: PaymentTotals;
+  observations?: string;
+  internalNotes?: string;
+}
+
+export interface DetailedTotals extends PaymentTotals {
+  subtotalGravado: number;
+  subtotalExonerado: number;
+  subtotalInafecto: number;
+  descuentos: number;
+  recargos: number;
+}
