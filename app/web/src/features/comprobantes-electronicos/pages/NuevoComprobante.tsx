@@ -39,6 +39,7 @@ const NuevoComprobante = () => {
   const [notaInterna, setNotaInterna] = useState('');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [moneda, setMoneda] = useState('PEN');
+  const [formaPago, setFormaPago] = useState('contado');
   
   // Navigation
   const navigate = useNavigate();
@@ -67,6 +68,20 @@ const NuevoComprobante = () => {
       return;
     }
     openPreview();
+  };
+
+  // Convertir forma de pago a formato para mostrar
+  const getPaymentMethodLabel = (formaPago: string) => {
+    const paymentMethods: { [key: string]: string } = {
+      'contado': 'CONTADO',
+      'deposito': 'DEPÓSITO EN CUENTA',
+      'efectivo': 'EFECTIVO',
+      'plin': 'PLIN',
+      'tarjeta': 'TARJETA',
+      'transferencia': 'TRANSFERENCIA',
+      'yape': 'YAPE'
+    };
+    return paymentMethods[formaPago] || 'CONTADO';
   };
 
   const handleCrearComprobante = () => {
@@ -188,6 +203,8 @@ const NuevoComprobante = () => {
               setReceivedAmount={setReceivedAmount}
               moneda={moneda}
               setMoneda={setMoneda}
+              formaPago={formaPago}
+              setFormaPago={setFormaPago}
             />
           </>
         )}
@@ -242,7 +259,7 @@ const NuevoComprobante = () => {
         documentType={tipoComprobante}
         series={serieSeleccionada}
         totals={totals}
-        paymentMethod="CONTADO"
+        paymentMethod={getPaymentMethodLabel(formaPago)}
         currency={moneda}
         observations={observaciones}
         internalNotes={notaInterna}
