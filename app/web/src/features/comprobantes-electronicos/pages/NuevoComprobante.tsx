@@ -4,6 +4,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import ProductSelector from './ProductSelector';
 import { ArrowLeft, ShoppingCart, Trash2, Minus, Plus, List, Grid3X3, X } from 'lucide-react';
 
+// Unidades de medida disponibles
+const UNIDADES_MEDIDA = [
+  { value: 'UNIDAD', label: 'NIU', fullLabel: '(NIU) UNIDAD' },
+  { value: 'DOCENA', label: 'DZN', fullLabel: '(DZN) DOCENA' },
+  { value: 'CENTIMOS', label: 'CMT', fullLabel: '(CMT) CENTIMOS' },
+  { value: 'KILOGRAMO', label: 'KGM', fullLabel: '(KGM) KILOGRAMO' }
+];
+
 const SalesInvoiceSystem = () => {
   // Estado para mostrar toast de confirmación
   const [showDraftToast, setShowDraftToast] = useState(false);
@@ -481,7 +489,25 @@ const SalesInvoiceSystem = () => {
                                 } : ci))}
                               >+</button>
                             </div>
-                            <div className="text-center text-xs text-gray-500 mt-1">NIU</div>
+                            <div className="flex justify-center mt-1">
+                              <select
+                                value={item.unidad || 'UNIDAD'}
+                                onChange={(e) => {
+                                  setCartItems(prev => prev.map(ci => ci.id === item.id ? {
+                                    ...ci,
+                                    unidad: e.target.value
+                                  } : ci));
+                                }}
+                                className="text-center text-xs text-gray-700 border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:bg-gray-50 min-w-[50px]"
+                                title="Cambiar unidad de medida"
+                              >
+                                {UNIDADES_MEDIDA.map(unidad => (
+                                  <option key={unidad.value} value={unidad.value}>
+                                    {unidad.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </td>
                           <td className="px-4 py-4 text-right text-sm">
                             <input
