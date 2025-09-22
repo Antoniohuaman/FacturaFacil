@@ -38,6 +38,7 @@ const NuevoComprobante = () => {
   const [observaciones, setObservaciones] = useState('');
   const [notaInterna, setNotaInterna] = useState('');
   const [receivedAmount, setReceivedAmount] = useState('');
+  const [moneda, setMoneda] = useState('PEN');
   
   // Navigation
   const navigate = useNavigate();
@@ -185,6 +186,8 @@ const NuevoComprobante = () => {
               totals={totals}
               receivedAmount={receivedAmount}
               setReceivedAmount={setReceivedAmount}
+              moneda={moneda}
+              setMoneda={setMoneda}
             />
           </>
         )}
@@ -240,7 +243,7 @@ const NuevoComprobante = () => {
         series={serieSeleccionada}
         totals={totals}
         paymentMethod="CONTADO"
-        currency="PEN"
+        currency={moneda}
         observations={observaciones}
         internalNotes={notaInterna}
         onCreateDocument={handleCrearComprobante}
