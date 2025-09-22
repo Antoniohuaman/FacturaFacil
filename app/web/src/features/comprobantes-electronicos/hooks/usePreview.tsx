@@ -15,8 +15,8 @@ export const usePreview = () => {
 
   // Mock company data - en producción vendría de tu configuración
   const mockCompanyData: CompanyData = {
-    name: "TANDIA TEST S.A.C.",
-    businessName: "TANDIA TEST SOCIEDAD ANONIMA CERRADA",
+    name: "EMPRENDEDOR FACIL S.A.C.",
+    businessName: "EMPRENDEDOR FACIL S.A.C.",
     ruc: "20522022186",
     address: "CAL. MARIO JOSE DE LA MIZO 129 INT. 1302 COM. SAN MIGUEL DE MIRAFLORES LIMA LIMA MIRAFLORES",
     phone: "987654321",
@@ -123,7 +123,7 @@ export const usePreview = () => {
   // Generar URL del QR (mock)
   const generateQRUrl = (previewData: PreviewData): string => {
     // En producción, esto sería la URL real de SUNAT
-    const baseUrl = 'https://comprobantes.tandiashop.com/';
+    const baseUrl = 'https://comprobantes.facturafacil.com/';
     const qrData = `${previewData.companyData.ruc}|${previewData.documentType === 'boleta' ? '03' : '01'}|${previewData.series}|${previewData.number}|${previewData.totals.igv.toFixed(2)}|${previewData.totals.total.toFixed(2)}|${previewData.issueDate}|${previewData.clientData.tipoDocumento.toUpperCase()}|${previewData.clientData.documento}`;
     
     return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(baseUrl + qrData)}`;

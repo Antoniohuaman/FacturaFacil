@@ -202,7 +202,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
           />
           <p className="text-xs text-gray-600 max-w-[200px] leading-tight">
             Consulta tu comprobante en<br />
-            https://comprobantes.tandiashop.com/
+            https://comprobantes.facturafacil.com/
           </p>
         </div>
 

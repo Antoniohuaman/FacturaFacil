@@ -163,7 +163,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         />
         <p className="text-xs leading-tight">
           Consulta tu comprobante en<br />
-          https://comprobantes.tandiashop.com/
+          https://comprobantes.facturafacil.com/
         </p>
       </div>
 
