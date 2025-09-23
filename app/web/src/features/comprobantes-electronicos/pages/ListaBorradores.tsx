@@ -173,6 +173,51 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   // Unir mockDrafts y localDrafts
   const drafts: Draft[] = [...mockDrafts, ...localDrafts];
 
+  // Función para parsear fechas en formato español (ej: "20 ago. 2025 19:17")
+  const parseDraftDate = (dateStr: string): Date | null => {
+    try {
+      const spanishMonths = {
+        'ene.': 0, 'feb.': 1, 'mar.': 2, 'abr.': 3, 'may.': 4, 'jun.': 5,
+        'jul.': 6, 'ago.': 7, 'set.': 8, 'oct.': 9, 'nov.': 10, 'dic.': 11
+      } as const;
+      
+      // Dividir fecha y hora
+      const parts = dateStr.split(' ');
+      if (parts.length < 3) return null;
+      
+      const day = parseInt(parts[0]);
+      const month = spanishMonths[parts[1] as keyof typeof spanishMonths];
+      const year = parseInt(parts[2]);
+      
+      if (isNaN(day) || month === undefined || isNaN(year)) return null;
+      
+      return new Date(year, month, day);
+    } catch {
+      return null;
+    }
+  };
+
+  // Función para filtrar borradores por rango de fechas
+  const filterDraftsByDateRange = (drafts: Draft[], fromDate: string, toDate: string): Draft[] => {
+    if (!fromDate && !toDate) return drafts;
+    
+    const from = fromDate ? new Date(fromDate) : null;
+    const to = toDate ? new Date(toDate) : null;
+    
+    return drafts.filter(draft => {
+      const draftDate = parseDraftDate(draft.createdDate);
+      if (!draftDate) return true; // Include if can't parse date
+      
+      if (from && draftDate < from) return false;
+      if (to && draftDate > to) return false;
+      
+      return true;
+    });
+  };
+
+  // Aplicar filtros de fecha
+  const filteredDrafts = filterDraftsByDateRange(drafts, dateFrom, dateTo);
+
   // Validación de fecha de creación para emisión masiva
   const validateDraftsForEmit = (selectedIds: string[]) => {
     const today = new Date();
@@ -255,23 +300,23 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   };
 
   const handleSelectAll = () => {
-    if (selectedDrafts.length === drafts.length) {
+    if (selectedDrafts.length === filteredDrafts.length) {
       setSelectedDrafts([]);
     } else {
-      setSelectedDrafts(drafts.map((draft) => draft.id));
+      setSelectedDrafts(filteredDrafts.map((draft) => draft.id));
     }
   };
 
-  const totalRecords = 47;
+  const totalRecords = filteredDrafts.length;
   const recordsPerPage = 25;
   const startRecord = (currentPage - 1) * recordsPerPage + 1;
   const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
 
-  // Calculate summary stats
-  const vigenteDrafts = drafts.filter(d => d.status === 'Vigente').length;
-  const porVencerDrafts = drafts.filter(d => d.status === 'Por vencer').length;
-  const vencidoDrafts = drafts.filter(d => d.status === 'Vencido').length;
-  const totalValue = drafts.reduce((sum, draft) => sum + draft.total, 0);
+  // Calculate summary stats using filtered drafts
+  const vigenteDrafts = filteredDrafts.filter(d => d.status === 'Vigente').length;
+  const porVencerDrafts = filteredDrafts.filter(d => d.status === 'Por vencer').length;
+  const vencidoDrafts = filteredDrafts.filter(d => d.status === 'Vencido').length;
+  const totalValue = filteredDrafts.reduce((sum, draft) => sum + draft.total, 0);
 
   return (
     <div className={`min-h-screen bg-gray-50 ${hideSidebar ? '' : 'flex'}`}>
@@ -289,7 +334,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                 <Edit className="w-4 h-4 mr-3" />
                 Borradores
                 <span className="ml-auto bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">
-                  {drafts.length}
+                  {filteredDrafts.length}
                 </span>
               </a>
               <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
@@ -481,7 +526,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                     <th className="px-6 py-3 text-left">
                       <input
                         type="checkbox"
-                        checked={selectedDrafts.length === drafts.length}
+                        checked={selectedDrafts.length === filteredDrafts.length && filteredDrafts.length > 0}
                         onChange={handleSelectAll}
                         className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                       />
@@ -543,7 +588,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {drafts.map((draft, index) => (
+                  {filteredDrafts.map((draft, index) => (
                     <tr key={index} className={`hover:bg-gray-50 transition-colors ${selectedDrafts.includes(draft.id) ? 'bg-blue-50' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
