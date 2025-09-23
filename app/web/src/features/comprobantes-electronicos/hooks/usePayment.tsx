@@ -41,12 +41,28 @@ export const usePayment = (currency: Currency = 'PEN') => {
 
     const subtotal = cartItems.reduce((sum, item) => {
       const itemPrice = item.price * item.quantity;
-      return sum + (item.igvType === 'igv18' ? itemPrice / 1.18 : itemPrice);
+      // Calcular precio sin IGV según el tipo
+      if (item.igvType === 'igv18') {
+        return sum + (itemPrice / 1.18);
+      } else if (item.igvType === 'igv10') {
+        return sum + (itemPrice / 1.10);
+      } else {
+        // exonerado, inafecto, gratuita
+        return sum + itemPrice;
+      }
     }, 0);
 
     const igv = cartItems.reduce((sum, item) => {
       const itemPrice = item.price * item.quantity;
-      return sum + (item.igvType === 'igv18' ? itemPrice * 0.18 / 1.18 : 0);
+      // Calcular IGV según el tipo
+      if (item.igvType === 'igv18') {
+        return sum + (itemPrice * 0.18 / 1.18);
+      } else if (item.igvType === 'igv10') {
+        return sum + (itemPrice * 0.10 / 1.10);
+      } else {
+        // exonerado, inafecto, gratuita = 0% IGV
+        return sum + 0;
+      }
     }, 0);
 
     const total = cartItems.reduce((sum, item) => {

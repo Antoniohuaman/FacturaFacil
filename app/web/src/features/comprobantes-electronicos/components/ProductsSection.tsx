@@ -138,9 +138,9 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                 <td className="px-4 py-4 text-right text-sm">
                   <input
                     type="number"
-                    value={item.price}
+                    value={item.price.toFixed(2)}
                     min={0}
-                    step={0.01}
+                    step={0.10}
                     className="w-24 px-2 py-1 border rounded text-right"
                     onChange={e => {
                       const newPrice = parseFloat(e.target.value) || 0;
@@ -209,7 +209,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               <span className="text-gray-600">Descuentos</span>
               <div className="flex items-center space-x-2">
                 <span className="text-gray-900">S/</span>
-                <input type="number" value="0" className="w-16 px-2 py-1 text-right text-sm border border-gray-300 rounded" readOnly />
+                <input type="number" value="0.00" className="w-16 px-2 py-1 text-right text-sm border border-gray-300 rounded" readOnly />
               </div>
             </div>
             <div className="flex justify-between text-sm">
@@ -224,7 +224,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               <span className="text-gray-600">Redondeo</span>
               <div className="flex items-center space-x-2">
                 <span className="text-gray-900">S/</span>
-                <input type="number" value="0" className="w-16 px-2 py-1 text-right text-sm border border-gray-300 rounded" readOnly />
+                <input type="number" value="0.00" className="w-16 px-2 py-1 text-right text-sm border border-gray-300 rounded" readOnly />
               </div>
             </div>
             <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-3">

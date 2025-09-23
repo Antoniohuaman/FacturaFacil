@@ -121,8 +121,8 @@ const ProductsPage: React.FC = () => {
           <input
             type="number"
             min="0"
-            step="0.01"
-            value={filters.rangoPrecios.min}
+            step="0.10"
+            value={filters.rangoPrecios.min.toFixed(2)}
             onChange={(e) => updateFilters({ 
               rangoPrecios: { ...filters.rangoPrecios, min: parseFloat(e.target.value) || 0 }
             })}
@@ -138,8 +138,8 @@ const ProductsPage: React.FC = () => {
           <input
             type="number"
             min="0"
-            step="0.01"
-            value={filters.rangoPrecios.max}
+            step="0.10"
+            value={filters.rangoPrecios.max.toFixed(2)}
             onChange={(e) => updateFilters({ 
               rangoPrecios: { ...filters.rangoPrecios, max: parseFloat(e.target.value) || 50000 }
             })}
