@@ -42,6 +42,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
+  // Estado para el input de precio (permite borrar y escribir libremente)
+  const [precioInput, setPrecioInput] = useState<string>('0.00');
   // Estado para mostrar el modal de categoría
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
@@ -58,6 +60,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
         impuesto: product.impuesto || 'IGV (18.00%)',
         descripcion: product.descripcion || ''
       });
+      setPrecioInput(product.precio.toFixed(2));
       setImagePreview(product.imagen || '');
     } else {
       setFormData({
@@ -71,6 +74,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
         impuesto: 'IGV (18.00%)',
         descripcion: ''
       });
+      setPrecioInput('0.00');
       setImagePreview('');
     }
     setErrors({});
@@ -226,10 +230,15 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   <input
                     type="number"
                     id="precio"
-                    step="0.10"
+                    step="1"
                     min="0"
-                    value={formData.precio.toFixed(2)}
-                    onChange={(e) => setFormData(prev => ({ ...prev, precio: parseFloat(e.target.value) || 0 }))}
+                    value={precioInput}
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      setPrecioInput(inputValue);
+                      const numericValue = parseFloat(inputValue) || 0;
+                      setFormData(prev => ({ ...prev, precio: numericValue }));
+                    }}
                     className={`
                       w-full pl-10 pr-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors
                       ${errors.precio ? 'border-red-300 bg-red-50' : 'border-gray-300'}
