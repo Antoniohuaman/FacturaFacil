@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { CartItem, DraftAction, TipoComprobante } from '../models/comprobante.types';
 import { UNIDADES_MEDIDA } from '../models/constants';
 import ProductSelector from '../pages/ProductSelector';
@@ -51,9 +51,6 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   serieSeleccionada,
   clearCart,
 }) => {
-  // Estado local para manejar la edición de precios
-  const [editingPrices, setEditingPrices] = useState<Record<string, string>>({});
-
   // Función temporal para generar precios múltiples (será reemplazado por módulo de precios)
   const getAvailablePrices = (basePrice: number) => [
     { value: 'base' as const, label: 'Precio Base', price: basePrice },
@@ -170,48 +167,35 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                         </option>
                       ))}
                     </select>
-                    {/* Mostrar input editable solo para Precio Base */}
+                    {/* Input de precio totalmente flexible */}
                     {(item.priceType || 'base') === 'base' ? (
                       <input
-                        type="number"
-                        value={editingPrices[item.id] !== undefined ? editingPrices[item.id] : item.price.toFixed(2)}
-                        min={0}
-                        step={0.10}
+                        key={`price-${item.id}-${item.price}`}
+                        type="text"
+                        defaultValue={item.price.toFixed(2)}
                         className="w-20 px-2 py-1 border rounded text-right text-xs"
                         placeholder="0.00"
-                        onFocus={() => {
-                          // Al hacer focus, usar el valor sin formato para edición libre
-                          setEditingPrices(prev => ({
-                            ...prev,
-                            [item.id]: item.price.toString()
-                          }));
-                        }}
-                        onChange={e => {
-                          // Mantener el valor temporal en el estado local
-                          setEditingPrices(prev => ({
-                            ...prev,
-                            [item.id]: e.target.value
-                          }));
-                        }}
                         onBlur={e => {
-                          // Al salir del campo, formatear y guardar
-                          const value = parseFloat(e.target.value) || 0;
-                          const formattedValue = parseFloat(value.toFixed(2));
-                          updateCartItem(item.id, { 
-                            price: formattedValue,
-                            basePrice: formattedValue
-                          });
-                          // Limpiar el estado temporal
-                          setEditingPrices(prev => {
-                            const newState = { ...prev };
-                            delete newState[item.id];
-                            return newState;
-                          });
-                        }}
-                        onKeyDown={e => {
-                          // Si presiona Enter, también formatear
-                          if (e.key === 'Enter') {
-                            e.currentTarget.blur();
+                          // Solo validar y formatear al salir del campo
+                          const value = e.target.value.trim();
+                          if (value === '') {
+                            // Si está vacío, usar 0
+                            const formatted = parseFloat('0').toFixed(2);
+                            updateCartItem(item.id, { 
+                              price: 0,
+                              basePrice: 0
+                            });
+                            e.target.value = formatted;
+                          } else {
+                            // Limpiar caracteres no válidos y convertir
+                            const cleanValue = value.replace(/[^0-9.]/g, '');
+                            const numValue = parseFloat(cleanValue) || 0;
+                            const formatted = parseFloat(numValue.toFixed(2));
+                            updateCartItem(item.id, { 
+                              price: formatted,
+                              basePrice: formatted
+                            });
+                            e.target.value = formatted.toFixed(2);
                           }
                         }}
                       />
