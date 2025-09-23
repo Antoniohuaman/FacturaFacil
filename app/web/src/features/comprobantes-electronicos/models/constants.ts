@@ -228,6 +228,17 @@ export const UI_MESSAGES = {
 };
 
 // ===================================================================
+// TIPOS DE PRECIO (TEMPORAL - SERÁ REEMPLAZADO POR MÓDULO DE PRECIOS)
+// ===================================================================
+export const PRICE_TYPES = {
+  base: { value: 'base' as const, label: 'Precio Base' },
+  mayorista: { value: 'mayorista' as const, label: 'Precio Mayorista' },
+  distribuidor: { value: 'distribuidor' as const, label: 'Precio Distribuidor' },
+  vip: { value: 'vip' as const, label: 'Precio VIP' },
+  campana: { value: 'campana' as const, label: 'Precio Campaña' }
+} as const;
+
+// ===================================================================
 // CONFIGURACIÓN DE FORMULARIOS
 // ===================================================================
 export const FORM_VALIDATION = {
