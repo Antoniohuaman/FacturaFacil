@@ -23,10 +23,10 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({ empresa, usuario, onEmpre
   <div className={`flex flex-col items-center py-6 bg-white border-b ${collapsed ? 'justify-center' : ''}`}>
     <div className={`rounded-full bg-gray-100 flex items-center justify-center overflow-hidden ${collapsed ? 'w-12 h-12 mb-0' : 'w-24 h-24 mb-3'}`}>
       <img
-        src="/starbucks-logo.png"
+        src="/perfil.jpeg"
         alt="Logo"
-        className={collapsed ? 'w-10 h-10 object-contain rounded-full shadow' : 'w-20 h-20 object-contain rounded-full shadow'}
-        style={{ background: 'white', display: 'block' }}
+        className={collapsed ? 'w-full h-full object-cover' : 'w-full h-full object-cover'}
+        style={{ display: 'block' }}
       />
     </div>
     {!collapsed && (
