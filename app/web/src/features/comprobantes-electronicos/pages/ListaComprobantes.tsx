@@ -8,6 +8,38 @@ function getToday() {
   return d.toISOString().slice(0, 10);
 }
 
+// Función para convertir fecha del formato "20 ago. 2025 19:17" a Date
+function parseInvoiceDate(dateStr: string): Date {
+  const monthMap: Record<string, number> = {
+    'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
+    'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+  };
+  
+  const parts = dateStr.split(' ');
+  const day = parseInt(parts[0]);
+  const month = monthMap[parts[1].replace('.', '')];
+  const year = parseInt(parts[2]);
+  
+  return new Date(year, month, day);
+}
+
+// Función para filtrar facturas por rango de fechas
+function filterInvoicesByDateRange(invoices: any[], dateFrom: string, dateTo: string) {
+  if (!dateFrom && !dateTo) return invoices;
+  
+  const fromDate = dateFrom ? new Date(dateFrom) : null;
+  const toDate = dateTo ? new Date(dateTo) : null;
+  
+  return invoices.filter(invoice => {
+    const invoiceDate = parseInvoiceDate(invoice.date);
+    
+    if (fromDate && invoiceDate < fromDate) return false;
+    if (toDate && invoiceDate > toDate) return false;
+    
+    return true;
+  });
+}
+
 const InvoiceListDashboard = () => {
   // Estado para selección masiva y popup de impresión
   const navigate = useNavigate();
@@ -17,7 +49,7 @@ const InvoiceListDashboard = () => {
   const [printFormat, setPrintFormat] = useState<'A4' | 'ticket'>('A4');
   // const navigate = useNavigate(); // Eliminado porque no se usa
   const [dateFrom, setDateFrom] = useState(getToday());
-  const [dateTo, setDateTo] = useState('');
+  const [dateTo, setDateTo] = useState(getToday());
   const [currentPage, setCurrentPage] = useState(1);
   const [showTotals, setShowTotals] = useState(false);
 
@@ -157,6 +189,9 @@ const InvoiceListDashboard = () => {
     }
   ];
 
+  // Datos filtrados por rango de fechas
+  const filteredInvoices = filterInvoicesByDateRange(invoices, dateFrom, dateTo);
+
   const getStatusBadge = (status: string, color: 'blue' | 'green' | 'red' | 'orange') => {
     const colorClasses: Record<'blue' | 'green' | 'red' | 'orange', string> = {
       blue: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -269,7 +304,7 @@ const InvoiceListDashboard = () => {
                   >Cancelar</button>
                   <button
                     className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium"
-                    onClick={() => setSelectedInvoices(invoices.map(inv => inv.id))}
+                    onClick={() => setSelectedInvoices(filteredInvoices.map(inv => inv.id))}
                   >Seleccionar página</button>
                   <button
                     className="px-6 py-2 rounded-md bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-colors"
@@ -294,7 +329,7 @@ const InvoiceListDashboard = () => {
                   {massPrintMode && (
                     <th className="px-2 py-3">
                       <input type="checkbox" checked={selectedInvoices.length === invoices.length} onChange={e => {
-                        if (e.target.checked) setSelectedInvoices(invoices.map(inv => inv.id));
+                        if (e.target.checked) setSelectedInvoices(filteredInvoices.map(inv => inv.id));
                         else setSelectedInvoices([]);
                       }} />
                     </th>
@@ -350,7 +385,7 @@ const InvoiceListDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {invoices.map((invoice, index) => (
+                {filteredInvoices.map((invoice, index) => (
                   <tr key={index} className={`hover:bg-gray-50 transition-colors ${massPrintMode && selectedInvoices.includes(invoice.id) ? 'bg-blue-50' : ''}`}>
                     {massPrintMode && (
                       <td className="px-2 py-4">
