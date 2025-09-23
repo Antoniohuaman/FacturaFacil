@@ -102,7 +102,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">
-                  {activeStep === 'document' ? 'Configurar Comprobante' : 'Procesar Pago'}
+                  {activeStep === 'document' ? 'Confirmando datos ingresados' : 'Procesar Pago'}
                 </h2>
                 <p className="text-sm text-gray-600">
                   {activeStep === 'document' 
