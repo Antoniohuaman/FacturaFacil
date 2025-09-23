@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useCaja } from '../../control-caja/store/CajaContext';
 import { useNavigate } from 'react-router-dom';
+import type { Currency } from '../models/comprobante.types';
+import { AVAILABLE_PRODUCTS } from '../models/constants';
 
 // Importar hooks customizados
 import { useCart } from '../hooks/useCart';
 import { usePayment } from '../hooks/usePayment';
+import { useCurrency } from '../hooks/useCurrency';
 import { useDrafts } from '../hooks/useDrafts';
 import { useDocumentType } from '../hooks/useDocumentType';
 import { usePreview } from '../hooks/usePreview';
@@ -28,6 +31,7 @@ const NuevoComprobante = () => {
   // Use custom hooks
   const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
+  const { currentCurrency, changeCurrency } = useCurrency();
   const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleSaveDraft, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
   const { openPreview, showPreview, closePreview } = usePreview();
@@ -38,24 +42,15 @@ const NuevoComprobante = () => {
   const [observaciones, setObservaciones] = useState('');
   const [notaInterna, setNotaInterna] = useState('');
   const [receivedAmount, setReceivedAmount] = useState('');
-  const [moneda, setMoneda] = useState('PEN');
+  const [moneda, setMoneda] = useState<Currency>('PEN');
   const [formaPago, setFormaPago] = useState('contado');
   
   // Navigation
   const navigate = useNavigate();
   const { status: cajaStatus } = useCaja();
 
-  // Available products (mock data - should come from API)
-  const availableProducts = [
-    { id: '1', code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00, category: 'Útiles' },
-    { id: '2', code: '00168822', name: 'Sketch ARTESCO', price: 18.00, category: 'Útiles' },
-    { id: '3', code: '00170001', name: 'Resma Bond A3', price: 120.00, category: 'Útiles' },
-    { id: '4', code: '00180001', name: 'Lapicero BIC', price: 2.50, category: 'Útiles' },
-    { id: '5', code: '00190001', name: 'Cuaderno Loro', price: 8.00, category: 'Útiles' },
-    { id: '6', code: '00145678', name: 'Martillo de acero', price: 45.50, category: 'Herramientas' },
-    { id: '7', code: '00187654', name: 'Destornillador Phillips', price: 12.00, category: 'Herramientas' },
-    { id: '8', code: '00198765', name: 'Taladro eléctrico', price: 250.00, category: 'Herramientas' }
-  ];
+  // Available products (now using centralized constants)
+  const availableProducts = AVAILABLE_PRODUCTS;
 
   // Calculate totals
   const totals = calculateTotals(cartItems);
@@ -130,11 +125,13 @@ const NuevoComprobante = () => {
             <CartSidebar 
               cartItems={cartItems}
               totals={totals}
-              onRemoveFromCart={removeFromCart}
+              onRemoveItem={removeFromCart}
               onUpdateQuantity={updateCartQuantity}
               onConfirmSale={handleConfirmSale}
               onClearCart={clearCart}
-              onGoToForm={() => setViewMode('form')}
+              onViewFullForm={() => setViewMode('form')}
+              onAddProduct={addToCart}
+              currency={currentCurrency}
             />
 
             {/* Client Sidebar Component */}
@@ -202,7 +199,7 @@ const NuevoComprobante = () => {
               receivedAmount={receivedAmount}
               setReceivedAmount={setReceivedAmount}
               moneda={moneda}
-              setMoneda={setMoneda}
+              setMoneda={(value: string) => setMoneda(value as Currency)}
               formaPago={formaPago}
               setFormaPago={setFormaPago}
             />
@@ -234,21 +231,23 @@ const NuevoComprobante = () => {
 
       {/* Payment Modal Component */}
       <PaymentModal 
-        show={showPaymentModal}
+        isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         cartItems={cartItems}
         totals={totals}
         tipoComprobante={tipoComprobante}
-        onTipoComprobanteChange={setTipoComprobante}
-        onPaymentComplete={(data) => {
-          console.log('Payment completed:', data);
+        setTipoComprobante={setTipoComprobante}
+        onPaymentComplete={() => {
+          console.log('Payment completed');
           setShowPaymentModal(false);
           navigate('/comprobantes');
         }}
-        onGoToForm={() => {
+        onViewFullForm={() => {
           setShowPaymentModal(false);
           setViewMode('form');
         }}
+        currency={currentCurrency}
+        onCurrencyChange={changeCurrency}
       />
 
       {/* Preview Modal Component */}

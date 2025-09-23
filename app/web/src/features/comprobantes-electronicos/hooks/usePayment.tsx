@@ -2,162 +2,101 @@
 // HOOK PARA MANEJO DE PAGOS Y CÁLCULOS FINANCIEROS
 // ===================================================================
 
-import { useState, useCallback } from 'react';
-import type { CartItem, PaymentTotals } from '../models/comprobante.types';
-import { QUICK_PAYMENT_BASE_AMOUNTS, SYSTEM_CONFIG } from '../models/constants';
+import { useState, useCallback, useMemo } from 'react';
+import type { CartItem, PaymentTotals, Currency } from '../models/comprobante.types';
+import { QUICK_PAYMENT_BASE_AMOUNTS } from '../models/constants';
+import { useCurrency } from './useCurrency';
 
-export interface UsePaymentReturn {
-  // Estados de pago
-  cashBills: number[];
-  receivedAmount: string;
-  customAmount: string;
-  showPaymentModal: boolean;
-  
-  // Funciones de pago
-  setCashBills: (bills: number[] | ((prev: number[]) => number[])) => void;
-  setReceivedAmount: (amount: string | ((prev: string) => string)) => void;
-  setCustomAmount: (amount: string) => void;
-  setShowPaymentModal: (show: boolean) => void;
-  clearPaymentData: () => void;
-  
-  // Funciones de cálculo
-  calculateTotals: (cartItems: CartItem[]) => PaymentTotals;
-  calculateChange: (total: number) => number;
-  getQuickPaymentAmounts: (total: number) => number[];
-  getTotalReceived: () => number;
-  
-  // Funciones de botones de pago rápido
-  addQuickPayment: (amount: number) => void;
-  setExactAmount: (amount: number) => void;
-  clearReceivedAmount: () => void;
-  addToReceivedAmount: (amount: number) => void;
-  
-  // Estados calculados
-  isPaymentSufficient: (total: number) => boolean;
-  paymentSummary: (total: number) => {
-    amountToPay: number;
-    amountReceived: number;
-    change: number;
-    isExact: boolean;
-    isSufficient: boolean;
-  };
+interface CashBill {
+  id: string;
+  amount: number;
+  quantity: number;
 }
 
-export const usePayment = (): UsePaymentReturn => {
-  // ===================================================================
-  // ESTADOS DE PAGO
-  // ===================================================================
-  const [cashBills, setCashBills] = useState<number[]>([]);
-  const [receivedAmount, setReceivedAmount] = useState('');
-  const [customAmount, setCustomAmount] = useState('');
+export const usePayment = (currency: Currency = 'PEN') => {
+  const { formatPrice } = useCurrency();
+  
+  // Estados existentes
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [cashBills, setCashBills] = useState<CashBill[]>([]);
+  const [receivedAmount, setReceivedAmount] = useState<number>(0);
+  const [customAmount, setCustomAmount] = useState<string>('');
 
   // ===================================================================
   // FUNCIONES DE CÁLCULO PRINCIPALES
   // ===================================================================
 
   /**
-   * Calcular totales financieros del carrito
-   * Mantiene exactamente la misma lógica del archivo original
+   * Función para calcular totales (mejorada con monedas)
    */
   const calculateTotals = useCallback((cartItems: CartItem[]): PaymentTotals => {
-    // Calcula usando el IGV actual de cada producto
+    if (!cartItems || cartItems.length === 0) {
+      return {
+        subtotal: 0,
+        igv: 0,
+        total: 0,
+        currency: currency
+      };
+    }
+
     const subtotal = cartItems.reduce((sum, item) => {
-      const igvPercent = item.igv !== undefined ? item.igv : SYSTEM_CONFIG.DEFAULT_IGV_PERCENT;
-      return sum + (item.price * item.quantity) / (1 + igvPercent / 100);
+      const itemPrice = item.price * item.quantity;
+      return sum + (item.igvType === 'igv18' ? itemPrice / 1.18 : itemPrice);
     }, 0);
-    
-    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const igv = total - subtotal;
-    
-    return { subtotal, igv, total };
-  }, []);
+
+    const igv = cartItems.reduce((sum, item) => {
+      const itemPrice = item.price * item.quantity;
+      return sum + (item.igvType === 'igv18' ? itemPrice * 0.18 / 1.18 : 0);
+    }, 0);
+
+    const total = cartItems.reduce((sum, item) => {
+      return sum + (item.price * item.quantity);
+    }, 0);
+
+    return {
+      subtotal: Number(subtotal.toFixed(2)),
+      igv: Number(igv.toFixed(2)),
+      total: Number(total.toFixed(2)),
+      currency: currency
+    };
+  }, [currency]);
 
   /**
-   * Obtener montos de pago rápido
-   * Incluye el total como primer elemento + montos base
+   * Generar montos de pago rápido basados en el total y moneda
    */
   const getQuickPaymentAmounts = useCallback((total: number): number[] => {
-    return [total, ...QUICK_PAYMENT_BASE_AMOUNTS];
+    const baseAmounts = [...QUICK_PAYMENT_BASE_AMOUNTS];
+    
+    // Agregar el monto exacto al inicio
+    const amounts = [total, ...baseAmounts];
+    
+    // Filtrar duplicados y ordenar
+    const uniqueAmounts = Array.from(new Set(amounts))
+      .filter(amount => amount >= total)
+      .sort((a, b) => a - b)
+      .slice(0, 5); // Máximo 5 opciones
+
+    return uniqueAmounts;
   }, []);
 
   /**
-   * Calcular total recibido
-   * Suma billetes seleccionados o monto manual
+   * Calcular el total recibido
    */
   const getTotalReceived = useCallback((): number => {
-    const fromBills = cashBills.reduce((sum, bill) => sum + bill, 0);
-    const fromInput = parseFloat(receivedAmount || customAmount) || 0;
-    return fromBills || fromInput;
-  }, [cashBills, receivedAmount, customAmount]);
+    if (customAmount && !isNaN(parseFloat(customAmount))) {
+      return parseFloat(customAmount);
+    }
+    
+    return cashBills.reduce((sum, bill) => sum + (bill.amount * bill.quantity), 0);
+  }, [cashBills, customAmount]);
 
   /**
-   * Calcular vuelto
-   * Mantiene exactamente la misma lógica del archivo original
+   * Calcular el vuelto
    */
   const calculateChange = useCallback((total: number): number => {
     const received = getTotalReceived();
-    return received - total;
+    return Math.max(0, received - total);
   }, [getTotalReceived]);
-
-  // ===================================================================
-  // FUNCIONES DE BOTONES DE PAGO RÁPIDO
-  // ===================================================================
-
-  /**
-   * Agregar monto a billetes seleccionados
-   */
-  const addQuickPayment = useCallback((amount: number) => {
-    setCashBills(prev => [...prev, amount]);
-    // Limpiar input manual al usar botones
-    setReceivedAmount('');
-    setCustomAmount('');
-  }, []);
-
-  /**
-   * Establecer monto exacto (para botón de total exacto)
-   */
-  const setExactAmount = useCallback((amount: number) => {
-    setCashBills([amount]);
-    setReceivedAmount('');
-    setCustomAmount('');
-  }, []);
-
-  /**
-   * Limpiar monto recibido
-   */
-  const clearReceivedAmount = useCallback(() => {
-    setReceivedAmount('0');
-    setCashBills([]);
-    setCustomAmount('');
-  }, []);
-
-  /**
-   * Agregar cantidad al monto recibido
-   * Mantiene exactamente la misma lógica del archivo original
-   */
-  const addToReceivedAmount = useCallback((amount: number) => {
-    setReceivedAmount(prev => ((parseFloat(prev) || 0) + amount).toFixed(2));
-    setCashBills([]);
-  }, []);
-
-  // ===================================================================
-  // FUNCIONES DE GESTIÓN DE ESTADO
-  // ===================================================================
-
-  /**
-   * Limpiar todos los datos de pago
-   */
-  const clearPaymentData = useCallback(() => {
-    setCashBills([]);
-    setReceivedAmount('');
-    setCustomAmount('');
-    setShowPaymentModal(false);
-  }, []);
-
-  // ===================================================================
-  // FUNCIONES DE VALIDACIÓN
-  // ===================================================================
 
   /**
    * Verificar si el pago es suficiente
@@ -167,56 +106,180 @@ export const usePayment = (): UsePaymentReturn => {
   }, [getTotalReceived]);
 
   // ===================================================================
-  // RESUMEN DE PAGO CALCULADO
+  // FUNCIONES DE BOTONES DE PAGO RÁPIDO
   // ===================================================================
 
   /**
-   * Generar resumen completo del pago
+   * Agregar pago rápido
    */
-  const paymentSummary = useCallback((total: number) => {
-    const amountReceived = getTotalReceived();
-    const change = amountReceived - total;
-    
-    return {
-      amountToPay: total,
-      amountReceived,
-      change,
-      isExact: Math.abs(change) < 0.01, // Considerando precision de centavos
-      isSufficient: amountReceived >= total
-    };
-  }, [getTotalReceived]);
+  const addQuickPayment = useCallback((amount: number) => {
+    setCustomAmount(amount.toString());
+    setCashBills([]); // Limpiar billetes cuando se usa monto rápido
+  }, []);
+
+  /**
+   * Establecer monto exacto
+   */
+  const setExactAmount = useCallback((total: number) => {
+    addQuickPayment(total);
+  }, [addQuickPayment]);
+
+  /**
+   * Limpiar montos recibidos
+   */
+  const clearReceivedAmount = useCallback(() => {
+    setCustomAmount('');
+    setCashBills([]);
+    setReceivedAmount(0);
+  }, []);
+
+  /**
+   * Agregar/actualizar billete
+   */
+  const addCashBill = useCallback((amount: number) => {
+    setCashBills(prev => {
+      const existingBill = prev.find(bill => bill.amount === amount);
+      
+      if (existingBill) {
+        return prev.map(bill =>
+          bill.amount === amount
+            ? { ...bill, quantity: bill.quantity + 1 }
+            : bill
+        );
+      } else {
+        return [...prev, {
+          id: Date.now().toString(),
+          amount,
+          quantity: 1
+        }];
+      }
+    });
+    setCustomAmount(''); // Limpiar monto custom cuando se usan billetes
+  }, []);
+
+  /**
+   * Remover billete
+   */
+  const removeCashBill = useCallback((amount: number) => {
+    setCashBills(prev => {
+      return prev.map(bill =>
+        bill.amount === amount && bill.quantity > 0
+          ? { ...bill, quantity: bill.quantity - 1 }
+          : bill
+      ).filter(bill => bill.quantity > 0);
+    });
+  }, []);
 
   // ===================================================================
-  // RETORNO DEL HOOK
+  // FUNCIONES DE GESTIÓN DE ESTADO
   // ===================================================================
+
+  /**
+   * Obtener resumen de pago
+   */
+  const getPaymentSummary = useCallback((total: number) => {
+    const received = getTotalReceived();
+    const change = calculateChange(total);
+    const sufficient = isPaymentSufficient(total);
+
+    return {
+      total: Number(total.toFixed(2)),
+      received: Number(received.toFixed(2)),
+      change: Number(change.toFixed(2)),
+      sufficient,
+      currency: currency,
+      formattedTotal: formatPrice(total, currency),
+      formattedReceived: formatPrice(received, currency),
+      formattedChange: formatPrice(change, currency)
+    };
+  }, [getTotalReceived, calculateChange, isPaymentSufficient, currency, formatPrice]);
+
+  /**
+   * Formatear montos de pago rápido
+   */
+  const formatQuickPaymentAmounts = useCallback((total: number) => {
+    const amounts = getQuickPaymentAmounts(total);
+    return amounts.map(amount => ({
+      amount,
+      formatted: formatPrice(amount, currency),
+      isExact: amount === total
+    }));
+  }, [getQuickPaymentAmounts, formatPrice, currency]);
+
+  /**
+   * Procesar pago
+   */
+  const processPayment = useCallback(async (
+    cartItems: CartItem[],
+    tipoComprobante: 'boleta' | 'factura',
+    clientData?: any
+  ) => {
+    const totals = calculateTotals(cartItems);
+    const paymentSummary = getPaymentSummary(totals.total);
+
+    if (!paymentSummary.sufficient) {
+      throw new Error('Monto insuficiente para completar la venta');
+    }
+
+    // Aquí iría la lógica de integración con caja y backend
+    const paymentData = {
+      cartItems,
+      totals,
+      paymentSummary,
+      tipoComprobante,
+      clientData,
+      timestamp: new Date().toISOString()
+    };
+
+    // Simular procesamiento
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Limpiar después del pago exitoso
+    clearReceivedAmount();
+    setShowPaymentModal(false);
+
+    return paymentData;
+  }, [calculateTotals, getPaymentSummary, clearReceivedAmount]);
+
+  // Estados computados
+  const paymentMethods = useMemo(() => ({
+    cash: {
+      name: 'Efectivo',
+      bills: cashBills,
+      customAmount: customAmount,
+      total: getTotalReceived()
+    }
+  }), [cashBills, customAmount, getTotalReceived]);
+
   return {
     // Estados
+    showPaymentModal,
+    setShowPaymentModal,
     cashBills,
     receivedAmount,
     customAmount,
-    showPaymentModal,
-    
-    // Setters
-    setCashBills,
-    setReceivedAmount,
     setCustomAmount,
-    setShowPaymentModal,
-    clearPaymentData,
-    
-    // Funciones de cálculo
+    paymentMethods,
+
+    // Cálculos
     calculateTotals,
-    calculateChange,
-    getQuickPaymentAmounts,
     getTotalReceived,
-    
-    // Funciones de pago rápido
+    calculateChange,
+    isPaymentSufficient,
+    getPaymentSummary,
+
+    // Acciones de pago rápido
     addQuickPayment,
     setExactAmount,
+    getQuickPaymentAmounts,
+    formatQuickPaymentAmounts,
+
+    // Manejo de billetes
+    addCashBill,
+    removeCashBill,
+
+    // Utilidades
     clearReceivedAmount,
-    addToReceivedAmount,
-    
-    // Validaciones
-    isPaymentSufficient,
-    paymentSummary,
+    processPayment
   };
 };

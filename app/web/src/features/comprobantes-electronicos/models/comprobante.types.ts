@@ -9,6 +9,16 @@ export type DraftAction = 'borradores' | 'continuar' | 'terminar';
 export type IgvType = 'igv18' | 'igv10' | 'exonerado' | 'inafecto';
 export type PreviewFormat = 'a4' | 'ticket';
 
+// Nuevos tipos para monedas
+export type Currency = 'PEN' | 'USD';
+
+export interface CurrencyInfo {
+  code: Currency;
+  symbol: string;
+  name: string;
+  rate?: number; // Tipo de cambio opcional
+}
+
 // ===================================================================
 // INTERFACES DE PRODUCTOS Y CARRITO
 // ===================================================================
@@ -19,12 +29,31 @@ export interface UnidadMedida {
   fullLabel: string;
 }
 
+// Tipos para búsqueda de productos
+export interface ProductSearchFilters {
+  query?: string;
+  category?: string;
+  priceMin?: number;
+  priceMax?: number;
+  inStock?: boolean;
+}
+
+export interface ProductSearchResult {
+  products: Product[];
+  total: number;
+  page: number;
+  hasMore: boolean;
+}
+
 export interface Product {
   id: string;
   code: string;
   name: string;
   price: number;
-  category: string;
+  category?: string;
+  description?: string;
+  stock?: number;
+  image?: string;
 }
 
 export interface CartItem {
@@ -39,6 +68,7 @@ export interface CartItem {
   igv?: number;
   igvType?: IgvType;
   unidadMedida?: string;
+  currency?: Currency; // Nueva propiedad
 }
 
 // ===================================================================
@@ -49,6 +79,7 @@ export interface PaymentTotals {
   subtotal: number;
   igv: number;
   total: number;
+  currency?: Currency; // Nueva propiedad
 }
 
 export interface PaymentMethod {
@@ -56,6 +87,15 @@ export interface PaymentMethod {
   name: string;
   type: 'efectivo' | 'tarjeta' | 'transferencia' | 'yape' | 'plin' | 'deposito';
   amount: number;
+}
+
+// Tipos para configuración de caja temporal
+export interface CajaIntegrationConfig {
+  requiereCajaParaComprobantes: boolean;
+  requiereCajaAbierta: boolean;
+  modoPosSoloConcaja: boolean;
+  usuarioTieneCajaAsignada: boolean;
+  cajaEstaAbierta: boolean;
 }
 
 // ===================================================================
@@ -82,8 +122,8 @@ export interface DraftData {
 export interface ClientData {
   id?: string;
   nombre: string;
+  tipoDocumento: 'DNI' | 'RUC' | 'dni' | 'ruc';
   documento: string;
-  tipoDocumento: 'dni' | 'ruc' | 'passport';
   direccion?: string;
   email?: string;
   telefono?: string;
@@ -129,13 +169,16 @@ export interface DraftModalProps {
 }
 
 export interface PaymentModalProps {
-  show: boolean;
+  isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
   totals: PaymentTotals;
   tipoComprobante: TipoComprobante;
   setTipoComprobante: (tipo: TipoComprobante) => void;
-  onConfirmSale: () => void;
+  onPaymentComplete: () => void;
+  onViewFullForm: () => void;
+  currency?: Currency; // Nueva propiedad
+  onCurrencyChange?: (currency: Currency) => void; // Nueva propiedad
 }
 
 export interface ComprobantHeaderProps {
@@ -146,18 +189,24 @@ export interface ComprobantHeaderProps {
 
 export interface ProductGridProps {
   products: Product[];
-  onAddToCart: (product: Product) => void;
   cartItems: CartItem[];
+  onAddToCart: (product: Product) => void;
+  columns?: number;
+  showQuantityBadge?: boolean;
+  showCategory?: boolean;
+  isLoading?: boolean;
 }
 
 export interface CartSidebarProps {
   cartItems: CartItem[];
-  onRemoveFromCart: (id: string) => void;
-  onUpdateQuantity: (id: string, change: number) => void;
-  onClearCart: () => void;
   totals: PaymentTotals;
+  onUpdateQuantity: (id: string, change: number) => void;
+  onRemoveItem: (id: string) => void;
+  onClearCart: () => void;
   onConfirmSale: () => void;
-  cajaStatus: 'abierta' | 'cerrada';
+  onViewFullForm: () => void;
+  cashBoxStatus?: 'open' | 'closed' | 'unknown';
+  isProcessing?: boolean;
 }
 
 export interface DocumentInfoCardProps {
@@ -225,10 +274,10 @@ export interface PreviewData {
   clientData: ClientData;
   documentType: TipoComprobante;
   series: string;
-  number: string | null; // Puede ser null en vista previa
+  number: string | null; // Permitir null para previews
   issueDate: string;
   dueDate?: string;
-  currency: string;
+  currency: Currency;
   paymentMethod: string;
   cartItems: CartItem[];
   totals: PaymentTotals;
@@ -242,4 +291,20 @@ export interface DetailedTotals extends PaymentTotals {
   subtotalInafecto: number;
   descuentos: number;
   recargos: number;
+}
+
+// Nuevos tipos para búsqueda
+export interface ProductSearchBarProps {
+  onSearch: (query: string) => void;
+  onScanBarcode?: (code: string) => void;
+  onCreateProduct?: () => void;
+  placeholder?: string;
+  isLoading?: boolean;
+}
+
+export interface QuickProductModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onProductCreated: (product: Product) => void;
+  currency?: Currency;
 }

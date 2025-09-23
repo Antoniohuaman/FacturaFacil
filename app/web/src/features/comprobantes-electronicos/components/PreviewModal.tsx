@@ -3,7 +3,7 @@ import { X, Download, Printer, FileText, Receipt, Eye } from 'lucide-react';
 import { PreviewDocument } from './PreviewDocument';
 import { PreviewTicket } from './PreviewTicket.tsx';
 import { usePreview } from '../hooks/usePreview';
-import type { CartItem, TipoComprobante, PaymentTotals } from '../models/comprobante.types';
+import type { CartItem, TipoComprobante, PaymentTotals, Currency } from '../models/comprobante.types';
 
 interface PreviewModalProps {
   isOpen: boolean;
@@ -13,7 +13,7 @@ interface PreviewModalProps {
   series: string;
   totals: PaymentTotals;
   paymentMethod?: string;
-  currency?: string;
+  currency?: Currency;
   observations?: string;
   internalNotes?: string;
   onCreateDocument?: () => void;

@@ -2,219 +2,254 @@
 // COMPONENTE SIDEBAR DEL CARRITO PARA MODO POS
 // ===================================================================
 
-import React from 'react';
-import { ShoppingCart, Trash2, Minus, Plus } from 'lucide-react';
-import type { CartItem, PaymentTotals } from '../models/comprobante.types';
+import React, { useState } from 'react';
+import { 
+  ShoppingCart, 
+  Plus, 
+  Minus, 
+  Trash2, 
+  AlertTriangle,
+  Search,
+  Package
+} from 'lucide-react';
+import type { CartSidebarProps, Product } from '../models/comprobante.types';
+import { ProductSearchBar } from './ProductSearchBar';
+import { QuickProductModal } from './QuickProductModal';
+import { useProductSearch } from '../hooks/useProductSearch';
+import { useCurrency } from '../hooks/useCurrency';
+import { UI_MESSAGES } from '../models/constants';
 
-export interface CartSidebarProps {
-  // Items del carrito
-  cartItems: CartItem[];
-  
-  // Totales calculados
-  totals: PaymentTotals;
-  
-  // Funciones del carrito
-  onRemoveFromCart: (id: string) => void;
-  onUpdateQuantity: (id: string, change: number) => void;
-  onClearCart: () => void;
-  
-  // Funciones de acción
-  onConfirmSale: () => void;
-  onGoToForm: () => void;
-  
-  // Estados
-  isLoading?: boolean;
-  isCashBoxClosed?: boolean;
-  cashBoxStatus?: 'abierta' | 'cerrada';
-  
-  // Configuración
-  currency?: string;
-  showTotals?: boolean;
-  showActions?: boolean;
+interface UpdatedCartSidebarProps extends CartSidebarProps {
+  onAddProduct?: (product: Product) => void;
+  currency?: 'PEN' | 'USD';
 }
 
-export const CartSidebar: React.FC<CartSidebarProps> = ({
+export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
   cartItems,
   totals,
-  onRemoveFromCart,
   onUpdateQuantity,
+  onRemoveItem,
   onClearCart,
   onConfirmSale,
-  onGoToForm,
-  isLoading = false,
-  isCashBoxClosed = false,
-  cashBoxStatus = 'abierta',
-  currency = 'S/',
-  showTotals = true,
-  showActions = true
+  onViewFullForm,
+  onAddProduct,
+  cashBoxStatus = 'unknown',
+  isProcessing = false,
+  currency = 'PEN'
 }) => {
+  const { formatPrice } = useCurrency();
+  const {
+    searchQuery,
+    searchResults,
+    isSearching,
+    hasResults,
+    setSearchQuery,
+    searchByBarcode
+  } = useProductSearch();
 
-  // ===================================================================
-  // CÁLCULOS Y UTILIDADES
-  // ===================================================================
+  // Estados locales
+  const [showSearch, setShowSearch] = useState(false);
+  const [showQuickProductModal, setShowQuickProductModal] = useState(false);
 
-  /**
-   * Calcular total de items en el carrito
-   */
-  const getTotalItems = (): number => {
-    return cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // Estado de la caja
+  const isCashBoxClosed = cashBoxStatus === 'closed';
+  const canProcessSale = !isProcessing && cartItems.length > 0 && !isCashBoxClosed;
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
   };
 
-  /**
-   * Verificar si el carrito está vacío
-   */
-  const isCartEmpty = (): boolean => {
-    return cartItems.length === 0;
+  const handleScanBarcode = (barcode: string) => {
+    searchByBarcode(barcode).then(product => {
+      if (product && onAddProduct) {
+        onAddProduct(product);
+        setShowSearch(false);
+      }
+    });
   };
 
-  /**
-   * Determinar si los botones deben estar deshabilitados
-   */
-  const isDisabled = (): boolean => {
-    return isLoading || isCashBoxClosed || cashBoxStatus === 'cerrada';
+  const handleCreateProduct = () => {
+    setShowQuickProductModal(true);
   };
 
-  // ===================================================================
-  // MANEJADORES DE EVENTOS
-  // ===================================================================
+  const handleProductCreated = (product: Product) => {
+    if (onAddProduct) {
+      onAddProduct(product);
+    }
+    setShowQuickProductModal(false);
+    setShowSearch(false);
+  };
 
-  /**
-   * Manejar actualización de cantidad
-   */
-  const handleQuantityChange = (id: string, change: number) => {
-    if (!isDisabled()) {
-      onUpdateQuantity(id, change);
+  const handleProductSelect = (product: Product) => {
+    if (onAddProduct) {
+      onAddProduct(product);
+      setShowSearch(false);
     }
   };
 
-  /**
-   * Manejar eliminación de producto
-   */
-  const handleRemoveItem = (id: string) => {
-    if (!isDisabled()) {
-      onRemoveFromCart(id);
+  const toggleSearch = () => {
+    setShowSearch(!showSearch);
+    if (showSearch) {
+      setSearchQuery('');
     }
   };
-
-  /**
-   * Manejar vaciado del carrito
-   */
-  const handleClearCart = () => {
-    if (!isDisabled() && !isCartEmpty()) {
-      onClearCart();
-    }
-  };
-
-  /**
-   * Manejar confirmación de venta
-   */
-  const handleConfirmSale = () => {
-    if (!isDisabled() && !isCartEmpty()) {
-      onConfirmSale();
-    }
-  };
-
-  /**
-   * Manejar ir al formulario
-   */
-  const handleGoToForm = () => {
-    if (!isLoading) {
-      onGoToForm();
-    }
-  };
-
-  // ===================================================================
-  // RENDERIZADO
-  // ===================================================================
 
   return (
-    <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
-      {/* Cart Header */}
+    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
+      {/* Header con búsqueda */}
       <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-            <ShoppingCart className="w-5 h-5 mr-2" />
-            Carrito ({getTotalItems()})
-          </h2>
-          {!isCartEmpty() && (
-            <button 
-              onClick={handleClearCart}
-              className={`text-red-500 hover:text-red-700 text-sm transition-colors ${
-                isDisabled() ? 'opacity-50 cursor-not-allowed' : ''
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5 text-gray-600" />
+            <h3 className="font-semibold text-gray-900">
+              Carrito ({cartItems.length})
+            </h3>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {/* Botón de búsqueda */}
+            <button
+              onClick={toggleSearch}
+              className={`p-2 rounded-lg transition-colors ${
+                showSearch 
+                  ? 'bg-blue-100 text-blue-600' 
+                  : 'hover:bg-gray-100 text-gray-600'
               }`}
-              disabled={isDisabled()}
+              title="Buscar productos"
             >
-              Vaciar
+              <Search className="h-4 w-4" />
             </button>
-          )}
+
+            {/* Botón limpiar carrito */}
+            {cartItems.length > 0 && (
+              <button
+                onClick={onClearCart}
+                className="text-red-600 hover:text-red-700 text-sm font-medium"
+                disabled={isProcessing}
+              >
+                Vaciar
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Barra de búsqueda expandible */}
+        {showSearch && (
+          <div className="mb-4">
+            <ProductSearchBar
+              onSearch={handleSearch}
+              onScanBarcode={handleScanBarcode}
+              onCreateProduct={handleCreateProduct}
+              isLoading={isSearching}
+            />
+            
+            {/* Resultados de búsqueda */}
+            {searchQuery && (
+              <div className="mt-3 max-h-48 overflow-y-auto bg-gray-50 rounded-lg">
+                {hasResults ? (
+                  <div className="p-2">
+                    {searchResults.slice(0, 4).map(product => (
+                      <button
+                        key={product.id}
+                        onClick={() => handleProductSelect(product)}
+                        className="w-full text-left p-2 hover:bg-white rounded transition-colors"
+                      >
+                        <div className="font-medium text-sm">{product.name}</div>
+                        <div className="flex justify-between text-xs text-gray-600">
+                          <span>{product.code}</span>
+                          <span>{formatPrice(product.price, currency)}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 text-center text-sm text-gray-500">
+                    {isSearching ? UI_MESSAGES.SEARCH_LOADING : UI_MESSAGES.NO_PRODUCTS_FOUND}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Cart Items */}
+      {/* Warning de caja cerrada */}
+      {isCashBoxClosed && (
+        <div className="mx-4 mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">
+                Caja cerrada
+              </p>
+              <p className="text-xs text-yellow-600">
+                {UI_MESSAGES.CAJA_CLOSED_WARNING}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lista de productos en carrito */}
       <div className="flex-1 overflow-y-auto">
-        {isCartEmpty() ? (
-          <div className="p-8 text-center text-gray-500">
-            <ShoppingCart className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p>No hay productos en el carrito</p>
-            <p className="text-sm">Haz clic en los productos para agregar</p>
+        {cartItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+            <Package className="h-12 w-12 mb-3 text-gray-300" />
+            <p className="text-sm font-medium">{UI_MESSAGES.EMPTY_CART}</p>
+            <p className="text-xs text-center px-4 mt-1">
+              {showSearch ? 'Busca productos arriba' : 'Haz clic en búsqueda para agregar productos'}
+            </p>
           </div>
         ) : (
           <div className="p-4 space-y-3">
             {cartItems.map((item) => (
               <div key={item.id} className="bg-gray-50 rounded-lg p-3">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-sm text-gray-900">{item.name}</h4>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm text-gray-900 truncate">
+                      {item.name}
+                    </h4>
                     <p className="text-xs text-gray-500">{item.code}</p>
                   </div>
-                  <button 
-                    onClick={() => handleRemoveItem(item.id)}
-                    className={`text-red-500 hover:text-red-700 ml-2 transition-colors ${
-                      isDisabled() ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    disabled={isDisabled()}
-                    title="Eliminar producto"
+                  <button
+                    onClick={() => onRemoveItem(item.id)}
+                    className="ml-2 text-red-500 hover:text-red-700 transition-colors"
+                    disabled={isProcessing}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  {/* Quantity Controls */}
-                  <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={() => handleQuantityChange(item.id, -1)}
-                      className={`w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300 transition-colors ${
-                        isDisabled() || item.quantity <= 1 ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                      disabled={isDisabled() || item.quantity <= 1}
-                      title="Disminuir cantidad"
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onUpdateQuantity(item.id, -1)}
+                      className="w-7 h-7 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                      disabled={item.quantity <= 1 || isProcessing}
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="h-3 w-3" />
                     </button>
                     
-                    <span className="w-8 text-center font-medium">{item.quantity}</span>
+                    <span className="w-8 text-center text-sm font-medium">
+                      {item.quantity}
+                    </span>
                     
-                    <button 
-                      onClick={() => handleQuantityChange(item.id, 1)}
-                      className={`w-7 h-7 flex items-center justify-center bg-gray-200 rounded hover:bg-gray-300 transition-colors ${
-                        isDisabled() ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                      disabled={isDisabled()}
-                      title="Aumentar cantidad"
+                    <button
+                      onClick={() => onUpdateQuantity(item.id, 1)}
+                      className="w-7 h-7 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                      disabled={isProcessing}
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="h-3 w-3" />
                     </button>
                   </div>
                   
-                  {/* Price Information */}
                   <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">
-                      {currency} {(item.price * item.quantity).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {currency} {item.price.toFixed(2)} c/u
-                    </p>
+                    <div className="text-sm font-medium text-gray-900">
+                      {formatPrice(item.price * item.quantity, currency)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {formatPrice(item.price, currency)} c/u
+                    </div>
                   </div>
                 </div>
               </div>
@@ -223,72 +258,61 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
         )}
       </div>
 
-      {/* Cart Footer */}
-      {!isCartEmpty() && (
-        <div className="border-t border-gray-200 p-4 space-y-4">
-          {/* Totals */}
-          {showTotals && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="text-gray-900">{currency} {totals.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">IGV (18%)</span>
-                <span className="text-gray-900">{currency} {totals.igv.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
-                <span className="text-gray-900">Total</span>
-                <span className="text-gray-900">{currency} {totals.total.toFixed(2)}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          {showActions && (
-            <div className="space-y-2">
-              <button 
-                onClick={handleConfirmSale}
-                className={`w-full px-4 py-3 rounded-lg font-medium transition-colors ${
-                  isDisabled() 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-                disabled={isDisabled()}
-              >
-                {isLoading 
-                  ? 'Procesando...' 
-                  : cashBoxStatus === 'cerrada' 
-                    ? 'Caja cerrada' 
-                    : 'Confirmar Venta'
-                }
-              </button>
-              
-              <button 
-                onClick={handleGoToForm}
-                className={`w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                disabled={isLoading}
-              >
-                Ver Formulario Completo
-              </button>
-            </div>
-          )}
-
-          {/* Cash Box Status Warning */}
-          {isCashBoxClosed && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></div>
-                <p className="text-sm text-yellow-800">
-                  La caja está cerrada. No se pueden procesar ventas.
-                </p>
-              </div>
-            </div>
-          )}
+      {/* Totales */}
+      {cartItems.length > 0 && (
+        <div className="border-t border-gray-200 p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Subtotal</span>
+            <span>{formatPrice(totals.subtotal, currency)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">IGV (18%)</span>
+            <span>{formatPrice(totals.igv, currency)}</span>
+          </div>
+          <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
+            <span>Total</span>
+            <span>{formatPrice(totals.total, currency)}</span>
+          </div>
         </div>
       )}
+
+      {/* Botones de acción */}
+      <div className="border-t border-gray-200 p-4 space-y-2">
+        <button
+          onClick={onConfirmSale}
+          className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+            canProcessSale
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+          }`}
+          disabled={!canProcessSale}
+        >
+          {isProcessing ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              {UI_MESSAGES.CART_LOADING}
+            </span>
+          ) : (
+            'Confirmar Venta'
+          )}
+        </button>
+        
+        <button
+          onClick={onViewFullForm}
+          className="w-full py-2 px-4 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+          disabled={isProcessing}
+        >
+          Ver Formulario Completo
+        </button>
+      </div>
+
+      {/* Modal de creación rápida de producto */}
+      <QuickProductModal
+        isOpen={showQuickProductModal}
+        onClose={() => setShowQuickProductModal(false)}
+        onProductCreated={handleProductCreated}
+        currency={currency}
+      />
     </div>
   );
 };

@@ -6,7 +6,8 @@ import type {
   PreviewFormat,
   CompanyData,
   ClientData,
-  PreviewData
+  PreviewData,
+  Currency
 } from '../models/comprobante.types';
 
 export const usePreview = () => {
@@ -38,7 +39,7 @@ export const usePreview = () => {
     series: string,
     totals: PaymentTotals,
     paymentMethod: string = "CONTADO",
-    currency: string = "PEN",
+    currency: Currency = "PEN",
     observations?: string,
     internalNotes?: string
   ): PreviewData => {
