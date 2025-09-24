@@ -98,20 +98,22 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
 
         {/* Extra Document Types */}
         {showMoreDocTypes && (
-          <div className="mb-4">
-            {documentTypes.slice(3).map((type) => (
-              <button
-                key={type.value}
-                type="button"
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                onClick={() => {
-                  onDocumentTypeChange(type.value);
-                  setShowMoreDocTypes(false);
-                }}
-              >
-                {type.label}
-              </button>
-            ))}
+          <div className="mb-4 relative">
+            <div className="absolute top-0 left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+              {documentTypes.slice(3).map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 hover:text-blue-700 border-b border-gray-100 last:border-b-0 transition-colors"
+                  onClick={() => {
+                    onDocumentTypeChange(type.value);
+                    setShowMoreDocTypes(false);
+                  }}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -132,7 +134,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
               {(documentType === 'RUC' || documentType === 'DNI') && (
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold text-sm shadow hover:bg-blue-700 transition-colors"
+                  className="px-8 py-2 min-w-[100px] rounded-lg bg-blue-600 text-white font-semibold text-sm shadow hover:bg-blue-700 transition-colors"
                 >
                   {documentType === 'RUC' ? 'Sunat' : 'Reniec'}
                 </button>

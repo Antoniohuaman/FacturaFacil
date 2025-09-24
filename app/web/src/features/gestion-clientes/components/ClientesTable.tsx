@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 // import ReactDOM from 'react-dom';
 
 export type Cliente = {
@@ -16,8 +17,14 @@ export type ClientesTableProps = {
 };
 
 const ClientesTable: React.FC<ClientesTableProps> = ({ clients }) => {
+  const navigate = useNavigate();
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>(clients);
+
+  // Sincronizar el estado local con las props cuando cambien
+  useEffect(() => {
+    setClientes(clients);
+  }, [clients]);
 
   const handleToggleEnabled = (id: number) => {
     setClientes(prev => prev.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c));
@@ -124,7 +131,7 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clients }) => {
                     <button
                       className="group p-1 rounded focus:outline-none"
                       title="Historial"
-                      onClick={() => alert(`Ver historial de cliente ${client.name}`)}
+                      onClick={() => navigate(`/clientes/${client.id}/${encodeURIComponent(client.name)}/historial`)}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-gray-500 hover:text-blue-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
