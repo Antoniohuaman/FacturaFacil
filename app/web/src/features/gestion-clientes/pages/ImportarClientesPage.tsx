@@ -19,9 +19,7 @@ const ImportarClientesPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const PRIMARY_COLOR = '#0040A2';
-  const PRIMARY_LIGHT = '#E6F0FF';
   const SUCCESS_COLOR = '#10B981';
-  const ERROR_COLOR = '#EF4444';
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();

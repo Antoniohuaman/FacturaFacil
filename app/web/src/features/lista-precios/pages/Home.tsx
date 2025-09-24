@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Eye, EyeOff, Save, RotateCcw, Upload, Calculator, ChevronUp, ChevronDown, Search, Calendar } from 'lucide-react';
 
 export default function PriceListManager() {

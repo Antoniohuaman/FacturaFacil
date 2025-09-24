@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { Toolbar } from '../components/Toolbar';
-import { ListaProductos } from '../components/ListaProductos';
 import { PreviewProducto } from '../components/PreviewProducto';
 import { useProductos } from '../hooks/useProductos';
 
@@ -11,7 +10,6 @@ export const Panel: React.FC = () => {
     filtros,
     paginacion,
     actualizarFiltros,
-    cambiarPagina,
     seleccionarProducto,
     limpiarFiltros
   } = useProductos();
@@ -79,13 +77,11 @@ export const Panel: React.FC = () => {
             style={detalleColapsado ? { flex: 1 } : anchoLista > 0 ? { width: anchoLista } : { flex: 2 }}
             className="min-w-[240px] max-w-full transition-all duration-300"
           >
-            <ListaProductos
-              productos={productos}
-              productoSeleccionado={productoSeleccionado}
-              paginacion={paginacion}
-              onSeleccionar={seleccionarProducto}
-              onCambiarPagina={cambiarPagina}
-            />
+            {/* TODO: Reemplazar con el nuevo componente de lista de productos */}
+            <div className="bg-white rounded-lg shadow p-4 h-full">
+              <h3 className="text-lg font-medium mb-4">Lista de Productos</h3>
+              <p className="text-gray-500">Componente ListaProductos fue eliminado</p>
+            </div>
           </div>
 
           {/* Splitter arrastrable */}

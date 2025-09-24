@@ -8,7 +8,6 @@ import ComprobantesTabs from "../../features/comprobantes-electronicos/pages/Com
 import ImportarClientesPage from "../../features/gestion-clientes/pages/ImportarClientesPage";
 import HistorialCompras from "../../features/gestion-clientes/pages/HistorialCompras";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
-import { Panel } from "../../features/catalogo-articulos/pages/Panel";
 import ClientesPage from "../../features/gestion-clientes/pages/ClientesPage";
 import ListaPreciosHome from "../../features/lista-precios/pages/Home";
 import IndicadoresPage from "../../features/indicadores-negocio/pages/IndicadoresPage";
@@ -22,8 +21,7 @@ export const router = createBrowserRouter([
   { path: "/comprobantes", element: <ComprobantesTabs /> },
   { path: "/comprobantes/nuevo", element: <NuevoComprobante /> },
       { path: "/control-caja", element: <ControlCajaHome /> },
-  { path: "/catalogo", element: <Panel /> },
-  { path: "/clientes", element: <ClientesPage /> },
+      { path: "/clientes", element: <ClientesPage /> },
   { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
   { path: "/importar-clientes", element: <ImportarClientesPage /> },
       { path: "/lista-precios", element: <ListaPreciosHome /> },
