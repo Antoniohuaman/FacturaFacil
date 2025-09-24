@@ -5,10 +5,10 @@ import AppShell from "../layouts/AppShell";
 // import NuevoComprobante from "../../features/comprobantes-electronicos/pages/NuevoComprobante";
 import NuevoComprobante from "../../features/comprobantes-electronicos/pages/NuevoComprobante";
 import ComprobantesTabs from "../../features/comprobantes-electronicos/pages/ComprobantesTabs";
+import ImportarClientesPage from "../../features/gestion-clientes/pages/ImportarClientesPage";
+import HistorialCompras from "../../features/gestion-clientes/pages/HistorialCompras";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
-import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import ClientesPage from "../../features/gestion-clientes/pages/ClientesPage";
-import ListaPreciosHome from "../../features/lista-precios/pages/Home";
 import IndicadoresPage from "../../features/indicadores-negocio/pages/IndicadoresPage";
 import ConfiguracionHome from "../../features/configuracion-sistema/pages/Home";
 
@@ -20,9 +20,9 @@ export const router = createBrowserRouter([
   { path: "/comprobantes", element: <ComprobantesTabs /> },
   { path: "/comprobantes/nuevo", element: <NuevoComprobante /> },
       { path: "/control-caja", element: <ControlCajaHome /> },
-  { path: "/catalogo", element: <CatalogoArticulosMain /> },
       { path: "/clientes", element: <ClientesPage /> },
-      { path: "/lista-precios", element: <ListaPreciosHome /> },
+  { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
+  { path: "/importar-clientes", element: <ImportarClientesPage /> },
   { path: "/indicadores", element: <IndicadoresPage /> },
       { path: "/configuracion", element: <ConfiguracionHome /> },
     ],
