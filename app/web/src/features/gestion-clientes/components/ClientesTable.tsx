@@ -60,12 +60,12 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clients }) => {
         }
         .menu-popup-arrow svg { display: block; }
       `}</style>
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" style={{ maxWidth: '1320px' }}>
+  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden max-w-full xl:max-w-[1600px] 2xl:max-w-[1800px] mx-auto px-0">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-2 font-medium text-gray-700 text-sm w-[20%]">
+                <th className="text-left px-4 py-2 font-medium text-gray-700 text-sm">
                   <div className="flex items-center gap-2">
                     <span>Nombre / Razón Social</span>
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -74,7 +74,7 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clients }) => {
                     </svg>
                   </div>
                 </th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700 text-sm w-[15%]">
+                <th className="text-left px-4 py-2 font-medium text-gray-700 text-sm">
                   <div className="flex items-center gap-2">
                     <span>Documento</span>
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -83,7 +83,7 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clients }) => {
                     </svg>
                   </div>
                 </th>
-                <th className="text-left px-4 py-2 font-medium text-gray-700 text-sm w-[15%]">
+                <th className="text-left px-4 py-2 font-medium text-gray-700 text-sm">
                   <div className="flex items-center gap-2">
                     <span>Tipo</span>
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -115,11 +115,11 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clients }) => {
             <tbody className="divide-y divide-gray-200">
               {clientes.map(client => (
                 <tr key={client.id} className={`hover:bg-gray-50 transition-colors${!client.enabled ? ' row-disabled' : ''}`}>
-                  <td className="px-4 py-2 text-sm text-gray-900 font-medium max-w-4xl break-words">{client.name}</td>
-                  <td className="px-4 py-2 text-sm">{client.document}</td>
-                  <td className="px-4 py-2 text-sm">{client.type}</td>
-                  <td className="pl-0 pr-2 py-2 text-sm max-w-md whitespace-pre-line break-words">{client.address}</td>
-                  <td className="px-4 py-2 text-sm">{client.phone}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 font-medium break-words whitespace-normal">{client.name}</td>
+                  <td className="px-4 py-2 text-sm break-words whitespace-normal">{client.document}</td>
+                  <td className="px-4 py-2 text-sm break-words whitespace-normal">{client.type}</td>
+                  <td className="px-4 py-2 text-sm break-words whitespace-normal">{client.address}</td>
+                  <td className="px-4 py-2 text-sm break-words whitespace-normal">{client.phone}</td>
                   <td className="px-4 py-2 text-right relative flex items-center gap-2">
                     <button
                       className="group p-1 rounded focus:outline-none"

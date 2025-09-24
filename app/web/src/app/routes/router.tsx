@@ -5,6 +5,7 @@ import AppShell from "../layouts/AppShell";
 // import NuevoComprobante from "../../features/comprobantes-electronicos/pages/NuevoComprobante";
 import NuevoComprobante from "../../features/comprobantes-electronicos/pages/NuevoComprobante";
 import ComprobantesTabs from "../../features/comprobantes-electronicos/pages/ComprobantesTabs";
+import ImportarClientesPage from "../../features/gestion-clientes/pages/ImportarClientesPage";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
 import { Panel } from "../../features/catalogo-articulos/pages/Panel";
 import ClientesPage from "../../features/gestion-clientes/pages/ClientesPage";
@@ -21,7 +22,8 @@ export const router = createBrowserRouter([
   { path: "/comprobantes/nuevo", element: <NuevoComprobante /> },
       { path: "/control-caja", element: <ControlCajaHome /> },
   { path: "/catalogo", element: <Panel /> },
-      { path: "/clientes", element: <ClientesPage /> },
+  { path: "/clientes", element: <ClientesPage /> },
+  { path: "/importar-clientes", element: <ImportarClientesPage /> },
       { path: "/lista-precios", element: <ListaPreciosHome /> },
   { path: "/indicadores", element: <IndicadoresPage /> },
       { path: "/configuracion", element: <ConfiguracionHome /> },
