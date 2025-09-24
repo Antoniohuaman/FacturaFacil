@@ -124,6 +124,331 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
       status: 'Vigente',
       daysLeft: 8,
       statusColor: 'green'
+    },
+    {
+      id: 'DRAFT-B001-00000025',
+      type: 'Boleta de venta',
+      clientDoc: '12345678',
+      client: 'Pedro Sánchez Vega',
+      createdDate: '23 set. 2025 14:15',
+      expiryDate: '30 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 95.80,
+      status: 'Vigente',
+      daysLeft: 7,
+      statusColor: 'green'
+    },
+    {
+      id: 'DRAFT-F001-00000015',
+      type: 'Factura',
+      clientDoc: '20536547896',
+      client: 'Comercial Norte S.A.C.',
+      createdDate: '23 set. 2025 10:30',
+      expiryDate: '24 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 580.00,
+      status: 'Por vencer',
+      daysLeft: 1,
+      statusColor: 'orange'
+    },
+    {
+      id: 'DRAFT-B001-00000024',
+      type: 'Boleta de venta',
+      clientDoc: '87654321',
+      client: 'Ana García López',
+      createdDate: '23 set. 2025 16:45',
+      expiryDate: '30 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 125.60,
+      status: 'Vigente',
+      daysLeft: 7,
+      statusColor: 'green'
+    },
+    {
+      id: 'DRAFT-B001-00000023',
+      type: 'Boleta de venta',
+      clientDoc: '45789632',
+      client: 'Roberto Mendoza Cruz',
+      createdDate: '22 set. 2025 11:20',
+      expiryDate: '29 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 78.40,
+      status: 'Vigente',
+      daysLeft: 6,
+      statusColor: 'green'
+    },
+    {
+      id: 'DRAFT-F001-00000014',
+      type: 'Factura',
+      clientDoc: '20123456789',
+      client: 'Distribuidora Central S.A.C.',
+      createdDate: '21 set. 2025 09:15',
+      expiryDate: '22 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 750.00,
+      status: 'Vencido',
+      daysLeft: -1,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000022',
+      type: 'Boleta de venta',
+      clientDoc: '36985214',
+      client: 'Carmen Silva Torres',
+      createdDate: '20 set. 2025 13:30',
+      expiryDate: '27 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 156.90,
+      status: 'Vigente',
+      daysLeft: 4,
+      statusColor: 'green'
+    },
+    {
+      id: 'DRAFT-B001-00000021',
+      type: 'Boleta de venta',
+      clientDoc: '78912345',
+      client: 'Luis Alberto Quispe',
+      createdDate: '19 set. 2025 15:45',
+      expiryDate: '26 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 89.75,
+      status: 'Vigente',
+      daysLeft: 3,
+      statusColor: 'green'
+    },
+    {
+      id: 'DRAFT-F001-00000013',
+      type: 'Factura',
+      clientDoc: '20987654321',
+      client: 'Importadora del Sur S.A.C.',
+      createdDate: '18 set. 2025 08:20',
+      expiryDate: '19 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 1250.00,
+      status: 'Vencido',
+      daysLeft: -4,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000020',
+      type: 'Boleta de venta',
+      clientDoc: '15975346',
+      client: 'María Elena Vargas',
+      createdDate: '17 set. 2025 12:10',
+      expiryDate: '24 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 234.50,
+      status: 'Vigente',
+      daysLeft: 1,
+      statusColor: 'green'
+    },
+    {
+      id: 'DRAFT-B001-00000019',
+      type: 'Boleta de venta',
+      clientDoc: '74185296',
+      client: 'Jorge Ramírez Huamán',
+      createdDate: '16 set. 2025 14:25',
+      expiryDate: '23 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 167.30,
+      status: 'Por vencer',
+      daysLeft: 0,
+      statusColor: 'orange'
+    },
+    {
+      id: 'DRAFT-F001-00000012',
+      type: 'Factura',
+      clientDoc: '20456789123',
+      client: 'Corporación Andina S.A.C.',
+      createdDate: '15 set. 2025 16:40',
+      expiryDate: '16 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 890.75,
+      status: 'Vencido',
+      daysLeft: -7,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000018',
+      type: 'Boleta de venta',
+      clientDoc: '96385274',
+      client: 'Rosa Delgado Morales',
+      createdDate: '14 set. 2025 10:15',
+      expiryDate: '21 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 143.20,
+      status: 'Vencido',
+      daysLeft: -2,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000017',
+      type: 'Boleta de venta',
+      clientDoc: '85274196',
+      client: 'Fernando Castro Díaz',
+      createdDate: '13 set. 2025 11:50',
+      expiryDate: '20 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 198.60,
+      status: 'Vencido',
+      daysLeft: -3,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-F001-00000011',
+      type: 'Factura',
+      clientDoc: '20741852963',
+      client: 'Servicios Integrales S.A.C.',
+      createdDate: '12 set. 2025 09:30',
+      expiryDate: '13 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 672.40,
+      status: 'Vencido',
+      daysLeft: -10,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000016',
+      type: 'Boleta de venta',
+      clientDoc: '63741985',
+      client: 'Lucía Mendoza Vásquez',
+      createdDate: '11 set. 2025 15:20',
+      expiryDate: '18 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 112.80,
+      status: 'Vencido',
+      daysLeft: -5,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000015',
+      type: 'Boleta de venta',
+      clientDoc: '52963741',
+      client: 'Diego Herrera Salinas',
+      createdDate: '10 set. 2025 13:45',
+      expiryDate: '17 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 267.90,
+      status: 'Vencido',
+      daysLeft: -6,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-F001-00000010',
+      type: 'Factura',
+      clientDoc: '20852741963',
+      client: 'Tecnología Avanzada S.A.C.',
+      createdDate: '09 set. 2025 08:10',
+      expiryDate: '10 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 1450.00,
+      status: 'Vencido',
+      daysLeft: -13,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000014',
+      type: 'Boleta de venta',
+      clientDoc: '41852963',
+      client: 'Patricia Rojas Álvarez',
+      createdDate: '08 set. 2025 16:30',
+      expiryDate: '15 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 185.50,
+      status: 'Vencido',
+      daysLeft: -8,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000013',
+      type: 'Boleta de venta',
+      clientDoc: '96325874',
+      client: 'Manuel Torres Guerrero',
+      createdDate: '07 set. 2025 12:25',
+      expiryDate: '14 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 324.75,
+      status: 'Vencido',
+      daysLeft: -9,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-F001-00000009',
+      type: 'Factura',
+      clientDoc: '20963852741',
+      client: 'Logística Express S.A.C.',
+      createdDate: '06 set. 2025 14:15',
+      expiryDate: '07 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 823.60,
+      status: 'Vencido',
+      daysLeft: -16,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000012',
+      type: 'Boleta de venta',
+      clientDoc: '73625814',
+      client: 'Sandra Jiménez Paredes',
+      createdDate: '05 set. 2025 10:40',
+      expiryDate: '12 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 156.30,
+      status: 'Vencido',
+      daysLeft: -11,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000011',
+      type: 'Boleta de venta',
+      clientDoc: '85296374',
+      client: 'Raúl Moreno Castillo',
+      createdDate: '04 set. 2025 17:20',
+      expiryDate: '11 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 289.40,
+      status: 'Vencido',
+      daysLeft: -12,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-F001-00000008',
+      type: 'Factura',
+      clientDoc: '20147258369',
+      client: 'Consultoría Global S.A.C.',
+      createdDate: '03 set. 2025 11:55',
+      expiryDate: '04 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 1180.25,
+      status: 'Vencido',
+      daysLeft: -19,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000010',
+      type: 'Boleta de venta',
+      clientDoc: '62851473',
+      client: 'Claudia Vera Núñez',
+      createdDate: '02 set. 2025 09:30',
+      expiryDate: '09 set. 2025',
+      vendor: 'Bertha Flores',
+      total: 203.80,
+      status: 'Vencido',
+      daysLeft: -14,
+      statusColor: 'red'
+    },
+    {
+      id: 'DRAFT-B001-00000009',
+      type: 'Boleta de venta',
+      clientDoc: '14725836',
+      client: 'Gabriel Ramos Silva',
+      createdDate: '01 set. 2025 15:10',
+      expiryDate: '08 set. 2025',
+      vendor: 'Carlos Rueda',
+      total: 178.65,
+      status: 'Vencido',
+      daysLeft: -15,
+      statusColor: 'red'
     }
   ];
 
@@ -172,6 +497,51 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
 
   // Unir mockDrafts y localDrafts
   const drafts: Draft[] = [...mockDrafts, ...localDrafts];
+
+  // Función para parsear fechas en formato español (ej: "20 ago. 2025 19:17")
+  const parseDraftDate = (dateStr: string): Date | null => {
+    try {
+      const spanishMonths = {
+        'ene.': 0, 'feb.': 1, 'mar.': 2, 'abr.': 3, 'may.': 4, 'jun.': 5,
+        'jul.': 6, 'ago.': 7, 'set.': 8, 'oct.': 9, 'nov.': 10, 'dic.': 11
+      } as const;
+      
+      // Dividir fecha y hora
+      const parts = dateStr.split(' ');
+      if (parts.length < 3) return null;
+      
+      const day = parseInt(parts[0]);
+      const month = spanishMonths[parts[1] as keyof typeof spanishMonths];
+      const year = parseInt(parts[2]);
+      
+      if (isNaN(day) || month === undefined || isNaN(year)) return null;
+      
+      return new Date(year, month, day);
+    } catch {
+      return null;
+    }
+  };
+
+  // Función para filtrar borradores por rango de fechas
+  const filterDraftsByDateRange = (drafts: Draft[], fromDate: string, toDate: string): Draft[] => {
+    if (!fromDate && !toDate) return drafts;
+    
+    const from = fromDate ? new Date(fromDate) : null;
+    const to = toDate ? new Date(toDate) : null;
+    
+    return drafts.filter(draft => {
+      const draftDate = parseDraftDate(draft.createdDate);
+      if (!draftDate) return true; // Include if can't parse date
+      
+      if (from && draftDate < from) return false;
+      if (to && draftDate > to) return false;
+      
+      return true;
+    });
+  };
+
+  // Aplicar filtros de fecha
+  const filteredDrafts = filterDraftsByDateRange(drafts, dateFrom, dateTo);
 
   // Validación de fecha de creación para emisión masiva
   const validateDraftsForEmit = (selectedIds: string[]) => {
@@ -255,23 +625,23 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   };
 
   const handleSelectAll = () => {
-    if (selectedDrafts.length === drafts.length) {
+    if (selectedDrafts.length === filteredDrafts.length) {
       setSelectedDrafts([]);
     } else {
-      setSelectedDrafts(drafts.map((draft) => draft.id));
+      setSelectedDrafts(filteredDrafts.map((draft) => draft.id));
     }
   };
 
-  const totalRecords = 47;
+  const totalRecords = filteredDrafts.length;
   const recordsPerPage = 25;
   const startRecord = (currentPage - 1) * recordsPerPage + 1;
   const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
 
-  // Calculate summary stats
-  const vigenteDrafts = drafts.filter(d => d.status === 'Vigente').length;
-  const porVencerDrafts = drafts.filter(d => d.status === 'Por vencer').length;
-  const vencidoDrafts = drafts.filter(d => d.status === 'Vencido').length;
-  const totalValue = drafts.reduce((sum, draft) => sum + draft.total, 0);
+  // Calculate summary stats using filtered drafts
+  const vigenteDrafts = filteredDrafts.filter(d => d.status === 'Vigente').length;
+  const porVencerDrafts = filteredDrafts.filter(d => d.status === 'Por vencer').length;
+  const vencidoDrafts = filteredDrafts.filter(d => d.status === 'Vencido').length;
+  const totalValue = filteredDrafts.reduce((sum, draft) => sum + draft.total, 0);
 
   return (
     <div className={`min-h-screen bg-gray-50 ${hideSidebar ? '' : 'flex'}`}>
@@ -289,7 +659,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                 <Edit className="w-4 h-4 mr-3" />
                 Borradores
                 <span className="ml-auto bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">
-                  {drafts.length}
+                  {filteredDrafts.length}
                 </span>
               </a>
               <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
@@ -481,7 +851,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                     <th className="px-6 py-3 text-left">
                       <input
                         type="checkbox"
-                        checked={selectedDrafts.length === drafts.length}
+                        checked={selectedDrafts.length === filteredDrafts.length && filteredDrafts.length > 0}
                         onChange={handleSelectAll}
                         className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                       />
@@ -543,7 +913,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {drafts.map((draft, index) => (
+                  {filteredDrafts.map((draft, index) => (
                     <tr key={index} className={`hover:bg-gray-50 transition-colors ${selectedDrafts.includes(draft.id) ? 'bg-blue-50' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input

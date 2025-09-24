@@ -9,7 +9,6 @@ import ImportarClientesPage from "../../features/gestion-clientes/pages/Importar
 import HistorialCompras from "../../features/gestion-clientes/pages/HistorialCompras";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
 import ClientesPage from "../../features/gestion-clientes/pages/ClientesPage";
-import ListaPreciosHome from "../../features/lista-precios/pages/Home";
 import IndicadoresPage from "../../features/indicadores-negocio/pages/IndicadoresPage";
 import ConfiguracionHome from "../../features/configuracion-sistema/pages/Home";
 
@@ -24,7 +23,6 @@ export const router = createBrowserRouter([
       { path: "/clientes", element: <ClientesPage /> },
   { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
   { path: "/importar-clientes", element: <ImportarClientesPage /> },
-      { path: "/lista-precios", element: <ListaPreciosHome /> },
   { path: "/indicadores", element: <IndicadoresPage /> },
       { path: "/configuracion", element: <ConfiguracionHome /> },
     ],

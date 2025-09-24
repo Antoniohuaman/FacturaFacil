@@ -74,7 +74,7 @@ const ReportesCaja: React.FC = () => {
           <input type="text" value={usuarioFiltro} onChange={e => setUsuarioFiltro(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="Filtrar por usuario" />
         </div>
         <div>
-          <button type="button" onClick={exportarCSV} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2">
+          <button type="button" onClick={exportarCSV} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2">
             <Download className="w-5 h-5" /> Exportar CSV
           </button>
         </div>

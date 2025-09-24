@@ -49,7 +49,7 @@ export default function SideNav() {
   };
   const [collapsed, setCollapsed] = useState(false);
   return (
-    <aside className={`h-full flex flex-col bg-white border-r border-slate-200 transition-all duration-300 ${collapsed ? 'w-16' : 'w-56'}`}>
+    <aside className={`h-screen flex flex-col bg-white border-r border-slate-200 transition-all duration-300 ${collapsed ? 'w-16' : 'w-56'}`}>
       <SidebarHeader empresa={empresa} usuario={usuario} collapsed={collapsed} />
       {/* Botón de colapso/expandir */}
       <button
@@ -83,27 +83,27 @@ export default function SideNav() {
             {!collapsed && <span>{it.label}</span>}
           </NavLink>
         ))}
+        {/* Configuración abajo, fijo con mt-auto */}
+        <div className="mt-auto mb-4">
+          <NavLink
+            key={configItem.to}
+            to={configItem.to}
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors duration-200 group ${
+                isActive
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-slate-700 hover:bg-slate-100'
+              } ${collapsed ? 'justify-center px-0' : ''}`
+            }
+            title={collapsed ? configItem.label : undefined}
+          >
+            <span className="w-6 h-6 flex items-center justify-center">
+              {configItem.icon}
+            </span>
+            {!collapsed && <span>{configItem.label}</span>}
+          </NavLink>
+        </div>
       </nav>
-      {/* Configuración abajo */}
-      <div className="mb-4 mt-auto">
-        <NavLink
-          key={configItem.to}
-          to={configItem.to}
-          className={({ isActive }) =>
-            `flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors duration-200 group ${
-              isActive
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-slate-700 hover:bg-slate-100'
-            } ${collapsed ? 'justify-center px-0' : ''}`
-          }
-          title={collapsed ? configItem.label : undefined}
-        >
-          <span className="w-6 h-6 flex items-center justify-center">
-            {configItem.icon}
-          </span>
-          {!collapsed && <span>{configItem.label}</span>}
-        </NavLink>
-      </div>
     </aside>
   );
 }

@@ -113,7 +113,7 @@ const ConfiguracionCaja: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
           />
         </div>
-        <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2">
+        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2">
           <Save className="w-5 h-5" /> Guardar configuración
         </button>
       </form>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 // import { useNavigate } from 'react-router-dom'; // Eliminado porque no se usa
 import { Search, Filter, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -7,17 +8,60 @@ function getToday() {
   return d.toISOString().slice(0, 10);
 }
 
+// Función para convertir fecha del formato "20 ago. 2025 19:17" a Date
+function parseInvoiceDate(dateStr: string): Date {
+  const monthMap: Record<string, number> = {
+    'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
+    'jul': 6, 'ago': 7, 'set': 8, 'oct': 9, 'nov': 10, 'dic': 11
+  };
+  
+  const parts = dateStr.split(' ');
+  const day = parseInt(parts[0]);
+  const month = monthMap[parts[1].replace('.', '')];
+  const year = parseInt(parts[2]);
+  
+  // Extraer hora si existe
+  const timePart = parts[3] || '00:00';
+  const [hours, minutes] = timePart.split(':').map(n => parseInt(n));
+  
+  return new Date(year, month, day, hours || 0, minutes || 0);
+}
+
+// Función para filtrar facturas por rango de fechas
+function filterInvoicesByDateRange(invoices: any[], dateFrom: string, dateTo: string) {
+  if (!dateFrom && !dateTo) return invoices;
+  
+  const fromDate = dateFrom ? new Date(dateFrom + 'T00:00:00') : null;
+  const toDate = dateTo ? new Date(dateTo + 'T23:59:59.999') : null;
+  
+  return invoices.filter(invoice => {
+    const invoiceDate = parseInvoiceDate(invoice.date);
+    
+    if (fromDate && invoiceDate < fromDate) return false;
+    if (toDate && invoiceDate > toDate) return false;
+    
+    return true;
+  });
+}
+
 const InvoiceListDashboard = () => {
   // Estado para selección masiva y popup de impresión
+  const navigate = useNavigate();
   const [massPrintMode, setMassPrintMode] = useState(false);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [showPrintPopup, setShowPrintPopup] = useState(false);
   const [printFormat, setPrintFormat] = useState<'A4' | 'ticket'>('A4');
   // const navigate = useNavigate(); // Eliminado porque no se usa
   const [dateFrom, setDateFrom] = useState(getToday());
-  const [dateTo, setDateTo] = useState('');
+  const [dateTo, setDateTo] = useState(getToday());
   const [currentPage, setCurrentPage] = useState(1);
   const [showTotals, setShowTotals] = useState(false);
+  const [recordsPerPage, setRecordsPerPage] = useState(10); // Por defecto 10 registros
+
+  // Resetear página cuando cambien los filtros de fecha o el número de registros por página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFrom, dateTo, recordsPerPage]);
 
   // Mock data para los comprobantes
   const invoices = [
@@ -152,8 +196,430 @@ const InvoiceListDashboard = () => {
       total: 42.80,
       status: 'Aceptado',
       statusColor: 'green'
+    },
+    {
+      id: 'B001-00000037',
+      type: 'Boleta de venta',
+      clientDoc: '12345678',
+      client: 'Pedro Sánchez Vega',
+      date: '23 set. 2025 14:15',
+      vendor: 'Carlos Rueda',
+      total: 95.80,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'F001-00000010',
+      type: 'Factura',
+      clientDoc: '20536547896',
+      client: 'Comercial Norte S.A.C.',
+      date: '23 set. 2025 10:30',
+      vendor: 'Bertha Flores',
+      total: 580.00,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'B001-00000036',
+      type: 'Boleta de venta',
+      clientDoc: '87654321',
+      client: 'Ana García López',
+      date: '22 set. 2025 16:45',
+      vendor: 'Carlos Rueda',
+      total: 125.60,
+      status: 'Corregir',
+      statusColor: 'orange'
+    },
+    {
+      id: 'B001-00000035',
+      type: 'Boleta de venta',
+      clientDoc: '45789632',
+      client: 'Roberto Mendoza Cruz',
+      date: '21 set. 2025 11:20',
+      vendor: 'Bertha Flores',
+      total: 78.40,
+      status: 'Rechazado',
+      statusColor: 'red'
+    },
+    {
+      id: 'F001-00000008',
+      type: 'Factura',
+      clientDoc: '20123456789',
+      client: 'Distribuidora Central S.A.C.',
+      date: '20 set. 2025 09:15',
+      vendor: 'Carlos Rueda',
+      total: 750.00,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'B001-00000034',
+      type: 'Boleta de venta',
+      clientDoc: '36985214',
+      client: 'Carmen Silva Torres',
+      date: '19 set. 2025 13:30',
+      vendor: 'Bertha Flores',
+      total: 156.90,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'B001-00000033',
+      type: 'Boleta de venta',
+      clientDoc: '78912345',
+      client: 'Luis Alberto Quispe',
+      date: '18 set. 2025 15:45',
+      vendor: 'Carlos Rueda',
+      total: 89.75,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'F001-00000007',
+      type: 'Factura',
+      clientDoc: '20987654321',
+      client: 'Importadora del Sur S.A.C.',
+      date: '17 set. 2025 08:20',
+      vendor: 'Bertha Flores',
+      total: 1250.00,
+      status: 'Rechazado',
+      statusColor: 'red'
+    },
+    {
+      id: 'B001-00000032',
+      type: 'Boleta de venta',
+      clientDoc: '15975346',
+      client: 'María Elena Vargas',
+      date: '16 set. 2025 12:10',
+      vendor: 'Carlos Rueda',
+      total: 234.50,
+      status: 'Corregir',
+      statusColor: 'orange'
+    },
+    {
+      id: 'B001-00000031',
+      type: 'Boleta de venta',
+      clientDoc: '74185296',
+      client: 'Jorge Ramírez Huamán',
+      date: '15 set. 2025 14:25',
+      vendor: 'Bertha Flores',
+      total: 167.30,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'F001-00000006',
+      type: 'Factura',
+      clientDoc: '20456789123',
+      client: 'Corporación Andina S.A.C.',
+      date: '14 set. 2025 16:40',
+      vendor: 'Carlos Rueda',
+      total: 890.75,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'B001-00000030',
+      type: 'Boleta de venta',
+      clientDoc: '96385274',
+      client: 'Rosa Delgado Morales',
+      date: '13 set. 2025 10:15',
+      vendor: 'Bertha Flores',
+      total: 143.20,
+      status: 'Rechazado',
+      statusColor: 'red'
+    },
+    {
+      id: 'B001-00000029',
+      type: 'Boleta de venta',
+      clientDoc: '85274196',
+      client: 'Fernando Castro Díaz',
+      date: '12 set. 2025 11:50',
+      vendor: 'Carlos Rueda',
+      total: 198.60,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'F001-00000005',
+      type: 'Factura',
+      clientDoc: '20741852963',
+      client: 'Servicios Integrales S.A.C.',
+      date: '11 set. 2025 09:30',
+      vendor: 'Bertha Flores',
+      total: 672.40,
+      status: 'Corregir',
+      statusColor: 'orange'
+    },
+    {
+      id: 'B001-00000028',
+      type: 'Boleta de venta',
+      clientDoc: '63741985',
+      client: 'Lucía Mendoza Vásquez',
+      date: '10 set. 2025 15:20',
+      vendor: 'Carlos Rueda',
+      total: 112.80,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'B001-00000027',
+      type: 'Boleta de venta',
+      clientDoc: '52963741',
+      client: 'Diego Herrera Salinas',
+      date: '09 set. 2025 13:45',
+      vendor: 'Bertha Flores',
+      total: 267.90,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'F001-00000004',
+      type: 'Factura',
+      clientDoc: '20852741963',
+      client: 'Tecnología Avanzada S.A.C.',
+      date: '08 set. 2025 08:10',
+      vendor: 'Carlos Rueda',
+      total: 1450.00,
+      status: 'Rechazado',
+      statusColor: 'red'
+    },
+    {
+      id: 'B001-00000026',
+      type: 'Boleta de venta',
+      clientDoc: '41852963',
+      client: 'Patricia Rojas Álvarez',
+      date: '07 set. 2025 16:30',
+      vendor: 'Bertha Flores',
+      total: 185.50,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'B001-00000025',
+      type: 'Boleta de venta',
+      clientDoc: '96325874',
+      client: 'Manuel Torres Guerrero',
+      date: '06 set. 2025 12:25',
+      vendor: 'Carlos Rueda',
+      total: 324.75,
+      status: 'Corregir',
+      statusColor: 'orange'
+    },
+    {
+      id: 'F001-00000003',
+      type: 'Factura',
+      clientDoc: '20963852741',
+      client: 'Logística Express S.A.C.',
+      date: '05 set. 2025 14:15',
+      vendor: 'Bertha Flores',
+      total: 823.60,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'B001-00000024',
+      type: 'Boleta de venta',
+      clientDoc: '73625814',
+      client: 'Sandra Jiménez Paredes',
+      date: '04 set. 2025 10:40',
+      vendor: 'Carlos Rueda',
+      total: 156.30,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'B001-00000023',
+      type: 'Boleta de venta',
+      clientDoc: '85296374',
+      client: 'Raúl Moreno Castillo',
+      date: '03 set. 2025 17:20',
+      vendor: 'Bertha Flores',
+      total: 289.40,
+      status: 'Rechazado',
+      statusColor: 'red'
+    },
+    {
+      id: 'F001-00000002',
+      type: 'Factura',
+      clientDoc: '20147258369',
+      client: 'Consultoría Global S.A.C.',
+      date: '02 set. 2025 11:55',
+      vendor: 'Carlos Rueda',
+      total: 1180.25,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'B001-00000022',
+      type: 'Boleta de venta',
+      clientDoc: '62851473',
+      client: 'Claudia Vera Núñez',
+      date: '01 set. 2025 09:30',
+      vendor: 'Bertha Flores',
+      total: 203.80,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'B001-00000021',
+      type: 'Boleta de venta',
+      clientDoc: '14725836',
+      client: 'Gabriel Ramos Silva',
+      date: '31 ago. 2025 15:10',
+      vendor: 'Carlos Rueda',
+      total: 178.65,
+      status: 'Corregir',
+      statusColor: 'orange'
+    },
+    {
+      id: 'F001-00000001',
+      type: 'Factura',
+      clientDoc: '20369258147',
+      client: 'Empresa Constructora S.A.C.',
+      date: '30 ago. 2025 13:25',
+      vendor: 'Bertha Flores',
+      total: 2150.00,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'B001-00000020',
+      type: 'Boleta de venta',
+      clientDoc: '58147369',
+      client: 'Verónica Salinas Torres',
+      date: '29 ago. 2025 10:45',
+      vendor: 'Carlos Rueda',
+      total: 134.90,
+      status: 'Rechazado',
+      statusColor: 'red'
+    },
+    {
+      id: 'B001-00000019',
+      type: 'Boleta de venta',
+      clientDoc: '25814736',
+      client: 'Andrés López Vargas',
+      date: '28 ago. 2025 14:30',
+      vendor: 'Bertha Flores',
+      total: 276.40,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'B001-00000018',
+      type: 'Boleta de venta',
+      clientDoc: '69258147',
+      client: 'Isabella Rodríguez Peña',
+      date: '27 ago. 2025 16:20',
+      vendor: 'Carlos Rueda',
+      total: 198.75,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'B001-00000017',
+      type: 'Boleta de venta',
+      clientDoc: '14736925',
+      client: 'Ricardo Herrera Luna',
+      date: '26 ago. 2025 12:15',
+      vendor: 'Bertha Flores',
+      total: 87.30,
+      status: 'Corregir',
+      statusColor: 'orange'
+    },
+    {
+      id: 'B001-00000016',
+      type: 'Boleta de venta',
+      clientDoc: '36925814',
+      client: 'Mónica Castillo Ramos',
+      date: '25 ago. 2025 08:40',
+      vendor: 'Carlos Rueda',
+      total: 245.60,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'B001-00000015',
+      type: 'Boleta de venta',
+      clientDoc: '92581473',
+      client: 'Joaquín Morales Díaz',
+      date: '24 ago. 2025 11:25',
+      vendor: 'Bertha Flores',
+      total: 156.85,
+      status: 'Rechazado',
+      statusColor: 'red'
+    },
+    {
+      id: 'B001-00000014',
+      type: 'Boleta de venta',
+      clientDoc: '81473692',
+      client: 'Carla Vega Mendoza',
+      date: '23 ago. 2025 15:50',
+      vendor: 'Carlos Rueda',
+      total: 312.40,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'B001-00000013',
+      type: 'Boleta de venta',
+      clientDoc: '47369258',
+      client: 'Alejandro Ruiz García',
+      date: '22 ago. 2025 09:35',
+      vendor: 'Bertha Flores',
+      total: 89.50,
+      status: 'Enviado',
+      statusColor: 'blue'
+    },
+    {
+      id: 'B001-00000012',
+      type: 'Boleta de venta',
+      clientDoc: '73692581',
+      client: 'Natalia Flores Sánchez',
+      date: '21 ago. 2025 13:10',
+      vendor: 'Carlos Rueda',
+      total: 267.20,
+      status: 'Corregir',
+      statusColor: 'orange'
+    },
+    {
+      id: 'B001-00000011',
+      type: 'Boleta de venta',
+      clientDoc: '69258147',
+      client: 'Sergio Alvarado Cruz',
+      date: '20 ago. 2025 17:45',
+      vendor: 'Bertha Flores',
+      total: 195.75,
+      status: 'Aceptado',
+      statusColor: 'green'
+    },
+    {
+      id: 'B001-00000010',
+      type: 'Boleta de venta',
+      clientDoc: '25814736',
+      client: 'Daniela Paredes López',
+      date: '19 ago. 2025 14:20',
+      vendor: 'Carlos Rueda',
+      total: 143.60,
+      status: 'Rechazado',
+      statusColor: 'red'
     }
   ];
+
+  // Datos filtrados por rango de fechas
+  const filteredInvoices = filterInvoicesByDateRange(invoices, dateFrom, dateTo);
+
+  // Cálculos de paginación
+  const totalRecords = filteredInvoices.length;
+  const totalPages = Math.ceil(totalRecords / recordsPerPage);
+  const startRecord = (currentPage - 1) * recordsPerPage + 1;
+  const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
+  
+  // Datos paginados - solo los registros de la página actual
+  const paginatedInvoices = filteredInvoices.slice(
+    (currentPage - 1) * recordsPerPage,
+    currentPage * recordsPerPage
+  );
 
   const getStatusBadge = (status: string, color: 'blue' | 'green' | 'red' | 'orange') => {
     const colorClasses: Record<'blue' | 'green' | 'red' | 'orange', string> = {
@@ -169,11 +635,6 @@ const InvoiceListDashboard = () => {
       </span>
     );
   };
-
-  const totalRecords = 271;
-  const recordsPerPage = 25;
-  const startRecord = (currentPage - 1) * recordsPerPage + 1;
-  const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -230,8 +691,20 @@ const InvoiceListDashboard = () => {
                 </div>
               </div>
             </div>
-            {/* Impresión masiva alineada a la derecha, con lógica y botones condicionales */}
+            {/* Botones NUEVA BOLETA y NUEVA FACTURA + Impresión masiva */}
             <div className="flex items-center space-x-2">
+              <button
+                className="px-4 py-2 border border-blue-500 text-blue-600 bg-white rounded-md font-semibold text-sm hover:bg-blue-50 transition-colors"
+                onClick={() => navigate('/comprobantes/nuevo?tipo=factura')}
+              >
+                Nueva factura
+              </button>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md font-semibold text-sm hover:bg-blue-700 transition-colors"
+                onClick={() => navigate('/comprobantes/nuevo?tipo=boleta')}
+              >
+                Nueva boleta
+              </button>
               {!massPrintMode ? (
                 <button
                   className={`flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium`}
@@ -255,7 +728,7 @@ const InvoiceListDashboard = () => {
                   >Cancelar</button>
                   <button
                     className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium"
-                    onClick={() => setSelectedInvoices(invoices.map(inv => inv.id))}
+                    onClick={() => setSelectedInvoices(paginatedInvoices.map(inv => inv.id))}
                   >Seleccionar página</button>
                   <button
                     className="px-6 py-2 rounded-md bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-colors"
@@ -279,9 +752,9 @@ const InvoiceListDashboard = () => {
                 <tr>
                   {massPrintMode && (
                     <th className="px-2 py-3">
-                      <input type="checkbox" checked={selectedInvoices.length === invoices.length} onChange={e => {
-                        if (e.target.checked) setSelectedInvoices(invoices.map(inv => inv.id));
-                        else setSelectedInvoices([]);
+                      <input type="checkbox" checked={paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoices.includes(inv.id))} onChange={e => {
+                        if (e.target.checked) setSelectedInvoices([...selectedInvoices, ...paginatedInvoices.filter(inv => !selectedInvoices.includes(inv.id)).map(inv => inv.id)]);
+                        else setSelectedInvoices(selectedInvoices.filter(id => !paginatedInvoices.some(inv => inv.id === id)));
                       }} />
                     </th>
                   )}
@@ -336,7 +809,7 @@ const InvoiceListDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {invoices.map((invoice, index) => (
+                {paginatedInvoices.map((invoice, index) => (
                   <tr key={index} className={`hover:bg-gray-50 transition-colors ${massPrintMode && selectedInvoices.includes(invoice.id) ? 'bg-blue-50' : ''}`}>
                     {massPrintMode && (
                       <td className="px-2 py-4">
@@ -400,6 +873,21 @@ const InvoiceListDashboard = () => {
                 >
                   Mostrar totales
                 </button>
+                
+                {/* Selector de registros por página */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-700">Mostrar:</span>
+                  <select 
+                    value={recordsPerPage}
+                    onChange={(e) => setRecordsPerPage(Number(e.target.value))}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="text-sm text-gray-700">por página</span>
+                </div>
               </div>
 
               <div className="flex items-center space-x-4">
@@ -416,8 +904,8 @@ const InvoiceListDashboard = () => {
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button 
-                    onClick={() => setCurrentPage(Math.min(Math.ceil(totalRecords / recordsPerPage), currentPage + 1))}
-                    disabled={currentPage >= Math.ceil(totalRecords / recordsPerPage)}
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage >= totalPages}
                     className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -434,19 +922,19 @@ const InvoiceListDashboard = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Resumen de Totales</h3>
             <div className="grid grid-cols-4 gap-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">12</div>
+                <div className="text-2xl font-bold text-blue-600">50</div>
                 <div className="text-sm text-gray-600">Total Comprobantes</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">S/ 1,576.59</div>
+                <div className="text-2xl font-bold text-green-600">S/ 15,847.25</div>
                 <div className="text-sm text-gray-600">Total Ventas</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">2</div>
+                <div className="text-2xl font-bold text-orange-600">8</div>
                 <div className="text-sm text-gray-600">Por Corregir</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">3</div>
+                <div className="text-2xl font-bold text-red-600">12</div>
                 <div className="text-sm text-gray-600">Rechazados</div>
               </div>
             </div>
