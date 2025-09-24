@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ClienteForm from '../components/ClienteForm';
 import ClientesFilters from '../components/ClientesFilters';
@@ -139,6 +139,7 @@ function ClientesPage() {
 	const navigate = useNavigate();
 	const [clients, setClients] = useState(initialClients);
 	const [showClientModal, setShowClientModal] = useState(false);
+	const [editingClient, setEditingClient] = useState<any>(null);
 	const [formData, setFormData] = useState({
 		documentNumber: '',
 		legalName: '',
@@ -158,6 +159,10 @@ function ClientesPage() {
 		phone: '',
 	});
 
+	// Estados para paginación
+	const [currentPage, setCurrentPage] = useState(1);
+	const [itemsPerPage] = useState(10);
+
 	const filteredClients = clients.filter(client =>
 		client.name.toLowerCase().includes(searchFilters.name.toLowerCase()) &&
 		client.document.toLowerCase().includes(searchFilters.document.toLowerCase()) &&
@@ -165,6 +170,17 @@ function ClientesPage() {
 		client.address.toLowerCase().includes(searchFilters.address.toLowerCase()) &&
 		client.phone.includes(searchFilters.phone)
 	);
+
+	// Lógica de paginación
+	const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
+	const startIndex = (currentPage - 1) * itemsPerPage;
+	const paginatedClients = filteredClients.slice(startIndex, startIndex + itemsPerPage);
+
+	// Resetear página cuando cambian los filtros
+	const handleFilterChange = (field: string, value: string) => {
+		setSearchFilters(prev => ({ ...prev, [field]: value }));
+		setCurrentPage(1);
+	};
 
 	const handleCreateClient = () => {
 		// Validaciones básicas
@@ -272,6 +288,91 @@ function ClientesPage() {
 		});
 		setDocumentType('RUC');
 		setClientType('Cliente');
+		setEditingClient(null);
+	};
+
+	const handleEditClient = (client: any) => {
+		// Extraer tipo de documento y número del campo document
+		const documentParts = client.document.split(' ');
+		const docType = documentParts[0];
+		const docNumber = documentParts.slice(1).join(' ');
+
+		setEditingClient(client);
+		setFormData({
+			documentNumber: docNumber || '',
+			legalName: client.name,
+			address: client.address.replace('Sin dirección', ''),
+			gender: '',
+			phone: client.phone.replace('Sin teléfono', ''),
+			email: '',
+			additionalData: '',
+		});
+		setDocumentType(docType === 'Sin' ? 'SIN_DOCUMENTO' : docType);
+		setClientType(client.type);
+		setShowClientModal(true);
+	};
+
+	const handleUpdateClient = () => {
+		// Mismas validaciones que crear
+		if (!formData.legalName.trim()) {
+			alert('El nombre/razón social es obligatorio');
+			return;
+		}
+
+		if (documentType !== 'SIN_DOCUMENTO' && !formData.documentNumber.trim()) {
+			alert('El número de documento es obligatorio');
+			return;
+		}
+
+		// Validaciones específicas por tipo de documento
+		if (documentType === 'RUC' && formData.documentNumber.length !== 11) {
+			alert('El RUC debe tener exactamente 11 dígitos');
+			return;
+		}
+
+		if (documentType === 'DNI' && formData.documentNumber.length !== 8) {
+			alert('El DNI debe tener exactamente 8 dígitos');
+			return;
+		}
+
+		if (documentType === 'PASAPORTE' && formData.documentNumber.length < 6) {
+			alert('El Pasaporte debe tener al menos 6 caracteres');
+			return;
+		}
+
+		if (documentType === 'CARNET_EXTRANJERIA' && formData.documentNumber.length < 9) {
+			alert('El Carnet de Extranjería debe tener al menos 9 caracteres');
+			return;
+		}
+
+		// Verificar si ya existe otro cliente con el mismo documento
+		const existingClient = clients.find(client => 
+			client.id !== editingClient.id &&
+			client.document.includes(formData.documentNumber) && 
+			formData.documentNumber.trim() !== ''
+		);
+
+		if (existingClient) {
+			alert('Ya existe otro cliente con este número de documento');
+			return;
+		}
+
+		// Actualizar cliente
+		const updatedClient = {
+			...editingClient,
+			name: formData.legalName.trim(),
+			document: documentType !== 'SIN_DOCUMENTO' ? `${documentType} ${formData.documentNumber.trim()}` : 'Sin documento',
+			type: clientType,
+			address: formData.address.trim() || 'Sin dirección',
+			phone: formData.phone.trim() || 'Sin teléfono',
+		};
+
+		setClients(prev => prev.map(c => c.id === editingClient.id ? updatedClient : c));
+		
+		resetForm();
+		setShowClientModal(false);
+		
+		alert(`Cliente "${updatedClient.name}" actualizado exitosamente`);
 	};
 
 	return (
@@ -321,7 +422,10 @@ function ClientesPage() {
 				<div className="flex items-center justify-between mb-4">
 					<h3 className="text-sm font-medium text-gray-700">Filtros</h3>
 					<button
-						onClick={() => setSearchFilters({ name: '', document: '', type: '', address: '', phone: '' })}
+						onClick={() => {
+							setSearchFilters({ name: '', document: '', type: '', address: '', phone: '' });
+							setCurrentPage(1);
+						}}
 						className="text-sm text-blue-600 hover:text-blue-800 font-medium"
 					>
 						Limpiar filtros
@@ -329,13 +433,69 @@ function ClientesPage() {
 				</div>
 				<ClientesFilters
 					filters={searchFilters}
-					onChange={(field, value) => setSearchFilters(prev => ({ ...prev, [field]: value }))}
+					onChange={handleFilterChange}
 				/>
 			</div>
 
 			{/* Tabla */}
-			<div className="flex-1 px-6 py-4 overflow-auto">
-				<ClientesTable clients={filteredClients} />
+			<div className="flex-1 px-6 py-4 overflow-y-scroll flex flex-col">
+				<ClientesTable 
+					clients={paginatedClients} 
+					onEditClient={handleEditClient}
+				/>
+				
+				{/* Paginación */}
+				{totalPages > 1 && (
+					<div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+						<div className="text-sm text-gray-500">
+							Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredClients.length)} de {filteredClients.length} resultados
+						</div>
+						<div className="flex items-center gap-2">
+							<button
+								onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+								disabled={currentPage === 1}
+								className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								Anterior
+							</button>
+							
+							<div className="flex items-center gap-1">
+								{Array.from({ length: totalPages }, (_, i) => i + 1)
+									.filter(page => 
+										page === 1 || 
+										page === totalPages || 
+										Math.abs(page - currentPage) <= 1
+									)
+									.map((page, index, array) => (
+										<React.Fragment key={page}>
+											{index > 0 && array[index - 1] !== page - 1 && (
+												<span className="px-2 text-gray-400">...</span>
+											)}
+											<button
+												onClick={() => setCurrentPage(page)}
+												className={`px-3 py-1 text-sm rounded-lg ${
+													page === currentPage
+														? 'bg-blue-600 text-white'
+														: 'border border-gray-300 hover:bg-gray-50'
+												}`}
+											>
+												{page}
+											</button>
+										</React.Fragment>
+									))
+								}
+							</div>
+							
+							<button
+								onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+								disabled={currentPage === totalPages}
+								className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								Siguiente
+							</button>
+						</div>
+					</div>
+				)}
 			</div>
 
 			{/* Modal */}
@@ -351,7 +511,8 @@ function ClientesPage() {
 						onDocumentTypeChange={handleDocumentTypeChange}
 						onClientTypeChange={handleClientTypeChange}
 						onCancel={handleCancelClient}
-						onSave={handleCreateClient}
+						onSave={editingClient ? handleUpdateClient : handleCreateClient}
+						isEditing={!!editingClient}
 					/>
 				</div>
 			)}
