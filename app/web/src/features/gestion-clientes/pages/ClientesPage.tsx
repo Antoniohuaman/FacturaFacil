@@ -9,7 +9,7 @@ const PRIMARY_COLOR = '#0040A2';
 const initialClients = [
 	{
 		id: 1,
-		name: 'PLUSMEDIAX2 S.A.C.',
+		name: 'PLUSMEDIA S.A.C.',
 		document: 'RUC 20608822658',
 		type: 'Cliente',
 		address: 'AV. HÉROES NRO. 280 - LIMA LIMA SAN JUAN DE MIRAFLORES',
