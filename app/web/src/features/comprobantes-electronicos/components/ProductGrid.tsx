@@ -37,7 +37,6 @@ export interface ProductGridProps {
   
   // Nuevas props para funcionalidades mejoradas
   currency?: Currency;
-  onCurrencyChange?: (currency: Currency) => void;
 }
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
@@ -54,8 +53,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   showCategory = false,
   isLoading = false,
   emptyStateMessage = 'No hay productos disponibles',
-  currency = 'PEN',
-  onCurrencyChange
+  currency = 'PEN'
 }) => {
   const { formatPrice } = useCurrency();
   const {
@@ -145,12 +143,6 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     setShowResults(true);
   };
 
-  const handleCurrencyToggle = () => {
-    const newCurrency = currency === 'PEN' ? 'USD' : 'PEN';
-    if (onCurrencyChange) {
-      onCurrencyChange(newCurrency);
-    }
-  };
 
   // Usar productos filtrados o todos los productos
   const displayProducts = hasSearchQuery ? searchResults : products;
@@ -256,15 +248,6 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             <span className="hidden sm:inline">Nuevo</span>
           </button>
 
-          {/* Moneda */}
-          <button
-            onClick={handleCurrencyToggle}
-            className="flex items-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium"
-            title="Cambiar moneda"
-          >
-            <span className="font-bold">{currency === 'PEN' ? 'S/' : '$'}</span>
-            <span className="hidden sm:inline">{currency === 'PEN' ? 'Soles' : 'Dólares'}</span>
-          </button>
 
           {/* Filtros */}
           <button

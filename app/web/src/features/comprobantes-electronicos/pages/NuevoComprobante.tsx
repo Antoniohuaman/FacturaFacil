@@ -1,16 +1,14 @@
-import { useState } from 'react';
-import { useCaja } from '../../control-caja/store/CajaContext';
-import { useNavigate } from 'react-router-dom';
-import type { Currency } from '../models/comprobante.types';
 import { AVAILABLE_PRODUCTS } from '../models/constants';
 
-// Importar hooks customizados
+// Importar hooks customizados optimizados
 import { useCart } from '../hooks/useCart';
 import { usePayment } from '../hooks/usePayment';
 import { useCurrency } from '../hooks/useCurrency';
 import { useDrafts } from '../hooks/useDrafts';
 import { useDocumentType } from '../hooks/useDocumentType';
 import { usePreview } from '../hooks/usePreview';
+import { useComprobanteState } from '../hooks/useComprobanteState';
+import { useComprobanteActions } from '../hooks/useComprobanteActions';
 
 // Importar componentes
 import { ComprobantHeader } from '../components/ComprobantHeader';
@@ -22,32 +20,45 @@ import NotesSection from '../components/NotesSection';
 import ClientSidebar from '../components/ClientSidebar';
 import PaymentMethodsSection from '../components/PaymentMethodsSection';
 import { Toast } from '../components/Toast';
+import { ToastContainer } from '../components/ToastContainer';
 import { DraftModal } from '../components/DraftModal';
 import { PaymentModal } from '../components/PaymentModal';
 import { PreviewModal } from '../components/PreviewModal';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import ActionButtonsSection from '../components/ActionButtonsSection';
 
 const NuevoComprobante = () => {
-  // Use custom hooks
+  // Use custom hooks optimizados
   const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
   const { currentCurrency, changeCurrency } = useCurrency();
-  const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleSaveDraft, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
+  const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
   const { openPreview, showPreview, closePreview } = usePreview();
 
-  // UI state
-  const [viewMode, setViewMode] = useState<'form' | 'pos'>('form');
-  const [showOptionalFields, setShowOptionalFields] = useState(false);
-  const [observaciones, setObservaciones] = useState('');
-  const [notaInterna, setNotaInterna] = useState('');
-  const [receivedAmount, setReceivedAmount] = useState('');
-  const [moneda, setMoneda] = useState<Currency>('PEN');
-  const [formaPago, setFormaPago] = useState('contado');
-  
-  // Navigation
-  const navigate = useNavigate();
-  const { status: cajaStatus } = useCaja();
+  // Estado consolidado del comprobante
+  const {
+    viewMode, setViewMode,
+    showOptionalFields, setShowOptionalFields,
+    observaciones, setObservaciones,
+    notaInterna, setNotaInterna,
+    receivedAmount, setReceivedAmount,
+    formaPago, setFormaPago,
+    isProcessing, setIsProcessing,
+    isCajaOpen, canProcess, cajaStatus,
+    getPaymentMethodLabel,
+    resetForm,
+    goToComprobantes
+  } = useComprobanteState();
+
+  // Acciones del comprobante con manejo de errores
+  const {
+    createComprobante,
+    toasts,
+    removeToast,
+    error,
+    warning
+  } = useComprobanteActions();
 
   // Available products (now using centralized constants)
   const availableProducts = AVAILABLE_PRODUCTS;
@@ -55,52 +66,64 @@ const NuevoComprobante = () => {
   // Calculate totals
   const totals = calculateTotals(cartItems);
 
-  // Handlers para vista previa
+  // Handlers mejorados con validación y feedback
   const handleVistaPrevia = () => {
     if (cartItems.length === 0) {
-      // Mostrar toast de error - aquí podrías agregar tu sistema de toast
-      console.log('Debe agregar al menos un producto');
+      error('Productos requeridos', 'Debe agregar al menos un producto para ver la vista previa');
       return;
     }
     openPreview();
   };
 
-  // Convertir forma de pago a formato para mostrar
-  const getPaymentMethodLabel = (formaPago: string) => {
-    const paymentMethods: { [key: string]: string } = {
-      'contado': 'CONTADO',
-      'deposito': 'DEPÓSITO EN CUENTA',
-      'efectivo': 'EFECTIVO',
-      'plin': 'PLIN',
-      'tarjeta': 'TARJETA',
-      'transferencia': 'TRANSFERENCIA',
-      'yape': 'YAPE'
-    };
-    return paymentMethods[formaPago] || 'CONTADO';
-  };
+  const handleCrearComprobante = async () => {
+    if (!canProcess) {
+      error('No se puede procesar', 'Verifique que la caja esté abierta y no haya operaciones en curso');
+      return;
+    }
 
-  const handleCrearComprobante = () => {
-    // Tu lógica existente para crear comprobante
-    console.log('Crear comprobante:', {
-      tipo: tipoComprobante,
-      serie: serieSeleccionada,
-      productos: cartItems,
-      totales: totals
-    });
-    // Aquí normalmente harías la llamada a la API y luego navegarías
-    // navigate('/comprobantes');
+    setIsProcessing(true);
+
+    try {
+      const success = await createComprobante({
+        tipoComprobante,
+        serieSeleccionada,
+        cartItems,
+        totals,
+        observaciones,
+        notaInterna,
+        formaPago
+      });
+
+      if (success) {
+        // Limpiar formulario y regresar
+        clearCart();
+        resetForm();
+        setTimeout(() => goToComprobantes(), 1000);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleConfirmSale = () => {
-    if (cajaStatus === 'cerrada') {
-      alert('No se puede vender: la caja está cerrada.');
+    if (!isCajaOpen) {
+      error('Caja cerrada', 'No se puede procesar ventas con la caja cerrada. Abra la caja e inténtelo nuevamente.');
       return;
     }
+
+    if (cartItems.length === 0) {
+      warning('Carrito vacío', 'Agregue productos antes de procesar la venta');
+      return;
+    }
+
     setShowPaymentModal(true);
   };
 
+
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header Component */}
       <ComprobantHeader 
         viewMode={viewMode}
@@ -132,6 +155,8 @@ const NuevoComprobante = () => {
               onViewFullForm={() => setViewMode('form')}
               onAddProduct={addToCart}
               currency={currentCurrency}
+              cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
+              isProcessing={isProcessing}
             />
 
             {/* Client Sidebar Component */}
@@ -184,7 +209,7 @@ const NuevoComprobante = () => {
               {/* Action Buttons Section */}
               <ActionButtonsSection
                 onVistaPrevia={handleVistaPrevia}
-                onCancelar={() => navigate('/comprobantes')}
+                onCancelar={goToComprobantes}
                 onGuardarBorrador={() => setShowDraftModal(true)}
                 onCrearComprobante={() => setShowPaymentModal(true)}
                 isCartEmpty={cartItems.length === 0}
@@ -198,8 +223,8 @@ const NuevoComprobante = () => {
               totals={totals}
               receivedAmount={receivedAmount}
               setReceivedAmount={setReceivedAmount}
-              moneda={moneda}
-              setMoneda={(value: string) => setMoneda(value as Currency)}
+              moneda={currentCurrency}
+              setMoneda={(value: string) => changeCurrency(value as any)}
               formaPago={formaPago}
               setFormaPago={setFormaPago}
             />
@@ -207,18 +232,24 @@ const NuevoComprobante = () => {
         )}
       </div>
 
-      {/* Toast Component */}
-      <Toast 
+      {/* Toast Container mejorado */}
+      <ToastContainer
+        toasts={toasts}
+        onRemove={removeToast}
+      />
+
+      {/* Toast legacy (mantener por compatibilidad) */}
+      <Toast
         show={showDraftToast}
         message="Borrador guardado exitosamente"
         onClose={() => setShowDraftToast(false)}
       />
 
       {/* Draft Modal Component */}
-      <DraftModal 
+      <DraftModal
         show={showDraftModal}
         onClose={() => setShowDraftModal(false)}
-        onSave={() => handleSaveDraft({
+        onSave={() => handleDraftModalSave({
           tipoComprobante,
           serieSeleccionada,
           cartItems
@@ -230,7 +261,7 @@ const NuevoComprobante = () => {
       />
 
       {/* Payment Modal Component */}
-      <PaymentModal 
+      <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         cartItems={cartItems}
@@ -238,9 +269,10 @@ const NuevoComprobante = () => {
         tipoComprobante={tipoComprobante}
         setTipoComprobante={setTipoComprobante}
         onPaymentComplete={() => {
-          console.log('Payment completed');
           setShowPaymentModal(false);
-          navigate('/comprobantes');
+          clearCart();
+          resetForm();
+          goToComprobantes();
         }}
         onViewFullForm={() => {
           setShowPaymentModal(false);
@@ -259,12 +291,13 @@ const NuevoComprobante = () => {
         series={serieSeleccionada}
         totals={totals}
         paymentMethod={getPaymentMethodLabel(formaPago)}
-        currency={moneda}
+        currency={currentCurrency}
         observations={observaciones}
         internalNotes={notaInterna}
         onCreateDocument={handleCrearComprobante}
       />
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 
