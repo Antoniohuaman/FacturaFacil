@@ -19,7 +19,16 @@ const ImportarClientesPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const PRIMARY_COLOR = '#0040A2';
+  const PRIMARY_HOVER = '#003380';
   const SUCCESS_COLOR = '#10B981';
+  const SUCCESS_HOVER = '#059669';
+
+  // Clases consistentes para reutilizar
+  const cardClass = "bg-white rounded-lg shadow-sm border border-gray-200";
+  const buttonPrimaryClass = "px-6 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-md";
+  const buttonSecondaryClass = "px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200";
+  const buttonOutlineClass = "px-4 py-2 border-2 rounded-lg font-medium transition-all duration-200";
+  const iconButtonClass = "p-2 hover:bg-gray-100 rounded-lg transition-all duration-200";
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -82,20 +91,20 @@ const ImportarClientesPage = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button 
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className={iconButtonClass}
               onClick={() => window.history.back()}
             >
               <ArrowLeft size={20} style={{ color: PRIMARY_COLOR }} />
             </button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Importar clientes</h1>
-              <p className="text-gray-600 mt-1">Carga masiva de clientes desde un archivo Excel</p>
+              <p className="text-base text-gray-600 mt-1">Carga masiva de clientes desde un archivo Excel</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setShowInstructions(!showInstructions)}
-              className="flex items-center px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className={buttonSecondaryClass}
             >
               <Info size={16} className="mr-2" />
               Ver instrucciones
@@ -107,14 +116,14 @@ const ImportarClientesPage = () => {
       <div className="max-w-4xl mx-auto p-6">
         {/* Instructions Panel */}
         {showInstructions && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Info size={20} style={{ color: PRIMARY_COLOR }} />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">¿Necesitas ayuda para crear tu archivo excel?</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">¿Necesitas ayuda para crear tu archivo excel?</h3>
                   <div className="space-y-2 text-sm text-gray-700">
                     <p>• El archivo debe ser formato Excel (.xlsx o .xls)</p>
                     <p>• La primera fila debe contener los nombres de las columnas</p>
@@ -125,7 +134,7 @@ const ImportarClientesPage = () => {
               </div>
               <button
                 onClick={() => setShowInstructions(false)}
-                className="p-1 hover:bg-blue-200 rounded-lg transition-colors"
+                className={iconButtonClass}
               >
                 <X size={16} className="text-blue-600" />
               </button>
@@ -136,12 +145,12 @@ const ImportarClientesPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Upload Area */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className={cardClass + " p-6"}>
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Selecciona tu archivo</h2>
               
               {/* File Drop Zone */}
               <div
-                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+                className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
                   dragActive 
                     ? 'border-blue-400 bg-blue-50' 
                     : selectedFile
@@ -177,16 +186,14 @@ const ImportarClientesPage = () => {
                     <div className="flex items-center justify-center space-x-3">
                       <button
                         onClick={handleUpload}
-                        className="px-6 py-2 text-white rounded-lg font-medium transition-colors"
+                        className={buttonPrimaryClass}
                         style={{ backgroundColor: PRIMARY_COLOR }}
-                        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#003380'}
-                        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = PRIMARY_COLOR}
                       >
                         Subir archivo Excel
                       </button>
                       <button
                         onClick={removeFile}
-                        className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        className={buttonSecondaryClass}
                       >
                         Cambiar archivo
                       </button>
@@ -208,10 +215,8 @@ const ImportarClientesPage = () => {
                       </p>
                       <button
                         onClick={openFileDialog}
-                        className="px-6 py-3 text-white rounded-lg font-medium transition-colors inline-flex items-center"
+                        className={buttonPrimaryClass + " inline-flex items-center"}
                         style={{ backgroundColor: PRIMARY_COLOR }}
-                        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#003380'}
-                        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = PRIMARY_COLOR}
                       >
                         <Upload size={18} className="mr-2" />
                         Subir tu archivo Excel
@@ -229,29 +234,21 @@ const ImportarClientesPage = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Template Download */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className={cardClass + " p-6"}>
               <div className="text-center">
                 <div className="p-3 bg-green-100 rounded-full inline-flex mb-4">
                   <Download size={24} className="text-green-600" />
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-2">¿Necesitas ayuda?</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">¿Necesitas ayuda?</h3>
                 <p className="text-sm text-gray-600 mb-4">
                   Descarga nuestra plantilla para asegurar el formato correcto
                 </p>
                 <button
                   onClick={downloadTemplate}
-                  className="w-full px-4 py-2 border-2 rounded-lg font-medium transition-colors flex items-center justify-center"
+                  className={buttonOutlineClass + " w-full flex items-center justify-center hover:bg-green-50"}
                   style={{ 
                     borderColor: SUCCESS_COLOR,
                     color: SUCCESS_COLOR
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.target as HTMLButtonElement).style.backgroundColor = SUCCESS_COLOR;
-                    (e.target as HTMLButtonElement).style.color = 'white';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.target as HTMLButtonElement).style.backgroundColor = 'transparent';
-                    (e.target as HTMLButtonElement).style.color = SUCCESS_COLOR;
                   }}
                 >
                   <Download size={16} className="mr-2" />
@@ -261,15 +258,15 @@ const ImportarClientesPage = () => {
             </div>
 
             {/* Stats */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Información</h3>
+            <div className={cardClass + " p-6"}>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Información</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Users size={16} className="text-gray-500" />
                     <span className="text-sm text-gray-600">Clientes actuales</span>
                   </div>
-                  <span className="font-medium text-gray-900">1,247</span>
+                  <span className="text-base font-medium text-gray-900">1,247</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -282,12 +279,12 @@ const ImportarClientesPage = () => {
             </div>
 
             {/* Tips */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex items-start space-x-2">
                 <AlertCircle size={16} className="text-yellow-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h4 className="font-medium text-yellow-800 text-sm mb-1">Consejos importantes</h4>
-                  <ul className="text-xs text-yellow-700 space-y-1">
+                  <h4 className="text-base font-medium text-yellow-800 mb-1">Consejos importantes</h4>
+                  <ul className="text-sm text-yellow-700 space-y-1">
                     <li>• Revisa que no haya duplicados</li>
                     <li>• Verifica el formato de emails</li>
                     <li>• Los teléfonos deben tener formato válido</li>

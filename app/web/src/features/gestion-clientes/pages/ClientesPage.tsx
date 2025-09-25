@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as ExcelJS from 'exceljs';
 import ClienteForm from '../components/ClienteForm';
 import ClientesTable, { type ClientesTableRef } from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
@@ -161,6 +162,59 @@ function ClientesPage() {
 	const totalPages = Math.ceil(clients.length / itemsPerPage);
 	const startIndex = (currentPage - 1) * itemsPerPage;
 	const paginatedClients = clients.slice(startIndex, startIndex + itemsPerPage);
+
+	const handleExportClients = async () => {
+		// Crear un nuevo workbook
+		const workbook = new ExcelJS.Workbook();
+		const worksheet = workbook.addWorksheet('Clientes');
+
+		// Configurar las columnas
+		worksheet.columns = [
+			{ header: 'Nombre/Razón Social', key: 'name', width: 40 },
+			{ header: 'Documento', key: 'document', width: 20 },
+			{ header: 'Tipo', key: 'type', width: 10 },
+			{ header: 'Dirección', key: 'address', width: 50 },
+			{ header: 'Teléfono', key: 'phone', width: 15 },
+			{ header: 'Estado', key: 'status', width: 10 }
+		];
+
+		// Agregar los datos
+		clients.forEach(client => {
+			worksheet.addRow({
+				name: client.name,
+				document: client.document,
+				type: client.type,
+				address: client.address,
+				phone: client.phone,
+				status: client.enabled ? 'Activo' : 'Inactivo'
+			});
+		});
+
+		// Estilizar el header
+		worksheet.getRow(1).font = { bold: true };
+		worksheet.getRow(1).fill = {
+			type: 'pattern',
+			pattern: 'solid',
+			fgColor: { argb: 'FFE6F3FF' }
+		};
+
+		// Generar nombre del archivo con fecha actual
+		const today = new Date();
+		const dateString = today.toISOString().split('T')[0]; // YYYY-MM-DD
+		const fileName = `clientes_${dateString}.xlsx`;
+
+		// Generar el buffer y descargar
+		const buffer = await workbook.xlsx.writeBuffer();
+		const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+		const url = URL.createObjectURL(blob);
+		
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = fileName;
+		link.click();
+		
+		URL.revokeObjectURL(url);
+	};
 
 	const handleCreateClient = () => {
 		// Validaciones básicas
@@ -355,7 +409,7 @@ function ClientesPage() {
 						<span className="text-gray-600">←</span>
 					</button>
 					<div>
-						<h1 className="text-xl font-semibold text-gray-800">Clientes</h1>
+						<h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
 						<p className="text-sm text-gray-500">Total: {clients.length}</p>
 					</div>
 				</div>
@@ -375,7 +429,7 @@ function ClientesPage() {
 					</button>
 					<button
 						title="Exporta lista de clientes"
-						onClick={() => alert('Funcionalidad de exportar clientes próximamente')}
+						onClick={handleExportClients}
 						className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
 						style={{ minWidth: 40, minHeight: 40 }}
 					>
