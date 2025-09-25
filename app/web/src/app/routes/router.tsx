@@ -12,6 +12,7 @@ import ClientesPage from "../../features/gestion-clientes/pages/ClientesPage";
 import IndicadoresPage from "../../features/indicadores-negocio/pages/IndicadoresPage";
 import ConfiguracionHome from "../../features/configuracion-sistema/pages/Home";
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
+import ListaPreciosHome from "../../features/lista-precios/pages/Home";
 
 export const router = createBrowserRouter([
   {
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
   { path: "/comprobantes", element: <ComprobantesTabs /> },
   { path: "/comprobantes/nuevo", element: <NuevoComprobante /> },
       { path: "/catalogo", element: <CatalogoArticulosMain /> },
+      { path: "/lista-precios", element: <ListaPreciosHome /> },
       { path: "/control-caja", element: <ControlCajaHome /> },
       { path: "/clientes", element: <ClientesPage /> },
   { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
