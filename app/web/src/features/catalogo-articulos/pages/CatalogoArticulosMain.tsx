@@ -65,7 +65,7 @@ const CatalogoArticulosMain: React.FC = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Catálogo de Artículos</h1>
                 <p className="text-sm text-gray-600">
-                  Gestiona tu catálogo completo de productos y servicios xxxxxxxxxxx
+                  Gestiona tu catálogo completo de productos y servicios
                 </p>
               </div>
             </div>
