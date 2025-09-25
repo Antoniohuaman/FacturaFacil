@@ -11,6 +11,7 @@ import ControlCajaHome from "../../features/control-caja/pages/Home";
 import ClientesPage from "../../features/gestion-clientes/pages/ClientesPage";
 import IndicadoresPage from "../../features/indicadores-negocio/pages/IndicadoresPage";
 import ConfiguracionHome from "../../features/configuracion-sistema/pages/Home";
+import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 
 export const router = createBrowserRouter([
   {
@@ -19,6 +20,7 @@ export const router = createBrowserRouter([
   { path: "/", element: <ComprobantesTabs /> },
   { path: "/comprobantes", element: <ComprobantesTabs /> },
   { path: "/comprobantes/nuevo", element: <NuevoComprobante /> },
+      { path: "/catalogo", element: <CatalogoArticulosMain /> },
       { path: "/control-caja", element: <ControlCajaHome /> },
       { path: "/clientes", element: <ClientesPage /> },
   { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
