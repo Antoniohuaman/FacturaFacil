@@ -2,20 +2,16 @@
 // COMPONENTE SIDEBAR DEL CARRITO PARA MODO POS
 // ===================================================================
 
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   ShoppingCart, 
   Plus, 
   Minus, 
   Trash2, 
   AlertTriangle,
-  Search,
   Package
 } from 'lucide-react';
 import type { CartSidebarProps, Product } from '../models/comprobante.types';
-import { ProductSearchBar } from './ProductSearchBar';
-import { QuickProductModal } from './QuickProductModal';
-import { useProductSearch } from '../hooks/useProductSearch';
 import { useCurrency } from '../hooks/useCurrency';
 import { UI_MESSAGES } from '../models/constants';
 
@@ -32,67 +28,15 @@ export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
   onClearCart,
   onConfirmSale,
   onViewFullForm,
-  onAddProduct,
   cashBoxStatus = 'unknown',
   isProcessing = false,
   currency = 'PEN'
 }) => {
   const { formatPrice } = useCurrency();
-  const {
-    searchQuery,
-    searchResults,
-    isSearching,
-    hasResults,
-    setSearchQuery,
-    searchByBarcode
-  } = useProductSearch();
-
-  // Estados locales
-  const [showSearch, setShowSearch] = useState(false);
-  const [showQuickProductModal, setShowQuickProductModal] = useState(false);
 
   // Estado de la caja
   const isCashBoxClosed = cashBoxStatus === 'closed';
   const canProcessSale = !isProcessing && cartItems.length > 0 && !isCashBoxClosed;
-
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-
-  const handleScanBarcode = (barcode: string) => {
-    searchByBarcode(barcode).then(product => {
-      if (product && onAddProduct) {
-        onAddProduct(product);
-        setShowSearch(false);
-      }
-    });
-  };
-
-  const handleCreateProduct = () => {
-    setShowQuickProductModal(true);
-  };
-
-  const handleProductCreated = (product: Product) => {
-    if (onAddProduct) {
-      onAddProduct(product);
-    }
-    setShowQuickProductModal(false);
-    setShowSearch(false);
-  };
-
-  const handleProductSelect = (product: Product) => {
-    if (onAddProduct) {
-      onAddProduct(product);
-      setShowSearch(false);
-    }
-  };
-
-  const toggleSearch = () => {
-    setShowSearch(!showSearch);
-    if (showSearch) {
-      setSearchQuery('');
-    }
-  };
 
   return (
     <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
@@ -107,19 +51,6 @@ export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Botón de búsqueda */}
-            <button
-              onClick={toggleSearch}
-              className={`p-2 rounded-lg transition-colors ${
-                showSearch 
-                  ? 'bg-blue-100 text-blue-600' 
-                  : 'hover:bg-gray-100 text-gray-600'
-              }`}
-              title="Buscar productos"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-
             {/* Botón limpiar carrito */}
             {cartItems.length > 0 && (
               <button
@@ -133,44 +64,7 @@ export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
           </div>
         </div>
 
-        {/* Barra de búsqueda expandible */}
-        {showSearch && (
-          <div className="mb-4">
-            <ProductSearchBar
-              onSearch={handleSearch}
-              onScanBarcode={handleScanBarcode}
-              onCreateProduct={handleCreateProduct}
-              isLoading={isSearching}
-            />
-            
-            {/* Resultados de búsqueda */}
-            {searchQuery && (
-              <div className="mt-3 max-h-48 overflow-y-auto bg-gray-50 rounded-lg">
-                {hasResults ? (
-                  <div className="p-2">
-                    {searchResults.slice(0, 4).map(product => (
-                      <button
-                        key={product.id}
-                        onClick={() => handleProductSelect(product)}
-                        className="w-full text-left p-2 hover:bg-white rounded transition-colors"
-                      >
-                        <div className="font-medium text-sm">{product.name}</div>
-                        <div className="flex justify-between text-xs text-gray-600">
-                          <span>{product.code}</span>
-                          <span>{formatPrice(product.price, currency)}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 text-center text-sm text-gray-500">
-                    {isSearching ? UI_MESSAGES.SEARCH_LOADING : UI_MESSAGES.NO_PRODUCTS_FOUND}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+
       </div>
 
       {/* Warning de caja cerrada */}
@@ -197,7 +91,7 @@ export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
             <Package className="h-12 w-12 mb-3 text-gray-300" />
             <p className="text-sm font-medium">{UI_MESSAGES.EMPTY_CART}</p>
             <p className="text-xs text-center px-4 mt-1">
-              {showSearch ? 'Busca productos arriba' : 'Haz clic en búsqueda para agregar productos'}
+              Usa el buscador principal para agregar productos
             </p>
           </div>
         ) : (
@@ -306,13 +200,7 @@ export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
         </button>
       </div>
 
-      {/* Modal de creación rápida de producto */}
-      <QuickProductModal
-        isOpen={showQuickProductModal}
-        onClose={() => setShowQuickProductModal(false)}
-        onProductCreated={handleProductCreated}
-        currency={currency}
-      />
+
     </div>
   );
 };

@@ -1,9 +1,13 @@
 // ===================================================================
-// COMPONENTE GRID DE PRODUCTOS PARA MODO POS
+// COMPONENTE GRID DE PRODUCTOS PARA MODO POS - VERSIÓN MEJORADA
 // ===================================================================
 
-import React from 'react';
-import type { Product, CartItem } from '../models/comprobante.types';
+import React, { useState } from 'react';
+import { Search, Scan, Plus, Filter, Package, X } from 'lucide-react';
+import type { Product, CartItem, Currency } from '../models/comprobante.types';
+import { QuickProductModal } from './QuickProductModal';
+import { useProductSearch } from '../hooks/useProductSearch';
+import { useCurrency } from '../hooks/useCurrency';
 
 export interface ProductGridProps {
   // Lista de productos disponibles
@@ -30,6 +34,10 @@ export interface ProductGridProps {
   // Estados
   isLoading?: boolean;
   emptyStateMessage?: string;
+  
+  // Nuevas props para funcionalidades mejoradas
+  currency?: Currency;
+  onCurrencyChange?: (currency: Currency) => void;
 }
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
@@ -45,40 +53,48 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   showQuantityBadge = true,
   showCategory = false,
   isLoading = false,
-  emptyStateMessage = 'No hay productos disponibles'
+  emptyStateMessage = 'No hay productos disponibles',
+  currency = 'PEN',
+  onCurrencyChange
 }) => {
+  const { formatPrice } = useCurrency();
+  const {
+    searchQuery,
+    searchResults,
+    isSearching,
+    hasResults,
+    hasSearchQuery,
+    availableCategories,
+    selectedCategory,
+    setSearchQuery,
+    searchByBarcode,
+    searchByCategory,
+    clearSearch
+  } = useProductSearch();
+
+  const [showQuickProductModal, setShowQuickProductModal] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   // ===================================================================
   // FUNCIONES DE UTILIDAD
   // ===================================================================
 
-  /**
-   * Obtener cantidad de un producto en el carrito
-   */
   const getProductQuantityInCart = (productId: string): number => {
     const cartItem = cartItems.find(item => item.id === productId);
     return cartItem?.quantity || 0;
   };
 
-  /**
-   * Verificar si un producto está en el carrito
-   */
   const isProductInCart = (productId: string): boolean => {
     return cartItems.some(item => item.id === productId);
   };
 
-  /**
-   * Manejar clic en producto
-   */
   const handleProductClick = (product: Product) => {
     if (!isLoading) {
       onAddToCart(product);
     }
   };
 
-  /**
-   * Generar clases del grid responsive
-   */
   const getGridClasses = (): string => {
     const baseClasses = 'grid gap-4';
     const colClasses = [
@@ -92,109 +108,354 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   };
 
   // ===================================================================
-  // RENDERIZADO DE ESTADOS ESPECIALES
+  // FUNCIONES DE BÚSQUEDA
   // ===================================================================
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-500">Cargando productos...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setShowResults(query.length > 0);
+  };
 
-  if (!products || products.length === 0) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg 
-              className="w-8 h-8 text-gray-400" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" 
-              />
-            </svg>
+  const handleProductSelect = (product: Product) => {
+    onAddToCart(product);
+    setShowResults(false);
+    setSearchQuery('');
+  };
+
+  const handleScanBarcode = (barcode: string) => {
+    searchByBarcode(barcode).then(product => {
+      if (product) {
+        onAddToCart(product);
+        setShowResults(false);
+      }
+    });
+  };
+
+  const handleCreateProduct = () => {
+    setShowQuickProductModal(true);
+  };
+
+  const handleProductCreated = (product: Product) => {
+    onAddToCart(product);
+    setShowQuickProductModal(false);
+  };
+
+  const handleCategorySelect = (category: string) => {
+    searchByCategory(category);
+    setShowResults(true);
+  };
+
+  const handleCurrencyToggle = () => {
+    const newCurrency = currency === 'PEN' ? 'USD' : 'PEN';
+    if (onCurrencyChange) {
+      onCurrencyChange(newCurrency);
+    }
+  };
+
+  // Usar productos filtrados o todos los productos
+  const displayProducts = hasSearchQuery ? searchResults : products;
+
+  // ===================================================================
+  // RENDERIZADO DEL HEADER DE BÚSQUEDA
+  // ===================================================================
+
+  const renderSearchHeader = () => (
+    <div className="bg-white border-b border-gray-200 p-4 mb-6">
+      {/* Barra de búsqueda principal */}
+      <div className="flex items-center gap-4 mb-4">
+        
+        {/* Barra de búsqueda */}
+        <div className="flex-1 relative">
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Buscar por nombre, código o categoría..."
+              className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base placeholder-gray-500 transition-all duration-200"
+            />
+
+            {isSearching && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+              </div>
+            )}
+
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  clearSearch();
+                  setShowResults(false);
+                }}
+                className="absolute right-12 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+              >
+                <X className="h-4 w-4 text-gray-400" />
+              </button>
+            )}
           </div>
-          <p className="text-gray-500">{emptyStateMessage}</p>
+
+          {/* Resultados de búsqueda dropdown */}
+          {showResults && hasSearchQuery && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+              {hasResults ? (
+                <div className="p-2">
+                  {searchResults.slice(0, 6).map(product => (
+                    <button
+                      key={product.id}
+                      onClick={() => handleProductSelect(product)}
+                      className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                          <div className="text-sm text-gray-500">{product.code}</div>
+                        </div>
+                        <div className="ml-3 text-right">
+                          <div className="font-bold text-blue-600">
+                            {formatPrice(product.price, currency)}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 text-center text-gray-500">
+                  <Package className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <div>No se encontraron productos</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Botones de acción */}
+        <div className="flex items-center gap-2">
+          
+          {/* Escanear */}
+          <button
+            onClick={() => handleScanBarcode('00168822')}
+            className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors font-medium shadow-sm"
+            title="Escanear código de barras"
+          >
+            <Scan className="h-5 w-5" />
+            <span className="hidden sm:inline">Escanear</span>
+          </button>
+
+          {/* Crear producto */}
+          <button
+            onClick={handleCreateProduct}
+            className="flex items-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors font-medium shadow-sm"
+            title="Crear nuevo producto"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="hidden sm:inline">Nuevo</span>
+          </button>
+
+          {/* Moneda */}
+          <button
+            onClick={handleCurrencyToggle}
+            className="flex items-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium"
+            title="Cambiar moneda"
+          >
+            <span className="font-bold">{currency === 'PEN' ? 'S/' : '$'}</span>
+            <span className="hidden sm:inline">{currency === 'PEN' ? 'Soles' : 'Dólares'}</span>
+          </button>
+
+          {/* Filtros */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-colors font-medium ${
+              showFilters 
+                ? 'bg-orange-100 text-orange-700' 
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+            }`}
+          >
+            <Filter className="h-5 w-5" />
+            <span className="hidden lg:inline">Filtros</span>
+          </button>
         </div>
       </div>
-    );
-  }
+
+      {/* Filtros expandibles */}
+      {showFilters && (
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="text-sm font-medium text-gray-700">Categorías:</span>
+            
+            <button
+              onClick={() => {
+                clearSearch();
+                setShowResults(false);
+              }}
+              className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                !selectedCategory 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'bg-white text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Todas
+            </button>
+            
+            {availableCategories.map(category => (
+              <button
+                key={category}
+                onClick={() => category && handleCategorySelect(category)}
+                className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                  selectedCategory === category 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Resumen de búsqueda */}
+      {hasSearchQuery && (
+        <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+          <span>
+            {hasResults ? `${searchResults.length} productos encontrados` : `Sin resultados para "${searchQuery}"`}
+          </span>
+          <button
+            onClick={() => {
+              clearSearch();
+              setShowResults(false);
+            }}
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Limpiar
+          </button>
+        </div>
+      )}
+
+      {/* Backdrop para cerrar resultados */}
+      {showResults && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowResults(false)}
+        />
+      )}
+    </div>
+  );
 
   // ===================================================================
   // RENDERIZADO PRINCIPAL
   // ===================================================================
 
-  return (
-    <div className={getGridClasses()}>
-      {products.map((product) => {
-        const quantityInCart = getProductQuantityInCart(product.id);
-        const inCart = isProductInCart(product.id);
-
-        return (
-          <div 
-            key={product.id}
-            onClick={() => handleProductClick(product)}
-            className={`bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer hover:scale-105 relative ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {/* Imagen/Placeholder del producto */}
-            <div className="aspect-square bg-blue-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
-              <div className="w-12 h-12 bg-blue-300 rounded-full flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-white rounded-full"></div>
-              </div>
-              
-              {/* Badge de cantidad en carrito */}
-              {showQuantityBadge && inCart && (
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                  {quantityInCart}
-                </div>
-              )}
-            </div>
-
-            {/* Información del producto */}
-            <div className="space-y-1">
-              {/* Nombre del producto */}
-              <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2">
-                {product.name}
-              </h3>
-              
-              {/* Precio */}
-              <p className="text-lg font-bold text-blue-600">
-                S/ {product.price.toFixed(2)}
-              </p>
-              
-              {/* Código */}
-              <p className="text-xs text-gray-500">
-                {product.code}
-              </p>
-              
-              {/* Categoría (opcional) */}
-              {showCategory && product.category && (
-                <p className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-md inline-block mt-1">
-                  {product.category}
-                </p>
-              )}
-            </div>
-
-            {/* Indicador de selección */}
-            {inCart && (
-              <div className="absolute top-2 left-2 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
-            )}
+  if (isLoading) {
+    return (
+      <>
+        {renderSearchHeader()}
+        <div className="flex items-center justify-center p-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Cargando productos...</p>
           </div>
-        );
-      })}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header de búsqueda */}
+      {renderSearchHeader()}
+
+      {/* Grid de productos */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {!displayProducts || displayProducts.length === 0 ? (
+          <div className="flex items-center justify-center p-12">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Package className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500">{emptyStateMessage}</p>
+              {hasSearchQuery && (
+                <button
+                  onClick={() => {
+                    clearSearch();
+                    setShowResults(false);
+                  }}
+                  className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  Ver todos los productos
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className={getGridClasses()}>
+            {displayProducts.map((product) => {
+              const quantityInCart = getProductQuantityInCart(product.id);
+              const inCart = isProductInCart(product.id);
+
+              return (
+                <div 
+                  key={product.id}
+                  onClick={() => handleProductClick(product)}
+                  className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer hover:scale-105 relative group"
+                >
+                  {/* Imagen/Placeholder del producto */}
+                  <div className="aspect-square bg-blue-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
+                    <div className="w-12 h-12 bg-blue-300 rounded-full flex items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-white rounded-full"></div>
+                    </div>
+                    
+                    {/* Badge de cantidad en carrito */}
+                    {showQuantityBadge && inCart && (
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">
+                        {quantityInCart}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Información del producto */}
+                  <div className="space-y-1">
+                    <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                      {product.name}
+                    </h3>
+                    
+                    <p className="text-lg font-bold text-blue-600">
+                      {formatPrice(product.price, currency)}
+                    </p>
+                    
+                    <p className="text-xs text-gray-500">
+                      {product.code}
+                    </p>
+                    
+                    {showCategory && product.category && (
+                      <span className="inline-block text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md mt-1">
+                        {product.category}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Indicador de selección */}
+                  {inCart && (
+                    <div className="absolute top-2 left-2 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Modal de creación de productos */}
+      <QuickProductModal
+        isOpen={showQuickProductModal}
+        onClose={() => setShowQuickProductModal(false)}
+        onProductCreated={handleProductCreated}
+        currency={currency}
+      />
     </div>
   );
 };
