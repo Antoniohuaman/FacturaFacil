@@ -163,6 +163,16 @@ function ClientesPage() {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage] = useState(10);
 
+	// Estados para integración con filtros de tabla
+	const [tableHasActiveFilters, setTableHasActiveFilters] = useState(false);
+	const [tableClearFilters, setTableClearFilters] = useState<(() => void) | null>(null);
+
+	// Callback para recibir estado de filtros de ClientesTable
+	const handleFiltersChange = (hasActiveFilters: boolean, clearFilters: () => void) => {
+		setTableHasActiveFilters(hasActiveFilters);
+		setTableClearFilters(() => clearFilters);
+	};
+
 	const filteredClients = clients.filter(client =>
 		client.name.toLowerCase().includes(searchFilters.name.toLowerCase()) &&
 		client.document.toLowerCase().includes(searchFilters.document.toLowerCase()) &&
@@ -176,10 +186,9 @@ function ClientesPage() {
 	const startIndex = (currentPage - 1) * itemsPerPage;
 	const paginatedClients = filteredClients.slice(startIndex, startIndex + itemsPerPage);
 
-	// Resetear página cuando cambian los filtros
-	const handleFilterChange = (field: string, value: string) => {
-		setSearchFilters(prev => ({ ...prev, [field]: value }));
-		setCurrentPage(1);
+	// Función temporal para exportar (sin funcionalidad real)
+	const handleExportToExcel = () => {
+		alert('Funcionalidad de exportación temporalmente deshabilitada');
 	};
 
 	const handleCreateClient = () => {
@@ -403,8 +412,8 @@ function ClientesPage() {
 						Importar clientes
 					</button>
 					<button
-						title="Exporta lista de clientes"
-						onClick={() => alert('Funcionalidad de exportar clientes próximamente')}
+						title="Exportar lista de clientes"
+						onClick={handleExportToExcel}
 						className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
 						style={{ minWidth: 40, minHeight: 40 }}
 					>
@@ -417,31 +426,16 @@ function ClientesPage() {
 				</div>
 			</div>
 
-			{/* Filtros */}
-			<div className="px-6 pt-4">
-				<div className="flex items-center justify-between mb-4">
-					<h3 className="text-sm font-medium text-gray-700">Filtros</h3>
-					<button
-						onClick={() => {
-							setSearchFilters({ name: '', document: '', type: '', address: '', phone: '' });
-							setCurrentPage(1);
-						}}
-						className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-					>
-						Limpiar filtros
-					</button>
-				</div>
-				<ClientesFilters
-					filters={searchFilters}
-					onChange={handleFilterChange}
-				/>
-			</div>
-
 			{/* Tabla */}
 			<div className="flex-1 px-6 py-4 overflow-y-scroll flex flex-col">
+				<ClientesFilters
+					hasActiveFilters={tableHasActiveFilters}
+					onClearFilters={tableClearFilters || (() => {})}
+				/>
 				<ClientesTable 
 					clients={paginatedClients} 
 					onEditClient={handleEditClient}
+					onFiltersChange={handleFiltersChange}
 				/>
 				
 				{/* Paginación */}
