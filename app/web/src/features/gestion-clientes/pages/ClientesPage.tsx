@@ -389,7 +389,7 @@ function ClientesPage() {
 			</div>
 
 			{/* Tabla con scroll */}
-			<div className="flex-1 px-6 overflow-y-scroll">
+			<div className="flex-1 px-6 pt-6 overflow-y-scroll">
 				<ClientesFilters 
 					tableRef={clientesTableRef}
 					onClearFilters={() => clientesTableRef.current?.clearAllFilters()}

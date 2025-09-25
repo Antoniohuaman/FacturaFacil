@@ -137,13 +137,48 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
     setMenuOpenId(null);
   };
 
+  const handleRowClick = (client: Cliente, event: React.MouseEvent) => {
+    // Evitar edición si se hace clic en botones o elementos interactivos
+    const target = event.target as HTMLElement;
+    if (target.closest('button') || target.closest('svg')) {
+      return;
+    }
+    
+    // Ejecutar la misma acción que el botón "Editar"
+    if (onEditClient) {
+      onEditClient(client);
+    }
+  };
+
+  const renderDocument = (document: string) => {
+    // Caso especial: "Sin documento" - todo en bold
+    if (document.toLowerCase().includes('sin documento')) {
+      return <span className="font-semibold">{document}</span>;
+    }
+    
+    // Separar tipo de documento y número para otros casos
+    const parts = document.split(' ');
+    if (parts.length >= 2) {
+      const docType = parts[0]; // RUC, DNI, etc.
+      const docNumber = parts.slice(1).join(' '); // El resto es el número
+      return (
+        <>
+          <span className="font-semibold">{docType}</span>{' '}
+          <span>{docNumber}</span>
+        </>
+      );
+    }
+    // Si no se puede separar, mostrar tal como está
+    return document;
+  };
+
   const handleDelete = (id: number) => {
     setClientes(prev => prev.filter(c => c.id !== id));
     setMenuOpenId(null);
   };
 
-  const handleOptionsClick = (id: number) => {
-    setMenuOpenId(menuOpenId === id ? null : id);
+    const handleOptionsClick = (clientId: number) => {
+    setMenuOpenId(menuOpenId === clientId ? null : clientId);
   };
 
   return (
@@ -358,14 +393,20 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
             </thead>
             <tbody className="divide-y divide-gray-200">
               {clientes.map(client => (
-                <tr key={client.id} className={`hover:bg-gray-50 transition-colors${!client.enabled ? ' row-disabled' : ''}`}>
+                <tr 
+                  key={client.id} 
+                  className={`hover:bg-gray-50 transition-colors cursor-pointer${!client.enabled ? ' row-disabled' : ''}`}
+                  onClick={(e) => handleRowClick(client, e)}
+                >
                   <td className="px-4 py-2 text-sm text-gray-900 font-medium break-words whitespace-normal" style={{ width: '25%' }}>{client.name}</td>
-                  <td className="px-4 py-2 text-sm break-words whitespace-normal" style={{ width: '15%' }}>{client.document}</td>
+                  <td className="px-4 py-2 text-sm break-words whitespace-normal" style={{ width: '15%' }}>
+                    {renderDocument(client.document)}
+                  </td>
                   <td className="px-4 py-2 text-sm break-words whitespace-normal" style={{ width: '8%' }}>{client.type}</td>
                   <td className="px-4 py-2 text-sm break-words whitespace-normal" style={{ width: '30%' }}>{client.address}</td>
                   <td className="px-4 py-2 text-sm break-words whitespace-normal" style={{ width: '12%' }}>{client.phone}</td>
                   <td className="px-4 py-2 text-right" style={{ width: '10%' }}>
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-between">
                       <button
                         className="group p-1 rounded focus:outline-none"
                         title="Historial"
@@ -382,7 +423,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
                           title="Opciones"
                           onClick={() => handleOptionsClick(client.id)}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-gray-700 hover:text-black transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-gray-500 hover:text-gray-700 transition-colors" fill="currentColor" viewBox="0 0 24 24">
                             <circle cx="5" cy="12" r="2" />
                             <circle cx="12" cy="12" r="2" />
                             <circle cx="19" cy="12" r="2" />
