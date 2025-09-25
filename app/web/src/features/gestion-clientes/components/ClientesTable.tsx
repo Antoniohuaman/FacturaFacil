@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export type Cliente = {
@@ -14,10 +14,14 @@ export type Cliente = {
 export type ClientesTableProps = {
   clients: Cliente[];
   onEditClient?: (client: Cliente) => void;
-  onFiltersChange?: (hasActiveFilters: boolean, clearFilters: () => void) => void;
 };
 
-const ClientesTable: React.FC<ClientesTableProps> = ({ clients, onEditClient, onFiltersChange }) => {
+export interface ClientesTableRef {
+  clearAllFilters: () => void;
+  hasActiveFilters: () => boolean;
+}
+
+const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ clients, onEditClient }, ref) => {
   const navigate = useNavigate();
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>(clients);
@@ -113,12 +117,11 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clients, onEditClient, on
   const hasInternalActiveFilters = Object.values(activeFilters).some(active => active === true) || 
     Object.values(filters).some(value => value.trim() !== '');
 
-  // Notificar cambios de filtros al componente padre
-  useEffect(() => {
-    if (onFiltersChange) {
-      onFiltersChange(hasInternalActiveFilters, clearAllFilters);
-    }
-  }, [hasInternalActiveFilters, onFiltersChange]);
+  // Exponer funciones al componente padre via ref
+  useImperativeHandle(ref, () => ({
+    clearAllFilters,
+    hasActiveFilters: () => hasInternalActiveFilters
+  }));
 
   const handleToggleEnabled = (id: number) => {
     setClientes(prev => prev.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c));
@@ -204,6 +207,7 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clients, onEditClient, on
           padding-right: 20px;
         }
       `}</style>
+      
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full mx-0 px-0 relative">
         <div className="overflow-x-auto">
           <table className="w-full text-sm table-fixed" style={{ minWidth: '1200px' }}>
@@ -422,6 +426,6 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clients, onEditClient, on
       </div>
     </>
   );
-};
+});
 
 export default ClientesTable;

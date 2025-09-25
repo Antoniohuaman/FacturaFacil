@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ClienteForm from '../components/ClienteForm';
+import ClientesTable, { type ClientesTableRef } from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
-import ClientesTable from '../components/ClientesTable';
 
 const PRIMARY_COLOR = '#0040A2';
 
@@ -140,6 +140,7 @@ function ClientesPage() {
 	const [clients, setClients] = useState(initialClients);
 	const [showClientModal, setShowClientModal] = useState(false);
 	const [editingClient, setEditingClient] = useState<any>(null);
+	const clientesTableRef = useRef<ClientesTableRef>(null);
 	const [formData, setFormData] = useState({
 		documentNumber: '',
 		legalName: '',
@@ -151,36 +152,15 @@ function ClientesPage() {
 	});
 	const [documentType, setDocumentType] = useState('RUC');
 	const [clientType, setClientType] = useState('Cliente');
-	const [searchFilters, setSearchFilters] = useState({
-		name: '',
-		document: '',
-		type: '',
-		address: '',
-		phone: '',
-	});
 
 	// Estados para paginación
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage] = useState(10);
 
-	const filteredClients = clients.filter(client =>
-		client.name.toLowerCase().includes(searchFilters.name.toLowerCase()) &&
-		client.document.toLowerCase().includes(searchFilters.document.toLowerCase()) &&
-		client.type.toLowerCase().includes(searchFilters.type.toLowerCase()) &&
-		client.address.toLowerCase().includes(searchFilters.address.toLowerCase()) &&
-		client.phone.includes(searchFilters.phone)
-	);
-
 	// Lógica de paginación
-	const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
+	const totalPages = Math.ceil(clients.length / itemsPerPage);
 	const startIndex = (currentPage - 1) * itemsPerPage;
-	const paginatedClients = filteredClients.slice(startIndex, startIndex + itemsPerPage);
-
-	// Resetear página cuando cambian los filtros
-	const handleFilterChange = (field: string, value: string) => {
-		setSearchFilters(prev => ({ ...prev, [field]: value }));
-		setCurrentPage(1);
-	};
+	const paginatedClients = clients.slice(startIndex, startIndex + itemsPerPage);
 
 	const handleCreateClient = () => {
 		// Validaciones básicas
@@ -238,15 +218,6 @@ function ClientesPage() {
 		};
 		
 		setClients(prev => [clientToAdd, ...prev]);
-		
-		// Limpiar filtros para asegurar que el nuevo cliente sea visible
-		setSearchFilters({
-			name: '',
-			document: '',
-			type: '',
-			address: '',
-			phone: '',
-		});
 		
 		resetForm();
 		setShowClientModal(false);
@@ -385,7 +356,7 @@ function ClientesPage() {
 					</button>
 					<div>
 						<h1 className="text-xl font-semibold text-gray-800">Clientes</h1>
-						<p className="text-sm text-gray-500">Total: {clients.length} | Mostrando: {filteredClients.length}</p>
+						<p className="text-sm text-gray-500">Total: {clients.length}</p>
 					</div>
 				</div>
 				<div className="flex items-center gap-2">
@@ -417,38 +388,25 @@ function ClientesPage() {
 				</div>
 			</div>
 
-			{/* Filtros */}
-			<div className="px-6 pt-4">
-				<div className="flex items-center justify-between mb-4">
-					<h3 className="text-sm font-medium text-gray-700">Filtros</h3>
-					<button
-						onClick={() => {
-							setSearchFilters({ name: '', document: '', type: '', address: '', phone: '' });
-							setCurrentPage(1);
-						}}
-						className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-					>
-						Limpiar filtros
-					</button>
-				</div>
-				<ClientesFilters
-					filters={searchFilters}
-					onChange={handleFilterChange}
+			{/* Tabla con scroll */}
+			<div className="flex-1 px-6 overflow-y-scroll">
+				<ClientesFilters 
+					tableRef={clientesTableRef}
+					onClearFilters={() => clientesTableRef.current?.clearAllFilters()}
 				/>
-			</div>
-
-			{/* Tabla */}
-			<div className="flex-1 px-6 py-4 overflow-y-scroll flex flex-col">
 				<ClientesTable 
+					ref={clientesTableRef}
 					clients={paginatedClients} 
 					onEditClient={handleEditClient}
 				/>
-				
-				{/* Paginación */}
-				{totalPages > 1 && (
-					<div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+			</div>
+
+			{/* Paginación */}
+			{totalPages > 1 && (
+				<div className="px-6 py-4 border-t border-gray-200">
+					<div className="flex items-center justify-between">
 						<div className="text-sm text-gray-500">
-							Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredClients.length)} de {filteredClients.length} resultados
+							Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, clients.length)} de {clients.length} resultados
 						</div>
 						<div className="flex items-center gap-2">
 							<button
@@ -495,8 +453,8 @@ function ClientesPage() {
 							</button>
 						</div>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 
 			{/* Modal */}
 			{showClientModal && (
