@@ -104,7 +104,7 @@ const ImportarClientesPage = () => {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setShowInstructions(!showInstructions)}
-              className={buttonSecondaryClass}
+              className={buttonSecondaryClass + " flex items-center"}
             >
               <Info size={16} className="mr-2" />
               Ver instrucciones
