@@ -14,6 +14,7 @@ export type Cliente = {
 export type ClientesTableProps = {
   clients: Cliente[];
   onEditClient?: (client: Cliente) => void;
+  onDeleteClient?: (client: Cliente) => void;
 };
 
 export interface ClientesTableRef {
@@ -21,7 +22,7 @@ export interface ClientesTableRef {
   hasActiveFilters: () => boolean;
 }
 
-const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ clients, onEditClient }, ref) => {
+const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ clients, onEditClient, onDeleteClient }, ref) => {
   const navigate = useNavigate();
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>(clients);
@@ -172,39 +173,39 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
     return document;
   };
 
-  const handleDelete = (id: number) => {
-    setClientes(prev => prev.filter(c => c.id !== id));
+  const handleDelete = (client: Cliente) => {
+    if (onDeleteClient) {
+      onDeleteClient(client);
+    }
     setMenuOpenId(null);
   };
 
-    const handleOptionsClick = (clientId: number) => {
+  const handleOptionsClick = (clientId: number) => {
     setMenuOpenId(menuOpenId === clientId ? null : clientId);
   };
 
   return (
     <>
       <style>{`
-        .row-disabled { opacity: 0.5; }
-        .menu-popup {
-          opacity: 1 !important;
-          filter: none !important;
-          position: absolute;
-          right: 0;
-          top: calc(100% + 8px);
-          min-width: 10rem;
-          z-index: 100;
-          pointer-events: auto;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-          border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
-          background: #fff;
-          transition: opacity 0.15s;
+        .row-disabled { 
+          color: #9ca3af;
         }
-        .menu-popup-arrow {
-          position: absolute; top: -8px; right: 16px; width: 16px; height: 8px;
-          overflow: hidden;
+        .row-disabled .font-medium {
+          color: #9ca3af;
         }
-        .menu-popup-arrow svg { display: block; }
+        .row-disabled svg {
+          color: #9ca3af;
+        }
+        /* El menú desplegable mantiene colores normales */
+        .row-disabled .absolute.right-0.mt-2 {
+          color: #374151;
+        }
+        .row-disabled .absolute.right-0.mt-2 button {
+          color: #374151;
+        }
+        .row-disabled .absolute.right-0.mt-2 .text-red-600 {
+          color: #dc2626 !important;
+        }
         
         /* Estilos para filtros underlined */
         .filter-underlined {
@@ -430,12 +431,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
                           </svg>
                         </button>
                         {menuOpenId === client.id && (
-                          <div className="menu-popup" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 100 }}>
-                            <span className="menu-popup-arrow">
-                              <svg width="16" height="8">
-                                <polygon points="0,8 8,0 16,8" fill="#fff" stroke="#e5e7eb" strokeWidth="1" />
-                              </svg>
-                            </span>
+                          <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                             <button
                               className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                               onClick={() => handleToggleEnabled(client.id)}
@@ -450,7 +446,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
                             </button>
                             <button
                               className="w-full text-left px-4 py-2 text-sm hover:bg-red-100 text-red-600"
-                              onClick={() => handleDelete(client.id)}
+                              onClick={() => handleDelete(client)}
                             >
                               Eliminar
                             </button>

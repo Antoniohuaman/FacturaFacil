@@ -4,6 +4,7 @@ import * as ExcelJS from 'exceljs';
 import ClienteForm from '../components/ClienteForm';
 import ClientesTable, { type ClientesTableRef } from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
+import ConfirmationModal from '../../../../../shared/src/components/ConfirmationModal';
 
 const PRIMARY_COLOR = '#0040A2';
 
@@ -141,6 +142,8 @@ function ClientesPage() {
 	const [clients, setClients] = useState(initialClients);
 	const [showClientModal, setShowClientModal] = useState(false);
 	const [editingClient, setEditingClient] = useState<any>(null);
+	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const [clientToDelete, setClientToDelete] = useState<any>(null);
 	const clientesTableRef = useRef<ClientesTableRef>(null);
 	const [formData, setFormData] = useState({
 		documentNumber: '',
@@ -337,6 +340,24 @@ function ClientesPage() {
 		setShowClientModal(true);
 	};
 
+	const handleDeleteClient = (client: any) => {
+		setClientToDelete(client);
+		setShowDeleteModal(true);
+	};
+
+	const handleConfirmDelete = () => {
+		if (clientToDelete) {
+			setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
+			setShowDeleteModal(false);
+			setClientToDelete(null);
+		}
+	};
+
+	const handleCancelDelete = () => {
+		setShowDeleteModal(false);
+		setClientToDelete(null);
+	};
+
 	const handleUpdateClient = () => {
 		// Mismas validaciones que crear
 		if (!formData.legalName.trim()) {
@@ -405,12 +426,9 @@ function ClientesPage() {
 			{/* Header */}
 			<div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
 				<div className="flex items-center">
-					<button className="mr-4 p-2 hover:bg-gray-100 rounded-md transition-colors">
-						<span className="text-gray-600">←</span>
-					</button>
 					<div>
 						<h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-						<p className="text-sm text-gray-500">Total: {clients.length}</p>
+						<p className="text-sm text-gray-500">Administra y consulta la información de tus clientes en un solo lugar.</p>
 					</div>
 				</div>
 				<div className="flex items-center gap-2">
@@ -452,6 +470,7 @@ function ClientesPage() {
 					ref={clientesTableRef}
 					clients={paginatedClients} 
 					onEditClient={handleEditClient}
+					onDeleteClient={handleDeleteClient}
 				/>
 			</div>
 
@@ -510,7 +529,7 @@ function ClientesPage() {
 				</div>
 			)}
 
-			{/* Modal */}
+			{/* Modal de creación/edición */}
 			{showClientModal && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
 					<ClienteForm
@@ -528,6 +547,19 @@ function ClientesPage() {
 					/>
 				</div>
 			)}
+
+			{/* Modal de confirmación de eliminación */}
+			<ConfirmationModal
+				isOpen={showDeleteModal}
+				title="Eliminar cliente"
+				message={`¿Está seguro de eliminar el cliente ${clientToDelete?.name}?`}
+				clientName={clientToDelete?.name}
+				onConfirm={handleConfirmDelete}
+				onCancel={handleCancelDelete}
+				confirmText="Eliminar"
+				cancelText="Cancelar"
+				confirmButtonStyle="primary"
+			/>
 		</div>
 	);
 }
