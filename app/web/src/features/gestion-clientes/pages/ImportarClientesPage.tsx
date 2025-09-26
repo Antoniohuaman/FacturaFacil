@@ -12,11 +12,51 @@ import {
   Info
 } from 'lucide-react';
 
+// Tipo para el historial de importaciones
+interface ImportHistory {
+  id: string;
+  fileName: string;
+  date: Date;
+  status: 'success' | 'error' | 'processing';
+  recordsImported: number;
+  recordsTotal: number;
+  errorMessage?: string;
+}
+
 const ImportarClientesPage = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Estado para el historial de importaciones
+  const [importHistory, setImportHistory] = useState<ImportHistory[]>([
+    {
+      id: '1',
+      fileName: 'clientes_enero_2024.xlsx',
+      date: new Date('2024-01-15T10:30:00'),
+      status: 'success',
+      recordsImported: 150,
+      recordsTotal: 150
+    },
+    {
+      id: '2', 
+      fileName: 'nuevos_clientes.xlsx',
+      date: new Date('2024-01-10T14:20:00'),
+      status: 'success',
+      recordsImported: 75,
+      recordsTotal: 80
+    },
+    {
+      id: '3',
+      fileName: 'clientes_diciembre.xlsx', 
+      date: new Date('2023-12-28T09:15:00'),
+      status: 'error',
+      recordsImported: 0,
+      recordsTotal: 200,
+      errorMessage: 'Formato de archivo incorrecto'
+    }
+  ]);
 
   const PRIMARY_COLOR = '#0040A2';
   const PRIMARY_HOVER = '#003380';
@@ -74,14 +114,34 @@ const ImportarClientesPage = () => {
 
   const handleUpload = () => {
     if (selectedFile) {
-      // Aquí iría la lógica de procesamiento del archivo
+      // Simular procesamiento del archivo
       console.log('Procesando archivo:', selectedFile.name);
+      
+      // Agregar al historial de importaciones
+      const newImport: ImportHistory = {
+        id: Date.now().toString(),
+        fileName: selectedFile.name,
+        date: new Date(),
+        status: 'success', // En un caso real, esto dependería del resultado del procesamiento
+        recordsImported: Math.floor(Math.random() * 100) + 50, // Simulado
+        recordsTotal: Math.floor(Math.random() * 100) + 50 // Simulado
+      };
+      
+      setImportHistory(prev => [newImport, ...prev]);
+      
+      // Limpiar archivo seleccionado
+      removeFile();
     }
   };
 
   const downloadTemplate = () => {
     // Aquí iría la lógica para descargar la plantilla
     console.log('Descargando plantilla...');
+  };
+
+  // Función para formatear fecha corta
+  const formatShortDate = (date: Date) => {
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
   };
 
   return (
@@ -113,7 +173,7 @@ const ImportarClientesPage = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6">
         {/* Instructions Panel */}
         {showInstructions && (
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
@@ -142,9 +202,37 @@ const ImportarClientesPage = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
           {/* Upload Area */}
-          <div className="lg:col-span-3">
+          <div className="xl:col-span-3 space-y-6">
+            {/* Template Download - Movido aquí arriba */}
+            <div className={cardClass + " p-4"}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-100 rounded-full">
+                    <Download size={20} className="text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">¿Necesitas ayuda?</h3>
+                    <p className="text-sm text-gray-600">
+                      Descarga nuestra plantilla para asegurar el formato correcto
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={downloadTemplate}
+                  className={buttonOutlineClass + " flex items-center hover:bg-green-50"}
+                  style={{ 
+                    borderColor: SUCCESS_COLOR,
+                    color: SUCCESS_COLOR
+                  }}
+                >
+                  <Download size={14} className="mr-1" />
+                  Descargar plantilla
+                </button>
+              </div>
+            </div>
+            
             <div className={cardClass + " p-6"}>
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Selecciona tu archivo</h2>
               
@@ -232,31 +320,7 @@ const ImportarClientesPage = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Template Download */}
-            <div className={cardClass + " p-6"}>
-              <div className="text-center">
-                <div className="p-3 bg-green-100 rounded-full inline-flex mb-4">
-                  <Download size={24} className="text-green-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">¿Necesitas ayuda?</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Descarga nuestra plantilla para asegurar el formato correcto
-                </p>
-                <button
-                  onClick={downloadTemplate}
-                  className={buttonOutlineClass + " w-full flex items-center justify-center hover:bg-green-50"}
-                  style={{ 
-                    borderColor: SUCCESS_COLOR,
-                    color: SUCCESS_COLOR
-                  }}
-                >
-                  <Download size={16} className="mr-2" />
-                  Descargar plantilla
-                </button>
-              </div>
-            </div>
-
+          <div className="xl:col-span-1 space-y-6">
             {/* Stats */}
             <div className={cardClass + " p-6"}>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Información</h3>
@@ -273,9 +337,51 @@ const ImportarClientesPage = () => {
                     <FileText size={16} className="text-gray-500" />
                     <span className="text-sm text-gray-600">Última importación</span>
                   </div>
-                  <span className="text-sm text-gray-500">15 ene 2024</span>
+                  <span className="text-sm text-gray-500">
+                    {importHistory.length > 0 ? importHistory[0].date.toLocaleDateString('es-ES') : 'Ninguna'}
+                  </span>
                 </div>
               </div>
+            </div>
+
+            {/* Historial de importaciones */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <h4 className="text-xs text-gray-600 mb-3 font-medium">Últimas importaciones</h4>
+              {importHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {importHistory.slice(0, 3).map((record, index) => (
+                    <div key={record.id}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-gray-800 font-medium">
+                            {record.recordsImported} clientes
+                          </p>
+                          <p className="text-xs text-gray-500">{record.fileName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-xs font-medium ${
+                            record.status === 'success' ? 'text-green-600' : 
+                            record.status === 'error' ? 'text-red-600' : 'text-yellow-600'
+                          }`}>
+                            {record.status === 'success' ? 'Exitosa' : 
+                             record.status === 'error' ? 'Error' : 'Parcial'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatShortDate(record.date)}
+                          </p>
+                        </div>
+                      </div>
+                      {index < Math.min(importHistory.length - 1, 2) && (
+                        <div className="h-px bg-gray-200 mt-3"></div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 text-center py-2">
+                  No hay importaciones anteriores
+                </p>
+              )}
             </div>
 
             {/* Tips */}
