@@ -123,8 +123,8 @@ const ImportarClientesPage = () => {
                   <Info size={20} style={{ color: PRIMARY_COLOR }} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">¿Necesitas ayuda para crear tu archivo excel?</h3>
-                  <div className="space-y-2 text-sm text-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">¿Necesitas ayuda para crear tu archivo excel?</h3>
+                  <div className="space-y-1 text-sm text-gray-700">
                     <p>• El archivo debe ser formato Excel (.xlsx o .xls)</p>
                     <p>• La primera fila debe contener los nombres de las columnas</p>
                     <p>• Columnas requeridas: Nombre, Documento, Email, Teléfono</p>
@@ -142,9 +142,9 @@ const ImportarClientesPage = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Upload Area */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <div className={cardClass + " p-6"}>
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Selecciona tu archivo</h2>
               
@@ -232,7 +232,7 @@ const ImportarClientesPage = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="lg:col-span-2 space-y-6">
             {/* Template Download */}
             <div className={cardClass + " p-6"}>
               <div className="text-center">
