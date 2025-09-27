@@ -19,16 +19,6 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
   onToggleVisibility,
   onSetBaseColumn
 }) => {
-  const handleMoveUp = (columnId: string) => {
-    // TODO: Implement column reordering
-    console.log('Move up:', columnId);
-  };
-
-  const handleMoveDown = (columnId: string) => {
-    // TODO: Implement column reordering
-    console.log('Move down:', columnId);
-  };
-
   return (
     <div className="p-6">
       <div className="bg-white rounded-lg shadow">
@@ -60,7 +50,6 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">MODO DE VALORIZACIÓN</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">BASE</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">VISIBLE</th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">ORDEN</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">ACCIONES</th>
                 </tr>
               </thead>
@@ -113,28 +102,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                       </button>
                     </td>
                     <td className="py-3 px-2">
-                      <div className="flex items-center space-x-1">
-                        <button 
-                          onClick={() => handleMoveUp(column.id)}
-                          className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                          title="Mover arriba"
-                        >
-                          ▲
-                        </button>
-                        <span className="text-sm text-gray-600 min-w-[20px] text-center">
-                          {column.order}
-                        </span>
-                        <button 
-                          onClick={() => handleMoveDown(column.id)}
-                          className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                          title="Mover abajo"
-                        >
-                          ▼
-                        </button>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-3">
                         <button
                           onClick={() => onEditColumn(column)}
                           className="text-blue-600 hover:text-blue-800 transition-colors"
