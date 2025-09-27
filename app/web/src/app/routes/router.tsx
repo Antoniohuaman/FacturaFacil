@@ -10,7 +10,13 @@ import HistorialCompras from "../../features/gestion-clientes/pages/HistorialCom
 import ControlCajaHome from "../../features/control-caja/pages/Home";
 import ClientesPage from "../../features/gestion-clientes/pages/ClientesPage";
 import IndicadoresPage from "../../features/indicadores-negocio/pages/IndicadoresPage";
-import ConfiguracionHome from "../../features/configuracion-sistema/pages/Home";
+import { ConfigurationDashboard } from "../../features/configuracion-sistema/pages/ConfigurationDashboard";
+import { CompanyConfiguration } from "../../features/configuracion-sistema/pages/CompanyConfiguration";
+import { EstablishmentsConfiguration } from "../../features/configuracion-sistema/pages/EstablishmentsConfiguration";
+import { EmployeesConfiguration } from "../../features/configuracion-sistema/pages/EmployeesConfiguration";
+import { SeriesConfiguration } from "../../features/configuracion-sistema/pages/SeriesConfiguration";
+import { BusinessConfiguration } from "../../features/configuracion-sistema/pages/BusinessConfiguration";
+import { VoucherDesignConfiguration } from "../../features/configuracion-sistema/pages/VoucherDesignConfiguration";
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import ListaPreciosHome from "../../features/lista-precios/pages/Home";
 
@@ -28,7 +34,13 @@ export const router = createBrowserRouter([
   { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
   { path: "/importar-clientes", element: <ImportarClientesPage /> },
   { path: "/indicadores", element: <IndicadoresPage /> },
-      { path: "/configuracion", element: <ConfiguracionHome /> },
+      { path: "/configuracion", element: <ConfigurationDashboard /> },
+      { path: "/configuracion/empresa", element: <CompanyConfiguration /> },
+      { path: "/configuracion/establecimientos", element: <EstablishmentsConfiguration /> },
+      { path: "/configuracion/empleados", element: <EmployeesConfiguration /> },
+      { path: "/configuracion/series", element: <SeriesConfiguration /> },
+      { path: "/configuracion/negocio", element: <BusinessConfiguration /> },
+      { path: "/configuracion/diseno", element: <VoucherDesignConfiguration /> },
     ],
   },
 ]);
