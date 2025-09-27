@@ -5,7 +5,7 @@ import type { Column, NewColumnForm } from '../../models/PriceTypes';
 interface ColumnModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (columnData: NewColumnForm) => boolean;
+  onSave: (columnData: NewColumnForm) => boolean | Promise<boolean>;
   editingColumn?: Column | null;
   hasBaseColumn: boolean;
 }
@@ -23,6 +23,7 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
     visible: true,
     isBase: false
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (editingColumn) {
@@ -42,11 +43,17 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
     }
   }, [editingColumn, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = onSave(formData);
-    if (success) {
-      onClose();
+    setIsSubmitting(true);
+    
+    try {
+      const success = await onSave(formData);
+      if (success) {
+        onClose();
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -101,8 +108,8 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
               onChange={(e) => setFormData({ ...formData, mode: e.target.value as 'fixed' | 'volume' })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="fixed">Fijo</option>
-              <option value="volume">Matriz por volumen</option>
+              <option value="fixed">Precio fijo</option>
+              <option value="volume">Precio por cantidad</option>
             </select>
           </div>
 
@@ -140,10 +147,17 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={!formData.name.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              disabled={!formData.name.trim() || isSubmitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
             >
-              {editingColumn ? 'Guardar' : 'Agregar'}
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Guardando...
+                </>
+              ) : (
+                editingColumn ? 'Guardar' : 'Agregar'
+              )}
             </button>
           </div>
         </form>

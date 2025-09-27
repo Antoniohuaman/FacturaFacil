@@ -13,6 +13,8 @@ export const ListaPrecios: React.FC = () => {
     columns,
     products,
     filteredProducts,
+    loading,
+    error,
     activeTab,
     showColumnModal,
     showProductPriceModal,
@@ -30,7 +32,6 @@ export const ListaPrecios: React.FC = () => {
     addOrUpdateProductPrice,
     openColumnModal,
     closeColumnModal,
-    openPriceModal,
     closePriceModal
   } = usePriceList();
 
@@ -44,21 +45,25 @@ export const ListaPrecios: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Lista de Precios</h1>
             <p className="text-gray-600 mt-1">
-              Módulo unificado para configurar columnas y definir precios por producto (SKU)
+              Configura columnas de precios y asigna valores por producto (SKU)
             </p>
           </div>
-          <div className="text-sm text-gray-500 text-right">
-            <div>Última actualización: {new Date().toLocaleString()}</div>
-            <div>Usuario: usuario.demo</div>
-          </div>
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+              ⚠️ {error}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Tabs Navigation */}
-      <div className="bg-white border-b border-gray-200 px-6">
+      <div className="bg-white border-b border-gray-200 px-6" role="tablist">
         <div className="flex space-x-8">
           <button
             onClick={() => setActiveTab('columns')}
+            role="tab"
+            aria-selected={activeTab === 'columns'}
+            aria-controls="columns-panel"
             className={`py-4 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'columns'
                 ? 'border-blue-500 text-blue-600'
@@ -69,6 +74,9 @@ export const ListaPrecios: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('products')}
+            role="tab"
+            aria-selected={activeTab === 'products'}
+            aria-controls="products-panel"
             className={`py-4 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'products'
                 ? 'border-blue-500 text-blue-600'
@@ -85,7 +93,21 @@ export const ListaPrecios: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto bg-gray-50">
-        {activeTab === 'columns' ? (
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="flex flex-col items-center">
+              <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600">Cargando...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="text-red-600 mb-2">❌</div>
+              <p className="text-gray-600">{error}</p>
+            </div>
+          </div>
+        ) : activeTab === 'columns' ? (
           <ColumnManagement
             columns={columns}
             onAddColumn={() => openColumnModal()}
@@ -101,8 +123,6 @@ export const ListaPrecios: React.FC = () => {
             filteredProducts={filteredProducts}
             searchSKU={searchSKU}
             onSearchChange={setSearchSKU}
-            onAddPrice={() => openPriceModal()}
-            onEditProduct={(product) => openPriceModal(product)}
           />
         )}
       </div>
@@ -122,6 +142,15 @@ export const ListaPrecios: React.FC = () => {
         onSave={addOrUpdateProductPrice}
         columns={columns}
         selectedProduct={selectedProduct}
+        selectedColumn={null}
+        onSwitchToVolumeModal={(columnId) => {
+          // Cerrar modal actual y mostrar mensaje informativo por ahora
+          closePriceModal();
+          const column = columns.find(col => col.id === columnId);
+          if (column) {
+            alert(`Esta columna (${column.name}) está configurada para precios por cantidad. Use el botón ⚙️ en la tabla para configurar los rangos.`);
+          }
+        }}
       />
     </div>
   );

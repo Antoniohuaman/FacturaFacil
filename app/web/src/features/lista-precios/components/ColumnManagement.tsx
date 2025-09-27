@@ -81,7 +81,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {column.mode === 'fixed' ? 'Fijo' : 'Matriz por volumen'}
+                        {column.mode === 'fixed' ? 'Precio fijo' : 'Precio por cantidad'}
                       </span>
                     </td>
                     <td className="py-3 px-2">

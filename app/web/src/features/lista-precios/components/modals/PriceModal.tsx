@@ -8,6 +8,8 @@ interface PriceModalProps {
   onSave: (priceData: PriceForm) => boolean;
   columns: Column[];
   selectedProduct?: Product | null;
+  selectedColumn?: Column | null;
+  onSwitchToVolumeModal?: (columnId: string) => void;
 }
 
 export const PriceModal: React.FC<PriceModalProps> = ({
@@ -15,9 +17,12 @@ export const PriceModal: React.FC<PriceModalProps> = ({
   onClose,
   onSave,
   columns,
-  selectedProduct
+  selectedProduct,
+  selectedColumn,
+  onSwitchToVolumeModal
 }) => {
   const [formData, setFormData] = useState<PriceForm>({
+    type: 'fixed',
     sku: '',
     columnId: '',
     value: '',
@@ -26,13 +31,45 @@ export const PriceModal: React.FC<PriceModalProps> = ({
   });
 
   useEffect(() => {
-    if (selectedProduct) {
+    if (selectedProduct && selectedColumn) {
+      // Cargar datos existentes para edición
+      const existingPrice = selectedProduct.prices[selectedColumn.id];
+      
+      if (existingPrice && existingPrice.type === 'fixed') {
+        setFormData({
+          type: 'fixed',
+          sku: selectedProduct.sku,
+          columnId: selectedColumn.id,
+          value: existingPrice.value.toString(),
+          validFrom: existingPrice.validFrom,
+          validUntil: existingPrice.validUntil
+        });
+      } else {
+        // Si no tiene precio en esa columna, usar valores por defecto pero con SKU y columna
+        const today = new Date().toISOString().split('T')[0];
+        const nextYear = new Date();
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+        const nextYearStr = nextYear.toISOString().split('T')[0];
+        
+        setFormData({
+          type: 'fixed',
+          sku: selectedProduct.sku,
+          columnId: selectedColumn.id,
+          value: '',
+          validFrom: today,
+          validUntil: nextYearStr
+        });
+      }
+    } else if (selectedProduct) {
+      // Solo producto seleccionado, sin columna específica
       setFormData(prev => ({
         ...prev,
         sku: selectedProduct.sku
       }));
     } else {
+      // Producto nuevo
       setFormData({
+        type: 'fixed',
         sku: '',
         columnId: '',
         value: '',
@@ -40,7 +77,22 @@ export const PriceModal: React.FC<PriceModalProps> = ({
         validUntil: ''
       });
     }
-  }, [selectedProduct, isOpen]);
+  }, [selectedProduct, selectedColumn, isOpen]);
+
+  const handleColumnChange = (columnId: string) => {
+    const selectedColumn = columns.find(col => col.id === columnId);
+    
+    if (selectedColumn && selectedColumn.mode === 'volume' && onSwitchToVolumeModal) {
+      // Si la columna seleccionada es de tipo volume, cambiar al modal de volumen
+      onSwitchToVolumeModal(columnId);
+      return;
+    }
+    
+    // Si es fixed, actualizar el formulario normalmente
+    if (formData.type === 'fixed') {
+      setFormData({ ...formData, columnId });
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +104,7 @@ export const PriceModal: React.FC<PriceModalProps> = ({
 
   const handleClose = () => {
     setFormData({
+      type: 'fixed',
       sku: '',
       columnId: '',
       value: '',
@@ -112,14 +165,14 @@ export const PriceModal: React.FC<PriceModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">Columna</label>
             <select
               value={formData.columnId}
-              onChange={(e) => setFormData({ ...formData, columnId: e.target.value })}
+              onChange={(e) => handleColumnChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
             >
               <option value="">Seleccionar columna</option>
               {columns.map(column => (
                 <option key={column.id} value={column.id}>
-                  {column.id} - {column.name}
+                  {column.id} - {column.name} {column.mode === 'volume' ? '(Precio por cantidad)' : '(Precio fijo)'}
                 </option>
               ))}
             </select>
@@ -131,8 +184,12 @@ export const PriceModal: React.FC<PriceModalProps> = ({
               type="number"
               step="0.01"
               min="0"
-              value={formData.value}
-              onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+              value={formData.type === 'fixed' ? formData.value : ''}
+              onChange={(e) => {
+                if (formData.type === 'fixed') {
+                  setFormData({ ...formData, value: e.target.value });
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="0.00"
               required
