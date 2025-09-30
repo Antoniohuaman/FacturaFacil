@@ -21,10 +21,9 @@ export function PaymentMethodsSection({
   const [formData, setFormData] = useState({ code: '', name: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // For now, we'll assume all methods are custom since isSystem is not in the interface
-  // This should be determined by business logic or added to the interface if needed
-  const systemMethods = paymentMethods.filter(pm => ['CASH', 'CARD'].includes(pm.type)); // Basic system methods
-  const customMethods = paymentMethods.filter(pm => !['CASH', 'CARD'].includes(pm.type));
+  // Agrupar métodos por código normativo (CONTADO vs CREDITO)
+  const contadoMethods = paymentMethods.filter(pm => pm.code === 'CONTADO');
+  const creditoMethods = paymentMethods.filter(pm => pm.code === 'CREDITO');
 
   const resetForm = () => {
     setFormData({ code: '', name: '' });
@@ -40,16 +39,12 @@ export function PaymentMethodsSection({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.code.trim() || !formData.name.trim()) return;
 
-    // Check for duplicate codes
-    const isDuplicate = paymentMethods.some(pm => 
-      pm.code === formData.code.toUpperCase() && pm.id !== editingId
-    );
-    
-    if (isDuplicate) {
-      alert('Ya existe un método de pago con este código');
+    // Validar que el código sea CONTADO o CREDITO
+    if (!['CONTADO', 'CREDITO'].includes(formData.code)) {
+      alert('El código debe ser CONTADO o CREDITO');
       return;
     }
 
@@ -59,20 +54,20 @@ export function PaymentMethodsSection({
       let updatedMethods: PaymentMethod[];
       
       if (editingId) {
-        // Update existing
+        // Update existing - Solo actualizar el nombre, el código no se puede cambiar
         updatedMethods = paymentMethods.map(pm =>
-          pm.id === editingId 
-            ? { ...pm, name: formData.name, code: formData.code.toUpperCase() }
+          pm.id === editingId
+            ? { ...pm, name: formData.name }
             : pm
         );
       } else {
         // Create new
         const newMethod: PaymentMethod = {
           id: Date.now().toString(),
-          code: formData.code.toUpperCase(),
+          code: formData.code, // CONTADO o CREDITO
           name: formData.name,
-          type: 'OTHER',
-          sunatCode: formData.code.toUpperCase(),
+          type: formData.code === 'CONTADO' ? 'CASH' : 'CREDIT',
+          sunatCode: formData.code === 'CONTADO' ? '001' : '002', // Código SUNAT
           sunatDescription: formData.name,
           configuration: {
             requiresReference: false,
@@ -205,37 +200,53 @@ export function PaymentMethodsSection({
           description="Configura un método de pago personalizado"
         >
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Información importante */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <h5 className="font-medium text-amber-900 mb-2">📋 Forma de Pago Normativa</h5>
+              <p className="text-sm text-amber-800">
+                A nivel normativo (SUNAT) solo existen 2 códigos: <strong>CONTADO</strong> y <strong>CRÉDITO</strong>.
+                El nombre es libre y puedes crear múltiples métodos con el mismo código pero diferentes nombres.
+              </p>
+              <div className="mt-2 text-xs text-amber-700">
+                <strong>Ejemplos:</strong> CONTADO - Efectivo | CONTADO - Yape | CONTADO - Tarjeta | CREDITO - 30 días
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Código *
+                  Código Normativo *
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.code}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    code: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10)
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="TRANSFER"
+                  onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                   required
-                />
-                <p className="text-xs text-gray-500 mt-1">Máximo 10 caracteres, solo letras y números</p>
+                  disabled={!!editingId}
+                >
+                  <option value="">Selecciona un código</option>
+                  <option value="CONTADO">CONTADO - Pago inmediato</option>
+                  <option value="CREDITO">CREDITO - Pago diferido</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {editingId ? 'No se puede cambiar el código al editar' : 'Elige CONTADO o CREDITO según el tipo de pago'}
+                </p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre *
+                  Nombre Personalizado *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Transferencia Bancaria"
+                  placeholder="Ej: Efectivo, Yape, Tarjeta Visa, Crédito 30 días..."
                   required
+                  maxLength={50}
                 />
+                <p className="text-xs text-gray-500 mt-1">Escribe el nombre que desees (máx. 50 caracteres)</p>
               </div>
             </div>
 
@@ -261,72 +272,19 @@ export function PaymentMethodsSection({
         </ConfigurationCard>
       )}
 
-      {/* System Methods */}
-      <div>
-        <h4 className="text-md font-medium text-gray-700 mb-3 flex items-center space-x-2">
-          <CreditCard className="w-4 h-4" />
-          <span>Métodos del Sistema</span>
-        </h4>
-        <div className="space-y-2">
-          {systemMethods.map((method) => (
-            <div key={method.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="flex items-center space-x-4">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <CreditCard className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium text-gray-900">{method.name}</span>
-                    <span className="text-sm text-gray-500 font-mono">({method.code})</span>
-                    {method.display.displayOrder <= 5 && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
-                    {!method.display.isVisible && <EyeOff className="w-4 h-4 text-gray-400" />}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <DefaultSelector
-                  isDefault={method.isDefault}
-                  onSetDefault={() => toggleDefault(method.id)}
-                  size="sm"
-                />
-                
-                <button
-                  onClick={() => toggleFavorite(method.id)}
-                  className={`p-2 rounded-lg transition-colors ${
-                    method.display.displayOrder <= 5 
-                      ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100' 
-                      : 'text-gray-400 hover:bg-gray-100 hover:text-yellow-500'
-                  }`}
-                  title={method.display.displayOrder <= 5 ? 'Quitar de favoritos' : 'Marcar como favorito'}
-                >
-                  <Star className={`w-4 h-4 ${method.display.displayOrder <= 5 ? 'fill-current' : ''}`} />
-                </button>
-                
-                <button
-                  onClick={() => toggleVisibility(method.id)}
-                  disabled={method.isDefault}
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={method.display.isVisible ? 'Ocultar' : 'Mostrar'}
-                >
-                  {method.display.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Custom Methods */}
-      {customMethods.length > 0 && (
+      {/* Métodos de CONTADO */}
+      {contadoMethods.length > 0 && (
         <div>
           <h4 className="text-md font-medium text-gray-700 mb-3 flex items-center space-x-2">
-            <Plus className="w-4 h-4" />
-            <span>Métodos Personalizados</span>
+            <CreditCard className="w-4 h-4 text-green-600" />
+            <span>Métodos de Pago al CONTADO</span>
+            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+              {contadoMethods.length} método{contadoMethods.length !== 1 ? 's' : ''}
+            </span>
           </h4>
           <div className="space-y-2">
-            {customMethods.map((method) => (
-              <div key={method.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
+            {contadoMethods.map((method) => (
+              <div key={method.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-green-300 transition-colors">
                 <div className="flex items-center space-x-4">
                   <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                     <CreditCard className="w-4 h-4 text-green-600" />
@@ -334,32 +292,34 @@ export function PaymentMethodsSection({
                   <div>
                     <div className="flex items-center space-x-2">
                       <span className="font-medium text-gray-900">{method.name}</span>
-                      <span className="text-sm text-gray-500 font-mono">({method.code})</span>
+                      <span className="text-xs text-gray-500 font-mono bg-green-50 px-2 py-1 rounded">
+                        {method.code}
+                      </span>
                       {method.display.displayOrder <= 5 && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
                       {!method.display.isVisible && <EyeOff className="w-4 h-4 text-gray-400" />}
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   <DefaultSelector
                     isDefault={method.isDefault}
                     onSetDefault={() => toggleDefault(method.id)}
                     size="sm"
                   />
-                  
+
                   <button
                     onClick={() => toggleFavorite(method.id)}
                     className={`p-2 rounded-lg transition-colors ${
-                      method.display.displayOrder <= 5 
-                        ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100' 
+                      method.display.displayOrder <= 5
+                        ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
                         : 'text-gray-400 hover:bg-gray-100 hover:text-yellow-500'
                     }`}
                     title={method.display.displayOrder <= 5 ? 'Quitar de favoritos' : 'Marcar como favorito'}
                   >
                     <Star className={`w-4 h-4 ${method.display.displayOrder <= 5 ? 'fill-current' : ''}`} />
                   </button>
-                  
+
                   <button
                     onClick={() => toggleVisibility(method.id)}
                     disabled={method.isDefault}
@@ -368,7 +328,7 @@ export function PaymentMethodsSection({
                   >
                     {method.display.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
-                  
+
                   <button
                     onClick={() => handleEdit(method)}
                     className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -376,7 +336,87 @@ export function PaymentMethodsSection({
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
-                  
+
+                  <button
+                    onClick={() => deleteMethod(method.id)}
+                    disabled={method.isDefault}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Métodos de CREDITO */}
+      {creditoMethods.length > 0 && (
+        <div>
+          <h4 className="text-md font-medium text-gray-700 mb-3 flex items-center space-x-2">
+            <CreditCard className="w-4 h-4 text-blue-600" />
+            <span>Métodos de Pago a CRÉDITO</span>
+            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+              {creditoMethods.length} método{creditoMethods.length !== 1 ? 's' : ''}
+            </span>
+          </h4>
+          <div className="space-y-2">
+            {creditoMethods.map((method) => (
+              <div key={method.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+                <div className="flex items-center space-x-4">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <CreditCard className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium text-gray-900">{method.name}</span>
+                      <span className="text-xs text-gray-500 font-mono bg-blue-50 px-2 py-1 rounded">
+                        {method.code}
+                      </span>
+                      {method.display.displayOrder <= 5 && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
+                      {!method.display.isVisible && <EyeOff className="w-4 h-4 text-gray-400" />}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <DefaultSelector
+                    isDefault={method.isDefault}
+                    onSetDefault={() => toggleDefault(method.id)}
+                    size="sm"
+                  />
+
+                  <button
+                    onClick={() => toggleFavorite(method.id)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      method.display.displayOrder <= 5
+                        ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
+                        : 'text-gray-400 hover:bg-gray-100 hover:text-yellow-500'
+                    }`}
+                    title={method.display.displayOrder <= 5 ? 'Quitar de favoritos' : 'Marcar como favorito'}
+                  >
+                    <Star className={`w-4 h-4 ${method.display.displayOrder <= 5 ? 'fill-current' : ''}`} />
+                  </button>
+
+                  <button
+                    onClick={() => toggleVisibility(method.id)}
+                    disabled={method.isDefault}
+                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={method.display.isVisible ? 'Ocultar' : 'Mostrar'}
+                  >
+                    {method.display.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+
+                  <button
+                    onClick={() => handleEdit(method)}
+                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Editar"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+
                   <button
                     onClick={() => deleteMethod(method.id)}
                     disabled={method.isDefault}
@@ -409,12 +449,14 @@ export function PaymentMethodsSection({
 
       {/* Help Text */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-900 mb-2">💡 Consejos</h4>
+        <h4 className="font-medium text-blue-900 mb-2">💡 Consejos sobre Formas de Pago</h4>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Los métodos del sistema no se pueden eliminar, solo ocultar</li>
-          <li>• Marca como favoritos los métodos más usados para acceso rápido</li>
-          <li>• Solo puede haber un método por defecto a la vez</li>
-          <li>• El método por defecto no se puede ocultar ni eliminar</li>
+          <li>• <strong>Códigos normativos:</strong> Solo existen CONTADO y CREDITO según normativa SUNAT</li>
+          <li>• <strong>Nombres personalizados:</strong> Puedes crear varios métodos con el mismo código pero diferentes nombres</li>
+          <li>• <strong>Ejemplos de CONTADO:</strong> Efectivo, Yape, Plin, Tarjeta de Crédito, Tarjeta de Débito, Transferencia</li>
+          <li>• <strong>Ejemplos de CREDITO:</strong> Crédito 30 días, Crédito 60 días, Letra de cambio, Factura con crédito</li>
+          <li>• <strong>Favoritos:</strong> Marca con estrella los métodos más usados para acceso rápido</li>
+          <li>• <strong>Método por defecto:</strong> Solo puede haber uno y no se puede ocultar ni eliminar</li>
         </ul>
       </div>
     </div>
