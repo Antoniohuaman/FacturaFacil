@@ -35,9 +35,9 @@ const CompanySelector = () => {
         <button
           onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
           className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200/50
-                   hover:border-blue-300 hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50
-                   transition-all flex items-center justify-between group backdrop-blur-sm
-                   hover:shadow-lg hover:shadow-blue-500/10 bg-white"
+                   hover:border-gray-300 hover:bg-gray-50
+                   transition-all duration-200 flex items-center justify-between group backdrop-blur-sm
+                   hover:shadow-md bg-white"
         >
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 
@@ -99,16 +99,31 @@ const CompanySelector = () => {
                       setShowCompanyDropdown(false);
                     }}
                     className={`
-                      w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all
-                      flex items-center gap-2 font-medium
+                      w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-200
+                      flex items-center gap-3 font-medium
                       ${sucursal === selectedSucursal 
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30' 
-                        : 'hover:bg-white/80 text-gray-700 hover:shadow-sm bg-white/50'
+                        ? 'bg-gray-100 text-gray-900 border border-gray-200' 
+                        : 'hover:bg-gray-50 text-gray-700 hover:border-gray-200 bg-white/70 border border-transparent'
                       }
                     `}
                   >
-                    <MapPin size={14} />
-                    {sucursal}
+                    <div className={`w-2 h-2 rounded-full transition-colors duration-200 ${
+                      sucursal === selectedSucursal 
+                        ? 'bg-gray-600' 
+                        : 'bg-gray-400'
+                    }`} />
+                    
+                    <MapPin size={16} className={`transition-colors duration-200 ${
+                      sucursal === selectedSucursal 
+                        ? 'text-gray-600' 
+                        : 'text-gray-500'
+                    }`} />
+                    
+                    <span>{sucursal}</span>
+                    
+                    {sucursal === selectedSucursal && (
+                      <div className="ml-auto w-2 h-2 rounded-full bg-gray-600"></div>
+                    )}
                   </button>
                 ))}
               </div>
