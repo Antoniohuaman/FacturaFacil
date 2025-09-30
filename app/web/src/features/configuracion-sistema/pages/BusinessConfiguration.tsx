@@ -20,7 +20,8 @@ import { useConfigurationContext } from '../context/ConfigurationContext';
 import { SettingsToggle } from '../components/common/SettingsToggle';
 import { DefaultSelector } from '../components/common/DefaultSelector';
 import { StatusIndicator } from '../components/common/StatusIndicator';
-import type { PaymentMethod, Currency, Unit, TaxConfiguration } from '../models/index';
+import { UnitsSection } from '../components/business/UnitsSection';
+import type { PaymentMethod, Currency, TaxConfiguration } from '../models/index';
 
 type BusinessSection = 'payments' | 'currencies' | 'units' | 'taxes' | 'preferences';
 
@@ -524,146 +525,6 @@ function CurrenciesSection({ currencies, onUpdate }: CurrenciesSectionProps) {
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Units Section Component  
-interface UnitsSectionProps {
-  units: Unit[];
-  onUpdate: (units: Unit[]) => Promise<void>;
-}
-
-function UnitsSection({ units, onUpdate }: UnitsSectionProps) {
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ code: '', name: '' });
-
-  // For now, treat all as custom units since we don't have isSystem property
-  const customUnits = units;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newUnit: Unit = {
-      id: Date.now().toString(),
-      code: formData.code,
-      name: formData.name,
-      symbol: formData.code,
-      description: formData.name,
-      category: 'OTHER',
-      decimalPlaces: 2,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    await onUpdate([...units, newUnit]);
-    setShowForm(false);
-    setFormData({ code: '', name: '' });
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Unidades de Medida</h3>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nueva Unidad</span>
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Nueva Unidad de Medida</h4>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Código
-                </label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="PCE"
-                  maxLength={6}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Piezas"
-                  required
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setFormData({ code: '', name: '' });
-                }}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Crear
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Units */}
-      {customUnits.length > 0 ? (
-        <div>
-          <h4 className="text-md font-medium text-gray-700 mb-3">Unidades de Medida</h4>
-          <div className="space-y-2">
-            {customUnits.map((unit) => (
-              <div key={unit.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <Scale className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <span className="font-medium text-gray-900">{unit.name}</span>
-                    <span className="ml-2 text-sm text-gray-500">({unit.code})</span>
-                    <span className="ml-2 text-xs px-2 py-1 bg-gray-100 rounded-full">{unit.category}</span>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <StatusIndicator 
-                    status={unit.isActive ? "success" : "error"} 
-                    label={unit.isActive ? "Activa" : "Inactiva"} 
-                    size="sm" 
-                    showIcon={false} 
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="text-center py-8 text-gray-500">
-          <Scale className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-          <p>No hay unidades de medida configuradas</p>
-          <p className="text-sm">Agrega tu primera unidad usando el botón de arriba</p>
         </div>
       )}
     </div>
