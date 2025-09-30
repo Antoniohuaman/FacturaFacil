@@ -17,7 +17,6 @@ export interface Establishment {
   };
   
   // Business information
-  type: 'MAIN' | 'BRANCH' | 'WAREHOUSE' | 'OFFICE';
   isMainEstablishment: boolean;
   businessHours: {
     monday?: BusinessHours;
@@ -104,43 +103,6 @@ export interface BankAccount {
   isActive: boolean;
 }
 
-export interface CreateEstablishmentRequest {
-  code: string;
-  name: string;
-  address: string;
-  district: string;
-  province: string;
-  department: string;
-  postalCode?: string;
-  phone?: string;
-  email?: string;
-  type: 'MAIN' | 'BRANCH' | 'WAREHOUSE' | 'OFFICE';
-  coordinates?: {
-    latitude: number;
-    longitude: number;
-  };
-  businessHours?: Establishment['businessHours'];
-  sunatConfiguration?: {
-    annexCode?: string;
-    economicActivity?: string;
-    tributaryAddress?: string;
-  };
-  inventoryConfiguration?: {
-    managesInventory: boolean;
-    isWarehouse: boolean;
-    allowNegativeStock: boolean;
-    autoTransferStock: boolean;
-    parentWarehouseId?: string;
-  };
-  financialConfiguration?: {
-    handlesCash: boolean;
-    defaultCurrencyId: string;
-    acceptedCurrencies: string[];
-    defaultTaxId: string;
-  };
-  notes?: string;
-}
-
 export interface UpdateEstablishmentRequest extends Partial<CreateEstablishmentRequest> {
   id: string;
 }
@@ -149,7 +111,6 @@ export interface EstablishmentSummary {
   id: string;
   code: string;
   name: string;
-  type: Establishment['type'];
   address: string;
   district: string;
   status: Establishment['status'];
@@ -157,13 +118,6 @@ export interface EstablishmentSummary {
   employeeCount?: number;
   hasPos: boolean;
 }
-
-export const ESTABLISHMENT_TYPES = [
-  { value: 'MAIN', label: 'Establecimiento Principal', icon: 'Building' },
-  { value: 'BRANCH', label: 'Sucursal', icon: 'Store' },
-  { value: 'WAREHOUSE', label: 'Almacén', icon: 'Package' },
-  { value: 'OFFICE', label: 'Oficina', icon: 'Building2' },
-] as const;
 
 export const ESTABLISHMENT_STATUS = [
   { value: 'ACTIVE', label: 'Activo', color: 'green' },
@@ -218,7 +172,6 @@ export interface CreateEstablishmentRequest {
   postalCode?: string;
   phone?: string;
   email?: string;
-  type: 'MAIN' | 'BRANCH' | 'WAREHOUSE' | 'OFFICE';
   coordinates?: {
     latitude: number;
     longitude: number;

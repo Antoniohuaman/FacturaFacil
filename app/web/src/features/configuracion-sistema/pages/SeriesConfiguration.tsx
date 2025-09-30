@@ -1,5 +1,5 @@
 // src/features/configuration/pages/SeriesConfiguration.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft,
@@ -21,7 +21,8 @@ import { useConfigurationContext } from '../context/ConfigurationContext';
 import { ConfigurationCard } from '../components/common/ConfigurationCard';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
-import type { Series } from '../models/Series';
+import type { Series, DocumentType } from '../models/Series';
+import { SUNAT_DOCUMENT_TYPES } from '../models/Series';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE';
 
@@ -41,29 +42,109 @@ const voucherTypeConfig = {
     icon: FileCheck,
     color: 'blue',
     prefix: 'F',
-    description: 'Para ventas a empresas con RUC'
+    description: 'Para ventas a empresas con RUC - Debe empezar con "F"'
   },
   RECEIPT: {
     label: 'Boleta Electrónica',
     icon: Receipt,
     color: 'green',
     prefix: 'B',
-    description: 'Para ventas a consumidores finales'
+    description: 'Para ventas a consumidores finales - Debe empezar con "B"'
   },
   SALE_NOTE: {
     label: 'Nota de Venta',
     icon: Clipboard,
     color: 'orange',
     prefix: '',
-    description: 'Documento interno, sin validez tributaria'
+    description: 'Documento interno, sin validez tributaria - Serie libre'
   },
   QUOTE: {
     label: 'Cotización',
     icon: MessageSquare,
     color: 'purple',
     prefix: '',
-    description: 'Propuesta comercial para clientes'
+    description: 'Propuesta comercial para clientes - Serie libre'
   }
+};
+
+// Function to map VoucherType to correct SUNAT DocumentType
+const getDocumentTypeForVoucherType = (voucherType: VoucherType): DocumentType => {
+  const documentTypeMap: Record<VoucherType, string> = {
+    'INVOICE': '01',      // Factura
+    'RECEIPT': '03',      // Boleta de Venta
+    'SALE_NOTE': 'NV',    // Nota de Venta (custom)
+    'QUOTE': 'COT'        // Cotización (custom)
+  };
+  
+  const sunatCode = documentTypeMap[voucherType];
+  const documentType = SUNAT_DOCUMENT_TYPES.find(dt => dt.code === sunatCode);
+  
+  if (!documentType) {
+    // Fallback for non-SUNAT documents (Nota de Venta y Cotización)
+    return {
+      id: sunatCode,
+      code: sunatCode,
+      name: voucherTypeConfig[voucherType].label,
+      shortName: voucherType.substring(0, 3),
+      category: 'OTHER', // Use 'OTHER' for custom document types
+      properties: {
+        affectsTaxes: false, // Custom documents don't affect taxes
+        requiresCustomerRuc: false,
+        requiresCustomerName: voucherType === 'SALE_NOTE', // Only sale notes need customer name
+        allowsCredit: false,
+        requiresPaymentMethod: voucherType === 'SALE_NOTE',
+        canBeVoided: true,
+        canHaveCreditNote: false,
+        canHaveDebitNote: false,
+        isElectronic: false, // Custom documents are not electronic
+        requiresSignature: false,
+      },
+      seriesConfiguration: {
+        defaultPrefix: voucherTypeConfig[voucherType].prefix,
+        seriesLength: 3,
+        correlativeLength: 8,
+        allowedPrefixes: [voucherTypeConfig[voucherType].prefix],
+      },
+      isActive: true,
+    } as DocumentType;
+  }
+  
+  return documentType;
+};
+
+// Function to fix existing series with incorrect documentType
+const fixSeriesDocumentType = (series: Series): Series => {
+  const seriesCode = series.series;
+  let correctType: VoucherType;
+  
+  if (seriesCode.startsWith('B')) {
+    correctType = 'RECEIPT';
+  } else if (seriesCode.startsWith('F')) {
+    correctType = 'INVOICE';
+  } else {
+    // For series that don't start with B or F, try to determine based on document type
+    if (series.documentType.code === 'NV' || series.documentType.name.includes('Nota de Venta')) {
+      correctType = 'SALE_NOTE';
+    } else if (series.documentType.code === 'COT' || series.documentType.name.includes('Cotización')) {
+      correctType = 'QUOTE';
+    } else {
+      return series; // Don't modify if we can't determine
+    }
+  }
+  
+  const correctDocumentType = getDocumentTypeForVoucherType(correctType);
+  
+  // Only update if the current documentType is incorrect
+  if (series.documentType.category !== correctType && 
+      (correctType === 'RECEIPT' || correctType === 'INVOICE' || 
+       (series.documentType.category === 'OTHER' && (correctType === 'SALE_NOTE' || correctType === 'QUOTE')))) {
+    return {
+      ...series,
+      documentType: correctDocumentType
+    };
+  }
+  
+  return series;
 };
 
 // Extended Series interface for this component
@@ -81,16 +162,53 @@ export function SeriesConfiguration() {
   const { state, dispatch } = useConfigurationContext();
   const { series: rawSeries, establishments } = state;
   
+  // Fix existing series with incorrect documentType before processing
+  const fixedSeries = rawSeries.map(fixSeriesDocumentType);
+  
   // Transform Series to ExtendedSeries for component compatibility
-  const series: ExtendedSeries[] = rawSeries.map(s => ({
-    ...s,
-    type: 'INVOICE' as VoucherType, // Default type - would come from Series interface
-    initialNumber: s.configuration?.startNumber || 1,
-    currentNumber: s.correlativeNumber,
-    isDefault: false, // Would come from business logic
-    isActive: true, // Would come from Series status
-    hasUsage: s.correlativeNumber > (s.configuration?.startNumber || 1)
-  }));
+  const series: ExtendedSeries[] = fixedSeries.map(s => {
+    // Map documentType.category to VoucherType
+    let voucherType: VoucherType;
+    switch (s.documentType.category) {
+      case 'INVOICE':
+        voucherType = 'INVOICE';
+        break;
+      case 'RECEIPT':
+        voucherType = 'RECEIPT';
+        break;
+      case 'OTHER':
+        // For OTHER category, determine type based on document code or name
+        if (s.documentType.code === 'NV' || s.documentType.name.includes('Nota de Venta')) {
+          voucherType = 'SALE_NOTE';
+        } else if (s.documentType.code === 'COT' || s.documentType.name.includes('Cotización')) {
+          voucherType = 'QUOTE';
+        } else {
+          voucherType = 'SALE_NOTE'; // Default for OTHER
+        }
+        break;
+      case 'CREDIT_NOTE':
+        voucherType = 'SALE_NOTE'; // Map to closest available type
+        break;
+      case 'DEBIT_NOTE':
+        voucherType = 'SALE_NOTE'; // Map to closest available type
+        break;
+      case 'GUIDE':
+        voucherType = 'SALE_NOTE'; // Map to closest available type
+        break;
+      default:
+        voucherType = 'INVOICE'; // Default fallback
+    }
+    
+    return {
+      ...s,
+      type: voucherType,
+      initialNumber: s.configuration?.startNumber || 1,
+      currentNumber: s.correlativeNumber,
+      isDefault: false,
+      isActive: true,
+      hasUsage: s.correlativeNumber > (s.configuration?.startNumber || 1)
+    };
+  });
   
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -113,6 +231,20 @@ export function SeriesConfiguration() {
   const [isLoading, setIsLoading] = useState(false);
   const [filterType, setFilterType] = useState<VoucherType | 'ALL'>('ALL');
   const [filterEstablishment, setFilterEstablishment] = useState('ALL');
+
+  // Effect to fix and persist corrected series on first load
+  useEffect(() => {
+    const needsFixing = rawSeries.some(s => {
+      const seriesPrefix = s.series.charAt(0);
+      const expectedCategory = seriesPrefix === 'B' ? 'RECEIPT' : seriesPrefix === 'F' ? 'INVOICE' : null;
+      return expectedCategory && s.documentType.category !== expectedCategory;
+    });
+
+    if (needsFixing) {
+      const correctedSeries = rawSeries.map(fixSeriesDocumentType);
+      dispatch({ type: 'SET_SERIES', payload: correctedSeries });
+    }
+  }, [rawSeries, dispatch]);
 
   // Filter series
   const filteredSeries = series.filter(s => {
@@ -142,15 +274,30 @@ export function SeriesConfiguration() {
   };
 
   const generateSeriesCode = (type: VoucherType) => {
-    const config = voucherTypeConfig[type];
-    if (!config.prefix) return ''; // For SALE_NOTE and QUOTE, user enters freely
+    if (type === 'SALE_NOTE' || type === 'QUOTE') {
+      // For SALE_NOTE and QUOTE, return empty string - user enters freely
+      return '';
+    }
+    
+    // For INVOICE and RECEIPT, suggest next series with appropriate prefix
+    const prefix = type === 'INVOICE' ? 'F' : 'B';
     
     const existingNumbers = series
-      .filter(s => s.type === type && s.series.startsWith(config.prefix))
-      .map(s => parseInt(s.series.substring(1)) || 0);
+      .filter(s => s.type === type && s.series.startsWith(prefix))
+      .map(s => {
+        const numberPart = s.series.substring(1);
+        return parseInt(numberPart) || 0;
+      });
     
-    const nextNumber = Math.max(0, ...existingNumbers) + 1;
-    return `${config.prefix}${nextNumber.toString().padStart(3, '0')}`;
+    let nextNumber = Math.max(0, ...existingNumbers) + 1;
+    
+    // If it's the first series of this type, suggest nice default codes
+    if (existingNumbers.length === 0) {
+      return type === 'INVOICE' ? 'FE01' : 'BE01';
+    }
+    
+    // Otherwise, suggest with F/B + padded number
+    return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
   };
 
   const handleTypeChange = (type: VoucherType) => {
@@ -189,19 +336,38 @@ export function SeriesConfiguration() {
   };
 
   const validateSeries = () => {
-    const config = voucherTypeConfig[formData.type];
-    
-    // Validate prefix for invoice/receipt
-    if (config.prefix && !formData.series.startsWith(config.prefix)) {
-      return `La serie debe comenzar con "${config.prefix}" para ${config.label}`;
+    // Rule 1: All series must be exactly 4 characters
+    if (formData.series.length !== 4) {
+      return `La serie debe tener exactamente 4 caracteres`;
     }
     
-    // Validate length for sale notes and quotes (4 characters)
-    if (!config.prefix && formData.series.length !== 4) {
-      return `La serie debe tener exactamente 4 caracteres para ${config.label}`;
+    // Rule 2: Validate format based on type
+    if (formData.type === 'INVOICE') {
+      if (!formData.series.startsWith('F')) {
+        return `Las facturas deben comenzar con "F" (ej: F001, F123, FABC)`;
+      }
+      // Rest 3 characters can be letters/numbers
+      const restOfSeries = formData.series.substring(1);
+      if (!/^[A-Z0-9]{3}$/.test(restOfSeries)) {
+        return `Los 3 caracteres después de "F" deben ser letras (A-Z) o números (0-9)`;
+      }
+    } else if (formData.type === 'RECEIPT') {
+      if (!formData.series.startsWith('B')) {
+        return `Las boletas deben comenzar con "B" (ej: B001, B123, BABC)`;
+      }
+      // Rest 3 characters can be letters/numbers
+      const restOfSeries = formData.series.substring(1);
+      if (!/^[A-Z0-9]{3}$/.test(restOfSeries)) {
+        return `Los 3 caracteres después de "B" deben ser letras (A-Z) o números (0-9)`;
+      }
+    } else if (formData.type === 'SALE_NOTE' || formData.type === 'QUOTE') {
+      // Free format: any 4 characters (letters/numbers)
+      if (!/^[A-Z0-9]{4}$/.test(formData.series)) {
+        return `La serie debe contener solo letras (A-Z) o números (0-9)`;
+      }
     }
     
-    // Check for duplicates
+    // Rule 3: Check for duplicates
     const isDuplicate = series.some(s => 
       s.series === formData.series && 
       s.establishmentId === formData.establishmentId && 
@@ -254,7 +420,7 @@ export function SeriesConfiguration() {
         const newSeries: Series = {
           id: Date.now().toString(),
           establishmentId: formData.establishmentId,
-          documentType: '01' as any, // DocumentType from SUNAT catalog
+          documentType: getDocumentTypeForVoucherType(formData.type),
           series: formData.series,
           correlativeNumber: formData.currentNumber,
           configuration: {
@@ -494,14 +660,20 @@ export function SeriesConfiguration() {
                 value={formData.series}
                 onChange={(e) => setFormData(prev => ({ ...prev, series: e.target.value.toUpperCase() }))}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder={voucherTypeConfig[formData.type].prefix ? `${voucherTypeConfig[formData.type].prefix}001` : 'ABCD'}
+                placeholder={
+                  formData.type === 'INVOICE' ? 'FE01' :
+                  formData.type === 'RECEIPT' ? 'BE01' : 
+                  formData.type === 'QUOTE' ? 'CT01' :
+                  'NV01'
+                }
                 maxLength={4}
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                {voucherTypeConfig[formData.type].prefix 
-                  ? `Debe comenzar con "${voucherTypeConfig[formData.type].prefix}" para ${voucherTypeConfig[formData.type].label}`
-                  : `Máximo 4 caracteres para ${voucherTypeConfig[formData.type].label}`
+                {formData.type === 'INVOICE' ? 'Factura: Debe empezar con "F" + 3 caracteres (ej: FE01, FT01, F001)' :
+                 formData.type === 'RECEIPT' ? 'Boleta: Debe empezar con "B" + 3 caracteres (ej: BE01, BL01, B001)' :
+                 formData.type === 'QUOTE' ? 'Cotización: Serie libre de 4 caracteres (ej: CT01, C001, COT1)' :
+                 'Nota de Venta: Serie libre de 4 caracteres (ej: NV01, NT01, NOTA)'
                 }
               </p>
             </div>

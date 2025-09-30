@@ -25,7 +25,6 @@ interface EstablishmentFormData {
   postalCode: string;
   phone: string;
   email: string;
-  type: 'MAIN' | 'BRANCH' | 'WAREHOUSE' | 'OFFICE';
 }
 
 export function EstablishmentsConfiguration() {
@@ -47,8 +46,7 @@ export function EstablishmentsConfiguration() {
     department: '',
     postalCode: '',
     phone: '',
-    email: '',
-    type: 'BRANCH'
+    email: ''
   });
 
   // Filter establishments
@@ -82,8 +80,7 @@ export function EstablishmentsConfiguration() {
       department: '',
       postalCode: '',
       phone: '',
-      email: '',
-      type: 'BRANCH'
+      email: ''
     });
     setEditingEstablishmentId(null);
     setShowForm(true);
@@ -99,8 +96,7 @@ export function EstablishmentsConfiguration() {
       department: establishment.department,
       postalCode: establishment.postalCode || '',
       phone: establishment.phone || '',
-      email: establishment.email || '',
-      type: establishment.type
+      email: establishment.email || ''
     });
     setEditingEstablishmentId(establishment.id);
     setShowForm(true);
@@ -174,8 +170,7 @@ export function EstablishmentsConfiguration() {
       department: '',
       postalCode: '',
       phone: '',
-      email: '',
-      type: 'BRANCH'
+      email: ''
     });
     setEditingEstablishmentId(null);
     setShowForm(false);
@@ -235,23 +230,6 @@ export function EstablishmentsConfiguration() {
                   required
                   maxLength={4}
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo de Establecimiento <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as any }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="MAIN">Principal</option>
-                  <option value="BRANCH">Sucursal</option>
-                  <option value="WAREHOUSE">Almacén</option>
-                  <option value="OFFICE">Oficina</option>
-                </select>
               </div>
 
               <div className="md:col-span-2">
@@ -546,7 +524,6 @@ export function EstablishmentsConfiguration() {
                     <div className="flex items-center space-x-6 text-sm text-gray-500">
                       <span>{establishment.district}, {establishment.province}</span>
                       <span>{establishment.department}</span>
-                      <span className="capitalize">{establishment.type.toLowerCase()}</span>
                     </div>
                   </div>
                   

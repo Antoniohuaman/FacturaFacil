@@ -81,7 +81,40 @@ export function SeriesCard({
 }: SeriesCardProps) {
   const [showMenu, setShowMenu] = useState(false);
 
-  const config = voucherTypeConfig[series.documentType.category];
+  // Special handling for 'OTHER' category to determine the correct display config
+  let config;
+  if (series.documentType.category === 'OTHER') {
+    if (series.documentType.code === 'NV' || series.documentType.name.includes('Nota de Venta')) {
+      config = {
+        label: 'Nota de Venta',
+        icon: Clipboard,
+        color: 'orange',
+        prefix: 'NV',
+        description: 'Documento interno, sin validez tributaria'
+      };
+    } else if (series.documentType.code === 'COT' || series.documentType.name.includes('Cotización')) {
+      config = {
+        label: 'Cotización',
+        icon: MessageSquare,
+        color: 'purple',
+        prefix: 'COT',
+        description: 'Propuesta comercial para clientes'
+      };
+    } else {
+      config = voucherTypeConfig[series.documentType.category];
+    }
+  } else {
+    config = voucherTypeConfig[series.documentType.category];
+  }
+
+  config = config || {
+    label: 'Documento Desconocido',
+    icon: FileText,
+    color: 'gray',
+    prefix: '?',
+    description: 'Tipo de documento no reconocido'
+  };
+  
   const Icon = config.icon;
 
   const formatDate = (date: Date) => {
@@ -312,7 +345,7 @@ export function SeriesCard({
         <div>
           <p className="text-xs text-gray-500 mb-1">Tipo de Operación</p>
           <p className="text-sm font-medium text-gray-900">
-            {series.documentType.name}
+            {config.label}
           </p>
         </div>
         
