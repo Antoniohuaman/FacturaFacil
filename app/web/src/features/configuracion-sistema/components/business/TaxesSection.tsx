@@ -145,7 +145,7 @@ export function TaxesSection({
       {/* Header */}
       <div className="flex items-center space-x-2">
         <Receipt className="w-5 h-5 text-gray-600" />
-        <h3 className="text-lg font-semibold text-gray-900">Configuración de Impuestos</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Modo de precios (IGV)</h3>
       </div>
 
       {/* Price Configuration */}
@@ -208,7 +208,7 @@ export function TaxesSection({
                 <div className="flex-1">
                   <h4 className="font-medium text-gray-900">Precios sin IGV</h4>
                   <p className="text-sm text-gray-600 mt-1">
-                    Los precios no incluyen IGV, se calcula automáticamente
+                    Los precios que ingresas no incluyen IGV, se calcula automáticamente
                   </p>
                   <div className="mt-3 p-2 bg-white rounded border">
                     <p className="text-xs text-gray-500">Ejemplo:</p>

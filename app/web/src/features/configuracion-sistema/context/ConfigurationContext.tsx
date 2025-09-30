@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
@@ -9,6 +9,22 @@ import type { Currency } from '../models/Currency';
 import type { Unit } from '../models/Unit';
 import type { Tax } from '../models/Tax';
 
+// Temporary interface for tax affectations until officially added to Tax model
+export interface TaxAffectations {
+  igv: {
+    isActive: boolean;
+    isDefault: boolean;
+  };
+  exempt: {
+    isActive: boolean;
+    isDefault: boolean;
+  };
+  unaffected: {
+    isActive: boolean;
+    isDefault: boolean;
+  };
+}
+
 interface ConfigurationState {
   company: Company | null;
   establishments: Establishment[];
@@ -18,6 +34,7 @@ interface ConfigurationState {
   currencies: Currency[];
   units: Unit[];
   taxes: Tax[];
+  taxAffectations: TaxAffectations;
   isLoading: boolean;
   error: string | null;
 }
@@ -41,7 +58,8 @@ type ConfigurationAction =
   | { type: 'SET_PAYMENT_METHODS'; payload: PaymentMethod[] }
   | { type: 'SET_CURRENCIES'; payload: Currency[] }
   | { type: 'SET_UNITS'; payload: Unit[] }
-  | { type: 'SET_TAXES'; payload: Tax[] };
+  | { type: 'SET_TAXES'; payload: Tax[] }
+  | { type: 'SET_TAX_AFFECTATIONS'; payload: TaxAffectations };
 
 const initialState: ConfigurationState = {
   company: null,
@@ -52,6 +70,20 @@ const initialState: ConfigurationState = {
   currencies: [],
   units: [],
   taxes: [],
+  taxAffectations: {
+    igv: {
+      isActive: true,
+      isDefault: true
+    },
+    exempt: {
+      isActive: true,
+      isDefault: false
+    },
+    unaffected: {
+      isActive: true,
+      isDefault: false
+    }
+  },
   isLoading: false,
   error: null,
 };
@@ -150,7 +182,10 @@ function configurationReducer(
     
     case 'SET_TAXES':
       return { ...state, taxes: action.payload };
-    
+
+    case 'SET_TAX_AFFECTATIONS':
+      return { ...state, taxAffectations: action.payload };
+
     default:
       return state;
   }
@@ -171,6 +206,136 @@ interface ConfigurationProviderProps {
 
 export function ConfigurationProvider({ children }: ConfigurationProviderProps) {
   const [state, dispatch] = useReducer(configurationReducer, initialState);
+
+  // Initialize with mock data for development
+  useEffect(() => {
+    // Mock currencies
+    dispatch({
+      type: 'SET_CURRENCIES',
+      payload: [
+        {
+          id: '1',
+          code: 'PEN',
+          name: 'Sol Peruano',
+          symbol: 'S/',
+          symbolPosition: 'BEFORE',
+          decimalPlaces: 2,
+          exchangeRate: 1.0,
+          isBaseCurrency: true,
+          isActive: true,
+          lastUpdated: new Date(),
+          autoUpdate: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: '2',
+          code: 'USD',
+          name: 'Dólar Americano',
+          symbol: '$',
+          symbolPosition: 'BEFORE',
+          decimalPlaces: 2,
+          exchangeRate: 3.75,
+          isBaseCurrency: false,
+          isActive: true,
+          lastUpdated: new Date(),
+          autoUpdate: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ]
+    });
+
+    // Mock payment methods
+    dispatch({
+      type: 'SET_PAYMENT_METHODS',
+      payload: [
+        {
+          id: '1',
+          code: 'CASH',
+          name: 'Efectivo',
+          type: 'CASH',
+          sunatCode: '001',
+          sunatDescription: 'Pago en efectivo',
+          configuration: {
+            requiresReference: false,
+            allowsPartialPayments: true,
+            requiresValidation: false,
+            hasCommission: false,
+            requiresCustomerData: false,
+            allowsCashBack: false,
+            requiresSignature: false
+          },
+          financial: {
+            affectsCashFlow: true,
+            settlementPeriod: 'IMMEDIATE'
+          },
+          display: {
+            icon: 'Banknote',
+            color: '#10B981',
+            displayOrder: 1,
+            isVisible: true,
+            showInPos: true,
+            showInInvoicing: true
+          },
+          validation: {
+            documentTypes: [],
+            customerTypes: ['INDIVIDUAL', 'BUSINESS'],
+            allowedCurrencies: ['PEN', 'USD']
+          },
+          isDefault: true,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ]
+    });
+
+    // Units will be initialized by UnitsSection component
+    // (it has its own useEffect that loads all SUNAT units)
+
+    // Mock taxes - Using a basic structure that can be adapted
+    // Note: The TaxesSection component uses a different interface (TaxConfiguration)
+    // So we'll provide a minimal Tax object that matches the system model
+    dispatch({
+      type: 'SET_TAXES',
+      payload: [
+        {
+          id: '1',
+          code: 'IGV',
+          name: 'Impuesto General a las Ventas',
+          shortName: 'IGV',
+          type: 'PERCENTAGE',
+          rate: 18.0,
+          sunatCode: '1000',
+          sunatName: 'IGV - Impuesto General a las Ventas',
+          sunatType: 'VAT',
+          category: 'SALES',
+          includeInPrice: false,
+          isCompound: false,
+          applicableTo: {
+            products: true,
+            services: true,
+            both: true,
+          },
+          rules: {
+            roundingMethod: 'ROUND',
+            roundingPrecision: 2,
+          },
+          jurisdiction: {
+            country: 'PE',
+          },
+          isDefault: true,
+          isActive: true,
+          validFrom: new Date('2011-03-01'),
+          validTo: null,
+          description: 'Impuesto General a las Ventas del 18%',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ]
+    });
+  }, []);
 
   return (
     <ConfigurationContext.Provider value={{ state, dispatch }}>

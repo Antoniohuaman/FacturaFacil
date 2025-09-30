@@ -19,16 +19,16 @@ import {
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { SettingsToggle } from '../components/common/SettingsToggle';
 import { DefaultSelector } from '../components/common/DefaultSelector';
-import { StatusIndicator } from '../components/common/StatusIndicator';
 import { UnitsSection } from '../components/business/UnitsSection';
-import type { PaymentMethod, Currency, TaxConfiguration } from '../models/index';
+import { TaxesSection } from '../components/business/TaxesSection';
+import type { PaymentMethod, Currency } from '../models/index';
 
 type BusinessSection = 'payments' | 'currencies' | 'units' | 'taxes' | 'preferences';
 
 export function BusinessConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { paymentMethods, currencies, units, taxes } = state;
+  const { paymentMethods, currencies, units, taxes, taxAffectations } = state;
   
   const [activeSection, setActiveSection] = useState<BusinessSection>('payments');
 
@@ -122,10 +122,22 @@ export function BusinessConfiguration() {
 
           {/* Taxes Section */}
           {activeSection === 'taxes' && (
-            <TaxesSection 
-              taxConfiguration={taxes[0] || null}
+            <TaxesSection
+              taxConfiguration={{
+                pricesIncludeTax: taxes[0]?.includeInPrice || false,
+                affectations: taxAffectations
+              }}
               onUpdate={async (config) => {
-                dispatch({ type: 'SET_TAXES', payload: [config] });
+                // Update the main tax configuration
+                if (taxes[0]) {
+                  const updatedTax = {
+                    ...taxes[0],
+                    includeInPrice: config.pricesIncludeTax
+                  };
+                  dispatch({ type: 'SET_TAXES', payload: [updatedTax] });
+                }
+                // Update tax affectations
+                dispatch({ type: 'SET_TAX_AFFECTATIONS', payload: config.affectations });
               }}
             />
           )}
@@ -531,91 +543,6 @@ function CurrenciesSection({ currencies, onUpdate }: CurrenciesSectionProps) {
   );
 }
 
-// Taxes Section Component
-interface TaxesSectionProps {
-  taxConfiguration: TaxConfiguration;
-  onUpdate: (config: TaxConfiguration) => Promise<void>;
-}
-
-function TaxesSection({ taxConfiguration, onUpdate }: TaxesSectionProps) {
-  const handlePriceToggle = async (includeTax: boolean) => {
-    if (taxConfiguration) {
-      const updatedConfig = {
-        ...taxConfiguration,
-        includeInPrice: includeTax
-      };
-      await onUpdate(updatedConfig);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Configuración de Impuestos</h3>
-
-      {/* Price Configuration */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h4 className="text-md font-medium text-gray-900 mb-4">Configuración de Precios</h4>
-        <div className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <input
-              type="radio"
-              id="prices-with-tax"
-              name="priceMode"
-              checked={taxConfiguration?.includeInPrice || false}
-              onChange={() => handlePriceToggle(true)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-            />
-            <label htmlFor="prices-with-tax" className="flex-1">
-              <div className="font-medium text-gray-900">Precios con IGV</div>
-              <p className="text-sm text-gray-500">Los precios ingresados ya incluyen el IGV</p>
-            </label>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <input
-              type="radio"
-              id="prices-without-tax"
-              name="priceMode"
-              checked={!taxConfiguration?.includeInPrice}
-              onChange={() => handlePriceToggle(false)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-            />
-            <label htmlFor="prices-without-tax" className="flex-1">
-              <div className="font-medium text-gray-900">Precios sin IGV</div>
-              <p className="text-sm text-gray-500">Los precios no incluyen IGV, se calcula automáticamente</p>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Tax Information */}
-      {taxConfiguration && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Información del Impuesto</h4>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex-1">
-                <div className="font-medium text-gray-900">{taxConfiguration.name}</div>
-                <p className="text-sm text-gray-500">{taxConfiguration.shortName} - {taxConfiguration.rate}%</p>
-                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                  {taxConfiguration.category}
-                </span>
-              </div>
-              <div className="flex items-center space-x-4">
-                <StatusIndicator 
-                  status="success" 
-                  label="Configurado" 
-                  size="sm" 
-                  showIcon={false} 
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // Preferences Section Component
 interface PreferencesSectionProps {
