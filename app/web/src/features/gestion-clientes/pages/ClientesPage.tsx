@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as ExcelJS from 'exceljs';
 import ClienteForm from '../components/ClienteForm';
+import ClientesTable, { type ClientesTableRef } from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
-import ClientesTable from '../components/ClientesTable';
+import ConfirmationModal from '../../../../../shared/src/components/ConfirmationModal';
 
 const PRIMARY_COLOR = '#0040A2';
 
@@ -140,6 +142,9 @@ function ClientesPage() {
 	const [clients, setClients] = useState(initialClients);
 	const [showClientModal, setShowClientModal] = useState(false);
 	const [editingClient, setEditingClient] = useState<any>(null);
+	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const [clientToDelete, setClientToDelete] = useState<any>(null);
+	const clientesTableRef = useRef<ClientesTableRef>(null);
 	const [formData, setFormData] = useState({
 		documentNumber: '',
 		legalName: '',
@@ -151,35 +156,67 @@ function ClientesPage() {
 	});
 	const [documentType, setDocumentType] = useState('RUC');
 	const [clientType, setClientType] = useState('Cliente');
-	const [searchFilters, setSearchFilters] = useState({
-		name: '',
-		document: '',
-		type: '',
-		address: '',
-		phone: '',
-	});
 
 	// Estados para paginación
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage] = useState(10);
 
-	const filteredClients = clients.filter(client =>
-		client.name.toLowerCase().includes(searchFilters.name.toLowerCase()) &&
-		client.document.toLowerCase().includes(searchFilters.document.toLowerCase()) &&
-		client.type.toLowerCase().includes(searchFilters.type.toLowerCase()) &&
-		client.address.toLowerCase().includes(searchFilters.address.toLowerCase()) &&
-		client.phone.includes(searchFilters.phone)
-	);
-
 	// Lógica de paginación
-	const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
+	const totalPages = Math.ceil(clients.length / itemsPerPage);
 	const startIndex = (currentPage - 1) * itemsPerPage;
-	const paginatedClients = filteredClients.slice(startIndex, startIndex + itemsPerPage);
+	const paginatedClients = clients.slice(startIndex, startIndex + itemsPerPage);
 
-	// Resetear página cuando cambian los filtros
-	const handleFilterChange = (field: string, value: string) => {
-		setSearchFilters(prev => ({ ...prev, [field]: value }));
-		setCurrentPage(1);
+	const handleExportClients = async () => {
+		// Crear un nuevo workbook
+		const workbook = new ExcelJS.Workbook();
+		const worksheet = workbook.addWorksheet('Clientes');
+
+		// Configurar las columnas
+		worksheet.columns = [
+			{ header: 'Nombre/Razón Social', key: 'name', width: 40 },
+			{ header: 'Documento', key: 'document', width: 20 },
+			{ header: 'Tipo', key: 'type', width: 10 },
+			{ header: 'Dirección', key: 'address', width: 50 },
+			{ header: 'Teléfono', key: 'phone', width: 15 },
+			{ header: 'Estado', key: 'status', width: 10 }
+		];
+
+		// Agregar los datos
+		clients.forEach(client => {
+			worksheet.addRow({
+				name: client.name,
+				document: client.document,
+				type: client.type,
+				address: client.address,
+				phone: client.phone,
+				status: client.enabled ? 'Activo' : 'Inactivo'
+			});
+		});
+
+		// Estilizar el header
+		worksheet.getRow(1).font = { bold: true };
+		worksheet.getRow(1).fill = {
+			type: 'pattern',
+			pattern: 'solid',
+			fgColor: { argb: 'FFE6F3FF' }
+		};
+
+		// Generar nombre del archivo con fecha actual
+		const today = new Date();
+		const dateString = today.toISOString().split('T')[0]; // YYYY-MM-DD
+		const fileName = `clientes_${dateString}.xlsx`;
+
+		// Generar el buffer y descargar
+		const buffer = await workbook.xlsx.writeBuffer();
+		const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+		const url = URL.createObjectURL(blob);
+		
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = fileName;
+		link.click();
+		
+		URL.revokeObjectURL(url);
 	};
 
 	const handleCreateClient = () => {
@@ -238,15 +275,6 @@ function ClientesPage() {
 		};
 		
 		setClients(prev => [clientToAdd, ...prev]);
-		
-		// Limpiar filtros para asegurar que el nuevo cliente sea visible
-		setSearchFilters({
-			name: '',
-			document: '',
-			type: '',
-			address: '',
-			phone: '',
-		});
 		
 		resetForm();
 		setShowClientModal(false);
@@ -310,6 +338,24 @@ function ClientesPage() {
 		setDocumentType(docType === 'Sin' ? 'SIN_DOCUMENTO' : docType);
 		setClientType(client.type);
 		setShowClientModal(true);
+	};
+
+	const handleDeleteClient = (client: any) => {
+		setClientToDelete(client);
+		setShowDeleteModal(true);
+	};
+
+	const handleConfirmDelete = () => {
+		if (clientToDelete) {
+			setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
+			setShowDeleteModal(false);
+			setClientToDelete(null);
+		}
+	};
+
+	const handleCancelDelete = () => {
+		setShowDeleteModal(false);
+		setClientToDelete(null);
 	};
 
 	const handleUpdateClient = () => {
@@ -380,12 +426,9 @@ function ClientesPage() {
 			{/* Header */}
 			<div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
 				<div className="flex items-center">
-					<button className="mr-4 p-2 hover:bg-gray-100 rounded-md transition-colors">
-						<span className="text-gray-600">←</span>
-					</button>
 					<div>
-						<h1 className="text-xl font-semibold text-gray-800">Clientes</h1>
-						<p className="text-sm text-gray-500">Total: {clients.length} | Mostrando: {filteredClients.length}</p>
+						<h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
+						<p className="text-sm text-gray-500">Administra y consulta la información de tus clientes en un solo lugar.</p>
 					</div>
 				</div>
 				<div className="flex items-center gap-2">
@@ -404,7 +447,7 @@ function ClientesPage() {
 					</button>
 					<button
 						title="Exporta lista de clientes"
-						onClick={() => alert('Funcionalidad de exportar clientes próximamente')}
+						onClick={handleExportClients}
 						className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
 						style={{ minWidth: 40, minHeight: 40 }}
 					>
@@ -417,38 +460,26 @@ function ClientesPage() {
 				</div>
 			</div>
 
-			{/* Filtros */}
-			<div className="px-6 pt-4">
-				<div className="flex items-center justify-between mb-4">
-					<h3 className="text-sm font-medium text-gray-700">Filtros</h3>
-					<button
-						onClick={() => {
-							setSearchFilters({ name: '', document: '', type: '', address: '', phone: '' });
-							setCurrentPage(1);
-						}}
-						className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-					>
-						Limpiar filtros
-					</button>
-				</div>
-				<ClientesFilters
-					filters={searchFilters}
-					onChange={handleFilterChange}
+			{/* Tabla con scroll */}
+			<div className="flex-1 px-6 pt-6 overflow-y-scroll">
+				<ClientesFilters 
+					tableRef={clientesTableRef}
+					onClearFilters={() => clientesTableRef.current?.clearAllFilters()}
+				/>
+				<ClientesTable 
+					ref={clientesTableRef}
+					clients={paginatedClients} 
+					onEditClient={handleEditClient}
+					onDeleteClient={handleDeleteClient}
 				/>
 			</div>
 
-			{/* Tabla */}
-			<div className="flex-1 px-6 py-4 overflow-y-scroll flex flex-col">
-				<ClientesTable 
-					clients={paginatedClients} 
-					onEditClient={handleEditClient}
-				/>
-				
-				{/* Paginación */}
-				{totalPages > 1 && (
-					<div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+			{/* Paginación */}
+			{totalPages > 1 && (
+				<div className="px-6 py-4 border-t border-gray-200">
+					<div className="flex items-center justify-between">
 						<div className="text-sm text-gray-500">
-							Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredClients.length)} de {filteredClients.length} resultados
+							Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, clients.length)} de {clients.length} resultados
 						</div>
 						<div className="flex items-center gap-2">
 							<button
@@ -495,10 +526,10 @@ function ClientesPage() {
 							</button>
 						</div>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 
-			{/* Modal */}
+			{/* Modal de creación/edición */}
 			{showClientModal && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
 					<ClienteForm
@@ -516,6 +547,19 @@ function ClientesPage() {
 					/>
 				</div>
 			)}
+
+			{/* Modal de confirmación de eliminación */}
+			<ConfirmationModal
+				isOpen={showDeleteModal}
+				title="Eliminar cliente"
+				message={`¿Está seguro de eliminar el cliente ${clientToDelete?.name}?`}
+				clientName={clientToDelete?.name}
+				onConfirm={handleConfirmDelete}
+				onCancel={handleCancelDelete}
+				confirmText="Eliminar"
+				cancelText="Cancelar"
+				confirmButtonStyle="primary"
+			/>
 		</div>
 	);
 }

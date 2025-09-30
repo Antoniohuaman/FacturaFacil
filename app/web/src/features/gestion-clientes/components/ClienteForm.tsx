@@ -243,10 +243,17 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
             ))}
             <button
               type="button"
-              className="px-4 py-2 rounded-lg border text-sm font-medium mr-2 mb-2 bg-white border-gray-300 text-gray-700 flex items-center"
+              className={`px-4 py-2 rounded-lg border text-sm font-medium mr-2 mb-2 flex items-center ${
+                !mainDocTypes.some(type => type.value === documentType) && documentTypes.some(type => type.value === documentType)
+                  ? 'bg-blue-100 border-blue-400 text-blue-900'
+                  : 'bg-white border-gray-300 text-gray-700'
+              }`}
               onClick={() => setShowMoreDocTypes((prev) => !prev)}
             >
-              MÁS OPCIONES
+              {!mainDocTypes.some(type => type.value === documentType) && documentTypes.some(type => type.value === documentType)
+                ? documentTypes.find(type => type.value === documentType)?.label
+                : 'MÁS OPCIONES'
+              }
               <span className="ml-2">{showMoreDocTypes ? '▴' : '▾'}</span>
             </button>
           </div>
