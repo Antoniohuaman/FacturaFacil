@@ -714,7 +714,7 @@ const InvoiceListDashboard = () => {
                   }}
                 >
                   <Printer className="w-5 h-5 text-gray-600" />
-                  <span className="text-gray-700">Impresión masiva</span>
+                  <span className="text-gray-700">Impresión Masiva</span>
                 </button>
               ) : (
                 <>
