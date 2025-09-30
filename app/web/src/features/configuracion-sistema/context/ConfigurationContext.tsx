@@ -335,6 +335,12 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
         }
       ]
     });
+
+    // Mock employees with roles
+    dispatch({
+      type: 'SET_EMPLOYEES',
+      payload: []  // Start empty - users can create their own employees
+    });
   }, []);
 
   return (
