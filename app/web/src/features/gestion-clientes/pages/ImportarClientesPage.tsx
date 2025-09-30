@@ -59,9 +59,7 @@ const ImportarClientesPage = () => {
   ]);
 
   const PRIMARY_COLOR = '#0040A2';
-  const PRIMARY_HOVER = '#003380';
   const SUCCESS_COLOR = '#10B981';
-  const SUCCESS_HOVER = '#059669';
 
   // Clases consistentes para reutilizar
   const cardClass = "bg-white rounded-lg shadow-sm border border-gray-200";

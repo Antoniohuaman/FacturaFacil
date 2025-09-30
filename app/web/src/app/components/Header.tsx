@@ -2,26 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 
 export default function Header() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showStoreMenu, setShowStoreMenu] = useState(false);
   const [showCashMenu, setShowCashMenu] = useState(false);
-  const [showCompanyMenu, setShowCompanyMenu] = useState(false);
-  const [selectedStore, setSelectedStore] = useState("Tienda Sur");
-  const [selectedCompany, setSelectedCompany] = useState("Mi Empresa SAC");
   const menuRef = useRef<HTMLDivElement>(null);
-  const storeMenuRef = useRef<HTMLDivElement>(null);
   const cashMenuRef = useRef<HTMLDivElement>(null);
-  const companyMenuRef = useRef<HTMLDivElement>(null);
-
-  // Opciones de tiendas disponibles
-  const stores = ["Tienda Sur", "Tienda Este", "Tienda Norte", "Tienda Ica"];
-
-  // Opciones de empresas disponibles
-  const companies = [
-    { name: "Mi Empresa SAC", ruc: "20123456789" },
-    { name: "Distribuidora Lima S.A.", ruc: "20987654321" },
-    { name: "Comercial Norte EIRL", ruc: "20555666777" },
-    { name: "Servicios Generales SRL", ruc: "20111222333" }
-  ];
 
   // Información de caja
   const cashInfo = {
@@ -43,14 +26,8 @@ export default function Header() {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
       }
-      if (storeMenuRef.current && !storeMenuRef.current.contains(event.target as Node)) {
-        setShowStoreMenu(false);
-      }
       if (cashMenuRef.current && !cashMenuRef.current.contains(event.target as Node)) {
         setShowCashMenu(false);
-      }
-      if (companyMenuRef.current && !companyMenuRef.current.contains(event.target as Node)) {
-        setShowCompanyMenu(false);
       }
     };
 
@@ -77,12 +54,6 @@ export default function Header() {
     }
   };
 
-  const handleStoreChange = (store: string) => {
-    setSelectedStore(store);
-    setShowStoreMenu(false);
-    alert(`Cambiando a ${store}...\n(Aquí se implementaría el cambio de contexto de tienda)`);
-  };
-
   const handleCloseCash = () => {
     setShowCashMenu(false);
     const confirmClose = window.confirm('¿Está seguro que desea cerrar la caja?\n\nEsto generará un reporte de cierre y no podrá realizar más operaciones hasta abrir una nueva caja.');
@@ -90,15 +61,6 @@ export default function Header() {
       alert('Cerrando caja...\n(Aquí se implementaría el proceso de cierre de caja: conteo final, reporte, etc.)');
     }
   };
-
-  const handleCompanyChange = (companyName: string) => {
-    setSelectedCompany(companyName);
-    setShowCompanyMenu(false);
-    alert(`Cambiando a ${companyName}...\n(Aquí se implementaría el cambio de contexto empresarial: nuevo RUC, configuraciones, etc.)`);
-  };
-
-  // Encontrar la empresa seleccionada para mostrar su RUC
-  const currentCompany = companies.find(company => company.name === selectedCompany) || companies[0];
 
   return (
     <header className="h-14 bg-white border-b border-slate-200 flex items-center px-6 shadow-sm">
@@ -108,60 +70,6 @@ export default function Header() {
         <span className="text-red-600 ml-1">Fácil</span>
       </div>
       
-      {/* Información de la empresa con dropdown */}
-      <div className="ml-8 relative" ref={companyMenuRef}>
-        <button 
-          className="flex flex-col hover:bg-slate-50 px-2 py-1 rounded-md transition-colors cursor-pointer"
-          onClick={() => setShowCompanyMenu(!showCompanyMenu)}
-        >
-          <div className="flex items-center space-x-1">
-            <div className="text-sm font-semibold text-slate-800">{currentCompany.name}</div>
-            <svg 
-              className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${showCompanyMenu ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-          <div className="text-xs text-slate-500">RUC: {currentCompany.ruc}</div>
-        </button>
-
-        {/* Dropdown de empresas */}
-        {showCompanyMenu && (
-          <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50">
-            <div className="px-3 py-2 border-b border-slate-100">
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Seleccionar Empresa</div>
-            </div>
-            {companies.map((company) => (
-              <button
-                key={company.name}
-                onClick={() => handleCompanyChange(company.name)}
-                className={`w-full text-left px-3 py-2 text-sm transition-colors hover:bg-slate-50 ${
-                  selectedCompany === company.name 
-                    ? 'bg-blue-50 border-l-2 border-blue-500' 
-                    : ''
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className={`font-medium ${selectedCompany === company.name ? 'text-blue-700' : 'text-slate-900'}`}>
-                      {company.name}
-                    </div>
-                    <div className="text-xs text-slate-500">RUC: {company.ruc}</div>
-                  </div>
-                  {selectedCompany === company.name && (
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
       
       {/* Información de sesión activa */}
       <div className="ml-auto flex items-center space-x-8 text-sm">
@@ -190,12 +98,12 @@ export default function Header() {
               <div className="px-4 pb-3 border-b border-slate-100">
                 <h3 className="font-medium text-slate-900 text-sm mb-3">Información de Caja</h3>
                 
-                {/* Cajero */}
+                {/* Encargado */}
                 <div className="flex items-center space-x-2 mb-2">
                   <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  <span className="text-sm text-slate-600">Cajero:</span>
+                  <span className="text-sm text-slate-600">Encargado:</span>
                   <span className="text-sm font-medium text-slate-900">{cashInfo.cashier}</span>
                 </div>
 
@@ -232,62 +140,6 @@ export default function Header() {
               </div>
             </div>
           )}
-        </div>
-        
-        {/* Punto de venta con dropdown */}
-        <div className="relative" ref={storeMenuRef}>
-          <button 
-            className="flex items-center space-x-2 hover:bg-slate-50 px-2 py-1 rounded-md transition-colors"
-            onClick={() => setShowStoreMenu(!showStoreMenu)}
-          >
-            <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h4M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            <span className="text-slate-600">{selectedStore}</span>
-            <svg 
-              className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${showStoreMenu ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {/* Dropdown de tiendas */}
-          {showStoreMenu && (
-            <div className="absolute left-0 top-full mt-2 w-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50">
-              {stores.map((store) => (
-                <button
-                  key={store}
-                  onClick={() => handleStoreChange(store)}
-                  className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center space-x-2 ${
-                    selectedStore === store 
-                      ? 'bg-blue-50 text-blue-700' 
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h4M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                  <span>{store}</span>
-                  {selectedStore === store && (
-                    <svg className="w-4 h-4 ml-auto text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        
-        {/* Vendedor */}
-        <div className="flex items-center space-x-2">
-          <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          <span className="text-slate-600 font-medium">{userInfo.name}</span>
         </div>
         
         {/* Separador */}
