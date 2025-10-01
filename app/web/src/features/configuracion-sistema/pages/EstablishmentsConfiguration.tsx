@@ -1,19 +1,29 @@
 // src/features/configuration/pages/EstablishmentsConfiguration.tsx
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   ArrowLeft,
   MapPin,
   Plus,
   Edit,
   Trash2,
   Building,
-  Search
+  Search,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Hash,
+  FileText,
+  Navigation,
+  Mail,
+  Phone,
+  Globe
 } from 'lucide-react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
-import { ConfigurationCard } from '../components/common/ConfigurationCard';
+// import { ConfigurationCard } from '../components/common/ConfigurationCard';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import type { Establishment } from '../models/Establishment';
+import { ubigeoData } from '../data/ubigeo';
 
 interface EstablishmentFormData {
   code: string;
@@ -27,16 +37,35 @@ interface EstablishmentFormData {
   email: string;
 }
 
+interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'warning';
+  message: string;
+}
+
+interface DeleteConfirmation {
+  isOpen: boolean;
+  establishmentId: string | null;
+  establishmentName: string;
+}
+
 export function EstablishmentsConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
   const { establishments } = state;
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingEstablishmentId, setEditingEstablishmentId] = useState<string | null>(null);
-  
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
+    isOpen: false,
+    establishmentId: null,
+    establishmentName: ''
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
   const [formData, setFormData] = useState<EstablishmentFormData>({
     code: '',
     name: '',
@@ -49,25 +78,110 @@ export function EstablishmentsConfiguration() {
     email: ''
   });
 
+  // Ubigeo cascading logic
+  const selectedDepartment = useMemo(() => {
+    return ubigeoData.find(dept => dept.name === formData.department);
+  }, [formData.department]);
+
+  const availableProvinces = useMemo(() => {
+    return selectedDepartment?.provinces || [];
+  }, [selectedDepartment]);
+
+  const selectedProvince = useMemo(() => {
+    return availableProvinces.find(prov => prov.name === formData.province);
+  }, [availableProvinces, formData.province]);
+
+  const availableDistricts = useMemo(() => {
+    return selectedProvince?.districts || [];
+  }, [selectedProvince]);
+
   // Filter establishments
   const filteredEstablishments = establishments.filter(est => {
     const matchesSearch = est.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          est.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          est.address.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = filterStatus === 'all' || 
+
+    const matchesStatus = filterStatus === 'all' ||
                          (filterStatus === 'active' && est.isActive) ||
                          (filterStatus === 'inactive' && !est.isActive);
-    
+
     return matchesSearch && matchesStatus;
   });
 
+  // Toast notifications
+  const showToast = (type: Toast['type'], message: string) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 5000);
+  };
+
+  // Generate unique ID
+  const generateUniqueId = () => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  };
+
   // Generate next establishment code
   const generateNextCode = () => {
-    const lastCode = establishments.length > 0 
-      ? Math.max(...establishments.map(e => parseInt(e.code) || 0))
-      : 0;
+    if (establishments.length === 0) return '0001';
+
+    // Extract numeric codes only
+    const numericCodes = establishments
+      .map(e => {
+        const match = e.code.match(/\d+/);
+        return match ? parseInt(match[0]) : 0;
+      })
+      .filter(n => n > 0);
+
+    const lastCode = numericCodes.length > 0 ? Math.max(...numericCodes) : 0;
     return String(lastCode + 1).padStart(4, '0');
+  };
+
+  // Validate form
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.code.trim()) {
+      errors.code = 'El código es obligatorio';
+    } else if (formData.code.length > 4) {
+      errors.code = 'El código no puede tener más de 4 caracteres';
+    } else {
+      // Check for duplicate code
+      const isDuplicate = establishments.some(
+        est => est.code === formData.code && est.id !== editingEstablishmentId
+      );
+      if (isDuplicate) {
+        errors.code = 'Ya existe un establecimiento con este código';
+      }
+    }
+
+    if (!formData.name.trim()) {
+      errors.name = 'El nombre es obligatorio';
+    }
+
+    if (!formData.address.trim()) {
+      errors.address = 'La dirección es obligatoria';
+    }
+
+    if (!formData.district.trim()) {
+      errors.district = 'El distrito es obligatorio';
+    }
+
+    if (!formData.province.trim()) {
+      errors.province = 'La provincia es obligatoria';
+    }
+
+    if (!formData.department.trim()) {
+      errors.department = 'El departamento es obligatorio';
+    }
+
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'El email no es válido';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleNew = () => {
@@ -83,6 +197,7 @@ export function EstablishmentsConfiguration() {
       email: ''
     });
     setEditingEstablishmentId(null);
+    setFormErrors({});
     setShowForm(true);
   };
 
@@ -99,11 +214,17 @@ export function EstablishmentsConfiguration() {
       email: establishment.email || ''
     });
     setEditingEstablishmentId(establishment.id);
+    setFormErrors({});
     setShowForm(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validateForm()) {
+      showToast('error', 'Por favor, corrige los errores en el formulario');
+      return;
+    }
 
     try {
       let updatedEstablishments: Establishment[];
@@ -119,10 +240,11 @@ export function EstablishmentsConfiguration() {
               }
             : est
         );
+        showToast('success', 'Establecimiento actualizado correctamente');
       } else {
-        // Create new - simplified version
+        // Create new - with unique ID
         const newEstablishment: Establishment = {
-          id: Date.now().toString(),
+          id: generateUniqueId(),
           ...formData,
           coordinates: undefined,
           businessHours: {},
@@ -145,18 +267,20 @@ export function EstablishmentsConfiguration() {
           },
           status: 'ACTIVE',
           isActive: true,
-          isMainEstablishment: false,
+          isMainEstablishment: establishments.length === 0, // First one is main by default
           createdAt: new Date(),
           updatedAt: new Date()
         };
-        
+
         updatedEstablishments = [...establishments, newEstablishment];
+        showToast('success', 'Establecimiento creado correctamente');
       }
 
       dispatch({ type: 'SET_ESTABLISHMENTS', payload: updatedEstablishments });
       handleCancel();
     } catch (error) {
       console.error('Error saving establishment:', error);
+      showToast('error', 'Error al guardar el establecimiento. Por favor, intenta nuevamente.');
     }
   };
 
@@ -173,190 +297,542 @@ export function EstablishmentsConfiguration() {
       email: ''
     });
     setEditingEstablishmentId(null);
+    setFormErrors({});
     setShowForm(false);
   };
 
-  const handleDelete = (id: string) => {
-    const updatedEstablishments = establishments.filter(est => est.id !== id);
-    dispatch({ type: 'SET_ESTABLISHMENTS', payload: updatedEstablishments });
+  const openDeleteConfirmation = (establishment: Establishment) => {
+    // Validate if it's the main establishment
+    if (establishment.isMainEstablishment && establishments.length > 1) {
+      showToast('warning', 'No puedes eliminar el establecimiento principal. Primero asigna otro como principal.');
+      return;
+    }
+
+    setDeleteConfirmation({
+      isOpen: true,
+      establishmentId: establishment.id,
+      establishmentName: establishment.name
+    });
+  };
+
+  const handleDelete = () => {
+    if (!deleteConfirmation.establishmentId) return;
+
+    try {
+      const updatedEstablishments = establishments.filter(
+        est => est.id !== deleteConfirmation.establishmentId
+      );
+      dispatch({ type: 'SET_ESTABLISHMENTS', payload: updatedEstablishments });
+      showToast('success', 'Establecimiento eliminado correctamente');
+      setDeleteConfirmation({ isOpen: false, establishmentId: null, establishmentName: '' });
+    } catch (error) {
+      console.error('Error deleting establishment:', error);
+      showToast('error', 'Error al eliminar el establecimiento');
+    }
   };
 
   const handleToggleStatus = (id: string) => {
-    const updatedEstablishments = establishments.map(est =>
-      est.id === id
-        ? { ...est, isActive: !est.isActive, updatedAt: new Date() }
-        : est
-    );
-    dispatch({ type: 'SET_ESTABLISHMENTS', payload: updatedEstablishments });
+    const establishment = establishments.find(est => est.id === id);
+
+    // Validate if trying to deactivate the main establishment
+    if (establishment?.isMainEstablishment && establishment.isActive && establishments.length > 1) {
+      showToast('warning', 'No puedes desactivar el establecimiento principal. Primero asigna otro como principal.');
+      return;
+    }
+
+    try {
+      const updatedEstablishments = establishments.map(est =>
+        est.id === id
+          ? { ...est, isActive: !est.isActive, updatedAt: new Date() }
+          : est
+      );
+      dispatch({ type: 'SET_ESTABLISHMENTS', payload: updatedEstablishments });
+      showToast('success', establishment?.isActive ? 'Establecimiento desactivado' : 'Establecimiento activado');
+    } catch (error) {
+      console.error('Error toggling status:', error);
+      showToast('error', 'Error al cambiar el estado del establecimiento');
+    }
   };
 
   if (showForm) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Toast Notifications */}
+        <div className="fixed top-4 right-4 z-50 space-y-2">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${
+                toast.type === 'success'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : toast.type === 'error'
+                  ? 'bg-red-50 border border-red-200 text-red-800'
+                  : 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+              }`}
+            >
+              {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600" />}
+              {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-600" />}
+              {toast.type === 'warning' && <AlertCircle className="w-5 h-5 text-yellow-600" />}
+              <p className="flex-1 text-sm font-medium">{toast.message}</p>
+            </div>
+          ))}
+        </div>
+
         {/* Header */}
-        <div className="flex items-center space-x-4">
-          <button 
-            onClick={handleCancel}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {editingEstablishmentId ? 'Editar Establecimiento' : 'Nuevo Establecimiento'}
-            </h1>
-            <p className="text-gray-600">
-              {editingEstablishmentId ? 'Modifica los datos del establecimiento' : 'Registra un nuevo establecimiento para tu empresa'}
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={handleCancel}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors group"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {editingEstablishmentId ? 'Editar Establecimiento' : 'Nuevo Establecimiento'}
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                {editingEstablishmentId ? 'Modifica los datos del establecimiento' : 'Registra un nuevo establecimiento para tu empresa'}
+              </p>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
+            <Building className="w-5 h-5 text-blue-600" />
+            <span className="text-sm font-medium text-blue-900">Código: {formData.code}</span>
           </div>
         </div>
 
         {/* Form */}
-        <ConfigurationCard
-          title="Datos del Establecimiento"
-          description="Información básica del establecimiento"
-        >
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Código <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                  maxLength={4}
-                />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Sección 1: Identificación */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-600 rounded-lg">
+                  <Building className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Identificación</h3>
+                  <p className="text-sm text-gray-600">Información básica del establecimiento</p>
+                </div>
               </div>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+                    <Hash className="w-4 h-4 text-gray-400" />
+                    Código <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formData.code}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, code: e.target.value }));
+                        if (formErrors.code) setFormErrors(prev => ({ ...prev, code: '' }));
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                        formErrors.code
+                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
+                          : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                      placeholder="Ej: 0001"
+                      required
+                      maxLength={4}
+                    />
+                  </div>
+                  {formErrors.code && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
+                      <AlertCircle className="w-4 h-4" />
+                      {formErrors.code}
+                    </p>
+                  )}
+                </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre del Establecimiento <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
+                <div className="group">
+                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+                    <FileText className="w-4 h-4 text-gray-400" />
+                    Nombre del Establecimiento <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, name: e.target.value }));
+                        if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                        formErrors.name
+                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
+                          : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                      placeholder="Ej: Sede Central, Sucursal Norte..."
+                      required
+                    />
+                  </div>
+                  {formErrors.name && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
+                      <AlertCircle className="w-4 h-4" />
+                      {formErrors.name}
+                    </p>
+                  )}
+                </div>
               </div>
+            </div>
+          </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+          {/* Sección 2: Ubicación */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-600 rounded-lg">
+                  <MapPin className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Ubicación</h3>
+                  <p className="text-sm text-gray-600">Dirección y datos geográficos</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="group">
+                <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+                  <Navigation className="w-4 h-4 text-gray-400" />
                   Dirección <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
+                  </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, address: e.target.value }));
+                      if (formErrors.address) setFormErrors(prev => ({ ...prev, address: '' }));
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                      formErrors.address
+                        ? 'border-red-300 bg-red-50 focus:ring-red-200'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    placeholder="Ej: Av. Los Pinos 123, Urbanización..."
+                    required
+                  />
+                </div>
+                {formErrors.address && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
+                    <AlertCircle className="w-4 h-4" />
+                    {formErrors.address}
+                  </p>
+                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Distrito <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.district}
-                  onChange={(e) => setFormData(prev => ({ ...prev, district: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="group">
+                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+                    <Globe className="w-4 h-4 text-gray-400" />
+                    Departamento <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={formData.department}
+                      onChange={(e) => {
+                        const newDept = e.target.value;
+                        setFormData(prev => ({
+                          ...prev,
+                          department: newDept,
+                          province: '',
+                          district: ''
+                        }));
+                        if (formErrors.department) setFormErrors(prev => ({ ...prev, department: '' }));
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white ${
+                        formErrors.department
+                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
+                          : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                      required
+                    >
+                      <option value="">Seleccionar...</option>
+                      {ubigeoData.map((dept) => (
+                        <option key={dept.code} value={dept.name}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  {formErrors.department && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
+                      <AlertCircle className="w-4 h-4" />
+                      {formErrors.department}
+                    </p>
+                  )}
+                </div>
+
+                <div className="group">
+                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-400" />
+                    Provincia <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={formData.province}
+                      onChange={(e) => {
+                        const newProv = e.target.value;
+                        setFormData(prev => ({
+                          ...prev,
+                          province: newProv,
+                          district: ''
+                        }));
+                        if (formErrors.province) setFormErrors(prev => ({ ...prev, province: '' }));
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none ${
+                        formErrors.province
+                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
+                          : !formData.department
+                          ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                          : 'border-gray-300 hover:border-gray-400 bg-white'
+                      }`}
+                      required
+                      disabled={!formData.department}
+                    >
+                      <option value="">
+                        {formData.department ? 'Seleccionar...' : 'Selecciona departamento primero'}
+                      </option>
+                      {availableProvinces.map((prov) => (
+                        <option key={prov.code} value={prov.name}>
+                          {prov.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  {formErrors.province && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
+                      <AlertCircle className="w-4 h-4" />
+                      {formErrors.province}
+                    </p>
+                  )}
+                </div>
+
+                <div className="group">
+                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+                    <Navigation className="w-4 h-4 text-gray-400" />
+                    Distrito <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={formData.district}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, district: e.target.value }));
+                        if (formErrors.district) setFormErrors(prev => ({ ...prev, district: '' }));
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none ${
+                        formErrors.district
+                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
+                          : !formData.province
+                          ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                          : 'border-gray-300 hover:border-gray-400 bg-white'
+                      }`}
+                      required
+                      disabled={!formData.province}
+                    >
+                      <option value="">
+                        {formData.province ? 'Seleccionar...' : 'Selecciona provincia primero'}
+                      </option>
+                      {availableDistricts.map((dist) => (
+                        <option key={dist.code} value={dist.name}>
+                          {dist.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  {formErrors.district && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
+                      <AlertCircle className="w-4 h-4" />
+                      {formErrors.district}
+                    </p>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Provincia <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.province}
-                  onChange={(e) => setFormData(prev => ({ ...prev, province: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Departamento <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.department}
-                  onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="group">
+                <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+                  <Hash className="w-4 h-4 text-gray-400" />
                   Código Postal
+                  <span className="text-xs text-gray-500">(Opcional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.postalCode}
                   onChange={(e) => setFormData(prev => ({ ...prev, postalCode: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-400"
+                  placeholder="Ej: 15001"
                 />
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+          {/* Sección 3: Información de Contacto */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-600 rounded-lg">
+                  <Phone className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Información de Contacto</h3>
+                  <p className="text-sm text-gray-600">Datos opcionales para comunicación</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    Teléfono
+                    <span className="text-xs text-gray-500">(Opcional)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-400"
+                    placeholder="Ej: +51 999 999 999"
+                  />
+                </div>
+
+                <div className="group">
+                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    Correo Electrónico
+                    <span className="text-xs text-gray-500">(Opcional)</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, email: e.target.value }));
+                      if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                      formErrors.email
+                        ? 'border-red-300 bg-red-50 focus:ring-red-200'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    placeholder="Ej: establecimiento@empresa.com"
+                  />
+                  {formErrors.email && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
+                      <AlertCircle className="w-4 h-4" />
+                      {formErrors.email}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Botones de Acción */}
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-sm text-gray-500 flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4" />
+              Los campos marcados con <span className="text-red-500 font-medium">*</span> son obligatorios
+            </p>
+            <div className="flex gap-3">
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all font-medium hover:border-gray-400"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 flex items-center gap-2"
               >
+                <CheckCircle className="w-5 h-5" />
                 {editingEstablishmentId ? 'Actualizar' : 'Crear'} Establecimiento
               </button>
             </div>
-          </form>
-        </ConfigurationCard>
+          </div>
+        </form>
       </div>
     );
   }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${
+              toast.type === 'success'
+                ? 'bg-green-50 border border-green-200 text-green-800'
+                : toast.type === 'error'
+                ? 'bg-red-50 border border-red-200 text-red-800'
+                : 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+            }`}
+          >
+            {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600" />}
+            {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-600" />}
+            {toast.type === 'warning' && <AlertCircle className="w-5 h-5 text-yellow-600" />}
+            <p className="flex-1 text-sm font-medium">{toast.message}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full transform transition-all animate-scale-in">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+                ¿Eliminar establecimiento?
+              </h3>
+              <p className="text-gray-600 text-center mb-6">
+                ¿Estás seguro de eliminar el establecimiento <span className="font-semibold">"{deleteConfirmation.establishmentName}"</span>?
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirmation({ isOpen: false, establishmentId: null, establishmentName: '' })}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center space-x-4">
         <button 
@@ -549,7 +1025,7 @@ export function EstablishmentsConfiguration() {
                     </button>
                     
                     <button
-                      onClick={() => handleDelete(establishment.id)}
+                      onClick={() => openDeleteConfirmation(establishment)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Eliminar"
                     >
