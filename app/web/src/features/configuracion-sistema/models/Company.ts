@@ -8,12 +8,21 @@ export interface Company {
   province: string;
   department: string;
   postalCode?: string;
-  phone?: string;
-  email?: string;
+
+  // Contact - Support multiple phones and emails
+  phones: string[];
+  emails: string[];
   website?: string;
+
+  // Branding
   logo?: string;
+  footerText?: string;
+
+  // Business
   economicActivity: string;
   taxRegime: 'GENERAL' | 'MYPE' | 'ESPECIAL';
+  baseCurrency: 'PEN' | 'USD';
+
   legalRepresentative: {
     name: string;
     documentType: 'DNI' | 'CE' | 'PASSPORT';
@@ -44,11 +53,13 @@ export interface CreateCompanyRequest {
   province: string;
   department: string;
   postalCode?: string;
-  phone?: string;
-  email?: string;
+  phones: string[];
+  emails: string[];
   website?: string;
+  footerText?: string;
   economicActivity: string;
   taxRegime: 'GENERAL' | 'MYPE' | 'ESPECIAL';
+  baseCurrency: 'PEN' | 'USD';
   legalRepresentative: {
     name: string;
     documentType: 'DNI' | 'CE' | 'PASSPORT';
