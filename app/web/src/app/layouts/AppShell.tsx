@@ -1,27 +1,29 @@
 import { Outlet } from "react-router-dom";
+import { useState } from "react";
 import Header from "../components/Header";
 import SideNav from "../components/SideNav";
 import Footer from "../components/Footer";
 import { ConfigurationProvider } from "../../features/configuracion-sistema/context/ConfigurationContext";
 
 export default function AppShell() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
     <ConfigurationProvider>
       <div className="min-h-screen grid grid-rows-[auto,1fr,auto] bg-slate-50">
         <Header />
         <div className="flex min-h-0">
-          <div className="flex flex-col">
-            {/* Sidebar responsivo: ancho variable según breakpoint */}
-            <div className="w-16 sm:w-24 md:w-40 lg:w-56 transition-all duration-300">
-              <SideNav />
-            </div>
+          {/* Sidebar expandible/colapsable con medidas específicas */}
+          <div className={`${sidebarCollapsed ? 'w-[88px]' : 'w-[280px]'} flex-shrink-0 transition-all duration-300 ease-in-out`}>
+            <SideNav 
+              collapsed={sidebarCollapsed} 
+              onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+            />
           </div>
-          {/* Contenido principal con padding y scroll horizontal en pantallas pequeñas */}
+          {/* Contenido principal que se ajusta automáticamente */}
           <div className="flex-1 min-w-0 overflow-auto">
-            <div className="max-w-[1440px] mx-auto w-full px-1 sm:px-2 md:px-3 lg:px-4">
-              <div className="overflow-x-auto">
-                <Outlet />
-              </div>
+            <div className="px-10">
+              <Outlet />
             </div>
           </div>
         </div>

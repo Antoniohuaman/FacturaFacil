@@ -106,7 +106,7 @@ export default function Toolbar({
 
   return (
     <div className="bg-white border-b border-slate-200 shadow-sm">
-      <div className="px-2 py-5">
+      <div className="py-5">
         {/* Header Principal */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-6">

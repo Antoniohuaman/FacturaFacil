@@ -1,7 +1,12 @@
 
 import { NavLink } from "react-router-dom";
-import { useState } from "react";
+import { Menu } from "lucide-react";
 import CompanySelector from "../../components/CompanySelector";
+
+interface SideNavProps {
+  collapsed?: boolean;
+  onToggle?: () => void;
+}
 
 const mainItems = [
   { 
@@ -88,11 +93,9 @@ const configItem = {
   )
 };
 
-export default function SideNav() {
-  const [collapsed, setCollapsed] = useState(false);
-
+export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
   return (
-    <aside className={`h-screen flex flex-col bg-gradient-to-b from-slate-50 to-white border-r border-slate-200 transition-all duration-300 shadow-sm ${collapsed ? 'w-16' : 'w-64'}`}>
+    <aside className={`h-screen flex flex-col bg-gradient-to-b from-slate-50 to-white border-r border-slate-200 transition-all duration-300 shadow-sm`}>
       {/* Header con título y botón colapsar */}
       <div className="p-4 border-b border-gray-100/50">
         <div className="flex items-center justify-between">
@@ -102,15 +105,16 @@ export default function SideNav() {
             </div>
           )}
           
-          <button 
-            className={`text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-md transition-all duration-200 ${collapsed ? 'mx-auto' : ''}`}
-            onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? "Expandir menú" : "Colapsar menú"}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={collapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
-            </svg>
-          </button>
+          {/* Botón de colapsar/expandir */}
+          {onToggle && (
+            <button
+              onClick={onToggle}
+              className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+            >
+              <Menu className="w-4 h-4 text-slate-600" />
+            </button>
+          )}
         </div>
       </div>
 

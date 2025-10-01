@@ -129,7 +129,7 @@ const IndicadoresPage: React.FC = () => {
         }}
       />
 
-      <div className="px-2 py-4">
+      <div>
         {/* KPIs principales */}
         <div className="grid grid-cols-4 gap-6 mb-8">
           {/* Ventas del Mes */}
