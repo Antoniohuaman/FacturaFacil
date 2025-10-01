@@ -18,7 +18,7 @@ export default function AppShell() {
           </div>
           {/* Contenido principal con padding y scroll horizontal en pantallas pequeñas */}
           <div className="flex-1 min-w-0 overflow-auto">
-            <div className="max-w-[1440px] mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8">
+            <div className="max-w-[1440px] mx-auto w-full px-1 sm:px-2 md:px-3 lg:px-4">
               <div className="overflow-x-auto">
                 <Outlet />
               </div>
