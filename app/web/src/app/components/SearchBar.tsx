@@ -30,10 +30,7 @@ const SearchBar = () => {
     { id: 'nueva-factura', nombre: 'Nueva Factura', icono: FileText, atajo: 'Ctrl+Shift+F', categoria: 'acciones' },
     { id: 'nueva-boleta', nombre: 'Nueva Boleta', icono: FileText, atajo: 'Ctrl+Shift+B', categoria: 'acciones' },
     { id: 'registrar-cliente', nombre: 'Registrar Cliente', icono: Users, categoria: 'acciones' },
-    { id: 'registrar-producto', nombre: 'Registrar Producto', icono: Package, categoria: 'acciones' },
-    { id: 'ir-comprobantes', nombre: 'Ir a Comprobantes', icono: FileText, categoria: 'navegacion' },
-    { id: 'ir-productos', nombre: 'Ir a Productos', icono: Package, categoria: 'navegacion' },
-    { id: 'ir-clientes', nombre: 'Ir a Clientes', icono: Users, categoria: 'navegacion' }
+    { id: 'registrar-producto', nombre: 'Registrar Producto', icono: Package, categoria: 'acciones' }
   ];
 
   // Filtrar resultados
@@ -259,12 +256,12 @@ const SearchBar = () => {
             <div className="max-h-[400px] overflow-y-auto">
               
               {/* Acciones */}
-              {filteredCommands.filter(c => c.categoria === 'acciones').length > 0 && (
+              {filteredCommands.length > 0 && (
                 <div className="p-2">
                   <div className="text-[11px] font-semibold text-gray-400 uppercase px-2 py-1.5">
                     Acciones
                   </div>
-                  {filteredCommands.filter(c => c.categoria === 'acciones').map((cmd) => {
+                  {filteredCommands.map((cmd) => {
                     const IconComponent = cmd.icono;
                     return (
                       <button
@@ -280,29 +277,6 @@ const SearchBar = () => {
                         {cmd.atajo && (
                           <span className="text-[10px] text-gray-400 font-mono">{cmd.atajo}</span>
                         )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Navegación */}
-              {filteredCommands.filter(c => c.categoria === 'navegacion').length > 0 && (
-                <div className="p-2 border-t border-gray-100">
-                  <div className="text-[11px] font-semibold text-gray-400 uppercase px-2 py-1.5">
-                    Ir a
-                  </div>
-                  {filteredCommands.filter(c => c.categoria === 'navegacion').map((cmd) => {
-                    const IconComponent = cmd.icono;
-                    return (
-                      <button
-                        key={cmd.id}
-                        className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-50 
-                                 transition-colors text-left"
-                        onClick={() => handleExecuteCommand(cmd.id)}
-                      >
-                        <IconComponent size={14} className="text-gray-400" />
-                        <span className="text-sm text-gray-900">{cmd.nombre}</span>
                       </button>
                     );
                   })}

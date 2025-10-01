@@ -95,7 +95,21 @@ const configItem = {
 
 export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
   return (
-    <aside className={`h-screen flex flex-col bg-gradient-to-b from-slate-50 to-white border-r border-slate-200 transition-all duration-300 shadow-sm`}>
+    <aside 
+      className={`h-full flex flex-col bg-gradient-to-b from-slate-50 to-white border-r border-slate-200 transition-all duration-300 shadow-sm overflow-hidden`}
+      onWheel={(e) => {
+        // Prevenir el scroll del contenido principal cuando se hace scroll en el sidebar
+        const sidebar = e.currentTarget;
+        const scrollTop = sidebar.scrollTop;
+        const scrollHeight = sidebar.scrollHeight;
+        const clientHeight = sidebar.clientHeight;
+        
+        // Si estamos en el tope y queremos subir más, o en el fondo y queremos bajar más
+        if ((scrollTop === 0 && e.deltaY < 0) || (scrollTop >= scrollHeight - clientHeight && e.deltaY > 0)) {
+          e.preventDefault();
+        }
+      }}
+    >
       {/* Header con título y botón colapsar */}
       <div className="p-4 border-b border-gray-100/50">
         <div className="flex items-center justify-between">
@@ -138,7 +152,7 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
       )}
       
       {/* Navegación principal */}
-      <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
+      <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto overscroll-contain">
         {!collapsed && (
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-2">
             Módulos Principales

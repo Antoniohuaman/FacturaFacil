@@ -157,7 +157,8 @@ export default function Toolbar({
             
             <button
               onClick={handleCreateDocument}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md hover:shadow-lg"
+              className="flex items-center space-x-2 px-5 py-2.5 text-white rounded-lg hover:opacity-90 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md hover:shadow-lg"
+              style={{ backgroundColor: '#1478D4' }}
             >
               <Plus className="w-4 h-4" />
               <span className="text-sm font-medium">Nuevo comprobante</span>

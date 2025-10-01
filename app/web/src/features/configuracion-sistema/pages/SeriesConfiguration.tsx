@@ -550,7 +550,8 @@ export function SeriesConfiguration() {
 
         <button
           onClick={handleNew}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
+          style={{ backgroundColor: '#1478D4' }}
         >
           <Plus className="w-5 h-5" />
           <span>Nueva Serie</span>
@@ -765,7 +766,8 @@ export function SeriesConfiguration() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="px-6 py-3 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                style={!isLoading ? { backgroundColor: '#1478D4' } : {}}
               >
                 {isLoading ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear Serie'}
               </button>
@@ -1033,7 +1035,8 @@ export function SeriesConfiguration() {
                 <button
                   onClick={() => handleAdjustCorrelative(adjustModal.series!)}
                   disabled={isLoading || parseInt(newCorrelative) <= adjustModal.series!.currentNumber}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={!(isLoading || parseInt(newCorrelative) <= adjustModal.series!.currentNumber) ? { backgroundColor: '#1478D4' } : {}}
                 >
                   {isLoading ? 'Ajustando...' : 'Ajustar'}
                 </button>

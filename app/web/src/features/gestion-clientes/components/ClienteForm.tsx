@@ -34,7 +34,7 @@ type ClienteFormProps = {
   isEditing?: boolean;
 };
 
-const PRIMARY_COLOR = '#0040A2';
+const PRIMARY_COLOR = '#1478D4';
 
 const ClienteForm: React.FC<ClienteFormProps> = ({
   formData,
@@ -302,8 +302,9 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                   className={`px-8 py-2 min-w-[100px] rounded-lg font-semibold text-sm shadow transition-colors ${
                     isConsulting || !formData.documentNumber
                       ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'text-white hover:opacity-90'
                   }`}
+                  style={!(isConsulting || !formData.documentNumber) ? { backgroundColor: '#1478D4' } : {}}
                 >
                   {isConsulting ? (
                     <div className="flex items-center gap-2">

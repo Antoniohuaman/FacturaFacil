@@ -6,7 +6,7 @@ import ClientesTable, { type ClientesTableRef } from '../components/ClientesTabl
 import ClientesFilters from '../components/ClientesFilters';
 import ConfirmationModal from '../../../../../shared/src/components/ConfirmationModal';
 
-const PRIMARY_COLOR = '#0040A2';
+const PRIMARY_COLOR = '#1478D4';
 
 const initialClients = [
 	{
@@ -506,9 +506,10 @@ function ClientesPage() {
 												onClick={() => setCurrentPage(page)}
 												className={`px-3 py-1 text-sm rounded-lg ${
 													page === currentPage
-														? 'bg-blue-600 text-white'
+														? 'text-white'
 														: 'border border-gray-300 hover:bg-gray-50'
 												}`}
+												style={page === currentPage ? { backgroundColor: '#1478D4' } : {}}
 											>
 												{page}
 											</button>

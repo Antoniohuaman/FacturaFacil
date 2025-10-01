@@ -1,18 +1,29 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import SearchBar from './SearchBar';
+import UserDropdown from './UserDropdown';
 
 export default function Header() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showCashMenu, setShowCashMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cashMenuRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
   // Información de caja
   const cashInfo = {
     cashier: "Juan Gómez",
     openTime: "09:15 AM",
     initialAmount: "S/ 500.00"
+  };
+
+  // Información del usuario
+  const userInfo = {
+    userName: "Antonio Huamán",
+    userRole: "Administrador",
+    userEmail: "antonio@sensiyo.com",
+    userInitials: "AH"
   };
 
   // Cerrar menus al hacer click fuera
@@ -24,30 +35,14 @@ export default function Header() {
       if (cashMenuRef.current && !cashMenuRef.current.contains(event.target as Node)) {
         setShowCashMenu(false);
       }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleProfileAction = (action: string) => {
-    setShowUserDropdown(false);
-    
-    switch (action) {
-      case 'profile':
-        alert('Redirigiendo a Mi Perfil...\n(Aquí se implementaría la navegación al perfil del usuario)');
-        break;
-      case 'settings':
-        alert('Redirigiendo a Configuración...\n(Aquí se implementaría la navegación a configuración del sistema)');
-        break;
-      case 'logout':
-        const confirmLogout = window.confirm('¿Está seguro que desea cerrar la sesión?');
-        if (confirmLogout) {
-          alert('Cerrando sesión...\n(Aquí se implementaría el logout real: limpiar tokens, redirect a login, etc.)');
-        }
-        break;
-    }
-  };
 
   const handleCloseCash = () => {
     setShowCashMenu(false);
@@ -60,17 +55,17 @@ export default function Header() {
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 shadow-sm">
       {/* Logo */}
-      <div className="flex items-center">
+      <div className="flex items-center ml-8">
         <img 
-          src="/SensiYO.png?v=1" 
-          alt="SensiYO"
-          className="h-12"
+          src="/SenciYO.svg" 
+          alt="SenciYO"
+          className="h-11"
         />
       </div>
       
-      {/* SearchBar - ligeramente a la izquierda del centro */}
+      {/* SearchBar - más a la izquierda y más notable */}
       <div className="flex-1 flex justify-center">
-        <div className="mr-20"> {/* Margen derecho para mover ligeramente a la izquierda */}
+        <div className="mr-40 transform scale-105"> {/* Escala ligeramente más grande */}
           <SearchBar />
         </div>
       </div>
@@ -149,6 +144,62 @@ export default function Header() {
         {/* Separador */}
         <div className="h-6 w-px bg-slate-300"></div>
         
+        {/* Botón de notificaciones */}
+        <div className="relative ml-4" ref={notificationsRef}>
+          <button 
+            className="relative w-10 h-10 hover:bg-slate-100 rounded-full transition-colors flex items-center justify-center group"
+            onClick={() => setShowNotifications(!showNotifications)}
+          >
+            <Bell className="w-5 h-5 text-slate-600 group-hover:text-slate-900 transition-colors" />
+            {/* Indicador de notificaciones nuevas */}
+            <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+          </button>
+
+          {/* Dropdown de notificaciones */}
+          {showNotifications && (
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl py-3 z-50 max-h-96 overflow-y-auto">
+              <div className="px-4 pb-3 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900 text-base">Notificaciones</h3>
+              </div>
+              <div className="py-2">
+                {/* Ejemplo de notificaciones */}
+                <div className="px-4 py-3 hover:bg-slate-50 transition-colors border-l-4 border-blue-500">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900">Nueva factura generada</p>
+                      <p className="text-xs text-slate-500 mt-1">Factura F001-00123 por S/ 250.00</p>
+                    </div>
+                    <span className="text-xs text-slate-400">2 min</span>
+                  </div>
+                </div>
+                <div className="px-4 py-3 hover:bg-slate-50 transition-colors border-l-4 border-green-500">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900">Cliente registrado</p>
+                      <p className="text-xs text-slate-500 mt-1">Nuevo cliente: María García</p>
+                    </div>
+                    <span className="text-xs text-slate-400">5 min</span>
+                  </div>
+                </div>
+                <div className="px-4 py-3 hover:bg-slate-50 transition-colors border-l-4 border-orange-500">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900">Stock bajo</p>
+                      <p className="text-xs text-slate-500 mt-1">Producto XYZ tiene solo 5 unidades</p>
+                    </div>
+                    <span className="text-xs text-slate-400">1 hora</span>
+                  </div>
+                </div>
+              </div>
+              <div className="border-t border-slate-100 pt-2">
+                <button className="w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
+                  Ver todas las notificaciones
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        
         {/* Perfil/Menu con dropdown */}
         <div className="relative ml-4" ref={menuRef}>
           <button 
@@ -166,63 +217,12 @@ export default function Header() {
 
           {/* Dropdown Menu */}
           {showUserDropdown && (
-            <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-              
-              {/* Header con info del usuario */}
-              <div className="p-4 border-b border-gray-100">
-                <div className="flex items-center gap-3 mb-3">
-                  <img 
-                    src="/perfil.jpg?v=2" 
-                    alt="User" 
-                    className="w-12 h-12 rounded-full object-cover" 
-                  />
-                  <div>
-                    <div className="font-bold text-gray-900">Pedro Pérez</div>
-                    <div className="text-sm font-semibold text-blue-600">Administrador</div>
-                    <div className="text-xs text-gray-500">gerencia@empresa.com</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Opciones del menú */}
-              <div className="p-2">
-                <button 
-                  onClick={() => handleProfileAction('profile')}
-                  className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-sm flex items-center gap-3"
-                >
-                  <User size={16} />
-                  Mi perfil
-                </button>
-                
-                <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-sm flex items-center gap-3">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Centro de ayuda
-                </button>
-                
-                <button 
-                  onClick={() => handleProfileAction('settings')}
-                  className="w-full text-left px-3 py-2 rounded hover:bg-gray-50 text-sm flex items-center gap-3"
-                >
-                  <Settings size={16} />
-                  Configuración
-                </button>
-              </div>
-
-              {/* Cerrar sesión */}
-              <div className="p-2 border-t border-gray-100">
-                <button 
-                  onClick={() => handleProfileAction('logout')}
-                  className="w-full text-left px-3 py-2 rounded hover:bg-red-50 text-sm text-red-600 flex items-center gap-3 font-semibold"
-                >
-                  <LogOut size={16} />
-                  Cerrar sesión
-                </button>
-              </div>
-              
-            </div>
+            <UserDropdown 
+              userName={userInfo.userName}
+              userRole={userInfo.userRole}
+              userEmail={userInfo.userEmail}
+              onClose={() => setShowUserDropdown(false)}
+            />
           )}
         </div>
       </div>
