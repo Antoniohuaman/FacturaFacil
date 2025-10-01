@@ -46,4 +46,27 @@
   .animate-scale-in {
     animation: scale-in 0.2s ease-out;
   }
+
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slideInRight {
+    animation: slide-in-right 0.3s ease-out;
+  }
+
+  .animate-fadeIn {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .animate-scaleIn {
+    animation: scale-in 0.2s ease-out;
+  }
 }

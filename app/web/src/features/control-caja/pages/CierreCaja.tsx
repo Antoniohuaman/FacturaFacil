@@ -1,121 +1,181 @@
 import React, { useState } from 'react';
-import { useCaja } from '../store/CajaContext';
-import { Lock, CheckCircle2 } from 'lucide-react';
-
-interface ResumenCaja {
-  apertura: number;
-  ingresos: number;
-  egresos: number;
-  saldo: number;
-}
-
-const mockResumen: ResumenCaja = {
-  apertura: 500.00,
-  ingresos: 209.50,
-  egresos: 0.00,
-  saldo: 709.50
-};
+import { useCaja } from '../context/CajaContext';
+import { Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ConfirmationModal } from '../components/common/ConfirmationModal';
 
 const CierreCaja: React.FC = () => {
   const [montoCierre, setMontoCierre] = useState('');
   const [observaciones, setObservaciones] = useState('');
-  const [cerrado, setCerrado] = useState(false);
-  const [error, setError] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showDescuadreWarning, setShowDescuadreWarning] = useState(false);
 
-  const { status, cerrarCaja, margenDescuadre } = useCaja();
-  const [descuadre, setDescuadre] = useState<number>(0);
-  const handleCierre = (e: React.FormEvent) => {
+  const { status, cerrarCaja, isLoading, getResumen, margenDescuadre } = useCaja();
+
+  const resumen = getResumen();
+  const montoIngresado = parseFloat(montoCierre) || 0;
+  const descuadre = montoIngresado - resumen.saldo;
+  const tieneDescuadre = Math.abs(descuadre) > 0.01;
+  const descuadreExcedido = Math.abs(descuadre) > margenDescuadre;
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const monto = parseFloat(montoCierre);
-    if (isNaN(monto) || monto < 0) {
-      setError('Ingrese un monto válido para el cierre.');
-      return;
+    if (status === 'cerrada') return;
+
+    if (descuadreExcedido) {
+      setShowDescuadreWarning(true);
+    } else {
+      setShowConfirmModal(true);
     }
-    const diferencia = monto - mockResumen.saldo;
-    if (Math.abs(diferencia) > margenDescuadre) {
-      setError(`El monto de cierre no está dentro del margen permitido (±S/ ${margenDescuadre.toFixed(2)}). Descuadre: S/ ${diferencia.toFixed(2)}`);
-      return;
+  };
+
+  const handleConfirmCierre = async () => {
+    try {
+      await cerrarCaja(montoIngresado, observaciones || undefined);
+      setShowConfirmModal(false);
+      setMontoCierre('');
+      setObservaciones('');
+    } catch (error) {
+      setShowConfirmModal(false);
     }
-    setError('');
-    setDescuadre(diferencia);
-    cerrarCaja();
-    setCerrado(true);
   };
 
   return (
-    <div className="max-w-xl mx-auto bg-white rounded-lg shadow p-8 mt-8">
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <Lock className="w-6 h-6 text-gray-600" /> Cierre de Caja
-      </h2>
-      {/* Resumen de caja */}
-      <div className="bg-gray-50 p-4 rounded-lg mb-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-gray-500">Apertura</p>
-            <p className="text-lg font-bold text-gray-900">S/ {mockResumen.apertura.toFixed(2)}</p>
+    <>
+      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8 mt-4 sm:mt-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-red-100 rounded-lg">
+            <Lock className="w-6 h-6 text-red-600" />
           </div>
-          <div>
-            <p className="text-xs text-green-600">Ingresos</p>
-            <p className="text-lg font-bold text-green-700">S/ {mockResumen.ingresos.toFixed(2)}</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Cierre de Caja</h2>
+        </div>
+
+        {status === 'cerrada' && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-sm font-semibold text-yellow-900">No hay caja abierta</h4>
+              <p className="text-sm text-yellow-700 mt-1">
+                Debe abrir una caja antes de poder realizar el cierre.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-red-600">Egresos</p>
-            <p className="text-lg font-bold text-red-700">S/ {mockResumen.egresos.toFixed(2)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-blue-600">Saldo Actual</p>
-            <p className="text-lg font-bold text-blue-700">S/ {mockResumen.saldo.toFixed(2)}</p>
+        )}
+
+        {/* Resumen */}
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg mb-6 border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Resumen de Caja</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white p-3 rounded-md">
+              <p className="text-xs text-gray-500">Apertura</p>
+              <p className="text-lg font-bold text-gray-900">S/ {resumen.apertura.toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-3 rounded-md">
+              <p className="text-xs text-green-600">Ingresos</p>
+              <p className="text-lg font-bold text-green-700">S/ {resumen.ingresos.toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-3 rounded-md">
+              <p className="text-xs text-red-600">Egresos</p>
+              <p className="text-lg font-bold text-red-700">S/ {resumen.egresos.toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-3 rounded-md border-2 border-blue-200">
+              <p className="text-xs text-blue-600 font-medium">Saldo Esperado</p>
+              <p className="text-xl font-bold text-blue-700">S/ {resumen.saldo.toFixed(2)}</p>
+            </div>
           </div>
         </div>
-      </div>
-      {/* Formulario de cierre */}
-      {!cerrado ? (
-        <form onSubmit={handleCierre} className="space-y-4">
+
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Monto de cierre</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Monto de Cierre <span className="text-red-500">*</span>
+            </label>
             <input
               type="number"
-              step="0.01"
-              min="0"
               value={montoCierre}
-              onChange={e => setMontoCierre(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              placeholder={`S/ ${mockResumen.saldo.toFixed(2)}`}
+              onChange={(e) => setMontoCierre(e.target.value)}
+              min={0}
+              step="0.01"
+              placeholder="0.00"
               required
+              autoFocus
+              disabled={status === 'cerrada' || isLoading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
+            {status === 'abierta' && (
+              <p className="text-xs text-gray-500 mt-1">Monto esperado: S/ {resumen.saldo.toFixed(2)}</p>
+            )}
           </div>
+
+          {tieneDescuadre && montoCierre && (
+            <div className={`p-4 rounded-lg border ${descuadreExcedido ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className={`w-5 h-5 ${descuadreExcedido ? 'text-red-600' : 'text-yellow-600'}`} />
+                <div>
+                  <p className={`text-sm font-semibold ${descuadreExcedido ? 'text-red-900' : 'text-yellow-900'}`}>
+                    {descuadreExcedido ? 'Descuadre excede el margen' : 'Descuadre detectado'}
+                  </p>
+                  <p className={`text-sm ${descuadreExcedido ? 'text-red-700' : 'text-yellow-700'}`}>
+                    Diferencia: S/ {descuadre.toFixed(2)} (Margen permitido: S/ {margenDescuadre.toFixed(2)})
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Observaciones</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
             <textarea
               value={observaciones}
-              onChange={e => setObservaciones(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              onChange={(e) => setObservaciones(e.target.value)}
               rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
               placeholder="Observaciones del cierre (opcional)"
+              disabled={status === 'cerrada' || isLoading}
             />
           </div>
-          {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
+
           <button
             type="submit"
-            className={`w-full font-bold py-2 px-4 rounded flex items-center justify-center gap-2 ${status === 'cerrada' ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-            disabled={status === 'cerrada'}
+            disabled={status === 'cerrada' || isLoading || !montoCierre}
+            className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-md font-semibold flex items-center justify-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <CheckCircle2 className="w-5 h-5" /> {status === 'cerrada' ? 'Caja Cerrada' : 'Registrar cierre de caja'}
+            {isLoading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Cerrando caja...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-5 h-5" />
+                {status === 'cerrada' ? 'Caja Cerrada' : 'Cerrar Caja'}
+              </>
+            )}
           </button>
         </form>
-      ) : (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-          <CheckCircle2 className="w-10 h-10 mx-auto text-green-600 mb-2" />
-          <p className="text-lg font-bold text-green-800 mb-2">¡Caja cerrada correctamente!</p>
-          <p className="text-sm text-gray-700">Monto de cierre: <span className="font-bold">S/ {montoCierre}</span></p>
-          <p className="text-sm text-gray-700">Saldo esperado: <span className="font-bold">S/ {mockResumen.saldo.toFixed(2)}</span></p>
-          {Math.abs(descuadre) > 0 && (
-            <p className="text-sm text-red-600 mt-2">Descuadre registrado: <span className="font-bold">S/ {descuadre.toFixed(2)}</span></p>
-          )}
-          {observaciones && <p className="text-sm text-gray-700 mt-2">Observaciones: {observaciones}</p>}
-        </div>
-      )}
-    </div>
+      </div>
+
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        title="Confirmar Cierre de Caja"
+        message={`¿Está seguro de cerrar la caja?${tieneDescuadre ? ` Se registrará un descuadre de S/ ${descuadre.toFixed(2)}.` : ''} Esta acción no se puede deshacer.`}
+        confirmText="Sí, cerrar caja"
+        cancelText="Cancelar"
+        type="danger"
+        isLoading={isLoading}
+        onConfirm={handleConfirmCierre}
+        onClose={() => setShowConfirmModal(false)}
+      />
+
+      <ConfirmationModal
+        isOpen={showDescuadreWarning}
+        title="Descuadre Excede el Margen"
+        message={`El descuadre de S/ ${descuadre.toFixed(2)} excede el margen permitido de S/ ${margenDescuadre.toFixed(2)}. No se puede cerrar la caja. Por favor, verifique el monto.`}
+        confirmText="Entendido"
+        type="danger"
+        onConfirm={() => setShowDescuadreWarning(false)}
+        onClose={() => setShowDescuadreWarning(false)}
+      />
+    </>
   );
 };
 

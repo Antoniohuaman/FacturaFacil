@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCaja } from '../../control-caja/store/CajaContext';
+import { useCaja } from '../../control-caja/context/CajaContext';
 import type { Currency } from '../models/comprobante.types';
 
 // Hook consolidado para manejar el estado del comprobante
