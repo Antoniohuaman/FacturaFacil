@@ -267,7 +267,7 @@ export function EstablishmentsConfiguration() {
           },
           status: 'ACTIVE',
           isActive: true,
-          isMainEstablishment: establishments.length === 0, // First one is main by default
+          isMainEstablishment: false,
           createdAt: new Date(),
           updatedAt: new Date()
         };
@@ -302,12 +302,6 @@ export function EstablishmentsConfiguration() {
   };
 
   const openDeleteConfirmation = (establishment: Establishment) => {
-    // Validate if it's the main establishment
-    if (establishment.isMainEstablishment && establishments.length > 1) {
-      showToast('warning', 'No puedes eliminar el establecimiento principal. Primero asigna otro como principal.');
-      return;
-    }
-
     setDeleteConfirmation({
       isOpen: true,
       establishmentId: establishment.id,
@@ -333,12 +327,6 @@ export function EstablishmentsConfiguration() {
 
   const handleToggleStatus = (id: string) => {
     const establishment = establishments.find(est => est.id === id);
-
-    // Validate if trying to deactivate the main establishment
-    if (establishment?.isMainEstablishment && establishment.isActive && establishments.length > 1) {
-      showToast('warning', 'No puedes desactivar el establecimiento principal. Primero asigna otro como principal.');
-      return;
-    }
 
     try {
       const updatedEstablishments = establishments.map(est =>
@@ -852,7 +840,7 @@ export function EstablishmentsConfiguration() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -889,20 +877,6 @@ export function EstablishmentsConfiguration() {
             </div>
             <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
               <MapPin className="w-6 h-6 text-red-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Principales</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {establishments.filter(e => e.isMainEstablishment).length}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-              <Building className="w-6 h-6 text-purple-600" />
             </div>
           </div>
         </div>
@@ -986,11 +960,6 @@ export function EstablishmentsConfiguration() {
                         status={establishment.isActive ? 'success' : 'error'}
                         label={establishment.isActive ? 'Activo' : 'Inactivo'}
                       />
-                      {establishment.isMainEstablishment && (
-                        <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
-                          Principal
-                        </span>
-                      )}
                     </div>
                     
                     <p className="text-gray-600 mb-2">
