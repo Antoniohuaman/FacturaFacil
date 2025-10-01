@@ -1,8 +1,8 @@
 // src/features/configuration/components/employees/EmployeeCard.tsx
 import { useState } from 'react';
-import { 
-  FileText, 
-  Shield, 
+import {
+  FileText,
+  Shield,
   Building2,
   Calendar,
   MoreVertical,
@@ -14,7 +14,9 @@ import {
   Clock,
   X,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import type { Employee } from '../../models/Employee';
 import type { Role } from '../../models/Role';
@@ -268,19 +270,50 @@ export function EmployeeCard({
                         <span>Reactivar</span>
                       </button>
                     )}
-                    
+
                     <div className="border-t border-gray-100 my-1"></div>
-                    
-                    <button
-                      onClick={() => {
-                        onDelete();
-                        setShowMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Eliminar</span>
-                    </button>
+
+                    {/* Enable/Disable Toggle */}
+                    {employee.status === 'ACTIVE' ? (
+                      <button
+                        onClick={() => {
+                          onChangeStatus('INACTIVE');
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center space-x-2"
+                      >
+                        <PowerOff className="w-4 h-4" />
+                        <span>Inhabilitar</span>
+                      </button>
+                    ) : employee.status === 'INACTIVE' ? (
+                      <button
+                        onClick={() => {
+                          onChangeStatus('ACTIVE');
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center space-x-2"
+                      >
+                        <Power className="w-4 h-4" />
+                        <span>Habilitar</span>
+                      </button>
+                    ) : null}
+
+                    {/* Delete - Only show if employee has no transactions */}
+                    {!employee.hasTransactions && (
+                      <>
+                        <div className="border-t border-gray-100 my-1"></div>
+                        <button
+                          onClick={() => {
+                            onDelete();
+                            setShowMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Eliminar</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </>
               )}

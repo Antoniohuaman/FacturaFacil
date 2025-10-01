@@ -1,13 +1,15 @@
 // src/features/configuration/components/employees/EmployeesList.tsx
 import { useState } from 'react';
-import { 
-  Users, 
-  Search, 
-  UserPlus, 
-  UserCheck, 
-  Mail, 
+import {
+  Users,
+  Search,
+  UserPlus,
+  UserCheck,
+  Mail,
   X,
-  Shield
+  Shield,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import type { Employee } from '../../models/Employee';
 import type { Role } from '../../models/Role';
@@ -301,16 +303,6 @@ export function EmployeesList({
               Lista
             </button>
           </div>
-
-          {/* Create Button */}
-          <button
-            onClick={onCreate}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <UserPlus className="w-5 h-5" />
-            <span className="hidden sm:inline">Invitar Empleado</span>
-            <span className="sm:hidden">Invitar</span>
-          </button>
         </div>
       </div>
 
@@ -394,7 +386,7 @@ export function EmployeesList({
               onClick={onCreate}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Invitar Primer Empleado
+              Nuevo Empleado
             </button>
           )}
         </div>
@@ -516,13 +508,36 @@ export function EmployeesList({
                           >
                             ✏️
                           </button>
-                          <button
-                            onClick={() => onDelete(employee)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Eliminar"
-                          >
-                            🗑️
-                          </button>
+
+                          {/* Enable/Disable Toggle */}
+                          {employee.status === 'ACTIVE' ? (
+                            <button
+                              onClick={() => onChangeStatus(employee, 'INACTIVE')}
+                              className="p-1.5 text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                              title="Inhabilitar"
+                            >
+                              <PowerOff className="w-4 h-4" />
+                            </button>
+                          ) : employee.status === 'INACTIVE' ? (
+                            <button
+                              onClick={() => onChangeStatus(employee, 'ACTIVE')}
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                              title="Habilitar"
+                            >
+                              <Power className="w-4 h-4" />
+                            </button>
+                          ) : null}
+
+                          {/* Delete - Only show if employee has no transactions */}
+                          {!employee.hasTransactions && (
+                            <button
+                              onClick={() => onDelete(employee)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Eliminar"
+                            >
+                              🗑️
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

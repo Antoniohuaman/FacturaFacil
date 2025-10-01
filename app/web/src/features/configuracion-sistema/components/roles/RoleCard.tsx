@@ -8,6 +8,75 @@ interface RoleCardProps {
   employeeCount?: number;
 }
 
+// Permission translations
+const PERMISSION_TRANSLATIONS: Record<string, string> = {
+  // Common actions
+  canView: 'Ver',
+  canCreate: 'Crear',
+  canEdit: 'Editar',
+  canDelete: 'Eliminar',
+  canApprove: 'Aprobar',
+  canCancel: 'Cancelar',
+
+  // Sales
+  canApplyDiscounts: 'Aplicar descuentos',
+  canModifyPrices: 'Modificar precios',
+  canViewReports: 'Ver reportes',
+  canAccessAllEstablishments: 'Acceder a todos los establecimientos',
+
+  // Inventory
+  canAdjustStock: 'Ajustar stock',
+  canTransferStock: 'Transferir stock',
+  canViewCosts: 'Ver costos',
+  canEditCosts: 'Editar costos',
+  canManageSuppliers: 'Gestionar proveedores',
+  canApprovePurchases: 'Aprobar compras',
+
+  // Customers
+  canViewHistory: 'Ver historial',
+  canManageCredit: 'Gestionar crédito',
+  canViewSensitiveData: 'Ver datos sensibles',
+  canExportData: 'Exportar datos',
+
+  // Reports
+  canViewSalesReports: 'Ver reportes de ventas',
+  canViewInventoryReports: 'Ver reportes de inventario',
+  canViewFinancialReports: 'Ver reportes financieros',
+  canViewEmployeeReports: 'Ver reportes de empleados',
+  canExportReports: 'Exportar reportes',
+  canScheduleReports: 'Programar reportes',
+  canViewAllEstablishments: 'Ver todos los establecimientos',
+
+  // Configuration
+  canEditCompany: 'Editar empresa',
+  canEditEstablishments: 'Editar establecimientos',
+  canEditEmployees: 'Editar empleados',
+  canEditRoles: 'Editar roles',
+  canEditTaxes: 'Editar impuestos',
+  canEditPaymentMethods: 'Editar métodos de pago',
+  canEditSeries: 'Editar series',
+  canEditIntegrations: 'Editar integraciones',
+  canBackupData: 'Respaldar datos',
+  canRestoreData: 'Restaurar datos',
+
+  // Cash
+  canOpenRegister: 'Abrir caja',
+  canCloseRegister: 'Cerrar caja',
+  canViewCashFlow: 'Ver flujo de caja',
+  canMakeAdjustments: 'Hacer ajustes',
+  canViewOtherRegisters: 'Ver otras cajas',
+  canApproveCashOperations: 'Aprobar operaciones de caja',
+
+  // Admin
+  canManageUsers: 'Gestionar usuarios',
+  canManageRoles: 'Gestionar roles',
+  canViewSystemLogs: 'Ver logs del sistema',
+  canManageIntegrations: 'Gestionar integraciones',
+  canAccessAllData: 'Acceder a todos los datos',
+  canDeleteAnyRecord: 'Eliminar cualquier registro',
+  canModifySystemSettings: 'Modificar configuración del sistema',
+};
+
 export function RoleCard({ role, employeeCount = 0 }: RoleCardProps) {
   const [showPermissions, setShowPermissions] = useState(false);
 
@@ -90,7 +159,7 @@ export function RoleCard({ role, employeeCount = 0 }: RoleCardProps) {
                 <XCircle className="w-3 h-3 text-gray-400" />
               )}
               <span className="flex-1">
-                {key.replace(/([A-Z])/g, ' $1').toLowerCase()}
+                {PERMISSION_TRANSLATIONS[key] || key.replace(/([A-Z])/g, ' $1').toLowerCase()}
               </span>
             </div>
           ))}
@@ -163,7 +232,7 @@ export function RoleCard({ role, employeeCount = 0 }: RoleCardProps) {
           onClick={() => setShowPermissions(!showPermissions)}
           className="w-full flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium text-gray-700"
         >
-          <span>Ver permisos detallados</span>
+          <span>{showPermissions ? 'Ocultar permisos detallados' : 'Ver permisos detallados'}</span>
           {showPermissions ? (
             <ChevronDown className="w-4 h-4" />
           ) : (

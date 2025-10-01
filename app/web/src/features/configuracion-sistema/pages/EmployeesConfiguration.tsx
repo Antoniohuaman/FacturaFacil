@@ -12,6 +12,7 @@ import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { EmployeesList } from '../components/employees/EmployeesList';
 import { EmployeeForm } from '../components/employees/EmployeeForm';
 import { RolesList } from '../components/roles/RolesList';
+import { CredentialsModal } from '../components/employees/CredentialsModal';
 import { SYSTEM_ROLES } from '../models/Role';
 import type { Employee } from '../models/Employee';
 import type { Role } from '../models/Role';
@@ -28,6 +29,8 @@ interface EmployeeFormData {
   documentType: 'DNI' | 'CE' | 'PASSPORT' | '';
   documentNumber: string;
   establishmentIds: string[];
+  password: string;
+  requirePasswordChange: boolean;
 }
 
 export function EmployeesConfiguration() {
@@ -47,6 +50,16 @@ export function EmployeesConfiguration() {
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [roleError, setRoleError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [credentialsModal, setCredentialsModal] = useState<{
+    show: boolean;
+    employee?: Employee;
+    credentials?: {
+      fullName: string;
+      email: string;
+      username: string;
+      password: string;
+    };
+  }>({ show: false });
 
   // Get existing emails for validation
   const existingEmails = employees
@@ -126,6 +139,8 @@ export function EmployeesConfiguration() {
           systemAccess: {
             username: data.email.split('@')[0],
             email: data.email,
+            password: data.password, // Note: In production, this should be hashed on the backend
+            requiresPasswordChange: data.requirePasswordChange,
             requiresPinForActions: false,
             roleIds: [],
             roles: [],
@@ -144,8 +159,21 @@ export function EmployeesConfiguration() {
 
         dispatch({ type: 'ADD_EMPLOYEE', payload: newEmployee });
 
-        // Open role assignment modal after creating employee
+        // Open role assignment modal first, then credentials
         setRoleAssignmentModal({ show: true, employee: newEmployee });
+        setSelectedRoleIds([]);
+
+        // Store credentials for later display
+        setCredentialsModal({
+          show: false,
+          employee: newEmployee,
+          credentials: {
+            fullName: data.fullName,
+            email: data.email,
+            username: data.email.split('@')[0],
+            password: data.password
+          }
+        });
       }
 
       resetEmployeeForm();
@@ -247,6 +275,15 @@ export function EmployeesConfiguration() {
       setRoleAssignmentModal({ show: false });
       setSelectedRoleIds([]);
       setRoleError('');
+
+      // Show credentials modal if this was a new employee
+      if (credentialsModal.credentials && credentialsModal.employee?.id === updatedEmployee.id) {
+        setCredentialsModal({
+          ...credentialsModal,
+          show: true,
+          employee: updatedEmployee,
+        });
+      }
     } catch (error) {
       console.error('Error assigning roles:', error);
     } finally {
@@ -254,8 +291,8 @@ export function EmployeesConfiguration() {
     }
   };
 
-  // Handle remove role from establishment
-  const handleRemoveRole = (employee: Employee, establishmentId: string) => {
+  // Handle remove establishment from employee
+  const handleRemoveEstablishment = (employee: Employee, establishmentId: string) => {
     // Remove establishment from employee's list
     const updatedEstablishmentIds = employee.employment.establishmentIds.filter(
       id => id !== establishmentId
@@ -332,7 +369,7 @@ export function EmployeesConfiguration() {
           >
             <div className="flex items-center space-x-2">
               <Shield className="w-5 h-5" />
-              <span>Roles (3)</span>
+              <span>Roles ({SYSTEM_ROLES.length})</span>
             </div>
           </button>
         </nav>
@@ -348,7 +385,7 @@ export function EmployeesConfiguration() {
           onDelete={(employee) => setDeleteModal({ show: true, employee })}
           onChangeStatus={handleChangeStatus}
           onAssignRole={handleAssignRole}
-          onRemoveRole={handleRemoveRole}
+          onRemoveRole={handleRemoveEstablishment}
           onCreate={() => setShowEmployeeForm(true)}
           isLoading={isLoading}
         />
@@ -423,15 +460,30 @@ export function EmployeesConfiguration() {
         </div>
       )}
 
+      {/* Credentials Modal */}
+      {credentialsModal.show && credentialsModal.credentials && credentialsModal.employee && (
+        <CredentialsModal
+          isOpen={credentialsModal.show}
+          onClose={() => setCredentialsModal({ show: false })}
+          credentials={credentialsModal.credentials}
+          employee={credentialsModal.employee}
+          establishments={establishments}
+        />
+      )}
+
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
         isOpen={deleteModal.show}
         onClose={() => setDeleteModal({ show: false })}
         onConfirm={() => deleteModal.employee && handleDeleteEmployee(deleteModal.employee)}
         title="Eliminar Empleado"
-        message={`¿Estás seguro de que deseas eliminar al empleado "${deleteModal.employee?.personalInfo.fullName}"? Esta acción no se puede deshacer.`}
+        message={
+          deleteModal.employee?.hasTransactions
+            ? `No puedes eliminar a "${deleteModal.employee?.personalInfo.fullName}" porque tiene transacciones registradas en el sistema. En su lugar, puedes inhabilitarlo para bloquear su acceso.`
+            : `¿Estás seguro de que deseas eliminar permanentemente a "${deleteModal.employee?.personalInfo.fullName}"? Esta acción no se puede deshacer y eliminará todos sus datos del sistema.`
+        }
         type="danger"
-        confirmText="Eliminar"
+        confirmText={deleteModal.employee?.hasTransactions ? "Entendido" : "Eliminar"}
         cancelText="Cancelar"
         isLoading={isLoading}
       />

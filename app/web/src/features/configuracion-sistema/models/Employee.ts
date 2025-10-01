@@ -59,12 +59,15 @@ export interface Employee {
   systemAccess: {
     username: string;
     email: string;
+    password?: string; // Hashed password (only stored temporarily during creation)
+    requiresPasswordChange?: boolean; // Force password change on first login
     pin?: string; // 4-6 digit PIN for quick access
     requiresPinForActions: boolean;
     roleIds: string[];
     roles: Role[];
     permissions: Permission[];
     lastLogin?: Date;
+    lastPasswordChange?: Date;
     loginAttempts: number;
     isLocked: boolean;
     lockoutUntil?: Date;
@@ -76,6 +79,7 @@ export interface Employee {
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
   avatar?: string;
   notes?: string;
+  hasTransactions?: boolean; // Flag to track if employee has any transactions (sales, purchases, etc.)
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
