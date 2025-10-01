@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import SearchBar from './SearchBar';
 
 export default function Header() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -70,9 +71,15 @@ export default function Header() {
         <span className="text-red-600 ml-1">Fácil</span>
       </div>
       
+      {/* SearchBar - ligeramente a la izquierda del centro */}
+      <div className="flex-1 flex justify-center">
+        <div className="mr-20"> {/* Margen derecho para mover ligeramente a la izquierda */}
+          <SearchBar />
+        </div>
+      </div>
       
       {/* Información de sesión activa */}
-      <div className="ml-auto flex items-center space-x-8 text-sm">
+      <div className="flex items-center space-x-8 text-sm">
         {/* Estado de caja con dropdown */}
         <div className="relative" ref={cashMenuRef}>
           <button 
@@ -151,8 +158,12 @@ export default function Header() {
             className="flex items-center space-x-2 hover:bg-slate-50 px-2 py-1 rounded-md transition-colors"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
           >
-            <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-blue-600 font-medium text-sm">{userInfo.initials}</span>
+            <div className="w-7 h-7 rounded-full overflow-hidden">
+              <img 
+                src="/perfil.jpeg" 
+                alt="Foto de perfil"
+                className="w-full h-full object-cover"
+              />
             </div>
             <svg 
               className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${showProfileMenu ? 'rotate-180' : ''}`} 
@@ -170,8 +181,12 @@ export default function Header() {
               {/* Información del usuario */}
               <div className="px-4 py-3 border-b border-slate-100">
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-medium text-sm">{userInfo.initials}</span>
+                  <div className="w-8 h-8 rounded-full overflow-hidden">
+                    <img 
+                      src="/perfil.jpeg" 
+                      alt="Foto de perfil"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div>
                     <div className="font-medium text-slate-900 text-sm">{userInfo.name}</div>
