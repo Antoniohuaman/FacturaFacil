@@ -3,11 +3,21 @@
 // ===================================================================
 
 import React, { useState } from 'react';
-import { X, CreditCard, FileText, User, Calculator, Search, Plus, Edit, Building2, Smartphone, Banknote, DollarSign } from 'lucide-react';
+import { X, CreditCard, FileText, User, Calculator, Search, Plus, Edit, Building2, Smartphone, Banknote, DollarSign, Trash2 } from 'lucide-react';
 import type { PaymentModalProps } from '../models/comprobante.types';
 import { useCurrency } from '../hooks/useCurrency';
-import { usePayment } from '../hooks/usePayment';
 import ClienteForm from '../../gestion-clientes/components/ClienteForm';
+
+// Interfaz para líneas de pago múltiples
+interface PaymentLine {
+  id: string;
+  method: string;
+  amount: string;
+  reference?: string;
+  bank?: string;
+  cardLastDigits?: string;
+  operationNumber?: string;
+}
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({
   isOpen,
@@ -22,17 +32,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   onCurrencyChange
 }) => {
   const { formatPrice, changeCurrency } = useCurrency();
-  const {
-    customAmount,
-    setCustomAmount,
-    addQuickPayment,
-    formatQuickPaymentAmounts,
-    getPaymentSummary
-  } = usePayment(currency);
 
   const [activeStep, setActiveStep] = useState<'document' | 'payment'>('document');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('efectivo');
+  
+  // Sistema de pagos múltiples
+  const [paymentLines, setPaymentLines] = useState<PaymentLine[]>([
+    { id: '1', method: 'efectivo', amount: '', bank: 'Caja general' }
+  ]);
+  const [showMethodSelector, setShowMethodSelector] = useState(false);
 
   // Estados para gestión de clientes
   const [showClienteForm, setShowClienteForm] = useState(false);
@@ -164,8 +172,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   ];
 
-  const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethod);
-
   // Mock client data - en producción vendría del contexto/store
   const mockClientes = [
     {
@@ -185,9 +191,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   ];
 
   if (!isOpen) return null;
-
-  const paymentSummary = getPaymentSummary(totals.total);
-  const quickAmounts = formatQuickPaymentAmounts(totals.total);
 
   // Filtrar clientes por búsqueda
   const clientesFiltrados = mockClientes.filter(c => 
@@ -254,6 +257,60 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setSearchQuery('');
   };
 
+  // ============================================
+  // FUNCIONES PARA SISTEMA DE PAGOS MÚLTIPLES
+  // ============================================
+
+  const getTotalReceived = () => {
+    return paymentLines.reduce((sum, line) => {
+      const amount = parseFloat(line.amount) || 0;
+      return sum + amount;
+    }, 0);
+  };
+
+  const getRemaining = () => {
+    return totals.total - getTotalReceived();
+  };
+
+  const addPaymentLine = (methodId: string) => {
+    const remaining = getRemaining();
+    const newLine: PaymentLine = {
+      id: Date.now().toString(),
+      method: methodId,
+      amount: remaining > 0 ? remaining.toFixed(2) : '',
+      bank: methodId === 'efectivo' ? 'Caja general' : ''
+    };
+    setPaymentLines([...paymentLines, newLine]);
+    setShowMethodSelector(false);
+  };
+
+  const removePaymentLine = (id: string) => {
+    if (paymentLines.length === 1) return; // Mantener al menos una línea
+    setPaymentLines(paymentLines.filter(line => line.id !== id));
+  };
+
+  const updatePaymentLine = (id: string, field: keyof PaymentLine, value: string) => {
+    setPaymentLines(paymentLines.map(line => 
+      line.id === id ? { ...line, [field]: value } : line
+    ));
+  };
+
+  const getMethodConfig = (methodId: string) => {
+    return paymentMethods.find(m => m.id === methodId);
+  };
+
+  // Lista de bancos/cajas disponibles
+  const bankOptions = [
+    'Caja general',
+    'BCP',
+    'BBVA',
+    'Interbank',
+    'Scotiabank',
+    'Banco de la Nación',
+    'Banco Pichincha',
+    'Otro'
+  ];
+
   const handleContinueToPayment = () => {
     setActiveStep('payment');
   };
@@ -263,13 +320,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleProcessPayment = async () => {
-    if (!paymentSummary.sufficient) return;
+    // Validar que el pago esté completo (remaining <= 0)
+    if (getRemaining() > 0) {
+      console.warn('Pago incompleto. Falta:', getRemaining());
+      return;
+    }
     
     setIsProcessing(true);
     
     try {
       // Simular procesamiento
       await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // TODO: Aquí se enviarían los datos de paymentLines al backend
+      console.log('Pagos procesados:', paymentLines);
       
       onPaymentComplete();
       onClose();
@@ -577,127 +641,268 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Selección de Método de Pago - Diseño moderno */}
+                  {/* Sistema de Pagos Múltiples */}
                   <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 mb-4">Método de Pago</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      {paymentMethods.map((method) => {
-                        const Icon = method.icon;
-                        const isSelected = selectedPaymentMethod === method.id;
-                        
-                        return (
-                          <button
-                            key={method.id}
-                            onClick={() => setSelectedPaymentMethod(method.id)}
-                            className={`
-                              relative p-4 rounded-xl border-2 transition-all duration-200 
-                              ${isSelected 
-                                ? `${method.borderColor} ${method.bgColor} shadow-md scale-105` 
-                                : `border-gray-200 bg-white ${method.hoverBg} hover:border-gray-300 hover:shadow-sm`
-                              }
-                            `}
-                          >
-                            {/* Indicador de selección */}
-                            {isSelected && (
-                              <div className={`absolute top-2 right-2 w-5 h-5 ${method.bgColor} ${method.borderColor} border-2 rounded-full flex items-center justify-center`}>
-                                <div className={`w-2.5 h-2.5 ${method.borderColor.replace('border-', 'bg-')} rounded-full`}></div>
-                              </div>
-                            )}
-                            
-                            {/* Contenido */}
-                            <div className="flex flex-col items-center text-center">
-                              <div className={`
-                                mb-2 p-3 rounded-full transition-colors
-                                ${isSelected ? method.bgColor : 'bg-gray-50'}
-                              `}>
-                                <Icon className={`w-6 h-6 ${isSelected ? method.textColor : 'text-gray-400'}`} />
-                              </div>
-                              <span className={`font-medium text-sm ${isSelected ? method.textColor : 'text-gray-700'}`}>
-                                {method.name}
-                              </span>
-                              <span className="text-xs text-gray-500 mt-1">
-                                {method.description}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-semibold text-gray-900">Métodos de Pago</h4>
+                      {paymentLines.length > 0 && (
+                        <button
+                          onClick={() => setShowMethodSelector(!showMethodSelector)}
+                          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Agregar método
+                        </button>
+                      )}
                     </div>
-                    
-                    {/* Resumen del método seleccionado */}
-                    {selectedMethod && (
-                      <div className={`mt-4 p-3 ${selectedMethod.bgColor} border ${selectedMethod.borderColor} rounded-lg`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <selectedMethod.icon className={`w-5 h-5 ${selectedMethod.textColor}`} />
-                            <span className={`font-medium ${selectedMethod.textColor}`}>
-                              {selectedMethod.name}
-                            </span>
-                          </div>
-                          <span className={`font-semibold ${selectedMethod.textColor}`}>
-                            {paymentSummary.received > 0 ? formatPrice(paymentSummary.received, currency) : formatPrice(0, currency)}
-                          </span>
+
+                    {/* Selector de métodos (modal inline) */}
+                    {showMethodSelector && (
+                      <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <h5 className="text-sm font-medium text-gray-700 mb-3">Selecciona un método de pago:</h5>
+                        <div className="grid grid-cols-2 gap-2">
+                          {paymentMethods.map((method) => {
+                            const Icon = method.icon;
+                            return (
+                              <button
+                                key={method.id}
+                                onClick={() => addPaymentLine(method.id)}
+                                className={`p-3 rounded-lg border-2 transition-all hover:scale-105 ${method.borderColor} ${method.bgColor} ${method.hoverBg}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Icon className={`w-4 h-4 ${method.textColor}`} />
+                                  <span className={`text-sm font-medium ${method.textColor}`}>{method.name}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          onClick={() => setShowMethodSelector(false)}
+                          className="mt-3 w-full text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Botones de pago rápido */}
+                    {paymentLines.length === 1 && paymentLines[0].method === 'efectivo' && (
+                      <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                        <h5 className="text-sm font-medium text-gray-700 mb-3">💵 Pago Rápido en Efectivo</h5>
+                        <div className="grid grid-cols-3 gap-2 mb-2">
+                          <button
+                            onClick={() => updatePaymentLine(paymentLines[0].id, 'amount', totals.total.toFixed(2))}
+                            className="p-3 rounded-lg border-2 border-green-500 bg-green-50 text-green-700 font-semibold text-sm hover:bg-green-100 transition-all hover:scale-105"
+                          >
+                            {formatPrice(totals.total, currency)}
+                            <div className="text-xs text-green-600">Exacto</div>
+                          </button>
+                          <button
+                            onClick={() => {
+                              const current = parseFloat(paymentLines[0].amount) || 0;
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 20).toFixed(2));
+                            }}
+                            className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
+                          >
+                            + S/ 20.00
+                          </button>
+                          <button
+                            onClick={() => {
+                              const current = parseFloat(paymentLines[0].amount) || 0;
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 50).toFixed(2));
+                            }}
+                            className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
+                          >
+                            + S/ 50.00
+                          </button>
+                          <button
+                            onClick={() => {
+                              const current = parseFloat(paymentLines[0].amount) || 0;
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 100).toFixed(2));
+                            }}
+                            className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
+                          >
+                            + S/ 100.00
+                          </button>
+                          <button
+                            onClick={() => {
+                              const current = parseFloat(paymentLines[0].amount) || 0;
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 200).toFixed(2));
+                            }}
+                            className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
+                          >
+                            + S/ 200.00
+                          </button>
+                          <button
+                            onClick={() => {
+                              const current = parseFloat(paymentLines[0].amount) || 0;
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 500).toFixed(2));
+                            }}
+                            className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
+                          >
+                            + S/ 500.00
+                          </button>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <p className="text-xs text-gray-600">Haz clic para sumar al monto</p>
+                          <button
+                            onClick={() => updatePaymentLine(paymentLines[0].id, 'amount', '0.00')}
+                            className="text-xs text-red-500 hover:text-red-700 font-medium"
+                          >
+                            Limpiar
+                          </button>
                         </div>
                       </div>
                     )}
-                  </div>
 
-                  {/* Botones de pago rápido */}
-                  <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 mb-3">Pago Rápido</h4>
-                    <div className="grid grid-cols-3 gap-2">
-                      {quickAmounts.slice(0, 6).map((item, index) => (
-                        <button
-                          key={index}
-                          onClick={() => addQuickPayment(item.amount)}
-                          className={`p-3 rounded-lg border-2 text-center transition-all ${
-                            item.isExact
-                              ? 'border-green-500 bg-green-50 text-green-700'
-                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-                          }`}
-                        >
-                          <div className="font-medium text-sm">{item.formatted}</div>
-                          {item.isExact && (
-                            <div className="text-xs text-green-600">Exacto</div>
-                          )}
-                        </button>
-                      ))}
+                    {/* Líneas de pago activas */}
+                    <div className="space-y-3">
+                      {paymentLines.map((line) => {
+                        const methodConfig = getMethodConfig(line.method);
+                        if (!methodConfig) return null;
+                        
+                        const Icon = methodConfig.icon;
+                        
+                        return (
+                          <div key={line.id} className={`p-4 rounded-lg border-2 ${methodConfig.borderColor} ${methodConfig.bgColor}`}>
+                            {/* Header de la línea */}
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <Icon className={`w-5 h-5 ${methodConfig.textColor}`} />
+                                <span className={`font-medium ${methodConfig.textColor}`}>
+                                  {methodConfig.name}
+                                </span>
+                              </div>
+                              {paymentLines.length > 1 && (
+                                <button
+                                  onClick={() => removePaymentLine(line.id)}
+                                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Campos del método de pago */}
+                            <div className="grid grid-cols-2 gap-3">
+                              {/* Monto */}
+                              <div className="col-span-2 sm:col-span-1">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Monto *
+                                </label>
+                                <input
+                                  type="number"
+                                  value={line.amount}
+                                  onChange={(e) => updatePaymentLine(line.id, 'amount', e.target.value)}
+                                  placeholder="0.00"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                  step="0.01"
+                                  min="0"
+                                />
+                              </div>
+
+                              {/* Banco/Caja */}
+                              <div className="col-span-2 sm:col-span-1">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Banco/Caja
+                                </label>
+                                <select
+                                  value={line.bank || ''}
+                                  onChange={(e) => updatePaymentLine(line.id, 'bank', e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                >
+                                  {bankOptions.map(bank => (
+                                    <option key={bank} value={bank}>{bank}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Campos adicionales según el método */}
+                              {(line.method === 'yape' || line.method === 'plin' || line.method === 'transferencia' || line.method === 'deposito') && (
+                                <div className="col-span-2">
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    Nº de Operación
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={line.operationNumber || ''}
+                                    onChange={(e) => updatePaymentLine(line.id, 'operationNumber', e.target.value)}
+                                    placeholder="Número de operación"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                  />
+                                </div>
+                              )}
+
+                              {(line.method === 'tarjeta_credito' || line.method === 'tarjeta_debito') && (
+                                <div className="col-span-2">
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    Últimos 4 dígitos
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={line.cardLastDigits || ''}
+                                    onChange={(e) => updatePaymentLine(line.id, 'cardLastDigits', e.target.value.slice(0, 4))}
+                                    placeholder="****"
+                                    maxLength={4}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Referencia/Nota opcional */}
+                              <div className="col-span-2">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Referencia (opcional)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={line.reference || ''}
+                                  onChange={(e) => updatePaymentLine(line.id, 'reference', e.target.value)}
+                                  placeholder="Nota o referencia"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-
-                  {/* Monto personalizado */}
-                  <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 mb-3">Monto Recibido</h4>
-                    <input
-                      type="number"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value)}
-                      placeholder={`Ingresa el monto en ${currency === 'PEN' ? 'soles' : 'dólares'}`}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg"
-                      step="0.01"
-                      min="0"
-                    />
                   </div>
 
                   {/* Resumen de pago */}
-                  {paymentSummary.received > 0 && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg space-y-2">
-                      <div className="flex justify-between">
-                        <span>Monto a pagar:</span>
-                        <span className="font-medium">{paymentSummary.formattedTotal}</span>
+                  <div className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Total a pagar:</span>
+                        <span className="font-bold text-gray-900">{formatPrice(totals.total, currency)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Monto recibido:</span>
-                        <span className="font-medium">{paymentSummary.formattedReceived}</span>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Total recibido:</span>
+                        <span className="font-bold text-blue-600">{formatPrice(getTotalReceived(), currency)}</span>
                       </div>
-                      {paymentSummary.change > 0 && (
-                        <div className="flex justify-between text-green-600 font-medium border-t border-gray-200 pt-2">
-                          <span>Vuelto:</span>
-                          <span>{paymentSummary.formattedChange}</span>
-                        </div>
-                      )}
+                      <div className="border-t border-gray-300 pt-2">
+                        {getRemaining() > 0 ? (
+                          <div className="flex justify-between text-base font-bold text-red-600">
+                            <span>Falta:</span>
+                            <span>{formatPrice(getRemaining(), currency)}</span>
+                          </div>
+                        ) : getRemaining() < 0 ? (
+                          <div className="flex justify-between text-base font-bold text-orange-600">
+                            <span>Vuelto:</span>
+                            <span>{formatPrice(Math.abs(getRemaining()), currency)}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2 text-green-600 font-bold">
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                            </svg>
+                            <span>Pago completo</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             )}
@@ -751,11 +956,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <button
                     onClick={handleProcessPayment}
                     className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                      paymentSummary.sufficient && !isProcessing
+                      getRemaining() <= 0 && !isProcessing
                         ? 'bg-green-600 hover:bg-green-700 text-white'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
-                    disabled={!paymentSummary.sufficient || isProcessing}
+                    disabled={getRemaining() > 0 || isProcessing}
                   >
                     {isProcessing ? (
                       <span className="flex items-center gap-2">
