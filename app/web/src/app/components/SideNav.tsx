@@ -116,21 +116,21 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
       )}
       
       {/* Navegación principal */}
-      <nav className="flex-1 flex flex-col p-4 overflow-y-auto overscroll-contain">
+      <nav className="flex-1 flex flex-col p-3 overflow-y-auto overscroll-contain">
         {!collapsed && (
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">
             Módulos Principales
           </div>
         )}
         
-        <div className="space-y-1">
+        <div className="space-y-0">
           {mainItems.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
             className={() =>
               `flex items-center rounded-lg transition-all group relative ${
-                collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-3'
+                collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-2'
               }`
             }
             title={collapsed ? `${item.label}` : undefined}
@@ -139,7 +139,7 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
               <>
                 <div
                   className={`w-full flex items-center rounded-lg transition-all duration-200 ${
-                    collapsed ? 'justify-center p-3' : 'px-4 py-3'
+                    collapsed ? 'justify-center p-3' : 'px-4 py-2.5'
                   } ${
                     isActive
                       ? 'bg-blue-50 text-blue-700 border border-blue-200'
@@ -208,7 +208,7 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
             to={configItem.to}
             className={() =>
               `flex items-center rounded-lg transition-all group relative ${
-                collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-3'
+                collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-2'
               }`
             }
             title={collapsed ? `${configItem.label}` : undefined}
@@ -217,7 +217,7 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
               <>
                 <div
                   className={`w-full flex items-center rounded-lg transition-all duration-200 ${
-                    collapsed ? 'justify-center p-3' : 'px-4 py-3'
+                    collapsed ? 'justify-center p-3' : 'px-4 py-2.5'
                   } ${
                     isActive
                       ? 'bg-blue-50 text-blue-700 border border-blue-200'

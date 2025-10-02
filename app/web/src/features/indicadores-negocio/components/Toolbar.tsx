@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { Filter, Plus, Calendar } from 'lucide-react';
 
+interface PageHeaderProps {
+  title: string;
+}
+
 interface ToolbarProps {
   onFilter?: () => void;
   onCreateDocument?: () => void;
@@ -9,6 +13,16 @@ interface ToolbarProps {
   onDateRangeChange?: (startDate: string, endDate: string) => void;
 }
 
+// COMPONENTE DE TÍTULO DE PÁGINA
+export function PageHeader({ title }: PageHeaderProps) {
+  return (
+    <div className="bg-white border-b border-gray-100 -mx-10 px-10 py-4">
+      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
+    </div>
+  );
+}
+
+// COMPONENTE DE TOOLBAR
 export default function Toolbar({
   onFilter,
   onCreateDocument,
@@ -105,103 +119,107 @@ export default function Toolbar({
   };
 
   return (
-    <div className="bg-white border-b border-slate-200 shadow-sm">
-      <div className="py-5">
-        {/* Header Principal */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-6">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Indicadores de Gestión</h1>
-            
-            {/* Selector de Período */}
-            <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
-              <label className="text-sm font-semibold text-slate-700">Período:</label>
-              <select
-                value={selectedPeriod}
-                onChange={(e) => handlePeriodChange(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white min-w-[120px]"
-              >
-                {periodOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Selector de Establecimiento */}
-            <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
-              <label className="text-sm font-semibold text-slate-700">Establecimiento:</label>
-              <select
-                value={selectedEstablishment}
-                onChange={(e) => handleEstablishmentChange(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white min-w-[140px]"
-              >
-                {establishmentOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
+    <div className="bg-white border-b border-slate-200 shadow-sm -mx-10 px-10 py-4">
+      {/* TOOLBAR HORIZONTAL */}
+      <div className="flex items-center justify-between">
+        {/* GRUPO IZQUIERDO: Filtros */}
+        <div className="flex items-center space-x-4">
+          {/* Selector de Período */}
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-slate-700 min-w-[50px]">Período:</label>
+            <select
+              value={selectedPeriod}
+              onChange={(e) => handlePeriodChange(e.target.value)}
+              className="h-10 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white min-w-[130px]"
+            >
+              {periodOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Botones de Acción */}
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleFilter}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500 shadow-md hover:shadow-lg"
+          {/* Selector de Establecimiento */}
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-slate-700 min-w-[90px]">Establecimiento:</label>
+            <select
+              value={selectedEstablishment}
+              onChange={(e) => handleEstablishmentChange(e.target.value)}
+              className="h-10 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white min-w-[150px]"
             >
-              <Filter className="w-4 h-4" />
-              <span className="text-sm font-medium">Filtrar</span>
-            </button>
-            
-            <button
-              onClick={handleCreateDocument}
-              className="flex items-center space-x-2 px-5 py-2.5 text-white rounded-lg hover:opacity-90 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md hover:shadow-lg"
-              style={{ backgroundColor: '#1478D4' }}
-            >
-              <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">Nuevo comprobante</span>
-            </button>
+              {establishmentOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </div>
+
+          {/* Botón Filtrar */}
+          <button
+            onClick={handleFilter}
+            className="h-10 flex items-center space-x-2 px-4 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
+          >
+            <Filter className="w-4 h-4" />
+            <span className="text-sm font-medium">Filtrar</span>
+          </button>
         </div>
 
-        {/* Rango de Fechas */}
-        <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm inline-flex">
-          <Calendar className="w-4 h-4 text-slate-500" />
-          <span className="text-sm font-medium text-slate-700">{formatDateRange()}</span>
-          
-          {/* Campos de fecha personalizados (se muestran solo si período es "Personalizado") */}
-          {selectedPeriod === 'Personalizado' && (
-            <div className="flex items-center space-x-4 ml-4 pl-4 border-l border-slate-200">
-              <div className="flex items-center space-x-2">
-                <label className="text-xs font-semibold text-slate-600">Desde:</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    onDateRangeChange?.(e.target.value, endDate);
-                  }}
-                  className="px-3 py-1.5 border border-slate-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <label className="text-xs font-semibold text-slate-600">Hasta:</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    onDateRangeChange?.(startDate, e.target.value);
-                  }}
-                  className="px-3 py-1.5 border border-slate-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                />
-              </div>
-            </div>
-          )}
+        {/* GRUPO DERECHO: Acción Primaria */}
+        <div className="flex items-center">
+          <button
+            onClick={handleCreateDocument}
+            className="h-10 flex items-center space-x-2 px-4 text-white rounded-lg hover:opacity-90 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style={{ backgroundColor: '#1478D4' }}
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm font-medium">Nuevo comprobante</span>
+          </button>
         </div>
       </div>
+
+      {/* INFORMACIÓN DE RANGO DE FECHAS (solo visible si hay fechas que mostrar) */}
+      {(selectedPeriod !== 'Personalizado') && (
+        <div className="mt-3 flex items-center space-x-2 text-sm text-slate-600">
+          <Calendar className="w-4 h-4" />
+          <span className="font-medium">{formatDateRange()}</span>
+        </div>
+      )}
+
+      {/* CAMPOS DE FECHA PERSONALIZADOS (solo si período es "Personalizado") */}
+      {selectedPeriod === 'Personalizado' && (
+        <div className="mt-3 flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Calendar className="w-4 h-4 text-slate-500" />
+            <span className="text-sm font-medium text-slate-700">Rango personalizado:</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-slate-600">Desde:</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                onDateRangeChange?.(e.target.value, endDate);
+              }}
+              className="h-9 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-slate-600">Hasta:</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                onDateRangeChange?.(startDate, e.target.value);
+              }}
+              className="h-9 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import DetalleVentasDiariasModal from "../components/DetalleVentasDiariasModal";
 import DetalleCrecimientoModal from "../components/DetalleCrecimientoModal";
-import Toolbar from "../components/Toolbar";
+import Toolbar, { PageHeader } from "../components/Toolbar";
 import { TrendingUp, Users, ShoppingCart, DollarSign, Award } from "lucide-react";
 
 type VentaDiaria = {
@@ -117,7 +117,10 @@ const IndicadoresPage: React.FC = () => {
 
   return (
     <div>
-      {/* Toolbar Component */}
+      {/* HEADER DE PÁGINA - Título separado */}
+      <PageHeader title="Indicadores de Gestión" />
+      
+      {/* TOOLBAR - Controles y acciones */}
       <Toolbar
         onFilter={handleFiltrar}
         onCreateDocument={handleCrearComprobante}
@@ -129,7 +132,8 @@ const IndicadoresPage: React.FC = () => {
         }}
       />
 
-      <div>
+      {/* CONTENIDO PRINCIPAL */}
+      <div className="p-6">
         {/* KPIs principales */}
         <div className="grid grid-cols-4 gap-6 mb-8">
           {/* Ventas del Mes */}
