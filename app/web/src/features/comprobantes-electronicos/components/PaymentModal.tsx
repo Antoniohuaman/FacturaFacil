@@ -3,7 +3,7 @@
 // ===================================================================
 
 import React, { useState } from 'react';
-import { X, CreditCard, FileText, User, Calculator, Search, Plus, Edit } from 'lucide-react';
+import { X, CreditCard, FileText, User, Calculator, Search, Plus, Edit, Building2, Smartphone, Banknote, DollarSign } from 'lucide-react';
 import type { PaymentModalProps } from '../models/comprobante.types';
 import { useCurrency } from '../hooks/useCurrency';
 import { usePayment } from '../hooks/usePayment';
@@ -32,6 +32,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const [activeStep, setActiveStep] = useState<'document' | 'payment'>('document');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('efectivo');
 
   // Estados para gestión de clientes
   const [showClienteForm, setShowClienteForm] = useState(false);
@@ -70,6 +71,100 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     { value: 'Cliente', label: 'Cliente' },
     { value: 'Proveedor', label: 'Proveedor' },
   ];
+
+  // Métodos de pago disponibles con diseño moderno
+  const paymentMethods = [
+    {
+      id: 'efectivo',
+      name: 'Efectivo',
+      icon: Banknote,
+      color: 'green',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-500',
+      textColor: 'text-green-700',
+      hoverBg: 'hover:bg-green-100',
+      description: 'Pago en efectivo'
+    },
+    {
+      id: 'yape',
+      name: 'Yape',
+      icon: Smartphone,
+      color: 'purple',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-500',
+      textColor: 'text-purple-700',
+      hoverBg: 'hover:bg-purple-100',
+      description: 'Transferencia Yape'
+    },
+    {
+      id: 'plin',
+      name: 'Plin',
+      icon: Smartphone,
+      color: 'blue',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-500',
+      textColor: 'text-blue-700',
+      hoverBg: 'hover:bg-blue-100',
+      description: 'Transferencia Plin'
+    },
+    {
+      id: 'tarjeta_credito',
+      name: 'Tarjeta Crédito',
+      icon: CreditCard,
+      color: 'orange',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-500',
+      textColor: 'text-orange-700',
+      hoverBg: 'hover:bg-orange-100',
+      description: 'Visa, Mastercard'
+    },
+    {
+      id: 'tarjeta_debito',
+      name: 'Tarjeta Débito',
+      icon: CreditCard,
+      color: 'indigo',
+      bgColor: 'bg-indigo-50',
+      borderColor: 'border-indigo-500',
+      textColor: 'text-indigo-700',
+      hoverBg: 'hover:bg-indigo-100',
+      description: 'Débito bancario'
+    },
+    {
+      id: 'transferencia',
+      name: 'Transferencia',
+      icon: Building2,
+      color: 'teal',
+      bgColor: 'bg-teal-50',
+      borderColor: 'border-teal-500',
+      textColor: 'text-teal-700',
+      hoverBg: 'hover:bg-teal-100',
+      description: 'Transferencia bancaria'
+    },
+    {
+      id: 'deposito',
+      name: 'Depósito',
+      icon: Building2,
+      color: 'cyan',
+      bgColor: 'bg-cyan-50',
+      borderColor: 'border-cyan-500',
+      textColor: 'text-cyan-700',
+      hoverBg: 'hover:bg-cyan-100',
+      description: 'Depósito en cuenta'
+    },
+    {
+      id: 'credito',
+      name: 'Crédito',
+      icon: DollarSign,
+      color: 'amber',
+      bgColor: 'bg-amber-50',
+      borderColor: 'border-amber-500',
+      textColor: 'text-amber-700',
+      hoverBg: 'hover:bg-amber-100',
+      description: 'Pago a crédito'
+    }
+  ];
+
+  const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethod);
 
   // Mock client data - en producción vendría del contexto/store
   const mockClientes = [
@@ -482,18 +577,69 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Método de pago */}
+                  {/* Selección de Método de Pago - Diseño moderno */}
                   <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 mb-3">Método de Pago</h4>
-                    <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span className="font-medium text-green-800">Efectivo</span>
-                        <span className="text-green-600 ml-auto">
-                          {formatPrice(paymentSummary.received, currency)}
-                        </span>
-                      </div>
+                    <h4 className="font-semibold text-gray-900 mb-4">Método de Pago</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      {paymentMethods.map((method) => {
+                        const Icon = method.icon;
+                        const isSelected = selectedPaymentMethod === method.id;
+                        
+                        return (
+                          <button
+                            key={method.id}
+                            onClick={() => setSelectedPaymentMethod(method.id)}
+                            className={`
+                              relative p-4 rounded-xl border-2 transition-all duration-200 
+                              ${isSelected 
+                                ? `${method.borderColor} ${method.bgColor} shadow-md scale-105` 
+                                : `border-gray-200 bg-white ${method.hoverBg} hover:border-gray-300 hover:shadow-sm`
+                              }
+                            `}
+                          >
+                            {/* Indicador de selección */}
+                            {isSelected && (
+                              <div className={`absolute top-2 right-2 w-5 h-5 ${method.bgColor} ${method.borderColor} border-2 rounded-full flex items-center justify-center`}>
+                                <div className={`w-2.5 h-2.5 ${method.borderColor.replace('border-', 'bg-')} rounded-full`}></div>
+                              </div>
+                            )}
+                            
+                            {/* Contenido */}
+                            <div className="flex flex-col items-center text-center">
+                              <div className={`
+                                mb-2 p-3 rounded-full transition-colors
+                                ${isSelected ? method.bgColor : 'bg-gray-50'}
+                              `}>
+                                <Icon className={`w-6 h-6 ${isSelected ? method.textColor : 'text-gray-400'}`} />
+                              </div>
+                              <span className={`font-medium text-sm ${isSelected ? method.textColor : 'text-gray-700'}`}>
+                                {method.name}
+                              </span>
+                              <span className="text-xs text-gray-500 mt-1">
+                                {method.description}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
+                    
+                    {/* Resumen del método seleccionado */}
+                    {selectedMethod && (
+                      <div className={`mt-4 p-3 ${selectedMethod.bgColor} border ${selectedMethod.borderColor} rounded-lg`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <selectedMethod.icon className={`w-5 h-5 ${selectedMethod.textColor}`} />
+                            <span className={`font-medium ${selectedMethod.textColor}`}>
+                              {selectedMethod.name}
+                            </span>
+                          </div>
+                          <span className={`font-semibold ${selectedMethod.textColor}`}>
+                            {paymentSummary.received > 0 ? formatPrice(paymentSummary.received, currency) : formatPrice(0, currency)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Botones de pago rápido */}
