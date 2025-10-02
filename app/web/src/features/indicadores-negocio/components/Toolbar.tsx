@@ -17,8 +17,8 @@ interface ToolbarProps {
 // COMPONENTE DE TÍTULO DE PÁGINA
 export function PageHeader({ title }: PageHeaderProps) {
   return (
-    <div className="bg-white border-b border-gray-100 -mx-10 px-10 py-4">
-      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
+    <div className="bg-white border-b border-gray-200 -mx-10 px-10 py-4">
+      <h1 className="text-[22px] font-bold text-slate-900 tracking-tight">{title}</h1>
     </div>
   );
 }
@@ -66,9 +66,9 @@ export default function Toolbar({
   };
 
   return (
-    <div className="bg-white border-b border-slate-200 shadow-sm -mx-10 px-10 py-4">
+    <div className="bg-white border-b border-slate-300 shadow-sm -mx-10 px-10" style={{ height: '72px', display: 'flex', alignItems: 'center' }}>
       {/* TOOLBAR HORIZONTAL */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between w-full">
         {/* GRUPO IZQUIERDO: Filtros */}
         <div className="flex items-center space-x-6">
           {/* DateRangePicker */}

@@ -78,9 +78,11 @@ export default function Header() {
             className="flex items-center space-x-2 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200 hover:bg-green-100 transition-colors cursor-pointer"
             onClick={() => setShowCashMenu(!showCashMenu)}
           >
-            <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-green-700 font-medium">Caja Abierta</span>
-            <span className="text-green-600">Principal</span>
+            <span className="text-slate-700 font-medium">Caja Principal</span>
+            <span className="flex items-center space-x-1 text-green-700 font-medium">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              <span>Activa</span>
+            </span>
             <svg 
               className={`w-3 h-3 text-green-600 transition-transform duration-200 ${showCashMenu ? 'rotate-180' : ''}`} 
               fill="none" 

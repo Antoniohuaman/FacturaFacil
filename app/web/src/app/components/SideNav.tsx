@@ -75,19 +75,13 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
       }}
     >
       {/* Header con título y botón colapsar */}
-      <div className="p-4 border-b border-gray-100/50">
+      <div className="p-2 border-b border-gray-100/50">
         <div className="flex items-center justify-between">
-          {!collapsed && (
-            <div className="flex items-center">
-              <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide">NAVEGACIÓN</h2>
-            </div>
-          )}
-          
           {/* Botón de colapsar/expandir */}
           {onToggle && (
             <button
               onClick={onToggle}
-              className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-lg hover:bg-slate-100 transition-colors ml-auto"
               aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
             >
               <Menu className="w-4 h-4 text-slate-600" />
@@ -96,15 +90,17 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
         </div>
       </div>
 
-      {/* Selector de empresa */}
+      {/* Selector de empresa - MOVIDO MÁS ARRIBA */}
       {!collapsed ? (
-        <CompanySelector />
+        <div className="border-b border-gray-100/50">
+          <CompanySelector />
+        </div>
       ) : (
         /* Versión compacta del selector cuando está contraído */
-        <div className="p-3 border-b border-gray-100/50 flex justify-center">
+        <div className="p-2 border-b border-gray-100/50 flex justify-center">
           <div className="relative">
             <button 
-              className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm hover:shadow-md transition-all duration-200"
+              className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm transition-all duration-200"
               title="Mi Empresa SAC - Tienda Sur"
             >
               ME
@@ -116,9 +112,9 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
       )}
       
       {/* Navegación principal */}
-      <nav className="flex-1 flex flex-col p-3 overflow-y-auto overscroll-contain">
+      <nav className="flex-1 flex flex-col p-2 overflow-y-auto overscroll-contain">
         {!collapsed && (
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 px-2">
             Módulos Principales
           </div>
         )}
@@ -130,7 +126,7 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
             to={item.to}
             className={() =>
               `flex items-center rounded-lg transition-all group relative ${
-                collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-2'
+                collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-1'
               }`
             }
             title={collapsed ? `${item.label}` : undefined}
@@ -147,7 +143,8 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
                   }`}
                   style={{
                     backgroundColor: isActive ? '#E6F0FF' : 'transparent',
-                    color: isActive ? '#0040A2' : '#64748b'
+                    color: isActive ? '#0040A2' : '#64748b',
+                    minHeight: '40px'
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
@@ -208,7 +205,7 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
             to={configItem.to}
             className={() =>
               `flex items-center rounded-lg transition-all group relative ${
-                collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-2'
+                collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-1'
               }`
             }
             title={collapsed ? `${configItem.label}` : undefined}
@@ -225,7 +222,8 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
                   }`}
                   style={{
                     backgroundColor: isActive ? '#E6F0FF' : 'transparent',
-                    color: isActive ? '#0040A2' : '#64748b'
+                    color: isActive ? '#0040A2' : '#64748b',
+                    minHeight: '40px'
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
