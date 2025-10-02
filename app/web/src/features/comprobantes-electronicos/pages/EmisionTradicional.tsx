@@ -96,7 +96,8 @@ const EmisionTradicional = () => {
       if (success) {
         clearCart();
         resetForm();
-        setTimeout(() => goToComprobantes(), 1000);
+        // En formulario tradicional, NO redirigir - quedarse para crear otro comprobante
+        // setTimeout(() => goToComprobantes(), 1000);
       }
     } finally {
       setIsProcessing(false);
