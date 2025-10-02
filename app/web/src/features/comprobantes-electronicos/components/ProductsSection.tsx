@@ -61,9 +61,29 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   ];
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+      {/* Header */}
+      <div className="mb-4 pb-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Productos del Comprobante</h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Agregue productos, configure precios e impuestos
+            </p>
+          </div>
+          {cartItems.length > 0 && (
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-blue-700">
+                {cartItems.length} {cartItems.length === 1 ? 'producto' : 'productos'}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Add Product Form - flujo ágil */}
-      <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+      <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
         {/* Buscador y selección de productos */}
         <ProductSelector
           onAddProducts={addProductsFromSelector}
@@ -74,21 +94,21 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       </div>
 
       {/* Products Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
             <tr>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-700 uppercase">Producto</th>
-              <th className="text-center px-4 py-3 text-xs font-medium text-gray-700 uppercase">Cantidad</th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-gray-700 uppercase">Precio U.</th>
-              <th className="text-center px-4 py-3 text-xs font-medium text-gray-700 uppercase">Impuesto</th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-gray-700 uppercase">Subtotal</th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-gray-700 uppercase">Total</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Producto</th>
+              <th className="text-center px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Cantidad</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Precio U.</th>
+              <th className="text-center px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Impuesto</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Subtotal</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">Total</th>
             </tr>
           </thead>
           <tbody>
             {cartItems.map(item => (
-              <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr key={item.id} className="border-b border-gray-100 hover:bg-blue-50/30 transition-colors duration-150">
                 <td className="px-4 py-4">
                   <div>
                     <div className="font-medium text-gray-900 text-sm">{item.name}</div>
@@ -259,35 +279,46 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         </table>
       </div>
 
-      {/* Totals Section */}
-      <div className="mt-6 border-t border-gray-200 pt-6">
+      {/* Totals Section - Premium */}
+      <div className="mt-6 border-t-2 border-gray-200 pt-6">
         <div className="flex justify-end">
-          <div className="w-96 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Descuentos</span>
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-900">S/</span>
-                <input type="number" value="0.00" className="w-16 px-2 py-1 text-right text-sm border border-gray-300 rounded" readOnly />
+          <div className="w-96 bg-gradient-to-br from-gray-50 to-white rounded-xl border-2 border-gray-200 p-5 shadow-sm">
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 font-medium">Descuentos</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-gray-700">S/</span>
+                  <input type="number" value="0.00" className="w-20 px-2 py-1 text-right text-sm border-2 border-gray-200 rounded-lg bg-gray-50" readOnly />
+                </div>
               </div>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Subtotal</span>
-              <span className="text-gray-900">S/ {totals.subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">I.G.V.</span>
-              <span className="text-gray-900">S/ {totals.igv.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Redondeo</span>
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-900">S/</span>
-                <input type="number" value="0.00" className="w-16 px-2 py-1 text-right text-sm border border-gray-300 rounded" readOnly />
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 font-medium">Subtotal</span>
+                <span className="text-gray-900 font-semibold">S/ {totals.subtotal.toFixed(2)}</span>
               </div>
-            </div>
-            <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-3">
-              <span className="text-gray-900">Total</span>
-              <span className="text-gray-900">S/ {totals.total.toFixed(2)}</span>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 font-medium">I.G.V. (18%)</span>
+                <span className="text-gray-900 font-semibold">S/ {totals.igv.toFixed(2)}</span>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 font-medium">Redondeo</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-gray-700">S/</span>
+                  <input type="number" value="0.00" className="w-20 px-2 py-1 text-right text-sm border-2 border-gray-200 rounded-lg bg-gray-50" readOnly />
+                </div>
+              </div>
+
+              {/* Total destacado */}
+              <div className="pt-3 mt-3 border-t-2 border-dashed border-gray-300">
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-4 shadow-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-blue-100 font-semibold text-base">TOTAL</span>
+                    <span className="text-white font-bold text-2xl">S/ {totals.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

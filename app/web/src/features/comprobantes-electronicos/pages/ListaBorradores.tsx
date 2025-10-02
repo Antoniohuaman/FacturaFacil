@@ -460,7 +460,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
       const parsed = JSON.parse(localDraftsRaw);
       localDrafts = parsed.map((d: any) => {
         // Calcular columnas faltantes
-        const today = new Date('2025-09-16');
+        const today = new Date();
         let expiryDate = d.fechaVencimiento || '';
         let daysLeft = 0;
         let status: DraftStatus = 'Vigente';

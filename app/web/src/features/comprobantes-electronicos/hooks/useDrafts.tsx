@@ -2,7 +2,7 @@
 // HOOK PARA MANEJO DE BORRADORES
 // ===================================================================
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { 
   DraftData, 
@@ -57,8 +57,18 @@ export const useDrafts = (): UseDraftsReturn => {
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [draftExpiryDate, setDraftExpiryDate] = useState<string>('');
   const [draftAction, setDraftAction] = useState<DraftAction>('terminar');
-  
+
   const navigate = useNavigate();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup effect para el timeout
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   // ===================================================================
   // FUNCIONES DE UTILIDAD
@@ -164,8 +174,14 @@ export const useDrafts = (): UseDraftsReturn => {
     } else if (draftAction === 'borradores') {
       // Navegar a comprobantes y mostrar tab de borradores
       navigate('/comprobantes');
-      setTimeout(() => {
+      // Limpiar timeout anterior si existe
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      // Guardar referencia al nuevo timeout
+      timeoutRef.current = setTimeout(() => {
         window.dispatchEvent(new CustomEvent('showBorradoresTab'));
+        timeoutRef.current = null;
       }, 100);
     } else {
       // Terminar - ir a lista de comprobantes

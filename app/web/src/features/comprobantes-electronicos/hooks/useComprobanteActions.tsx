@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import type { CartItem } from '../models/comprobante.types';
 import { useToast } from './useToast';
+import { useCaja } from '../../control-caja/context/CajaContext';
+import type { MedioPago } from '../../control-caja/models/Caja';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -18,21 +20,31 @@ interface ComprobanteData {
 
 export const useComprobanteActions = () => {
   const toast = useToast();
+  const { agregarMovimiento, status: cajaStatus } = useCaja();
+
+  /**
+   * Mapea las formas de pago de comprobantes a los medios de pago de caja
+   */
+  const mapFormaPagoToMedioPago = useCallback((formaPago: string): MedioPago => {
+    const mapping: Record<string, MedioPago> = {
+      'efectivo': 'Efectivo',
+      'contado': 'Efectivo', // Contado se asume como efectivo
+      'tarjeta': 'Tarjeta',
+      'yape': 'Yape',
+      'plin': 'Plin',
+      'transferencia': 'Transferencia',
+      'deposito': 'Deposito'
+    };
+
+    return mapping[formaPago.toLowerCase()] || 'Efectivo';
+  }, []);
 
   // Validar datos del comprobante
   const validateComprobanteData = useCallback((data: ComprobanteData): boolean => {
     if (!data.cartItems || data.cartItems.length === 0) {
       toast.error(
         'Productos requeridos',
-        'Debe agregar al menos un producto al comprobante',
-        {
-          label: 'Agregar productos',
-          onClick: () => {
-            // Focus en el buscador de productos
-            const searchInput = document.querySelector('input[placeholder*="Buscar"]') as HTMLInputElement;
-            searchInput?.focus();
-          }
-        }
+        'Debe agregar al menos un producto al comprobante'
       );
       return false;
     }
@@ -66,6 +78,8 @@ export const useComprobanteActions = () => {
 
   // Crear comprobante
   const createComprobante = useCallback(async (data: ComprobanteData): Promise<boolean> => {
+    let timeoutId: NodeJS.Timeout | null = null;
+
     try {
       // Validar datos
       if (!validateComprobanteData(data)) {
@@ -75,11 +89,37 @@ export const useComprobanteActions = () => {
       // Simular loading
       toast.info('Procesando...', 'Creando comprobante electrónico');
 
-      // Simular llamada API
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Simular llamada API con cleanup
+      await new Promise((resolve) => {
+        timeoutId = setTimeout(resolve, 2000);
+      });
 
       // Simular respuesta exitosa
       const numeroComprobante = `${data.serieSeleccionada}-${String(Math.floor(Math.random() * 10000)).padStart(8, '0')}`;
+
+      // Registrar movimiento en caja si está abierta
+      if (cajaStatus === 'abierta') {
+        try {
+          const medioPago = mapFormaPagoToMedioPago(data.formaPago || 'contado');
+          await agregarMovimiento({
+            tipo: 'Ingreso',
+            concepto: `${data.tipoComprobante} ${numeroComprobante}`,
+            medioPago: medioPago,
+            monto: data.totals.total,
+            referencia: numeroComprobante,
+            usuarioId: 'user-temp-id', // TODO: Obtener del contexto de autenticación
+            usuarioNombre: 'Usuario Temp' // TODO: Obtener del contexto de autenticación
+          });
+        } catch (cajaError) {
+          console.error('Error registrando movimiento en caja:', cajaError);
+          // No lanzar error, el comprobante ya se creó exitosamente
+          toast.warning(
+            'Comprobante creado',
+            'El comprobante se creó pero no se pudo registrar en caja. Registre manualmente.',
+            { label: 'Entendido', onClick: () => {} }
+          );
+        }
+      }
 
       toast.success(
         '¡Comprobante creado!',
@@ -108,8 +148,13 @@ export const useComprobanteActions = () => {
       );
 
       return false;
+    } finally {
+      // Cleanup del timeout si existe
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
-  }, [toast, validateComprobanteData]);
+  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {
@@ -128,17 +173,22 @@ export const useComprobanteActions = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Guardar en localStorage (simulación)
-      const draftId = `draft_${Date.now()}`;
-      const draftData = {
-        id: draftId,
-        ...data,
-        createdAt: new Date().toISOString(),
-        expiryDate: expiryDate?.toISOString(),
-      };
+      try {
+        const draftId = `draft_${Date.now()}`;
+        const draftData = {
+          id: draftId,
+          ...data,
+          createdAt: new Date().toISOString(),
+          expiryDate: expiryDate?.toISOString(),
+        };
 
-      const existingDrafts = JSON.parse(localStorage.getItem('comprobante_drafts') || '[]');
-      existingDrafts.push(draftData);
-      localStorage.setItem('comprobante_drafts', JSON.stringify(existingDrafts));
+        const existingDrafts = JSON.parse(localStorage.getItem('comprobante_drafts') || '[]');
+        existingDrafts.push(draftData);
+        localStorage.setItem('comprobante_drafts', JSON.stringify(existingDrafts));
+      } catch (storageError) {
+        console.error('Error accessing localStorage:', storageError);
+        throw new Error('No se pudo guardar el borrador en el almacenamiento local');
+      }
 
       toast.success(
         'Borrador guardado',

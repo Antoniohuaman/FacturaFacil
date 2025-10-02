@@ -1,22 +1,21 @@
 // src/features/configuration/pages/CompanyConfiguration.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Phone, 
-  Mail, 
-  AlertTriangle,
+import {
+  Phone,
+  Mail,
   CheckCircle2,
   Loader2,
-  Upload,
   X,
   Shield,
   ArrowLeft
 } from 'lucide-react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { ConfigurationCard } from '../components/common/ConfigurationCard';
-import { SettingsToggle } from '../components/common/SettingsToggle';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
+import { RucValidator } from '../components/company/RucValidator';
+import { LogoUploader } from '../components/company/LogoUploader';
 import type { Company } from '../models/Company';
 
 interface CompanyFormData {
@@ -55,88 +54,73 @@ export function CompanyConfiguration() {
     logo: undefined
   });
   
-  const [isValidatingRuc, setIsValidatingRuc] = useState(false);
   const [rucValidation, setRucValidation] = useState<{
     isValid: boolean;
     message: string;
+    data?: any;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showProductionModal, setShowProductionModal] = useState(false);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [originalData, setOriginalData] = useState<CompanyFormData | null>(null);
 
   // Load existing company data
   useEffect(() => {
     if (company) {
-      setFormData({
+      const loadedData = {
         ruc: company.ruc,
         businessName: company.businessName,
         tradeName: company.tradeName || '',
         fiscalAddress: company.address,
         ubigeo: company.postalCode || '',
-        baseCurrency: 'PEN',  // Default value as it's not in Company interface
-        environment: company.sunatConfiguration.environment === 'TESTING' ? 'TEST' : 'PRODUCTION',
-        phones: company.phone ? [company.phone] : [''],
-        emails: company.email ? [company.email] : [''],
-        footerText: '', // Not in Company interface, default empty
+        baseCurrency: company.baseCurrency || 'PEN',
+        environment: (company.sunatConfiguration.environment === 'TESTING' ? 'TEST' : 'PRODUCTION') as 'TEST' | 'PRODUCTION',
+        phones: company.phones?.length > 0 ? company.phones : [''],
+        emails: company.emails?.length > 0 ? company.emails : [''],
+        footerText: company.footerText || '',
         logo: company.logo ? { url: company.logo, showInPrint: true } : undefined
-      });
-      
-      if (company.logo) {
-        setLogoPreview(company.logo);
-      }
+      };
+      setFormData(loadedData);
+      setOriginalData(loadedData); // Save original for comparison
+      setHasChanges(false); // Reset changes flag
     }
   }, [company]);
 
-  // RUC Validation
-  const validateRuc = async (ruc: string) => {
-    if (ruc.length !== 11) {
-      setRucValidation({ isValid: false, message: 'El RUC debe tener 11 dígitos' });
+  // Detect if form has changes compared to original data
+  useEffect(() => {
+    if (!originalData) {
+      setHasChanges(true); // New company, always has changes
       return;
     }
 
-    setIsValidatingRuc(true);
-    setRucValidation(null);
+    // Deep comparison of form data vs original data
+    const hasFormChanges =
+      formData.ruc !== originalData.ruc ||
+      formData.businessName !== originalData.businessName ||
+      formData.tradeName !== originalData.tradeName ||
+      formData.fiscalAddress !== originalData.fiscalAddress ||
+      formData.ubigeo !== originalData.ubigeo ||
+      formData.baseCurrency !== originalData.baseCurrency ||
+      formData.environment !== originalData.environment ||
+      formData.footerText !== originalData.footerText ||
+      JSON.stringify(formData.phones) !== JSON.stringify(originalData.phones) ||
+      JSON.stringify(formData.emails) !== JSON.stringify(originalData.emails) ||
+      JSON.stringify(formData.logo) !== JSON.stringify(originalData.logo);
 
-    try {
-      // Simulate SUNAT API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock successful validation
-      const mockSunatData = {
-        ruc: ruc,
-        businessName: 'EJEMPLO EMPRESA S.A.C.',
-        fiscalAddress: 'JR. EJEMPLO 123, LIMA, LIMA, LIMA',
-        ubigeo: '150101'
-      };
-      
+    setHasChanges(hasFormChanges);
+  }, [formData, originalData]);
+
+  // Handle RUC validation callback from RucValidator component
+  const handleRucValidation = (result: { isValid: boolean; message: string; data?: any }) => {
+    setRucValidation(result);
+
+    if (result.isValid && result.data) {
       setFormData(prev => ({
         ...prev,
-        businessName: mockSunatData.businessName,
-        fiscalAddress: mockSunatData.fiscalAddress,
-        ubigeo: mockSunatData.ubigeo
+        businessName: result.data.businessName,
+        fiscalAddress: result.data.fiscalAddress,
+        ubigeo: result.data.ubigeo
       }));
-      
-      setRucValidation({ 
-        isValid: true, 
-        message: 'RUC válido. Datos completados automáticamente.' 
-      });
-    } catch (error) {
-      setRucValidation({ 
-        isValid: false, 
-        message: 'Error al validar RUC con SUNAT. Intenta nuevamente.' 
-      });
-    } finally {
-      setIsValidatingRuc(false);
-    }
-  };
-
-  const handleRucChange = (value: string) => {
-    const numericValue = value.replace(/\D/g, '').slice(0, 11);
-    setFormData(prev => ({ ...prev, ruc: numericValue }));
-    setRucValidation(null);
-    
-    if (numericValue.length === 11) {
-      validateRuc(numericValue);
     }
   };
 
@@ -165,31 +149,13 @@ export function CompanyConfiguration() {
     }));
   };
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const url = reader.result as string;
-        setLogoPreview(url);
-        setFormData(prev => ({
-          ...prev,
-          logo: {
-            url,
-            showInPrint: prev.logo?.showInPrint ?? true
-          }
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removeLogo = () => {
-    setLogoPreview(null);
-    setFormData(prev => ({ ...prev, logo: undefined }));
-  };
 
   const handleEnvironmentChange = (environment: 'TEST' | 'PRODUCTION') => {
+    // Block changing back to TEST if already in PRODUCTION
+    if (environment === 'TEST' && company?.sunatConfiguration?.environment === 'PRODUCTION') {
+      return; // Do nothing - this change is not allowed
+    }
+
     if (environment === 'PRODUCTION') {
       setShowProductionModal(true);
     } else {
@@ -207,6 +173,10 @@ export function CompanyConfiguration() {
     setIsLoading(true);
 
     try {
+      // Filter out empty phones and emails
+      const cleanPhones = formData.phones.filter(phone => phone.trim() !== '');
+      const cleanEmails = formData.emails.filter(email => email.trim() !== '');
+
       const updatedCompany: Company = {
         id: company?.id || '1',
         ruc: formData.ruc,
@@ -217,12 +187,14 @@ export function CompanyConfiguration() {
         province: company?.province || '',
         department: company?.department || '',
         postalCode: formData.ubigeo,
-        phone: formData.phones.filter(phone => phone.trim() !== '')[0] || undefined,
-        email: formData.emails.filter(email => email.trim() !== '')[0] || undefined,
+        phones: cleanPhones.length > 0 ? cleanPhones : [],
+        emails: cleanEmails.length > 0 ? cleanEmails : [],
         website: company?.website,
         logo: formData.logo?.url || undefined,
+        footerText: formData.footerText || undefined,
         economicActivity: company?.economicActivity || '',
         taxRegime: company?.taxRegime || 'GENERAL',
+        baseCurrency: formData.baseCurrency,
         legalRepresentative: company?.legalRepresentative || {
           name: '',
           documentType: 'DNI',
@@ -241,7 +213,7 @@ export function CompanyConfiguration() {
       };
 
       dispatch({ type: 'SET_COMPANY', payload: updatedCompany });
-      
+
       // Show success and redirect
       setTimeout(() => {
         navigate('/configuracion');
@@ -253,10 +225,14 @@ export function CompanyConfiguration() {
     }
   };
 
-  const isFormValid = formData.ruc.length === 11 && 
-                    formData.businessName.trim() !== '' && 
+  // Form validation logic
+  // For new company: require RUC validation + has changes
+  // For existing company: allow updates without re-validating RUC but require changes
+  const isFormValid = formData.ruc.length === 11 &&
+                    formData.businessName.trim() !== '' &&
                     formData.fiscalAddress.trim() !== '' &&
-                    rucValidation?.isValid === true;
+                    (company?.id ? true : rucValidation?.isValid === true) &&
+                    hasChanges; // Only enable if there are changes
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -286,54 +262,37 @@ export function CompanyConfiguration() {
           helpText="Estos datos se obtienen automáticamente al validar el RUC con SUNAT"
         >
           <div className="space-y-6">
-            {/* RUC */}
-            <div>
+            {/* RUC Validator Component */}
+            <RucValidator
+              value={formData.ruc}
+              onChange={(ruc) => setFormData(prev => ({ ...prev, ruc }))}
+              onValidation={handleRucValidation}
+            />
+
+            {/* Business Name */}
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                RUC *
+                Razón Social <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <input
                   type="text"
-                  value={formData.ruc}
-                  onChange={(e) => handleRucChange(e.target.value)}
-                  placeholder="20123456789"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  maxLength={11}
+                  value={formData.businessName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, businessName: e.target.value }))}
+                  className={`
+                    w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                    bg-gray-50 transition-all duration-200
+                    ${formData.businessName ? 'border-green-300 bg-green-50' : 'border-gray-300'}
+                  `}
+                  readOnly
+                  placeholder="Se completará automáticamente al validar el RUC"
                 />
-                {isValidatingRuc && (
-                  <div className="absolute right-3 top-3">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                {formData.businessName && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
                   </div>
                 )}
               </div>
-              
-              {rucValidation && (
-                <div className={`mt-2 flex items-center space-x-2 text-sm ${
-                  rucValidation.isValid ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {rucValidation.isValid ? (
-                    <CheckCircle2 className="w-4 h-4" />
-                  ) : (
-                    <AlertTriangle className="w-4 h-4" />
-                  )}
-                  <span>{rucValidation.message}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Business Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Razón Social *
-              </label>
-              <input
-                type="text"
-                value={formData.businessName}
-                onChange={(e) => setFormData(prev => ({ ...prev, businessName: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
-                readOnly
-                placeholder="Se completará automáticamente al validar el RUC"
-              />
             </div>
 
             {/* Trade Name */}
@@ -351,18 +310,29 @@ export function CompanyConfiguration() {
             </div>
 
             {/* Fiscal Address */}
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Domicilio Fiscal *
+                Domicilio Fiscal <span className="text-red-500">*</span>
               </label>
-              <textarea
-                value={formData.fiscalAddress}
-                onChange={(e) => setFormData(prev => ({ ...prev, fiscalAddress: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
-                rows={3}
-                readOnly
-                placeholder="Se completará automáticamente al validar el RUC"
-              />
+              <div className="relative">
+                <textarea
+                  value={formData.fiscalAddress}
+                  onChange={(e) => setFormData(prev => ({ ...prev, fiscalAddress: e.target.value }))}
+                  className={`
+                    w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                    bg-gray-50 transition-all duration-200
+                    ${formData.fiscalAddress ? 'border-green-300 bg-green-50' : 'border-gray-300'}
+                  `}
+                  rows={3}
+                  readOnly
+                  placeholder="Se completará automáticamente al validar el RUC"
+                />
+                {formData.fiscalAddress && (
+                  <div className="absolute right-3 top-3">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </ConfigurationCard>
@@ -404,14 +374,17 @@ export function CompanyConfiguration() {
                     name="environment"
                     checked={formData.environment === 'TEST'}
                     onChange={() => handleEnvironmentChange('TEST')}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    disabled={company?.sunatConfiguration?.environment === 'PRODUCTION'}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
-                  <label htmlFor="test" className="flex items-center space-x-2">
+                  <label htmlFor="test" className={`flex items-center space-x-2 ${company?.sunatConfiguration?.environment === 'PRODUCTION' ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <span className="text-sm font-medium text-gray-700">Prueba</span>
-                    <StatusIndicator status="warning" label="Activo" size="sm" />
+                    {formData.environment === 'TEST' && (
+                      <StatusIndicator status="warning" label="Activo" size="sm" />
+                    )}
                   </label>
                 </div>
-                
+
                 <div className="flex items-center space-x-3">
                   <input
                     type="radio"
@@ -429,13 +402,27 @@ export function CompanyConfiguration() {
                   </label>
                 </div>
               </div>
-              
-              {formData.environment === 'TEST' && (
+
+              {/* Warning: Test Mode */}
+              {formData.environment === 'TEST' && company?.sunatConfiguration?.environment !== 'PRODUCTION' && (
                 <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-sm text-yellow-800">
                     <Shield className="w-4 h-4 inline mr-1" />
                     Los documentos emitidos en prueba no tienen validez legal
                   </p>
+                </div>
+              )}
+
+              {/* Info: Production Mode Locked */}
+              {company?.sunatConfiguration?.environment === 'PRODUCTION' && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Shield className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium">Ambiente de Producción Activado</p>
+                      <p className="text-xs mt-1">Por seguridad, no es posible regresar al ambiente de prueba una vez activado producción.</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -559,88 +546,73 @@ export function CompanyConfiguration() {
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Logo de la Empresa
               </label>
-              
-              {logoPreview ? (
-                <div className="space-y-4">
-                  <div className="relative inline-block">
-                    <img
-                      src={logoPreview}
-                      alt="Logo preview"
-                      className="w-32 h-32 object-contain border border-gray-300 rounded-lg bg-white p-2"
-                    />
-                    <button
-                      type="button"
-                      onClick={removeLogo}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <SettingsToggle
-                      enabled={formData.logo?.showInPrint ?? true}
-                      onToggle={(enabled) => setFormData(prev => ({
-                        ...prev,
-                        logo: prev.logo ? { ...prev.logo, showInPrint: enabled } : { url: logoPreview!, showInPrint: enabled }
-                      }))}
-                      label="Mostrar en impresión"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
-                  <div className="text-center">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                    <div className="mt-4">
-                      <label htmlFor="logo-upload" className="cursor-pointer">
-                        <span className="mt-2 block text-sm font-medium text-gray-900">
-                          Subir logo
-                        </span>
-                        <span className="mt-1 block text-sm text-gray-500">
-                          PNG o JPG hasta 2MB
-                        </span>
-                      </label>
-                      <input
-                        id="logo-upload"
-                        type="file"
-                        accept=".png,.jpg,.jpeg"
-                        onChange={handleLogoUpload}
-                        className="sr-only"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+              <LogoUploader
+                logo={formData.logo}
+                onLogoChange={(logo) => setFormData(prev => ({ ...prev, logo }))}
+              />
             </div>
           </div>
         </ConfigurationCard>
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={() => navigate('/configuracion')}
-            className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
-          >
-            Cancelar
-          </button>
-          
-          <button
-            type="submit"
-            disabled={!isFormValid || isLoading}
-            className="px-6 py-3 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
-            style={isFormValid && !isLoading ? { backgroundColor: '#1478D4' } : {}}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Guardando...</span>
-              </>
-            ) : (
-              <span>Guardar Configuración</span>
+          {/* Form Status Indicator */}
+          <div className="flex items-center gap-3">
+            {isFormValid && hasChanges && (
+              <div className="flex items-center gap-2 text-green-600 animate-in slide-in-from-left duration-300">
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="text-sm font-medium">
+                  {company?.id ? 'Listo para guardar cambios' : 'Formulario completo y listo para guardar'}
+                </span>
+              </div>
             )}
-          </button>
+            {company?.id && !hasChanges && (
+              <div className="flex items-center gap-2 text-gray-500">
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="text-sm font-medium">Sin cambios pendientes</span>
+              </div>
+            )}
+            {!isFormValid && formData.ruc.length === 11 && !rucValidation?.isValid && !company?.id && (
+              <div className="flex items-center gap-2 text-amber-600">
+                <Shield className="w-5 h-5" />
+                <span className="text-sm font-medium">Valida el RUC para continuar</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/configuracion')}
+              className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="submit"
+              disabled={!isFormValid || isLoading}
+              className={`
+                px-8 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2
+                ${isFormValid && !isLoading
+                  ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:scale-105'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }
+              `}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Guardando...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span>Guardar Configuración</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
 
@@ -649,11 +621,18 @@ export function CompanyConfiguration() {
         isOpen={showProductionModal}
         onClose={() => setShowProductionModal(false)}
         onConfirm={confirmProductionChange}
-        title="Cambiar a Ambiente de Producción"
-        message="Al cambiar a producción, se eliminarán permanentemente todos los documentos de prueba y necesitarás un Certificado Digital. Esta acción no se puede deshacer."
+        title="⚠️ Cambiar a Ambiente de Producción"
+        message="Esta es una acción IRREVERSIBLE. Al activar producción:
+
+• Se eliminarán todos los documentos de prueba
+• Necesitarás un Certificado Digital válido
+• Los documentos tendrán validez legal ante SUNAT
+• NO podrás volver al ambiente de pruebas
+
+¿Estás seguro de continuar?"
         type="warning"
-        confirmText="Cambiar a Producción"
-        cancelText="Mantener en Prueba"
+        confirmText="Sí, Activar Producción"
+        cancelText="No, Mantener en Prueba"
       />
     </div>
   );
