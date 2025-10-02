@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, FileText, Package, Users } from 'lucide-react';
+import { Search, Command, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign } from 'lucide-react';
 
 const SearchBar = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,10 +27,21 @@ const SearchBar = () => {
 
   // Comandos para el Command Palette
   const commands = [
-    { id: 'nueva-factura', nombre: 'Nueva Factura', icono: FileText, atajo: 'Ctrl+Shift+F', categoria: 'acciones' },
-    { id: 'nueva-boleta', nombre: 'Nueva Boleta', icono: FileText, atajo: 'Ctrl+Shift+B', categoria: 'acciones' },
-    { id: 'registrar-cliente', nombre: 'Registrar Cliente', icono: Users, categoria: 'acciones' },
-    { id: 'registrar-producto', nombre: 'Registrar Producto', icono: Package, categoria: 'acciones' }
+    // ACCIONES PRINCIPALES
+    { id: 'nueva-factura', nombre: 'Nueva Factura', icono: FileText, categoria: 'acciones', atajo: 'Ctrl+N' },
+    { id: 'nueva-boleta', nombre: 'Nueva Boleta', icono: Receipt, categoria: 'acciones', atajo: 'Ctrl+B' },
+    { id: 'buscar-global', nombre: 'Búsqueda Global', icono: Search, categoria: 'acciones', atajo: 'Ctrl+K' },
+    { id: 'nuevo-cliente', nombre: 'Nuevo Cliente', icono: UserPlus, categoria: 'acciones' },
+    { id: 'nuevo-producto', nombre: 'Nuevo Producto', icono: Package, categoria: 'acciones' },
+    
+    // NAVEGACIÓN
+    { id: 'ir-comprobantes', nombre: 'Comprobantes Electrónicos', icono: FileText, categoria: 'navegacion' },
+    { id: 'ir-productos', nombre: 'Catálogo de Artículos', icono: Package, categoria: 'navegacion' },
+    { id: 'ir-clientes', nombre: 'Gestión de Clientes', icono: Users, categoria: 'navegacion' },
+    { id: 'ir-caja', nombre: 'Control de Caja', icono: CreditCard, categoria: 'navegacion' },
+    { id: 'ir-indicadores', nombre: 'Indicadores de Negocio', icono: BarChart3, categoria: 'navegacion' },
+    { id: 'ir-configuracion', nombre: 'Configuración del Sistema', icono: Settings, categoria: 'navegacion' },
+    { id: 'ir-precios', nombre: 'Lista de Precios', icono: DollarSign, categoria: 'navegacion' },
   ];
 
   // Filtrar resultados
@@ -234,7 +245,7 @@ const SearchBar = () => {
 
       {/* COMMAND PALETTE */}
       {showCommandPalette && (
-        <div className="fixed inset-0 bg-black/20 z-[100] flex items-start justify-center pt-[20vh]"
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh]"
              onClick={() => setShowCommandPalette(false)}>
           <div className="w-full max-w-xl bg-white rounded-lg shadow-xl border border-gray-200"
                onClick={(e) => e.stopPropagation()}>
@@ -256,12 +267,12 @@ const SearchBar = () => {
             <div className="max-h-[400px] overflow-y-auto">
               
               {/* Acciones */}
-              {filteredCommands.length > 0 && (
+              {filteredCommands.filter(c => c.categoria === 'acciones').length > 0 && (
                 <div className="p-2">
                   <div className="text-[11px] font-semibold text-gray-400 uppercase px-2 py-1.5">
                     Acciones
                   </div>
-                  {filteredCommands.map((cmd) => {
+                  {filteredCommands.filter(c => c.categoria === 'acciones').map((cmd) => {
                     const IconComponent = cmd.icono;
                     return (
                       <button
@@ -277,6 +288,29 @@ const SearchBar = () => {
                         {cmd.atajo && (
                           <span className="text-[10px] text-gray-400 font-mono">{cmd.atajo}</span>
                         )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Navegación */}
+              {filteredCommands.filter(c => c.categoria === 'navegacion').length > 0 && (
+                <div className="p-2 border-t border-gray-100">
+                  <div className="text-[11px] font-semibold text-gray-400 uppercase px-2 py-1.5">
+                    Ir a
+                  </div>
+                  {filteredCommands.filter(c => c.categoria === 'navegacion').map((cmd) => {
+                    const IconComponent = cmd.icono;
+                    return (
+                      <button
+                        key={cmd.id}
+                        className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-50 
+                                 transition-colors text-left"
+                        onClick={() => handleExecuteCommand(cmd.id)}
+                      >
+                        <IconComponent size={14} className="text-gray-400" />
+                        <span className="text-sm text-gray-900">{cmd.nombre}</span>
                       </button>
                     );
                   })}
