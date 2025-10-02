@@ -193,33 +193,66 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
   };
 
   return (
-    <div className="w-80 border-l border-gray-200 bg-white p-6 space-y-6">
-      {/* Document Type */}
+    <div className="w-80 border-l border-gray-200 bg-gradient-to-b from-gray-50 to-white p-6 space-y-6 overflow-y-auto">
+      {/* Document Type - Premium Cards */}
       <div>
-        <div className="flex space-x-2 mb-4">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Tipo de Comprobante</h3>
+        <div className="grid grid-cols-2 gap-3">
           <button
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium ${
-              tipoComprobante === 'boleta' 
-                ? 'bg-blue-600 text-white' 
-                : 'text-gray-700 border border-gray-300 hover:bg-gray-50'
+            className={`relative group px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+              tipoComprobante === 'boleta'
+                ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/50 border-2 border-blue-500'
+                : 'text-gray-700 border-2 border-gray-300 hover:border-blue-300 hover:bg-blue-50/50 bg-white'
             }`}
             onClick={() => {
               setTipoComprobante('boleta');
             }}
           >
-            Boleta
+            <div className="flex flex-col items-center space-y-1">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                tipoComprobante === 'boleta' ? 'bg-white/20' : 'bg-blue-100'
+              }`}>
+                <span className={`text-xs font-bold ${
+                  tipoComprobante === 'boleta' ? 'text-white' : 'text-blue-600'
+                }`}>B</span>
+              </div>
+              <span>Boleta</span>
+            </div>
+            {tipoComprobante === 'boleta' && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
           </button>
           <button
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium ${
-              tipoComprobante === 'factura' 
-                ? 'bg-blue-600 text-white' 
-                : 'text-gray-700 border border-gray-300 hover:bg-gray-50'
+            className={`relative group px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+              tipoComprobante === 'factura'
+                ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/50 border-2 border-indigo-500'
+                : 'text-gray-700 border-2 border-gray-300 hover:border-indigo-300 hover:bg-indigo-50/50 bg-white'
             }`}
             onClick={() => {
               setTipoComprobante('factura');
             }}
           >
-            Factura
+            <div className="flex flex-col items-center space-y-1">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                tipoComprobante === 'factura' ? 'bg-white/20' : 'bg-indigo-100'
+              }`}>
+                <span className={`text-xs font-bold ${
+                  tipoComprobante === 'factura' ? 'text-white' : 'text-indigo-600'
+                }`}>F</span>
+              </div>
+              <span>Factura</span>
+            </div>
+            {tipoComprobante === 'factura' && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
           </button>
         </div>
       </div>
@@ -315,25 +348,54 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             placeholder="Ingrese monto personalizado"
           />
-          <div className="bg-gray-50 rounded-lg p-4 mt-3">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-gray-600">Monto a pagar:</span>
-              <span className="font-bold text-gray-900">S/ {totals.total.toFixed(2)}</span>
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 mt-3 border-2 border-gray-200">
+            {/* Subtotales */}
+            <div className="space-y-2 mb-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-medium text-gray-800">S/ {totals.subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">IGV (18%):</span>
+                <span className="font-medium text-gray-800">S/ {totals.igv.toFixed(2)}</span>
+              </div>
             </div>
+
+            {/* Total a pagar - Destacado */}
+            <div className="bg-blue-600 rounded-lg p-3 mb-3">
+              <div className="flex justify-between items-center">
+                <span className="text-blue-100 font-medium">Total a pagar:</span>
+                <span className="text-2xl font-bold text-white">S/ {totals.total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Monto recibido */}
             <div className="flex justify-between text-sm mb-2">
               <span className="text-gray-600">Monto recibido:</span>
               <span className="font-bold text-gray-900">S/ {(parseFloat(receivedAmount) || 0).toFixed(2)}</span>
             </div>
-            <hr className="my-2" />
+
+            {/* Separador */}
+            <div className="border-t-2 border-dashed border-gray-300 my-3"></div>
+
+            {/* Vuelto o Falta - Destacado con colores */}
             {parseFloat(receivedAmount) >= totals.total ? (
-              <div className="flex justify-between text-base font-bold">
-                <span className="text-green-600">Vuelto:</span>
-                <span className="text-green-600">S/ {(parseFloat(receivedAmount) - totals.total).toFixed(2)}</span>
+              <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-green-700 font-semibold">Vuelto:</span>
+                  <span className="text-2xl font-bold text-green-600">
+                    S/ {(parseFloat(receivedAmount) - totals.total).toFixed(2)}
+                  </span>
+                </div>
               </div>
             ) : (
-              <div className="flex justify-between text-base font-bold">
-                <span className="text-red-600">Falta:</span>
-                <span className="text-red-600">S/ {(totals.total - (parseFloat(receivedAmount) || 0)).toFixed(2)}</span>
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-red-700 font-semibold">Falta:</span>
+                  <span className="text-2xl font-bold text-red-600">
+                    S/ {(totals.total - (parseFloat(receivedAmount) || 0)).toFixed(2)}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -443,11 +505,19 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
         )}
       </div>
 
-      {/* Vendor Info */}
-      <div className="border-t border-gray-200 pt-4">
-        <div className="text-sm">
-          <span className="font-medium text-gray-700">Vendedor: </span>
-          <span className="text-gray-900">Javier Masías Loza - 001</span>
+      {/* Vendor Info - Premium */}
+      <div className="border-t-2 border-gray-200 pt-4">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-100">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs font-bold">JM</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 font-medium">Vendedor</p>
+              <p className="text-sm font-semibold text-gray-900">Javier Masías Loza</p>
+              <p className="text-xs text-blue-600 font-medium">ID: 001</p>
+            </div>
+          </div>
         </div>
       </div>
 
