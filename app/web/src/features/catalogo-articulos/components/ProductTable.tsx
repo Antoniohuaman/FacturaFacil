@@ -1,6 +1,54 @@
 import type { Product, FilterOptions } from '../models/types';
 // src/features/catalogo-articulos/components/ProductTable.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
+// Definir las columnas disponibles
+type ColumnKey = 
+  | 'unidad' 
+  | 'categoria' 
+  | 'alias' 
+  | 'precioCompra' 
+  | 'porcentajeGanancia' 
+  | 'codigoBarras' 
+  | 'codigoFabrica' 
+  | 'codigoSunat' 
+  | 'descuentoProducto' 
+  | 'marca' 
+  | 'modelo' 
+  | 'peso' 
+  | 'tipoExistencia';
+
+interface ColumnConfig {
+  key: ColumnKey;
+  label: string;
+  defaultVisible: boolean;
+  group: 'basicas' | 'codigos' | 'financieras' | 'caracteristicas';
+}
+
+const AVAILABLE_COLUMNS: ColumnConfig[] = [
+  // Columnas básicas
+  { key: 'unidad', label: 'Unidad', defaultVisible: true, group: 'basicas' },
+  { key: 'categoria', label: 'Categoría', defaultVisible: true, group: 'basicas' },
+  
+  // Información adicional
+  { key: 'alias', label: 'Alias', defaultVisible: false, group: 'basicas' },
+  
+  // Códigos
+  { key: 'codigoBarras', label: 'Código Barras', defaultVisible: false, group: 'codigos' },
+  { key: 'codigoFabrica', label: 'Código Fábrica', defaultVisible: false, group: 'codigos' },
+  { key: 'codigoSunat', label: 'Código SUNAT', defaultVisible: false, group: 'codigos' },
+  
+  // Información financiera
+  { key: 'precioCompra', label: 'Precio Compra', defaultVisible: false, group: 'financieras' },
+  { key: 'porcentajeGanancia', label: '% Ganancia', defaultVisible: false, group: 'financieras' },
+  { key: 'descuentoProducto', label: '% Descuento', defaultVisible: false, group: 'financieras' },
+  
+  // Características del producto
+  { key: 'marca', label: 'Marca', defaultVisible: false, group: 'caracteristicas' },
+  { key: 'modelo', label: 'Modelo', defaultVisible: false, group: 'caracteristicas' },
+  { key: 'peso', label: 'Peso (kg)', defaultVisible: false, group: 'caracteristicas' },
+  { key: 'tipoExistencia', label: 'Tipo Existencia', defaultVisible: false, group: 'caracteristicas' },
+];
 
 interface ProductTableProps {
   products: Product[];
@@ -23,6 +71,51 @@ const ProductTable: React.FC<ProductTableProps> = ({
   selectedProducts,
   onSelectedProductsChange
 }) => {
+  // Estado para columnas visibles
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
+    // Intentar cargar desde localStorage
+    const saved = localStorage.getItem('productTableColumns');
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved));
+      } catch {
+        // Si hay error, usar valores por defecto
+        return new Set(AVAILABLE_COLUMNS.filter(col => col.defaultVisible).map(col => col.key));
+      }
+    }
+    return new Set(AVAILABLE_COLUMNS.filter(col => col.defaultVisible).map(col => col.key));
+  });
+
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
+
+  // Guardar preferencias en localStorage cuando cambien
+  useEffect(() => {
+    localStorage.setItem('productTableColumns', JSON.stringify([...visibleColumns]));
+  }, [visibleColumns]);
+
+  const toggleColumn = (columnKey: ColumnKey) => {
+    const newVisible = new Set(visibleColumns);
+    if (newVisible.has(columnKey)) {
+      newVisible.delete(columnKey);
+    } else {
+      newVisible.add(columnKey);
+    }
+    setVisibleColumns(newVisible);
+  };
+
+  const resetColumns = () => {
+    const defaults = new Set(AVAILABLE_COLUMNS.filter(col => col.defaultVisible).map(col => col.key));
+    setVisibleColumns(defaults);
+  };
+
+  const showAllColumns = () => {
+    setVisibleColumns(new Set(AVAILABLE_COLUMNS.map(col => col.key)));
+  };
+
+  const hideAllColumns = () => {
+    setVisibleColumns(new Set());
+  };
+
   // selectedProducts y onSelectedProductsChange vienen de props
 
   const handleSelectAll = (checked: boolean) => {
@@ -125,10 +218,126 @@ const ProductTable: React.FC<ProductTableProps> = ({
     );
   }
 
+  // Agrupar columnas por categoría
+  const columnsByGroup = AVAILABLE_COLUMNS.reduce((acc, col) => {
+    if (!acc[col.group]) acc[col.group] = [];
+    acc[col.group].push(col);
+    return acc;
+  }, {} as Record<string, ColumnConfig[]>);
+
+  const groupLabels = {
+    basicas: 'Información Básica',
+    codigos: 'Códigos',
+    financieras: 'Información Financiera',
+    caracteristicas: 'Características del Producto'
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+    <>
+      {/* Panel selector de columnas */}
+      <div className="mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            <h3 className="text-sm font-medium text-gray-700">
+              Personalizar columnas
+            </h3>
+            <span className="text-xs text-gray-500">
+              ({visibleColumns.size} de {AVAILABLE_COLUMNS.length} columnas visibles)
+            </span>
+          </div>
+          
+          <button
+            onClick={() => setShowColumnSelector(!showColumnSelector)}
+            className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center space-x-1"
+          >
+            <span>{showColumnSelector ? 'Ocultar opciones' : 'Mostrar opciones'}</span>
+            <svg 
+              className={`w-4 h-4 transition-transform ${showColumnSelector ? 'rotate-180' : ''}`}
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
+        {showColumnSelector && (
+          <div className="space-y-4 pt-3 border-t border-gray-200">
+            {/* Botones de acción rápida */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={showAllColumns}
+                className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                Mostrar todas
+              </button>
+              <button
+                onClick={hideAllColumns}
+                className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                Ocultar todas
+              </button>
+              <button
+                onClick={resetColumns}
+                className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
+              >
+                Restaurar por defecto
+              </button>
+            </div>
+
+            {/* Columnas agrupadas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Object.entries(columnsByGroup).map(([groupKey, columns]) => (
+                <div key={groupKey} className="space-y-2">
+                  <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    {groupLabels[groupKey as keyof typeof groupLabels]}
+                  </h4>
+                  <div className="space-y-1.5">
+                    {columns.map((column) => (
+                      <label
+                        key={column.key}
+                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns.has(column.key)}
+                          onChange={() => toggleColumn(column.key)}
+                          className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">{column.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Nota informativa */}
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex">
+                <svg className="h-5 w-5 text-blue-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <div className="ml-3">
+                  <p className="text-xs text-blue-700">
+                    Las columnas Código, Nombre, Precio, Stock y Acciones siempre estarán visibles. 
+                    Tus preferencias se guardan automáticamente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Tabla de productos */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="w-12 px-6 py-3">
@@ -162,10 +371,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </div>
               </th>
               
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Unidad
-              </th>
-              
               <th 
                 scope="col" 
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
@@ -188,9 +393,83 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </div>
               </th>
               
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Categoría
-              </th>
+              {visibleColumns.has('unidad') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Unidad
+                </th>
+              )}
+              
+              {visibleColumns.has('categoria') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Categoría
+                </th>
+              )}
+
+              {visibleColumns.has('alias') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Alias
+                </th>
+              )}
+
+              {visibleColumns.has('precioCompra') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Precio Compra
+                </th>
+              )}
+
+              {visibleColumns.has('porcentajeGanancia') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  % Ganancia
+                </th>
+              )}
+
+              {visibleColumns.has('codigoBarras') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Código Barras
+                </th>
+              )}
+
+              {visibleColumns.has('codigoFabrica') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Código Fábrica
+                </th>
+              )}
+
+              {visibleColumns.has('codigoSunat') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Código SUNAT
+                </th>
+              )}
+
+              {visibleColumns.has('descuentoProducto') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  % Descuento
+                </th>
+              )}
+
+              {visibleColumns.has('marca') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Marca
+                </th>
+              )}
+
+              {visibleColumns.has('modelo') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Modelo
+                </th>
+              )}
+
+              {visibleColumns.has('peso') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Peso (kg)
+                </th>
+              )}
+
+              {visibleColumns.has('tipoExistencia') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tipo Existencia
+                </th>
+              )}
               
               <th scope="col" className="relative px-6 py-3">
                 <span className="sr-only">Acciones</span>
@@ -234,18 +513,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </td>
                 
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`
-                    inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                    ${product.unidad === 'DOCENA' 
-                      ? 'bg-blue-100 text-blue-800' 
-                      : 'bg-purple-100 text-purple-800'
-                    }
-                  `}>
-                    {product.unidad}
-                  </span>
-                </td>
-                
-                <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
                     {formatCurrency(product.precio)}
                   </div>
@@ -260,11 +527,141 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   {getStockBadge(product.cantidad)}
                 </td>
                 
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                    {product.categoria}
-                  </span>
-                </td>
+                {visibleColumns.has('unidad') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`
+                      inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                      ${product.unidad === 'DOCENA' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-purple-100 text-purple-800'
+                      }
+                    `}>
+                      {product.unidad}
+                    </span>
+                  </td>
+                )}
+                
+                {visibleColumns.has('categoria') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {product.categoria}
+                    </span>
+                  </td>
+                )}
+
+                {visibleColumns.has('alias') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.alias ? (
+                      <div className="text-sm text-gray-900">{product.alias}</div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('precioCompra') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.precioCompra ? (
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatCurrency(product.precioCompra)}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('porcentajeGanancia') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.porcentajeGanancia !== undefined ? (
+                      <div className="text-sm text-gray-900">{product.porcentajeGanancia}%</div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('codigoBarras') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.codigoBarras ? (
+                      <div className="text-sm font-mono text-gray-900">{product.codigoBarras}</div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('codigoFabrica') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.codigoFabrica ? (
+                      <div className="text-sm font-mono text-gray-900">{product.codigoFabrica}</div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('codigoSunat') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.codigoSunat ? (
+                      <div className="text-sm font-mono text-gray-900">{product.codigoSunat}</div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('descuentoProducto') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.descuentoProducto !== undefined ? (
+                      <div className="text-sm text-gray-900">{product.descuentoProducto}%</div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('marca') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.marca ? (
+                      <div className="text-sm text-gray-900">{product.marca}</div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('modelo') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.modelo ? (
+                      <div className="text-sm text-gray-900">{product.modelo}</div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('peso') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.peso ? (
+                      <div className="text-sm text-gray-900">{product.peso} kg</div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('tipoExistencia') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {product.tipoExistencia ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        {product.tipoExistencia}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
                 
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center space-x-2">
@@ -334,6 +731,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
         </div>
       )}
     </div>
+    </>
   );
 };
 

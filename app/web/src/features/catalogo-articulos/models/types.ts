@@ -11,6 +11,18 @@ export interface Product {
   imagen?: string;
   impuesto?: string;
   descripcion?: string;
+  // Campos avanzados
+  alias?: string;
+  precioCompra?: number;
+  porcentajeGanancia?: number;
+  codigoBarras?: string;
+  codigoFabrica?: string;
+  codigoSunat?: string;
+  descuentoProducto?: number;
+  marca?: string;
+  modelo?: string;
+  peso?: number;
+  tipoExistencia?: 'MERCADERIAS' | 'PRODUCTOS_TERMINADOS' | 'SERVICIOS' | 'MATERIAS_PRIMAS' | 'ENVASES' | 'MATERIALES_AUXILIARES' | 'SUMINISTROS' | 'REPUESTOS' | 'EMBALAJES' | 'OTROS';
   fechaCreacion: Date;
   fechaActualizacion: Date;
 }
@@ -70,6 +82,18 @@ export interface ProductFormData {
   impuesto?: string;
   descripcion?: string;
   imagen?: File | string;
+  // Campos avanzados
+  alias?: string;
+  precioCompra?: number;
+  porcentajeGanancia?: number;
+  codigoBarras?: string;
+  codigoFabrica?: string;
+  codigoSunat?: string;
+  descuentoProducto?: number;
+  marca?: string;
+  modelo?: string;
+  peso?: number;
+  tipoExistencia?: 'MERCADERIAS' | 'PRODUCTOS_TERMINADOS' | 'SERVICIOS' | 'MATERIAS_PRIMAS' | 'ENVASES' | 'MATERIALES_AUXILIARES' | 'SUMINISTROS' | 'REPUESTOS' | 'EMBALAJES' | 'OTROS';
 }
 
 export interface TableColumn {

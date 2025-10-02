@@ -35,12 +35,24 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
   const availableColumns: ExportColumn[] = [
     { key: 'codigo', label: 'Código', type: 'text', required: true },
     { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-    { key: 'precio', label: 'Precio', type: 'currency' },
+    { key: 'precio', label: 'Precio de Venta', type: 'currency' },
     { key: 'unidad', label: 'Unidad', type: 'text' },
     { key: 'cantidad', label: 'Stock/Cantidad', type: 'number' },
     { key: 'categoria', label: 'Categoría', type: 'text' },
     { key: 'impuesto', label: 'Tipo de Impuesto', type: 'text' },
     { key: 'descripcion', label: 'Descripción', type: 'text' },
+    // Campos avanzados
+    { key: 'alias', label: 'Alias del Producto', type: 'text' },
+    { key: 'precioCompra', label: 'Precio de Compra', type: 'currency' },
+    { key: 'porcentajeGanancia', label: 'Porcentaje de Ganancia (%)', type: 'number' },
+    { key: 'descuentoProducto', label: 'Descuento (%)', type: 'number' },
+    { key: 'codigoBarras', label: 'Código de Barras', type: 'text' },
+    { key: 'codigoFabrica', label: 'Código de Fábrica', type: 'text' },
+    { key: 'codigoSunat', label: 'Código SUNAT', type: 'text' },
+    { key: 'marca', label: 'Marca', type: 'text' },
+    { key: 'modelo', label: 'Modelo', type: 'text' },
+    { key: 'peso', label: 'Peso (KG)', type: 'number' },
+    { key: 'tipoExistencia', label: 'Tipo de Existencia', type: 'text' },
     { key: 'fechaCreacion', label: 'Fecha de Creación', type: 'date' },
     { key: 'fechaActualizacion', label: 'Última Actualización', type: 'date' }
   ];

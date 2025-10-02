@@ -34,7 +34,19 @@ const ProductModal: React.FC<ProductModalProps> = ({
     categoria: '',
     cantidad: 0,
     impuesto: 'IGV (18.00%)',
-    descripcion: ''
+    descripcion: '',
+    // Campos avanzados
+    alias: '',
+    precioCompra: 0,
+    porcentajeGanancia: 0,
+    codigoBarras: '',
+    codigoFabrica: '',
+    codigoSunat: '',
+    descuentoProducto: 0,
+    marca: '',
+    modelo: '',
+    peso: 0,
+    tipoExistencia: 'MERCADERIAS'
   });
   
   const [errors, setErrors] = useState<FormError>({});
@@ -56,7 +68,19 @@ const ProductModal: React.FC<ProductModalProps> = ({
         categoria: product.categoria,
         cantidad: product.cantidad,
         impuesto: product.impuesto || 'IGV (18.00%)',
-        descripcion: product.descripcion || ''
+        descripcion: product.descripcion || '',
+        // Campos avanzados
+        alias: product.alias || '',
+        precioCompra: product.precioCompra || 0,
+        porcentajeGanancia: product.porcentajeGanancia || 0,
+        codigoBarras: product.codigoBarras || '',
+        codigoFabrica: product.codigoFabrica || '',
+        codigoSunat: product.codigoSunat || '',
+        descuentoProducto: product.descuentoProducto || 0,
+        marca: product.marca || '',
+        modelo: product.modelo || '',
+        peso: product.peso || 0,
+        tipoExistencia: product.tipoExistencia || 'MERCADERIAS'
       });
       setPrecioInput(product.precio.toFixed(2));
       setImagePreview(product.imagen || '');
@@ -69,7 +93,19 @@ const ProductModal: React.FC<ProductModalProps> = ({
         categoria: categories[0]?.nombre || '',
         cantidad: 0,
         impuesto: 'IGV (18.00%)',
-        descripcion: ''
+        descripcion: '',
+        // Campos avanzados
+        alias: '',
+        precioCompra: 0,
+        porcentajeGanancia: 0,
+        codigoBarras: '',
+        codigoFabrica: '',
+        codigoSunat: '',
+        descuentoProducto: 0,
+        marca: '',
+        modelo: '',
+        peso: 0,
+        tipoExistencia: 'MERCADERIAS'
       });
       setPrecioInput('0.00');
       setImagePreview('');
@@ -408,7 +444,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </button>
               
               {showAdvanced && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <div className="mt-4 p-6 bg-gray-50 rounded-lg space-y-4 border border-gray-200">
+                  {/* Descripción */}
                   <div>
                     <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 mb-1">
                       Descripción
@@ -419,8 +456,218 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       value={formData.descripcion}
                       onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
                       className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                      placeholder="Descripción opcional del producto..."
+                      placeholder="Descripción detallada del producto..."
                     />
+                  </div>
+
+                  {/* Alias del producto */}
+                  <div>
+                    <label htmlFor="alias" className="block text-sm font-medium text-gray-700 mb-1">
+                      Alias del producto
+                    </label>
+                    <input
+                      type="text"
+                      id="alias"
+                      value={formData.alias}
+                      onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      placeholder="Nombre alternativo del producto"
+                    />
+                  </div>
+
+                  {/* Grid para Precio de Compra y Porcentaje de Ganancia */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="precioCompra" className="block text-sm font-medium text-gray-700 mb-1">
+                        Precio inicial de compra
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 text-sm">S/</span>
+                        </div>
+                        <input
+                          type="number"
+                          id="precioCompra"
+                          step="0.01"
+                          min="0"
+                          value={formData.precioCompra}
+                          onChange={(e) => setFormData(prev => ({ ...prev, precioCompra: parseFloat(e.target.value) || 0 }))}
+                          className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="porcentajeGanancia" className="block text-sm font-medium text-gray-700 mb-1">
+                        Porcentaje de ganancia
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          id="porcentajeGanancia"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={formData.porcentajeGanancia}
+                          onChange={(e) => setFormData(prev => ({ ...prev, porcentajeGanancia: parseFloat(e.target.value) || 0 }))}
+                          className="w-full pr-10 pl-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                          placeholder="0.00"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 text-sm">%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Descuento del producto */}
+                  <div>
+                    <label htmlFor="descuentoProducto" className="block text-sm font-medium text-gray-700 mb-1">
+                      Descuento del producto
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        id="descuentoProducto"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={formData.descuentoProducto}
+                        onChange={(e) => setFormData(prev => ({ ...prev, descuentoProducto: parseFloat(e.target.value) || 0 }))}
+                        className="w-full pr-10 pl-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder="0.00"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 text-sm">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Códigos */}
+                  <div className="space-y-4 pt-2">
+                    <h4 className="text-sm font-semibold text-gray-900 border-b pb-2">Códigos de identificación</h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="codigoBarras" className="block text-sm font-medium text-gray-700 mb-1">
+                          Código de barras
+                        </label>
+                        <input
+                          type="text"
+                          id="codigoBarras"
+                          value={formData.codigoBarras}
+                          onChange={(e) => setFormData(prev => ({ ...prev, codigoBarras: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+                          placeholder="EAN-13, UPC, etc."
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="codigoFabrica" className="block text-sm font-medium text-gray-700 mb-1">
+                          Código de fábrica
+                        </label>
+                        <input
+                          type="text"
+                          id="codigoFabrica"
+                          value={formData.codigoFabrica}
+                          onChange={(e) => setFormData(prev => ({ ...prev, codigoFabrica: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+                          placeholder="Código del fabricante"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="codigoSunat" className="block text-sm font-medium text-gray-700 mb-1">
+                          Código SUNAT
+                        </label>
+                        <input
+                          type="text"
+                          id="codigoSunat"
+                          value={formData.codigoSunat}
+                          onChange={(e) => setFormData(prev => ({ ...prev, codigoSunat: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+                          placeholder="Código tributario"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Marca y Modelo */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <label htmlFor="marca" className="block text-sm font-medium text-gray-700 mb-1">
+                        Marca
+                      </label>
+                      <input
+                        type="text"
+                        id="marca"
+                        value={formData.marca}
+                        onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder="Marca del producto"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="modelo" className="block text-sm font-medium text-gray-700 mb-1">
+                        Modelo
+                      </label>
+                      <input
+                        type="text"
+                        id="modelo"
+                        value={formData.modelo}
+                        onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder="Modelo del producto"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Peso */}
+                  <div>
+                    <label htmlFor="peso" className="block text-sm font-medium text-gray-700 mb-1">
+                      Peso (KGM)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        id="peso"
+                        step="0.001"
+                        min="0"
+                        value={formData.peso}
+                        onChange={(e) => setFormData(prev => ({ ...prev, peso: parseFloat(e.target.value) || 0 }))}
+                        className="w-full pr-10 pl-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder="0.000"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 text-sm">KG</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tipo de Existencia */}
+                  <div>
+                    <label htmlFor="tipoExistencia" className="block text-sm font-medium text-gray-700 mb-1">
+                      Tipo de existencia
+                    </label>
+                    <select
+                      id="tipoExistencia"
+                      value={formData.tipoExistencia}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tipoExistencia: e.target.value as Product['tipoExistencia'] }))}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    >
+                      <option value="MERCADERIAS">Mercaderías</option>
+                      <option value="PRODUCTOS_TERMINADOS">Productos Terminados</option>
+                      <option value="SERVICIOS">Servicios</option>
+                      <option value="MATERIAS_PRIMAS">Materias Primas</option>
+                      <option value="ENVASES">Envases</option>
+                      <option value="MATERIALES_AUXILIARES">Materiales Auxiliares</option>
+                      <option value="SUMINISTROS">Suministros</option>
+                      <option value="REPUESTOS">Repuestos</option>
+                      <option value="EMBALAJES">Embalajes</option>
+                      <option value="OTROS">Otros</option>
+                    </select>
                   </div>
                 </div>
               )}

@@ -283,6 +283,17 @@ const ImportModal: React.FC<ImportModalProps> = ({
                         <>
                           <div>• Impuestos</div>
                           <div>• Descripción</div>
+                          <div>• Alias</div>
+                          <div>• Precio Compra</div>
+                          <div>• Porcentaje Ganancia</div>
+                          <div>• Código Barras</div>
+                          <div>• Código Fábrica</div>
+                          <div>• Código SUNAT</div>
+                          <div>• Descuento Producto</div>
+                          <div>• Marca</div>
+                          <div>• Modelo</div>
+                          <div>• Peso</div>
+                          <div>• Tipo Existencia</div>
                         </>
                       )}
                     </div>
