@@ -929,7 +929,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   
                   <button
                     onClick={handleContinueToPayment}
-                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                    className="px-6 py-2 text-white rounded-lg font-medium transition-colors hover:opacity-90"
+                    style={{ backgroundColor: '#1478D4' }}
                   >
                     Continuar al Pago
                   </button>

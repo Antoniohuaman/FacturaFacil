@@ -58,7 +58,7 @@ const ImportarClientesPage = () => {
     }
   ]);
 
-  const PRIMARY_COLOR = '#0040A2';
+  const PRIMARY_COLOR = '#1478D4';
   const SUCCESS_COLOR = '#10B981';
 
   // Clases consistentes para reutilizar

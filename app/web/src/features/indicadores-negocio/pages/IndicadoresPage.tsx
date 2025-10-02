@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -12,8 +13,9 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 import DetalleVentasDiariasModal from "../components/DetalleVentasDiariasModal";
-import { TrendingUp, Users, ShoppingCart, DollarSign, Award } from "lucide-react";
 import DetalleCrecimientoModal from "../components/DetalleCrecimientoModal";
+import Toolbar, { PageHeader } from "../components/Toolbar";
+import { TrendingUp, Users, ShoppingCart, DollarSign, Award } from "lucide-react";
 
 type VentaDiaria = {
   fecha: string;
@@ -89,135 +91,15 @@ const IndicadoresPage: React.FC = () => {
   // -------------------
   // Toolbar - estados
   // -------------------
+  const navigate = useNavigate();
   const [periodo, setPeriodo] = useState<string>("Este mes");
   const [fechaDesde, setFechaDesde] = useState<string>("");
   const [fechaHasta, setFechaHasta] = useState<string>("");
   const [establecimiento, setEstablecimiento] = useState<string>("");
-  const [fechaRango, setFechaRango] = useState<string>("");
-
-  const calcularRangoFechas = (periodoSeleccionado: string): string => {
-    const hoy = new Date();
-    let desde: Date, hasta: Date;
-
-    switch (periodoSeleccionado) {
-      case "Hoy":
-        desde = (hasta = hoy);
-        break;
-      case "Esta semana": {
-        const diaActual = hoy.getDay();
-        const diasHastaLunes = diaActual === 0 ? 6 : diaActual - 1;
-        desde = new Date(hoy);
-        desde.setDate(hoy.getDate() - diasHastaLunes);
-        hasta = hoy;
-        break;
-      }
-      case "Este mes":
-        desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-        hasta = hoy;
-        break;
-      case "Último trimestre": {
-        const mesActual = hoy.getMonth();
-        let inicioTrimestreActual = Math.floor(mesActual / 3) * 3;
-        let inicioTrimestreAnterior = inicioTrimestreActual - 3;
-        let añoTrimestre = hoy.getFullYear();
-        if (inicioTrimestreAnterior < 0) {
-          inicioTrimestreAnterior = 9;
-          añoTrimestre = hoy.getFullYear() - 1;
-        }
-        desde = new Date(añoTrimestre, inicioTrimestreAnterior, 1);
-        hasta = new Date(añoTrimestre, inicioTrimestreAnterior + 3, 0);
-        break;
-      }
-      case "Últimos 6 meses":
-        desde = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1);
-        hasta = hoy;
-        break;
-      case "Último año":
-        desde = new Date(hoy.getFullYear() - 1, 0, 1);
-        hasta = new Date(hoy.getFullYear() - 1, 11, 31);
-        break;
-      default:
-        return "";
-    }
-
-    const formatearFecha = (fecha: Date): string => {
-      const meses = [
-        "ene",
-        "feb",
-        "mar",
-        "abr",
-        "may",
-        "jun",
-        "jul",
-        "ago",
-        "sep",
-        "oct",
-        "nov",
-        "dic",
-      ];
-      return `${fecha.getDate()} ${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
-    };
-
-    if (periodoSeleccionado === "Hoy") {
-      return formatearFecha(desde);
-    }
-
-    return `${formatearFecha(desde)} - ${formatearFecha(hasta)}`;
-  };
-
-  useEffect(() => {
-    if (periodo !== "Personalizar") {
-      setFechaRango(calcularRangoFechas(periodo));
-    } else {
-      if (fechaDesde && fechaHasta) {
-        const formatearFecha = (fechaStr: string): string => {
-          const fecha = new Date(fechaStr);
-          const meses = [
-            "ene",
-            "feb",
-            "mar",
-            "abr",
-            "may",
-            "jun",
-            "jul",
-            "ago",
-            "sep",
-            "oct",
-            "nov",
-            "dic",
-          ];
-          return `${fecha.getDate()} ${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
-        };
-        setFechaRango(`${formatearFecha(fechaDesde)} - ${formatearFecha(fechaHasta)}`);
-      } else if (fechaDesde) {
-        const formatearFecha = (fechaStr: string): string => {
-          const fecha = new Date(fechaStr);
-          const meses = [
-            "ene",
-            "feb",
-            "mar",
-            "abr",
-            "may",
-            "jun",
-            "jul",
-            "ago",
-            "sep",
-            "oct",
-            "nov",
-            "dic",
-          ];
-          return `${fecha.getDate()} ${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
-        };
-        setFechaRango(`Desde ${formatearFecha(fechaDesde)}`);
-      } else {
-        setFechaRango("");
-      }
-    }
-  }, [periodo, fechaDesde, fechaHasta]);
 
   const handleCrearComprobante = (): void => {
-    // Comportamiento simple por ahora (UI only)
-    alert("Funcionalidad para crear comprobante");
+    // Navegar a la vista de Nuevo Comprobante
+    navigate("/comprobantes/nuevo");
   };
 
   const handleFiltrar = (): void => {
@@ -234,189 +116,93 @@ const IndicadoresPage: React.FC = () => {
   };
 
   return (
-    <div className="p-8">
-      {/* -------------------------
-          TOOLBAR (INTEGRADO EXACTO)
-          ------------------------- */}
+    <div>
+      {/* HEADER DE PÁGINA - Título separado */}
+      <PageHeader title="Indicadores de Gestión" />
+      
+      {/* TOOLBAR - Controles y acciones */}
+      <Toolbar
+        onFilter={handleFiltrar}
+        onCreateDocument={handleCrearComprobante}
+        onEstablishmentChange={(establishment: string) => setEstablecimiento(establishment)}
+        onDateRangeChange={(range) => {
+          setFechaDesde(range.startDate.toISOString().split('T')[0]);
+          setFechaHasta(range.endDate.toISOString().split('T')[0]);
+          setPeriodo(range.label);
+        }}
+      />
+
+      {/* CONTENIDO PRINCIPAL */}
       <div className="p-6">
-        {/* Toolbar de Indicadores */}
-        <>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-2xl font-bold text-gray-900">Indicadores de Gestión</h2>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <label className="text-base font-medium text-gray-700">Periodo:</label>
-                <select
-                  value={periodo}
-                  onChange={(e) => setPeriodo(e.target.value)}
-                  className="border rounded-lg px-4 py-2 text-base min-w-[140px] focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500"
-                  style={{ height: "40px" }}
-                >
-                  <option value="Hoy">Hoy</option>
-                  <option value="Esta semana">Esta semana</option>
-                  <option value="Este mes">Este mes</option>
-                  <option value="Último trimestre">Último trimestre</option>
-                  <option value="Últimos 6 meses">Últimos 6 meses</option>
-                  <option value="Último año">Último año</option>
-                  <option value="Personalizar">Personalizar</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-3">
-                <label className="text-base font-medium text-gray-700">Establecimiento:</label>
-                <select
-                  value={establecimiento}
-                  onChange={(e) => setEstablecimiento(e.target.value)}
-                  className="border rounded-lg px-4 py-2 text-base min-w-[140px] focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500"
-                  style={{ height: "40px" }}
-                >
-                  <option value="">Todos</option>
-                  <option value="centro">Tienda Centro</option>
-                  <option value="norte">Tienda Norte</option>
-                  <option value="sur">Tienda Sur</option>
-                </select>
-              </div>
-              <button
-                onClick={handleFiltrar}
-                className="bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg px-4 h-10 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300 flex items-center gap-2 min-w-[120px]"
-                style={{ height: "40px", lineHeight: "40px", paddingTop: 0, paddingBottom: 0 }}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span className="mt-[2px]">Filtrar</span>
-              </button>
-              <button
-                onClick={handleCrearComprobante}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-4 h-10 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 flex items-center gap-2 min-w-[170px]"
-                style={{ height: "40px", lineHeight: "40px", paddingTop: 0, paddingBottom: 0 }}
-              >
-                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                </svg>
-                <span className="mt-[2px]">Crear comprobante</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Mostrar el rango de fechas calculado */}
-          {fechaRango && (
-            <div className="mb-6">
+        {/* KPIs principales */}
+        <div className="grid grid-cols-4 gap-6 mb-8">
+          {/* Ventas del Mes */}
+          <div className="bg-blue-50 rounded-xl p-6 shadow-sm border border-blue-100 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                <p className="text-base text-gray-600">{fechaRango}</p>
+                <span className="p-3 bg-blue-200 rounded-lg">
+                  <ShoppingCart className="h-6 w-6 text-blue-800" />
+                </span>
+                <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-full">+12.5%</span>
               </div>
             </div>
-          )}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Total de Ventas</h3>
+              <div className="text-2xl font-bold text-gray-900 mb-1">S/. 128,450</div>
+              <div className="text-sm text-gray-500">Periodo seleccionado</div>
+            </div>
+          </div>
 
-          {/* Campos de fecha personalizados */}
-          {periodo === "Personalizar" && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 mb-3">
-              <div className="flex items-center justify-end">
-                <div className="flex items-center gap-3">
-                  <label className="text-base font-medium text-gray-700">Desde:</label>
-                  <input
-                    type="date"
-                    value={fechaDesde}
-                    onChange={(e) => setFechaDesde(e.target.value)}
-                    className="border rounded-lg px-4 py-2 text-base min-w-[140px] focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500"
-                    style={{ height: "40px" }}
-                    placeholder="dd/mm/aaaa"
-                  />
-                  <span className="mx-2 text-gray-500 text-lg">-</span>
-                  <label className="text-base font-medium text-gray-700">Hasta:</label>
-                  <input
-                    type="date"
-                    value={fechaHasta}
-                    onChange={(e) => setFechaHasta(e.target.value)}
-                    className="border rounded-lg px-4 py-2 text-base min-w-[140px] focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500"
-                    style={{ height: "40px" }}
-                    placeholder="dd/mm/aaaa"
-                  />
-                </div>
+          {/* Nuevos Clientes */}
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 shadow-sm border border-green-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-green-200 rounded-lg">
+                <Users className="h-6 w-6 text-green-800" />
               </div>
+              <span className="text-xs font-medium text-green-800 bg-green-200/50 px-2 py-1 rounded-full">+8</span>
             </div>
-          )}
-        </>
-      </div>
-
-      {/* -------------------------
-          RESTO DE LA PÁGINA (IGUAL A LO ANTERIOR)
-          ------------------------- */}
-
-      {/* KPIs principales */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
-        {/* Ventas del Mes */}
-        <div className="bg-blue-50 rounded-xl p-6 shadow-sm border border-blue-100 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="p-3 bg-blue-200 rounded-lg">
-                <ShoppingCart className="h-6 w-6 text-blue-800" />
-              </span>
-              <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-full">+12.5%</span>
-            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Nuevos Clientes</h3>
+            <p className="text-2xl font-bold text-gray-900">45</p>
+            <p className="text-sm text-gray-600">este mes</p>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Total de Ventas</h3>
-            <div className="text-2xl font-bold text-gray-900 mb-1">S/. 128,450</div>
-            <div className="text-sm text-gray-500">Periodo seleccionado</div>
+
+          {/* Total comprobantes emitidos */}
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 shadow-sm border border-purple-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-purple-200 rounded-lg">
+                <DollarSign className="h-6 w-6 text-purple-800" />
+              </div>
+              <span className="text-xs font-medium text-purple-800 bg-purple-200/50 px-2 py-1 rounded-full">+5.8%</span>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Comprobantes Emitidos</h3>
+            <p className="text-2xl font-bold text-gray-900">1,245</p>
+            <p className="text-sm text-gray-600">En este periodo</p>
+          </div>
+
+          {/* Crecimiento */}
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 shadow-sm border border-orange-200 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-orange-200 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-orange-800" />
+              </div>
+              <span className="text-xs font-medium text-orange-800 bg-orange-200/50 px-2 py-1 rounded-full">+18.2%</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Crecimiento</h3>
+              <p className="text-2xl font-bold text-gray-900">vs. mes anterior</p>
+              <p className="text-sm text-gray-600">Sólido desempeño</p>
+            </div>
+            <div className="flex justify-end items-end mt-2">
+              <button
+                className="text-orange-700 text-sm font-medium hover:underline"
+                style={{ minWidth: 'auto', padding: 0 }}
+                onClick={() => setOpenDetalleCrecimientoModal(true)}
+              >
+                Ver detalles
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Nuevos Clientes */}
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 shadow-sm border border-green-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-green-200 rounded-lg">
-              <Users className="h-6 w-6 text-green-800" />
-            </div>
-            <span className="text-xs font-medium text-green-800 bg-green-200/50 px-2 py-1 rounded-full">+8</span>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">Nuevos Clientes</h3>
-          <p className="text-2xl font-bold text-gray-900">45</p>
-          <p className="text-sm text-gray-600">este mes</p>
-        </div>
-
-        {/* Total comprobantes emitidos */}
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 shadow-sm border border-purple-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-purple-200 rounded-lg">
-              <DollarSign className="h-6 w-6 text-purple-800" />
-            </div>
-            <span className="text-xs font-medium text-purple-800 bg-purple-200/50 px-2 py-1 rounded-full">+5.8%</span>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">Comprobantes Emitidos</h3>
-          <p className="text-2xl font-bold text-gray-900">1,245</p>
-          <p className="text-sm text-gray-600">En este periodo</p>
-        </div>
-
-        {/* Crecimiento */}
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 shadow-sm border border-orange-200 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-orange-200 rounded-lg">
-              <TrendingUp className="h-6 w-6 text-orange-800" />
-            </div>
-            <span className="text-xs font-medium text-orange-800 bg-orange-200/50 px-2 py-1 rounded-full">+18.2%</span>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Crecimiento</h3>
-            <p className="text-2xl font-bold text-gray-900">vs. mes anterior</p>
-            <p className="text-sm text-gray-600">Sólido desempeño</p>
-          </div>
-          <div className="flex justify-end items-end mt-2">
-            <button
-              className="text-orange-700 text-sm font-medium hover:underline"
-              style={{ minWidth: 'auto', padding: 0 }}
-              onClick={() => setOpenDetalleCrecimientoModal(true)}
-            >
-              Ver detalles
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Cards de ventas por comprobante y establecimiento */}
       <div className="grid grid-cols-2 gap-6 mb-8">
@@ -793,10 +579,11 @@ const IndicadoresPage: React.FC = () => {
           </div>
         </div>
       </div>
+      </div>
 
-  {/* Modal para detalles y gráfico */}
-  <DetalleVentasDiariasModal open={openDetalleModal} onClose={() => setOpenDetalleModal(false)} />
-  <DetalleCrecimientoModal open={openDetalleCrecimientoModal} onClose={() => setOpenDetalleCrecimientoModal(false)} />
+      {/* Modal para detalles y gráfico */}
+      <DetalleVentasDiariasModal open={openDetalleModal} onClose={() => setOpenDetalleModal(false)} />
+      <DetalleCrecimientoModal open={openDetalleCrecimientoModal} onClose={() => setOpenDetalleCrecimientoModal(false)} />
     </div>
   );
 };

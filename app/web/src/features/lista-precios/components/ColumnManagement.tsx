@@ -33,7 +33,8 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
             <button
               onClick={onAddColumn}
               disabled={columns.length >= 10}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              style={columns.length < 10 ? { backgroundColor: '#1478D4' } : {}}
             >
               <Plus size={16} className="mr-2" />
               Agregar columna

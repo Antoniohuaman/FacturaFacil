@@ -148,7 +148,8 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
             <button
               type="submit"
               disabled={!formData.name.trim() || isSubmitting}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
+              className="px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
+              style={!(!formData.name.trim() || isSubmitting) ? { backgroundColor: '#1478D4' } : {}}
             >
               {isSubmitting ? (
                 <>

@@ -230,7 +230,8 @@ export const PriceModal: React.FC<PriceModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 text-white rounded-lg hover:opacity-90"
+              style={{ backgroundColor: '#1478D4' }}
             >
               Guardar precio
             </button>

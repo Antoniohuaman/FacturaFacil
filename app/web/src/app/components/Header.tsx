@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import { Bell } from 'lucide-react';
+import SearchBar from './SearchBar';
+import UserDropdown from './UserDropdown';
 
 export default function Header() {
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showCashMenu, setShowCashMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cashMenuRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
   // Información de caja
   const cashInfo = {
@@ -13,46 +18,31 @@ export default function Header() {
     initialAmount: "S/ 500.00"
   };
 
-  // Información de sesión del usuario logueado
+  // Información del usuario
   const userInfo = {
-    name: "Pedro Pérez",
-    email: "gerencia@empresa.com",
-    initials: "PP"
+    userName: "Antonio Huamán",
+    userRole: "Administrador",
+    userEmail: "antonio@sensiyo.com",
+    userInitials: "AH"
   };
 
   // Cerrar menus al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowProfileMenu(false);
+        setShowUserDropdown(false);
       }
       if (cashMenuRef.current && !cashMenuRef.current.contains(event.target as Node)) {
         setShowCashMenu(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleProfileAction = (action: string) => {
-    setShowProfileMenu(false);
-    
-    switch (action) {
-      case 'profile':
-        alert('Redirigiendo a Mi Perfil...\n(Aquí se implementaría la navegación al perfil del usuario)');
-        break;
-      case 'settings':
-        alert('Redirigiendo a Configuración...\n(Aquí se implementaría la navegación a configuración del sistema)');
-        break;
-      case 'logout':
-        const confirmLogout = window.confirm('¿Está seguro que desea cerrar la sesión?');
-        if (confirmLogout) {
-          alert('Cerrando sesión...\n(Aquí se implementaría el logout real: limpiar tokens, redirect a login, etc.)');
-        }
-        break;
-    }
-  };
 
   const handleCloseCash = () => {
     setShowCashMenu(false);
@@ -63,16 +53,25 @@ export default function Header() {
   };
 
   return (
-    <header className="h-14 bg-white border-b border-slate-200 flex items-center px-6 shadow-sm">
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 shadow-sm">
       {/* Logo */}
-      <div className="text-2xl font-bold flex items-center">
-        <span className="text-blue-600">Factura</span>
-        <span className="text-red-600 ml-1">Fácil</span>
+      <div className="flex items-center ml-8">
+        <img 
+          src="/SenciYO.svg" 
+          alt="SenciYO"
+          className="h-11"
+        />
       </div>
       
+      {/* SearchBar - más a la izquierda y más notable */}
+      <div className="flex-1 flex justify-center">
+        <div className="mr-40 transform scale-105"> {/* Escala ligeramente más grande */}
+          <SearchBar />
+        </div>
+      </div>
       
       {/* Información de sesión activa */}
-      <div className="ml-auto flex items-center space-x-8 text-sm">
+      <div className="flex items-center space-x-8 text-sm">
         {/* Estado de caja con dropdown */}
         <div className="relative" ref={cashMenuRef}>
           <button 
@@ -145,74 +144,85 @@ export default function Header() {
         {/* Separador */}
         <div className="h-6 w-px bg-slate-300"></div>
         
-        {/* Perfil/Menu con dropdown */}
-        <div className="relative" ref={menuRef}>
+        {/* Botón de notificaciones */}
+        <div className="relative ml-4" ref={notificationsRef}>
           <button 
-            className="flex items-center space-x-2 hover:bg-slate-50 px-2 py-1 rounded-md transition-colors"
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            className="relative w-10 h-10 hover:bg-slate-100 rounded-full transition-colors flex items-center justify-center group"
+            onClick={() => setShowNotifications(!showNotifications)}
           >
-            <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-blue-600 font-medium text-sm">{userInfo.initials}</span>
-            </div>
-            <svg 
-              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${showProfileMenu ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <Bell className="w-5 h-5 text-slate-600 group-hover:text-slate-900 transition-colors" />
+            {/* Indicador de notificaciones nuevas */}
+            <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
           </button>
 
-          {/* Dropdown Menu */}
-          {showProfileMenu && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50">
-              {/* Información del usuario */}
-              <div className="px-4 py-3 border-b border-slate-100">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-medium text-sm">{userInfo.initials}</span>
+          {/* Dropdown de notificaciones */}
+          {showNotifications && (
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl py-3 z-50 max-h-96 overflow-y-auto">
+              <div className="px-4 pb-3 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900 text-base">Notificaciones</h3>
+              </div>
+              <div className="py-2">
+                {/* Ejemplo de notificaciones */}
+                <div className="px-4 py-3 hover:bg-slate-50 transition-colors border-l-4 border-blue-500">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900">Nueva factura generada</p>
+                      <p className="text-xs text-slate-500 mt-1">Factura F001-00123 por S/ 250.00</p>
+                    </div>
+                    <span className="text-xs text-slate-400">2 min</span>
                   </div>
-                  <div>
-                    <div className="font-medium text-slate-900 text-sm">{userInfo.name}</div>
-                    <div className="text-slate-500 text-xs">{userInfo.email}</div>
+                </div>
+                <div className="px-4 py-3 hover:bg-slate-50 transition-colors border-l-4 border-green-500">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900">Cliente registrado</p>
+                      <p className="text-xs text-slate-500 mt-1">Nuevo cliente: María García</p>
+                    </div>
+                    <span className="text-xs text-slate-400">5 min</span>
+                  </div>
+                </div>
+                <div className="px-4 py-3 hover:bg-slate-50 transition-colors border-l-4 border-orange-500">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900">Stock bajo</p>
+                      <p className="text-xs text-slate-500 mt-1">Producto XYZ tiene solo 5 unidades</p>
+                    </div>
+                    <span className="text-xs text-slate-400">1 hora</span>
                   </div>
                 </div>
               </div>
-
-              <button
-                onClick={() => handleProfileAction('profile')}
-                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span>Mi perfil</span>
-              </button>
-
-              <button
-                onClick={() => handleProfileAction('settings')}
-                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span>Configuración</span>
-              </button>
-
-              <hr className="my-1 border-slate-100" />
-
-              <button
-                onClick={() => handleProfileAction('logout')}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span>Cerrar sesión</span>
-              </button>
+              <div className="border-t border-slate-100 pt-2">
+                <button className="w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
+                  Ver todas las notificaciones
+                </button>
+              </div>
             </div>
+          )}
+        </div>
+        
+        {/* Perfil/Menu con dropdown */}
+        <div className="relative ml-4" ref={menuRef}>
+          <button 
+            className="hover:bg-slate-50 p-1 rounded-md transition-colors"
+            onClick={() => setShowUserDropdown(!showUserDropdown)}
+          >
+            <div className="w-10 h-10 rounded-full overflow-hidden">
+              <img 
+                src="/perfil.jpg?v=2" 
+                alt="Foto de perfil"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </button>
+
+          {/* Dropdown Menu */}
+          {showUserDropdown && (
+            <UserDropdown 
+              userName={userInfo.userName}
+              userRole={userInfo.userRole}
+              userEmail={userInfo.userEmail}
+              onClose={() => setShowUserDropdown(false)}
+            />
           )}
         </div>
       </div>

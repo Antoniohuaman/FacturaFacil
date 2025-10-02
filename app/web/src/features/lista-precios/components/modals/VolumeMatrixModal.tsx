@@ -232,7 +232,8 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
               <button
                 type="button"
                 onClick={addRange}
-                className="flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                className="flex items-center px-3 py-1 text-white text-sm rounded hover:opacity-90"
+                style={{ backgroundColor: '#1478D4' }}
               >
                 <Plus size={14} className="mr-1" />
                 Agregar rango
@@ -355,7 +356,8 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 text-white rounded-lg hover:opacity-90"
+              style={{ backgroundColor: '#1478D4' }}
             >
               Guardar matriz
             </button>

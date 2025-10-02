@@ -1,31 +1,36 @@
 import { Outlet } from "react-router-dom";
+import { useState } from "react";
 import Header from "../components/Header";
 import SideNav from "../components/SideNav";
 import Footer from "../components/Footer";
 import { ConfigurationProvider } from "../../features/configuracion-sistema/context/ConfigurationContext";
 
 export default function AppShell() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
     <ConfigurationProvider>
-      <div className="min-h-screen grid grid-rows-[auto,1fr,auto] bg-slate-50">
-        <Header />
-        <div className="flex min-h-0">
-          <div className="flex flex-col">
-            {/* Sidebar responsivo: ancho variable según breakpoint */}
-            <div className="w-16 sm:w-24 md:w-40 lg:w-56 transition-all duration-300">
-              <SideNav />
-            </div>
+      <div className="min-h-screen bg-slate-50">
+        {/* Header fijo */}
+        <div className="fixed top-0 left-0 right-0 z-50">
+          <Header />
+        </div>
+        <div className="flex pt-16">
+          {/* Sidebar fijo para evitar scroll */}
+          <div className={`${sidebarCollapsed ? 'w-[88px]' : 'w-[260px]'} fixed top-16 bottom-0 left-0 z-40 transition-all duration-300 ease-in-out`}>
+            <SideNav 
+              collapsed={sidebarCollapsed} 
+              onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+            />
           </div>
-          {/* Contenido principal con padding y scroll horizontal en pantallas pequeñas */}
-          <div className="flex-1 min-w-0 overflow-auto">
-            <div className="max-w-[1440px] mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8">
-              <div className="overflow-x-auto">
-                <Outlet />
-              </div>
+          {/* Contenido principal con margen para el sidebar */}
+          <div className={`flex-1 min-h-[calc(100vh-4rem)] ${sidebarCollapsed ? 'ml-[88px]' : 'ml-[260px]'} transition-all duration-300 ease-in-out flex flex-col`}>
+            <div className="flex-1 px-10 pb-6">
+              <Outlet />
             </div>
+            <Footer />
           </div>
         </div>
-        <Footer />
       </div>
     </ConfigurationProvider>
   );

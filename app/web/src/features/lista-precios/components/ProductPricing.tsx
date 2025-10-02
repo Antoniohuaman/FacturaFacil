@@ -188,7 +188,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
             </div>
             <button
               onClick={() => handleAssignPrice()}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
+              style={{ backgroundColor: '#1478D4' }}
             >
               <Plus size={16} className="mr-2" />
               Asignar precio
@@ -318,7 +319,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
               {!searchSKU && (
                 <button
                   onClick={() => handleAssignPrice()}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="mt-4 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1478D4' }}
                 >
                   Asignar primer precio
                 </button>

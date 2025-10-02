@@ -35,9 +35,9 @@ const CompanySelector = () => {
         <button
           onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
           className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200/50
-                   hover:border-blue-300 hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50
-                   transition-all flex items-center justify-between group backdrop-blur-sm
-                   hover:shadow-lg hover:shadow-blue-500/10 bg-white"
+                   hover:border-gray-300 hover:bg-gray-50
+                   transition-all duration-200 flex items-center justify-between group backdrop-blur-sm
+                   hover:shadow-md bg-white"
         >
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 
@@ -64,33 +64,13 @@ const CompanySelector = () => {
         </button>
 
         {showCompanyDropdown && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl 
-                        border border-gray-200/50 rounded-2xl shadow-2xl z-50 overflow-hidden">
-            
-            {/* Header con información de empresa actual */}
-            <div className="p-4 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 border-b border-gray-200/50">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 
-                              flex items-center justify-center shadow-lg shadow-blue-500/30">
-                  <Building2 size={24} className="text-white" />
-                </div>
-                <div>
-                  <div className="font-bold text-gray-900 text-sm">
-                    {selectedCompany?.name}
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <MapPin size={12} />
-                    {selectedSucursal}
-                  </div>
-                </div>
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl z-50 border border-gray-200">
+            <div className="p-2">
+              <div className="text-xs font-medium px-2 py-1.5 text-gray-500">
+                Sucursales de {selectedCompany?.name}
               </div>
-
-              {/* Sección cambiar sucursal */}
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                Cambiar Sucursal
-              </div>
-
-              <div className="space-y-2">
+              
+              <div className="space-y-1">
                 {selectedCompany?.sucursales.map((sucursal) => (
                   <button
                     key={sucursal}
@@ -98,31 +78,31 @@ const CompanySelector = () => {
                       setSelectedSucursal(sucursal);
                       setShowCompanyDropdown(false);
                     }}
-                    className={`
-                      w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all
-                      flex items-center gap-2 font-medium
-                      ${sucursal === selectedSucursal 
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30' 
-                        : 'hover:bg-white/80 text-gray-700 hover:shadow-sm bg-white/50'
-                      }
-                    `}
+                    className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-gray-50 transition-colors"
+                    style={{
+                      backgroundColor: sucursal === selectedSucursal ? '#f0f9ff' : 'transparent',
+                      borderLeft: sucursal === selectedSucursal ? '3px solid #0040A2' : '3px solid transparent'
+                    }}
                   >
-                    <MapPin size={14} />
-                    {sucursal}
+                    <div className="flex items-center text-gray-700">
+                      <MapPin size={14} className="mr-2 text-gray-400" />
+                      <div>
+                        <div className="font-medium">{sucursal}</div>
+                        <div className="text-xs text-gray-500">
+                          {sucursal === 'Tienda Sur' ? 'Av. Principal 123' : 
+                           sucursal === 'Tienda Norte' ? 'Jr. Los Olivos 456' : 
+                           'Av. Industrial 789'}
+                        </div>
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>
-
-              {/* Enlace cambiar empresa */}
-              <div className="mt-4 pt-3 border-t border-gray-200/50">
-                <button 
-                  onClick={() => {
-                    // Aquí iría la lógica para mostrar otras empresas
-                    console.log('Mostrar selector de empresas');
-                  }}
-                  className="text-blue-600 text-sm font-semibold hover:text-blue-700 transition-colors flex items-center gap-1"
-                >
-                  Cambiar empresa →
+              
+              <div className="border-t pt-2 mt-2">
+                <button className="w-full flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm text-blue-600 font-medium">
+                  <Building2 size={16} />
+                  <span>Cambiar empresa</span>
                 </button>
               </div>
             </div>

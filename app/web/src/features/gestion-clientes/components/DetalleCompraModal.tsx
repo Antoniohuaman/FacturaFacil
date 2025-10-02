@@ -217,7 +217,8 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
           <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
             <button
               onClick={() => alert('Descargar PDF - Función por implementar')}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              className="px-6 py-2 text-white rounded-lg hover:opacity-90 transition-colors font-medium"
+              style={{ backgroundColor: '#1478D4' }}
             >
               📄 Descargar PDF
             </button>
