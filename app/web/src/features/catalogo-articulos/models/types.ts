@@ -104,13 +104,73 @@ export interface TableColumn {
   type: 'text' | 'number' | 'currency' | 'select' | 'date';
 }
 
-export type TabKey = 'productos' | 'paquetes' | 'categorias' | 'importar';
+export type TabKey = 'productos' | 'paquetes' | 'categorias' | 'importar' | 'control-stock';
 
 export interface TabConfig {
   key: TabKey;
   label: string;
   icon: string;
   component: React.ComponentType;
+}
+
+// Tipos para Control de Stock
+export type MovimientoStockTipo = 
+  | 'ENTRADA' 
+  | 'SALIDA' 
+  | 'AJUSTE_POSITIVO' 
+  | 'AJUSTE_NEGATIVO' 
+  | 'DEVOLUCION' 
+  | 'MERMA' 
+  | 'TRANSFERENCIA';
+
+export type MovimientoStockMotivo =
+  | 'COMPRA'
+  | 'VENTA'
+  | 'AJUSTE_INVENTARIO'
+  | 'DEVOLUCION_CLIENTE'
+  | 'DEVOLUCION_PROVEEDOR'
+  | 'PRODUCTO_DAÑADO'
+  | 'PRODUCTO_VENCIDO'
+  | 'ROBO_PERDIDA'
+  | 'TRANSFERENCIA_ALMACEN'
+  | 'PRODUCCION'
+  | 'MERMA'
+  | 'OTRO';
+
+export interface MovimientoStock {
+  id: string;
+  productoId: string;
+  productoCodigo: string;
+  productoNombre: string;
+  tipo: MovimientoStockTipo;
+  motivo: MovimientoStockMotivo;
+  cantidad: number;
+  cantidadAnterior: number;
+  cantidadNueva: number;
+  usuario: string;
+  observaciones?: string;
+  documentoReferencia?: string;
+  fecha: Date;
+  ubicacion?: string;
+}
+
+export interface StockAlert {
+  productoId: string;
+  productoCodigo: string;
+  productoNombre: string;
+  cantidadActual: number;
+  stockMinimo: number;
+  estado: 'CRITICO' | 'BAJO' | 'NORMAL' | 'EXCESO';
+}
+
+export interface StockSummary {
+  totalProductos: number;
+  totalStock: number;
+  valorTotalStock: number;
+  productosSinStock: number;
+  productosStockBajo: number;
+  productosStockCritico: number;
+  ultimaActualizacion: Date;
 }
 
 export interface PaginationConfig {
