@@ -1,7 +1,7 @@
 import type { Product, Category, Package, FilterOptions, PaginationConfig } from '../models/types';
 // src/features/catalogo-articulos/hooks/useProductStore.tsx
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 
 // Mock data
 const mockProducts: Product[] = [
@@ -81,10 +81,64 @@ const mockCategories: Category[] = [
   { id: '6', nombre: 'SOFTWARE', productCount: 0, fechaCreacion: new Date('2024-01-01') }
 ];
 
+// Helpers para localStorage con manejo de fechas
+const saveToLocalStorage = (key: string, data: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage:`, error);
+  }
+};
+
+const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return defaultValue;
+
+    const parsed = JSON.parse(stored);
+
+    // Convertir fechas de string a Date
+    if (Array.isArray(parsed)) {
+      return parsed.map((item: any) => ({
+        ...item,
+        fechaCreacion: item.fechaCreacion ? new Date(item.fechaCreacion) : new Date(),
+        fechaActualizacion: item.fechaActualizacion ? new Date(item.fechaActualizacion) : new Date()
+      })) as T;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error(`Error loading ${key} from localStorage:`, error);
+    return defaultValue;
+  }
+};
+
 export const useProductStore = () => {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
-  const [packages] = useState<Package[]>([]);
+  // Cargar datos desde localStorage o usar mock data
+  const [products, setProducts] = useState<Product[]>(() =>
+    loadFromLocalStorage('catalog_products', mockProducts)
+  );
+  const [categories, setCategories] = useState<Category[]>(() =>
+    loadFromLocalStorage('catalog_categories', mockCategories)
+  );
+  const [packages, setPackages] = useState<Package[]>(() =>
+    loadFromLocalStorage('catalog_packages', [])
+  );
+
+  // Persistir productos en localStorage
+  useEffect(() => {
+    saveToLocalStorage('catalog_products', products);
+  }, [products]);
+
+  // Persistir categorías en localStorage
+  useEffect(() => {
+    saveToLocalStorage('catalog_categories', categories);
+  }, [categories]);
+
+  // Persistir paquetes en localStorage
+  useEffect(() => {
+    saveToLocalStorage('catalog_packages', packages);
+  }, [packages]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     busqueda: '',
@@ -273,6 +327,28 @@ export const useProductStore = () => {
     }));
   }, []);
 
+  // CRUD Paquetes
+  const addPackage = useCallback((packageData: Omit<Package, 'id' | 'fechaCreacion'>) => {
+    const newPackage: Package = {
+      ...packageData,
+      id: Date.now().toString(),
+      fechaCreacion: new Date()
+    };
+    setPackages(prev => [newPackage, ...prev]);
+  }, []);
+
+  const updatePackage = useCallback((id: string, updates: Partial<Package>) => {
+    setPackages(prev =>
+      prev.map(pkg =>
+        pkg.id === id ? { ...pkg, ...updates } : pkg
+      )
+    );
+  }, []);
+
+  const deletePackage = useCallback((id: string) => {
+    setPackages(prev => prev.filter(pkg => pkg.id !== id));
+  }, []);
+
   return {
     // Estado
     products: filteredProducts,
@@ -282,24 +358,29 @@ export const useProductStore = () => {
     loading,
     filters,
     pagination,
-    
+
     // Productos
     addProduct,
     updateProduct,
     deleteProduct,
-    deleteAllProducts, // NUEVO
-    
+    deleteAllProducts,
+
     // Categorías
     addCategory,
     updateCategory,
     deleteCategory,
-    
+
+    // Paquetes
+    addPackage,
+    updatePackage,
+    deletePackage,
+
     // Filtros y paginación
     updateFilters,
     resetFilters,
     changePage,
     changeItemsPerPage,
-    
+
     // Utils
     setLoading
   };

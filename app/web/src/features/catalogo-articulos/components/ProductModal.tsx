@@ -20,8 +20,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
   product,
   categories
 }) => {
-  // Usar el store global para agregar categoría
-  const { addCategory, categories: globalCategories } = useProductStore();
+  // Usar el store global para agregar categoría y validar códigos
+  const { addCategory, categories: globalCategories, allProducts } = useProductStore();
   type FormError = {
     [K in keyof ProductFormData]?: string;
   };
@@ -90,9 +90,21 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
     if (!formData.codigo.trim()) {
       newErrors.codigo = 'El código es requerido';
+    } else {
+      // Validar código duplicado
+      const codigoDuplicado = allProducts.find(
+        p => p.codigo.toLowerCase() === formData.codigo.trim().toLowerCase() &&
+        p.id !== product?.id // Excluir el producto actual si está editando
+      );
+      if (codigoDuplicado) {
+        newErrors.codigo = `El código "${formData.codigo}" ya existe en el producto "${codigoDuplicado.nombre}"`;
+      }
     }
 
-    // El precio de venta ahora es opcional
+    // Validar precio no negativo
+    if (formData.precio < 0) {
+      newErrors.precio = 'El precio no puede ser negativo';
+    }
 
     if (!formData.categoria) {
       newErrors.categoria = 'La categoría es requerida';

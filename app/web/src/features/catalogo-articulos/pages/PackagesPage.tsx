@@ -5,13 +5,10 @@ import type { Package } from '../models/types';
 import { useProductStore } from '../hooks/useProductStore';
 
 const PackagesPage: React.FC = () => {
-  const { allProducts } = useProductStore();
-  const [packages, setPackages] = useState<Package[]>([]);
+  const { allProducts, packages, addPackage, updatePackage, deletePackage } = useProductStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // El estado del formulario se moverá al modal
 
   const filteredPackages = packages.filter(pkg =>
     pkg.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -28,11 +25,9 @@ const PackagesPage: React.FC = () => {
     setShowCreateModal(true);
   };
 
-  // Estas funciones se moverán al modal
-
   const handleDeletePackage = (pkg: Package) => {
     if (window.confirm(`¿Estás seguro de que quieres eliminar el paquete "${pkg.nombre}"?`)) {
-      setPackages(prev => prev.filter(p => p.id !== pkg.id));
+      deletePackage(pkg.id);
     }
   };
 
@@ -96,19 +91,24 @@ const PackagesPage: React.FC = () => {
           precioUnitario: product.precio
         };
       });
-      const newPackage: Package = {
-        id: pkg?.id || Date.now().toString(),
-        nombre: formData.nombre,
-        descripcion: formData.descripcion || undefined,
-        productos: packageProducts,
-        precio: calculatePackagePrice(),
-        descuento: formData.descuento || undefined,
-        fechaCreacion: pkg?.fechaCreacion || new Date()
-      };
       if (pkg) {
-        setPackages(prev => prev.map(p => p.id === pkg.id ? newPackage : p));
+        // Actualizar paquete existente
+        updatePackage(pkg.id, {
+          nombre: formData.nombre,
+          descripcion: formData.descripcion || undefined,
+          productos: packageProducts,
+          precio: calculatePackagePrice(),
+          descuento: formData.descuento || undefined
+        });
       } else {
-        setPackages(prev => [newPackage, ...prev]);
+        // Crear nuevo paquete
+        addPackage({
+          nombre: formData.nombre,
+          descripcion: formData.descripcion || undefined,
+          productos: packageProducts,
+          precio: calculatePackagePrice(),
+          descuento: formData.descuento || undefined
+        });
       }
       onClose();
     };

@@ -66,7 +66,7 @@ export interface ProductFormData {
   nombre: string;
   codigo: string;
   precio: number;
-  unidad: 'DOCENA' | 'UNIDAD';
+  unidad: 'DOCENA' | 'UNIDAD' | 'KILOGRAMO' | 'LITRO' | 'METRO';
   categoria: string;
   cantidad: number;
   conImpuestos: boolean;
