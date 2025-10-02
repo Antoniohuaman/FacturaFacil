@@ -21,9 +21,11 @@ import { CartSidebar } from '../components/CartSidebar';
 import { ToastContainer } from '../components/ToastContainer';
 import { PaymentModal } from '../components/PaymentModal';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { SuccessModal } from '../components/SuccessModal';
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, LayoutGrid } from 'lucide-react';
+import { useState } from 'react';
 
 const PuntoVenta = () => {
   const navigate = useNavigate();
@@ -50,6 +52,10 @@ const PuntoVenta = () => {
     error,
     warning
   } = useComprobanteActions();
+
+  // Estado para el modal de éxito
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastComprobante, setLastComprobante] = useState<any>(null);
 
   // Available products (SIN CAMBIOS)
   const availableProducts = AVAILABLE_PRODUCTS;
@@ -90,13 +96,37 @@ const PuntoVenta = () => {
       });
 
       if (success) {
-        clearCart();
-        resetForm();
+        // Guardar datos del comprobante para el modal
+        setLastComprobante({
+          tipo: tipoComprobante === 'factura' ? 'Factura' : tipoComprobante === 'boleta' ? 'Boleta' : 'Nota de Venta',
+          serie: serieSeleccionada,
+          numero: '001-00001', // TODO: Obtener el número real del backend
+          total: totals.total,
+          cliente: 'Cliente General', // TODO: Obtener del formulario si existe
+          vuelto: 0 // En POS el vuelto se calcula en PaymentModal
+        });
+        
+        // Cerrar modal de pago y mostrar modal de éxito
         setShowPaymentModal(false);
+        setShowSuccessModal(true);
+        
+        // NO limpiar el carrito todavía - se hará cuando el usuario haga clic en "Nueva venta"
       }
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handlePrint = () => {
+    console.log('Imprimiendo comprobante...', lastComprobante);
+    // TODO: Implementar lógica de impresión
+    window.print();
+  };
+
+  const handleNewSale = () => {
+    clearCart();
+    resetForm();
+    setShowSuccessModal(false);
   };
 
   return (
@@ -216,6 +246,17 @@ const PuntoVenta = () => {
           onViewFullForm={() => navigate('/comprobantes/emision')}
           currency={currentCurrency}
         />
+
+        {/* Modal de éxito con acciones de compartir */}
+        {lastComprobante && (
+          <SuccessModal
+            isOpen={showSuccessModal}
+            onClose={() => setShowSuccessModal(false)}
+            comprobante={lastComprobante}
+            onPrint={handlePrint}
+            onNewSale={handleNewSale}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );

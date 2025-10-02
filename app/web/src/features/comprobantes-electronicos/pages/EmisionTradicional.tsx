@@ -25,9 +25,11 @@ import { DraftModal } from '../components/DraftModal';
 import { PaymentModal } from '../components/PaymentModal';
 import { PreviewModal } from '../components/PreviewModal';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { SuccessModal } from '../components/SuccessModal';
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, LayoutList } from 'lucide-react';
+import { useState } from 'react';
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
@@ -62,6 +64,10 @@ const EmisionTradicional = () => {
     error
   } = useComprobanteActions();
 
+  // Estado para el modal de éxito
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastComprobante, setLastComprobante] = useState<any>(null);
+
   // Calculate totals (SIN CAMBIOS)
   const totals = calculateTotals(cartItems);
 
@@ -94,14 +100,37 @@ const EmisionTradicional = () => {
       });
 
       if (success) {
-        clearCart();
-        resetForm();
-        // En formulario tradicional, NO redirigir - quedarse para crear otro comprobante
-        // setTimeout(() => goToComprobantes(), 1000);
+        // Guardar datos del comprobante para el modal
+        const received = parseFloat(receivedAmount) || 0;
+        setLastComprobante({
+          tipo: tipoComprobante === 'factura' ? 'Factura' : tipoComprobante === 'boleta' ? 'Boleta' : 'Nota de Venta',
+          serie: serieSeleccionada,
+          numero: '001-00001', // TODO: Obtener el número real del backend
+          total: totals.total,
+          cliente: 'Cliente General', // TODO: Obtener del formulario
+          vuelto: received > totals.total ? received - totals.total : 0
+        });
+        
+        // Mostrar modal de éxito
+        setShowSuccessModal(true);
+        
+        // NO limpiar el carrito todavía - se hará cuando el usuario haga clic en "Nueva venta"
       }
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handlePrint = () => {
+    console.log('Imprimiendo comprobante...', lastComprobante);
+    // TODO: Implementar lógica de impresión
+    window.print();
+  };
+
+  const handleNewSale = () => {
+    clearCart();
+    resetForm();
+    setShowSuccessModal(false);
   };
 
   return (
@@ -289,6 +318,17 @@ const EmisionTradicional = () => {
           observations={observaciones}
           internalNotes={notaInterna}
         />
+
+        {/* Modal de éxito con acciones de compartir */}
+        {lastComprobante && (
+          <SuccessModal
+            isOpen={showSuccessModal}
+            onClose={() => setShowSuccessModal(false)}
+            comprobante={lastComprobante}
+            onPrint={handlePrint}
+            onNewSale={handleNewSale}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );
