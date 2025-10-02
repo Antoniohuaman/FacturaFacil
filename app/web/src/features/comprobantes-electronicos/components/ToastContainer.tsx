@@ -99,8 +99,8 @@ const Toast: React.FC<{
           : 'translate-x-full opacity-0 scale-95'
         }
         ${getBackgroundColor()}
-        max-w-md w-full shadow-lg rounded-lg border pointer-events-auto
-        ring-1 ring-black ring-opacity-5 overflow-hidden
+        min-w-[320px] max-w-lg w-auto shadow-lg rounded-lg border pointer-events-auto
+        ring-1 ring-black ring-opacity-5
       `}
     >
       <div className="p-4">
@@ -108,7 +108,7 @@ const Toast: React.FC<{
           <div className="flex-shrink-0">
             {getIcon()}
           </div>
-          <div className="ml-3 w-0 flex-1">
+          <div className="ml-3 flex-1">
             <p className={`text-sm font-semibold ${getTitleColor()}`}>
               {toast.title}
             </p>
@@ -175,7 +175,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
         }
       `}</style>
 
-      <div className="fixed top-4 right-4 z-50 space-y-3 pointer-events-none">
+      <div className="fixed top-4 right-4 z-[100] space-y-3 pointer-events-none">
         {toasts.map((toast) => (
           <Toast
             key={toast.id}
