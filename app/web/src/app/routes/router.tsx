@@ -1,10 +1,11 @@
 import { createBrowserRouter } from "react-router-dom";
 import AppShell from "../layouts/AppShell";
 
-// Pages por módulo
-// import NuevoComprobante from "../../features/comprobantes-electronicos/pages/NuevoComprobante";
-import NuevoComprobante from "../../features/comprobantes-electronicos/pages/NuevoComprobante";
+// Pages por módulo - Comprobantes
 import ComprobantesTabs from "../../features/comprobantes-electronicos/pages/ComprobantesTabs";
+import { SelectorModoEmision } from "../../features/comprobantes-electronicos/pages/SelectorModoEmision";
+import EmisionTradicional from "../../features/comprobantes-electronicos/pages/EmisionTradicional";
+import PuntoVenta from "../../features/comprobantes-electronicos/pages/PuntoVenta";
 import ImportarClientesPage from "../../features/gestion-clientes/pages/ImportarClientesPage";
 import HistorialCompras from "../../features/gestion-clientes/pages/HistorialCompras";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
@@ -26,7 +27,9 @@ export const router = createBrowserRouter([
     children: [
   { path: "/", element: <ComprobantesTabs /> },
   { path: "/comprobantes", element: <ComprobantesTabs /> },
-  { path: "/comprobantes/nuevo", element: <NuevoComprobante /> },
+  { path: "/comprobantes/nuevo", element: <SelectorModoEmision /> },
+  { path: "/comprobantes/emision", element: <EmisionTradicional /> },
+  { path: "/comprobantes/pos", element: <PuntoVenta /> },
       { path: "/catalogo", element: <CatalogoArticulosMain /> },
       { path: "/lista-precios", element: <ListaPrecios /> },
       { path: "/control-caja", element: <ControlCajaHome /> },
