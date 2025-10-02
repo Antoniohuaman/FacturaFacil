@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Search, Plus, Edit } from 'lucide-react';
 import type { TipoComprobante } from '../models/comprobante.types';
+import ClienteForm from '../../gestion-clientes/components/ClienteForm';
 
 interface PaymentMethodsSectionProps {
   tipoComprobante: TipoComprobante;
@@ -21,9 +23,6 @@ interface PaymentMethodsSectionProps {
     direccion: string;
   };
   onNuevaFormaPago?: () => void;
-  onSeleccionarCliente?: () => void;
-  onNuevoCliente?: () => void;
-  onEditarCliente?: () => void;
 }
 
 const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
@@ -36,16 +35,163 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
   setMoneda,
   formaPago = "contado",
   setFormaPago,
-  clienteSeleccionado = {
-    nombre: "FLORES CANALES CARMEN ROSA",
-    dni: "09661829",
-    direccion: "Dirección no definida"
-  },
+  clienteSeleccionado,
   onNuevaFormaPago,
-  onSeleccionarCliente,
-  onNuevoCliente,
-  onEditarCliente,
 }) => {
+  // Estado para gestión de clientes
+  const [showClienteForm, setShowClienteForm] = useState(false);
+  const [clienteSeleccionadoLocal, setClienteSeleccionadoLocal] = useState<{
+    nombre: string;
+    dni: string;
+    direccion: string;
+  } | null>(clienteSeleccionado || null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Estado para el formulario de cliente
+  const [documentType, setDocumentType] = useState('DNI');
+  const [clientType, setClientType] = useState('natural');
+  const [formData, setFormData] = useState({
+    documentNumber: '',
+    legalName: '',
+    address: '',
+    gender: 'M',
+    phone: '',
+    email: '',
+    additionalData: ''
+  });
+
+  // Tipos de documento y cliente (mismo que gestion-clientes)
+  const documentTypes = [
+    { value: 'DNI', label: 'DNI' },
+    { value: 'RUC', label: 'RUC' },
+    { value: 'CE', label: 'Carnet de Extranjería' },
+    { value: 'PAS', label: 'Pasaporte' }
+  ];
+
+  const clientTypes = [
+    { value: 'natural', label: 'Persona Natural' },
+    { value: 'juridica', label: 'Persona Jurídica' }
+  ];
+
+  // Mock de clientes (integrar con store real)
+  const mockClientes = [
+    {
+      id: '1',
+      tipoDocumento: 'DNI',
+      numeroDocumento: '09661829',
+      tipoPersona: 'natural',
+      nombres: 'CARMEN ROSA',
+      apellidos: 'FLORES CANALES',
+      razonSocial: '',
+      direccion: 'Dirección no definida',
+      telefono: '',
+      email: ''
+    },
+    {
+      id: '2',
+      tipoDocumento: 'RUC',
+      numeroDocumento: '20123456789',
+      tipoPersona: 'juridica',
+      nombres: '',
+      apellidos: '',
+      razonSocial: 'EMPRESA SAC',
+      direccion: 'Av. Principal 123',
+      telefono: '987654321',
+      email: 'contacto@empresa.com'
+    }
+  ];
+
+  // Filtrar clientes por búsqueda
+  const clientesFiltrados = mockClientes.filter(cliente => {
+    const searchLower = searchQuery.toLowerCase();
+    const nombreCompleto = cliente.tipoPersona === 'natural' 
+      ? `${cliente.nombres} ${cliente.apellidos}`.toLowerCase()
+      : cliente.razonSocial.toLowerCase();
+    return nombreCompleto.includes(searchLower) || 
+           cliente.numeroDocumento.includes(searchLower);
+  });
+
+  // Handlers
+  const handleNuevoCliente = () => {
+    setIsEditing(false);
+    setDocumentType('DNI');
+    setClientType('natural');
+    setFormData({
+      documentNumber: '',
+      legalName: '',
+      address: '',
+      gender: 'M',
+      phone: '',
+      email: '',
+      additionalData: ''
+    });
+    setShowClienteForm(true);
+  };
+
+  const handleEditarCliente = () => {
+    // Buscar el cliente seleccionado en la lista mock
+    if (!clienteSeleccionadoLocal) return;
+    
+    const cliente = mockClientes.find(c => c.numeroDocumento === clienteSeleccionadoLocal.dni);
+    if (cliente) {
+      setIsEditing(true);
+      setDocumentType(cliente.tipoDocumento);
+      setClientType(cliente.tipoPersona);
+      
+      const nombreCompleto = cliente.tipoPersona === 'natural'
+        ? `${cliente.nombres} ${cliente.apellidos}`
+        : cliente.razonSocial;
+      
+      setFormData({
+        documentNumber: cliente.numeroDocumento,
+        legalName: nombreCompleto,
+        address: cliente.direccion || '',
+        gender: 'M',
+        phone: cliente.telefono || '',
+        email: cliente.email || '',
+        additionalData: ''
+      });
+      setShowClienteForm(true);
+    }
+  };
+
+  const handleSaveCliente = () => {
+    console.log('Cliente guardado:', { documentType, clientType, formData });
+    // TODO: Integrar con store/API real
+    
+    // Actualizar cliente seleccionado
+    setClienteSeleccionadoLocal({
+      nombre: formData.legalName,
+      dni: formData.documentNumber,
+      direccion: formData.address || 'Dirección no definida'
+    });
+    
+    setShowClienteForm(false);
+    setSearchQuery('');
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSeleccionarCliente = (cliente: any) => {
+    const nombreCompleto = cliente.tipoPersona === 'natural'
+      ? `${cliente.nombres} ${cliente.apellidos}`
+      : cliente.razonSocial;
+    
+    setClienteSeleccionadoLocal({
+      nombre: nombreCompleto,
+      dni: cliente.numeroDocumento,
+      direccion: cliente.direccion || 'Dirección no definida'
+    });
+    
+    setSearchQuery('');
+  };
+
   return (
     <div className="w-80 border-l border-gray-200 bg-white p-6 space-y-6">
       {/* Document Type */}
@@ -201,66 +347,100 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
         </div>
       </div>
 
-      {/* Client Selection */}
+      {/* Client Selection - Versión mejorada */}
       <div>
-        <div className="relative mb-4">
-          <input 
-            type="text" 
-            placeholder="Seleccionar cliente" 
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onClick={onSeleccionarCliente}
-            readOnly
-          />
-        </div>
-        <button 
-          className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm mb-4"
-          onClick={onNuevoCliente}
-        >
-          <span className="inline-flex items-center">
-            <svg 
-              width="18" 
-              height="18" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="lucide lucide-user mr-1"
-            >
-              <path d="M20 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M4 21v-2a4 4 0 0 1 3-3.87"/>
-              <circle cx="12" cy="7" r="4"/>
-              <line x1="19" y1="8" x2="19" y2="14"/>
-              <line x1="22" y1="11" x2="16" y2="11"/>
-            </svg>
-          </span>
-          <span>Nuevo cliente</span>
-        </button>
-        <div className="space-y-3">
-          <div className="flex items-start space-x-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <span className="text-xs font-medium text-gray-700">Nombre</span>
-              </div>
-              <p className="text-sm font-medium text-gray-900">{clienteSeleccionado.nombre}</p>
-              <div className="flex items-center space-x-2 mt-2 mb-1">
-                <span className="text-xs font-medium text-gray-700">Dni</span>
-              </div>
-              <p className="text-sm text-gray-700">{clienteSeleccionado.dni}</p>
-              <div className="flex items-center space-x-2 mt-2 mb-1">
-                <span className="text-xs font-medium text-gray-700">Dirección</span>
-              </div>
-              <p className="text-sm text-gray-700">{clienteSeleccionado.direccion}</p>
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Cliente</h3>
+        
+        {!clienteSeleccionadoLocal ? (
+          <>
+            {/* Búsqueda de cliente */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input 
+                type="text" 
+                placeholder="Buscar cliente por nombre o documento..." 
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-          </div>
-          <button 
-            className="text-blue-600 hover:text-blue-700 text-sm"
-            onClick={onEditarCliente}
-          >
-            Editar cliente
-          </button>
-        </div>
+
+            {/* Resultados de búsqueda */}
+            {searchQuery && (
+              <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md mb-3">
+                {clientesFiltrados.length > 0 ? (
+                  clientesFiltrados.map((cliente) => (
+                    <button
+                      key={cliente.id}
+                      onClick={() => handleSeleccionarCliente(cliente)}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                    >
+                      <p className="text-sm font-medium text-gray-900">
+                        {cliente.tipoPersona === 'natural' 
+                          ? `${cliente.nombres} ${cliente.apellidos}`
+                          : cliente.razonSocial}
+                      </p>
+                      <p className="text-xs text-gray-500">{cliente.numeroDocumento}</p>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    No se encontraron clientes
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Botón crear nuevo cliente */}
+            <button 
+              className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm w-full justify-center py-2 border border-blue-200 rounded-md hover:bg-blue-50"
+              onClick={handleNuevoCliente}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Crear Nuevo Cliente</span>
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Cliente seleccionado */}
+            <div className="bg-gray-50 rounded-lg p-3 mb-3">
+              <div className="space-y-2">
+                <div>
+                  <span className="text-xs font-medium text-gray-500">Nombre</span>
+                  <p className="text-sm font-medium text-gray-900">{clienteSeleccionadoLocal.nombre}</p>
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-gray-500">Documento</span>
+                  <p className="text-sm text-gray-700">{clienteSeleccionadoLocal.dni}</p>
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-gray-500">Dirección</span>
+                  <p className="text-sm text-gray-700">{clienteSeleccionadoLocal.direccion}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex space-x-2">
+              <button 
+                className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 text-sm px-3 py-1.5 border border-blue-200 rounded-md hover:bg-blue-50"
+                onClick={handleEditarCliente}
+              >
+                <Edit className="w-3 h-3" />
+                <span>Editar</span>
+              </button>
+              <button 
+                className="flex-1 text-gray-600 hover:text-gray-700 text-sm px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50"
+                onClick={() => {
+                  setClienteSeleccionadoLocal(null);
+                  setSearchQuery('');
+                }}
+              >
+                Cambiar cliente
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Vendor Info */}
@@ -270,6 +450,25 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
           <span className="text-gray-900">Javier Masías Loza - 001</span>
         </div>
       </div>
+
+      {/* Modal para crear/editar cliente */}
+      {showClienteForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <ClienteForm
+            formData={formData}
+            documentType={documentType}
+            clientType={clientType}
+            documentTypes={documentTypes}
+            clientTypes={clientTypes}
+            onInputChange={handleInputChange}
+            onDocumentTypeChange={setDocumentType}
+            onClientTypeChange={setClientType}
+            onSave={handleSaveCliente}
+            onCancel={() => setShowClienteForm(false)}
+            isEditing={isEditing}
+          />
+        </div>
+      )}
     </div>
   );
 };
