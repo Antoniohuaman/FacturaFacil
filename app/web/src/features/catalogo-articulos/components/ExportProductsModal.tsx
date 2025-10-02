@@ -39,7 +39,6 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
     { key: 'unidad', label: 'Unidad', type: 'text' },
     { key: 'cantidad', label: 'Stock/Cantidad', type: 'number' },
     { key: 'categoria', label: 'Categoría', type: 'text' },
-    { key: 'conImpuestos', label: 'Con Impuestos', type: 'boolean' },
     { key: 'impuesto', label: 'Tipo de Impuesto', type: 'text' },
     { key: 'descripcion', label: 'Descripción', type: 'text' },
     { key: 'fechaCreacion', label: 'Fecha de Creación', type: 'date' },

@@ -33,7 +33,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
     unidad: 'UNIDAD',
     categoria: '',
     cantidad: 0,
-    conImpuestos: true,
     impuesto: 'IGV (18.00%)',
     descripcion: ''
   });
@@ -56,7 +55,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
         unidad: product.unidad,
         categoria: product.categoria,
         cantidad: product.cantidad,
-        conImpuestos: product.conImpuestos,
         impuesto: product.impuesto || 'IGV (18.00%)',
         descripcion: product.descripcion || ''
       });
@@ -70,7 +68,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
         unidad: 'UNIDAD',
         categoria: categories[0]?.nombre || '',
         cantidad: 0,
-        conImpuestos: true,
         impuesto: 'IGV (18.00%)',
         descripcion: ''
       });
@@ -229,73 +226,54 @@ const ProductModal: React.FC<ProductModalProps> = ({
               {errors.codigo && <p className="text-red-600 text-xs mt-1">{errors.codigo}</p>}
             </div>
 
-            {/* Precio y Con Impuestos */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
-                <label htmlFor="precio" className="block text-sm font-medium text-gray-700 mb-1">
-                  Precio de venta
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 text-sm">S/</span>
-                  </div>
-                  <input
-                    type="number"
-                    id="precio"
-                    step="1"
-                    min="0"
-                    value={precioInput}
-                    onChange={(e) => {
-                      const inputValue = e.target.value;
-                      setPrecioInput(inputValue);
-                      const numericValue = parseFloat(inputValue) || 0;
-                      setFormData(prev => ({ ...prev, precio: numericValue }));
-                    }}
-                    className={`
-                      w-full pl-10 pr-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors
-                      ${errors.precio ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-                    `}
-                    placeholder="0.00"
-                  />
+            {/* Precio */}
+            <div>
+              <label htmlFor="precio" className="block text-sm font-medium text-gray-700 mb-1">
+                Precio de venta
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 text-sm">S/</span>
                 </div>
-                {/* El precio de venta es opcional, no se muestra error */}
+                <input
+                  type="number"
+                  id="precio"
+                  step="1"
+                  min="0"
+                  value={precioInput}
+                  onChange={(e) => {
+                    const inputValue = e.target.value;
+                    setPrecioInput(inputValue);
+                    const numericValue = parseFloat(inputValue) || 0;
+                    setFormData(prev => ({ ...prev, precio: numericValue }));
+                  }}
+                  className={`
+                    w-full pl-10 pr-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors
+                    ${errors.precio ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+                  `}
+                  placeholder="0.00"
+                />
               </div>
-              
-              <div className="flex items-end">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.conImpuestos}
-                    onChange={(e) => setFormData(prev => ({ ...prev, conImpuestos: e.target.checked }))}
-                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
-                  />
-                  <span className="text-sm text-gray-700">Con impuestos</span>
-                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </label>
-              </div>
+              {/* El precio de venta es opcional, no se muestra error */}
             </div>
 
             {/* Impuesto */}
-            {formData.conImpuestos && (
-              <div>
-                <label htmlFor="impuesto" className="block text-sm font-medium text-gray-700 mb-1">
-                  Impuesto <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="impuesto"
-                  value={formData.impuesto}
-                  onChange={(e) => setFormData(prev => ({ ...prev, impuesto: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="IGV (18.00%)">IGV (18.00%)</option>
-                  <option value="IGV (10.00%)">IGV (10.00%)</option>
-                  <option value="Exonerado (0.00%)">Exonerado (0.00%)</option>
-                  <option value="Inafecto (0.00%)">Inafecto (0.00%)</option>
-                </select>
-              </div>
-            )}
+            <div>
+              <label htmlFor="impuesto" className="block text-sm font-medium text-gray-700 mb-1">
+                Impuesto <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="impuesto"
+                value={formData.impuesto}
+                onChange={(e) => setFormData(prev => ({ ...prev, impuesto: e.target.value }))}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="IGV (18.00%)">IGV (18.00%)</option>
+                <option value="IGV (10.00%)">IGV (10.00%)</option>
+                <option value="Exonerado (0.00%)">Exonerado (0.00%)</option>
+                <option value="Inafecto (0.00%)">Inafecto (0.00%)</option>
+              </select>
+            </div>
 
             {/* Unidad */}
             <div>

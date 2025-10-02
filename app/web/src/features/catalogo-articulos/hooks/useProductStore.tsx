@@ -13,7 +13,6 @@ const mockProducts: Product[] = [
     precio: 3000.00,
     cantidad: 0,
     categoria: 'HERRAMIENTAS',
-    conImpuestos: true,
     impuesto: 'IGV (18.00%)',
     fechaCreacion: new Date('2024-01-15'),
     fechaActualizacion: new Date('2024-01-15')
@@ -26,7 +25,6 @@ const mockProducts: Product[] = [
     precio: 200.00,
     cantidad: 50,
     categoria: 'HERRAMIENTAS',
-    conImpuestos: true,
     impuesto: 'IGV (18.00%)',
     fechaCreacion: new Date('2024-01-14'),
     fechaActualizacion: new Date('2024-01-14')
@@ -39,7 +37,6 @@ const mockProducts: Product[] = [
     precio: 100.00,
     cantidad: 30,
     categoria: 'HERRAMIENTAS',
-    conImpuestos: true,
     impuesto: 'IGV (18.00%)',
     fechaCreacion: new Date('2024-01-13'),
     fechaActualizacion: new Date('2024-01-13')
@@ -52,7 +49,6 @@ const mockProducts: Product[] = [
     precio: 100.00,
     cantidad: 0,
     categoria: 'Alimentos y Bebidas',
-    conImpuestos: true,
     impuesto: 'IGV (18.00%)',
     fechaCreacion: new Date('2024-01-12'),
     fechaActualizacion: new Date('2024-01-12')
@@ -65,7 +61,6 @@ const mockProducts: Product[] = [
     precio: 10000.00,
     cantidad: 0,
     categoria: 'Accesorios',
-    conImpuestos: true,
     impuesto: 'IGV (18.00%)',
     fechaCreacion: new Date('2024-01-11'),
     fechaActualizacion: new Date('2024-01-11')
@@ -144,7 +139,6 @@ export const useProductStore = () => {
     busqueda: '',
     categoria: '',
     unidad: '',
-    conImpuestos: undefined,
     rangoPrecios: { min: 0, max: 50000 },
     ordenarPor: 'fechaCreacion',
     direccion: 'desc'
@@ -165,12 +159,11 @@ export const useProductStore = () => {
       
       const matchesCategoria = !filters.categoria || product.categoria === filters.categoria;
       const matchesUnidad = !filters.unidad || product.unidad === filters.unidad;
-      const matchesImpuestos = filters.conImpuestos === undefined || product.conImpuestos === filters.conImpuestos;
       
       const matchesPrecio = product.precio >= filters.rangoPrecios.min && 
         product.precio <= filters.rangoPrecios.max;
 
-      return matchesBusqueda && matchesCategoria && matchesUnidad && matchesImpuestos && matchesPrecio;
+      return matchesBusqueda && matchesCategoria && matchesUnidad && matchesPrecio;
     });
 
     // Ordenar
@@ -305,7 +298,6 @@ export const useProductStore = () => {
       busqueda: '',
       categoria: '',
       unidad: '',
-      conImpuestos: undefined,
       rangoPrecios: { min: 0, max: 50000 },
       ordenarPor: 'fechaCreacion',
       direccion: 'desc'

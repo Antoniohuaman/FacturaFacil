@@ -249,9 +249,9 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   <div className="text-sm font-medium text-gray-900">
                     {formatCurrency(product.precio)}
                   </div>
-                  {product.conImpuestos && (
+                  {product.impuesto && (
                     <div className="text-xs text-gray-500">
-                      Con impuestos
+                      {product.impuesto}
                     </div>
                   )}
                 </td>

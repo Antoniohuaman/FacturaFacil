@@ -9,7 +9,6 @@ export interface Product {
   cantidad: number;
   categoria: string;
   imagen?: string;
-  conImpuestos: boolean;
   impuesto?: string;
   descripcion?: string;
   fechaCreacion: Date;
@@ -53,7 +52,6 @@ export interface FilterOptions {
   busqueda: string;
   categoria: string;
   unidad: string;
-  conImpuestos?: boolean;
   rangoPrecios: {
     min: number;
     max: number;
@@ -69,7 +67,6 @@ export interface ProductFormData {
   unidad: 'DOCENA' | 'UNIDAD' | 'KILOGRAMO' | 'LITRO' | 'METRO';
   categoria: string;
   cantidad: number;
-  conImpuestos: boolean;
   impuesto?: string;
   descripcion?: string;
   imagen?: File | string;
