@@ -224,7 +224,11 @@ export function SelectorModoEmision() {
                 </p>
                 <div className="mt-4">
                   <button
-                    onClick={() => navigate('/control-caja')}
+                    onClick={() => {
+                      // Guardar la URL de retorno para volver después de aperturar
+                      sessionStorage.setItem('returnAfterCajaOpen', '/comprobantes/nuevo');
+                      navigate('/control-caja?returnTo=/comprobantes/nuevo');
+                    }}
                     className="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors"
                   >
                     Ir a Control de Caja

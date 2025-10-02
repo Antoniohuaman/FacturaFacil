@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCaja } from '../context/CajaContext';
 import { DollarSign, Save, AlertCircle } from 'lucide-react';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
@@ -6,6 +7,8 @@ import { ConfirmationModal } from '../components/common/ConfirmationModal';
 const usuarios = ['Carlos Rueda', 'Ana García', 'Miguel López', 'Sofia Hernández'];
 
 const AperturaCaja: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [montoEfectivo, setMontoEfectivo] = useState('');
   const [montoTarjeta, setMontoTarjeta] = useState('');
   const [montoYape, setMontoYape] = useState('');
@@ -15,6 +18,9 @@ const AperturaCaja: React.FC = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const { status, abrirCaja, isLoading } = useCaja();
+
+  // Obtener la URL de retorno de los parámetros o sessionStorage
+  const returnTo = searchParams.get('returnTo') || sessionStorage.getItem('returnAfterCajaOpen');
 
   const montoTotal =
     (parseFloat(montoEfectivo) || 0) +
@@ -53,11 +59,22 @@ const AperturaCaja: React.FC = () => {
     try {
       await abrirCaja(aperturaData);
       setShowConfirmModal(false);
+      
       // Limpiar formulario
       setMontoEfectivo('');
       setMontoTarjeta('');
       setMontoYape('');
       setNotas('');
+      
+      // Limpiar sessionStorage
+      sessionStorage.removeItem('returnAfterCajaOpen');
+      
+      // Redirigir después de un pequeño delay para que el usuario vea el toast de éxito
+      if (returnTo) {
+        setTimeout(() => {
+          navigate(returnTo);
+        }, 1500);
+      }
     } catch (error) {
       setShowConfirmModal(false);
     }
@@ -72,6 +89,19 @@ const AperturaCaja: React.FC = () => {
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Apertura de Caja</h2>
         </div>
+
+        {/* Indicador de retorno automático */}
+        {returnTo && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-sm font-semibold text-blue-900">Retorno automático activado</h4>
+              <p className="text-sm text-blue-700 mt-1">
+                Después de aperturar la caja, serás redirigido automáticamente para continuar con la emisión de comprobantes.
+              </p>
+            </div>
+          </div>
+        )}
 
         {status === 'abierta' && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
