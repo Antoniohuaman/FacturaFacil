@@ -60,7 +60,7 @@ const configItem = {
 export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
   return (
     <aside 
-      className={`h-full flex flex-col bg-gradient-to-b from-slate-50 to-white border-r border-slate-200 transition-all duration-300 shadow-sm overflow-hidden`}
+      className={`h-full flex flex-col bg-white border-r border-slate-200 transition-all duration-300 shadow-sm overflow-hidden`}
       onWheel={(e) => {
         // Prevenir el scroll del contenido principal cuando se hace scroll en el sidebar
         const sidebar = e.currentTarget;

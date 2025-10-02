@@ -124,11 +124,11 @@ const IndicadoresPage: React.FC = () => {
       <Toolbar
         onFilter={handleFiltrar}
         onCreateDocument={handleCrearComprobante}
-        onPeriodChange={(period) => setPeriodo(period)}
-        onEstablishmentChange={(establishment) => setEstablecimiento(establishment)}
-        onDateRangeChange={(startDate, endDate) => {
-          setFechaDesde(startDate);
-          setFechaHasta(endDate);
+        onEstablishmentChange={(establishment: string) => setEstablecimiento(establishment)}
+        onDateRangeChange={(range) => {
+          setFechaDesde(range.startDate.toISOString().split('T')[0]);
+          setFechaHasta(range.endDate.toISOString().split('T')[0]);
+          setPeriodo(range.label);
         }}
       />
 
