@@ -1,4 +1,4 @@
-import type { Product, Category, Package, FilterOptions, PaginationConfig } from '../models/types';
+import type { Product, Category, Package, FilterOptions, PaginationConfig, MovimientoStock, MovimientoStockTipo, MovimientoStockMotivo } from '../models/types';
 // src/features/catalogo-articulos/hooks/useProductStore.tsx
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -94,11 +94,24 @@ const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
 
     // Convertir fechas de string a Date
     if (Array.isArray(parsed)) {
-      return parsed.map((item: any) => ({
-        ...item,
-        fechaCreacion: item.fechaCreacion ? new Date(item.fechaCreacion) : new Date(),
-        fechaActualizacion: item.fechaActualizacion ? new Date(item.fechaActualizacion) : new Date()
-      })) as T;
+      return parsed.map((item: any) => {
+        const converted: any = { ...item };
+        
+        // Convertir fechas estándar de productos/categorías/paquetes
+        if (item.fechaCreacion) {
+          converted.fechaCreacion = new Date(item.fechaCreacion);
+        }
+        if (item.fechaActualizacion) {
+          converted.fechaActualizacion = new Date(item.fechaActualizacion);
+        }
+        
+        // Convertir fecha de movimientos de stock
+        if (item.fecha) {
+          converted.fecha = new Date(item.fecha);
+        }
+        
+        return converted;
+      }) as T;
     }
 
     return parsed;
@@ -119,6 +132,11 @@ export const useProductStore = () => {
   const [packages, setPackages] = useState<Package[]>(() =>
     loadFromLocalStorage('catalog_packages', [])
   );
+  
+  // Movimientos de stock
+  const [movimientos, setMovimientos] = useState<MovimientoStock[]>(() =>
+    loadFromLocalStorage('catalog_movimientos', [])
+  );
 
   // Persistir productos en localStorage
   useEffect(() => {
@@ -134,6 +152,12 @@ export const useProductStore = () => {
   useEffect(() => {
     saveToLocalStorage('catalog_packages', packages);
   }, [packages]);
+  
+  // Persistir movimientos en localStorage
+  useEffect(() => {
+    saveToLocalStorage('catalog_movimientos', movimientos);
+  }, [movimientos]);
+  
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     busqueda: '',
@@ -341,12 +365,80 @@ export const useProductStore = () => {
     setPackages(prev => prev.filter(pkg => pkg.id !== id));
   }, []);
 
+  // CRUD Movimientos de Stock
+  const addMovimiento = useCallback((
+    productoId: string,
+    tipo: MovimientoStockTipo,
+    motivo: MovimientoStockMotivo,
+    cantidad: number,
+    observaciones?: string,
+    documentoReferencia?: string,
+    ubicacion?: string
+  ) => {
+    const producto = products.find(p => p.id === productoId);
+    if (!producto) return;
+
+    const cantidadAnterior = producto.cantidad;
+    let cantidadNueva = cantidadAnterior;
+
+    // Calcular nueva cantidad según el tipo de movimiento
+    switch (tipo) {
+      case 'ENTRADA':
+      case 'AJUSTE_POSITIVO':
+      case 'DEVOLUCION':
+        cantidadNueva = cantidadAnterior + cantidad;
+        break;
+      case 'SALIDA':
+      case 'AJUSTE_NEGATIVO':
+      case 'MERMA':
+        cantidadNueva = cantidadAnterior - cantidad;
+        break;
+      case 'TRANSFERENCIA':
+        // Para transferencias, la lógica dependerá de si es entrada o salida
+        cantidadNueva = cantidadAnterior;
+        break;
+    }
+
+    // Crear el movimiento
+    const nuevoMovimiento: MovimientoStock = {
+      id: Date.now().toString(),
+      productoId,
+      productoCodigo: producto.codigo,
+      productoNombre: producto.nombre,
+      tipo,
+      motivo,
+      cantidad,
+      cantidadAnterior,
+      cantidadNueva,
+      usuario: 'Usuario Actual', // Esto debería venir del sistema de autenticación
+      observaciones,
+      documentoReferencia,
+      fecha: new Date(),
+      ubicacion
+    };
+
+    // Actualizar stock del producto
+    setProducts(prev =>
+      prev.map(p =>
+        p.id === productoId
+          ? { ...p, cantidad: cantidadNueva, fechaActualizacion: new Date() }
+          : p
+      )
+    );
+
+    // Agregar movimiento al historial
+    setMovimientos(prev => [nuevoMovimiento, ...prev]);
+
+    return nuevoMovimiento;
+  }, [products]);
+
   return {
     // Estado
     products: filteredProducts,
     allProducts: products,
     categories,
     packages,
+    movimientos,
     loading,
     filters,
     pagination,
@@ -366,6 +458,9 @@ export const useProductStore = () => {
     addPackage,
     updatePackage,
     deletePackage,
+    
+    // Movimientos de Stock
+    addMovimiento,
 
     // Filtros y paginación
     updateFilters,

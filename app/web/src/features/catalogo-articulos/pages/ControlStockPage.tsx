@@ -1,7 +1,7 @@
 // src/features/catalogo-articulos/pages/ControlStockPage.tsx
 
 import React, { useState } from 'react';
-import type { MovimientoStock, StockAlert } from '../models/types';
+import type { StockAlert } from '../models/types';
 import StockMovementsTable from '../components/StockMovementsTable.tsx';
 import StockAdjustmentModal from '../components/StockAdjustmentModal.tsx';
 import StockSummaryCards from '../components/StockSummaryCards.tsx';
@@ -9,65 +9,22 @@ import StockAlertsPanel from '../components/StockAlertsPanel.tsx';
 import { useProductStore } from '../hooks/useProductStore';
 
 const ControlStockPage: React.FC = () => {
-  const { allProducts } = useProductStore();
+  const { allProducts, movimientos, addMovimiento } = useProductStore();
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [selectedView, setSelectedView] = useState<'movimientos' | 'alertas' | 'resumen'>('movimientos');
   const [filterPeriodo, setFilterPeriodo] = useState<'hoy' | 'semana' | 'mes' | 'todo'>('semana');
 
-  // Mock data - esto se reemplazará con datos reales del store
-  const mockMovimientos: MovimientoStock[] = [
-    {
-      id: '1',
-      productoId: '1',
-      productoCodigo: 'PROD-001',
-      productoNombre: 'Laptop Dell XPS 15',
-      tipo: 'ENTRADA',
-      motivo: 'COMPRA',
-      cantidad: 10,
-      cantidadAnterior: 5,
-      cantidadNueva: 15,
-      usuario: 'Juan Pérez',
-      observaciones: 'Compra a proveedor ABC',
-      documentoReferencia: 'FC-001-2024',
-      fecha: new Date('2024-10-01T10:30:00'),
-      ubicacion: 'Almacén Principal'
-    },
-    {
-      id: '2',
-      productoId: '2',
-      productoCodigo: 'PROD-002',
-      productoNombre: 'Mouse Logitech MX',
-      tipo: 'SALIDA',
-      motivo: 'VENTA',
-      cantidad: 3,
-      cantidadAnterior: 20,
-      cantidadNueva: 17,
-      usuario: 'María García',
-      observaciones: 'Venta a cliente',
-      documentoReferencia: 'VT-045-2024',
-      fecha: new Date('2024-10-01T15:45:00'),
-      ubicacion: 'Tienda'
-    }
-  ];
-
-  const mockAlertas: StockAlert[] = [
-    {
-      productoId: '3',
-      productoCodigo: 'PROD-003',
-      productoNombre: 'Teclado Mecánico RGB',
-      cantidadActual: 2,
+  // Generar alertas basadas en productos reales
+  const alertas: StockAlert[] = allProducts
+    .filter(p => p.cantidad <= 10)
+    .map(p => ({
+      productoId: p.id,
+      productoCodigo: p.codigo,
+      productoNombre: p.nombre,
+      cantidadActual: p.cantidad,
       stockMinimo: 10,
-      estado: 'CRITICO'
-    },
-    {
-      productoId: '4',
-      productoCodigo: 'PROD-004',
-      productoNombre: 'Monitor 27" 4K',
-      cantidadActual: 8,
-      stockMinimo: 15,
-      estado: 'BAJO'
-    }
-  ];
+      estado: p.cantidad === 0 ? 'CRITICO' as const : 'BAJO' as const
+    }));
 
   return (
     <div className="space-y-6">
@@ -103,9 +60,9 @@ const ControlStockPage: React.FC = () => {
                 `}
               >
                 Alertas
-                {mockAlertas.length > 0 && (
+                {alertas.length > 0 && (
                   <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">
-                    {mockAlertas.length}
+                    {alertas.length}
                   </span>
                 )}
               </button>
@@ -166,11 +123,11 @@ const ControlStockPage: React.FC = () => {
       {/* Content Area */}
       <div>
         {selectedView === 'movimientos' && (
-          <StockMovementsTable movimientos={mockMovimientos} />
+          <StockMovementsTable movimientos={movimientos} />
         )}
         
         {selectedView === 'alertas' && (
-          <StockAlertsPanel alertas={mockAlertas} />
+          <StockAlertsPanel alertas={alertas} />
         )}
         
         {selectedView === 'resumen' && (
@@ -187,7 +144,16 @@ const ControlStockPage: React.FC = () => {
           isOpen={showAdjustmentModal}
           onClose={() => setShowAdjustmentModal(false)}
           onAdjust={(data: any) => {
-            console.log('Ajuste de stock:', data);
+            // Registrar el movimiento en el store
+            addMovimiento(
+              data.productoId,
+              data.tipo,
+              data.motivo,
+              data.cantidad,
+              data.observaciones,
+              data.documentoReferencia,
+              data.ubicacion
+            );
             setShowAdjustmentModal(false);
           }}
         />
