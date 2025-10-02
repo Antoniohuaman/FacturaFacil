@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Command, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign } from 'lucide-react';
+import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign } from 'lucide-react';
 
 const SearchBar = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,17 +31,17 @@ const SearchBar = () => {
     { id: 'nueva-factura', nombre: 'Nueva Factura', icono: FileText, categoria: 'acciones', atajo: 'Ctrl+N' },
     { id: 'nueva-boleta', nombre: 'Nueva Boleta', icono: Receipt, categoria: 'acciones', atajo: 'Ctrl+B' },
     { id: 'buscar-global', nombre: 'Búsqueda Global', icono: Search, categoria: 'acciones', atajo: 'Ctrl+K' },
-    { id: 'nuevo-cliente', nombre: 'Nuevo Cliente', icono: UserPlus, categoria: 'acciones' },
-    { id: 'nuevo-producto', nombre: 'Nuevo Producto', icono: Package, categoria: 'acciones' },
+    { id: 'nuevo-cliente', nombre: 'Nuevo Cliente', icono: UserPlus, categoria: 'acciones', atajo: 'Ctrl+U' },
+    { id: 'nuevo-producto', nombre: 'Nuevo Producto', icono: Package, categoria: 'acciones', atajo: 'Ctrl+P' },
     
     // NAVEGACIÓN
-    { id: 'ir-comprobantes', nombre: 'Comprobantes Electrónicos', icono: FileText, categoria: 'navegacion' },
-    { id: 'ir-productos', nombre: 'Catálogo de Artículos', icono: Package, categoria: 'navegacion' },
-    { id: 'ir-clientes', nombre: 'Gestión de Clientes', icono: Users, categoria: 'navegacion' },
-    { id: 'ir-caja', nombre: 'Control de Caja', icono: CreditCard, categoria: 'navegacion' },
-    { id: 'ir-indicadores', nombre: 'Indicadores de Negocio', icono: BarChart3, categoria: 'navegacion' },
-    { id: 'ir-configuracion', nombre: 'Configuración del Sistema', icono: Settings, categoria: 'navegacion' },
-    { id: 'ir-precios', nombre: 'Lista de Precios', icono: DollarSign, categoria: 'navegacion' },
+    { id: 'ir-comprobantes', nombre: 'Comprobantes Electrónicos', icono: FileText, categoria: 'navegacion', atajo: 'Ctrl+1' },
+    { id: 'ir-productos', nombre: 'Catálogo de Artículos', icono: Package, categoria: 'navegacion', atajo: 'Ctrl+2' },
+    { id: 'ir-clientes', nombre: 'Gestión de Clientes', icono: Users, categoria: 'navegacion', atajo: 'Ctrl+3' },
+    { id: 'ir-caja', nombre: 'Control de Caja', icono: CreditCard, categoria: 'navegacion', atajo: 'Ctrl+4' },
+    { id: 'ir-indicadores', nombre: 'Indicadores de Negocio', icono: BarChart3, categoria: 'navegacion', atajo: 'Ctrl+5' },
+    { id: 'ir-configuracion', nombre: 'Configuración del Sistema', icono: Settings, categoria: 'navegacion', atajo: 'Ctrl+6' },
+    { id: 'ir-precios', nombre: 'Lista de Precios', icono: DollarSign, categoria: 'navegacion', atajo: 'Ctrl+7' },
   ];
 
   // Filtrar resultados
@@ -133,7 +133,7 @@ const SearchBar = () => {
             }}
             onFocus={() => searchQuery && setShowSearchResults(true)}
             onKeyDown={handleSearchKeyDown}
-            placeholder="Buscar..."
+            placeholder="Buscar clientes, productos o comprobantes…"
             className="w-[450px] pl-9 pr-16 py-2 rounded-lg border border-gray-200
                      focus:border-gray-300 focus:outline-none
                      bg-white text-sm transition-colors"
@@ -305,12 +305,17 @@ const SearchBar = () => {
                     return (
                       <button
                         key={cmd.id}
-                        className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-50 
+                        className="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-50 
                                  transition-colors text-left"
                         onClick={() => handleExecuteCommand(cmd.id)}
                       >
-                        <IconComponent size={14} className="text-gray-400" />
-                        <span className="text-sm text-gray-900">{cmd.nombre}</span>
+                        <div className="flex items-center gap-2">
+                          <IconComponent size={14} className="text-gray-400" />
+                          <span className="text-sm text-gray-900">{cmd.nombre}</span>
+                        </div>
+                        {cmd.atajo && (
+                          <span className="text-[10px] text-gray-400 font-mono">{cmd.atajo}</span>
+                        )}
                       </button>
                     );
                   })}

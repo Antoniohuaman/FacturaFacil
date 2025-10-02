@@ -133,24 +133,20 @@ const IndicadoresPage: React.FC = () => {
       />
 
       {/* CONTENIDO PRINCIPAL */}
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {/* KPIs principales */}
-        <div className="grid grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           {/* Ventas del Mes */}
-          <div className="bg-blue-50 rounded-xl p-6 shadow-sm border border-blue-100 flex flex-col justify-between">
+          <div className="bg-blue-50 rounded-xl p-6 shadow-sm border border-blue-100">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="p-3 bg-blue-200 rounded-lg">
-                  <ShoppingCart className="h-6 w-6 text-blue-800" />
-                </span>
-                <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-full">+12.5%</span>
+              <div className="p-3 bg-blue-200 rounded-lg">
+                <ShoppingCart className="h-6 w-6 text-blue-800" />
               </div>
+              <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-full">+12.5%</span>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Total de Ventas</h3>
-              <div className="text-2xl font-bold text-gray-900 mb-1">S/. 128,450</div>
-              <div className="text-sm text-gray-500">Periodo seleccionado</div>
-            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Total de Ventas</h3>
+            <p className="text-2xl font-bold text-gray-900 mb-1">S/. 128,450</p>
+            <p className="text-sm text-gray-500">Periodo seleccionado</p>
           </div>
 
           {/* Nuevos Clientes */}
@@ -180,19 +176,17 @@ const IndicadoresPage: React.FC = () => {
           </div>
 
           {/* Crecimiento */}
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 shadow-sm border border-orange-200 flex flex-col justify-between">
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 shadow-sm border border-orange-200">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-orange-200 rounded-lg">
                 <TrendingUp className="h-6 w-6 text-orange-800" />
               </div>
               <span className="text-xs font-medium text-orange-800 bg-orange-200/50 px-2 py-1 rounded-full">+18.2%</span>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Crecimiento</h3>
-              <p className="text-2xl font-bold text-gray-900">vs. mes anterior</p>
-              <p className="text-sm text-gray-600">Sólido desempeño</p>
-            </div>
-            <div className="flex justify-end items-end mt-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Crecimiento</h3>
+            <p className="text-2xl font-bold text-gray-900 mb-1">vs. mes anterior</p>
+            <p className="text-sm text-gray-600 mb-3">Sólido desempeño</p>
+            <div className="flex justify-end">
               <button
                 className="text-orange-700 text-sm font-medium hover:underline"
                 style={{ minWidth: 'auto', padding: 0 }}
@@ -205,14 +199,14 @@ const IndicadoresPage: React.FC = () => {
         </div>
 
       {/* Cards de ventas por comprobante y establecimiento */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Ventas por Tipo de Comprobante */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Ventas por Tipo de Comprobante</h3>
             <span className="text-sm text-gray-500 font-normal">Periodo: 01/09/2025 – 15/09/2025</span>
           </div>
-          <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-20">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
             {/* Lado izquierdo: Datos, leyendas y barras */}
             <div className="flex-1 order-2 lg:order-1">
               <div className="flex flex-col gap-4">
@@ -263,7 +257,7 @@ const IndicadoresPage: React.FC = () => {
             </div>
 
             {/* Lado derecho: Gráfico donut */}
-            <div className="w-[14.78rem] h-[14.78rem] mx-auto lg:mx-0 flex items-center justify-center order-1 lg:order-2 mt-3 relative">
+            <div className="w-full max-w-[14.78rem] h-[14.78rem] mx-auto lg:mx-0 flex items-center justify-center order-1 lg:order-2 mt-3 relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -358,7 +352,7 @@ const IndicadoresPage: React.FC = () => {
       </div>
 
       {/* Rankings y detalle de ventas diarias */}
-      <div className="grid grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
         {/* Top Vendedores */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-0">
           <div className="flex items-center justify-between px-6 pt-6 pb-2">
@@ -466,7 +460,7 @@ const IndicadoresPage: React.FC = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
           {/* Tabla de ventas diarias */}
           <div className="overflow-x-auto p-0 m-0">
             <table className="min-w-full text-sm">
