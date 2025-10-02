@@ -16,7 +16,6 @@ import { useComprobanteActions } from '../hooks/useComprobanteActions';
 // Importar componentes POS (TODOS preservados)
 import { ProductGrid } from '../components/ProductGrid';
 import { CartSidebar } from '../components/CartSidebar';
-import ClientSidebar from '../components/ClientSidebar';
 
 // Importar componentes compartidos (preservados)
 import { ToastContainer } from '../components/ToastContainer';
@@ -196,12 +195,6 @@ const PuntoVenta = () => {
             currency={currentCurrency}
             cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
             isProcessing={isProcessing}
-          />
-
-          {/* Client Sidebar - PRESERVADO COMPLETAMENTE */}
-          <ClientSidebar
-            tipoComprobante={tipoComprobante}
-            setTipoComprobante={setTipoComprobante}
           />
         </div>
 

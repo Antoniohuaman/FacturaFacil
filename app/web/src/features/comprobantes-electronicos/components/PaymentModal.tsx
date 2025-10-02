@@ -3,10 +3,11 @@
 // ===================================================================
 
 import React, { useState } from 'react';
-import { X, CreditCard, FileText, User, Calculator } from 'lucide-react';
+import { X, CreditCard, FileText, User, Calculator, Search, Plus, Edit } from 'lucide-react';
 import type { PaymentModalProps } from '../models/comprobante.types';
 import { useCurrency } from '../hooks/useCurrency';
 import { usePayment } from '../hooks/usePayment';
+import ClienteForm from '../../gestion-clientes/components/ClienteForm';
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({
   isOpen,
@@ -32,18 +33,131 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [activeStep, setActiveStep] = useState<'document' | 'payment'>('document');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Mock client data - en producción vendría del contexto
-  const mockClient = {
-    nombre: "FLORES CANALES CARMEN ROSA",
-    tipoDocumento: "DNI" as const,
-    documento: "09661829",
-    direccion: "Dirección no definida"
-  };
+  // Estados para gestión de clientes
+  const [showClienteForm, setShowClienteForm] = useState(false);
+  const [editingCliente, setEditingCliente] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null);
+  
+  // Estados del formulario de cliente (replicando la estructura del módulo)
+  const [clienteFormData, setClienteFormData] = useState({
+    documentNumber: '',
+    legalName: '',
+    address: '',
+    gender: '',
+    phone: '',
+    email: '',
+    additionalData: '',
+  });
+  const [clienteDocumentType, setClienteDocumentType] = useState('DNI');
+  const [clienteType, setClienteType] = useState('Cliente');
+
+  // Tipos de documento y cliente (mismo que en módulo de clientes)
+  const documentTypes = [
+    { value: 'RUC', label: 'RUC' },
+    { value: 'DNI', label: 'DNI' },
+    { value: 'SIN_DOCUMENTO', label: 'SIN DOCUMENTO' },
+    { value: 'NO_DOMICILIADO', label: 'NO DOMICILIADO' },
+    { value: 'PASAPORTE', label: 'PASAPORTE' },
+    { value: 'CARNET_EXTRANJERIA', label: 'CARNET EXTRANJERÍA' },
+    { value: 'CARNET_IDENTIDAD', label: 'CARNET DE IDENTIDAD' },
+    { value: 'DOC_IDENTIF_PERS_NAT_NO_DOM', label: 'DOC.IDENTIF.PERS.NAT.NO DOM.' },
+    { value: 'TAM_TARJETA_ANDINA', label: 'TAM - TARJETA ANDINA DE MIGRACIÓN' },
+    { value: 'CARNET_PERMISO_TEMP_PERMANENCIA', label: 'CARNET PERMISO TEMP.PERMANENCIA' },
+  ];
+
+  const clientTypes = [
+    { value: 'Cliente', label: 'Cliente' },
+    { value: 'Proveedor', label: 'Proveedor' },
+  ];
+
+  // Mock client data - en producción vendría del contexto/store
+  const mockClientes = [
+    {
+      id: 1,
+      nombre: "FLORES CANALES CARMEN ROSA",
+      tipoDocumento: "DNI" as const,
+      documento: "09661829",
+      direccion: "Dirección no definida"
+    },
+    {
+      id: 2,
+      nombre: "PLUSMEDIA S.A.C.",
+      tipoDocumento: "RUC" as const,
+      documento: "20608822658",
+      direccion: "AV. HÉROES NRO. 280 - LIMA LIMA SAN JUAN DE MIRAFLORES"
+    }
+  ];
 
   if (!isOpen) return null;
 
   const paymentSummary = getPaymentSummary(totals.total);
   const quickAmounts = formatQuickPaymentAmounts(totals.total);
+
+  // Filtrar clientes por búsqueda
+  const clientesFiltrados = mockClientes.filter(c => 
+    c.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.documento.includes(searchQuery)
+  );
+
+  // Handlers para gestión de clientes
+  const handleClienteInputChange = (field: string, value: string) => {
+    setClienteFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleNuevoCliente = () => {
+    setEditingCliente(false);
+    setClienteFormData({
+      documentNumber: '',
+      legalName: '',
+      address: '',
+      gender: '',
+      phone: '',
+      email: '',
+      additionalData: '',
+    });
+    setClienteDocumentType('DNI');
+    setShowClienteForm(true);
+  };
+
+  const handleEditarCliente = () => {
+    if (!clienteSeleccionado) return;
+    
+    setEditingCliente(true);
+    setClienteFormData({
+      documentNumber: clienteSeleccionado.documento,
+      legalName: clienteSeleccionado.nombre,
+      address: clienteSeleccionado.direccion,
+      gender: '',
+      phone: '',
+      email: '',
+      additionalData: '',
+    });
+    setClienteDocumentType(clienteSeleccionado.tipoDocumento === 'RUC' ? 'RUC' : 'DNI');
+    setShowClienteForm(true);
+  };
+
+  const handleSaveCliente = () => {
+    // TODO: Guardar en store/backend
+    const nuevoCliente = {
+      id: Date.now(),
+      nombre: clienteFormData.legalName,
+      tipoDocumento: clienteDocumentType as 'DNI' | 'RUC',
+      documento: clienteFormData.documentNumber,
+      direccion: clienteFormData.address
+    };
+    
+    setClienteSeleccionado(nuevoCliente);
+    setShowClienteForm(false);
+    
+    // Mostrar toast de éxito (temporal)
+    console.log('Cliente guardado:', nuevoCliente);
+  };
+
+  const handleSeleccionarCliente = (cliente: any) => {
+    setClienteSeleccionado(cliente);
+    setSearchQuery('');
+  };
 
   const handleContinueToPayment = () => {
     setActiveStep('payment');
@@ -264,18 +378,91 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       <User className="h-4 w-4" />
                       Datos del Cliente
                     </h4>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="font-medium text-gray-900">{mockClient.nombre}</div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {mockClient.tipoDocumento}: {mockClient.documento}
+                    
+                    {!clienteSeleccionado ? (
+                      /* Sin cliente seleccionado - Mostrar búsqueda */
+                      <div className="space-y-3">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Buscar por nombre o documento..."
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+
+                        {/* Resultados de búsqueda */}
+                        {searchQuery && (
+                          <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
+                            {clientesFiltrados.length > 0 ? (
+                              clientesFiltrados.map(cliente => (
+                                <button
+                                  key={cliente.id}
+                                  onClick={() => handleSeleccionarCliente(cliente)}
+                                  className="w-full text-left p-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                                >
+                                  <div className="font-medium text-sm">{cliente.nombre}</div>
+                                  <div className="text-xs text-gray-500">
+                                    {cliente.tipoDocumento}: {cliente.documento}
+                                  </div>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="p-3 text-center text-sm text-gray-500">
+                                No se encontraron clientes
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleNuevoCliente}
+                          className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Crear Nuevo Cliente
+                        </button>
                       </div>
-                      <div className="text-sm text-gray-600">
-                        {mockClient.direccion}
+                    ) : (
+                      /* Cliente seleccionado - Mostrar datos */
+                      <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{clienteSeleccionado.nombre}</div>
+                            <div className="text-sm text-gray-600 mt-1">
+                              {clienteSeleccionado.tipoDocumento}: {clienteSeleccionado.documento}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {clienteSeleccionado.direccion}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setClienteSeleccionado(null)}
+                            className="p-1 text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={handleEditarCliente}
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          >
+                            <Edit className="h-3 w-3" />
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => setClienteSeleccionado(null)}
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 text-sm text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                          >
+                            <Search className="h-3 w-3" />
+                            Cambiar
+                          </button>
+                        </div>
                       </div>
-                      <button className="text-blue-600 hover:text-blue-700 text-sm font-medium mt-2">
-                        Cambiar cliente
-                      </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -290,7 +477,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       {formatPrice(totals.total, currency)}
                     </div>
                     <div className="text-gray-600">
-                      {tipoComprobante === 'boleta' ? 'Boleta' : 'Factura'} • {mockClient.nombre}
+                      {tipoComprobante === 'boleta' ? 'Boleta' : 'Factura'} 
+                      {clienteSeleccionado && ` • ${clienteSeleccionado.nombre}`}
                     </div>
                   </div>
 
@@ -438,6 +626,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal de Cliente (superpuesto) */}
+      {showClienteForm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <ClienteForm
+            formData={clienteFormData}
+            documentType={clienteDocumentType}
+            clientType={clienteType}
+            documentTypes={documentTypes}
+            clientTypes={clientTypes}
+            onInputChange={handleClienteInputChange}
+            onDocumentTypeChange={setClienteDocumentType}
+            onClientTypeChange={setClienteType}
+            onCancel={() => setShowClienteForm(false)}
+            onSave={handleSaveCliente}
+            isEditing={editingCliente}
+          />
+        </div>
+      )}
     </div>
   );
 };
