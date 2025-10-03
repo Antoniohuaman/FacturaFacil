@@ -24,8 +24,8 @@ export default function AppShell() {
             />
           </div>
           {/* Contenido principal */}
-          <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
-            <div className="flex-1 overflow-hidden">
+          <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out`}>
+            <div className="flex-1 overflow-auto">
               <Outlet />
             </div>
             <Footer />

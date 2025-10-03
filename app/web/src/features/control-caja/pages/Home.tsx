@@ -24,7 +24,7 @@ export default function ControlCajaHome() {
   const resumen = getResumen();
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50">
+    <div className="flex-1 bg-gray-50">
       {/* Header */}
       <PageHeader 
         title="Control de Caja"
@@ -95,7 +95,7 @@ export default function ControlCajaHome() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
+      <div>
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
           {/* Caja info when open */}
           {status === 'abierta' && aperturaActual && (

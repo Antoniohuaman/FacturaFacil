@@ -14,7 +14,7 @@ const ComprobantesTabs: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50">
+    <div className="flex-1 bg-gray-50">
       {/* Header */}
       <PageHeader 
         title="Comprobantes Electrónicos"
@@ -55,7 +55,7 @@ const ComprobantesTabs: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
+      <div>
         {activeTab === 'comprobantes' ? (
           <InvoiceListDashboard />
         ) : (
