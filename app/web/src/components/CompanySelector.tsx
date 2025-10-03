@@ -3,7 +3,7 @@ import { Building2, ChevronDown, MapPin } from 'lucide-react';
 
 const CompanySelector = () => {
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(1);
+  const selectedCompanyId = 1; // TODO: Implementar selección dinámica de empresa
   const [selectedSucursal, setSelectedSucursal] = useState('Tienda Sur');
 
   const companies = [

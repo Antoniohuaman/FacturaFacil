@@ -243,16 +243,26 @@ const ProductsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Centraliza tus productos y servicios en un solo lugar
-          </p>
+    <div className="space-y-6 pt-4">
+      {/* Toolbar: Buscador + Botones de acción */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        {/* Search */}
+        <div className="flex-1 relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Buscar por nombre o código..."
+            value={filters.busqueda}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+          />
         </div>
-        
+
+        {/* Botones de acción */}
         <div className="flex items-center space-x-3">
           <button
             onClick={() => setShowExportModal(true)}
@@ -275,29 +285,22 @@ const ProductsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Search and filters */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              placeholder="Buscar por nombre o código..."
-              value={filters.busqueda}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            />
+      {/* Info eliminación masiva + Filter toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Info eliminación masiva */}
+        {selectedProducts.size === 0 && (
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span className="text-sm text-gray-500 font-medium">Selecciona productos para acceder a <span className="text-red-600 font-semibold">eliminación masiva</span></span>
           </div>
-
-          {/* Filter toggle */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
+        )}
+        
+        {/* Filter toggle */}
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
               showFilters 
                 ? 'bg-red-50 border-red-300 text-red-700' 
                 : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -308,24 +311,10 @@ const ProductsPage: React.FC = () => {
             </svg>
             Filtros
           </button>
-        </div>
-
-        {/* Filters */}
-        {renderFilterBar()}
       </div>
 
-
-      {/* Info eliminación masiva */}
-      {selectedProducts.size === 0 && (
-        <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 rounded-t-lg mb-0.5 animate-in fade-in duration-200">
-          <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            <span className="text-sm text-gray-500 font-medium">Selecciona productos para acceder a <span className="text-red-600 font-semibold">eliminación masiva</span></span>
-          </div>
-        </div>
-      )}
+      {/* Filters */}
+      {renderFilterBar()}
 
       {/* Bulk Delete Toolbar */}
       <BulkDeleteToolbar

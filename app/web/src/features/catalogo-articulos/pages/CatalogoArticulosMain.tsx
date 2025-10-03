@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import type { TabKey } from '../models/types';
-import PageHeader from '../components/PageHeader';
+import { PageHeader } from '../../../components/PageHeader';
 import TabNavigation from '../components/TabNavigation';
 import ProductsPage from './ProductsPage';
 import PackagesPage from './PackagesPage';
