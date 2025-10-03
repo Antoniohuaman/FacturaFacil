@@ -422,7 +422,7 @@ function ClientesPage() {
 	};
 
 	return (
-		<div className="h-full flex flex-col">
+		<div className="flex-1 bg-gray-50">
 			{/* Header */}
 			<div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
 				<div className="flex items-center">
@@ -460,8 +460,8 @@ function ClientesPage() {
 				</div>
 			</div>
 
-			{/* Tabla con scroll */}
-			<div className="flex-1 px-6 pt-6 overflow-y-scroll">
+			{/* Contenido */}
+			<div className="px-6 pt-6 pb-6">
 				<ClientesFilters 
 					tableRef={clientesTableRef}
 					onClearFilters={() => clientesTableRef.current?.clearAllFilters()}
