@@ -64,7 +64,7 @@ const CatalogoArticulosMain: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Header - Solo título */}
       <PageHeader 
         title="Catálogo de Artículos"
@@ -87,7 +87,7 @@ const CatalogoArticulosMain: React.FC = () => {
       </div>
 
       {/* Contenido */}
-      <div className="transition-all duration-300 ease-in-out">
+      <div className="flex-1 overflow-auto transition-all duration-300 ease-in-out">
         {renderTabContent()}
       </div>
     </div>

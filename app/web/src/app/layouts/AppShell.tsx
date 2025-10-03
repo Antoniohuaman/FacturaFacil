@@ -10,22 +10,22 @@ export default function AppShell() {
 
   return (
     <ConfigurationProvider>
-      <div className="min-h-screen bg-slate-50">
+      <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
         {/* Header fijo */}
-        <div className="fixed top-0 left-0 right-0 z-50">
+        <div className="flex-shrink-0 z-50">
           <Header />
         </div>
-        <div className="flex pt-16">
-          {/* Sidebar fijo para evitar scroll */}
-          <div className={`${sidebarCollapsed ? 'w-[88px]' : 'w-[260px]'} fixed top-16 bottom-0 left-0 z-40 transition-all duration-300 ease-in-out`}>
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar fijo */}
+          <div className={`${sidebarCollapsed ? 'w-[88px]' : 'w-[260px]'} flex-shrink-0 z-40 transition-all duration-300 ease-in-out overflow-y-auto`}>
             <SideNav 
               collapsed={sidebarCollapsed} 
               onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
             />
           </div>
-          {/* Contenido principal con margen para el sidebar */}
-          <div className={`flex-1 min-h-[calc(100vh-4rem)] ${sidebarCollapsed ? 'ml-[88px]' : 'ml-[260px]'} transition-all duration-300 ease-in-out flex flex-col`}>
-            <div className="flex-1 px-10 pb-6">
+          {/* Contenido principal */}
+          <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
+            <div className="flex-1 overflow-hidden">
               <Outlet />
             </div>
             <Footer />
