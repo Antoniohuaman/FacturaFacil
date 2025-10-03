@@ -5,9 +5,13 @@
 import React, { useState } from 'react';
 import { Search, Scan, Plus, Filter, Package, X } from 'lucide-react';
 import type { Product, CartItem, Currency } from '../models/comprobante.types';
-import { QuickProductModal } from './QuickProductModal';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { useCurrency } from '../hooks/useCurrency';
+
+// Importar el modal REAL de productos del catálogo
+import ProductModal from '../../catalogo-articulos/components/ProductModal';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import type { Product as CatalogoProduct } from '../../catalogo-articulos/models/types';
 
 export interface ProductGridProps {
   // Lista de productos disponibles
@@ -56,6 +60,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   currency = 'PEN'
 }) => {
   const { formatPrice } = useCurrency();
+  const { addProduct, categories: catalogoCategories } = useProductStore();
+  
   const {
     searchQuery,
     searchResults,
@@ -70,7 +76,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     clearSearch
   } = useProductSearch();
 
-  const [showQuickProductModal, setShowQuickProductModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -130,12 +136,29 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   };
 
   const handleCreateProduct = () => {
-    setShowQuickProductModal(true);
+    setShowProductModal(true);
   };
 
-  const handleProductCreated = (product: Product) => {
-    onAddToCart(product);
-    setShowQuickProductModal(false);
+  const handleProductCreated = (productData: Omit<CatalogoProduct, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => {
+    // Guardar en el catálogo usando el store
+    addProduct(productData);
+    
+    // Convertir el producto del catálogo al formato POS y agregarlo al carrito
+    const posProduct: Product = {
+      id: Date.now().toString(), // Se generará el ID real en el store
+      code: productData.codigo,
+      name: productData.nombre,
+      price: productData.precio,
+      category: productData.categoria,
+      description: productData.descripcion || '',
+      stock: productData.cantidad
+    };
+    
+    // Agregar automáticamente al carrito
+    onAddToCart(posProduct);
+    
+    // Cerrar modal
+    setShowProductModal(false);
   };
 
   const handleCategorySelect = (category: string) => {
@@ -432,12 +455,12 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         )}
       </div>
 
-      {/* Modal de creación de productos */}
-      <QuickProductModal
-        isOpen={showQuickProductModal}
-        onClose={() => setShowQuickProductModal(false)}
-        onProductCreated={handleProductCreated}
-        currency={currency}
+      {/* Modal de creación de productos - USANDO EL MODAL REAL DEL CATÁLOGO */}
+      <ProductModal
+        isOpen={showProductModal}
+        onClose={() => setShowProductModal(false)}
+        onSave={handleProductCreated}
+        categories={catalogoCategories}
       />
     </div>
   );
