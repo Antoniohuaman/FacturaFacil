@@ -62,11 +62,11 @@ const ImportarClientesPage = () => {
   const SUCCESS_COLOR = '#10B981';
 
   // Clases consistentes para reutilizar
-  const cardClass = "bg-white rounded-lg shadow-sm border border-gray-200";
+  const cardClass = "bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700";
   const buttonPrimaryClass = "px-6 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-md";
-  const buttonSecondaryClass = "px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200";
+  const buttonSecondaryClass = "px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-lg transition-all duration-200";
   const buttonOutlineClass = "px-4 py-2 border-2 rounded-lg font-medium transition-all duration-200";
-  const iconButtonClass = "p-2 hover:bg-gray-100 rounded-lg transition-all duration-200";
+  const iconButtonClass = "p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200";
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -143,9 +143,9 @@ const ImportarClientesPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button 
@@ -155,8 +155,8 @@ const ImportarClientesPage = () => {
               <ArrowLeft size={20} style={{ color: PRIMARY_COLOR }} />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Importar clientes</h1>
-              <p className="text-base text-gray-600 mt-1">Carga masiva de clientes desde un archivo Excel</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Importar clientes</h1>
+              <p className="text-base text-gray-600 dark:text-gray-400 mt-1">Carga masiva de clientes desde un archivo Excel</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
@@ -174,15 +174,15 @@ const ImportarClientesPage = () => {
       <div className="max-w-7xl mx-auto p-6">
         {/* Instructions Panel */}
         {showInstructions && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
+                <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-lg">
                   <Info size={20} style={{ color: PRIMARY_COLOR }} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">¿Necesitas ayuda para crear tu archivo excel?</h3>
-                  <div className="space-y-1 text-sm text-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">¿Necesitas ayuda para crear tu archivo excel?</h3>
+                  <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
                     <p>• El archivo debe ser formato Excel (.xlsx o .xls)</p>
                     <p>• La primera fila debe contener los nombres de las columnas</p>
                     <p>• Columnas requeridas: Nombre, Documento, Email, Teléfono</p>
@@ -194,7 +194,7 @@ const ImportarClientesPage = () => {
                 onClick={() => setShowInstructions(false)}
                 className={iconButtonClass}
               >
-                <X size={16} className="text-blue-600" />
+                <X size={16} className="text-blue-600 dark:text-blue-400" />
               </button>
             </div>
           </div>
@@ -207,19 +207,19 @@ const ImportarClientesPage = () => {
             <div className={cardClass + " p-4"}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <Download size={20} className="text-green-600" />
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                    <Download size={20} className="text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <h3 className="text-base font-semibold text-gray-900">¿Necesitas ayuda?</h3>
-                    <p className="text-sm text-gray-600">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">¿Necesitas ayuda?</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       Descarga nuestra plantilla para asegurar el formato correcto
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={downloadTemplate}
-                  className={buttonOutlineClass + " flex items-center hover:bg-green-50"}
+                  className={buttonOutlineClass + " flex items-center hover:bg-green-50 dark:hover:bg-green-900/20"}
                   style={{ 
                     borderColor: SUCCESS_COLOR,
                     color: SUCCESS_COLOR
@@ -232,16 +232,16 @@ const ImportarClientesPage = () => {
             </div>
             
             <div className={cardClass + " p-6"}>
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">Selecciona tu archivo</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Selecciona tu archivo</h2>
               
               {/* File Drop Zone */}
               <div
                 className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
                   dragActive 
-                    ? 'border-blue-400 bg-blue-50' 
+                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' 
                     : selectedFile
-                    ? 'border-green-400 bg-green-50'
-                    : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'
+                    ? 'border-green-400 bg-green-50 dark:bg-green-900/20'
+                    : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-100 dark:hover:bg-gray-600'
                 }`}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
@@ -259,13 +259,13 @@ const ImportarClientesPage = () => {
                 {selectedFile ? (
                   <div className="space-y-4">
                     <div className="flex items-center justify-center">
-                      <div className="p-3 bg-green-100 rounded-full">
-                        <CheckCircle2 size={24} className="text-green-600" />
+                      <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+                        <CheckCircle2 size={24} className="text-green-600 dark:text-green-400" />
                       </div>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{selectedFile.name}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-gray-900 dark:text-white">{selectedFile.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
@@ -288,15 +288,15 @@ const ImportarClientesPage = () => {
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-center">
-                      <div className="p-4 bg-gray-100 rounded-full">
-                        <FileSpreadsheet size={32} className="text-gray-600" />
+                      <div className="p-4 bg-gray-100 dark:bg-gray-600 rounded-full">
+                        <FileSpreadsheet size={32} className="text-gray-600 dark:text-gray-300" />
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         Selecciona tu archivo
                       </h3>
-                      <p className="text-gray-600 mb-4">
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">
                         Arrastra y suelta tu archivo Excel aquí o haz clic para seleccionar
                       </p>
                       <button
@@ -308,7 +308,7 @@ const ImportarClientesPage = () => {
                         Subir tu archivo Excel
                       </button>
                     </div>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Formatos soportados: .xlsx, .xls (máximo 10MB)
                     </p>
                   </div>
@@ -321,21 +321,21 @@ const ImportarClientesPage = () => {
           <div className="xl:col-span-1 space-y-6">
             {/* Stats */}
             <div className={cardClass + " p-6"}>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Información</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Información</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Users size={16} className="text-gray-500" />
-                    <span className="text-sm text-gray-600">Clientes actuales</span>
+                    <Users size={16} className="text-gray-500 dark:text-gray-400" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Clientes actuales</span>
                   </div>
-                  <span className="text-base font-medium text-gray-900">1,247</span>
+                  <span className="text-base font-medium text-gray-900 dark:text-white">1,247</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <FileText size={16} className="text-gray-500" />
-                    <span className="text-sm text-gray-600">Última importación</span>
+                    <FileText size={16} className="text-gray-500 dark:text-gray-400" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Última importación</span>
                   </div>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
                     {importHistory.length > 0 ? importHistory[0].date.toLocaleDateString('es-ES') : 'Ninguna'}
                   </span>
                 </div>
@@ -343,8 +343,8 @@ const ImportarClientesPage = () => {
             </div>
 
             {/* Historial de importaciones */}
-            <div className="bg-gray-50 rounded-lg p-3">
-              <h4 className="text-xs text-gray-600 mb-3 font-medium">Últimas importaciones</h4>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+              <h4 className="text-xs text-gray-600 dark:text-gray-400 mb-3 font-medium">Últimas importaciones</h4>
               {importHistory.length > 0 ? (
                 <div className="space-y-3">
                   {importHistory.slice(0, 3).map((record, index) => (

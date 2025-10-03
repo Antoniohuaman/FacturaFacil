@@ -731,10 +731,10 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
 
               {/* Action buttons */}
               <div className="flex items-center space-x-3">
-                <button className="px-4 py-2 text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-500 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-sm font-medium">
+                <button className="px-4 py-2 border rounded-md transition-colors text-sm font-medium" style={{ color: '#1478D4', borderColor: '#1478D4' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1478D411'; }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
                   Nueva factura
                 </button>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
+                <button className="px-4 py-2 text-white rounded-md transition-colors text-sm font-medium" style={{ backgroundColor: '#1478D4' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1068C4'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1478D4'}>
                   Nueva boleta
                 </button>
               </div>

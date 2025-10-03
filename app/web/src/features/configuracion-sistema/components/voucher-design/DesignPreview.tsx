@@ -788,7 +788,7 @@ export default function DesignPreview({
 
           {onDownload && (
             <div className="relative group">
-              <button className="flex items-center gap-2 px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors">
+              <button className="flex items-center gap-2 px-3 py-1 text-sm text-white rounded transition-colors" style={{ backgroundColor: '#1478D4' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1068C4'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1478D4'}>
                 <Download className="h-4 w-4" />
                 Descargar
               </button>

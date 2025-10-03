@@ -71,7 +71,7 @@ export function ConfirmationModal({
       bg: 'bg-blue-50',
       border: 'border-blue-200',
       icon: 'text-blue-600',
-      button: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+      button: 'text-white hover:opacity-90 focus:ring-blue-500'
     },
     success: {
       bg: 'bg-green-50',
@@ -119,7 +119,10 @@ export function ConfirmationModal({
             type="button"
             onClick={onConfirm}
             disabled={isLoading}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 ${colorScheme.button}`}
+            className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 ${type === 'info' ? 'text-white' : ''} ${colorScheme.button}`}
+            style={type === 'info' ? { backgroundColor: '#1478D4' } : {}}
+            onMouseEnter={type === 'info' ? (e) => e.currentTarget.style.backgroundColor = '#1068C4' : undefined}
+            onMouseLeave={type === 'info' ? (e) => e.currentTarget.style.backgroundColor = '#1478D4' : undefined}
           >
             {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
             {confirmText}

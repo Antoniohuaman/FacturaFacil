@@ -277,7 +277,10 @@ export function ExchangeRateModal({ currency, onSave, onClose }: ExchangeRateMod
             <button
               type="submit"
               disabled={isLoading || !rate || parseFloat(rate) <= 0}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              className="px-4 py-2 text-white rounded-lg disabled:opacity-50 flex items-center space-x-2"
+              style={{ backgroundColor: '#1478D4' }}
+              onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#1068C4')}
+              onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#1478D4')}
             >
               {isLoading ? (
                 <>

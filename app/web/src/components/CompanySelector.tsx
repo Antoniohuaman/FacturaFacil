@@ -35,9 +35,9 @@ const CompanySelector = () => {
         <button
           onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
           className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200/50 dark:border-gray-600/50
-                   hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800
-                   transition-all duration-200 flex items-center justify-between group backdrop-blur-sm
-                   hover:shadow-md bg-white dark:bg-gray-900"
+                   hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50
+                   transition-all duration-150 flex items-center justify-between group backdrop-blur-sm
+                   hover:shadow-md bg-white dark:bg-gray-800/70"
         >
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 
@@ -78,13 +78,13 @@ const CompanySelector = () => {
                       setSelectedSucursal(sucursal);
                       setShowCompanyDropdown(false);
                     }}
-                    className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    style={{
-                      backgroundColor: sucursal === selectedSucursal ? '#f0f9ff' : 'transparent',
-                      borderLeft: sucursal === selectedSucursal ? '3px solid #0040A2' : '3px solid transparent'
-                    }}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors duration-150 ${
+                      sucursal === selectedSucursal 
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-l-3 border-blue-600 dark:border-blue-400' 
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/70 text-gray-700 dark:text-gray-300 border-l-3 border-transparent'
+                    }`}
                   >
-                    <div className="flex items-center text-gray-700 dark:text-gray-300">
+                    <div className="flex items-center">
                       <MapPin size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
                       <div>
                         <div className="font-medium">{sucursal}</div>
@@ -99,8 +99,8 @@ const CompanySelector = () => {
                 ))}
               </div>
               
-              <div className="border-t pt-2 mt-2">
-                <button className="w-full flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm text-blue-600 font-medium">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
+                <button className="w-full flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700/70 transition-colors text-sm text-blue-600 dark:text-blue-400 font-medium">
                   <Building2 size={16} />
                   <span>Cambiar empresa</span>
                 </button>

@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
-import { ThemeToggle } from '../../components/ThemeToggle';
 
 export default function Header() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showCashMenu, setShowCashMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const navigate = useNavigate();
   const menuRef = useRef<HTMLDivElement>(null);
   const cashMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -56,13 +57,16 @@ export default function Header() {
   return (
     <header className="h-16 bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 flex items-center px-6 shadow-sm">
       {/* Logo */}
-      <div className="flex items-center ml-8">
+      <button 
+        onClick={() => navigate('/indicadores')}
+        className="flex items-center ml-8 hover:opacity-80 transition-opacity"
+      >
         <img 
           src="/SenciYO.svg" 
           alt="SenciYO"
-          className="h-11 dark:filter dark:invert dark:brightness-0 dark:contrast-100"
+          className="h-[42px] dark:filter dark:invert dark:brightness-0 dark:contrast-100"
         />
-      </div>
+      </button>
       
       {/* SearchBar - más a la izquierda y más notable */}
       <div className="flex-1 flex justify-center">
@@ -97,34 +101,34 @@ export default function Header() {
           {/* Dropdown información de caja */}
           {showCashMenu && (
             <div className="absolute left-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-lg shadow-lg py-3 z-50">
-              <div className="px-4 pb-3 border-b border-slate-100">
-                <h3 className="font-medium text-slate-900 text-sm mb-3">Información de Caja</h3>
+              <div className="px-4 pb-3 border-b border-slate-100 dark:border-gray-700">
+                <h3 className="font-medium text-slate-900 dark:text-white text-sm mb-3">Información de Caja</h3>
                 
                 {/* Encargado */}
                 <div className="flex items-center space-x-2 mb-2">
-                  <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-slate-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  <span className="text-sm text-slate-600">Encargado:</span>
-                  <span className="text-sm font-medium text-slate-900">{cashInfo.cashier}</span>
+                  <span className="text-sm text-slate-600 dark:text-gray-400">Encargado:</span>
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">{cashInfo.cashier}</span>
                 </div>
 
                 {/* Apertura */}
                 <div className="flex items-center space-x-2 mb-2">
-                  <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-slate-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="text-sm text-slate-600">Apertura:</span>
-                  <span className="text-sm font-medium text-slate-900">{cashInfo.openTime}</span>
+                  <span className="text-sm text-slate-600 dark:text-gray-400">Apertura:</span>
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">{cashInfo.openTime}</span>
                 </div>
 
                 {/* Monto inicial */}
                 <div className="flex items-center space-x-2 mb-3">
-                  <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-slate-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                   </svg>
-                  <span className="text-sm text-slate-600">Monto inicial:</span>
-                  <span className="text-sm font-medium text-slate-900">{cashInfo.initialAmount}</span>
+                  <span className="text-sm text-slate-600 dark:text-gray-400">Monto inicial:</span>
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">{cashInfo.initialAmount}</span>
                 </div>
               </div>
 
@@ -144,8 +148,18 @@ export default function Header() {
           )}
         </div>
         
-        {/* Toggle de tema */}
-        <ThemeToggle />
+        {/* Botón de configuración */}
+        <div className="relative">
+          <button
+            onClick={() => navigate('/configuracion')}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title="Configuración del Sistema"
+          >
+            <Settings className="w-5 h-5 text-slate-600 dark:text-gray-400" />
+          </button>
+          {/* Indicador de configuración incompleta */}
+          <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+        </div>
         
         {/* Separador */}
         <div className="h-6 w-px bg-slate-300 dark:bg-gray-600"></div>
@@ -163,42 +177,60 @@ export default function Header() {
 
           {/* Dropdown de notificaciones */}
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl py-3 z-50 max-h-96 overflow-y-auto">
+            <div className="absolute right-0 top-full mt-2 w-96 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl py-3 z-50 max-h-96 overflow-y-auto">
               <div className="px-4 pb-3 border-b border-slate-100 dark:border-gray-700">
                 <h3 className="font-semibold text-slate-900 dark:text-white text-base">Notificaciones</h3>
               </div>
-              <div className="py-2">
-                {/* Ejemplo de notificaciones */}
-                <div className="px-4 py-3 hover:bg-slate-50 transition-colors border-l-4 border-blue-500">
+              <div className="py-2 space-y-1">
+                {/* Notificaciones actualizadas con títulos específicos y colores apropiados */}
+                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-red-500">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900">Nueva factura generada</p>
-                      <p className="text-xs text-slate-500 mt-1">Factura F001-00123 por S/ 250.00</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">Factura rechazada por SUNAT</p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Factura F001-00123 requiere corrección</p>
                     </div>
-                    <span className="text-xs text-slate-400">2 min</span>
+                    <span className="text-xs text-slate-400 dark:text-gray-500">2 min</span>
                   </div>
                 </div>
-                <div className="px-4 py-3 hover:bg-slate-50 transition-colors border-l-4 border-green-500">
+                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-red-500">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900">Cliente registrado</p>
-                      <p className="text-xs text-slate-500 mt-1">Nuevo cliente: María García</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">Producto sin stock disponible</p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Laptop HP Pavilion - Stock agotado</p>
                     </div>
-                    <span className="text-xs text-slate-400">5 min</span>
+                    <span className="text-xs text-slate-400 dark:text-gray-500">5 min</span>
                   </div>
                 </div>
-                <div className="px-4 py-3 hover:bg-slate-50 transition-colors border-l-4 border-orange-500">
+                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-yellow-500">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900">Stock bajo</p>
-                      <p className="text-xs text-slate-500 mt-1">Producto XYZ tiene solo 5 unidades</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">Factura con observaciones de SUNAT</p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Boleta B001-00456 tiene observaciones menores</p>
                     </div>
-                    <span className="text-xs text-slate-400">1 hora</span>
+                    <span className="text-xs text-slate-400 dark:text-gray-500">15 min</span>
+                  </div>
+                </div>
+                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-yellow-500">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">Stock bajo: revisa inventario</p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Mouse Inalámbrico tiene solo 8 unidades</p>
+                    </div>
+                    <span className="text-xs text-slate-400 dark:text-gray-500">30 min</span>
+                  </div>
+                </div>
+                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-green-500">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">Boleta validada por SUNAT</p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Boleta B001-00789 aceptada exitosamente</p>
+                    </div>
+                    <span className="text-xs text-slate-400 dark:text-gray-500">1 hora</span>
                   </div>
                 </div>
               </div>
-              <div className="border-t border-slate-100 pt-2">
-                <button className="w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors">
+              <div className="border-t border-slate-100 dark:border-gray-700 pt-2">
+                <button className="w-full px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                   Ver todas las notificaciones
                 </button>
               </div>

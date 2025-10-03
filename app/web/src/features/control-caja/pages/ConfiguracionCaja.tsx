@@ -262,7 +262,10 @@ const ConfiguracionCaja: React.FC = () => {
             {/* Submit button */}
             <button
               type="submit"
-              className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold flex items-center justify-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 text-white rounded-md font-semibold flex items-center justify-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+              style={{ backgroundColor: '#1478D4' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1068C4'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1478D4'}
             >
               <Save className="w-5 h-5" />
               Guardar Configuración

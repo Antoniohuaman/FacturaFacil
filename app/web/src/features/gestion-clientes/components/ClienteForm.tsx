@@ -206,17 +206,17 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[80vh] h-auto min-h-[400px] overflow-hidden flex flex-col">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-xl w-full max-h-[80vh] h-auto min-h-[400px] overflow-hidden flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 pb-3 border-b border-gray-100">
-        <h2 className="text-xl font-semibold text-gray-900">
+      <div className="flex items-center justify-between p-6 pb-3 border-b border-gray-100 dark:border-gray-700">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           {isEditing ? 'Editar cliente' : 'Nuevo cliente'}
         </h2>
         <button
           onClick={onCancel}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
         >
-          <span className="h-5 w-5 text-gray-400">✕</span>
+          <span className="h-5 w-5 text-gray-400 dark:text-gray-300">✕</span>
         </button>
       </div>
 
@@ -234,8 +234,8 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 onClick={() => onDocumentTypeChange(type.value)}
                 className={`px-4 py-2 rounded-lg border text-sm font-medium mr-2 mb-2 ${
                   documentType === type.value
-                    ? 'bg-blue-100 border-blue-400 text-blue-900'
-                    : 'bg-white border-gray-300 text-gray-700'
+                    ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-300'
+                    : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
                 {type.label}
@@ -245,8 +245,8 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
               type="button"
               className={`px-4 py-2 rounded-lg border text-sm font-medium mr-2 mb-2 flex items-center ${
                 !mainDocTypes.some(type => type.value === documentType) && documentTypes.some(type => type.value === documentType)
-                  ? 'bg-blue-100 border-blue-400 text-blue-900'
-                  : 'bg-white border-gray-300 text-gray-700'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-300'
+                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
               }`}
               onClick={() => setShowMoreDocTypes((prev) => !prev)}
             >
@@ -262,12 +262,12 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
         {/* Extra Document Types */}
         {showMoreDocTypes && (
           <div className="mb-4 relative">
-            <div className="absolute top-0 left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+            <div className="absolute top-0 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
               {documentTypes.slice(3).map((type) => (
                 <button
                   key={type.value}
                   type="button"
-                  className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 hover:text-blue-700 border-b border-gray-100 last:border-b-0 transition-colors"
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors text-gray-700 dark:text-gray-300"
                   onClick={() => {
                     onDocumentTypeChange(type.value);
                     setShowMoreDocTypes(false);
@@ -283,7 +283,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
         {/* Document Number */}
         {documentType !== 'SIN_DOCUMENTO' && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               N° de Documento
             </label>
             <div className="flex items-center gap-2">
@@ -291,7 +291,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 type="text"
                 value={formData.documentNumber}
                 onChange={(e) => onInputChange('documentNumber', e.target.value)}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Ingresa el número de documento"
               />
               {(documentType === 'RUC' || documentType === 'DNI') && (
@@ -322,41 +322,41 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
 
         {/* Legal Name */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Nombre legal <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={formData.legalName}
             onChange={(e) => onInputChange('legalName', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             placeholder="Ingresa el nombre legal"
           />
         </div>
 
         {/* Address */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Dirección
           </label>
           <input
             type="text"
             value={formData.address}
             onChange={(e) => onInputChange('address', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             placeholder="Ingresa la dirección"
           />
         </div>
 
         {/* Client Type */}
         <div className="mb-5">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Tipo
           </label>
           <select
             value={clientType}
             onChange={(e) => onClientTypeChange(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             {clientTypes.map((type) => (
               <option key={type.value} value={type.value}>
@@ -370,7 +370,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
         <div className="mb-4">
           <button
             type="button"
-            className="text-blue-600 font-medium underline cursor-pointer text-sm"
+            className="text-blue-600 dark:text-blue-400 font-medium underline cursor-pointer text-sm"
             onClick={() => setShowAdvanced((prev) => !prev)}
           >
             {showAdvanced
@@ -384,13 +384,13 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           <>
             {/* Género */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Género
               </label>
               <select
                 value={formData.gender}
                 onChange={(e) => onInputChange('gender', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">Selecciona género</option>
                 <option value="Femenino">Femenino</option>
@@ -401,42 +401,42 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
 
             {/* Phone */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Teléfono
               </label>
               <input
                 type="text"
                 value={formData.phone}
                 onChange={(e) => onInputChange('phone', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Ingresa el teléfono"
               />
             </div>
 
             {/* Email */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Email
               </label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => onInputChange('email', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Ingresa el email"
               />
             </div>
 
             {/* Additional Data */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Información adicional
               </label>
               <textarea
                 value={formData.additionalData}
                 onChange={(e) => onInputChange('additionalData', e.target.value)}
                 rows={3}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Información adicional del cliente"
               />
             </div>
@@ -445,10 +445,10 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-100 bg-gray-50">
+      <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
         <button
           onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-full hover:bg-gray-200 hover:text-gray-800 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors"
         >
           Cancelar
         </button>

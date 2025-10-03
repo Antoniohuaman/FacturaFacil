@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign } from 'lucide-react';
+import CommandsManagementModal from './CommandsManagementModal';
 
 const SearchBar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showCommandsModal, setShowCommandsModal] = useState(false);
+  const navigate = useNavigate();
 
   // Datos de ejemplo - reemplaza con tus datos reales
   const searchData = {
@@ -26,7 +30,7 @@ const SearchBar = () => {
   };
 
   // Comandos para el Command Palette
-  const commands = [
+  const [commands, setCommands] = useState([
     // ACCIONES PRINCIPALES
     { id: 'nueva-factura', nombre: 'Nueva Factura', icono: FileText, categoria: 'acciones', atajo: 'Ctrl+N' },
     { id: 'nueva-boleta', nombre: 'Nueva Boleta', icono: Receipt, categoria: 'acciones', atajo: 'Ctrl+B' },
@@ -36,13 +40,56 @@ const SearchBar = () => {
     
     // NAVEGACIÓN
     { id: 'ir-comprobantes', nombre: 'Comprobantes Electrónicos', icono: FileText, categoria: 'navegacion', atajo: 'Ctrl+1' },
-    { id: 'ir-productos', nombre: 'Catálogo de Artículos', icono: Package, categoria: 'navegacion', atajo: 'Ctrl+2' },
+    { id: 'ir-productos', nombre: 'Gestión de Productos y Servicios', icono: Package, categoria: 'navegacion', atajo: 'Ctrl+2' },
     { id: 'ir-clientes', nombre: 'Gestión de Clientes', icono: Users, categoria: 'navegacion', atajo: 'Ctrl+3' },
     { id: 'ir-caja', nombre: 'Control de Caja', icono: CreditCard, categoria: 'navegacion', atajo: 'Ctrl+4' },
     { id: 'ir-indicadores', nombre: 'Indicadores de Negocio', icono: BarChart3, categoria: 'navegacion', atajo: 'Ctrl+5' },
     { id: 'ir-configuracion', nombre: 'Configuración del Sistema', icono: Settings, categoria: 'navegacion', atajo: 'Ctrl+6' },
     { id: 'ir-precios', nombre: 'Lista de Precios', icono: DollarSign, categoria: 'navegacion', atajo: 'Ctrl+7' },
-  ];
+  ]);
+
+  // Cargar comandos personalizados del localStorage
+  useEffect(() => {
+    const loadCommands = () => {
+      const baseCommands = [
+        // ACCIONES PRINCIPALES
+        { id: 'nueva-factura', nombre: 'Nueva Factura', icono: FileText, categoria: 'acciones', atajo: 'Ctrl+F' },
+        { id: 'nueva-boleta', nombre: 'Nueva Boleta', icono: Receipt, categoria: 'acciones', atajo: 'Ctrl+B' },
+        { id: 'buscar-global', nombre: 'Búsqueda Global', icono: Search, categoria: 'acciones', atajo: 'Ctrl+K' },
+        { id: 'nuevo-cliente', nombre: 'Nuevo Cliente', icono: UserPlus, categoria: 'acciones', atajo: 'Ctrl+U' },
+        { id: 'nuevo-producto', nombre: 'Nuevo Producto', icono: Package, categoria: 'acciones', atajo: 'Ctrl+P' },
+        
+        // NAVEGACIÓN
+        { id: 'ir-comprobantes', nombre: 'Comprobantes Electrónicos', icono: FileText, categoria: 'navegacion', atajo: 'Ctrl+1' },
+        { id: 'ir-productos', nombre: 'Gestión de Productos y Servicios', icono: Package, categoria: 'navegacion', atajo: 'Ctrl+2' },
+        { id: 'ir-clientes', nombre: 'Gestión de Clientes', icono: Users, categoria: 'navegacion', atajo: 'Ctrl+3' },
+        { id: 'ir-caja', nombre: 'Control de Caja', icono: CreditCard, categoria: 'navegacion', atajo: 'Ctrl+4' },
+        { id: 'ir-indicadores', nombre: 'Indicadores de Negocio', icono: BarChart3, categoria: 'navegacion', atajo: 'Ctrl+5' },
+        { id: 'ir-configuracion', nombre: 'Configuración del Sistema', icono: Settings, categoria: 'navegacion', atajo: 'Ctrl+6' },
+        { id: 'ir-precios', nombre: 'Lista de Precios', icono: DollarSign, categoria: 'navegacion', atajo: 'Ctrl+7' },
+      ];
+
+      const savedCommands = localStorage.getItem('customCommands');
+      if (savedCommands) {
+        const customCommands = JSON.parse(savedCommands);
+        setCommands([...baseCommands, ...customCommands]);
+      } else {
+        setCommands(baseCommands);
+      }
+    };
+
+    loadCommands();
+    
+    // Escuchar cambios en localStorage para actualizar comandos en tiempo real
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'customCommands') {
+        loadCommands();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // Filtrar resultados
   const filterResults = (query: string) => {
@@ -72,21 +119,123 @@ const SearchBar = () => {
     cmd.nombre.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Atajo de teclado Ctrl+K
+  // Atajo de teclado Ctrl+K y otros atajos del sistema
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K para abrir command palette
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        setShowCommandPalette(prev => !prev);
+        e.stopPropagation();
+        // Solo abrir si no hay modales abiertos
+        if (!showCommandsModal) {
+          setShowCommandPalette(prev => !prev);
+        }
+        return;
       }
+      
+      // Escapar para cerrar
       if (e.key === 'Escape') {
-        setShowCommandPalette(false);
-        setShowSearchResults(false);
+        e.preventDefault();
+        e.stopPropagation();
+        if (showCommandPalette) {
+          setShowCommandPalette(false);
+        }
+        if (showSearchResults) {
+          setShowSearchResults(false);
+        }
+        if (showCommandsModal) {
+          setShowCommandsModal(false);
+        }
+        return;
+      }
+
+      // Solo procesar otros atajos si no estamos en un input/textarea
+      const activeElement = document.activeElement;
+      const isInInput = activeElement?.tagName === 'INPUT' || 
+                       activeElement?.tagName === 'TEXTAREA' || 
+                       activeElement?.getAttribute('contenteditable') === 'true';
+      
+      if (isInInput) return;
+
+      // Atajos de navegación - IMPORTANTE: preventDefault para evitar conflictos con Chrome
+      if (e.ctrlKey || e.metaKey) {
+        switch(e.key) {
+          case '1':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/comprobantes');
+            break;
+          case '2':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/catalogo');
+            break;
+          case '3':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/clientes');
+            break;
+          case '4':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/control-caja');
+            break;
+          case '5':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/indicadores');
+            break;
+          case '6':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/configuracion');
+            break;
+          case '7':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/lista-precios');
+            break;
+          case 'f':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/comprobantes/emision');
+            break;
+          case 'b':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/comprobantes/emision');
+            break;
+          case 'u':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/clientes');
+            break;
+          case 'p':
+            e.preventDefault();
+            e.stopPropagation();
+            navigate('/catalogo');
+            break;
+        }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    
+    // Usar capture: true para interceptar eventos antes que otros handlers
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [navigate, showCommandsModal, showCommandPalette, showSearchResults]);
+
+  // Controlar overflow del body cuando el command palette está abierto
+  useEffect(() => {
+    if (showCommandPalette || showCommandsModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showCommandPalette, showCommandsModal]);
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -107,18 +256,59 @@ const SearchBar = () => {
   const handleExecuteCommand = (commandId: string) => {
     setShowCommandPalette(false);
     setSearchQuery('');
-    console.log('Executing command:', commandId);
-    // Aquí ejecutarías la acción
-    // switch(commandId) {
-    //   case 'nueva-factura': openFacturaModal(); break;
-    //   case 'ir-productos': navigate('/productos'); break;
-    // }
+    
+    switch(commandId) {
+      // ACCIONES
+      case 'nueva-factura':
+        navigate('/comprobantes/emision');
+        break;
+      case 'nueva-boleta':
+        navigate('/comprobantes/emision');
+        break;
+      case 'buscar-global':
+        setShowCommandPalette(true);
+        break;
+      case 'nuevo-cliente':
+        navigate('/clientes');
+        // Aquí podrías abrir un modal de nuevo cliente
+        break;
+      case 'nuevo-producto':
+        navigate('/catalogo');
+        // Aquí podrías abrir un modal de nuevo producto
+        break;
+      
+      // NAVEGACIÓN
+      case 'ir-comprobantes':
+        navigate('/comprobantes');
+        break;
+      case 'ir-productos':
+        navigate('/catalogo');
+        break;
+      case 'ir-clientes':
+        navigate('/clientes');
+        break;
+      case 'ir-caja':
+        navigate('/control-caja');
+        break;
+      case 'ir-indicadores':
+        navigate('/indicadores');
+        break;
+      case 'ir-configuracion':
+        navigate('/configuracion');
+        break;
+      case 'ir-precios':
+        navigate('/lista-precios');
+        break;
+      
+      default:
+        console.log('Comando no reconocido:', commandId);
+    }
   };
 
   return (
     <>
       {/* BUSCADOR */}
-      <div className="relative">
+      <div className="relative" style={{ zIndex: showCommandPalette ? 1 : 'auto' }}>
         <div className="relative">
           <Search 
             size={16} 
@@ -244,9 +434,19 @@ const SearchBar = () => {
       </div>
 
       {/* COMMAND PALETTE */}
-      {showCommandPalette && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh] bg-black/50"
-             onClick={() => setShowCommandPalette(false)}>
+      {showCommandPalette && !showCommandsModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-start justify-center pt-[20vh]"
+          style={{ 
+            zIndex: 9999,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0
+          }}
+          onClick={() => setShowCommandPalette(false)}
+        >
           <div className="w-full max-w-xl bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600"
                onClick={(e) => e.stopPropagation()}>
             
@@ -352,13 +552,34 @@ const SearchBar = () => {
               )}
             </div>
 
-            <div className="p-2 bg-gray-50 border-t border-gray-200 flex items-center gap-3 text-[10px] text-gray-400">
-              <span>↑↓ Navegar</span>
-              <span>↵ Seleccionar</span>
-              <span>Esc Cerrar</span>
+            <div className="p-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
+              <div className="flex items-center gap-3">
+                <span>↑↓ Navegar</span>
+                <span>↵ Seleccionar</span>
+                <span>Esc Cerrar</span>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowCommandPalette(false);
+                  setShowCommandsModal(true);
+                }}
+                className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-400 dark:hover:text-blue-400 transition-colors px-2 py-1 rounded"
+              >
+                Administrar comandos
+              </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL DE ADMINISTRAR COMANDOS */}
+      {showCommandsModal && (
+        <CommandsManagementModal
+          isOpen={showCommandsModal}
+          onClose={() => setShowCommandsModal(false)}
+        />
       )}
     </>
   );

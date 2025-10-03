@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface UserDropdownProps {
   userName: string;
@@ -13,12 +14,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   userEmail,
   onClose
 }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    console.log(isDarkMode ? 'Tema claro activado' : 'Tema oscuro activado');
-  };
+  const { theme, toggleTheme } = useTheme();
 
   const handleMenuClick = (action: string) => {
     onClose();
@@ -123,15 +119,15 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             <div>
               <div className="text-slate-700 dark:text-gray-300 font-medium text-sm">Tema oscuro</div>
               <div className="text-xs text-slate-500 dark:text-gray-400">
-                {isDarkMode ? 'Activado' : 'Desactivado'}
+                {theme === 'dark' ? 'Activado' : 'Desactivado'}
               </div>
             </div>
           </div>
           <div className={`relative inline-block w-10 h-5 transition-colors duration-200 ease-in-out rounded-full ${
-            isDarkMode ? 'bg-blue-600' : 'bg-slate-200'
+            theme === 'dark' ? 'bg-blue-600' : 'bg-slate-200'
           }`}>
             <span className={`inline-block w-3 h-3 transition-transform duration-200 ease-in-out transform bg-white rounded-full shadow-sm ${
-              isDarkMode ? 'translate-x-6' : 'translate-x-1'
+              theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
             } mt-1`}></span>
           </div>
         </button>

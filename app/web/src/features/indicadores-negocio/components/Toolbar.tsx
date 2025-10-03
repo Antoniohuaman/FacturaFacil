@@ -17,7 +17,7 @@ interface ToolbarProps {
 // COMPONENTE DE TÍTULO DE PÁGINA
 export function PageHeader({ title }: PageHeaderProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 -mx-10 px-10 py-4">
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 -mx-10 px-16 py-6">
       <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight">{title}</h1>
     </div>
   );
@@ -66,13 +66,13 @@ export default function Toolbar({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 border-b border-slate-300 dark:border-gray-700 shadow-sm -mx-10 px-10" style={{ height: '72px', display: 'flex', alignItems: 'center' }}>
+    <div className="bg-white dark:bg-gray-800 border-b border-slate-300 dark:border-gray-700 shadow-sm -mx-10 px-16 py-4" style={{ minHeight: '72px', display: 'flex', alignItems: 'center' }}>
       {/* TOOLBAR HORIZONTAL */}
       <div className="flex items-center justify-between w-full">
         {/* GRUPO IZQUIERDO: Filtros */}
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-8">
           {/* DateRangePicker */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             <label className="text-sm font-medium text-slate-700 dark:text-gray-300 min-w-[50px]">Período:</label>
             <DateRangePicker
               value={selectedDateRange}
@@ -81,7 +81,7 @@ export default function Toolbar({
           </div>
 
           {/* Selector de Establecimiento */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             <label className="text-sm font-medium text-slate-700 dark:text-gray-300 min-w-[90px]">Establecimiento:</label>
             <select
               value={selectedEstablishment}
