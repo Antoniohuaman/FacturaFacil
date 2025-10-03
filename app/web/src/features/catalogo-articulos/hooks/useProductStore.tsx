@@ -14,6 +14,8 @@ const mockProducts: Product[] = [
     cantidad: 0,
     categoria: 'HERRAMIENTAS',
     impuesto: 'IGV (18.00%)',
+    establecimientoIds: [],
+    disponibleEnTodos: true,
     fechaCreacion: new Date('2024-01-15'),
     fechaActualizacion: new Date('2024-01-15')
   },
@@ -26,6 +28,8 @@ const mockProducts: Product[] = [
     cantidad: 50,
     categoria: 'HERRAMIENTAS',
     impuesto: 'IGV (18.00%)',
+    establecimientoIds: [],
+    disponibleEnTodos: true,
     fechaCreacion: new Date('2024-01-14'),
     fechaActualizacion: new Date('2024-01-14')
   },
@@ -38,6 +42,8 @@ const mockProducts: Product[] = [
     cantidad: 30,
     categoria: 'HERRAMIENTAS',
     impuesto: 'IGV (18.00%)',
+    establecimientoIds: [],
+    disponibleEnTodos: true,
     fechaCreacion: new Date('2024-01-13'),
     fechaActualizacion: new Date('2024-01-13')
   },
@@ -50,6 +56,8 @@ const mockProducts: Product[] = [
     cantidad: 0,
     categoria: 'Alimentos y Bebidas',
     impuesto: 'IGV (18.00%)',
+    establecimientoIds: [],
+    disponibleEnTodos: true,
     fechaCreacion: new Date('2024-01-12'),
     fechaActualizacion: new Date('2024-01-12')
   },
@@ -62,6 +70,8 @@ const mockProducts: Product[] = [
     cantidad: 0,
     categoria: 'Accesorios',
     impuesto: 'IGV (18.00%)',
+    establecimientoIds: [],
+    disponibleEnTodos: true,
     fechaCreacion: new Date('2024-01-11'),
     fechaActualizacion: new Date('2024-01-11')
   }

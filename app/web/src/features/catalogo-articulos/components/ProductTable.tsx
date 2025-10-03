@@ -1,11 +1,13 @@
 import type { Product, FilterOptions } from '../models/types';
 // src/features/catalogo-articulos/components/ProductTable.tsx
 import React, { useState, useEffect } from 'react';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
 // Definir las columnas disponibles
 type ColumnKey = 
   | 'unidad' 
-  | 'categoria' 
+  | 'categoria'
+  | 'establecimientos' 
   | 'alias' 
   | 'precioCompra' 
   | 'porcentajeGanancia' 
@@ -22,13 +24,16 @@ interface ColumnConfig {
   key: ColumnKey;
   label: string;
   defaultVisible: boolean;
-  group: 'basicas' | 'codigos' | 'financieras' | 'caracteristicas';
+  group: 'basicas' | 'codigos' | 'financieras' | 'caracteristicas' | 'asignacion';
 }
 
 const AVAILABLE_COLUMNS: ColumnConfig[] = [
   // Columnas básicas
   { key: 'unidad', label: 'Unidad', defaultVisible: true, group: 'basicas' },
   { key: 'categoria', label: 'Categoría', defaultVisible: true, group: 'basicas' },
+  
+  // Asignación de ubicaciones
+  { key: 'establecimientos', label: 'Establecimientos', defaultVisible: true, group: 'asignacion' },
   
   // Información adicional
   { key: 'alias', label: 'Alias', defaultVisible: false, group: 'basicas' },
@@ -71,6 +76,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
   selectedProducts,
   onSelectedProductsChange
 }) => {
+  // Acceder a los establecimientos desde el contexto de configuración
+  const { state: configState } = useConfigurationContext();
+  const establishments = configState.establishments;
+  
   // Estado para columnas visibles
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
     // Intentar cargar desde localStorage
@@ -227,6 +236,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
   const groupLabels = {
     basicas: 'Información Básica',
+    asignacion: 'Asignación y Ubicación',
     codigos: 'Códigos',
     financieras: 'Información Financiera',
     caracteristicas: 'Características del Producto'
@@ -336,7 +346,28 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
       {/* Tabla de productos */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Indicador de scroll horizontal */}
+        {visibleColumns.size > 3 && (
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 px-4 py-2 border-b border-gray-200">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-2 text-gray-600">
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+                <span className="font-medium">Desliza horizontalmente para ver más columnas</span>
+              </div>
+              <span className="px-2 py-1 bg-white rounded-md text-gray-700 font-mono shadow-sm">
+                {visibleColumns.size + 5} columnas visibles
+              </span>
+            </div>
+          </div>
+        )}
+        
+        {/* Contenedor con scroll horizontal mejorado */}
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100" style={{ 
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#9CA3AF #F3F4F6'
+        }}>
           <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -402,6 +433,12 @@ const ProductTable: React.FC<ProductTableProps> = ({
               {visibleColumns.has('categoria') && (
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Categoría
+                </th>
+              )}
+
+              {visibleColumns.has('establecimientos') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Establecimientos
                 </th>
               )}
 
@@ -546,6 +583,46 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                       {product.categoria}
                     </span>
+                  </td>
+                )}
+
+                {visibleColumns.has('establecimientos') && (
+                  <td className="px-6 py-4">
+                    {product.disponibleEnTodos ? (
+                      <div className="flex items-center space-x-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Todos ({establishments.filter(e => e.isActive).length})
+                        </span>
+                      </div>
+                    ) : product.establecimientoIds && product.establecimientoIds.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {product.establecimientoIds.slice(0, 2).map(estId => {
+                          const est = establishments.find(e => e.id === estId);
+                          return est ? (
+                            <span 
+                              key={estId}
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
+                              title={`${est.name} - ${est.address}`}
+                            >
+                              {est.code}
+                            </span>
+                          ) : null;
+                        })}
+                        {product.establecimientoIds.length > 2 && (
+                          <span 
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+                            title={`+${product.establecimientoIds.length - 2} más`}
+                          >
+                            +{product.establecimientoIds.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">Sin asignar</span>
+                    )}
                   </td>
                 )}
 

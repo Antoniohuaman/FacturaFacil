@@ -11,6 +11,9 @@ export interface Product {
   imagen?: string;
   impuesto?: string;
   descripcion?: string;
+  // Asignación de establecimientos
+  establecimientoIds: string[]; // Array de IDs de establecimientos
+  disponibleEnTodos: boolean; // Si está disponible en todos los establecimientos
   // Campos avanzados
   alias?: string;
   precioCompra?: number;
@@ -82,6 +85,9 @@ export interface ProductFormData {
   impuesto?: string;
   descripcion?: string;
   imagen?: File | string;
+  // Asignación de establecimientos
+  establecimientoIds: string[];
+  disponibleEnTodos: boolean;
   // Campos avanzados
   alias?: string;
   precioCompra?: number;
