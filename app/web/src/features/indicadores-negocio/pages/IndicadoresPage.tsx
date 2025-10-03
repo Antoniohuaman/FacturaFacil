@@ -137,58 +137,58 @@ const IndicadoresPage: React.FC = () => {
         {/* KPIs principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           {/* Ventas del Mes */}
-          <div className="bg-blue-50 rounded-xl p-6 shadow-sm border border-blue-100">
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 shadow-sm border border-blue-100 dark:border-blue-800/30">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-blue-200 rounded-lg">
-                <ShoppingCart className="h-6 w-6 text-blue-800" />
+              <div className="p-3 bg-blue-200 dark:bg-blue-800 rounded-lg">
+                <ShoppingCart className="h-6 w-6 text-blue-800 dark:text-blue-200" />
               </div>
-              <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-full">+12.5%</span>
+              <span className="text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800/50 px-2 py-1 rounded-full">+12.5%</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Total de Ventas</h3>
-            <p className="text-2xl font-bold text-gray-900 mb-1">S/. 128,450</p>
-            <p className="text-sm text-gray-500">Periodo seleccionado</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Total de Ventas</h3>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">S/. 128,450</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Periodo seleccionado</p>
           </div>
 
           {/* Nuevos Clientes */}
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 shadow-sm border border-green-200">
+          <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 shadow-sm border border-green-200 dark:border-green-800/30">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-green-200 rounded-lg">
-                <Users className="h-6 w-6 text-green-800" />
+              <div className="p-3 bg-green-200 dark:bg-green-800 rounded-lg">
+                <Users className="h-6 w-6 text-green-800 dark:text-green-200" />
               </div>
-              <span className="text-xs font-medium text-green-800 bg-green-200/50 px-2 py-1 rounded-full">+8</span>
+              <span className="text-xs font-medium text-green-800 dark:text-green-300 bg-green-200/50 dark:bg-green-800/50 px-2 py-1 rounded-full">+8</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Nuevos Clientes</h3>
-            <p className="text-2xl font-bold text-gray-900">45</p>
-            <p className="text-sm text-gray-600">este mes</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Nuevos Clientes</h3>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">45</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">este mes</p>
           </div>
 
           {/* Total comprobantes emitidos */}
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 shadow-sm border border-purple-200">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-6 shadow-sm border border-purple-200 dark:border-purple-800/30">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-purple-200 rounded-lg">
-                <DollarSign className="h-6 w-6 text-purple-800" />
+              <div className="p-3 bg-purple-200 dark:bg-purple-800 rounded-lg">
+                <DollarSign className="h-6 w-6 text-purple-800 dark:text-purple-200" />
               </div>
-              <span className="text-xs font-medium text-purple-800 bg-purple-200/50 px-2 py-1 rounded-full">+5.8%</span>
+              <span className="text-xs font-medium text-purple-800 dark:text-purple-300 bg-purple-200/50 dark:bg-purple-800/50 px-2 py-1 rounded-full">+5.8%</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Comprobantes Emitidos</h3>
-            <p className="text-2xl font-bold text-gray-900">1,245</p>
-            <p className="text-sm text-gray-600">En este periodo</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Comprobantes Emitidos</h3>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">1,245</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">En este periodo</p>
           </div>
 
           {/* Crecimiento */}
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 shadow-sm border border-orange-200">
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-6 shadow-sm border border-orange-200 dark:border-orange-800/30">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-orange-200 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-orange-800" />
+              <div className="p-3 bg-orange-200 dark:bg-orange-800 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-orange-800 dark:text-orange-200" />
               </div>
-              <span className="text-xs font-medium text-orange-800 bg-orange-200/50 px-2 py-1 rounded-full">+18.2%</span>
+              <span className="text-xs font-medium text-orange-800 dark:text-orange-300 bg-orange-200/50 dark:bg-orange-800/50 px-2 py-1 rounded-full">+18.2%</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Crecimiento</h3>
-            <p className="text-2xl font-bold text-gray-900 mb-1">vs. mes anterior</p>
-            <p className="text-sm text-gray-600 mb-3">Sólido desempeño</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Crecimiento</h3>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">vs. mes anterior</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Sólido desempeño</p>
             <div className="flex justify-end">
               <button
-                className="text-orange-700 text-sm font-medium hover:underline"
+                className="text-orange-700 dark:text-orange-300 text-sm font-medium hover:underline"
                 style={{ minWidth: 'auto', padding: 0 }}
                 onClick={() => setOpenDetalleCrecimientoModal(true)}
               >
@@ -201,17 +201,17 @@ const IndicadoresPage: React.FC = () => {
       {/* Cards de ventas por comprobante y establecimiento */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Ventas por Tipo de Comprobante */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Ventas por Tipo de Comprobante</h3>
-            <span className="text-sm text-gray-500 font-normal">Periodo: 01/09/2025 – 15/09/2025</span>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Ventas por Tipo de Comprobante</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-normal">Periodo: 01/09/2025 – 15/09/2025</span>
           </div>
           <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
             {/* Lado izquierdo: Datos, leyendas y barras */}
             <div className="flex-1 order-2 lg:order-1">
               <div className="flex flex-col gap-4">
                 {/* Facturas */}
-                <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 bg-white">
+                <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700">
                   <span className="inline-block p-1.5 bg-blue-600 rounded-md">
                     <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12h6"/><path d="M9 16h6"/><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 8h6"/></svg>
                   </span>
@@ -232,7 +232,7 @@ const IndicadoresPage: React.FC = () => {
                   </div>
                 </div>
                 {/* Boletas */}
-                <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 bg-white">
+                <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700">
                   <span className="inline-block p-1.5 bg-sky-600 rounded-md">
                     <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 17v-6a2 2 0 0 1 2-2h4"/><rect width="16" height="20" x="4" y="2" rx="2"/></svg>
                   </span>
@@ -275,7 +275,7 @@ const IndicadoresPage: React.FC = () => {
                     ))}
                   </Pie>
                   <RechartsTooltip
-                    formatter={(value: number, name: string, props: any) => {
+                    formatter={(value: number, name: string, props: { payload?: { percent?: string } }) => {
                       const percent = props?.payload?.percent;
                       return [`S/ ${Number(value).toLocaleString()} (${percent}%)`, name];
                     }}
@@ -283,7 +283,7 @@ const IndicadoresPage: React.FC = () => {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute left-0 top-0 w-full h-full flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-sm text-gray-500 font-medium">Total de ventas:</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total de ventas:</span>
                 <span className="text-lg font-bold text-blue-900">S/ 128,450</span>
               </div>
             </div>
@@ -291,23 +291,23 @@ const IndicadoresPage: React.FC = () => {
         </div>
 
         {/* Ventas por Establecimiento */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Ventas por Establecimiento</h3>
-            <span className="text-sm text-gray-500 font-normal">Periodo: 01/09/2025 – 15/09/2025</span>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Ventas por Establecimiento</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-normal">Periodo: 01/09/2025 – 15/09/2025</span>
           </div>
           <div className="space-y-6">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-blue-600 inline-block"></span>
-                  <span className="font-semibold text-gray-900">Tienda Centro</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Tienda Centro</span>
                 </div>
                 <span className="text-green-600 text-xs font-semibold">↑ 15.2%</span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">40.9% del total</div>
-                <div className="font-bold text-gray-900">S/ 198,750.25</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">40.9% del total</div>
+                <div className="font-bold text-gray-900 dark:text-gray-100">S/ 198,750.25</div>
               </div>
               <div className="h-2 bg-gray-200 rounded-full mt-2">
                 <div className="h-2 bg-blue-600 rounded-full" style={{ width: "41%" }}></div>
@@ -318,13 +318,13 @@ const IndicadoresPage: React.FC = () => {
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-gray-400 inline-block"></span>
-                  <span className="font-semibold text-gray-900">Tienda Norte</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Tienda Norte</span>
                 </div>
                 <span className="text-green-600 text-xs font-semibold">↑ 8.7%</span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">33.4% del total</div>
-                <div className="font-bold text-gray-900">S/ 162,420.15</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">33.4% del total</div>
+                <div className="font-bold text-gray-900 dark:text-gray-100">S/ 162,420.15</div>
               </div>
               <div className="h-2 bg-gray-200 rounded-full mt-2">
                 <div className="h-2 bg-gray-400 rounded-full" style={{ width: "33%" }}></div>
@@ -335,7 +335,7 @@ const IndicadoresPage: React.FC = () => {
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-gray-400 inline-block"></span>
-                  <span className="font-semibold text-gray-900">Tienda Sur</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Tienda Sur</span>
                 </div>
                 <span className="text-green-600 text-xs font-semibold">↑ 22.1%</span>
               </div>
@@ -354,13 +354,13 @@ const IndicadoresPage: React.FC = () => {
       {/* Rankings y detalle de ventas diarias */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
         {/* Top Vendedores */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-0">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-0">
           <div className="flex items-center justify-between px-6 pt-6 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-lg"><Award className="h-5 w-5 text-gray-700" /></span>
-              <span className="font-semibold text-gray-900">Top Vendedores</span>
+              <span className="text-lg"><Award className="h-5 w-5 text-gray-700 dark:text-gray-300" /></span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">Top Vendedores</span>
             </div>
-            <span className="text-xs text-gray-400 font-semibold">Montos</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">Montos</span>
           </div>
           <div className="px-6 pb-4">
             {[
@@ -384,13 +384,13 @@ const IndicadoresPage: React.FC = () => {
         </div>
 
         {/* Productos Más Vendidos */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-0">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-0">
           <div className="flex items-center justify-between px-6 pt-6 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-lg"><ShoppingCart className="h-5 w-5 text-gray-700" /></span>
-              <span className="font-semibold text-gray-900">Productos Más Vendidos</span>
+              <span className="text-lg"><ShoppingCart className="h-5 w-5 text-gray-700 dark:text-gray-300" /></span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">Productos Más Vendidos</span>
             </div>
-            <span className="text-xs text-gray-400 font-semibold">Montos</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">Montos</span>
           </div>
           <div className="px-6 pb-4">
             {[
@@ -414,13 +414,13 @@ const IndicadoresPage: React.FC = () => {
         </div>
 
         {/* Clientes Principales */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-0">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-0">
           <div className="flex items-center justify-between px-6 pt-6 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-lg"><Users className="h-5 w-5 text-gray-700" /></span>
-              <span className="font-semibold text-gray-900">Clientes Principales</span>
+              <span className="text-lg"><Users className="h-5 w-5 text-gray-700 dark:text-gray-300" /></span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">Clientes Principales</span>
             </div>
-            <span className="text-xs text-gray-400 font-semibold">Montos</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">Montos</span>
           </div>
           <div className="px-6 pb-4">
             {[
@@ -445,11 +445,11 @@ const IndicadoresPage: React.FC = () => {
       </div>
 
       {/* Detalle de Ventas Diarias */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-lg"><TrendingUp className="h-5 w-5 text-gray-700" /></span>
-            <span className="font-semibold text-gray-900">Detalle de Ventas Diarias</span>
+            <span className="text-lg"><TrendingUp className="h-5 w-5 text-gray-700 dark:text-gray-300" /></span>
+            <span className="font-semibold text-gray-900 dark:text-gray-100">Detalle de Ventas Diarias</span>
             {/* ...sin filtro comprobantes aquí... */}
           </div>
           <button
@@ -552,7 +552,7 @@ const IndicadoresPage: React.FC = () => {
                   tickFormatter={(value: number) => value.toLocaleString("es-PE").replace(/,/g, " ")}
                 />
                 <RechartsTooltip
-                  content={(props: any) => {
+                  content={(props: { active?: boolean; payload?: Array<{ payload: VentaDiaria }> }) => {
                     const { active, payload } = props;
                     if (active && payload && payload.length) {
                       const item = payload[0].payload;

@@ -30,14 +30,14 @@ const CompanySelector = () => {
   const selectedCompany = companies.find(c => c.id === selectedCompanyId);
 
   return (
-    <div className="p-4 border-b border-gray-100/50">
+    <div className="p-4 border-b border-gray-100/50 dark:border-gray-700/50">
       <div className="relative">
         <button
           onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
-          className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200/50
-                   hover:border-gray-300 hover:bg-gray-50
+          className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-200/50 dark:border-gray-600/50
+                   hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800
                    transition-all duration-200 flex items-center justify-between group backdrop-blur-sm
-                   hover:shadow-md bg-white"
+                   hover:shadow-md bg-white dark:bg-gray-900"
         >
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 
@@ -46,10 +46,10 @@ const CompanySelector = () => {
               <Building2 size={20} className="text-white" />
             </div>
             <div className="text-left min-w-0">
-              <div className="font-bold text-gray-900 text-sm truncate">
+              <div className="font-bold text-gray-900 dark:text-gray-100 text-sm truncate">
                 {selectedCompany?.name}
               </div>
-              <div className="flex items-center gap-1 text-xs text-gray-500">
+              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                 <MapPin size={11} />
                 {selectedSucursal}
               </div>
@@ -57,16 +57,16 @@ const CompanySelector = () => {
           </div>
           <ChevronDown 
             size={18} 
-            className={`text-gray-400 transition-transform flex-shrink-0 ${
+            className={`text-gray-400 dark:text-gray-500 transition-transform flex-shrink-0 ${
               showCompanyDropdown ? 'rotate-180' : ''
             }`}
           />
         </button>
 
         {showCompanyDropdown && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl z-50 border border-gray-200">
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl z-50 border border-gray-200 dark:border-gray-600">
             <div className="p-2">
-              <div className="text-xs font-medium px-2 py-1.5 text-gray-500">
+              <div className="text-xs font-medium px-2 py-1.5 text-gray-500 dark:text-gray-400">
                 Sucursales de {selectedCompany?.name}
               </div>
               
@@ -78,17 +78,17 @@ const CompanySelector = () => {
                       setSelectedSucursal(sucursal);
                       setShowCompanyDropdown(false);
                     }}
-                    className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-gray-50 transition-colors"
+                    className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     style={{
                       backgroundColor: sucursal === selectedSucursal ? '#f0f9ff' : 'transparent',
                       borderLeft: sucursal === selectedSucursal ? '3px solid #0040A2' : '3px solid transparent'
                     }}
                   >
-                    <div className="flex items-center text-gray-700">
-                      <MapPin size={14} className="mr-2 text-gray-400" />
+                    <div className="flex items-center text-gray-700 dark:text-gray-300">
+                      <MapPin size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
                       <div>
                         <div className="font-medium">{sucursal}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
                           {sucursal === 'Tienda Sur' ? 'Av. Principal 123' : 
                            sucursal === 'Tienda Norte' ? 'Jr. Los Olivos 456' : 
                            'Av. Industrial 789'}

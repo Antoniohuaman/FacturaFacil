@@ -644,29 +644,29 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   const totalValue = filteredDrafts.reduce((sum, draft) => sum + draft.total, 0);
 
   return (
-    <div className={`min-h-screen bg-gray-50 ${hideSidebar ? '' : 'flex'}`}>
+    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 ${hideSidebar ? '' : 'flex'}`}>
       {/* Sidebar */}
       {!hideSidebar && (
-        <div className="w-64 bg-white border-r border-gray-200">
+        <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
           <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">Comprobantes</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Comprobantes</h2>
             <nav className="space-y-2">
-              <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+              <a href="#" className="flex items-center px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
                 <FileText className="w-4 h-4 mr-3" />
                 Comprobantes
               </a>
-              <a href="#" className="flex items-center px-3 py-2 bg-blue-100 text-blue-600 rounded-md font-medium">
+              <a href="#" className="flex items-center px-3 py-2 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md font-medium">
                 <Edit className="w-4 h-4 mr-3" />
                 Borradores
-                <span className="ml-auto bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">
+                <span className="ml-auto bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
                   {filteredDrafts.length}
                 </span>
               </a>
-              <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+              <a href="#" className="flex items-center px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
                 <FileText className="w-4 h-4 mr-3" />
                 Productos
               </a>
-              <a href="#" className="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+              <a href="#" className="flex items-center px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
                 <FileText className="w-4 h-4 mr-3" />
                 Precios
               </a>
@@ -686,36 +686,36 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200">
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <ChevronLeft className="w-5 h-5 text-gray-400" />
-                  <h1 className="text-xl font-semibold text-gray-900">Borradores</h1>
+                  <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Borradores</h1>
                 </div>
 
                 {/* Date filters */}
                 <div className="flex items-center space-x-3 ml-8">
                   <div className="relative">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Desde</label>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
                     <div className="relative">
                       <input
                         type="date"
                         value={dateFrom}
                         onChange={(e) => setDateFrom(e.target.value)}
-                        className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                   </div>
                   <div className="relative">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Hasta</label>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
                     <div className="relative">
                       <input
                         type="date"
                         value={dateTo}
                         onChange={(e) => setDateTo(e.target.value)}
-                        className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                   </div>
@@ -723,7 +723,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
 
                 {/* Action icons */}
                 <div className="flex items-center space-x-2 ml-6">
-                  <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
+                  <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
                     <Download className="w-5 h-5" />
                   </button>
                 </div>
@@ -731,7 +731,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
 
               {/* Action buttons */}
               <div className="flex items-center space-x-3">
-                <button className="px-4 py-2 text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors text-sm font-medium">
+                <button className="px-4 py-2 text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-500 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-sm font-medium">
                   Nueva factura
                 </button>
                 <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
@@ -743,18 +743,18 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
 
           {/* Bulk Actions Bar */}
           {selectedDrafts.length > 0 && (
-            <div className="bg-blue-50 border-b border-blue-200 px-6 py-3">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 px-6 py-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-blue-900">
+                <span className="text-sm font-medium text-blue-900 dark:text-blue-200">
                   {selectedDrafts.length} borrador{selectedDrafts.length > 1 ? 'es' : ''} seleccionado{selectedDrafts.length > 1 ? 's' : ''}
                 </span>
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center space-x-3">
-                    <button className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    <button className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
                       Emitir seleccionados
                     </button>
                     <button
-                      className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-2 border border-blue-300 rounded-md bg-white hover:bg-blue-50"
+                      className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center space-x-2 border border-blue-300 dark:border-blue-500 rounded-md bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                       onClick={() => validateDraftsForEmit(selectedDrafts)}
                     >
                       <Send className="w-4 h-4 mr-2" />
@@ -789,51 +789,51 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
         </div>
 
         {/* Stats Cards */}
-        <div className="px-6 py-4 bg-gray-50">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900">
           <div className="grid grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Borradores Vigentes</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Borradores Vigentes</p>
                   <p className="text-2xl font-bold text-green-600">{vigenteDrafts}</p>
                 </div>
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
                   <Edit className="w-5 h-5 text-green-600" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Por Vencer (24h)</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Por Vencer (24h)</p>
                   <p className="text-2xl font-bold text-orange-600">{porVencerDrafts}</p>
                 </div>
-                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
                   <Clock className="w-5 h-5 text-orange-600" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Vencidos</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Vencidos</p>
                   <p className="text-2xl font-bold text-red-600">{vencidoDrafts}</p>
                 </div>
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
                   <AlertTriangle className="w-5 h-5 text-red-600" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Valor Total</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Valor Total</p>
                   <p className="text-2xl font-bold text-blue-600">S/ {totalValue.toFixed(2)}</p>
                 </div>
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
                   <FileText className="w-5 h-5 text-blue-600" />
                 </div>
               </div>
@@ -843,126 +843,126 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
 
         {/* Table */}
         <div className="flex-1 px-6 py-6">
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                   <tr>
                     <th className="px-6 py-3 text-left">
                       <input
                         type="checkbox"
                         checked={selectedDrafts.length === filteredDrafts.length && filteredDrafts.length > 0}
                         onChange={handleSelectAll}
-                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-600 border-gray-300 dark:border-gray-500 rounded focus:ring-blue-500"
                       />
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       <div className="flex items-center space-x-2">
                         <span>N° Borrador</span>
                         <Search className="w-4 h-4 text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       <div className="flex items-center space-x-2">
                         <span>Tipo</span>
                         <Filter className="w-4 h-4 text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       <div className="flex items-center space-x-2">
                         <span>N° Doc Cliente</span>
                         <Search className="w-4 h-4 text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       <div className="flex items-center space-x-2">
                         <span>Cliente</span>
                         <Search className="w-4 h-4 text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       <div className="flex items-center space-x-2">
                         <span>Creado</span>
                         <ChevronDown className="w-4 h-4 text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       <div className="flex items-center space-x-2">
                         <span>Vence</span>
                         <ChevronDown className="w-4 h-4 text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       <div className="flex items-center space-x-2">
                         <span>Vendedor</span>
                         <Search className="w-4 h-4 text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Total
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       <div className="flex items-center space-x-2">
                         <span>Estado</span>
                         <Filter className="w-4 h-4 text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredDrafts.map((draft, index) => (
-                    <tr key={index} className={`hover:bg-gray-50 transition-colors ${selectedDrafts.includes(draft.id) ? 'bg-blue-50' : ''}`}>
+                    <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${selectedDrafts.includes(draft.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={selectedDrafts.includes(draft.id)}
                           onChange={() => handleSelectDraft(draft.id)}
-                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-600 border-gray-300 dark:border-gray-500 rounded focus:ring-blue-500"
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         {/* Mostrar solo la serie para borradores nuevos (sin correlativo) */}
                         {draft.id.startsWith('DRAFT-')
                           ? draft.id.replace(/^DRAFT-([A-Z0-9]+)-.*/, '$1')
                           : draft.id}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.type}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.clientDoc}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.client}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.createdDate}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.expiryDate}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.vendor}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         S/ {draft.total.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(draft.status, draft.statusColor, draft.daysLeft)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
                         <div className="flex items-center space-x-2">
                           <button 
-                            className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded transition-colors"
+                            className="p-1.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded transition-colors"
                             title="Editar"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
-                            className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-100 rounded transition-colors"
+                            className="p-1.5 text-green-500 hover:text-green-700 dark:hover:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/20 rounded transition-colors"
                             title="Emitir"
                           >
                             <Send className="w-4 h-4" />
@@ -1036,26 +1036,26 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
       {/* Popup de validación de emisión masiva */}
       {showEmitPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded-lg shadow-lg p-8 min-w-[340px] max-w-[90vw]">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">Emisión masiva de borradores</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 min-w-[340px] max-w-[90vw]">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Emisión masiva de borradores</h2>
             {invalidDrafts.length > 0 ? (
               <>
-                <p className="mb-4 text-red-700 font-medium">Algunos borradores no pueden emitirse por exceder el plazo permitido por SUNAT:</p>
-                <ul className="mb-4 text-sm text-gray-700 list-disc pl-5">
+                <p className="mb-4 text-red-700 dark:text-red-400 font-medium">Algunos borradores no pueden emitirse por exceder el plazo permitido por SUNAT:</p>
+                <ul className="mb-4 text-sm text-gray-700 dark:text-gray-300 list-disc pl-5">
                   {invalidDrafts.map(draft => (
                     <li key={draft.id}>
                       <span className="font-semibold">{draft.id}</span> - {draft.type} - Fecha creación: {draft.createdDate}
                     </li>
                   ))}
                 </ul>
-                <p className="mb-4 text-gray-700">Solo se emitirán los borradores válidos. Los inválidos serán deseleccionados.</p>
+                <p className="mb-4 text-gray-700 dark:text-gray-300">Solo se emitirán los borradores válidos. Los inválidos serán deseleccionados.</p>
               </>
             ) : (
-              <p className="mb-6 text-gray-700">¿Desea emitir {validDrafts.length} borrador{validDrafts.length > 1 ? 'es' : ''} seleccionado{validDrafts.length > 1 ? 's' : ''}?</p>
+              <p className="mb-6 text-gray-700 dark:text-gray-300">¿Desea emitir {validDrafts.length} borrador{validDrafts.length > 1 ? 'es' : ''} seleccionado{validDrafts.length > 1 ? 's' : ''}?</p>
             )}
             <div className="flex justify-end space-x-3">
               <button
-                className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500"
                 onClick={() => setShowEmitPopup(false)}
               >
                 Cancelar
@@ -1077,12 +1077,12 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
       )}
       {showPrintPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded-lg shadow-lg p-8 min-w-[320px]">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">¿Imprimir borradores seleccionados?</h2>
-            <p className="mb-6 text-gray-700">Se imprimirán {selectedDrafts.length} borrador{selectedDrafts.length > 1 ? 'es' : ''}.</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 min-w-[320px]">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">¿Imprimir borradores seleccionados?</h2>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">Se imprimirán {selectedDrafts.length} borrador{selectedDrafts.length > 1 ? 'es' : ''}.</p>
             <div className="flex justify-end space-x-3">
               <button
-                className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500"
                 onClick={() => setShowPrintPopup(false)}
               >
                 Cancelar

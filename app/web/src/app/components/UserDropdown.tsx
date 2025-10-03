@@ -43,9 +43,9 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   };
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl py-3 z-50 overflow-hidden">
+    <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-xl shadow-xl py-3 z-50 overflow-hidden">
       {/* User Info Section */}
-      <div className="px-3 pb-3 border-b border-slate-100">
+      <div className="px-3 pb-3 border-b border-slate-100 dark:border-gray-700">
         <div className="flex items-center space-x-3">
           <img 
             src="/perfil.jpg?v=2" 
@@ -53,9 +53,9 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             className="w-11 h-11 rounded-full object-cover" 
           />
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-slate-900 text-sm truncate">{userName}</h3>
-            <div className="text-xs text-blue-600 font-medium">{userRole}</div>
-            <div className="text-xs text-slate-500 truncate">{userEmail}</div>
+            <h3 className="font-semibold text-slate-900 dark:text-gray-100 text-sm truncate">{userName}</h3>
+            <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">{userRole}</div>
+            <div className="text-xs text-slate-500 dark:text-gray-400 truncate">{userEmail}</div>
           </div>
         </div>
       </div>
@@ -63,11 +63,11 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
       {/* Menu Items */}
       <div className="py-1">
         <button 
-          className="w-full flex items-center px-3 py-2 hover:bg-slate-50 transition-colors text-left"
+          className="w-full flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors text-left"
           onClick={() => handleMenuClick('perfil')}
         >
           <svg
-            className="w-4 h-4 text-slate-400 mr-3"
+            className="w-4 h-4 text-slate-400 dark:text-gray-500 mr-3"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -78,15 +78,15 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
-          <span className="text-slate-700 font-medium text-sm">Mi perfil</span>
+          <span className="text-slate-700 dark:text-gray-300 font-medium text-sm">Mi perfil</span>
         </button>
 
         <button 
-          className="w-full flex items-center px-3 py-2 hover:bg-slate-50 transition-colors text-left"
+          className="w-full flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors text-left"
           onClick={() => handleMenuClick('ayuda')}
         >
           <svg
-            className="w-4 h-4 text-slate-400 mr-3"
+            className="w-4 h-4 text-slate-400 dark:text-gray-500 mr-3"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -98,19 +98,19 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
             <path d="M12 17h.01"></path>
           </svg>
-          <span className="text-slate-700 font-medium text-sm">Centro de ayuda</span>
+          <span className="text-slate-700 dark:text-gray-300 font-medium text-sm">Centro de ayuda</span>
         </button>
 
         <div className="border-t border-slate-100 my-1"></div>
 
         {/* Theme Toggle */}
         <button 
-          className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 transition-colors text-left"
+          className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors text-left"
           onClick={toggleTheme}
         >
           <div className="flex items-center">
             <svg
-              className="w-4 h-4 text-slate-400 mr-3"
+              className="w-4 h-4 text-slate-400 dark:text-gray-500 mr-3"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -121,8 +121,8 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
             <div>
-              <div className="text-slate-700 font-medium text-sm">Tema oscuro</div>
-              <div className="text-xs text-slate-500">
+              <div className="text-slate-700 dark:text-gray-300 font-medium text-sm">Tema oscuro</div>
+              <div className="text-xs text-slate-500 dark:text-gray-400">
                 {isDarkMode ? 'Activado' : 'Desactivado'}
               </div>
             </div>
@@ -139,11 +139,11 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
         <div className="border-t border-slate-100 my-1"></div>
 
         <button 
-          className="w-full flex items-center px-3 py-2 hover:bg-slate-50 transition-colors text-left"
+          className="w-full flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors text-left"
           onClick={() => handleMenuClick('suscripcion')}
         >
           <svg
-            className="w-4 h-4 text-slate-400 mr-3"
+            className="w-4 h-4 text-slate-400 dark:text-gray-500 mr-3"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -153,17 +153,17 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
           >
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
           </svg>
-          <span className="text-slate-700 font-medium text-sm">Mi suscripción</span>
+          <span className="text-slate-700 dark:text-gray-300 font-medium text-sm">Mi suscripción</span>
         </button>
 
         <div className="border-t border-slate-100 my-1"></div>
 
         <button 
-          className="w-full flex items-center px-3 py-2 hover:bg-red-50 transition-colors text-left group"
+          className="w-full flex items-center px-3 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left group"
           onClick={() => handleMenuClick('logout')}
         >
           <svg
-            className="w-4 h-4 text-red-400 mr-3 group-hover:text-red-500"
+            className="w-4 h-4 text-red-400 dark:text-red-500 mr-3 group-hover:text-red-500 dark:group-hover:text-red-400"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -175,7 +175,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             <polyline points="16 17 21 12 16 7"></polyline>
             <line x1="21" y1="12" x2="9" y2="12"></line>
           </svg>
-          <span className="text-red-600 font-medium text-sm group-hover:text-red-700">Cerrar sesión</span>
+          <span className="text-red-600 dark:text-red-400 font-medium text-sm group-hover:text-red-700 dark:group-hover:text-red-300">Cerrar sesión</span>
         </button>
       </div>
     </div>

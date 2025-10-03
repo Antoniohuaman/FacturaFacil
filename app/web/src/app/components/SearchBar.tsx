@@ -122,7 +122,7 @@ const SearchBar = () => {
         <div className="relative">
           <Search 
             size={16} 
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" 
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" 
           />
           <input
             type="text"
@@ -134,42 +134,42 @@ const SearchBar = () => {
             onFocus={() => searchQuery && setShowSearchResults(true)}
             onKeyDown={handleSearchKeyDown}
             placeholder="Buscar clientes, productos o comprobantes…"
-            className="w-[450px] pl-9 pr-16 py-2 rounded-lg border border-gray-200
-                     focus:border-gray-300 focus:outline-none
-                     bg-white text-sm transition-colors"
+            className="w-[450px] pl-9 pr-16 py-2 rounded-lg border border-gray-200 dark:border-gray-600
+                     focus:border-gray-300 dark:focus:border-gray-500 focus:outline-none
+                     bg-white dark:bg-gray-800 text-sm transition-colors text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           />
           <button
             onClick={() => setShowCommandPalette(true)}
             className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 
-                     px-1.5 py-0.5 hover:bg-gray-100 rounded transition-colors"
+                     px-1.5 py-0.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
           >
-            <kbd className="text-[10px] font-medium text-gray-400">Ctrl+K</kbd>
+            <kbd className="text-[10px] font-medium text-gray-400 dark:text-gray-500">Ctrl+K</kbd>
           </button>
         </div>
 
         {/* DROPDOWN DE RESULTADOS */}
         {showSearchResults && hasResults && (
-          <div className="absolute top-full left-0 mt-2 w-[520px] bg-white border border-gray-200 
+          <div className="absolute top-full left-0 mt-2 w-[520px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600
                         rounded-lg shadow-lg z-50 max-h-[400px] overflow-y-auto">
             
             {/* Comprobantes */}
             {searchResults.comprobantes.length > 0 && (
               <div className="p-2">
-                <div className="text-[11px] font-semibold text-gray-400 uppercase px-2 py-1.5">
+                <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
                   Comprobantes
                 </div>
                 {searchResults.comprobantes.map((comp) => (
                   <button
                     key={comp.id}
-                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 transition-colors"
+                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => handleSelectResult('comprobantes', comp)}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 truncate">{comp.numero}</div>
-                        <div className="text-xs text-gray-500 truncate">{comp.cliente}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{comp.numero}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{comp.cliente}</div>
                       </div>
-                      <div className="text-sm font-semibold text-gray-900 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                         S/ {comp.monto.toFixed(2)}
                       </div>
                     </div>
@@ -180,22 +180,22 @@ const SearchBar = () => {
 
             {/* Productos */}
             {searchResults.productos.length > 0 && (
-              <div className="p-2 border-t border-gray-100">
-                <div className="text-[11px] font-semibold text-gray-400 uppercase px-2 py-1.5">
+              <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
                   Productos
                 </div>
                 {searchResults.productos.map((prod) => (
                   <button
                     key={prod.id}
-                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 transition-colors"
+                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => handleSelectResult('productos', prod)}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 truncate">{prod.nombre}</div>
-                        <div className="text-xs text-gray-500">Stock: {prod.stock}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{prod.nombre}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Stock: {prod.stock}</div>
                       </div>
-                      <div className="text-sm font-semibold text-gray-900 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                         S/ {prod.precio.toFixed(2)}
                       </div>
                     </div>
@@ -206,23 +206,23 @@ const SearchBar = () => {
 
             {/* Clientes */}
             {searchResults.clientes.length > 0 && (
-              <div className="p-2 border-t border-gray-100">
-                <div className="text-[11px] font-semibold text-gray-400 uppercase px-2 py-1.5">
+              <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
                   Clientes
                 </div>
                 {searchResults.clientes.map((cliente) => (
                   <button
                     key={cliente.id}
-                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 transition-colors"
+                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => handleSelectResult('clientes', cliente)}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 truncate">{cliente.nombre}</div>
-                        <div className="text-xs text-gray-500">{cliente.documento}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{cliente.nombre}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{cliente.documento}</div>
                       </div>
                       {cliente.deuda > 0 && (
-                        <div className="text-sm font-semibold text-red-600 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
                           S/ {cliente.deuda.toFixed(2)}
                         </div>
                       )}
@@ -236,30 +236,30 @@ const SearchBar = () => {
 
         {/* Sin resultados */}
         {showSearchResults && !hasResults && searchQuery.length > 0 && (
-          <div className="absolute top-full left-0 mt-2 w-[520px] bg-white border border-gray-200 
+          <div className="absolute top-full left-0 mt-2 w-[520px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600
                         rounded-lg shadow-lg z-50 p-6 text-center">
-            <p className="text-sm text-gray-500">No se encontraron resultados</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No se encontraron resultados</p>
           </div>
         )}
       </div>
 
       {/* COMMAND PALETTE */}
       {showCommandPalette && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh]"
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh] bg-black/50"
              onClick={() => setShowCommandPalette(false)}>
-          <div className="w-full max-w-xl bg-white rounded-lg shadow-xl border border-gray-200"
+          <div className="w-full max-w-xl bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600"
                onClick={(e) => e.stopPropagation()}>
             
-            <div className="p-3 border-b border-gray-200">
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700">
               <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar o ejecutar comando..."
                   autoFocus
-                  className="w-full pl-9 pr-4 py-2 bg-transparent text-sm focus:outline-none"
+                  className="w-full pl-9 pr-4 py-2 bg-transparent text-sm focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 />
               </div>
             </div>
@@ -269,7 +269,7 @@ const SearchBar = () => {
               {/* Acciones */}
               {filteredCommands.filter(c => c.categoria === 'acciones').length > 0 && (
                 <div className="p-2">
-                  <div className="text-[11px] font-semibold text-gray-400 uppercase px-2 py-1.5">
+                  <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
                     Acciones
                   </div>
                   {filteredCommands.filter(c => c.categoria === 'acciones').map((cmd) => {
@@ -277,16 +277,16 @@ const SearchBar = () => {
                     return (
                       <button
                         key={cmd.id}
-                        className="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-50 
+                        className="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700
                                  transition-colors text-left"
                         onClick={() => handleExecuteCommand(cmd.id)}
                       >
                         <div className="flex items-center gap-2">
-                          <IconComponent size={14} className="text-gray-400" />
-                          <span className="text-sm text-gray-900">{cmd.nombre}</span>
+                          <IconComponent size={14} className="text-gray-400 dark:text-gray-500" />
+                          <span className="text-sm text-gray-900 dark:text-gray-100">{cmd.nombre}</span>
                         </div>
                         {cmd.atajo && (
-                          <span className="text-[10px] text-gray-400 font-mono">{cmd.atajo}</span>
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{cmd.atajo}</span>
                         )}
                       </button>
                     );
@@ -296,8 +296,8 @@ const SearchBar = () => {
 
               {/* Navegación */}
               {filteredCommands.filter(c => c.categoria === 'navegacion').length > 0 && (
-                <div className="p-2 border-t border-gray-100">
-                  <div className="text-[11px] font-semibold text-gray-400 uppercase px-2 py-1.5">
+                <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                  <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
                     Ir a
                   </div>
                   {filteredCommands.filter(c => c.categoria === 'navegacion').map((cmd) => {
@@ -305,16 +305,16 @@ const SearchBar = () => {
                     return (
                       <button
                         key={cmd.id}
-                        className="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-50 
+                        className="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700
                                  transition-colors text-left"
                         onClick={() => handleExecuteCommand(cmd.id)}
                       >
                         <div className="flex items-center gap-2">
-                          <IconComponent size={14} className="text-gray-400" />
-                          <span className="text-sm text-gray-900">{cmd.nombre}</span>
+                          <IconComponent size={14} className="text-gray-400 dark:text-gray-500" />
+                          <span className="text-sm text-gray-900 dark:text-gray-100">{cmd.nombre}</span>
                         </div>
                         {cmd.atajo && (
-                          <span className="text-[10px] text-gray-400 font-mono">{cmd.atajo}</span>
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{cmd.atajo}</span>
                         )}
                       </button>
                     );

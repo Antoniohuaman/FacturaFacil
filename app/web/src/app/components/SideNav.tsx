@@ -60,7 +60,7 @@ const configItem = {
 export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
   return (
     <aside 
-      className={`h-full flex flex-col bg-white border-r border-slate-200 transition-all duration-300 shadow-sm overflow-hidden`}
+      className={`h-full flex flex-col bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700 transition-all duration-300 shadow-sm overflow-hidden`}
       onWheel={(e) => {
         // Prevenir el scroll del contenido principal cuando se hace scroll en el sidebar
         const sidebar = e.currentTarget;
@@ -75,16 +75,16 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
       }}
     >
       {/* Header con título y botón colapsar */}
-      <div className="p-2 border-b border-gray-100/50">
+      <div className="p-2 border-b border-gray-100/50 dark:border-gray-700/50">
         <div className="flex items-center justify-between">
           {/* Botón de colapsar/expandir */}
           {onToggle && (
             <button
               onClick={onToggle}
-              className="p-2 rounded-lg hover:bg-slate-100 transition-colors ml-auto"
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors ml-auto"
               aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
             >
-              <Menu className="w-4 h-4 text-slate-600" />
+              <Menu className="w-4 h-4 text-slate-600 dark:text-gray-300" />
             </button>
           )}
         </div>
@@ -92,12 +92,12 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
 
       {/* Selector de empresa - MOVIDO MÁS ARRIBA */}
       {!collapsed ? (
-        <div className="border-b border-gray-100/50">
+        <div className="border-b border-gray-100/50 dark:border-gray-700/50">
           <CompanySelector />
         </div>
       ) : (
         /* Versión compacta del selector cuando está contraído */
-        <div className="p-2 border-b border-gray-100/50 flex justify-center">
+        <div className="p-2 border-b border-gray-100/50 dark:border-gray-700/50 flex justify-center">
           <div className="relative">
             <button 
               className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm transition-all duration-200"
@@ -114,7 +114,7 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
       {/* Navegación principal */}
       <nav className="flex-1 flex flex-col p-2 overflow-y-auto overscroll-contain">
         {!collapsed && (
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 px-2">
+          <div className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-1 px-2">
             Módulos Principales
           </div>
         )}
@@ -138,8 +138,8 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
                     collapsed ? 'justify-center p-3' : 'px-4 py-2.5'
                   } ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                      : 'text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   style={{
                     backgroundColor: isActive ? '#E6F0FF' : 'transparent',
@@ -196,7 +196,7 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
         {/* Separador y configuración */}
         <div className="mt-auto pt-4">
           {!collapsed && (
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-2 border-t border-slate-100 pt-4">
+            <div className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-3 px-2 border-t border-slate-100 dark:border-gray-700 pt-4">
               Sistema
             </div>
           )}
@@ -217,8 +217,8 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
                     collapsed ? 'justify-center p-3' : 'px-4 py-2.5'
                   } ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                      : 'text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   style={{
                     backgroundColor: isActive ? '#E6F0FF' : 'transparent',

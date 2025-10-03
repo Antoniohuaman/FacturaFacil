@@ -422,13 +422,13 @@ function ClientesPage() {
 	};
 
 	return (
-		<div className="flex-1 bg-gray-50">
+		<div className="flex-1 bg-gray-50 dark:bg-gray-900">
 			{/* Header */}
-			<div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
+			<div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600">
 				<div className="flex items-center">
 					<div>
-						<h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-						<p className="text-sm text-gray-500">Administra y consulta la información de tus clientes en un solo lugar.</p>
+						<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Clientes</h1>
+						<p className="text-sm text-gray-500 dark:text-gray-400">Administra y consulta la información de tus clientes en un solo lugar.</p>
 					</div>
 				</div>
 				<div className="flex items-center gap-2">
@@ -441,17 +441,17 @@ function ClientesPage() {
 					</button>
 					<button
 						onClick={() => navigate('/importar-clientes')}
-						className="px-6 py-2 text-blue-700 border border-blue-700 text-sm font-medium rounded-lg hover:bg-blue-50 transition-colors"
+						className="px-6 py-2 text-blue-700 dark:text-blue-400 border border-blue-700 dark:border-blue-500 text-sm font-medium rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
 					>
 						Importar clientes
 					</button>
 					<button
 						title="Exporta lista de clientes"
 						onClick={handleExportClients}
-						className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
+						className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center"
 						style={{ minWidth: 40, minHeight: 40 }}
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+						<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
 							<path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
 							<path strokeLinecap="round" strokeLinejoin="round" d="M7 10l5 5 5-5" />
 							<path strokeLinecap="round" strokeLinejoin="round" d="M12 15V3" />
@@ -476,7 +476,7 @@ function ClientesPage() {
 
 			{/* Paginación */}
 			{totalPages > 1 && (
-				<div className="px-6 py-4 border-t border-gray-200">
+				<div className="px-6 py-4 border-t border-gray-200 dark:border-gray-600">
 					<div className="flex items-center justify-between">
 						<div className="text-sm text-gray-500">
 							Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, clients.length)} de {clients.length} resultados

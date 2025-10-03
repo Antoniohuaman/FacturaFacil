@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
+import { ThemeToggle } from '../../components/ThemeToggle';
 
 export default function Header() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -53,13 +54,13 @@ export default function Header() {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 shadow-sm">
+    <header className="h-16 bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 flex items-center px-6 shadow-sm">
       {/* Logo */}
       <div className="flex items-center ml-8">
         <img 
           src="/SenciYO.svg" 
           alt="SenciYO"
-          className="h-11"
+          className="h-11 dark:filter dark:invert dark:brightness-0 dark:contrast-100"
         />
       </div>
       
@@ -71,20 +72,20 @@ export default function Header() {
       </div>
       
       {/* Información de sesión activa */}
-      <div className="flex items-center space-x-8 text-sm">
+      <div className="flex items-center space-x-7 text-sm">
         {/* Estado de caja con dropdown */}
         <div className="relative" ref={cashMenuRef}>
           <button 
-            className="flex items-center space-x-2 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200 hover:bg-green-100 transition-colors cursor-pointer"
+            className="flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-lg border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors cursor-pointer"
             onClick={() => setShowCashMenu(!showCashMenu)}
           >
-            <span className="text-slate-700 font-medium">Caja Principal</span>
-            <span className="flex items-center space-x-1 text-green-700 font-medium">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            <span className="text-slate-700 dark:text-gray-200 font-medium">Caja Principal</span>
+            <span className="flex items-center space-x-1 text-green-700 dark:text-green-400 font-medium">
+              <span className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full"></span>
               <span>Activa</span>
             </span>
             <svg 
-              className={`w-3 h-3 text-green-600 transition-transform duration-200 ${showCashMenu ? 'rotate-180' : ''}`} 
+              className={`w-3 h-3 text-green-600 dark:text-green-400 transition-transform duration-200 ${showCashMenu ? 'rotate-180' : ''}`} 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -95,7 +96,7 @@ export default function Header() {
 
           {/* Dropdown información de caja */}
           {showCashMenu && (
-            <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg py-3 z-50">
+            <div className="absolute left-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-lg shadow-lg py-3 z-50">
               <div className="px-4 pb-3 border-b border-slate-100">
                 <h3 className="font-medium text-slate-900 text-sm mb-3">Información de Caja</h3>
                 
@@ -143,25 +144,28 @@ export default function Header() {
           )}
         </div>
         
+        {/* Toggle de tema */}
+        <ThemeToggle />
+        
         {/* Separador */}
-        <div className="h-6 w-px bg-slate-300"></div>
+        <div className="h-6 w-px bg-slate-300 dark:bg-gray-600"></div>
         
         {/* Botón de notificaciones */}
         <div className="relative ml-4" ref={notificationsRef}>
           <button 
-            className="relative w-10 h-10 hover:bg-slate-100 rounded-full transition-colors flex items-center justify-center group"
+            className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
             onClick={() => setShowNotifications(!showNotifications)}
           >
-            <Bell className="w-5 h-5 text-slate-600 group-hover:text-slate-900 transition-colors" />
+            <Bell className="w-5 h-5 text-slate-600 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
             {/* Indicador de notificaciones nuevas */}
-            <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+            <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
           </button>
 
           {/* Dropdown de notificaciones */}
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl py-3 z-50 max-h-96 overflow-y-auto">
-              <div className="px-4 pb-3 border-b border-slate-100">
-                <h3 className="font-semibold text-slate-900 text-base">Notificaciones</h3>
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl py-3 z-50 max-h-96 overflow-y-auto">
+              <div className="px-4 pb-3 border-b border-slate-100 dark:border-gray-700">
+                <h3 className="font-semibold text-slate-900 dark:text-white text-base">Notificaciones</h3>
               </div>
               <div className="py-2">
                 {/* Ejemplo de notificaciones */}
