@@ -14,6 +14,7 @@ export interface Product {
   // Asignación de establecimientos
   establecimientoIds: string[]; // Array de IDs de establecimientos
   disponibleEnTodos: boolean; // Si está disponible en todos los establecimientos
+  stockPorEstablecimiento?: { [establecimientoId: string]: number }; // Stock separado por establecimiento
   // Campos avanzados
   alias?: string;
   precioCompra?: number;
@@ -158,6 +159,10 @@ export interface MovimientoStock {
   documentoReferencia?: string;
   fecha: Date;
   ubicacion?: string;
+  // Establecimiento donde se realizó el movimiento
+  establecimientoId?: string;
+  establecimientoCodigo?: string;
+  establecimientoNombre?: string;
 }
 
 export interface StockAlert {
@@ -167,6 +172,9 @@ export interface StockAlert {
   cantidadActual: number;
   stockMinimo: number;
   estado: 'CRITICO' | 'BAJO' | 'NORMAL' | 'EXCESO';
+  establecimientoId?: string;
+  establecimientoCodigo?: string;
+  establecimientoNombre?: string;
 }
 
 export interface StockSummary {

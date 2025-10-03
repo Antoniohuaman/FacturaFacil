@@ -210,7 +210,10 @@ const ControlStockPage: React.FC = () => {
               data.cantidad,
               data.observaciones,
               data.documentoReferencia,
-              data.ubicacion
+              undefined, // ubicacion - ya no se usa
+              data.establecimientoId,
+              data.establecimientoCodigo,
+              data.establecimientoNombre
             );
             setShowAdjustmentModal(false);
           }}

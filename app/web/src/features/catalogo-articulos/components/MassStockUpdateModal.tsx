@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useProductStore } from '../hooks/useProductStore';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import * as XLSX from 'xlsx';
 
 interface MassStockUpdateModalProps {
@@ -11,11 +12,18 @@ interface MassStockUpdateModalProps {
 
 const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onClose }) => {
   const { allProducts, addMovimiento } = useProductStore();
+  const { state: configState } = useConfigurationContext();
+  const establecimientos = configState.establishments.filter(e => e.isActive);
+  
   const [activeTab, setActiveTab] = useState<'reset' | 'import' | 'manual'>('reset');
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [importing, setImporting] = useState(false);
-  const [importData, setImportData] = useState<Array<{ codigo: string; cantidad: number }>>([]);
+  const [importData, setImportData] = useState<Array<{ codigo: string; cantidad: number; establecimiento?: string }>>([]);
+  
+  // Multi-establecimiento para operaciones masivas
+  const [aplicarATodos, setAplicarATodos] = useState(false);
+  const [establecimientosSeleccionados, setEstablecimientosSeleccionados] = useState<string[]>([]);
 
   if (!isOpen) return null;
 
@@ -48,39 +56,61 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
       return;
     }
 
+    // Validar selección de establecimientos
+    if (!aplicarATodos && establecimientosSeleccionados.length === 0) {
+      alert('⚠️ Selecciona al menos un establecimiento o activa "Aplicar a todos"');
+      return;
+    }
+
+    const establecimientosAplicar = aplicarATodos 
+      ? establecimientos 
+      : establecimientos.filter(e => establecimientosSeleccionados.includes(e.id));
+
     const confirmacion = confirm(
       `🔄 RESETEAR STOCK A CERO\n\n` +
-      `Productos seleccionados: ${selectedProducts.size}\n\n` +
+      `Productos seleccionados: ${selectedProducts.size}\n` +
+      `Establecimientos: ${aplicarATodos ? `TODOS (${establecimientosAplicar.length})` : `${establecimientosAplicar.length} seleccionados`}\n\n` +
       `⚠️ Esta acción:\n` +
       `• Pondrá el stock en 0 para todos los productos seleccionados\n` +
-      `• Registrará movimientos de ajuste negativo\n` +
+      `• Registrará movimientos de ajuste negativo en cada establecimiento\n` +
       `• No se puede deshacer\n\n` +
+      `Total de movimientos a crear: ${selectedProducts.size * establecimientosAplicar.length}\n\n` +
       `¿Deseas continuar?`
     );
 
     if (!confirmacion) return;
 
     let actualizados = 0;
-    selectedProducts.forEach(productId => {
-      const producto = allProducts.find(p => p.id === productId);
-      if (producto && producto.cantidad > 0) {
-        // Solo registrar movimiento - addMovimiento actualiza el stock automáticamente
-        // El tipo AJUSTE_NEGATIVO restará la cantidad actual, dejando el stock en 0
-        addMovimiento(
-          productId,
-          'AJUSTE_NEGATIVO',
-          'AJUSTE_INVENTARIO',
-          producto.cantidad, // Resta toda la cantidad actual
-          `Reseteo masivo de stock`,
-          '',
-          'Sistema'
-        );
-        
-        actualizados++;
-      }
+    
+    // Iterar por cada establecimiento seleccionado
+    establecimientosAplicar.forEach(establecimiento => {
+      selectedProducts.forEach(productId => {
+        const producto = allProducts.find(p => p.id === productId);
+        if (producto && producto.cantidad > 0) {
+          addMovimiento(
+            productId,
+            'AJUSTE_NEGATIVO',
+            'AJUSTE_INVENTARIO',
+            producto.cantidad,
+            `Reseteo masivo de stock`,
+            '',
+            undefined, // ubicacion - ya no se usa
+            establecimiento.id,
+            establecimiento.code,
+            establecimiento.name
+          );
+          
+          actualizados++;
+        }
+      });
     });
 
-    alert(`✅ Stock reseteado exitosamente\n\n${actualizados} productos actualizados a stock 0`);
+    alert(
+      `✅ Stock reseteado exitosamente\n\n` +
+      `${actualizados} movimientos registrados\n` +
+      `${selectedProducts.size} productos × ${establecimientosAplicar.length} establecimiento(s)`
+    );
+    
     setSelectedProducts(new Set());
     onClose();
   };
@@ -224,10 +254,22 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
       return;
     }
 
+    // Validar selección de establecimientos
+    if (!aplicarATodos && establecimientosSeleccionados.length === 0) {
+      alert('⚠️ Selecciona al menos un establecimiento o activa "Aplicar a todos"');
+      return;
+    }
+
+    const establecimientosAplicar = aplicarATodos 
+      ? establecimientos 
+      : establecimientos.filter(e => establecimientosSeleccionados.includes(e.id));
+
     const confirmacion = confirm(
       `📦 IMPORTAR ACTUALIZACIÓN MASIVA\n\n` +
-      `Registros a procesar: ${importData.length}\n\n` +
-      `⚠️ Esta acción actualizará el stock de los productos encontrados\n\n` +
+      `Registros a procesar: ${importData.length}\n` +
+      `Establecimientos: ${aplicarATodos ? `TODOS (${establecimientosAplicar.length})` : `${establecimientosAplicar.length} seleccionados`}\n\n` +
+      `⚠️ Esta acción actualizará el stock de los productos encontrados\n` +
+      `Total de movimientos potenciales: ${importData.length * establecimientosAplicar.length}\n\n` +
       `¿Continuar?`
     );
 
@@ -237,38 +279,45 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
     let sinCambios = 0;
     let noEncontrados: string[] = [];
 
-    importData.forEach(({ codigo, cantidad }) => {
-      const producto = allProducts.find(p => p.codigo.toUpperCase() === codigo.toUpperCase());
-      
-      if (producto) {
-        const cantidadAnterior = producto.cantidad;
-        const diferencia = cantidad - cantidadAnterior;
+    // Iterar por cada establecimiento seleccionado
+    establecimientosAplicar.forEach(establecimiento => {
+      importData.forEach(({ codigo, cantidad }) => {
+        const producto = allProducts.find(p => p.codigo.toUpperCase() === codigo.toUpperCase());
         
-        // Solo procesar si hay diferencia (evita movimientos innecesarios)
-        if (diferencia !== 0) {
-          // addMovimiento ya actualiza el stock automáticamente
-          // No usar updateProduct() para evitar doble actualización
-          addMovimiento(
-            producto.id,
-            diferencia > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO',
-            'AJUSTE_INVENTARIO',
-            Math.abs(diferencia),
-            `Importación masiva de stock - Archivo Excel/CSV`,
-            `Lote: ${new Date().toISOString().split('T')[0]}`,
-            'Sistema'
-          );
-          actualizados++;
+        if (producto) {
+          const cantidadAnterior = producto.cantidad;
+          const diferencia = cantidad - cantidadAnterior;
+          
+          // Solo procesar si hay diferencia
+          if (diferencia !== 0) {
+            addMovimiento(
+              producto.id,
+              diferencia > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO',
+              'AJUSTE_INVENTARIO',
+              Math.abs(diferencia),
+              `Importación masiva de stock - Archivo Excel/CSV`,
+              `Lote: ${new Date().toISOString().split('T')[0]}`,
+              undefined, // ubicacion - ya no se usa
+              establecimiento.id,
+              establecimiento.code,
+              establecimiento.name
+            );
+            actualizados++;
+          } else {
+            sinCambios++;
+          }
         } else {
-          sinCambios++;
+          if (!noEncontrados.includes(codigo)) {
+            noEncontrados.push(codigo);
+          }
         }
-      } else {
-        noEncontrados.push(codigo);
-      }
+      });
     });
 
     let mensaje = `✅ IMPORTACIÓN COMPLETADA\n\n`;
     mensaje += `📊 Resumen:\n`;
-    mensaje += `• Productos actualizados: ${actualizados}\n`;
+    mensaje += `• Movimientos registrados: ${actualizados}\n`;
+    mensaje += `• Establecimientos procesados: ${establecimientosAplicar.length}\n`;
     if (sinCambios > 0) {
       mensaje += `• Sin cambios (mismo stock): ${sinCambios}\n`;
     }
@@ -281,8 +330,7 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
       }
     }
     
-    mensaje += `\n\n✅ Movimientos registrados: ${actualizados}`;
-    mensaje += `\nRevisa la pestaña "Movimientos" para ver el detalle`;
+    mensaje += `\n\n✅ Revisa la pestaña "Movimientos" para ver el detalle`;
 
     alert(mensaje);
     setImportData([]);
@@ -389,6 +437,166 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
                   </div>
                 </div>
 
+                {/* Multi-selector de Establecimientos */}
+                <div className="border-2 border-blue-200 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      <label className="text-sm font-semibold text-gray-900">
+                        Aplicar a Establecimientos <span className="text-red-500">*</span>
+                      </label>
+                    </div>
+                    
+                    {/* Toggle: Aplicar a todos */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newValue = !aplicarATodos;
+                        setAplicarATodos(newValue);
+                        setEstablecimientosSeleccionados(newValue ? [] : establecimientosSeleccionados);
+                      }}
+                      className={`
+                        relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                        ${aplicarATodos ? 'bg-blue-600' : 'bg-gray-300'}
+                      `}
+                    >
+                      <span className={`
+                        inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                        ${aplicarATodos ? 'translate-x-6' : 'translate-x-1'}
+                      `} />
+                    </button>
+                  </div>
+
+                  {/* Mensaje de estado */}
+                  <div className={`
+                    flex items-center space-x-2 p-3 rounded-lg border-2
+                    ${aplicarATodos 
+                      ? 'bg-blue-100 border-blue-300' 
+                      : 'bg-white border-blue-200'
+                    }
+                  `}>
+                    {aplicarATodos ? (
+                      <>
+                        <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-blue-900">
+                            Aplicar a todos los establecimientos
+                          </p>
+                          <p className="text-xs text-blue-700">
+                            Se creará un movimiento en los {establecimientos.length} establecimiento(s) activo(s)
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">
+                            Selección personalizada
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            Elige establecimientos específicos
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Lista de establecimientos */}
+                  {!aplicarATodos && (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {establecimientos.length === 0 ? (
+                        <div className="text-center py-6 text-gray-500">
+                          <p className="text-sm font-medium">No hay establecimientos activos</p>
+                        </div>
+                      ) : (
+                        establecimientos.map((est) => {
+                          const isSelected = establecimientosSeleccionados.includes(est.id);
+                          return (
+                            <label
+                              key={est.id}
+                              className={`
+                                flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                                ${isSelected 
+                                  ? 'bg-blue-100 border-blue-400 shadow-sm' 
+                                  : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                                }
+                              `}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const newIds = e.target.checked
+                                    ? [...establecimientosSeleccionados, est.id]
+                                    : establecimientosSeleccionados.filter(id => id !== est.id);
+                                  setEstablecimientosSeleccionados(newIds);
+                                }}
+                                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">
+                                    {est.name}
+                                  </p>
+                                  <span className="px-2 py-0.5 text-xs font-medium bg-blue-200 text-blue-800 rounded-full">
+                                    {est.code}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-600 truncate mt-0.5">
+                                  {est.address} - {est.district}
+                                </p>
+                              </div>
+                              {isSelected && (
+                                <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+
+                  {/* Contador de selección */}
+                  {!aplicarATodos && establecimientos.length > 0 && (
+                    <div className="flex items-center justify-between pt-2 border-t border-blue-200">
+                      <p className="text-xs text-gray-600">
+                        {establecimientosSeleccionados.length} de {establecimientos.length} establecimiento(s) seleccionado(s)
+                      </p>
+                      {establecimientosSeleccionados.length > 0 && establecimientosSeleccionados.length < establecimientos.length && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEstablecimientosSeleccionados(establecimientos.map(e => e.id));
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium underline"
+                        >
+                          Seleccionar todos
+                        </button>
+                      )}
+                      {establecimientosSeleccionados.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEstablecimientosSeleccionados([]);
+                          }}
+                          className="text-xs text-gray-600 hover:text-gray-700 font-medium underline"
+                        >
+                          Limpiar
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Search */}
                 <div className="relative">
                   <input
@@ -474,6 +682,166 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
                       </p>
                     </div>
                   </div>
+                </div>
+
+                {/* Multi-selector de Establecimientos */}
+                <div className="border-2 border-blue-200 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      <label className="text-sm font-semibold text-gray-900">
+                        Aplicar a Establecimientos <span className="text-red-500">*</span>
+                      </label>
+                    </div>
+                    
+                    {/* Toggle: Aplicar a todos */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newValue = !aplicarATodos;
+                        setAplicarATodos(newValue);
+                        setEstablecimientosSeleccionados(newValue ? [] : establecimientosSeleccionados);
+                      }}
+                      className={`
+                        relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                        ${aplicarATodos ? 'bg-blue-600' : 'bg-gray-300'}
+                      `}
+                    >
+                      <span className={`
+                        inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                        ${aplicarATodos ? 'translate-x-6' : 'translate-x-1'}
+                      `} />
+                    </button>
+                  </div>
+
+                  {/* Mensaje de estado */}
+                  <div className={`
+                    flex items-center space-x-2 p-3 rounded-lg border-2
+                    ${aplicarATodos 
+                      ? 'bg-blue-100 border-blue-300' 
+                      : 'bg-white border-blue-200'
+                    }
+                  `}>
+                    {aplicarATodos ? (
+                      <>
+                        <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-blue-900">
+                            Aplicar a todos los establecimientos
+                          </p>
+                          <p className="text-xs text-blue-700">
+                            Se importará el stock en los {establecimientos.length} establecimiento(s) activo(s)
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">
+                            Selección personalizada
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            Elige establecimientos específicos para importar
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Lista de establecimientos */}
+                  {!aplicarATodos && (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {establecimientos.length === 0 ? (
+                        <div className="text-center py-6 text-gray-500">
+                          <p className="text-sm font-medium">No hay establecimientos activos</p>
+                        </div>
+                      ) : (
+                        establecimientos.map((est) => {
+                          const isSelected = establecimientosSeleccionados.includes(est.id);
+                          return (
+                            <label
+                              key={est.id}
+                              className={`
+                                flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                                ${isSelected 
+                                  ? 'bg-blue-100 border-blue-400 shadow-sm' 
+                                  : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                                }
+                              `}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const newIds = e.target.checked
+                                    ? [...establecimientosSeleccionados, est.id]
+                                    : establecimientosSeleccionados.filter(id => id !== est.id);
+                                  setEstablecimientosSeleccionados(newIds);
+                                }}
+                                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">
+                                    {est.name}
+                                  </p>
+                                  <span className="px-2 py-0.5 text-xs font-medium bg-blue-200 text-blue-800 rounded-full">
+                                    {est.code}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-600 truncate mt-0.5">
+                                  {est.address} - {est.district}
+                                </p>
+                              </div>
+                              {isSelected && (
+                                <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+
+                  {/* Contador de selección */}
+                  {!aplicarATodos && establecimientos.length > 0 && (
+                    <div className="flex items-center justify-between pt-2 border-t border-blue-200">
+                      <p className="text-xs text-gray-600">
+                        {establecimientosSeleccionados.length} de {establecimientos.length} establecimiento(s) seleccionado(s)
+                      </p>
+                      {establecimientosSeleccionados.length > 0 && establecimientosSeleccionados.length < establecimientos.length && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEstablecimientosSeleccionados(establecimientos.map(e => e.id));
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium underline"
+                        >
+                          Seleccionar todos
+                        </button>
+                      )}
+                      {establecimientosSeleccionados.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEstablecimientosSeleccionados([]);
+                          }}
+                          className="text-xs text-gray-600 hover:text-gray-700 font-medium underline"
+                        >
+                          Limpiar
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Download Template */}

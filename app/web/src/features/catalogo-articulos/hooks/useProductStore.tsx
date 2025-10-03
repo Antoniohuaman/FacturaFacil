@@ -383,7 +383,10 @@ export const useProductStore = () => {
     cantidad: number,
     observaciones?: string,
     documentoReferencia?: string,
-    ubicacion?: string
+    ubicacion?: string,
+    establecimientoId?: string,
+    establecimientoCodigo?: string,
+    establecimientoNombre?: string
   ) => {
     const producto = products.find(p => p.id === productoId);
     if (!producto) return;
@@ -424,7 +427,10 @@ export const useProductStore = () => {
       observaciones,
       documentoReferencia,
       fecha: new Date(),
-      ubicacion
+      ubicacion,
+      establecimientoId,
+      establecimientoCodigo,
+      establecimientoNombre
     };
 
     // Actualizar stock del producto
