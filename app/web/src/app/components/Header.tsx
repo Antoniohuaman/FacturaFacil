@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Settings } from 'lucide-react';
+import { Bell, Settings, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
 
-export default function Header() {
+interface HeaderProps {
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
+}
+
+export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showCashMenu, setShowCashMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -56,15 +61,26 @@ export default function Header() {
 
   return (
     <header className="h-16 bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 flex items-center px-6 shadow-sm">
+      {/* Botón de colapsar/expandir sidebar */}
+      {onToggleSidebar && (
+        <button
+          onClick={onToggleSidebar}
+          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors mr-4"
+          aria-label={sidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+        >
+          <Menu className="w-5 h-5 text-slate-600 dark:text-gray-300" />
+        </button>
+      )}
+      
       {/* Logo */}
       <button 
         onClick={() => navigate('/indicadores')}
-        className="flex items-center ml-8 hover:opacity-80 transition-opacity"
+        className="flex items-center ml-4 hover:opacity-80 transition-opacity"
       >
         <img 
           src="/SenciYO.svg" 
           alt="SenciYO"
-          className="h-[42px] dark:filter dark:invert dark:brightness-0 dark:contrast-100"
+          className="h-[38px] dark:filter dark:invert dark:brightness-0 dark:contrast-100"
         />
       </button>
       
@@ -148,21 +164,8 @@ export default function Header() {
           )}
         </div>
         
-        {/* Botón de configuración */}
-        <div className="relative">
-          <button
-            onClick={() => navigate('/configuracion')}
-            className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
-            title="Configuración del Sistema"
-          >
-            <Settings className="w-5 h-5 text-slate-600 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
-          </button>
-          {/* Indicador de configuración incompleta */}
-          <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
-        </div>
-        
         {/* Botón de notificaciones */}
-        <div className="relative ml-4" ref={notificationsRef}>
+        <div className="relative" ref={notificationsRef}>
           <button 
             className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
             onClick={() => setShowNotifications(!showNotifications)}
@@ -174,7 +177,7 @@ export default function Header() {
 
           {/* Dropdown de notificaciones */}
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-96 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl py-3 z-50 max-h-96 overflow-y-auto">
+            <div className="absolute right-0 top-full mt-2 w-[480px] bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl py-3 z-50 max-h-96 overflow-y-auto">
               <div className="px-4 pb-3 border-b border-slate-100 dark:border-gray-700">
                 <h3 className="font-semibold text-slate-900 dark:text-white text-base">Notificaciones</h3>
               </div>
@@ -233,6 +236,19 @@ export default function Header() {
               </div>
             </div>
           )}
+        </div>
+        
+        {/* Botón de configuración */}
+        <div className="relative ml-4">
+          <button
+            onClick={() => navigate('/configuracion')}
+            className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
+            title="Configuración del Sistema"
+          >
+            <Settings className="w-5 h-5 text-slate-600 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
+          </button>
+          {/* Indicador de configuración incompleta */}
+          <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
         </div>
         
         {/* Perfil/Menu con dropdown */}

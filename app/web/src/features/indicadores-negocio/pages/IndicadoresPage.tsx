@@ -469,8 +469,8 @@ const IndicadoresPage: React.FC = () => {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
           {/* Tabla de ventas diarias */}
-          <div className="overflow-x-auto p-0 m-0">
-            <table className="min-w-full text-sm">
+          <div className="p-0 m-0">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="text-gray-500 dark:text-gray-400 text-xs border-b border-gray-200 dark:border-gray-700">
                   <th className="py-2 px-3 text-left">FECHA</th>
@@ -531,7 +531,7 @@ const IndicadoresPage: React.FC = () => {
           </div>
 
           {/* Gráfico de barras */}
-          <div className="w-full h-[250px] flex items-center justify-center bg-white dark:bg-gray-800 p-0 m-0 mt-16" style={{ marginLeft: "-1rem", marginRight: "-1rem" }}>
+          <div className="w-full h-[250px] flex items-center justify-center bg-white dark:bg-gray-800 p-0 m-0 mt-16">
             <ResponsiveContainer width="85%" height={288}>
               <BarChart data={ventasDiariasData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgb(156 163 175)" />

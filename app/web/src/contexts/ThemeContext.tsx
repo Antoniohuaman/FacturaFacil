@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-type Theme = 'light' | 'dark';
+type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   theme: Theme;
@@ -19,32 +19,45 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
     // Verificar si hay un tema guardado en localStorage
     const savedTheme = localStorage.getItem('theme') as Theme;
-    if (savedTheme) {
+    if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
       return savedTheme;
     }
     
-    // Si no hay tema guardado, usar preferencia del sistema
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-    
-    return 'light';
+    // Por defecto usar 'system'
+    return 'system';
   });
 
   const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    setTheme(prevTheme => {
+      switch (prevTheme) {
+        case 'light': return 'dark';
+        case 'dark': return 'system';
+        case 'system': return 'light';
+        default: return 'light';
+      }
+    });
   };
 
   const updateTheme = (newTheme: Theme) => {
     setTheme(newTheme);
   };
 
+  // Función para obtener el tema efectivo
+  const getEffectiveTheme = (currentTheme: Theme) => {
+    if (currentTheme === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return currentTheme;
+  };
+
   useEffect(() => {
     // Deshabilitar transiciones temporalmente para cambio instantáneo
     document.documentElement.classList.add('changing-theme');
     
+    const effectiveTheme = getEffectiveTheme(theme);
+    
     // Aplicar tema al documento
-    if (theme === 'dark') {
+    if (effectiveTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -59,20 +72,25 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     });
   }, [theme]);
 
-  // Escuchar cambios en las preferencias del sistema
+  // Escuchar cambios en las preferencias del sistema solo cuando está en modo 'system'
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     
-    const handleChange = (e: MediaQueryListEvent) => {
-      // Solo cambiar si no hay tema guardado en localStorage
-      if (!localStorage.getItem('theme')) {
-        setTheme(e.matches ? 'dark' : 'light');
+    const handleChange = () => {
+      // Solo actualizar si el tema está en modo 'system'
+      if (theme === 'system') {
+        const effectiveTheme = getEffectiveTheme(theme);
+        if (effectiveTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       }
     };
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+  }, [theme]);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme: updateTheme }}>

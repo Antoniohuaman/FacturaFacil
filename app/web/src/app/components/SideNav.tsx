@@ -1,11 +1,10 @@
 
 import { NavLink } from "react-router-dom";
-import { Menu, FileText, Package, DollarSign, ShoppingCart, Users, BarChart3 } from "lucide-react";
+import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3 } from "lucide-react";
 import CompanySelector from "../../components/CompanySelector";
 
 interface SideNavProps {
   collapsed?: boolean;
-  onToggle?: () => void;
 }
 
 const mainItems = [
@@ -50,7 +49,7 @@ const mainItems = [
   },
 ];
 
-export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
+export default function SideNav({ collapsed = false }: SideNavProps) {
   return (
     <aside 
       className={`h-full flex flex-col bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700 transition-all duration-300 shadow-sm overflow-hidden`}
@@ -67,21 +66,10 @@ export default function SideNav({ collapsed = false, onToggle }: SideNavProps) {
         }
       }}
     >
-      {/* Header con título y botón colapsar */}
+      {/* Header con título */}
       <div className="p-2 border-b border-gray-100/50 dark:border-gray-700/50">
-        <div className="flex items-center justify-between">
-          {/* Botón de colapsar/expandir */}
-          {onToggle && (
-            <button
-              onClick={onToggle}
-              className={`p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors ${
-                collapsed ? 'mx-auto' : 'ml-auto'
-              }`}
-              aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
-            >
-              <Menu className="w-4 h-4 text-slate-600 dark:text-gray-300" />
-            </button>
-          )}
+        <div className="flex items-center justify-center">
+          {/* Título removido para simplificar */}
         </div>
       </div>
 

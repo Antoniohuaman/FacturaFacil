@@ -2,13 +2,39 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Edit, Trash2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+// Interfaces de tipos
+interface BaseCommand {
+  id: string;
+  nombre: string;
+  categoria: 'acciones' | 'navegacion';
+  atajo: string;
+}
+
+interface SystemCommand extends BaseCommand {
+  icono: LucideIcon;
+}
+
+interface CustomCommand extends BaseCommand {
+  icono?: LucideIcon;
+}
+
+type Command = SystemCommand | CustomCommand;
 
 const SearchBar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [commandPaletteView, setCommandPaletteView] = useState('main'); // 'main' | 'manage'
-  const [editingCommand, setEditingCommand] = useState(null);
+  const [commandPaletteView, setCommandPaletteView] = useState<'main' | 'manage' | 'edit'>('main');
+  const [editingCommand, setEditingCommand] = useState<CustomCommand | null>(null);
+  const [newCommand, setNewCommand] = useState<{
+    nombre: string;
+    atajo: string;
+    categoria: 'acciones' | 'navegacion';
+    accion: string;
+  }>({ nombre: '', atajo: '', categoria: 'acciones', accion: '' });
+  const [showConflictWarning, setShowConflictWarning] = useState('');
   const navigate = useNavigate();
 
   // Datos de ejemplo - reemplaza con tus datos reales
@@ -31,7 +57,7 @@ const SearchBar = () => {
   };
 
   // Comandos para el Command Palette
-  const baseCommands = [
+  const baseCommands: SystemCommand[] = [
     // ACCIONES PRINCIPALES
     { id: 'nueva-factura', nombre: 'Nueva Factura', icono: FileText, categoria: 'acciones', atajo: 'Ctrl+F' },
     { id: 'nueva-boleta', nombre: 'Nueva Boleta', icono: Receipt, categoria: 'acciones', atajo: 'Ctrl+B' },
@@ -49,16 +75,72 @@ const SearchBar = () => {
     { id: 'ir-precios', nombre: 'Lista de Precios', icono: DollarSign, categoria: 'navegacion', atajo: 'Ctrl+7' },
   ];
 
+  // Atajos predefinidos del sistema y navegador
+  const predefinedShortcuts = [
+    'Ctrl+A', 'Ctrl+C', 'Ctrl+V', 'Ctrl+X', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+S', 'Ctrl+O', 'Ctrl+N', 'Ctrl+P', 'Ctrl+R', 'Ctrl+F', 'Ctrl+H',
+    'Ctrl+T', 'Ctrl+W', 'Ctrl+Shift+T', 'Ctrl+Tab', 'Ctrl+Shift+Tab', 'F5', 'F11', 'F12', 'Alt+F4', 'Alt+Tab',
+    'Ctrl+K', 'Ctrl+B', 'Ctrl+U', 'Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5', 'Ctrl+6', 'Ctrl+7'
+  ];
+
+  // Actividades disponibles del sistema
+  const availableActions = [
+    { id: 'exportar-excel', nombre: 'Exportar a Excel', categoria: 'acciones' },
+    { id: 'importar-datos', nombre: 'Importar Datos', categoria: 'acciones' },
+    { id: 'backup-base', nombre: 'Respaldar Base de Datos', categoria: 'acciones' },
+    { id: 'generar-reporte', nombre: 'Generar Reporte', categoria: 'acciones' },
+    { id: 'sincronizar-sunat', nombre: 'Sincronizar con SUNAT', categoria: 'acciones' },
+    { id: 'cerrar-caja', nombre: 'Cerrar Caja', categoria: 'acciones' },
+    { id: 'abrir-caja', nombre: 'Abrir Caja', categoria: 'acciones' },
+    { id: 'cambiar-tema', nombre: 'Cambiar Tema', categoria: 'acciones' },
+    { id: 'ir-dashboard', nombre: 'Dashboard Principal', categoria: 'navegacion' },
+    { id: 'ir-ventas', nombre: 'Módulo de Ventas', categoria: 'navegacion' },
+    { id: 'ir-compras', nombre: 'Módulo de Compras', categoria: 'navegacion' },
+    { id: 'ir-inventario', nombre: 'Gestión de Inventario', categoria: 'navegacion' },
+    { id: 'ir-reportes', nombre: 'Centro de Reportes', categoria: 'navegacion' },
+    { id: 'ir-configuracion-avanzada', nombre: 'Configuración Avanzada', categoria: 'navegacion' }
+  ];
+
+  // Función para validar si un atajo está en uso
+  const isShortcutInUse = (shortcut: string) => {
+    const normalizedShortcut = shortcut.toLowerCase();
+    return predefinedShortcuts.some(s => s.toLowerCase() === normalizedShortcut) ||
+           allCommands.some(cmd => cmd.atajo.toLowerCase() === normalizedShortcut);
+  };
+
+  // Función para obtener el conflicto específico
+  const getShortcutConflict = (shortcut: string) => {
+    const normalizedShortcut = shortcut.toLowerCase();
+    
+    // Verificar si es un atajo predefinido del sistema
+    if (predefinedShortcuts.some(s => s.toLowerCase() === normalizedShortcut)) {
+      if (['ctrl+p'].includes(normalizedShortcut)) return 'Comando del navegador (Imprimir)';
+      if (['ctrl+s'].includes(normalizedShortcut)) return 'Comando del navegador (Guardar)';
+      if (['ctrl+f'].includes(normalizedShortcut)) return 'Comando del navegador (Buscar)';
+      if (['ctrl+r', 'f5'].includes(normalizedShortcut)) return 'Comando del navegador (Actualizar)';
+      if (['ctrl+n'].includes(normalizedShortcut)) return 'Comando del navegador (Nueva ventana)';
+      if (['ctrl+t'].includes(normalizedShortcut)) return 'Comando del navegador (Nueva pestaña)';
+      return 'Comando predefinido del sistema';
+    }
+    
+    // Verificar si está en uso por otro comando
+    const existingCommand = allCommands.find(cmd => cmd.atajo.toLowerCase() === normalizedShortcut);
+    if (existingCommand) {
+      return `Ya usado por: ${existingCommand.nombre}`;
+    }
+    
+    return '';
+  };
+
   // Comandos personalizados desde localStorage
-  const [customCommands, setCustomCommands] = useState([]);
-  const [allCommands, setAllCommands] = useState(baseCommands);
+  const [customCommands, setCustomCommands] = useState<CustomCommand[]>([]);
+  const [allCommands, setAllCommands] = useState<Command[]>(baseCommands);
 
   // Cargar comandos personalizados
   useEffect(() => {
     const handleStorageChange = () => {
       const savedCommands = localStorage.getItem('customCommands');
       if (savedCommands) {
-        const customCmds = JSON.parse(savedCommands);
+        const customCmds: CustomCommand[] = JSON.parse(savedCommands);
         setCustomCommands(customCmds);
         setAllCommands([...baseCommands, ...customCmds]);
       }
@@ -418,12 +500,29 @@ const SearchBar = () => {
             setEditingCommand(null);
           }}
         >
-          <div className="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600 max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-2xl max-h-[90vh] sm:max-h-[80vh] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600 overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             
             {/* VISTA PRINCIPAL - COMMAND PALETTE */}
             {commandPaletteView === 'main' && (
               <>
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Comando Rápido
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCommandPaletteView('manage');
+                        setSearchQuery('');
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <Settings size={12} />
+                      Administrar comandos
+                    </button>
+                  </div>
                   <div className="relative">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                     <input
@@ -445,7 +544,7 @@ const SearchBar = () => {
                         Acciones
                       </div>
                       {filteredCommands.filter(c => c.categoria === 'acciones').map((cmd) => {
-                        const IconComponent = cmd.icono;
+                        const IconComponent = cmd.icono || Search; // Fallback icon
                         return (
                           <button
                             key={cmd.id}
@@ -472,7 +571,7 @@ const SearchBar = () => {
                         Ir a
                       </div>
                       {filteredCommands.filter(c => c.categoria === 'navegacion').map((cmd) => {
-                        const IconComponent = cmd.icono;
+                        const IconComponent = cmd.icono || Search; // Fallback icon
                         return (
                           <button
                             key={cmd.id}
@@ -523,23 +622,12 @@ const SearchBar = () => {
                   )}
                 </div>
 
-                <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center text-[10px] text-gray-400 dark:text-gray-500">
                   <div className="flex items-center gap-3">
                     <span>↑↓ Navegar</span>
                     <span>↵ Seleccionar</span>
                     <span>Esc Cerrar</span>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setCommandPaletteView('manage');
-                      setSearchQuery('');
-                    }}
-                    className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-400 dark:hover:text-blue-400 transition-colors px-2 py-1 rounded"
-                  >
-                    Administrar comandos
-                  </button>
                 </div>
               </>
             )}
@@ -568,7 +656,11 @@ const SearchBar = () => {
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Comandos Personalizados</h3>
                       <button
-                        onClick={() => setEditingCommand({ id: '', nombre: '', atajo: '', categoria: 'acciones' })}
+                        onClick={() => {
+                          setNewCommand({ nombre: '', atajo: '', categoria: 'acciones', accion: '' });
+                          setShowConflictWarning('');
+                          setCommandPaletteView('edit');
+                        }}
                         className="flex items-center gap-2 px-3 py-1.5 text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
                       >
                         <Plus size={12} />
@@ -649,6 +741,187 @@ const SearchBar = () => {
                     className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-400 dark:hover:text-blue-400 transition-colors px-2 py-1 rounded"
                   >
                     Volver
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* VISTA DE EDICIÓN/CREACIÓN DE COMANDOS */}
+            {commandPaletteView === 'edit' && (
+              <>
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        setCommandPaletteView('manage');
+                        setNewCommand({ nombre: '', atajo: '', categoria: 'acciones', accion: '' });
+                        setShowConflictWarning('');
+                      }}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <ArrowLeft size={16} className="text-gray-600 dark:text-gray-400" />
+                    </button>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Nuevo Comando</h2>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  {/* Advertencia sobre comandos predeterminados */}
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/50 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">ℹ️ Comandos Predeterminados</h4>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+                      Ten en cuenta que algunos atajos ya están en uso por el sistema o navegador:
+                    </p>
+                    <div className="text-xs text-blue-600 dark:text-blue-400 grid grid-cols-3 gap-1">
+                      <span>Ctrl+P (Imprimir)</span>
+                      <span>Ctrl+S (Guardar)</span>
+                      <span>Ctrl+F (Buscar)</span>
+                      <span>Ctrl+R (Actualizar)</span>
+                      <span>Ctrl+N (Nueva ventana)</span>
+                      <span>Ctrl+T (Nueva pestaña)</span>
+                    </div>
+                  </div>
+
+                  {/* Formulario */}
+                  <div className="space-y-4">
+                    {/* Nombre del comando */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Nombre del comando
+                      </label>
+                      <input
+                        type="text"
+                        value={newCommand.nombre}
+                        onChange={(e) => setNewCommand(prev => ({ ...prev, nombre: e.target.value }))}
+                        placeholder="Ej: Exportar productos"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    {/* Atajo de teclado */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Atajo de teclado
+                      </label>
+                      <input
+                        type="text"
+                        value={newCommand.atajo}
+                        onChange={(e) => {
+                          const atajo = e.target.value;
+                          setNewCommand(prev => ({ ...prev, atajo }));
+                          
+                          // Verificar conflictos en tiempo real
+                          if (atajo) {
+                            const conflict = getShortcutConflict(atajo);
+                            setShowConflictWarning(conflict);
+                          } else {
+                            setShowConflictWarning('');
+                          }
+                        }}
+                        placeholder="Ej: Ctrl+E, Alt+X, F9"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {showConflictWarning && (
+                        <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                          ⚠️ {showConflictWarning}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Acción */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Acción del sistema
+                      </label>
+                      <select
+                        value={newCommand.accion}
+                        onChange={(e) => setNewCommand(prev => ({ ...prev, accion: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Selecciona una acción...</option>
+                        <optgroup label="Acciones del Sistema">
+                          {availableActions.filter(action => action.categoria === 'acciones').map(action => (
+                            <option key={action.id} value={action.id}>{action.nombre}</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Navegación">
+                          {availableActions.filter(action => action.categoria === 'navegacion').map(action => (
+                            <option key={action.id} value={action.id}>{action.nombre}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </div>
+
+                    {/* Categoría */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Categoría
+                      </label>
+                      <select
+                        value={newCommand.categoria}
+                        onChange={(e) => setNewCommand(prev => ({ ...prev, categoria: e.target.value as 'acciones' | 'navegacion' }))}
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="acciones">Acciones</option>
+                        <option value="navegacion">Navegación</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-shrink-0 p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center gap-3 sm:justify-between">
+                  <button
+                    onClick={() => {
+                      setCommandPaletteView('manage');
+                      setNewCommand({ nombre: '', atajo: '', categoria: 'acciones', accion: '' });
+                      setShowConflictWarning('');
+                    }}
+                    className="w-full sm:w-auto px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Validaciones
+                      if (!newCommand.nombre.trim()) {
+                        alert('Por favor ingresa un nombre para el comando');
+                        return;
+                      }
+                      if (!newCommand.atajo.trim()) {
+                        alert('Por favor ingresa un atajo de teclado');
+                        return;
+                      }
+                      if (!newCommand.accion) {
+                        alert('Por favor selecciona una acción del sistema');
+                        return;
+                      }
+                      if (showConflictWarning) {
+                        alert('El atajo seleccionado está en conflicto. Por favor elige otro.');
+                        return;
+                      }
+
+                      // Crear nuevo comando
+                      const comando: CustomCommand = {
+                        id: Date.now().toString(),
+                        nombre: newCommand.nombre.trim(),
+                        atajo: newCommand.atajo.trim(),
+                        categoria: newCommand.categoria
+                      };
+
+                      const updatedCommands = [...customCommands, comando];
+                      setCustomCommands(updatedCommands);
+                      localStorage.setItem('customCommands', JSON.stringify(updatedCommands));
+                      setAllCommands([...baseCommands, ...updatedCommands]);
+                      
+                      // Limpiar y volver
+                      setNewCommand({ nombre: '', atajo: '', categoria: 'acciones', accion: '' });
+                      setShowConflictWarning('');
+                      setCommandPaletteView('manage');
+                    }}
+                    disabled={!newCommand.nombre.trim() || !newCommand.atajo.trim() || !newCommand.accion || !!showConflictWarning}
+                    className="w-full sm:w-auto px-6 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                  >
+                    Crear Comando
                   </button>
                 </div>
               </>

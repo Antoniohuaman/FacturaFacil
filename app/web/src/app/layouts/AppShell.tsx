@@ -15,14 +15,16 @@ export default function AppShell() {
         <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden">
           {/* Header fijo */}
           <div className="flex-shrink-0 z-50">
-            <Header />
+            <Header 
+              sidebarCollapsed={sidebarCollapsed}
+              onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+            />
           </div>
           <div className="flex flex-1 overflow-hidden">
             {/* Sidebar fijo */}
             <div className={`${sidebarCollapsed ? 'w-[88px]' : 'w-[260px]'} flex-shrink-0 z-40 transition-all duration-300 ease-in-out overflow-y-auto`}>
               <SideNav 
-                collapsed={sidebarCollapsed} 
-                onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+                collapsed={sidebarCollapsed}
               />
             </div>
             {/* Contenido principal */}
