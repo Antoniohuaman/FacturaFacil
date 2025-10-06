@@ -1,5 +1,5 @@
 import { CheckCircle2, Printer, Mail, MessageCircle, Link2, FileText, X, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface SuccessModalProps {
   isOpen: boolean;
@@ -22,6 +22,21 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [showWhatsAppInput, setShowWhatsAppInput] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  // Manejar teclas ESC y Enter
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Enter') {
+        onClose();
+        onNewSale();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, onNewSale]);
 
   if (!isOpen) return null;
 
@@ -68,8 +83,29 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+      onClick={(e) => {
+        // Cerrar solo si se hace clic en el backdrop (no en el modal)
+        if (e.target === e.currentTarget) {
+          onClose();
+          onNewSale();
+        }
+      }}
+    >
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-slideUp">
+        
+        {/* Botón X para cerrar - Discreto pero visible */}
+        <button
+          onClick={() => {
+            onClose();
+            onNewSale();
+          }}
+          className="absolute top-3 right-3 z-10 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all hover:scale-110 group"
+          title="Cerrar (ESC o Enter)"
+        >
+          <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+        </button>
         
         {/* Header con animación de éxito */}
         <div className="relative bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 p-8 text-center overflow-hidden">
