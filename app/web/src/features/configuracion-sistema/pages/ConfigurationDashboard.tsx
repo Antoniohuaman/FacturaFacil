@@ -55,8 +55,8 @@ export function ConfigurationDashboard() {
       completionPercentage: state.series.length > 0 ? 100 : 0
     },
     business: {
-      isConfigured: state.paymentMethods.length > 0 && state.currencies.length > 0,
-      completionPercentage: (state.paymentMethods.length > 0 && state.currencies.length > 0) ? 100 : 60
+      isConfigured: state.paymentMethods.length > 0,
+      completionPercentage: state.paymentMethods.length > 0 ? 100 : 0
     }
   };
 

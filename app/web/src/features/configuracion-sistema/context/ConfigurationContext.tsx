@@ -246,49 +246,11 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
       ]
     });
 
-    // Mock payment methods
+    // Mock payment methods - REMOVED: User should configure these manually
+    // Payment methods are not created automatically by onboarding
     dispatch({
       type: 'SET_PAYMENT_METHODS',
-      payload: [
-        {
-          id: '1',
-          code: 'CASH',
-          name: 'Efectivo',
-          type: 'CASH',
-          sunatCode: '001',
-          sunatDescription: 'Pago en efectivo',
-          configuration: {
-            requiresReference: false,
-            allowsPartialPayments: true,
-            requiresValidation: false,
-            hasCommission: false,
-            requiresCustomerData: false,
-            allowsCashBack: false,
-            requiresSignature: false
-          },
-          financial: {
-            affectsCashFlow: true,
-            settlementPeriod: 'IMMEDIATE'
-          },
-          display: {
-            icon: 'Banknote',
-            color: '#10B981',
-            displayOrder: 1,
-            isVisible: true,
-            showInPos: true,
-            showInInvoicing: true
-          },
-          validation: {
-            documentTypes: [],
-            customerTypes: ['INDIVIDUAL', 'BUSINESS'],
-            allowedCurrencies: ['PEN', 'USD']
-          },
-          isDefault: true,
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ]
+      payload: []
     });
 
     // Units will be initialized by UnitsSection component
@@ -311,7 +273,7 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
           sunatName: 'IGV - Impuesto General a las Ventas',
           sunatType: 'VAT',
           category: 'SALES',
-          includeInPrice: false,
+          includeInPrice: true,
           isCompound: false,
           applicableTo: {
             products: true,
