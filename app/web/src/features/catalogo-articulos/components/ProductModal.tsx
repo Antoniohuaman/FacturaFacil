@@ -1,6 +1,7 @@
 import CategoryModal from './CategoryModal';
 import { useProductStore } from '../hooks/useProductStore';
 import type { Product, ProductFormData, Category } from '../models/types';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 // src/features/catalogo-articulos/components/ProductModal.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -22,6 +23,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
 }) => {
   // Usar el store global para agregar categoría y validar códigos
   const { addCategory, categories: globalCategories, allProducts } = useProductStore();
+  
+  // Acceder a los establecimientos desde el contexto de configuración
+  const { state: configState } = useConfigurationContext();
+  const establishments = configState.establishments.filter(e => e.isActive);
+  
   type FormError = {
     [K in keyof ProductFormData]?: string;
   };
@@ -35,6 +41,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
     cantidad: 0,
     impuesto: 'IGV (18.00%)',
     descripcion: '',
+    // Asignación de establecimientos
+    establecimientoIds: [],
+    disponibleEnTodos: false,
     // Campos avanzados
     alias: '',
     precioCompra: 0,
@@ -70,6 +79,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
         cantidad: product.cantidad,
         impuesto: product.impuesto || 'IGV (18.00%)',
         descripcion: product.descripcion || '',
+        // Asignación de establecimientos
+        establecimientoIds: product.establecimientoIds || [],
+        disponibleEnTodos: product.disponibleEnTodos || false,
         // Campos avanzados
         alias: product.alias || '',
         precioCompra: product.precioCompra || 0,
@@ -95,6 +107,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
         cantidad: 0,
         impuesto: 'IGV (18.00%)',
         descripcion: '',
+        // Asignación de establecimientos - Por defecto disponible en todos
+        establecimientoIds: [],
+        disponibleEnTodos: establishments.length > 0, // Si hay establecimientos, activar por defecto
         // Campos avanzados
         alias: '',
         precioCompra: 0,
@@ -113,7 +128,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     }
     setErrors({});
     setShowAdvanced(false);
-  }, [product, isOpen, categories]);
+  }, [product, isOpen, categories, establishments.length]);
 
   const validateForm = (): boolean => {
   const newErrors: FormError = {};
@@ -142,6 +157,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
     if (!formData.categoria) {
       newErrors.categoria = 'La categoría es requerida';
+    }
+
+    // Validar asignación de establecimientos
+    if (!formData.disponibleEnTodos && formData.establecimientoIds.length === 0) {
+      newErrors.establecimientoIds = 'Debes asignar al menos un establecimiento o marcar "Disponible en todos"';
     }
 
     setErrors(newErrors);
@@ -424,6 +444,188 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 </button>
               </div>
               {errors.categoria && <p className="text-red-600 text-xs mt-1">{errors.categoria}</p>}
+            </div>
+
+            {/* Asignación de Establecimientos */}
+            <div className="border-2 border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  <label className="text-sm font-semibold text-gray-900">
+                    Asignar a Establecimientos <span className="text-red-500">*</span>
+                  </label>
+                </div>
+                
+                {/* Toggle: Disponible en todos */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newValue = !formData.disponibleEnTodos;
+                    setFormData(prev => ({
+                      ...prev,
+                      disponibleEnTodos: newValue,
+                      establecimientoIds: newValue ? [] : prev.establecimientoIds
+                    }));
+                  }}
+                  className={`
+                    relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+                    ${formData.disponibleEnTodos ? 'bg-purple-600' : 'bg-gray-300'}
+                  `}
+                >
+                  <span className={`
+                    inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                    ${formData.disponibleEnTodos ? 'translate-x-6' : 'translate-x-1'}
+                  `} />
+                </button>
+              </div>
+
+              {/* Mensaje de estado */}
+              <div className={`
+                flex items-center space-x-2 p-3 rounded-lg border-2
+                ${formData.disponibleEnTodos 
+                  ? 'bg-purple-100 border-purple-300' 
+                  : 'bg-white border-purple-200'
+                }
+              `}>
+                {formData.disponibleEnTodos ? (
+                  <>
+                    <svg className="w-5 h-5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-purple-900">
+                        Disponible en todos los establecimientos
+                      </p>
+                      <p className="text-xs text-purple-700">
+                        Este producto estará visible en los {establishments.length} establecimiento(s) activo(s)
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        Asignación personalizada
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        Selecciona establecimientos específicos
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Lista de establecimientos - Solo si NO está en "Todos" */}
+              {!formData.disponibleEnTodos && (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {establishments.length === 0 ? (
+                    <div className="text-center py-6 text-gray-500">
+                      <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      <p className="text-sm font-medium">No hay establecimientos activos</p>
+                      <p className="text-xs mt-1">Crea un establecimiento en Configuración</p>
+                    </div>
+                  ) : (
+                    establishments.map((est) => {
+                      const isSelected = formData.establecimientoIds.includes(est.id);
+                      return (
+                        <label
+                          key={est.id}
+                          className={`
+                            flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                            ${isSelected 
+                              ? 'bg-purple-100 border-purple-400 shadow-sm' 
+                              : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                            }
+                          `}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const newIds = e.target.checked
+                                ? [...formData.establecimientoIds, est.id]
+                                : formData.establecimientoIds.filter(id => id !== est.id);
+                              setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
+                            }}
+                            className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <p className="text-sm font-semibold text-gray-900 truncate">
+                                {est.name}
+                              </p>
+                              <span className="px-2 py-0.5 text-xs font-medium bg-purple-200 text-purple-800 rounded-full">
+                                {est.code}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-600 truncate mt-0.5">
+                              {est.address} - {est.district}
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <svg className="w-5 h-5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+
+              {/* Contador de selección */}
+              {!formData.disponibleEnTodos && establishments.length > 0 && (
+                <div className="flex items-center justify-between pt-2 border-t border-purple-200">
+                  <p className="text-xs text-gray-600">
+                    {formData.establecimientoIds.length} de {establishments.length} establecimiento(s) seleccionado(s)
+                  </p>
+                  {formData.establecimientoIds.length > 0 && formData.establecimientoIds.length < establishments.length && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          establecimientoIds: establishments.map(e => e.id)
+                        }));
+                      }}
+                      className="text-xs text-purple-600 hover:text-purple-700 font-medium underline"
+                    >
+                      Seleccionar todos
+                    </button>
+                  )}
+                  {formData.establecimientoIds.length === establishments.length && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, establecimientoIds: [] }));
+                      }}
+                      className="text-xs text-red-600 hover:text-red-700 font-medium underline"
+                    >
+                      Quitar todos
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Error de validación */}
+              {errors.establecimientoIds && (
+                <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-300 rounded-lg">
+                  <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-xs text-red-700 font-medium">
+                    {errors.establecimientoIds}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Cantidad inicial - Solo si trabaja con stock */}

@@ -570,3 +570,41 @@ export const ubigeoData: Department[] = [
     ]
   }
 ];
+
+/**
+ * Busca y devuelve los nombres de Departamento, Provincia y Distrito
+ * a partir de un código de ubigeo de 6 dígitos
+ * @param ubigeoCode - Código de 6 dígitos (ej: "150122")
+ * @returns Objeto con department, province, district (nombres completos)
+ */
+export function parseUbigeoCode(ubigeoCode: string): {
+  department: string;
+  province: string;
+  district: string;
+} | null {
+  if (!ubigeoCode || ubigeoCode.length !== 6) {
+    return null;
+  }
+
+  const depCode = ubigeoCode.substring(0, 2);
+  const provCode = ubigeoCode.substring(0, 4);
+  const distCode = ubigeoCode;
+
+  // Buscar departamento
+  const department = ubigeoData.find(dep => dep.code === depCode);
+  if (!department) return null;
+
+  // Buscar provincia
+  const province = department.provinces.find(prov => prov.code === provCode);
+  if (!province) return null;
+
+  // Buscar distrito
+  const district = province.districts.find(dist => dist.code === distCode);
+  if (!district) return null;
+
+  return {
+    department: department.name,
+    province: province.name,
+    district: district.name
+  };
+}

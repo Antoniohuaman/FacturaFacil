@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import type { MovimientoStockTipo, MovimientoStockMotivo } from '../models/types';
 import { useProductStore } from '../hooks/useProductStore';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
 interface StockAdjustmentModalProps {
   isOpen: boolean;
@@ -17,7 +18,9 @@ interface AdjustmentData {
   cantidad: number;
   observaciones: string;
   documentoReferencia: string;
-  ubicacion: string;
+  establecimientoId?: string;
+  establecimientoCodigo?: string;
+  establecimientoNombre?: string;
 }
 
 const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
@@ -26,6 +29,9 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   onAdjust
 }) => {
   const { allProducts } = useProductStore();
+  const { state: configState } = useConfigurationContext();
+  const establecimientos = configState.establishments.filter(e => e.isActive);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [tipo, setTipo] = useState<MovimientoStockTipo>('ENTRADA');
@@ -33,7 +39,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   const [cantidad, setCantidad] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [documentoReferencia, setDocumentoReferencia] = useState('');
-  const [ubicacion, setUbicacion] = useState('Almacén Principal');
+  const [selectedEstablecimientoId, setSelectedEstablecimientoId] = useState('');
 
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
 
@@ -81,6 +87,13 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
       return;
     }
 
+    if (!selectedEstablecimientoId) {
+      alert('Por favor selecciona un establecimiento');
+      return;
+    }
+
+    const establecimientoSeleccionado = establecimientos.find(e => e.id === selectedEstablecimientoId);
+
     onAdjust({
       productoId: selectedProductId,
       tipo,
@@ -88,7 +101,9 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
       cantidad: Number(cantidad),
       observaciones,
       documentoReferencia,
-      ubicacion
+      establecimientoId: selectedEstablecimientoId,
+      establecimientoCodigo: establecimientoSeleccionado?.code,
+      establecimientoNombre: establecimientoSeleccionado?.name
     });
 
     // Reset form
@@ -98,6 +113,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
     setCantidad('');
     setObservaciones('');
     setDocumentoReferencia('');
+    setSelectedEstablecimientoId('');
     setSearchTerm('');
   };
 
@@ -288,18 +304,29 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
               )}
             </div>
 
-            {/* Ubicación */}
+            {/* Establecimiento */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ubicación
+                Establecimiento <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={ubicacion}
-                onChange={(e) => setUbicacion(e.target.value)}
-                placeholder="Ej: Almacén Principal, Tienda 1, etc."
+              <select
+                value={selectedEstablecimientoId}
+                onChange={(e) => setSelectedEstablecimientoId(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
+                required
+              >
+                <option value="">Seleccionar establecimiento...</option>
+                {establecimientos.map(est => (
+                  <option key={est.id} value={est.id}>
+                    [{est.code}] {est.name} - {est.district}
+                  </option>
+                ))}
+              </select>
+              {selectedEstablecimientoId && (
+                <p className="mt-1 text-xs text-gray-500">
+                  El movimiento se registrará en este establecimiento
+                </p>
+              )}
             </div>
 
             {/* Documento Referencia */}

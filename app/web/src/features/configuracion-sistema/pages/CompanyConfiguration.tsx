@@ -16,7 +16,13 @@ import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { RucValidator } from '../components/company/RucValidator';
 import { LogoUploader } from '../components/company/LogoUploader';
+import { parseUbigeoCode } from '../data/ubigeo';
 import type { Company } from '../models/Company';
+import type { Establishment } from '../models/Establishment';
+import type { Series } from '../models/Series';
+import type { Currency } from '../models/Currency';
+import type { Tax } from '../models/Tax';
+import type { PaymentMethod } from '../models/PaymentMethod';
 
 interface CompanyFormData {
   ruc: string;
@@ -213,6 +219,377 @@ export function CompanyConfiguration() {
       };
 
       dispatch({ type: 'SET_COMPANY', payload: updatedCompany });
+
+      // ===================================================================
+      // ONBOARDING AUTOMÁTICO: Crear configuración inicial si es nueva empresa
+      // ===================================================================
+      const isNewCompany = !company?.id;
+      
+      if (isNewCompany && state.establishments.length === 0) {
+        // Parsear ubigeo para obtener Departamento, Provincia y Distrito
+        const location = parseUbigeoCode(formData.ubigeo);
+        
+        // 1. CREAR ESTABLECIMIENTO POR DEFECTO
+        const defaultEstablishment: Establishment = {
+          id: 'est-main',
+          code: '0001',
+          name: 'Establecimiento',
+          address: formData.fiscalAddress,
+          district: location?.district || 'Lima',
+          province: location?.province || 'Lima',
+          department: location?.department || 'Lima',
+          postalCode: formData.ubigeo,
+          phone: cleanPhones[0],
+          email: cleanEmails[0],
+          isMainEstablishment: true,
+          businessHours: {
+            monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            wednesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            thursday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            friday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            saturday: { isOpen: true, openTime: '09:00', closeTime: '13:00', is24Hours: false },
+            sunday: { isOpen: false, openTime: '00:00', closeTime: '00:00', is24Hours: false },
+          },
+          sunatConfiguration: {
+            isRegistered: true,
+            registrationDate: new Date(),
+            annexCode: '0000',
+            economicActivity: company?.economicActivity || 'Comercio',
+          },
+          posConfiguration: {
+            hasPos: true,
+            terminalCount: 1,
+            printerConfiguration: {
+              hasPrinter: false,
+              printerType: 'THERMAL',
+              paperSize: 'TICKET_80MM',
+              isNetworkPrinter: false,
+            },
+            cashDrawerConfiguration: {
+              hasCashDrawer: false,
+              openMethod: 'MANUAL',
+              currency: 'PEN',
+            },
+            barcodeScanner: {
+              hasScanner: false,
+              scannerType: 'USB',
+            },
+          },
+          inventoryConfiguration: {
+            managesInventory: true,
+            isWarehouse: false,
+            allowNegativeStock: false,
+            autoTransferStock: false,
+          },
+          financialConfiguration: {
+            handlesCash: true,
+            defaultCurrencyId: 'PEN',
+            acceptedCurrencies: ['PEN', 'USD'],
+            defaultTaxId: 'IGV',
+            bankAccounts: [],
+          },
+          status: 'ACTIVE',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          isActive: true,
+        };
+
+        dispatch({ type: 'ADD_ESTABLISHMENT', payload: defaultEstablishment });
+
+        // 2. CREAR SERIES POR DEFECTO (FACTURA Y BOLETA)
+        const now = new Date();
+        
+        // Serie de FACTURA (FE01)
+        const facturaSeries: Series = {
+          id: 'series-factura-default',
+          establishmentId: 'est-main',
+          documentType: {
+            id: 'invoice',
+            code: '01',
+            name: 'Factura Electrónica',
+            shortName: 'FAC',
+            category: 'INVOICE',
+            properties: {
+              affectsTaxes: true,
+              requiresCustomerRuc: true,
+              requiresCustomerName: true,
+              allowsCredit: true,
+              requiresPaymentMethod: true,
+              canBeVoided: true,
+              canHaveCreditNote: true,
+              canHaveDebitNote: true,
+              isElectronic: true,
+              requiresSignature: true,
+            },
+            seriesConfiguration: {
+              defaultPrefix: 'F',
+              seriesLength: 3,
+              correlativeLength: 8,
+              allowedPrefixes: ['F', 'FE'],
+            },
+            isActive: true,
+          },
+          series: 'FE01',
+          correlativeNumber: 1,
+          configuration: {
+            minimumDigits: 8,
+            startNumber: 1,
+            autoIncrement: true,
+            allowManualNumber: false,
+            requireAuthorization: false,
+          },
+          sunatConfiguration: {
+            isElectronic: true,
+            environmentType: formData.environment === 'TEST' ? 'TESTING' : 'PRODUCTION',
+            certificateRequired: true,
+            mustReportToSunat: true,
+            maxDaysToReport: 7,
+          },
+          status: 'ACTIVE',
+          isDefault: true,
+          statistics: {
+            documentsIssued: 0,
+            averageDocumentsPerDay: 0,
+          },
+          validation: {
+            allowZeroAmount: false,
+            requireCustomer: true,
+          },
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'system',
+          isActive: true,
+        };
+
+        // Serie de BOLETA (BE01)
+        const boletaSeries: Series = {
+          id: 'series-boleta-default',
+          establishmentId: 'est-main',
+          documentType: {
+            id: 'receipt',
+            code: '03',
+            name: 'Boleta de Venta Electrónica',
+            shortName: 'BOL',
+            category: 'RECEIPT',
+            properties: {
+              affectsTaxes: true,
+              requiresCustomerRuc: false,
+              requiresCustomerName: true,
+              allowsCredit: false,
+              requiresPaymentMethod: true,
+              canBeVoided: true,
+              canHaveCreditNote: true,
+              canHaveDebitNote: false,
+              isElectronic: true,
+              requiresSignature: true,
+            },
+            seriesConfiguration: {
+              defaultPrefix: 'B',
+              seriesLength: 3,
+              correlativeLength: 8,
+              allowedPrefixes: ['B', 'BE'],
+            },
+            isActive: true,
+          },
+          series: 'BE01',
+          correlativeNumber: 1,
+          configuration: {
+            minimumDigits: 8,
+            startNumber: 1,
+            autoIncrement: true,
+            allowManualNumber: false,
+            requireAuthorization: false,
+          },
+          sunatConfiguration: {
+            isElectronic: true,
+            environmentType: formData.environment === 'TEST' ? 'TESTING' : 'PRODUCTION',
+            certificateRequired: true,
+            mustReportToSunat: true,
+            maxDaysToReport: 7,
+          },
+          status: 'ACTIVE',
+          isDefault: true,
+          statistics: {
+            documentsIssued: 0,
+            averageDocumentsPerDay: 0,
+          },
+          validation: {
+            allowZeroAmount: false,
+            requireCustomer: false,
+          },
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'system',
+          isActive: true,
+        };
+
+        dispatch({ type: 'ADD_SERIES', payload: facturaSeries });
+        dispatch({ type: 'ADD_SERIES', payload: boletaSeries });
+
+        // 3. CONFIGURAR MONEDA BASE (PEN - SOLES)
+        if (state.currencies.length === 0) {
+          const defaultCurrencies: Currency[] = [
+            {
+              id: 'PEN',
+              code: 'PEN',
+              name: 'Sol Peruano',
+              symbol: 'S/',
+              symbolPosition: 'BEFORE',
+              decimalPlaces: 2,
+              isBaseCurrency: true,
+              exchangeRate: 1.0,
+              isActive: true,
+              lastUpdated: new Date(),
+              autoUpdate: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: 'USD',
+              code: 'USD',
+              name: 'Dólar Americano',
+              symbol: '$',
+              symbolPosition: 'BEFORE',
+              decimalPlaces: 2,
+              isBaseCurrency: false,
+              exchangeRate: 3.70,
+              isActive: true,
+              lastUpdated: new Date(),
+              autoUpdate: true,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ];
+          dispatch({ type: 'SET_CURRENCIES', payload: defaultCurrencies });
+        }
+
+        // 4. CONFIGURAR IMPUESTO IGV POR DEFECTO
+        if (state.taxes.length === 0) {
+          const defaultTaxes: Tax[] = [
+            {
+              id: 'IGV',
+              code: '1000',
+              name: 'IGV',
+              shortName: 'IGV',
+              description: 'Impuesto General a las Ventas',
+              rate: 18.0,
+              type: 'PERCENTAGE',
+              sunatCode: '1000',
+              sunatName: 'IGV - Impuesto General a las Ventas',
+              sunatType: 'VAT',
+              category: 'SALES',
+              includeInPrice: true,
+              isCompound: false,
+              applicableTo: {
+                products: true,
+                services: true,
+                both: true,
+              },
+              rules: {
+                roundingMethod: 'ROUND',
+                roundingPrecision: 2,
+              },
+              jurisdiction: {
+                country: 'PE',
+                region: 'Nacional',
+              },
+              isDefault: true,
+              isActive: true,
+              validFrom: new Date(),
+              validTo: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ];
+          dispatch({ type: 'SET_TAXES', payload: defaultTaxes });
+        }
+
+        // 5. CREAR FORMAS DE PAGO PREDETERMINADAS (Contado + Crédito)
+        // Verificar si ya existen payment methods para evitar duplicados
+        const existingPaymentMethods = state.paymentMethods || [];
+        if (existingPaymentMethods.length === 0) {
+          const defaultPaymentMethods: PaymentMethod[] = [
+            {
+              id: 'pm-contado',
+              code: 'CONTADO',
+              name: 'Contado',
+              type: 'CASH',
+              sunatCode: '001',
+              sunatDescription: 'Pago al contado',
+              configuration: {
+                requiresReference: false,
+                allowsPartialPayments: false,
+                requiresValidation: false,
+                hasCommission: false,
+                requiresCustomerData: false,
+                allowsCashBack: true,
+                requiresSignature: false,
+              },
+              financial: {
+                affectsCashFlow: true,
+                settlementPeriod: 'IMMEDIATE',
+              },
+              display: {
+                icon: 'Banknote',
+                color: '#10B981',
+                displayOrder: 1,
+                isVisible: true,
+                showInPos: true,
+                showInInvoicing: true,
+              },
+              validation: {
+                documentTypes: [],
+                customerTypes: ['INDIVIDUAL', 'BUSINESS'],
+                allowedCurrencies: ['PEN', 'USD'],
+              },
+              isDefault: true,
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: 'pm-credito',
+              code: 'CREDITO',
+              name: 'Crédito',
+              type: 'CREDIT',
+              sunatCode: '002',
+              sunatDescription: 'Pago al crédito',
+              configuration: {
+                requiresReference: true,
+                allowsPartialPayments: true,
+                requiresValidation: true,
+                hasCommission: false,
+                requiresCustomerData: true,
+                allowsCashBack: false,
+                requiresSignature: true,
+              },
+              financial: {
+                affectsCashFlow: false,
+                settlementPeriod: 'MONTHLY',
+              },
+              display: {
+                icon: 'CreditCard',
+                color: '#F59E0B',
+                displayOrder: 2,
+                isVisible: true,
+                showInPos: true,
+                showInInvoicing: true,
+              },
+              validation: {
+                documentTypes: ['01'],
+                customerTypes: ['BUSINESS'],
+                allowedCurrencies: ['PEN', 'USD'],
+              },
+              isDefault: false,
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ];
+          dispatch({ type: 'SET_PAYMENT_METHODS', payload: defaultPaymentMethods });
+        }
+      }
 
       // Show success and redirect
       setTimeout(() => {

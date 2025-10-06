@@ -73,10 +73,48 @@ const StockAlertsPanel: React.FC<StockAlertsPanelProps> = ({ alertas }) => {
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <button className="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-md transition-colors">
+            <button 
+              onClick={() => {
+                const productosAlerta = alertas.map(a => a.productoNombre).join(', ');
+                alert(`🛒 ORDEN DE COMPRA\n\nProductos a reabastecer:\n${productosAlerta}\n\n✅ Funcionalidad lista para integración con módulo de compras`);
+              }}
+              className="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-md transition-colors"
+            >
               Generar Orden de Compra
             </button>
-            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md transition-colors">
+            <button 
+              onClick={() => {
+                const fecha = new Intl.DateTimeFormat('es-PE', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }).format(new Date());
+                
+                let reporte = `REPORTE DE ALERTAS DE STOCK\nFecha: ${fecha}\n\n`;
+                reporte += `Total de alertas: ${alertas.length}\n`;
+                reporte += `Críticas: ${alertas.filter(a => a.estado === 'CRITICO').length}\n`;
+                reporte += `Stock Bajo: ${alertas.filter(a => a.estado === 'BAJO').length}\n\n`;
+                reporte += `DETALLE:\n`;
+                alertas.forEach((a, i) => {
+                  reporte += `\n${i + 1}. ${a.productoNombre}\n`;
+                  reporte += `   Código: ${a.productoCodigo}\n`;
+                  reporte += `   Stock Actual: ${a.cantidadActual}\n`;
+                  reporte += `   Stock Mínimo: ${a.stockMinimo}\n`;
+                  reporte += `   Faltante: ${a.stockMinimo - a.cantidadActual}\n`;
+                });
+                
+                const blob = new Blob([reporte], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `alertas-stock-${Date.now()}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md transition-colors"
+            >
               Exportar Reporte
             </button>
           </div>
@@ -131,10 +169,20 @@ const StockAlertsPanel: React.FC<StockAlertsPanelProps> = ({ alertas }) => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 ml-6">
-                    <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors">
+                    <button 
+                      onClick={() => {
+                        alert(`🔄 REABASTECER PRODUCTO\n\n${alerta.productoNombre}\nCódigo: ${alerta.productoCodigo}\n\nCantidad sugerida: ${alerta.stockMinimo - alerta.cantidadActual}\n\n✅ Esta acción abrirá el modal de ajuste de stock`);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                    >
                       Reabastecer
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors">
+                    <button 
+                      onClick={() => {
+                        alert(`📋 OPCIONES\n\n• Ver historial de movimientos\n• Editar stock mínimo\n• Ver detalles del producto\n• Configurar alertas`);
+                      }}
+                      className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                       </svg>
@@ -195,10 +243,20 @@ const StockAlertsPanel: React.FC<StockAlertsPanelProps> = ({ alertas }) => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 ml-6">
-                    <button className="px-4 py-2 text-sm font-medium text-yellow-700 bg-yellow-100 hover:bg-yellow-200 rounded-md transition-colors">
+                    <button 
+                      onClick={() => {
+                        alert(`📅 PROGRAMAR COMPRA\n\n${alerta.productoNombre}\nCódigo: ${alerta.productoCodigo}\n\nCantidad sugerida: ${alerta.stockMinimo - alerta.cantidadActual}\n\n✅ Esta acción programará una orden de compra`);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-yellow-700 bg-yellow-100 hover:bg-yellow-200 rounded-md transition-colors"
+                    >
                       Programar Compra
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors">
+                    <button 
+                      onClick={() => {
+                        alert(`📋 OPCIONES\n\n• Ver historial de movimientos\n• Editar stock mínimo\n• Ver detalles del producto\n• Configurar alertas`);
+                      }}
+                      className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                       </svg>

@@ -8,6 +8,15 @@ import type { PaymentModalProps } from '../models/comprobante.types';
 import { useCurrency } from '../hooks/useCurrency';
 import ClienteForm from '../../gestion-clientes/components/ClienteForm';
 
+// Interfaz para cliente en formato POS
+interface ClientePOS {
+  id: number;
+  nombre: string;
+  tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
+  documento: string;
+  direccion: string;
+}
+
 // Interfaz para líneas de pago múltiples
 interface PaymentLine {
   id: string;
@@ -172,28 +181,52 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   ];
 
-  // Mock client data - en producción vendría del contexto/store
-  const mockClientes = [
-    {
-      id: 1,
-      nombre: "FLORES CANALES CARMEN ROSA",
-      tipoDocumento: "DNI" as const,
-      documento: "09661829",
-      direccion: "Dirección no definida"
-    },
-    {
-      id: 2,
-      nombre: "PLUSMEDIA S.A.C.",
-      tipoDocumento: "RUC" as const,
-      documento: "20608822658",
-      direccion: "AV. HÉROES NRO. 280 - LIMA LIMA SAN JUAN DE MIRAFLORES"
+  // Cargar clientes desde localStorage (mismo sistema que ClientesPage)
+  const getClientesFromLocalStorage = () => {
+    try {
+      const stored = localStorage.getItem('clientes');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convertir al formato esperado por el componente
+        return parsed.map((cliente: any) => ({
+          id: cliente.id,
+          nombre: cliente.name,
+          tipoDocumento: cliente.document?.includes('RUC') ? 'RUC' as const : 
+                        cliente.document?.includes('DNI') ? 'DNI' as const :
+                        'Sin documento' as const,
+          documento: cliente.document?.replace('RUC ', '').replace('DNI ', '').replace('Sin documento', ''),
+          direccion: cliente.address || 'Dirección no definida'
+        }));
+      }
+      // Fallback a mock data si no hay nada en localStorage
+      return [
+        {
+          id: 1,
+          nombre: "FLORES CANALES CARMEN ROSA",
+          tipoDocumento: "DNI" as const,
+          documento: "09661829",
+          direccion: "Dirección no definida"
+        },
+        {
+          id: 2,
+          nombre: "PLUSMEDIA S.A.C.",
+          tipoDocumento: "RUC" as const,
+          documento: "20608822658",
+          direccion: "AV. HÉROES NRO. 280 - LIMA LIMA SAN JUAN DE MIRAFLORES"
+        }
+      ];
+    } catch (error) {
+      console.error('Error loading clientes from localStorage:', error);
+      return [];
     }
-  ];
+  };
+
+  const mockClientes: ClientePOS[] = getClientesFromLocalStorage();
 
   if (!isOpen) return null;
 
   // Filtrar clientes por búsqueda
-  const clientesFiltrados = mockClientes.filter(c => 
+  const clientesFiltrados = mockClientes.filter((c: ClientePOS) => 
     c.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.documento.includes(searchQuery)
   );
@@ -236,20 +269,50 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleSaveCliente = () => {
-    // TODO: Guardar en store/backend
-    const nuevoCliente = {
-      id: Date.now(),
-      nombre: clienteFormData.legalName,
-      tipoDocumento: clienteDocumentType as 'DNI' | 'RUC',
-      documento: clienteFormData.documentNumber,
-      direccion: clienteFormData.address
-    };
-    
-    setClienteSeleccionado(nuevoCliente);
-    setShowClienteForm(false);
-    
-    // Mostrar toast de éxito (temporal)
-    console.log('Cliente guardado:', nuevoCliente);
+    // Guardar cliente en localStorage con el mismo formato que ClientesPage
+    try {
+      const clientesLS = localStorage.getItem('clientes');
+      const clientesActuales = clientesLS ? JSON.parse(clientesLS) : [];
+      
+      // Formatear documento según tipo (igual que ClientesPage línea 309)
+      const documentoFormateado = clienteDocumentType !== 'SIN_DOCUMENTO' 
+        ? `${clienteDocumentType} ${clienteFormData.documentNumber.trim()}`
+        : 'Sin documento';
+      
+      // Calcular ID igual que ClientesPage (línea 299)
+      const newId = clientesActuales.length > 0 
+        ? Math.max(...clientesActuales.map((c: any) => c.id)) + 1 
+        : 1;
+      
+      const nuevoCliente = {
+        id: newId,
+        name: clienteFormData.legalName.trim(),
+        document: documentoFormateado,
+        type: clienteType,
+        address: clienteFormData.address.trim() || 'Sin dirección',
+        phone: clienteFormData.phone.trim() || 'Sin teléfono',
+        enabled: true
+      };
+      
+      // Agregar al inicio del array (igual que ClientesPage línea 311)
+      clientesActuales.unshift(nuevoCliente);
+      localStorage.setItem('clientes', JSON.stringify(clientesActuales));
+      
+      // Actualizar cliente seleccionado para la factura actual
+      setClienteSeleccionado({
+        id: nuevoCliente.id,
+        nombre: nuevoCliente.name,
+        tipoDocumento: clienteDocumentType as 'DNI' | 'RUC' | 'Sin documento',
+        documento: clienteFormData.documentNumber,
+        direccion: nuevoCliente.address
+      });
+      
+      setShowClienteForm(false);
+      console.log('✅ Cliente guardado en localStorage:', nuevoCliente);
+      console.log('📊 Total de clientes:', clientesActuales.length);
+    } catch (error) {
+      console.error('❌ Error al guardar cliente:', error);
+    }
   };
 
   const handleSeleccionarCliente = (cliente: any) => {
@@ -556,7 +619,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         {searchQuery && (
                           <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
                             {clientesFiltrados.length > 0 ? (
-                              clientesFiltrados.map(cliente => (
+                              clientesFiltrados.map((cliente: ClientePOS) => (
                                 <button
                                   key={cliente.id}
                                   onClick={() => handleSeleccionarCliente(cliente)}

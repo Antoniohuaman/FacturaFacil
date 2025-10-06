@@ -3,9 +3,10 @@
 // Preserva 100% la funcionalidad, mejora UX y apariencia
 // ===================================================================
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FileText, ChevronDown, ChevronUp, Calendar, Building2, Hash } from 'lucide-react';
 import { ConfigurationCard } from './shared/ConfigurationCard';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
 interface DocumentInfoCardProps {
   serieSeleccionada: string;
@@ -22,6 +23,27 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
   showOptionalFields,
   setShowOptionalFields,
 }) => {
+  const { state } = useConfigurationContext();
+  
+  // Obtener establecimiento basado en la serie seleccionada
+  const establishmentInfo = useMemo(() => {
+    const selectedSerie = state.series.find(s => s.series === serieSeleccionada);
+    if (selectedSerie) {
+      const establishment = state.establishments.find(e => e.id === selectedSerie.establishmentId);
+      if (establishment) {
+        return {
+          name: establishment.name,
+          code: establishment.code
+        };
+      }
+    }
+    // Fallback si no se encuentra
+    return {
+      name: 'Establecimiento Principal',
+      code: '0001'
+    };
+  }, [serieSeleccionada, state.series, state.establishments]);
+  
   return (
     <ConfigurationCard
       title="Información del Documento"
@@ -67,7 +89,7 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
           <div className="relative">
             <input
               type="text"
-              value="Gamarra 2"
+              value={`${establishmentInfo.name} (${establishmentInfo.code})`}
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 cursor-not-allowed"
               readOnly
             />
