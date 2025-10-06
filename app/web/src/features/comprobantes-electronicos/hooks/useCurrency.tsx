@@ -1,10 +1,40 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import type { Currency } from '../models/comprobante.types';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../models/constants';
 
 export const useCurrency = () => {
+  const { state } = useConfigurationContext();
   const [currentCurrency, setCurrentCurrency] = useState<Currency>(DEFAULT_CURRENCY as Currency);
-  const [exchangeRates, setExchangeRates] = useState(CURRENCIES);
+  
+  // Crear exchange rates desde configuración o usar fallback
+  const exchangeRates = useMemo(() => {
+    if (state.currencies.length > 0) {
+      // Convertir currencies de configuración al formato esperado
+      const rates: Record<string, any> = {};
+      state.currencies.forEach(currency => {
+        rates[currency.code] = {
+          code: currency.code,
+          name: currency.name,
+          symbol: currency.symbol,
+          rate: currency.exchangeRate
+        };
+      });
+      return rates;
+    }
+    // Fallback a constantes
+    return CURRENCIES;
+  }, [state.currencies]);
+  
+  // Sincronizar moneda por defecto cuando cambie la configuración
+  useEffect(() => {
+    if (state.currencies.length > 0) {
+      const baseCurrency = state.currencies.find(c => c.isBaseCurrency);
+      if (baseCurrency && baseCurrency.code !== currentCurrency) {
+        setCurrentCurrency(baseCurrency.code as Currency);
+      }
+    }
+  }, [state.currencies]);
 
   // Obtener información de la moneda actual
   const currencyInfo = useMemo(() => {
@@ -42,15 +72,10 @@ export const useCurrency = () => {
     return Object.values(exchangeRates);
   }, [exchangeRates]);
 
-  // Actualizar tipo de cambio (para integración futura con API)
-  const updateExchangeRate = useCallback((currency: Currency, rate: number) => {
-    setExchangeRates(prev => ({
-      ...prev,
-      [currency]: {
-        ...prev[currency],
-        rate
-      }
-    }));
+  // Actualizar tipo de cambio - DEPRECATED: Los tipos de cambio se manejan en configuración
+  const updateExchangeRate = useCallback((_currency: Currency, _rate: number) => {
+    console.warn('updateExchangeRate is deprecated. Update exchange rates via Configuration module.');
+    // No-op: exchange rates are now managed via ConfigurationContext
   }, []);
 
   // Obtener tipo de cambio actual

@@ -2,8 +2,9 @@
 // HOOK PARA MANEJO DE TIPOS DE DOCUMENTOS Y SERIES
 // ===================================================================
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import type { TipoComprobante } from '../models/comprobante.types';
 import { SERIES_COMPROBANTES } from '../models/constants';
 
@@ -27,6 +28,25 @@ export interface UseDocumentTypeReturn {
 
 export const useDocumentType = (): UseDocumentTypeReturn => {
   const location = useLocation();
+  const { state } = useConfigurationContext();
+  
+  // ===================================================================
+  // SERIES DINÁMICAS DESDE CONFIGURACIÓN
+  // ===================================================================
+  
+  /**
+   * Obtener series desde configuración o fallback a constantes
+   */
+  const availableSeries = useMemo(() => {
+    if (state.series.length > 0) {
+      // Usar series configuradas (del onboarding o configuración manual)
+      return state.series
+        .filter(s => s.isActive && s.status === 'ACTIVE')
+        .map(s => s.series);
+    }
+    // Fallback a constantes si no hay series configuradas
+    return SERIES_COMPROBANTES;
+  }, [state.series]);
   
   // ===================================================================
   // FUNCIONES DE UTILIDAD
@@ -36,25 +56,40 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
    * Obtener series disponibles para un tipo específico
    */
   const getSeriesParaTipo = useCallback((tipo: TipoComprobante): string[] => {
-    return tipo === 'boleta'
-      ? SERIES_COMPROBANTES.filter(s => s.startsWith('B'))
-      : SERIES_COMPROBANTES.filter(s => s.startsWith('F'));
-  }, []);
+    // Filtrar por código de documento
+    // Boleta: código '03' → series que empiezan con 'B' o 'BE'
+    // Factura: código '01' → series que empiezan con 'F' o 'FE'
+    if (tipo === 'boleta') {
+      if (state.series.length > 0) {
+        return state.series
+          .filter(s => s.isActive && s.status === 'ACTIVE' && s.documentType.code === '03')
+          .map(s => s.series);
+      }
+      return availableSeries.filter(s => s.startsWith('B'));
+    } else {
+      if (state.series.length > 0) {
+        return state.series
+          .filter(s => s.isActive && s.status === 'ACTIVE' && s.documentType.code === '01')
+          .map(s => s.series);
+      }
+      return availableSeries.filter(s => s.startsWith('F'));
+    }
+  }, [state.series, availableSeries]);
 
   /**
    * Obtener serie por defecto para un tipo específico
    */
   const getDefaultSerieParaTipo = useCallback((tipo: TipoComprobante): string => {
     const seriesParaTipo = getSeriesParaTipo(tipo);
-    return seriesParaTipo[0] || SERIES_COMPROBANTES[0];
-  }, [getSeriesParaTipo]);
+    return seriesParaTipo[0] || availableSeries[0];
+  }, [getSeriesParaTipo, availableSeries]);
 
   /**
    * Obtener todas las series disponibles
    */
   const getAllSeries = useCallback((): string[] => {
-    return [...SERIES_COMPROBANTES];
-  }, []);
+    return [...availableSeries];
+  }, [availableSeries]);
 
   /**
    * Detectar tipo desde URL parameters
