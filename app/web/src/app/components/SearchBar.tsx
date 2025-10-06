@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Edit, Trash2 } from 'lucide-react';
+import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 // Interfaces de tipos
@@ -27,7 +27,6 @@ const SearchBar = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [commandPaletteView, setCommandPaletteView] = useState<'main' | 'manage' | 'edit'>('main');
-  const [editingCommand, setEditingCommand] = useState<CustomCommand | null>(null);
   const [newCommand, setNewCommand] = useState<{
     nombre: string;
     atajo: string;
@@ -101,12 +100,6 @@ const SearchBar = () => {
   ];
 
   // Función para validar si un atajo está en uso
-  const isShortcutInUse = (shortcut: string) => {
-    const normalizedShortcut = shortcut.toLowerCase();
-    return predefinedShortcuts.some(s => s.toLowerCase() === normalizedShortcut) ||
-           allCommands.some(cmd => cmd.atajo.toLowerCase() === normalizedShortcut);
-  };
-
   // Función para obtener el conflicto específico
   const getShortcutConflict = (shortcut: string) => {
     const normalizedShortcut = shortcut.toLowerCase();
@@ -199,7 +192,6 @@ const SearchBar = () => {
         if (showCommandPalette) {
           if (commandPaletteView === 'manage') {
             setCommandPaletteView('main');
-            setEditingCommand(null);
           } else {
             setShowCommandPalette(false);
             setCommandPaletteView('main');
@@ -497,7 +489,6 @@ const SearchBar = () => {
           onClick={() => {
             setShowCommandPalette(false);
             setCommandPaletteView('main');
-            setEditingCommand(null);
           }}
         >
           <div className="w-full max-w-2xl max-h-[90vh] sm:max-h-[80vh] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600 overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -640,7 +631,6 @@ const SearchBar = () => {
                     <button
                       onClick={() => {
                         setCommandPaletteView('main');
-                        setEditingCommand(null);
                       }}
                       className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
@@ -682,12 +672,6 @@ const SearchBar = () => {
                               <div className="text-xs text-gray-500 dark:text-gray-400">{cmd.atajo}</div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setEditingCommand(cmd)}
-                                className="p-1.5 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
-                              >
-                                <Edit size={14} />
-                              </button>
                               <button
                                 onClick={() => {
                                   const updatedCommands = customCommands.filter(c => c.id !== cmd.id);
@@ -736,7 +720,6 @@ const SearchBar = () => {
                   <button
                     onClick={() => {
                       setCommandPaletteView('main');
-                      setEditingCommand(null);
                     }}
                     className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-400 dark:hover:text-blue-400 transition-colors px-2 py-1 rounded"
                   >

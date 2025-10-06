@@ -20,7 +20,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
   // Información de caja
   const cashInfo = {
-    cashier: "Juan Gómez",
+    cashier: "Antonio Huamán",
     openTime: "09:15 AM",
     initialAmount: "S/ 500.00"
   };
@@ -75,7 +75,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
       {/* Logo */}
       <button 
         onClick={() => navigate('/indicadores')}
-        className="flex items-center ml-4 hover:opacity-80 transition-opacity"
+        className="flex items-center ml-1 hover:opacity-80 transition-opacity"
       >
         <img 
           src="/SenciYO.svg" 
@@ -217,15 +217,6 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
                       <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Mouse Inalámbrico tiene solo 8 unidades</p>
                     </div>
                     <span className="text-xs text-slate-400 dark:text-gray-500">30 min</span>
-                  </div>
-                </div>
-                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-green-500">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">Boleta validada por SUNAT</p>
-                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Boleta B001-00789 aceptada exitosamente</p>
-                    </div>
-                    <span className="text-xs text-slate-400 dark:text-gray-500">1 hora</span>
                   </div>
                 </div>
               </div>

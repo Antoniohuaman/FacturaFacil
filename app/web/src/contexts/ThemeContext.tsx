@@ -51,17 +51,24 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   };
 
   useEffect(() => {
+    console.log('Theme changed to:', theme);
     // Deshabilitar transiciones temporalmente para cambio instantáneo
     document.documentElement.classList.add('changing-theme');
     
     const effectiveTheme = getEffectiveTheme(theme);
+    console.log('Effective theme:', effectiveTheme);
+    console.log('Document element classes before:', document.documentElement.className);
     
     // Aplicar tema al documento
     if (effectiveTheme === 'dark') {
       document.documentElement.classList.add('dark');
+      console.log('Added dark class to document');
     } else {
       document.documentElement.classList.remove('dark');
+      console.log('Removed dark class from document');
     }
+    
+    console.log('Document element classes after:', document.documentElement.className);
     
     // Guardar tema en localStorage
     localStorage.setItem('theme', theme);
