@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign } from 'lucide-react';
-import CommandsManagementModal from './CommandsManagementModal';
+import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Edit, Trash2 } from 'lucide-react';
 
 const SearchBar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showCommandsModal, setShowCommandsModal] = useState(false);
+  const [commandPaletteView, setCommandPaletteView] = useState('main'); // 'main' | 'manage'
+  const [editingCommand, setEditingCommand] = useState(null);
   const navigate = useNavigate();
 
   // Datos de ejemplo - reemplaza con tus datos reales
@@ -103,11 +103,10 @@ const SearchBar = () => {
         e.preventDefault();
         e.stopPropagation();
         // Solo abrir si no hay modales abiertos
-        if (!showCommandsModal) {
-          setShowCommandPalette(prev => !prev);
-          // Limpiar búsqueda normal cuando se abre command palette
-          setShowSearchResults(false);
-        }
+        setShowCommandPalette(prev => !prev);
+        // Limpiar búsqueda normal cuando se abre command palette
+        setShowSearchResults(false);
+        setCommandPaletteView('main');
         return;
       }
 
@@ -116,13 +115,16 @@ const SearchBar = () => {
         e.preventDefault();
         e.stopPropagation();
         if (showCommandPalette) {
-          setShowCommandPalette(false);
+          if (commandPaletteView === 'manage') {
+            setCommandPaletteView('main');
+            setEditingCommand(null);
+          } else {
+            setShowCommandPalette(false);
+            setCommandPaletteView('main');
+          }
         }
         if (showSearchResults) {
           setShowSearchResults(false);
-        }
-        if (showCommandsModal) {
-          setShowCommandsModal(false);
         }
         return;
       }
@@ -200,11 +202,11 @@ const SearchBar = () => {
     // Usar capture: true para interceptar eventos antes que otros handlers
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [navigate, showCommandsModal, showCommandPalette, showSearchResults]);
+  }, [navigate, showCommandPalette, showSearchResults, commandPaletteView]);
 
   // Controlar overflow del body cuando el command palette está abierto
   useEffect(() => {
-    if (showCommandPalette || showCommandsModal) {
+    if (showCommandPalette) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -213,7 +215,7 @@ const SearchBar = () => {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showCommandPalette, showCommandsModal]);
+  }, [showCommandPalette]);
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -406,142 +408,254 @@ const SearchBar = () => {
       </div>
 
       {/* COMMAND PALETTE - Modal centrado usando Portal */}
-      {showCommandPalette && !showCommandsModal && createPortal(
+      {showCommandPalette && createPortal(
         <div 
           className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" 
           style={{ zIndex: 9999 }}
-          onClick={() => setShowCommandPalette(false)}
+          onClick={() => {
+            setShowCommandPalette(false);
+            setCommandPaletteView('main');
+            setEditingCommand(null);
+          }}
         >
           <div className="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600 max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar o ejecutar comando..."
-                  autoFocus
-                  className="w-full pl-9 pr-4 py-3 bg-transparent text-sm focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg"
-                />
-              </div>
-            </div>
-
-            <div className="max-h-96 overflow-y-auto">
-              {/* Comandos disponibles */}
-              {filteredCommands.filter(c => c.categoria === 'acciones').length > 0 && (
-                <div className="p-3">
-                  <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
-                    Acciones
+            {/* VISTA PRINCIPAL - COMMAND PALETTE */}
+            {commandPaletteView === 'main' && (
+              <>
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="relative">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Buscar o ejecutar comando..."
+                      autoFocus
+                      className="w-full pl-9 pr-4 py-3 bg-transparent text-sm focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg"
+                    />
                   </div>
-                  {filteredCommands.filter(c => c.categoria === 'acciones').map((cmd) => {
-                    const IconComponent = cmd.icono;
-                    return (
-                      <button
-                        key={cmd.id}
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
-                        onClick={() => handleExecuteCommand(cmd.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <IconComponent size={16} className="text-gray-400 dark:text-gray-500" />
-                          <span className="text-sm text-gray-900 dark:text-gray-100">{cmd.nombre}</span>
-                        </div>
-                        {cmd.atajo && (
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{cmd.atajo}</span>
-                        )}
-                      </button>
-                    );
-                  })}
                 </div>
-              )}
 
-              {/* Navegación */}
-              {filteredCommands.filter(c => c.categoria === 'navegacion').length > 0 && (
-                <div className="p-3 border-t border-gray-100 dark:border-gray-700">
-                  <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
-                    Ir a
-                  </div>
-                  {filteredCommands.filter(c => c.categoria === 'navegacion').map((cmd) => {
-                    const IconComponent = cmd.icono;
-                    return (
-                      <button
-                        key={cmd.id}
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
-                        onClick={() => handleExecuteCommand(cmd.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <IconComponent size={16} className="text-gray-400 dark:text-gray-500" />
-                          <span className="text-sm text-gray-900 dark:text-gray-100">{cmd.nombre}</span>
-                        </div>
-                        {cmd.atajo && (
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{cmd.atajo}</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Resultados de búsqueda en Command Palette */}
-              {searchQuery.length > 0 && hasResults && (
-                <>
-                  {searchResults.comprobantes.length > 0 && (
-                    <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+                <div className="max-h-96 overflow-y-auto">
+                  {/* Comandos disponibles */}
+                  {filteredCommands.filter(c => c.categoria === 'acciones').length > 0 && (
+                    <div className="p-3">
                       <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
-                        Comprobantes
+                        Acciones
                       </div>
-                      {searchResults.comprobantes.slice(0, 3).map((comp) => (
-                        <button
-                          key={comp.id}
-                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
-                          onClick={() => {
-                            handleSelectResult('comprobantes', comp);
-                            setShowCommandPalette(false);
-                          }}
-                        >
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{comp.numero}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{comp.cliente}</div>
-                          </div>
-                          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">S/ {comp.monto.toFixed(2)}</div>
-                        </button>
-                      ))}
+                      {filteredCommands.filter(c => c.categoria === 'acciones').map((cmd) => {
+                        const IconComponent = cmd.icono;
+                        return (
+                          <button
+                            key={cmd.id}
+                            className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                            onClick={() => handleExecuteCommand(cmd.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <IconComponent size={16} className="text-gray-400 dark:text-gray-500" />
+                              <span className="text-sm text-gray-900 dark:text-gray-100">{cmd.nombre}</span>
+                            </div>
+                            {cmd.atajo && (
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{cmd.atajo}</span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
-                </>
-              )}
-            </div>
 
-            <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
-              <div className="flex items-center gap-3">
-                <span>↑↓ Navegar</span>
-                <span>↵ Seleccionar</span>
-                <span>Esc Cerrar</span>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowCommandPalette(false);
-                  setShowCommandsModal(true);
-                }}
-                className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-400 dark:hover:text-blue-400 transition-colors px-2 py-1 rounded"
-              >
-                Administrar comandos
-              </button>
-            </div>
+                  {/* Navegación */}
+                  {filteredCommands.filter(c => c.categoria === 'navegacion').length > 0 && (
+                    <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+                      <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
+                        Ir a
+                      </div>
+                      {filteredCommands.filter(c => c.categoria === 'navegacion').map((cmd) => {
+                        const IconComponent = cmd.icono;
+                        return (
+                          <button
+                            key={cmd.id}
+                            className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                            onClick={() => handleExecuteCommand(cmd.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <IconComponent size={16} className="text-gray-400 dark:text-gray-500" />
+                              <span className="text-sm text-gray-900 dark:text-gray-100">{cmd.nombre}</span>
+                            </div>
+                            {cmd.atajo && (
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{cmd.atajo}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Resultados de búsqueda en Command Palette */}
+                  {searchQuery.length > 0 && hasResults && (
+                    <>
+                      {searchResults.comprobantes.length > 0 && (
+                        <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+                          <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
+                            Comprobantes
+                          </div>
+                          {searchResults.comprobantes.slice(0, 3).map((comp) => (
+                            <button
+                              key={comp.id}
+                              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                              onClick={() => {
+                                handleSelectResult('comprobantes', comp);
+                                setShowCommandPalette(false);
+                                setCommandPaletteView('main');
+                              }}
+                            >
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{comp.numero}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{comp.cliente}</div>
+                              </div>
+                              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">S/ {comp.monto.toFixed(2)}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
+                  <div className="flex items-center gap-3">
+                    <span>↑↓ Navegar</span>
+                    <span>↵ Seleccionar</span>
+                    <span>Esc Cerrar</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setCommandPaletteView('manage');
+                      setSearchQuery('');
+                    }}
+                    className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-400 dark:hover:text-blue-400 transition-colors px-2 py-1 rounded"
+                  >
+                    Administrar comandos
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* VISTA DE ADMINISTRACIÓN DE COMANDOS */}
+            {commandPaletteView === 'manage' && (
+              <>
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        setCommandPaletteView('main');
+                        setEditingCommand(null);
+                      }}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <ArrowLeft size={16} className="text-gray-600 dark:text-gray-400" />
+                    </button>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Administrar Comandos</h2>
+                  </div>
+                </div>
+
+                <div className="max-h-96 overflow-y-auto p-4">
+                  {/* Comandos personalizados */}
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Comandos Personalizados</h3>
+                      <button
+                        onClick={() => setEditingCommand({ id: '', nombre: '', atajo: '', categoria: 'acciones' })}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                      >
+                        <Plus size={12} />
+                        Nuevo comando
+                      </button>
+                    </div>
+                    
+                    {customCommands.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <p className="text-sm">No hay comandos personalizados</p>
+                        <p className="text-xs mt-1">Crea uno para empezar</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {customCommands.map((cmd) => (
+                          <div key={cmd.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{cmd.nombre}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{cmd.atajo}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setEditingCommand(cmd)}
+                                className="p-1.5 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const updatedCommands = customCommands.filter(c => c.id !== cmd.id);
+                                  setCustomCommands(updatedCommands);
+                                  localStorage.setItem('customCommands', JSON.stringify(updatedCommands));
+                                  setAllCommands([...baseCommands, ...updatedCommands]);
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Comandos del sistema (solo lectura) */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Comandos del Sistema</h3>
+                    <div className="space-y-2">
+                      {baseCommands.map((cmd) => {
+                        const IconComponent = cmd.icono;
+                        return (
+                          <div key={cmd.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg opacity-75">
+                            <div className="flex items-center gap-3">
+                              <IconComponent size={16} className="text-gray-400 dark:text-gray-500" />
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{cmd.nombre}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{cmd.atajo}</div>
+                              </div>
+                            </div>
+                            <span className="text-xs text-gray-400 dark:text-gray-500">Sistema</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
+                  <div className="flex items-center gap-3">
+                    <span>Los comandos personalizados se guardan localmente</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCommandPaletteView('main');
+                      setEditingCommand(null);
+                    }}
+                    className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-400 dark:hover:text-blue-400 transition-colors px-2 py-1 rounded"
+                  >
+                    Volver
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>,
         document.body
-      )}
-
-      {/* MODAL DE ADMINISTRAR COMANDOS */}
-      {showCommandsModal && (
-        <CommandsManagementModal
-          isOpen={showCommandsModal}
-          onClose={() => setShowCommandsModal(false)}
-        />
       )}
     </>
   );

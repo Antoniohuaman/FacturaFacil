@@ -152,17 +152,14 @@ export default function Header() {
         <div className="relative">
           <button
             onClick={() => navigate('/configuracion')}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
             title="Configuración del Sistema"
           >
-            <Settings className="w-5 h-5 text-slate-600 dark:text-gray-400" />
+            <Settings className="w-5 h-5 text-slate-600 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
           </button>
           {/* Indicador de configuración incompleta */}
           <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
         </div>
-        
-        {/* Separador */}
-        <div className="h-6 w-px bg-slate-300 dark:bg-gray-600"></div>
         
         {/* Botón de notificaciones */}
         <div className="relative ml-4" ref={notificationsRef}>
@@ -241,10 +238,10 @@ export default function Header() {
         {/* Perfil/Menu con dropdown */}
         <div className="relative ml-4" ref={menuRef}>
           <button 
-            className="hover:bg-slate-50 p-1 rounded-md transition-colors"
+            className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
             onClick={() => setShowUserDropdown(!showUserDropdown)}
           >
-            <div className="w-10 h-10 rounded-full overflow-hidden">
+            <div className="w-8 h-8 rounded-full overflow-hidden">
               <img 
                 src="/perfil.jpg?v=2" 
                 alt="Foto de perfil"
