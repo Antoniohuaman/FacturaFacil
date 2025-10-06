@@ -3,6 +3,19 @@ import { Search, Plus, Edit } from 'lucide-react';
 import type { TipoComprobante } from '../models/comprobante.types';
 import ClienteForm from '../../gestion-clientes/components/ClienteForm';
 
+interface ClienteTradicional {
+  id: number;
+  tipoPersona: 'natural' | 'juridica';
+  tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
+  numeroDocumento: string;
+  nombres?: string;
+  apellidos?: string;
+  razonSocial?: string;
+  direccion: string;
+  telefono?: string;
+  email?: string;
+}
+
 interface PaymentMethodsSectionProps {
   tipoComprobante: TipoComprobante;
   setTipoComprobante: (tipo: TipoComprobante) => void;
@@ -74,40 +87,73 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
     { value: 'juridica', label: 'Persona Jurídica' }
   ];
 
-  // Mock de clientes (integrar con store real)
-  const mockClientes = [
-    {
-      id: '1',
-      tipoDocumento: 'DNI',
-      numeroDocumento: '09661829',
-      tipoPersona: 'natural',
-      nombres: 'CARMEN ROSA',
-      apellidos: 'FLORES CANALES',
-      razonSocial: '',
-      direccion: 'Dirección no definida',
-      telefono: '',
-      email: ''
-    },
-    {
-      id: '2',
-      tipoDocumento: 'RUC',
-      numeroDocumento: '20123456789',
-      tipoPersona: 'juridica',
-      nombres: '',
-      apellidos: '',
-      razonSocial: 'EMPRESA SAC',
-      direccion: 'Av. Principal 123',
-      telefono: '987654321',
-      email: 'contacto@empresa.com'
+  // Cargar clientes desde localStorage (mismo sistema que ClientesPage)
+  const getClientesFromLocalStorage = () => {
+    try {
+      const stored = localStorage.getItem('clientes');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convertir al formato esperado por este componente
+        return parsed.map((cliente: any) => {
+          const isRUC = cliente.document?.includes('RUC');
+          const isDNI = cliente.document?.includes('DNI');
+          const documento = cliente.document?.replace('RUC ', '').replace('DNI ', '').replace('Sin documento', '');
+          
+          return {
+            id: String(cliente.id),
+            tipoDocumento: isRUC ? 'RUC' : isDNI ? 'DNI' : 'Sin documento',
+            numeroDocumento: documento || '',
+            tipoPersona: isRUC ? 'juridica' : 'natural',
+            nombres: !isRUC ? cliente.name : '',
+            apellidos: '',
+            razonSocial: isRUC ? cliente.name : '',
+            direccion: cliente.address || 'Dirección no definida',
+            telefono: cliente.phone || '',
+            email: ''
+          };
+        });
+      }
+      // Fallback a mock data si no hay nada en localStorage
+      return [
+        {
+          id: '1',
+          tipoDocumento: 'DNI',
+          numeroDocumento: '09661829',
+          tipoPersona: 'natural',
+          nombres: 'CARMEN ROSA',
+          apellidos: 'FLORES CANALES',
+          razonSocial: '',
+          direccion: 'Dirección no definida',
+          telefono: '',
+          email: ''
+        },
+        {
+          id: '2',
+          tipoDocumento: 'RUC',
+          numeroDocumento: '20123456789',
+          tipoPersona: 'juridica',
+          nombres: '',
+          apellidos: '',
+          razonSocial: 'EMPRESA SAC',
+          direccion: 'Av. Principal 123',
+          telefono: '987654321',
+          email: 'contacto@empresa.com'
+        }
+      ];
+    } catch (error) {
+      console.error('Error loading clientes from localStorage:', error);
+      return [];
     }
-  ];
+  };
+
+  const mockClientes: ClienteTradicional[] = getClientesFromLocalStorage();
 
   // Filtrar clientes por búsqueda
-  const clientesFiltrados = mockClientes.filter(cliente => {
+  const clientesFiltrados = mockClientes.filter((cliente: ClienteTradicional) => {
     const searchLower = searchQuery.toLowerCase();
     const nombreCompleto = cliente.tipoPersona === 'natural' 
       ? `${cliente.nombres} ${cliente.apellidos}`.toLowerCase()
-      : cliente.razonSocial.toLowerCase();
+      : cliente.razonSocial!.toLowerCase();
     return nombreCompleto.includes(searchLower) || 
            cliente.numeroDocumento.includes(searchLower);
   });
@@ -133,7 +179,7 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
     // Buscar el cliente seleccionado en la lista mock
     if (!clienteSeleccionadoLocal) return;
     
-    const cliente = mockClientes.find(c => c.numeroDocumento === clienteSeleccionadoLocal.dni);
+    const cliente = mockClientes.find((c: ClienteTradicional) => c.numeroDocumento === clienteSeleccionadoLocal.dni);
     if (cliente) {
       setIsEditing(true);
       setDocumentType(cliente.tipoDocumento);
@@ -141,7 +187,7 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
       
       const nombreCompleto = cliente.tipoPersona === 'natural'
         ? `${cliente.nombres} ${cliente.apellidos}`
-        : cliente.razonSocial;
+        : cliente.razonSocial || '';
       
       setFormData({
         documentNumber: cliente.numeroDocumento,
@@ -157,18 +203,57 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
   };
 
   const handleSaveCliente = () => {
-    console.log('Cliente guardado:', { documentType, clientType, formData });
-    // TODO: Integrar con store/API real
-    
-    // Actualizar cliente seleccionado
-    setClienteSeleccionadoLocal({
-      nombre: formData.legalName,
-      dni: formData.documentNumber,
-      direccion: formData.address || 'Dirección no definida'
-    });
-    
-    setShowClienteForm(false);
-    setSearchQuery('');
+    // Guardar cliente en localStorage con el mismo formato que ClientesPage
+    try {
+      const clientesLS = localStorage.getItem('clientes');
+      const clientesActuales = clientesLS ? JSON.parse(clientesLS) : [];
+      
+      // Mapear tipos de documento al formato de ClientesPage
+      const documentTypeMap: { [key: string]: string } = {
+        'DNI': 'DNI',
+        'RUC': 'RUC',
+        'CE': 'CARNET_EXTRANJERIA',
+        'PAS': 'PASAPORTE'
+      };
+      
+      const docTypeFormatted = documentTypeMap[documentType] || documentType;
+      
+      // Formatear documento según tipo (igual que ClientesPage línea 309)
+      const documentoFormateado = `${docTypeFormatted} ${formData.documentNumber.trim()}`;
+      
+      // Calcular ID igual que ClientesPage (línea 299)
+      const newId = clientesActuales.length > 0 
+        ? Math.max(...clientesActuales.map((c: any) => c.id)) + 1 
+        : 1;
+      
+      const nuevoCliente = {
+        id: newId,
+        name: formData.legalName.trim(),
+        document: documentoFormateado,
+        type: clientType === 'natural' ? 'Cliente' : 'Cliente',
+        address: formData.address.trim() || 'Sin dirección',
+        phone: formData.phone.trim() || 'Sin teléfono',
+        enabled: true
+      };
+      
+      // Agregar al inicio del array (igual que ClientesPage línea 311)
+      clientesActuales.unshift(nuevoCliente);
+      localStorage.setItem('clientes', JSON.stringify(clientesActuales));
+      
+      // Actualizar cliente seleccionado para la factura actual
+      setClienteSeleccionadoLocal({
+        nombre: nuevoCliente.name,
+        dni: formData.documentNumber,
+        direccion: nuevoCliente.address
+      });
+      
+      setShowClienteForm(false);
+      setSearchQuery('');
+      console.log('✅ Cliente guardado en localStorage:', nuevoCliente);
+      console.log('📊 Total de clientes:', clientesActuales.length);
+    } catch (error) {
+      console.error('❌ Error al guardar cliente:', error);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -431,7 +516,7 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
             {searchQuery && (
               <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md mb-3">
                 {clientesFiltrados.length > 0 ? (
-                  clientesFiltrados.map((cliente) => (
+                  clientesFiltrados.map((cliente: ClienteTradicional) => (
                     <button
                       key={cliente.id}
                       onClick={() => handleSeleccionarCliente(cliente)}
