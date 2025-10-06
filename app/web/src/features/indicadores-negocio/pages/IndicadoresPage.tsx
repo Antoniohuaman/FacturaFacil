@@ -137,58 +137,58 @@ const IndicadoresPage: React.FC = () => {
         {/* KPIs principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           {/* Ventas del Mes */}
-          <div className="bg-blue-50 rounded-xl p-6 shadow-sm border border-blue-100">
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 shadow-sm border border-blue-100 dark:border-blue-800/30">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-blue-200 rounded-lg">
-                <ShoppingCart className="h-6 w-6 text-blue-800" />
+              <div className="p-3 bg-blue-200 dark:bg-blue-800 rounded-lg">
+                <ShoppingCart className="h-6 w-6 text-blue-800 dark:text-blue-200" />
               </div>
-              <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-full">+12.5%</span>
+              <span className="text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800/50 px-2 py-1 rounded-full">+12.5%</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Total de Ventas</h3>
-            <p className="text-2xl font-bold text-gray-900 mb-1">S/. 128,450</p>
-            <p className="text-sm text-gray-500">Periodo seleccionado</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Total de Ventas</h3>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">S/. 128,450</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Periodo seleccionado</p>
           </div>
 
           {/* Nuevos Clientes */}
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 shadow-sm border border-green-200">
+          <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 shadow-sm border border-green-200 dark:border-green-800/30">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-green-200 rounded-lg">
-                <Users className="h-6 w-6 text-green-800" />
+              <div className="p-3 bg-green-200 dark:bg-green-800 rounded-lg">
+                <Users className="h-6 w-6 text-green-800 dark:text-green-200" />
               </div>
-              <span className="text-xs font-medium text-green-800 bg-green-200/50 px-2 py-1 rounded-full">+8</span>
+              <span className="text-xs font-medium text-green-800 dark:text-green-300 bg-green-200/50 dark:bg-green-800/50 px-2 py-1 rounded-full">+8</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Nuevos Clientes</h3>
-            <p className="text-2xl font-bold text-gray-900">45</p>
-            <p className="text-sm text-gray-600">este mes</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Nuevos Clientes</h3>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">45</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">este mes</p>
           </div>
 
           {/* Total comprobantes emitidos */}
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 shadow-sm border border-purple-200">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-6 shadow-sm border border-purple-200 dark:border-purple-800/30">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-purple-200 rounded-lg">
-                <DollarSign className="h-6 w-6 text-purple-800" />
+              <div className="p-3 bg-purple-200 dark:bg-purple-800 rounded-lg">
+                <DollarSign className="h-6 w-6 text-purple-800 dark:text-purple-200" />
               </div>
-              <span className="text-xs font-medium text-purple-800 bg-purple-200/50 px-2 py-1 rounded-full">+5.8%</span>
+              <span className="text-xs font-medium text-purple-800 dark:text-purple-300 bg-purple-200/50 dark:bg-purple-800/50 px-2 py-1 rounded-full">+5.8%</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Comprobantes Emitidos</h3>
-            <p className="text-2xl font-bold text-gray-900">1,245</p>
-            <p className="text-sm text-gray-600">En este periodo</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Comprobantes Emitidos</h3>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">1,245</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">En este periodo</p>
           </div>
 
           {/* Crecimiento */}
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 shadow-sm border border-orange-200">
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-6 shadow-sm border border-orange-200 dark:border-orange-800/30">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-orange-200 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-orange-800" />
+              <div className="p-3 bg-orange-200 dark:bg-orange-800 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-orange-800 dark:text-orange-200" />
               </div>
-              <span className="text-xs font-medium text-orange-800 bg-orange-200/50 px-2 py-1 rounded-full">+18.2%</span>
+              <span className="text-xs font-medium text-orange-800 dark:text-orange-300 bg-orange-200/50 dark:bg-orange-800/50 px-2 py-1 rounded-full">+18.2%</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Crecimiento</h3>
-            <p className="text-2xl font-bold text-gray-900 mb-1">vs. mes anterior</p>
-            <p className="text-sm text-gray-600 mb-3">Sólido desempeño</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Crecimiento</h3>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">vs. mes anterior</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Sólido desempeño</p>
             <div className="flex justify-end">
               <button
-                className="text-orange-700 text-sm font-medium hover:underline"
+                className="text-orange-700 dark:text-orange-300 text-sm font-medium hover:underline"
                 style={{ minWidth: 'auto', padding: 0 }}
                 onClick={() => setOpenDetalleCrecimientoModal(true)}
               >
@@ -201,28 +201,28 @@ const IndicadoresPage: React.FC = () => {
       {/* Cards de ventas por comprobante y establecimiento */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Ventas por Tipo de Comprobante */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Ventas por Tipo de Comprobante</h3>
-            <span className="text-sm text-gray-500 font-normal">Periodo: 01/09/2025 – 15/09/2025</span>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Ventas por Tipo de Comprobante</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-normal">Periodo: 01/09/2025 – 15/09/2025</span>
           </div>
           <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
             {/* Lado izquierdo: Datos, leyendas y barras */}
             <div className="flex-1 order-2 lg:order-1">
               <div className="flex flex-col gap-4">
                 {/* Facturas */}
-                <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 bg-white">
+                <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700">
                   <span className="inline-block p-1.5 bg-blue-600 rounded-md">
                     <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12h6"/><path d="M9 16h6"/><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 8h6"/></svg>
                   </span>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-lg font-bold text-blue-900">Facturas</span>
-                        <span className="block text-xs text-blue-700">66.8% del total</span>
+                        <span className="text-lg font-bold text-blue-900 dark:text-blue-200">Facturas</span>
+                        <span className="block text-xs text-blue-700 dark:text-blue-300">66.8% del total</span>
                       </div>
                       <div className="text-right ml-2">
-                        <span className="text-lg font-bold text-blue-900">S/ 324,500.25</span>
+                        <span className="text-lg font-bold text-blue-900 dark:text-blue-200">S/ 324,500.25</span>
                         <div className="flex items-center justify-end">
                           <svg className="h-3 w-3 text-green-600 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 11 12 6 7 11"/><polyline points="7 18 17 18"/></svg>
                           <span className="text-xs font-medium text-green-600">+8.2%</span>
@@ -232,18 +232,18 @@ const IndicadoresPage: React.FC = () => {
                   </div>
                 </div>
                 {/* Boletas */}
-                <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 bg-white">
+                <div className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700">
                   <span className="inline-block p-1.5 bg-sky-600 rounded-md">
                     <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 17v-6a2 2 0 0 1 2-2h4"/><rect width="16" height="20" x="4" y="2" rx="2"/></svg>
                   </span>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-lg font-bold text-sky-900">Boletas</span>
-                        <span className="block text-xs text-sky-700">33.2% del total</span>
+                        <span className="text-lg font-bold text-sky-900 dark:text-sky-200">Boletas</span>
+                        <span className="block text-xs text-sky-700 dark:text-sky-300">33.2% del total</span>
                       </div>
                       <div className="text-right ml-2">
-                        <span className="text-lg font-bold text-sky-900">S/ 161,250.25</span>
+                        <span className="text-lg font-bold text-sky-900 dark:text-sky-200">S/ 161,250.25</span>
                         <div className="flex items-center justify-end">
                           <svg className="h-3 w-3 text-green-600 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 11 12 6 7 11"/><polyline points="7 18 17 18"/></svg>
                           <span className="text-xs font-medium text-green-600">+5.1%</span>
@@ -268,48 +268,55 @@ const IndicadoresPage: React.FC = () => {
                     cy="50%"
                     innerRadius={68.6}
                     outerRadius={108.8}
-                    paddingAngle={2}
+                    paddingAngle={1}
+                    stroke="none"
                   >
                     {comprobanteDataWithPercent.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                     ))}
                   </Pie>
                   <RechartsTooltip
-                    formatter={(value: number, name: string, props: any) => {
+                    formatter={(value: number, name: string, props: { payload?: { percent?: string } }) => {
                       const percent = props?.payload?.percent;
                       return [`S/ ${Number(value).toLocaleString()} (${percent}%)`, name];
+                    }}
+                    contentStyle={{
+                      backgroundColor: 'var(--tw-colors-gray-800)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white'
                     }}
                   />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute left-0 top-0 w-full h-full flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-sm text-gray-500 font-medium">Total de ventas:</span>
-                <span className="text-lg font-bold text-blue-900">S/ 128,450</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Total de ventas:</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">S/ 128,450</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Ventas por Establecimiento */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Ventas por Establecimiento</h3>
-            <span className="text-sm text-gray-500 font-normal">Periodo: 01/09/2025 – 15/09/2025</span>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Ventas por Establecimiento</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-normal">Periodo: 01/09/2025 – 15/09/2025</span>
           </div>
           <div className="space-y-6">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-blue-600 inline-block"></span>
-                  <span className="font-semibold text-gray-900">Tienda Centro</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Tienda Centro</span>
                 </div>
                 <span className="text-green-600 text-xs font-semibold">↑ 15.2%</span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">40.9% del total</div>
-                <div className="font-bold text-gray-900">S/ 198,750.25</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">40.9% del total</div>
+                <div className="font-bold text-gray-900 dark:text-gray-100">S/ 198,750.25</div>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full mt-2">
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-2">
                 <div className="h-2 bg-blue-600 rounded-full" style={{ width: "41%" }}></div>
               </div>
             </div>
@@ -318,15 +325,15 @@ const IndicadoresPage: React.FC = () => {
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-gray-400 inline-block"></span>
-                  <span className="font-semibold text-gray-900">Tienda Norte</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Tienda Norte</span>
                 </div>
                 <span className="text-green-600 text-xs font-semibold">↑ 8.7%</span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">33.4% del total</div>
-                <div className="font-bold text-gray-900">S/ 162,420.15</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">33.4% del total</div>
+                <div className="font-bold text-gray-900 dark:text-gray-100">S/ 162,420.15</div>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full mt-2">
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-2">
                 <div className="h-2 bg-gray-400 rounded-full" style={{ width: "33%" }}></div>
               </div>
             </div>
@@ -335,15 +342,15 @@ const IndicadoresPage: React.FC = () => {
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-gray-400 inline-block"></span>
-                  <span className="font-semibold text-gray-900">Tienda Sur</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Tienda Sur</span>
                 </div>
                 <span className="text-green-600 text-xs font-semibold">↑ 22.1%</span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">25.7% del total</div>
-                <div className="font-bold text-gray-900">S/ 124,580.10</div>
+              <div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">25.7% del total</div>
+                <div className="font-bold text-gray-900 dark:text-gray-100">S/ 124,580.10</div>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full mt-2">
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-2">
                 <div className="h-2 bg-gray-400 rounded-full" style={{ width: "26%" }}></div>
               </div>
             </div>
@@ -354,13 +361,13 @@ const IndicadoresPage: React.FC = () => {
       {/* Rankings y detalle de ventas diarias */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
         {/* Top Vendedores */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-0">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-0">
           <div className="flex items-center justify-between px-6 pt-6 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-lg"><Award className="h-5 w-5 text-gray-700" /></span>
-              <span className="font-semibold text-gray-900">Top Vendedores</span>
+              <span className="text-lg"><Award className="h-5 w-5 text-gray-700 dark:text-gray-300" /></span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">Top Vendedores</span>
             </div>
-            <span className="text-xs text-gray-400 font-semibold">Montos</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">Montos</span>
           </div>
           <div className="px-6 pb-4">
             {[
@@ -371,26 +378,26 @@ const IndicadoresPage: React.FC = () => {
             ].map((v) => (
               <div key={v.name} className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-3">
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-white ${v.no === 1 ? "bg-blue-700" : "bg-gray-300 text-gray-700"}`}>{v.no}</div>
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-white ${v.no === 1 ? "bg-blue-700" : "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300"}`}>{v.no}</div>
                   <div>
-                    <div className="font-semibold text-gray-900">{v.name}</div>
-                    <div className="text-xs text-gray-500">{v.info} <span className={v.color + " font-semibold ml-1"}>{v.change}</span></div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{v.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{v.info} <span className={v.color + " font-semibold ml-1"}>{v.change}</span></div>
                   </div>
                 </div>
-                <div className="font-semibold text-gray-900">{v.value}</div>
+                <div className="font-semibold text-gray-900 dark:text-gray-100">{v.value}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Productos Más Vendidos */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-0">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-0">
           <div className="flex items-center justify-between px-6 pt-6 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-lg"><ShoppingCart className="h-5 w-5 text-gray-700" /></span>
-              <span className="font-semibold text-gray-900">Productos Más Vendidos</span>
+              <span className="text-lg"><ShoppingCart className="h-5 w-5 text-gray-700 dark:text-gray-300" /></span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">Productos Más Vendidos</span>
             </div>
-            <span className="text-xs text-gray-400 font-semibold">Montos</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">Montos</span>
           </div>
           <div className="px-6 pb-4">
             {[
@@ -401,26 +408,26 @@ const IndicadoresPage: React.FC = () => {
             ].map((p) => (
               <div key={p.name} className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-3">
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-white ${p.no === 1 ? "bg-blue-700" : "bg-gray-300 text-gray-700"}`}>{p.no}</div>
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-white ${p.no === 1 ? "bg-blue-700" : "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300"}`}>{p.no}</div>
                   <div>
-                    <div className="font-semibold text-gray-900">{p.name}</div>
-                    <div className="text-xs text-gray-500">{p.info} <span className={p.color + " font-semibold ml-1"}>{p.change}</span></div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{p.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{p.info} <span className={p.color + " font-semibold ml-1"}>{p.change}</span></div>
                   </div>
                 </div>
-                <div className="font-semibold text-gray-900">{p.value}</div>
+                <div className="font-semibold text-gray-900 dark:text-gray-100">{p.value}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Clientes Principales */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-0">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-0">
           <div className="flex items-center justify-between px-6 pt-6 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-lg"><Users className="h-5 w-5 text-gray-700" /></span>
-              <span className="font-semibold text-gray-900">Clientes Principales</span>
+              <span className="text-lg"><Users className="h-5 w-5 text-gray-700 dark:text-gray-300" /></span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">Clientes Principales</span>
             </div>
-            <span className="text-xs text-gray-400 font-semibold">Montos</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">Montos</span>
           </div>
           <div className="px-6 pb-4">
             {[
@@ -431,13 +438,13 @@ const IndicadoresPage: React.FC = () => {
             ].map((c) => (
               <div key={c.name} className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-3">
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-white ${c.no === 1 ? "bg-blue-700" : "bg-gray-300 text-gray-700"}`}>{c.no}</div>
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-white ${c.no === 1 ? "bg-blue-700" : "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300"}`}>{c.no}</div>
                   <div>
-                    <div className="font-semibold text-gray-900">{c.name}</div>
-                    <div className="text-xs text-gray-500">{c.info} <span className={c.color + " font-semibold ml-1"}>{c.change}</span></div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{c.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{c.info} <span className={c.color + " font-semibold ml-1"}>{c.change}</span></div>
                   </div>
                 </div>
-                <div className="font-semibold text-gray-900">{c.value}</div>
+                <div className="font-semibold text-gray-900 dark:text-gray-100">{c.value}</div>
               </div>
             ))}
           </div>
@@ -445,11 +452,11 @@ const IndicadoresPage: React.FC = () => {
       </div>
 
       {/* Detalle de Ventas Diarias */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-lg"><TrendingUp className="h-5 w-5 text-gray-700" /></span>
-            <span className="font-semibold text-gray-900">Detalle de Ventas Diarias</span>
+            <span className="text-lg"><TrendingUp className="h-5 w-5 text-gray-700 dark:text-gray-300" /></span>
+            <span className="font-semibold text-gray-900 dark:text-gray-100">Detalle de Ventas Diarias</span>
             {/* ...sin filtro comprobantes aquí... */}
           </div>
           <button
@@ -462,10 +469,10 @@ const IndicadoresPage: React.FC = () => {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
           {/* Tabla de ventas diarias */}
-          <div className="overflow-x-auto p-0 m-0">
-            <table className="min-w-full text-sm">
+          <div className="p-0 m-0">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="text-gray-500 text-xs border-b">
+                <tr className="text-gray-500 dark:text-gray-400 text-xs border-b border-gray-200 dark:border-gray-700">
                   <th className="py-2 px-3 text-left">FECHA</th>
                   <th className="py-2 px-3 text-left">TOTAL VENTAS</th>
                   <th className="py-2 px-3 text-left">IGV</th>
@@ -481,8 +488,8 @@ const IndicadoresPage: React.FC = () => {
                   const max2 = sorted[1]?.ventas;
                   const max3 = sorted[2]?.ventas;
                   return ventasDiariasData.map((item) => (
-                    <tr className="border-b" key={item.fecha}>
-                      <td className="py-2 px-3">{
+                    <tr className="border-b border-gray-200 dark:border-gray-700" key={item.fecha}>
+                      <td className="py-2 px-3 text-gray-900 dark:text-gray-100">{
                         (() => {
                           const [day, month] = item.fecha.split("/");
                           const monthNames: Record<string, string> = {
@@ -499,7 +506,7 @@ const IndicadoresPage: React.FC = () => {
                           return `${day} ${monthNames[month] ?? month}`;
                         })()
                       }</td>
-                      <td className="py-2 px-3 font-semibold text-gray-900 flex items-center gap-2">
+                      <td className="py-2 px-3 font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         S/ {item.ventas.toLocaleString()}
                         {item.ventas === max1 && (
                           <span className="ml-1"><IconOne /></span>
@@ -511,11 +518,11 @@ const IndicadoresPage: React.FC = () => {
                           <span className="ml-1"><IconThree /></span>
                         )}
                       </td>
-                      <td className="py-2 px-3">S/ {item.igv?.toLocaleString()}</td>
+                      <td className="py-2 px-3 text-gray-900 dark:text-gray-100">S/ {item.igv?.toLocaleString()}</td>
                       <td className="py-2 px-3">
-                        <span className="bg-blue-100 text-blue-700 rounded-full px-2 py-1 text-xs font-semibold">{item.comprobantes}</span>
+                        <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full px-2 py-1 text-xs font-semibold">{item.comprobantes}</span>
                       </td>
-                      <td className="py-2 px-3 font-semibold text-gray-900">S/ {item.ticket.toLocaleString()}</td>
+                      <td className="py-2 px-3 font-semibold text-gray-900 dark:text-gray-100">S/ {item.ticket.toLocaleString()}</td>
                     </tr>
                   ));
                 })()}
@@ -524,12 +531,13 @@ const IndicadoresPage: React.FC = () => {
           </div>
 
           {/* Gráfico de barras */}
-          <div className="w-full h-[250px] flex items-center justify-center bg-white p-0 m-0 mt-16" style={{ marginLeft: "-1rem", marginRight: "-1rem" }}>
+          <div className="w-full h-[250px] flex items-center justify-center bg-white dark:bg-gray-800 p-0 m-0 mt-16">
             <ResponsiveContainer width="85%" height={288}>
               <BarChart data={ventasDiariasData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgb(156 163 175)" />
                 <XAxis
                   dataKey="fecha"
+                  tick={{ fill: 'currentColor' }}
                   tickFormatter={(value: string) => {
                     const [day, month] = value.split("/");
                     const monthNames: Record<string, string> = {
@@ -549,18 +557,19 @@ const IndicadoresPage: React.FC = () => {
                 <YAxis
                   ticks={[0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]}
                   domain={[0, 5000]}
+                  tick={{ fill: 'currentColor' }}
                   tickFormatter={(value: number) => value.toLocaleString("es-PE").replace(/,/g, " ")}
                 />
                 <RechartsTooltip
-                  content={(props: any) => {
+                  content={(props: { active?: boolean; payload?: Array<{ payload: VentaDiaria }> }) => {
                     const { active, payload } = props;
                     if (active && payload && payload.length) {
                       const item = payload[0].payload;
                       return (
-                        <div className="bg-white p-3 rounded-lg shadow border text-sm min-w-[180px]">
-                          <div className="font-semibold text-blue-700 mb-1">Fecha: {item.fecha}</div>
-                          <div className="mb-1">Total de ventas en S/: <span className="font-bold text-gray-900">S/ {item.ventas.toLocaleString()}</span></div>
-                          <div>Nº de comprobantes: <span className="font-bold text-blue-700">{item.comprobantes}</span></div>
+                        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow border border-gray-200 dark:border-gray-600 text-sm min-w-[180px]">
+                          <div className="font-semibold text-blue-700 dark:text-blue-400 mb-1">Fecha: {item.fecha}</div>
+                          <div className="mb-1 text-gray-900 dark:text-gray-100">Total de ventas en S/: <span className="font-bold">S/ {item.ventas.toLocaleString()}</span></div>
+                          <div className="text-gray-900 dark:text-gray-100">Nº de comprobantes: <span className="font-bold text-blue-700 dark:text-blue-400">{item.comprobantes}</span></div>
                         </div>
                       );
                     }

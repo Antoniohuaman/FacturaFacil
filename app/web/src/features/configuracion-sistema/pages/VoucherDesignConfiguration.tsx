@@ -150,32 +150,32 @@ export function VoucherDesignConfiguration() {
       <div className="flex items-center space-x-4">
         <button 
           onClick={() => navigate('/configuracion')}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Diseño de Comprobantes
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             Personaliza el diseño de tus facturas y boletas para A4 y tickets
           </p>
         </div>
       </div>
 
       {/* Design Type Selector */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Tipo de Diseño</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tipo de Diseño</h3>
           
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setPreviewMode('desktop')}
               className={`p-2 rounded-lg transition-colors ${
                 previewMode === 'desktop' 
-                  ? 'bg-blue-100 text-blue-600' 
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
               title="Vista escritorio"
             >
@@ -185,8 +185,8 @@ export function VoucherDesignConfiguration() {
               onClick={() => setPreviewMode('mobile')}
               className={`p-2 rounded-lg transition-colors ${
                 previewMode === 'mobile' 
-                  ? 'bg-blue-100 text-blue-600' 
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
               title="Vista móvil"
             >
@@ -201,23 +201,23 @@ export function VoucherDesignConfiguration() {
             className={`
               p-6 rounded-lg border-2 cursor-pointer transition-all
               ${activeDesign === 'A4' 
-                ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200 hover:border-gray-300'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600' 
+                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
               }
             `}
           >
             <div className="flex items-center space-x-4">
               <div className={`
                 w-12 h-12 rounded-lg flex items-center justify-center
-                ${activeDesign === 'A4' ? 'bg-blue-100' : 'bg-gray-100'}
+                ${activeDesign === 'A4' ? 'bg-blue-100 dark:bg-blue-800/30' : 'bg-gray-100 dark:bg-gray-700'}
               `}>
                 <FileText className={`w-6 h-6 ${
-                  activeDesign === 'A4' ? 'text-blue-600' : 'text-gray-600'
+                  activeDesign === 'A4' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'
                 }`} />
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900">Diseño A4</h4>
-                <p className="text-sm text-gray-500">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100">Diseño A4</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   Para impresión en hojas tamaño carta o A4
                 </p>
               </div>
@@ -229,23 +229,23 @@ export function VoucherDesignConfiguration() {
             className={`
               p-6 rounded-lg border-2 cursor-pointer transition-all
               ${activeDesign === 'TICKET' 
-                ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200 hover:border-gray-300'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600' 
+                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
               }
             `}
           >
             <div className="flex items-center space-x-4">
               <div className={`
                 w-12 h-12 rounded-lg flex items-center justify-center
-                ${activeDesign === 'TICKET' ? 'bg-blue-100' : 'bg-gray-100'}
+                ${activeDesign === 'TICKET' ? 'bg-blue-100 dark:bg-blue-800/30' : 'bg-gray-100 dark:bg-gray-700'}
               `}>
                 <Receipt className={`w-6 h-6 ${
-                  activeDesign === 'TICKET' ? 'text-blue-600' : 'text-gray-600'
+                  activeDesign === 'TICKET' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'
                 }`} />
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900">Diseño Ticket</h4>
-                <p className="text-sm text-gray-500">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100">Diseño Ticket</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   Para impresoras térmicas de 58mm o 80mm
                 </p>
               </div>
@@ -309,13 +309,13 @@ export function VoucherDesignConfiguration() {
           >
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Familia de Fuente
                 </label>
                 <select
                   value={currentSettings.fontFamily}
                   onChange={(e) => updateSetting('fontFamily', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="Arial">Arial</option>
                   <option value="Helvetica">Helvetica</option>
@@ -324,13 +324,13 @@ export function VoucherDesignConfiguration() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Tamaño de Fuente
                 </label>
                 <select
                   value={currentSettings.fontSize}
                   onChange={(e) => updateSetting('fontSize', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="small">Pequeño</option>
                   <option value="medium">Mediano</option>
@@ -347,7 +347,7 @@ export function VoucherDesignConfiguration() {
           >
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Color de Encabezado
                 </label>
                 <div className="flex items-center space-x-3">
@@ -355,20 +355,20 @@ export function VoucherDesignConfiguration() {
                     type="color"
                     value={currentSettings.headerColor}
                     onChange={(e) => updateSetting('headerColor', e.target.value)}
-                    className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
+                    className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
                   />
                   <input
                     type="text"
                     value={currentSettings.headerColor}
                     onChange={(e) => updateSetting('headerColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     placeholder="#2563eb"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Color de Texto
                 </label>
                 <div className="flex items-center space-x-3">
@@ -376,20 +376,20 @@ export function VoucherDesignConfiguration() {
                     type="color"
                     value={currentSettings.textColor}
                     onChange={(e) => updateSetting('textColor', e.target.value)}
-                    className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
+                    className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
                   />
                   <input
                     type="text"
                     value={currentSettings.textColor}
                     onChange={(e) => updateSetting('textColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     placeholder="#374151"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Color de Bordes
                 </label>
                 <div className="flex items-center space-x-3">
@@ -397,13 +397,13 @@ export function VoucherDesignConfiguration() {
                     type="color"
                     value={currentSettings.borderColor}
                     onChange={(e) => updateSetting('borderColor', e.target.value)}
-                    className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
+                    className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
                   />
                   <input
                     type="text"
                     value={currentSettings.borderColor}
                     onChange={(e) => updateSetting('borderColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     placeholder="#e5e7eb"
                   />
                 </div>
@@ -420,13 +420,13 @@ export function VoucherDesignConfiguration() {
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={exportTemplate}
-                  className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
+                  className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
                 >
                   <Download className="w-5 h-5" />
                   <span>Exportar</span>
                 </button>
                 
-                <label className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
+                <label className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors cursor-pointer">
                   <Upload className="w-5 h-5" />
                   <span>Importar</span>
                   <input
@@ -440,7 +440,7 @@ export function VoucherDesignConfiguration() {
               
               <button
                 onClick={resetToDefault}
-                className="w-full px-4 py-3 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 Restaurar por Defecto
               </button>
@@ -458,10 +458,10 @@ export function VoucherDesignConfiguration() {
               <div className="space-y-4">
                 {/* Preview Actions */}
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-gray-900">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100">
                     {activeDesign === 'A4' ? 'Factura Electrónica' : 'Boleta de Venta'}
                   </h4>
-                  <button className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors">
+                  <button className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                     <Eye className="w-4 h-4" />
                     <span>Vista Completa</span>
                   </button>
@@ -502,7 +502,7 @@ export function VoucherDesignConfiguration() {
 
                   {/* Company Info */}
                   {currentSettings.showCompanyInfo && (
-                    <div className="p-4 bg-gray-50">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800">
                       <div className="text-sm space-y-1">
                         <p className="font-semibold">MI EMPRESA S.A.C.</p>
                         <p>RUC: 20123456789</p>
@@ -527,22 +527,22 @@ export function VoucherDesignConfiguration() {
                     </div>
 
                     {/* Items Table */}
-                    <div className="border border-gray-200 rounded">
-                      <div className="bg-gray-50 p-2 font-semibold text-sm grid grid-cols-4 gap-2">
+                    <div className="border border-gray-200 dark:border-gray-600 rounded">
+                      <div className="bg-gray-50 dark:bg-gray-700 p-2 font-semibold text-sm grid grid-cols-4 gap-2">
                         <span>Descripción</span>
                         <span className="text-center">Cant.</span>
                         <span className="text-right">P.Unit</span>
                         <span className="text-right">Total</span>
                       </div>
                       
-                      <div className="p-2 text-sm border-t grid grid-cols-4 gap-2">
+                      <div className="p-2 text-sm border-t border-gray-200 dark:border-gray-600 grid grid-cols-4 gap-2">
                         <span>Producto Ejemplo</span>
                         <span className="text-center">2</span>
                         <span className="text-right">S/ 50.00</span>
                         <span className="text-right">S/ 100.00</span>
                       </div>
                       
-                      <div className="p-2 text-sm border-t grid grid-cols-4 gap-2 bg-gray-50">
+                      <div className="p-2 text-sm border-t border-gray-200 dark:border-gray-600 grid grid-cols-4 gap-2 bg-gray-50 dark:bg-gray-700">
                         <span className="col-span-3 text-right font-semibold">Total:</span>
                         <span className="text-right font-bold">S/ 100.00</span>
                       </div>
@@ -557,9 +557,9 @@ export function VoucherDesignConfiguration() {
 
                   {/* Footer */}
                   {currentSettings.showFooter && (
-                    <div className="p-4 bg-gray-50 border-t text-center text-sm">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 text-center text-sm">
                       <p>Gracias por su preferencia</p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Representación impresa de comprobante electrónico
                       </p>
                     </div>
@@ -567,8 +567,8 @@ export function VoucherDesignConfiguration() {
                 </div>
 
                 {/* Preview Info */}
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800">
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
                     <Eye className="w-4 h-4 inline mr-1" />
                     Esta es una vista previa aproximada. El resultado final puede variar según la impresora utilizada.
                   </p>
@@ -580,21 +580,21 @@ export function VoucherDesignConfiguration() {
       </div>
 
       {/* Save Actions */}
-      <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-        <div className="text-sm text-gray-500">
+      <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           Los cambios se guardan automáticamente
         </div>
         
         <div className="flex items-center space-x-4">
           <button
             onClick={() => navigate('/configuracion')}
-            className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+            className="px-6 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium"
           >
             Volver a Configuración
           </button>
           
           <button
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center space-x-2"
+            className="px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 font-medium flex items-center space-x-2"
           >
             <Printer className="w-5 h-5" />
             <span>Imprimir Prueba</span>

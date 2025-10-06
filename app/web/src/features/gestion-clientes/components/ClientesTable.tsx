@@ -218,6 +218,10 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
           transition: all 0.2s ease;
           color: #374151;
         }
+        .dark .filter-underlined {
+          color: #d1d5db;
+          border-bottom-color: #4b5563;
+        }
         .filter-underlined:focus {
           outline: none;
           border-bottom-color: #3b82f6;
@@ -228,6 +232,11 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
           border-bottom-width: 2px;
         }
         .filter-underlined::placeholder {
+          color: #9ca3af;
+        }
+        .dark .filter-underlined::placeholder {
+          color: #6b7280;
+        }
           color: #9ca3af;
           font-size: 13px;
           font-style: italic;
@@ -244,13 +253,13 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
         }
       `}</style>
       
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full mx-0 px-0 relative">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden w-full mx-0 px-0 relative">
         <div className="overflow-x-auto">
           <table className="w-full text-sm table-fixed" style={{ minWidth: '1200px' }}>
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
               {/* Fila de encabezados con filtros intercambiables */}
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-700 text-sm" style={{ width: '25%' }}>
+                <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300 text-sm" style={{ width: '25%' }}>
                   {activeFilters.name ? (
                     <input
                       type="text"
@@ -392,20 +401,20 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
               {clientes.map(client => (
                 <tr 
                   key={client.id} 
-                  className={`hover:bg-gray-50 transition-colors cursor-pointer${!client.enabled ? ' row-disabled' : ''}`}
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer${!client.enabled ? ' row-disabled' : ''}`}
                   onClick={(e) => handleRowClick(client, e)}
                 >
-                  <td className="px-4 py-2 text-sm text-gray-900 font-medium break-words whitespace-normal" style={{ width: '25%' }}>{client.name}</td>
-                  <td className="px-4 py-2 text-sm break-words whitespace-normal" style={{ width: '15%' }}>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white font-medium break-words whitespace-normal" style={{ width: '25%' }}>{client.name}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white break-words whitespace-normal" style={{ width: '15%' }}>
                     {renderDocument(client.document)}
                   </td>
-                  <td className="px-4 py-2 text-sm break-words whitespace-normal" style={{ width: '8%' }}>{client.type}</td>
-                  <td className="px-4 py-2 text-sm break-words whitespace-normal" style={{ width: '30%' }}>{client.address}</td>
-                  <td className="px-4 py-2 text-sm break-words whitespace-normal" style={{ width: '12%' }}>{client.phone}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white break-words whitespace-normal" style={{ width: '8%' }}>{client.type}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white break-words whitespace-normal" style={{ width: '30%' }}>{client.address}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white break-words whitespace-normal" style={{ width: '12%' }}>{client.phone}</td>
                   <td className="px-4 py-2 text-right" style={{ width: '10%' }}>
                     <div className="flex items-center justify-between">
                       <button
@@ -431,7 +440,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
                           </svg>
                         </button>
                         {menuOpenId === client.id && (
-                          <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                          <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-10">
                             <button
                               className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                               onClick={() => handleToggleEnabled(client.id)}

@@ -43,7 +43,7 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({ empresa, collapsed, onTog
   };
 
   return (
-    <div className={`flex flex-col items-center py-6 bg-white border-b border-slate-200 ${collapsed ? 'px-2' : 'px-6'}`}>
+    <div className={`flex flex-col items-center py-6 bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 ${collapsed ? 'px-2' : 'px-6'}`}>
       
       {/* Botón para expandir cuando está colapsado */}
       {collapsed && (
@@ -89,7 +89,7 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({ empresa, collapsed, onTog
 
             {/* Dropdown de empresas */}
             {showEmpresaDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 max-h-64 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-lg shadow-lg py-1 z-50 max-h-64 overflow-y-auto">
                 {empresasDisponibles.map((empresaItem) => (
                   <button
                     key={empresaItem.id}

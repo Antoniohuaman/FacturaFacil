@@ -17,8 +17,8 @@ interface ToolbarProps {
 // COMPONENTE DE TÍTULO DE PÁGINA
 export function PageHeader({ title }: PageHeaderProps) {
   return (
-    <div className="bg-white border-b border-gray-200 -mx-10 px-10 py-4">
-      <h1 className="text-[22px] font-bold text-slate-900 tracking-tight">{title}</h1>
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 -mx-10 px-16 py-6">
+      <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight">{title}</h1>
     </div>
   );
 }
@@ -66,14 +66,14 @@ export default function Toolbar({
   };
 
   return (
-    <div className="bg-white border-b border-slate-300 shadow-sm -mx-10 px-10" style={{ height: '72px', display: 'flex', alignItems: 'center' }}>
+    <div className="bg-white dark:bg-gray-800 border-b border-slate-300 dark:border-gray-700 shadow-sm -mx-10 px-16 py-4" style={{ minHeight: '72px', display: 'flex', alignItems: 'center' }}>
       {/* TOOLBAR HORIZONTAL */}
       <div className="flex items-center justify-between w-full">
         {/* GRUPO IZQUIERDO: Filtros */}
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-8">
           {/* DateRangePicker */}
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-slate-700 min-w-[50px]">Período:</label>
+          <div className="flex items-center space-x-3">
+            <label className="text-sm font-medium text-slate-700 dark:text-gray-300 min-w-[50px]">Período:</label>
             <DateRangePicker
               value={selectedDateRange}
               onChange={handleDateRangeChange}
@@ -81,12 +81,12 @@ export default function Toolbar({
           </div>
 
           {/* Selector de Establecimiento */}
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-slate-700 min-w-[90px]">Establecimiento:</label>
+          <div className="flex items-center space-x-3">
+            <label className="text-sm font-medium text-slate-700 dark:text-gray-300 min-w-[90px]">Establecimiento:</label>
             <select
               value={selectedEstablishment}
               onChange={(e) => handleEstablishmentChange(e.target.value)}
-              className="h-10 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white min-w-[150px]"
+              className="h-10 px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white min-w-[150px]"
             >
               {establishmentOptions.map((option) => (
                 <option key={option} value={option}>
@@ -99,7 +99,7 @@ export default function Toolbar({
           {/* Botón Filtrar */}
           <button
             onClick={handleFilter}
-            className="h-10 flex items-center space-x-2 px-4 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
+            className="h-10 flex items-center space-x-2 px-4 bg-slate-600 dark:bg-slate-700 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
           >
             <Filter className="w-4 h-4" />
             <span className="text-sm font-medium">Filtrar</span>

@@ -24,7 +24,7 @@ export default function ControlCajaHome() {
   const resumen = getResumen();
 
   return (
-    <div className="flex-1 bg-gray-50">
+    <div className="flex-1 bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <PageHeader 
         title="Control de Caja"
@@ -37,7 +37,7 @@ export default function ControlCajaHome() {
       />
 
       {/* Toolbar - Tabs + Status */}
-      <div className="bg-white border-b border-slate-300 shadow-sm" style={{ minHeight: '72px' }}>
+      <div className="bg-white dark:bg-gray-800 border-b border-slate-300 dark:border-gray-600 shadow-sm" style={{ minHeight: '72px' }}>
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             {/* Tabs navigation - Desktop */}
@@ -47,8 +47,8 @@ export default function ControlCajaHome() {
                   key={tab.key}
                   className={`px-4 py-2 font-semibold text-sm rounded-md transition-colors ${
                     activeTab === tab.key
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-600'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                   onClick={() => setActiveTab(tab.key)}
                 >
@@ -62,7 +62,7 @@ export default function ControlCajaHome() {
               <select
                 value={activeTab}
                 onChange={(e) => setActiveTab(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {TABS.map(tab => (
                   <option key={tab.key} value={tab.key}>
@@ -75,8 +75,8 @@ export default function ControlCajaHome() {
             {/* Status badge */}
             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm ${
               status === 'abierta'
-                ? 'bg-green-100 text-green-800 border border-green-200'
-                : 'bg-red-100 text-red-800 border border-red-200'
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 border border-green-200 dark:border-green-700'
+                : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 border border-red-200 dark:border-red-700'
             }`}>
               {status === 'abierta' ? (
                 <>
@@ -101,15 +101,15 @@ export default function ControlCajaHome() {
           {status === 'abierta' && aperturaActual && (
             <div className="mb-6">
               {/* Apertura info card */}
-              <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 border border-gray-200">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 mb-4 border border-gray-200 dark:border-gray-600">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Calendar className="w-5 h-5 text-blue-600" />
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                      <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Fecha de Apertura</p>
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Fecha de Apertura</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
                         {new Date(aperturaActual.fechaHoraApertura).toLocaleDateString('es-PE', {
                           day: '2-digit',
                           month: '2-digit',
@@ -120,12 +120,12 @@ export default function ControlCajaHome() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <Clock className="w-5 h-5 text-purple-600" />
+                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                      <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Hora de Apertura</p>
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Hora de Apertura</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
                         {new Date(aperturaActual.fechaHoraApertura).toLocaleTimeString('es-PE', {
                           hour: '2-digit',
                           minute: '2-digit'
@@ -135,22 +135,22 @@ export default function ControlCajaHome() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <User className="w-5 h-5 text-green-600" />
+                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                      <User className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Usuario/Cajero</p>
-                      <p className="text-sm font-semibold text-gray-900">{aperturaActual.usuarioNombre}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Usuario/Cajero</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{aperturaActual.usuarioNombre}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <Wallet className="w-5 h-5 text-orange-600" />
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                      <Wallet className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Monto Inicial</p>
-                      <p className="text-sm font-semibold text-gray-900">S/ {aperturaActual.montoInicialTotal.toFixed(2)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Monto Inicial</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">S/ {aperturaActual.montoInicialTotal.toFixed(2)}</p>
                     </div>
                   </div>
                 </div>

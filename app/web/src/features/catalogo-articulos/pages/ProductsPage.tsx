@@ -76,17 +76,17 @@ const ProductsPage: React.FC = () => {
   };
 
   const renderFilterBar = () => (
-    <div className={`bg-white border border-gray-200 rounded-lg p-4 transition-all duration-200 ${showFilters ? 'block' : 'hidden'}`}>
+    <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-all duration-200 ${showFilters ? 'block' : 'hidden'}`}>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Categoría */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Categoría
           </label>
           <select
             value={filters.categoria}
             onChange={(e) => updateFilters({ categoria: e.target.value })}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
           >
             <option value="">Todas las categorías</option>
             {categories.map(cat => (
@@ -99,13 +99,13 @@ const ProductsPage: React.FC = () => {
 
         {/* Unidad */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Unidad
           </label>
           <select
             value={filters.unidad}
             onChange={(e) => updateFilters({ unidad: e.target.value })}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
           >
             <option value="">Todas las unidades</option>
             <option value="UNIDAD">UNIDAD</option>
@@ -115,7 +115,7 @@ const ProductsPage: React.FC = () => {
 
         {/* Rango de precios */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Precio mínimo
           </label>
           <input
@@ -126,13 +126,13 @@ const ProductsPage: React.FC = () => {
             onChange={(e) => updateFilters({ 
               rangoPrecios: { ...filters.rangoPrecios, min: parseFloat(e.target.value) || 0 }
             })}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             placeholder="0.00"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Precio máximo
           </label>
           <input
@@ -143,7 +143,7 @@ const ProductsPage: React.FC = () => {
             onChange={(e) => updateFilters({ 
               rangoPrecios: { ...filters.rangoPrecios, max: parseFloat(e.target.value) || 50000 }
             })}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             placeholder="50000.00"
           />
         </div>
@@ -191,7 +191,7 @@ const ProductsPage: React.FC = () => {
             <button
               onClick={() => changePage(pagination.currentPage - 1)}
               disabled={pagination.currentPage <= 1}
-              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="sr-only">Anterior</span>
               <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -217,8 +217,8 @@ const ProductsPage: React.FC = () => {
                   onClick={() => changePage(pageNum)}
                   className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
                     pagination.currentPage === pageNum
-                      ? 'z-10 bg-red-50 border-red-500 text-red-600'
-                      : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      ? 'z-10 bg-red-50 dark:bg-red-900/30 border-red-500 dark:border-red-500 text-red-600 dark:text-red-400'
+                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                 >
                   {pageNum}
@@ -229,7 +229,7 @@ const ProductsPage: React.FC = () => {
             <button
               onClick={() => changePage(pagination.currentPage + 1)}
               disabled={pagination.currentPage >= pagination.totalPages}
-              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="sr-only">Siguiente</span>
               <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -249,7 +249,7 @@ const ProductsPage: React.FC = () => {
         {/* Search */}
         <div className="flex-1 relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -258,7 +258,7 @@ const ProductsPage: React.FC = () => {
             placeholder="Buscar por nombre o código..."
             value={filters.busqueda}
             onChange={(e) => handleSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400"
           />
         </div>
 
@@ -293,7 +293,7 @@ const ProductsPage: React.FC = () => {
             <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
-            <span className="text-sm text-gray-500 font-medium">Selecciona productos para acceder a <span className="text-red-600 font-semibold">eliminación masiva</span></span>
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Selecciona productos para acceder a <span className="text-red-600 dark:text-red-400 font-semibold">eliminación masiva</span></span>
           </div>
         )}
         
@@ -302,8 +302,8 @@ const ProductsPage: React.FC = () => {
           onClick={() => setShowFilters(!showFilters)}
           className={`inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
               showFilters 
-                ? 'bg-red-50 border-red-300 text-red-700' 
-                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                ? 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-500 text-red-700 dark:text-red-400' 
+                : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
             }`}
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

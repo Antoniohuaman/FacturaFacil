@@ -637,35 +637,35 @@ const InvoiceListDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Popup de confirmación de impresión masiva */}
       {showPrintPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirmar impresión masiva</h3>
-            <p className="mb-4 text-sm text-gray-700">Se van a imprimir <span className="font-bold">{selectedInvoices.length}</span> comprobante(s).</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Confirmar impresión masiva</h3>
+            <p className="mb-4 text-sm text-gray-700 dark:text-gray-300">Se van a imprimir <span className="font-bold">{selectedInvoices.length}</span> comprobante(s).</p>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Formato de impresión</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Formato de impresión</label>
               <div className="flex space-x-4">
-                <label className="flex items-center">
+                <label className="flex items-center text-gray-700 dark:text-gray-300">
                   <input type="radio" name="printFormat" value="A4" checked={printFormat === 'A4'} onChange={() => setPrintFormat('A4')} className="mr-2" />
                   A4
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center text-gray-700 dark:text-gray-300">
                   <input type="radio" name="printFormat" value="ticket" checked={printFormat === 'ticket'} onChange={() => setPrintFormat('ticket')} className="mr-2" />
                   Ticket
                 </label>
               </div>
             </div>
             <div className="flex justify-end space-x-3 mt-6">
-              <button className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm" onClick={() => setShowPrintPopup(false)}>Cancelar</button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm" onClick={() => { setShowPrintPopup(false); /* Aquí va la lógica de impresión */ }}>Confirmar impresión</button>
+              <button className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm" onClick={() => setShowPrintPopup(false)}>Cancelar</button>
+              <button className="px-4 py-2 text-white rounded-md transition-colors text-sm" style={{ backgroundColor: '#1478D4' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1068C4'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1478D4'} onClick={() => { setShowPrintPopup(false); /* Aquí va la lógica de impresión */ }}>Confirmar impresión</button>
             </div>
           </div>
         </div>
       )}
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 flex-1">
@@ -676,7 +676,7 @@ const InvoiceListDashboard = () => {
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Desde (dd/mm/aaaa)"
                   />
                 </div>
@@ -685,7 +685,7 @@ const InvoiceListDashboard = () => {
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Hasta (dd/mm/aaaa)"
                   />
                 </div>
@@ -694,7 +694,7 @@ const InvoiceListDashboard = () => {
             {/* Botones NUEVA BOLETA y NUEVA FACTURA + Impresión masiva */}
             <div className="flex items-center space-x-2">
               <button
-                className="px-4 py-2 border border-blue-500 text-blue-600 bg-white rounded-md font-semibold text-sm hover:bg-blue-50 transition-colors"
+                className="px-4 py-2 border border-blue-500 text-blue-600 bg-white dark:bg-gray-800 dark:text-blue-400 dark:border-blue-400 rounded-md font-semibold text-sm hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
                 onClick={() => navigate('/comprobantes/nuevo?tipo=factura')}
               >
                 Nueva factura
@@ -707,27 +707,27 @@ const InvoiceListDashboard = () => {
               </button>
               {!massPrintMode ? (
                 <button
-                  className={`flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium`}
+                  className={`flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300`}
                   onClick={() => {
                     setMassPrintMode(true);
                     setSelectedInvoices([]);
                   }}
                 >
-                  <Printer className="w-5 h-5 text-gray-600" />
-                  <span className="text-gray-700">Impresión Masiva</span>
+                  <Printer className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <span className="text-gray-700 dark:text-gray-300">Impresión Masiva</span>
                 </button>
               ) : (
                 <>
-                  <span className="font-semibold text-base text-gray-900">{selectedInvoices.length} seleccionados</span>
+                  <span className="font-semibold text-base text-gray-900 dark:text-white">{selectedInvoices.length} seleccionados</span>
                   <button
-                    className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium"
                     onClick={() => {
                       setMassPrintMode(false);
                       setSelectedInvoices([]);
                     }}
                   >Cancelar</button>
                   <button
-                    className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium"
                     onClick={() => setSelectedInvoices(paginatedInvoices.map(inv => inv.id))}
                   >Seleccionar página</button>
                   <button
@@ -744,11 +744,11 @@ const InvoiceListDashboard = () => {
 
       {/* Main Content */}
       <div className="px-6 py-6">
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                 <tr>
                   {massPrintMode && (
                     <th className="px-2 py-3">
@@ -758,19 +758,19 @@ const InvoiceListDashboard = () => {
                       }} />
                     </th>
                   )}
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center space-x-2">
                       <span>N° Comprobante</span>
                       <Search className="w-4 h-4 text-gray-400" />
                     </div>
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center space-x-2">
                       <span>Tipo</span>
                       <Filter className="w-4 h-4 text-gray-400" />
                     </div>
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center space-x-2">
                       <span>N° Doc Cliente</span>
                       <Search className="w-4 h-4 text-gray-400" />
@@ -782,35 +782,35 @@ const InvoiceListDashboard = () => {
                       <Search className="w-4 h-4 text-gray-400" />
                     </div>
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center space-x-2">
                       <span>Fecha</span>
                       <ChevronDown className="w-4 h-4 text-gray-400" />
                     </div>
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center space-x-2">
                       <span>Vendedor</span>
                       <Search className="w-4 h-4 text-gray-400" />
                     </div>
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     Total
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center space-x-2">
                       <span>Estado</span>
                       <Filter className="w-4 h-4 text-gray-400" />
                     </div>
                   </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     + Opciones
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {paginatedInvoices.map((invoice, index) => (
-                  <tr key={index} className={`hover:bg-gray-50 transition-colors ${massPrintMode && selectedInvoices.includes(invoice.id) ? 'bg-blue-50' : ''}`}>
+                  <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${massPrintMode && selectedInvoices.includes(invoice.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                     {massPrintMode && (
                       <td className="px-2 py-4">
                         <input type="checkbox" checked={selectedInvoices.includes(invoice.id)} onChange={e => {
@@ -819,39 +819,39 @@ const InvoiceListDashboard = () => {
                         }} />
                       </td>
                     )}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                       {invoice.id}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                       {invoice.type}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                       {invoice.clientDoc}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                       {invoice.client}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                       {invoice.date}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                       {invoice.vendor}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                       S/ {invoice.total.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(invoice.status, invoice.statusColor as 'blue' | 'green' | 'red' | 'orange')}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
                       <div className="flex items-center space-x-3">
-                        <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                           <Printer className="w-4 h-4" />
                         </button>
-                        <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                           <Share2 className="w-4 h-4" />
                         </button>
-                        <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </div>
@@ -869,29 +869,29 @@ const InvoiceListDashboard = () => {
               <div className="flex items-center space-x-4">
                 <button 
                   onClick={() => setShowTotals(!showTotals)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Mostrar totales
                 </button>
                 
                 {/* Selector de registros por página */}
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-700">Mostrar:</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Mostrar:</span>
                   <select 
                     value={recordsPerPage}
                     onChange={(e) => setRecordsPerPage(Number(e.target.value))}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
                     <option value={50}>50</option>
                   </select>
-                  <span className="text-sm text-gray-700">por página</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">por página</span>
                 </div>
               </div>
 
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
                   {startRecord} – {endRecord} de {totalRecords}
                 </span>
                 
@@ -899,14 +899,14 @@ const InvoiceListDashboard = () => {
                   <button 
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button 
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage >= totalPages}
-                    className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -918,24 +918,24 @@ const InvoiceListDashboard = () => {
 
         {/* Totals Panel (conditionally shown) */}
         {showTotals && (
-          <div className="mt-6 bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Resumen de Totales</h3>
+          <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Resumen de Totales</h3>
             <div className="grid grid-cols-4 gap-6">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">50</div>
-                <div className="text-sm text-gray-600">Total Comprobantes</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Total Comprobantes</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">S/ 15,847.25</div>
-                <div className="text-sm text-gray-600">Total Ventas</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Total Ventas</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">8</div>
-                <div className="text-sm text-gray-600">Por Corregir</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Por Corregir</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-600">12</div>
-                <div className="text-sm text-gray-600">Rechazados</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Rechazados</div>
               </div>
             </div>
           </div>

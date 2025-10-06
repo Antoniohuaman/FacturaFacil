@@ -177,12 +177,12 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
 
   return (
     <div className="p-6">
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Precios por producto (SKU)</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Precios por producto (SKU)</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 En cada columna puedes definir un <strong>Precio Fijo</strong> con vigencia o un <strong>Precio por Cantidad</strong> (exclusivos).
               </p>
             </div>
@@ -205,12 +205,12 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                 placeholder="Buscar o ingresar SKU..."
                 value={searchSKU}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
               {searchSKU && (
                 <button
                   onClick={() => onSearchChange('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   title="Limpiar búsqueda"
                 >
                   <X size={16} />

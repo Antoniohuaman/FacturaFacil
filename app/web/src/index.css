@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* Deshabilitar transiciones durante el cambio de tema para hacer el cambio instantáneo */
+  html.changing-theme *,
+  html.changing-theme *::before,
+  html.changing-theme *::after {
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-delay: 0ms !important;
+  }
+}
+
 @layer utilities {
   /* Animaciones personalizadas */
   @keyframes slide-in {

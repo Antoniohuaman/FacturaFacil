@@ -196,30 +196,30 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
       {/* Campo de entrada */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="h-10 flex items-center space-x-2 px-4 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white min-w-[240px] hover:border-slate-400 transition-colors"
+        className="h-10 flex items-center space-x-2 px-4 border border-slate-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-w-[240px] hover:border-slate-400 dark:hover:border-gray-500 transition-colors"
       >
-        <Calendar className="w-4 h-4 text-slate-500" />
-        <span className="flex-1 text-left text-slate-700 font-medium">
+        <Calendar className="w-4 h-4 text-slate-500 dark:text-gray-400" />
+        <span className="flex-1 text-left text-slate-700 dark:text-gray-200 font-medium">
           {formatRange()}
         </span>
         <ChevronRight 
-          className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} 
+          className={`w-4 h-4 text-slate-400 dark:text-gray-500 transition-transform ${isOpen ? 'rotate-90' : ''}`} 
         />
       </button>
 
       {/* Popover con calendario */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-slate-200 z-50 p-4 min-w-[600px]">
+        <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-slate-200 dark:border-gray-600 z-50 p-4 min-w-[600px]">
           <div className="flex">
             {/* Panel izquierdo: Presets */}
             <div className="w-48 pr-4 border-r border-slate-200">
-              <div className="text-sm font-semibold text-slate-700 mb-3">Períodos rápidos</div>
+              <div className="text-sm font-semibold text-slate-700 dark:text-gray-200 mb-3">Períodos rápidos</div>
               <div className="space-y-1">
                 {presets.map((preset) => (
                   <button
                     key={preset.label}
                     onClick={() => handlePreset(preset)}
-                    className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-slate-50 transition-colors text-slate-700 hover:text-slate-900"
+                    className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors text-slate-700 dark:text-gray-200 hover:text-slate-900 dark:hover:text-gray-100"
                   >
                     {preset.label}
                   </button>
