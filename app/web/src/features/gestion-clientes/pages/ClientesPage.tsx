@@ -2,13 +2,22 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as ExcelJS from 'exceljs';
 import ClienteForm from '../components/ClienteForm';
-import ClientesTable, { type ClientesTableRef } from '../components/ClientesTable';
+import ClientesTable, { type ClientesTableRef, type Cliente } from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
 import ConfirmationModal from '../../../../../shared/src/components/ConfirmationModal';
 
 const PRIMARY_COLOR = '#1478D4';
 
 const initialClients = [
+	{
+		id: 0,
+		name: 'CLIENTE VARIOS',
+		document: 'Sin documento',
+		type: 'Cliente',
+		address: 'Sin dirección',
+		phone: '',
+		enabled: true,
+	},
 	{
 		id: 1,
 		name: 'PLUSMEDIA S.A.C.',
@@ -139,7 +148,32 @@ const clientTypes = [
 
 function ClientesPage() {
 	const navigate = useNavigate();
-	const [clients, setClients] = useState(initialClients);
+	
+	// Cargar clientes desde localStorage o usar initialClients
+	const loadClients = () => {
+		try {
+			const stored = localStorage.getItem('clientes');
+			if (stored) {
+				return JSON.parse(stored);
+			}
+			return initialClients;
+		} catch (error) {
+			console.error('Error loading clients from localStorage:', error);
+			return initialClients;
+		}
+	};
+	
+	const [clients, setClients] = useState(loadClients);
+	
+	// Guardar en localStorage cuando cambie clients
+	React.useEffect(() => {
+		try {
+			localStorage.setItem('clientes', JSON.stringify(clients));
+		} catch (error) {
+			console.error('Error saving clients to localStorage:', error);
+		}
+	}, [clients]);
+	
 	const [showClientModal, setShowClientModal] = useState(false);
 	const [editingClient, setEditingClient] = useState<any>(null);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -182,7 +216,7 @@ function ClientesPage() {
 		];
 
 		// Agregar los datos
-		clients.forEach(client => {
+		clients.forEach((client: Cliente) => {
 			worksheet.addRow({
 				name: client.name,
 				document: client.document,
@@ -253,7 +287,7 @@ function ClientesPage() {
 		}
 
 		// Verificar si ya existe un cliente con el mismo documento
-		const existingClient = clients.find(client => 
+		const existingClient = clients.find((client: Cliente) => 
 			client.document.includes(formData.documentNumber) && 
 			formData.documentNumber.trim() !== ''
 		);
@@ -263,7 +297,7 @@ function ClientesPage() {
 			return;
 		}
 
-		const newId = Math.max(...clients.map(c => c.id)) + 1;
+		const newId = Math.max(...clients.map((c: Cliente) => c.id)) + 1;
 		const clientToAdd = {
 			id: newId,
 			name: formData.legalName.trim(),
@@ -274,7 +308,7 @@ function ClientesPage() {
 			enabled: true,
 		};
 		
-		setClients(prev => [clientToAdd, ...prev]);
+		setClients((prev: Cliente[]) => [clientToAdd, ...prev]);
 		
 		resetForm();
 		setShowClientModal(false);
@@ -321,9 +355,23 @@ function ClientesPage() {
 
 	const handleEditClient = (client: any) => {
 		// Extraer tipo de documento y número del campo document
-		const documentParts = client.document.split(' ');
-		const docType = documentParts[0];
-		const docNumber = documentParts.slice(1).join(' ');
+		let docType = 'SIN_DOCUMENTO';
+		let docNumber = '';
+		
+		if (client.document === 'Sin documento') {
+			// Sin documento (CLIENTE VARIOS)
+			docType = 'SIN_DOCUMENTO';
+			docNumber = '';
+		} else if (client.document && !client.document.includes(' ')) {
+			// Documento sin prefijo (casos especiales)
+			docNumber = client.document;
+			docType = 'SIN_DOCUMENTO';
+		} else if (client.document && client.document.includes(' ')) {
+			// Documento con prefijo (ej: "DNI 12345678", "RUC 20608822658")
+			const documentParts = client.document.split(' ');
+			docType = documentParts[0];
+			docNumber = documentParts.slice(1).join(' ');
+		}
 
 		setEditingClient(client);
 		setFormData({
@@ -335,7 +383,7 @@ function ClientesPage() {
 			email: '',
 			additionalData: '',
 		});
-		setDocumentType(docType === 'Sin' ? 'SIN_DOCUMENTO' : docType);
+		setDocumentType(docType);
 		setClientType(client.type);
 		setShowClientModal(true);
 	};
@@ -347,7 +395,7 @@ function ClientesPage() {
 
 	const handleConfirmDelete = () => {
 		if (clientToDelete) {
-			setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
+			setClients((prev: Cliente[]) => prev.filter((c: Cliente) => c.id !== clientToDelete.id));
 			setShowDeleteModal(false);
 			setClientToDelete(null);
 		}
@@ -392,7 +440,7 @@ function ClientesPage() {
 		}
 
 		// Verificar si ya existe otro cliente con el mismo documento
-		const existingClient = clients.find(client => 
+		const existingClient = clients.find((client: Cliente) => 
 			client.id !== editingClient.id &&
 			client.document.includes(formData.documentNumber) && 
 			formData.documentNumber.trim() !== ''
@@ -413,7 +461,7 @@ function ClientesPage() {
 			phone: formData.phone.trim() || 'Sin teléfono',
 		};
 
-		setClients(prev => prev.map(c => c.id === editingClient.id ? updatedClient : c));
+		setClients((prev: Cliente[]) => prev.map((c: Cliente) => c.id === editingClient.id ? updatedClient : c));
 		
 		resetForm();
 		setShowClientModal(false);

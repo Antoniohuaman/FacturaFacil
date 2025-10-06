@@ -6,6 +6,40 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 // Mock data
 const mockProducts: Product[] = [
   {
+    id: 'prod-varios',
+    codigo: 'PVARIOS',
+    nombre: 'PRODUCTO VARIOS',
+    descripcion: 'Producto genérico para ventas rápidas',
+    unidad: 'UNIDAD',
+    precio: 0.00,
+    cantidad: 0,
+    categoria: 'VARIOS',
+    impuesto: 'IGV (18.00%)',
+    establecimientoIds: [],
+    disponibleEnTodos: true,
+    stockPorEstablecimiento: {},
+    tipoExistencia: 'MERCADERIAS',
+    fechaCreacion: new Date('2024-01-01'),
+    fechaActualizacion: new Date('2024-01-01')
+  },
+  {
+    id: 'serv-varios',
+    codigo: 'SVARIOS',
+    nombre: 'SERVICIO VARIOS',
+    descripcion: 'Servicio genérico para ventas rápidas',
+    unidad: 'UNIDAD',
+    precio: 0.00,
+    cantidad: 0,
+    categoria: 'SERVICIOS',
+    impuesto: 'IGV (18.00%)',
+    establecimientoIds: [],
+    disponibleEnTodos: true,
+    stockPorEstablecimiento: {},
+    tipoExistencia: 'SERVICIOS',
+    fechaCreacion: new Date('2024-01-01'),
+    fechaActualizacion: new Date('2024-01-01')
+  },
+  {
     id: '1',
     codigo: 'JU-966699',
     nombre: 'PAGO FINAL CONSTRUCCION LOSA',
@@ -147,6 +181,61 @@ export const useProductStore = () => {
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>(() =>
     loadFromLocalStorage('catalog_movimientos', [])
   );
+
+  // Asegurar que los productos genéricos siempre existan
+  useEffect(() => {
+    const hasProductoVarios = products.some(p => p.id === 'prod-varios' || p.codigo === 'PVARIOS');
+    const hasServicioVarios = products.some(p => p.id === 'serv-varios' || p.codigo === 'SVARIOS');
+    
+    if (!hasProductoVarios || !hasServicioVarios) {
+      const productosGenericos: Product[] = [];
+      
+      if (!hasProductoVarios) {
+        productosGenericos.push({
+          id: 'prod-varios',
+          codigo: 'PVARIOS',
+          nombre: 'PRODUCTO VARIOS',
+          descripcion: 'Producto genérico para ventas rápidas',
+          unidad: 'UNIDAD',
+          precio: 0.00,
+          cantidad: 0,
+          categoria: 'VARIOS',
+          impuesto: 'IGV (18.00%)',
+          establecimientoIds: [],
+          disponibleEnTodos: true,
+          stockPorEstablecimiento: {},
+          tipoExistencia: 'MERCADERIAS',
+          fechaCreacion: new Date('2024-01-01'),
+          fechaActualizacion: new Date('2024-01-01')
+        });
+      }
+      
+      if (!hasServicioVarios) {
+        productosGenericos.push({
+          id: 'serv-varios',
+          codigo: 'SVARIOS',
+          nombre: 'SERVICIO VARIOS',
+          descripcion: 'Servicio genérico para ventas rápidas',
+          unidad: 'UNIDAD',
+          precio: 0.00,
+          cantidad: 0,
+          categoria: 'SERVICIOS',
+          impuesto: 'IGV (18.00%)',
+          establecimientoIds: [],
+          disponibleEnTodos: true,
+          stockPorEstablecimiento: {},
+          tipoExistencia: 'SERVICIOS',
+          fechaCreacion: new Date('2024-01-01'),
+          fechaActualizacion: new Date('2024-01-01')
+        });
+      }
+      
+      if (productosGenericos.length > 0) {
+        setProducts(prev => [...productosGenericos, ...prev]);
+        console.log('✅ Productos genéricos agregados automáticamente');
+      }
+    }
+  }, []); // Solo se ejecuta una vez al montar el componente
 
   // Persistir productos en localStorage
   useEffect(() => {

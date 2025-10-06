@@ -22,6 +22,7 @@ import type { Establishment } from '../models/Establishment';
 import type { Series } from '../models/Series';
 import type { Currency } from '../models/Currency';
 import type { Tax } from '../models/Tax';
+import type { PaymentMethod } from '../models/PaymentMethod';
 
 interface CompanyFormData {
   ruc: string;
@@ -502,6 +503,91 @@ export function CompanyConfiguration() {
             },
           ];
           dispatch({ type: 'SET_TAXES', payload: defaultTaxes });
+        }
+
+        // 5. CREAR FORMAS DE PAGO PREDETERMINADAS (Contado + Crédito)
+        // Verificar si ya existen payment methods para evitar duplicados
+        const existingPaymentMethods = state.paymentMethods || [];
+        if (existingPaymentMethods.length === 0) {
+          const defaultPaymentMethods: PaymentMethod[] = [
+            {
+              id: 'pm-contado',
+              code: 'CONTADO',
+              name: 'Contado',
+              type: 'CASH',
+              sunatCode: '001',
+              sunatDescription: 'Pago al contado',
+              configuration: {
+                requiresReference: false,
+                allowsPartialPayments: false,
+                requiresValidation: false,
+                hasCommission: false,
+                requiresCustomerData: false,
+                allowsCashBack: true,
+                requiresSignature: false,
+              },
+              financial: {
+                affectsCashFlow: true,
+                settlementPeriod: 'IMMEDIATE',
+              },
+              display: {
+                icon: 'Banknote',
+                color: '#10B981',
+                displayOrder: 1,
+                isVisible: true,
+                showInPos: true,
+                showInInvoicing: true,
+              },
+              validation: {
+                documentTypes: [],
+                customerTypes: ['INDIVIDUAL', 'BUSINESS'],
+                allowedCurrencies: ['PEN', 'USD'],
+              },
+              isDefault: true,
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: 'pm-credito',
+              code: 'CREDITO',
+              name: 'Crédito',
+              type: 'CREDIT',
+              sunatCode: '002',
+              sunatDescription: 'Pago al crédito',
+              configuration: {
+                requiresReference: true,
+                allowsPartialPayments: true,
+                requiresValidation: true,
+                hasCommission: false,
+                requiresCustomerData: true,
+                allowsCashBack: false,
+                requiresSignature: true,
+              },
+              financial: {
+                affectsCashFlow: false,
+                settlementPeriod: 'MONTHLY',
+              },
+              display: {
+                icon: 'CreditCard',
+                color: '#F59E0B',
+                displayOrder: 2,
+                isVisible: true,
+                showInPos: true,
+                showInInvoicing: true,
+              },
+              validation: {
+                documentTypes: ['01'],
+                customerTypes: ['BUSINESS'],
+                allowedCurrencies: ['PEN', 'USD'],
+              },
+              isDefault: false,
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ];
+          dispatch({ type: 'SET_PAYMENT_METHODS', payload: defaultPaymentMethods });
         }
       }
 
