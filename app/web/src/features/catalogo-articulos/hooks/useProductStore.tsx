@@ -3,7 +3,10 @@ import type { Product, Category, Package, FilterOptions, PaginationConfig, Movim
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 
-// Mock data
+// ===================================================================
+// DATOS INICIALES - SOLO PRODUCTOS GENÉRICOS
+// Los usuarios crearán sus propios productos desde el catálogo
+// ===================================================================
 const mockProducts: Product[] = [
   {
     id: 'prod-varios',
@@ -19,8 +22,8 @@ const mockProducts: Product[] = [
     disponibleEnTodos: true,
     stockPorEstablecimiento: {},
     tipoExistencia: 'MERCADERIAS',
-    fechaCreacion: new Date('2024-01-01'),
-    fechaActualizacion: new Date('2024-01-01')
+    fechaCreacion: new Date(),
+    fechaActualizacion: new Date()
   },
   {
     id: 'serv-varios',
@@ -36,88 +39,14 @@ const mockProducts: Product[] = [
     disponibleEnTodos: true,
     stockPorEstablecimiento: {},
     tipoExistencia: 'SERVICIOS',
-    fechaCreacion: new Date('2024-01-01'),
-    fechaActualizacion: new Date('2024-01-01')
-  },
-  {
-    id: '1',
-    codigo: 'JU-966699',
-    nombre: 'PAGO FINAL CONSTRUCCION LOSA',
-    unidad: 'DOCENA',
-    precio: 3000.00,
-    cantidad: 0,
-    categoria: 'HERRAMIENTAS',
-    impuesto: 'IGV (18.00%)',
-    establecimientoIds: [],
-    disponibleEnTodos: true,
-    fechaCreacion: new Date('2024-01-15'),
-    fechaActualizacion: new Date('2024-01-15')
-  },
-  {
-    id: '2',
-    codigo: 'D0111',
-    nombre: 'CEMENTO SOL 50KG',
-    unidad: 'UNIDAD',
-    precio: 200.00,
-    cantidad: 50,
-    categoria: 'HERRAMIENTAS',
-    impuesto: 'IGV (18.00%)',
-    establecimientoIds: [],
-    disponibleEnTodos: true,
-    fechaCreacion: new Date('2024-01-14'),
-    fechaActualizacion: new Date('2024-01-14')
-  },
-  {
-    id: '3',
-    codigo: 'Y89659644855',
-    nombre: 'ROPERO PARA NIÑOS',
-    unidad: 'DOCENA',
-    precio: 100.00,
-    cantidad: 30,
-    categoria: 'HERRAMIENTAS',
-    impuesto: 'IGV (18.00%)',
-    establecimientoIds: [],
-    disponibleEnTodos: true,
-    fechaCreacion: new Date('2024-01-13'),
-    fechaActualizacion: new Date('2024-01-13')
-  },
-  {
-    id: '4',
-    codigo: 'PL-6657567',
-    nombre: 'PARLANTE BLUETOOTH',
-    unidad: 'DOCENA',
-    precio: 100.00,
-    cantidad: 0,
-    categoria: 'Alimentos y Bebidas',
-    impuesto: 'IGV (18.00%)',
-    establecimientoIds: [],
-    disponibleEnTodos: true,
-    fechaCreacion: new Date('2024-01-12'),
-    fechaActualizacion: new Date('2024-01-12')
-  },
-  {
-    id: '5',
-    codigo: '092512',
-    nombre: 'Polo manga corta',
-    unidad: 'UNIDAD',
-    precio: 10000.00,
-    cantidad: 0,
-    categoria: 'Accesorios',
-    impuesto: 'IGV (18.00%)',
-    establecimientoIds: [],
-    disponibleEnTodos: true,
-    fechaCreacion: new Date('2024-01-11'),
-    fechaActualizacion: new Date('2024-01-11')
+    fechaCreacion: new Date(),
+    fechaActualizacion: new Date()
   }
 ];
 
 const mockCategories: Category[] = [
-  { id: '1', nombre: 'HERRAMIENTAS', productCount: 3, fechaCreacion: new Date('2024-01-01') },
-  { id: '2', nombre: 'Alimentos y Bebidas', productCount: 1, fechaCreacion: new Date('2024-01-01') },
-  { id: '3', nombre: 'Accesorios', productCount: 1, fechaCreacion: new Date('2024-01-01') },
-  { id: '4', nombre: 'CERRAJERIA', productCount: 0, fechaCreacion: new Date('2024-01-01') },
-  { id: '5', nombre: 'CONTRUCCION', productCount: 0, fechaCreacion: new Date('2024-01-01') },
-  { id: '6', nombre: 'SOFTWARE', productCount: 0, fechaCreacion: new Date('2024-01-01') }
+  { id: '1', nombre: 'VARIOS', productCount: 1, fechaCreacion: new Date() },
+  { id: '2', nombre: 'SERVICIOS', productCount: 1, fechaCreacion: new Date() }
 ];
 
 // Helpers para localStorage con manejo de fechas
