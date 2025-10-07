@@ -1,6 +1,6 @@
 
 import { NavLink } from "react-router-dom";
-import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3 } from "lucide-react";
+import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings } from "lucide-react";
 import CompanySelector from "../../components/CompanySelector";
 
 interface SideNavProps {
@@ -46,6 +46,16 @@ const mainItems = [
     label: "Indicadores", 
     description: "Analytics y KPIs",
     icon: BarChart3
+  },
+];
+
+// Módulos secundarios/administrativos (aparecen al final del sidebar)
+const secondaryItems = [
+  { 
+    to: "/configuracion", 
+    label: "Configuración", 
+    description: "Ajustes del sistema",
+    icon: Settings
   },
 ];
 
@@ -165,6 +175,55 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
             )}
           </NavLink>
         ))}
+        </div>
+
+        {/* Separador y módulos secundarios al final */}
+        <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="space-y-1">
+            {secondaryItems.map(item => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={() =>
+                  `flex items-center rounded-lg transition-all group relative ${
+                    collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-1'
+                  }`
+                }
+                title={collapsed ? `${item.label}` : undefined}
+              >
+                {({ isActive }) => (
+                  <>
+                    <div
+                      className={`w-full flex items-center rounded-lg transition-colors duration-150 ${
+                        collapsed ? 'justify-center p-3' : 'px-4 py-2.5'
+                      } ${
+                        isActive
+                          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-700/50'
+                          : 'text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700/70 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                      style={{
+                        minHeight: '40px'
+                      }}
+                    >
+                      <span className={`flex items-center justify-center flex-shrink-0 w-5 h-5 transition-colors duration-150`}>
+                        <item.icon size={20} />
+                      </span>
+                      
+                      {!collapsed && (
+                        <span className="ml-3 text-sm font-medium transition-colors duration-200">{item.label}</span>
+                      )}
+                    </div>
+                    
+                    {collapsed && (
+                      <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-[60]">
+                        {item.label}
+                      </div>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
         </div>
       </nav>
     </aside>
