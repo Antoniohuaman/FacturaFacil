@@ -141,10 +141,17 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const validateForm = (): boolean => {
   const newErrors: FormError = {};
 
+    // 1. Tipo de producto (obligatorio)
+    if (!formData.tipoExistencia || formData.tipoExistencia.trim() === '') {
+      newErrors.tipoExistencia = 'El tipo de producto es requerido';
+    }
+
+    // 2. Nombre (obligatorio)
     if (!formData.nombre.trim()) {
       newErrors.nombre = 'El nombre es requerido';
     }
 
+    // 3. Código (obligatorio + validar duplicados)
     if (!formData.codigo.trim()) {
       newErrors.codigo = 'El código es requerido';
     } else {
@@ -158,19 +165,27 @@ const ProductModal: React.FC<ProductModalProps> = ({
       }
     }
 
-    // Validar precio no negativo
+    // 4. Impuesto (obligatorio)
+    if (!formData.impuesto || formData.impuesto.trim() === '') {
+      newErrors.impuesto = 'El impuesto es requerido';
+    }
+
+    // 5. Unidad de medida (obligatorio)
+    if (!formData.unidad || formData.unidad.trim() === '') {
+      newErrors.unidad = 'La unidad de medida es requerida';
+    }
+
+    // 6. Establecimiento (obligatorio - al menos uno o todos)
+    if (!formData.disponibleEnTodos && formData.establecimientoIds.length === 0) {
+      newErrors.establecimientoIds = 'Debes asignar al menos un establecimiento o marcar "Disponible en todos"';
+    }
+
+    // Validación adicional: precio no negativo
     if (formData.precio < 0) {
       newErrors.precio = 'El precio no puede ser negativo';
     }
 
-    if (!formData.categoria) {
-      newErrors.categoria = 'La categoría es requerida';
-    }
-
-    // Validar asignación de establecimientos
-    if (!formData.disponibleEnTodos && formData.establecimientoIds.length === 0) {
-      newErrors.establecimientoIds = 'Debes asignar al menos un establecimiento o marcar "Disponible en todos"';
-    }
+    // NOTA: Categoría es OPCIONAL (se removió la validación)
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
