@@ -88,7 +88,6 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
             <p><span className="font-medium">F. Emisión:</span> {issueDate}</p>
             <p><span className="font-medium">Moneda:</span> {currency === 'USD' ? 'Dólares Americanos' : 'Soles'}</p>
             <p><span className="font-medium">Forma de Pago:</span> {paymentMethod}</p>
-            <p><span className="font-medium">Vendedor:</span> Javier Masías Loza - 001</p>
           </div>
         </div>
       </div>

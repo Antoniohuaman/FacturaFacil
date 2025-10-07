@@ -53,10 +53,8 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         </div>
         
         <h1 className="font-bold text-sm mb-1">{companyData.name}</h1>
-        <p className="text-xs leading-tight mb-1">CARTIER AG</p>
         <p className="text-xs mb-1">RUC: {companyData.ruc}</p>
         <p className="text-xs leading-tight mb-2">{truncateText(companyData.address, 35)}</p>
-        <p className="text-xs">Tienda: SJM</p>
         <p className="text-xs mb-2">Telf: {companyData.phone}</p>
         <p className="text-xs">E-mail: {companyData.email}</p>
       </div>
@@ -68,9 +66,8 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
           <p className="font-bold text-lg">{series}-</p>
         </div>
         <p className="text-xs">Fecha: {currentDateTime}</p>
-        <p className="text-xs">Vendedor: Betzabe</p>
         <p className="text-xs">Cliente: {truncateText(clientData.nombre, 25)}</p>
-        <p className="text-xs">RUC: {clientData.documento}</p>
+        <p className="text-xs">{clientData.tipoDocumento.toUpperCase()}: {clientData.documento}</p>
         <p className="text-xs">Dirección: {clientData.direccion || 'No especificada'}</p>
         <p className="text-xs">Forma de pago: {paymentMethod}</p>
       </div>
@@ -84,38 +81,22 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         </div>
         
         {cartItems.map((item) => (
-          <div key={item.id} className="mb-3">
+          <div key={item.id} className="mb-2">
             <div className="grid grid-cols-3 gap-1 text-xs">
               <span>{item.quantity}</span>
               <span>{truncateText(item.name, 15)}</span>
-              <span className="text-right">{item.price.toFixed(2)}</span>
+              <span className="text-right">{currencySymbol} {item.price.toFixed(2)}</span>
             </div>
-            <div className="text-xs text-gray-600">
-              {item.code && <span>Código: {item.code}</span>}
-            </div>
-            <div className="text-xs">
-              <span>MGTGUJFO  1 UNIDAD  {item.price.toFixed(2)}  {(item.price * item.quantity).toFixed(2)}</span>
-            </div>
-            <div className="text-xs">
-              <span>Tubo ornamental 6 pulgadas</span>
-            </div>
-            <div className="text-xs">
-              <span>Bomba Hidraulica</span>
+            {item.code && (
+              <div className="text-xs text-gray-600">
+                <span>Código: {item.code}</span>
+              </div>
+            )}
+            <div className="text-xs text-right">
+              <span>Subtotal: {currencySymbol} {(item.price * item.quantity).toFixed(2)}</span>
             </div>
           </div>
         ))}
-
-        {/* Add some example items like in the reference */}
-        <div className="mb-3">
-          <div className="grid grid-cols-3 gap-1 text-xs">
-            <span>1</span>
-            <span>ZLLEYKKP</span>
-            <span className="text-right">5.50</span>
-          </div>
-          <div className="text-xs">
-            <span>panteon 100ml restaurador</span>
-          </div>
-        </div>
       </div>
 
       {/* Totals */}
@@ -140,16 +121,17 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         </div>
       </div>
 
-      {/* Payment method */}
+      {/* Total en letras */}
       <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
-        <p className="text-xs font-bold">SON: CIENTO SETENTA Y 50/100 SOLES</p>
+        <p className="text-xs font-bold">
+          SON: {totals.total.toFixed(2).replace('.', ' Y ')}/100 {currency === 'USD' ? 'DÓLARES' : 'SOLES'}
+        </p>
       </div>
 
       {/* Footer info */}
       <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
-        <p className="text-xs mb-2">PAGO EFECTIVO</p>
         <p className="text-xs leading-tight mb-2">
-          Representación impresa de la FACTURA electrónica
+          Representación impresa de la {documentTitle.toLowerCase()}
         </p>
       </div>
 

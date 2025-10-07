@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import type { 
   CartItem, 
   TipoComprobante, 
@@ -13,26 +14,43 @@ import type {
 export const usePreview = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [format, setFormat] = useState<PreviewFormat>('a4');
+  const { state } = useConfigurationContext();
 
-  // Mock company data - en producción vendría de tu configuración
-  const mockCompanyData: CompanyData = {
-    name: "EMPRENDEDOR FACIL S.A.C.",
-    businessName: "EMPRENDEDOR FACIL S.A.C.",
-    ruc: "20522022186",
-    address: "CAL. MARIO JOSE DE LA MIZO 129 INT. 1302 COM. SAN MIGUEL DE MIRAFLORES LIMA LIMA MIRAFLORES",
-    phone: "987654321",
-    email: "test@cartier.com"
+  // Obtener datos reales de la empresa desde configuración
+  const getCompanyData = (): CompanyData => {
+    if (state.company) {
+      return {
+        name: state.company.tradeName || state.company.businessName,
+        businessName: state.company.businessName,
+        ruc: state.company.ruc,
+        address: state.company.address,
+        phone: state.company.phones?.[0] || '',
+        email: state.company.emails?.[0] || ''
+      };
+    }
+    
+    // Fallback si no hay empresa configurada
+    return {
+      name: "Empresa no configurada",
+      businessName: "Empresa no configurada",
+      ruc: "00000000000",
+      address: "Dirección no configurada",
+      phone: "",
+      email: ""
+    };
   };
 
-  // Mock client data - en producción vendría del formulario
-  const mockClientData: ClientData = {
-    nombre: "FLORES CANALES CARMEN ROSA",
-    documento: "09661829",
-    tipoDocumento: "dni",
-    direccion: "Dirección no definida"
+  // Cliente por defecto cuando no se ha especificado
+  const getDefaultClientData = (): ClientData => {
+    return {
+      nombre: "Cliente General",
+      documento: "00000000",
+      tipoDocumento: "dni",
+      direccion: "Dirección no especificada"
+    };
   };
 
-  // Función para generar datos mock de vista previa
+  // Función para generar datos de vista previa con datos reales
   const generatePreviewData = (
     cartItems: CartItem[],
     documentType: TipoComprobante,
@@ -41,7 +59,8 @@ export const usePreview = () => {
     paymentMethod: string = "CONTADO",
     currency: Currency = "PEN",
     observations?: string,
-    internalNotes?: string
+    internalNotes?: string,
+    clientData?: ClientData
   ): PreviewData => {
     // En vista previa no asignamos correlativo, solo mostramos la serie
     const mockNumber = null; // No correlativo en preview
@@ -55,8 +74,8 @@ export const usePreview = () => {
     });
 
     return {
-      companyData: mockCompanyData,
-      clientData: mockClientData,
+      companyData: getCompanyData(),
+      clientData: clientData || getDefaultClientData(),
       documentType,
       series,
       number: mockNumber,
@@ -145,7 +164,7 @@ export const usePreview = () => {
     calculateDetailedTotals,
     numberToText,
     generateQRUrl,
-    mockCompanyData,
-    mockClientData
+    getCompanyData,
+    getDefaultClientData
   };
 };
