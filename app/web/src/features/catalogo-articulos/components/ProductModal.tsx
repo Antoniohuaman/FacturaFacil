@@ -238,30 +238,73 @@ const ProductModal: React.FC<ProductModalProps> = ({
             </button>
           </div>
 
-          {/* Toggle: Trabaja con Stock */}
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className={`
-                  relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 cursor-pointer
-                  ${trabajaConStock ? 'bg-green-500' : 'bg-gray-300'}
-                `}
-                onClick={() => {
-                  const nuevoEstado = !trabajaConStock;
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+            
+            {/* ✅ NUEVO: Selección BIEN o SERVICIO - Primera decisión del usuario */}
+            <div className="border-2 border-blue-200 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 p-5">
+              <div className="mb-3">
+                <label className="block text-sm font-semibold text-gray-900 mb-1">
+                  Tipo de producto <span className="text-red-500">*</span>
+                </label>
+                <p className="text-xs text-gray-600 mb-3">
+                  Define si estás registrando un bien físico que requiere inventario o un servicio
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Opción: BIEN */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, tipoExistencia: 'MERCADERIAS' }));
+                    setTrabajaConStock(true);
+                  }}
+                  className={`
+                    relative flex flex-col items-center p-4 rounded-lg border-2 transition-all
+                    ${formData.tipoExistencia !== 'SERVICIOS'
+                      ? 'bg-blue-600 border-blue-600 text-white shadow-lg transform scale-105'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:bg-blue-50'
+                    }
+                  `}
+                >
+                  {/* Icono de Bien/Producto */}
+                  <div className={`
+                    w-12 h-12 rounded-full flex items-center justify-center mb-2
+                    ${formData.tipoExistencia !== 'SERVICIOS' ? 'bg-white/20' : 'bg-blue-100'}
+                  `}>
+                    <svg 
+                      className={`w-7 h-7 ${formData.tipoExistencia !== 'SERVICIOS' ? 'text-white' : 'text-blue-600'}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-bold mb-1">BIEN</span>
+                  <span className="text-xs text-center opacity-90">
+                    Producto físico con inventario
+                  </span>
                   
-                  // ✅ Sincronizar toggle con tipoExistencia
-                  if (nuevoEstado) {
-                    // Activar stock → cambiar a MERCADERIAS
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      tipoExistencia: 'MERCADERIAS'
-                    }));
-                  } else {
-                    // Desactivar stock → cambiar a SERVICIOS
-                    // Preguntar si hay cantidad ingresada
+                  {/* Checkmark cuando está seleccionado */}
+                  {formData.tipoExistencia !== 'SERVICIOS' && (
+                    <div className="absolute top-2 right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+
+                {/* Opción: SERVICIO */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Validar si hay cantidad antes de cambiar a servicio
                     if (formData.cantidad > 0) {
-                      if (!confirm('⚠️ Al desactivar el stock se perderá la cantidad ingresada.\n\n¿Deseas continuar?')) {
-                        return; // Cancelar cambio
+                      if (!confirm('⚠️ Los servicios no requieren inventario.\nSe perderá la cantidad ingresada. ¿Continuar?')) {
+                        return;
                       }
                     }
                     setFormData(prev => ({ 
@@ -269,54 +312,79 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       tipoExistencia: 'SERVICIOS',
                       cantidad: 0 
                     }));
-                  }
-                  
-                  setTrabajaConStock(nuevoEstado);
-                }}
-                >
-                  <span className={`
-                    inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-                    ${trabajaConStock ? 'translate-x-6' : 'translate-x-1'}
-                  `}
-                  />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {trabajaConStock ? 'Trabaja con stock' : 'No trabaja con stock'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {trabajaConStock 
-                      ? 'Se controlará el inventario de este producto'
-                      : 'Este producto no requiere control de inventario (ideal para servicios)'
+                    setTrabajaConStock(false);
+                  }}
+                  className={`
+                    relative flex flex-col items-center p-4 rounded-lg border-2 transition-all
+                    ${formData.tipoExistencia === 'SERVICIOS'
+                      ? 'bg-purple-600 border-purple-600 text-white shadow-lg transform scale-105'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-purple-400 hover:bg-purple-50'
                     }
-                  </p>
-                </div>
+                  `}
+                >
+                  {/* Icono de Servicio */}
+                  <div className={`
+                    w-12 h-12 rounded-full flex items-center justify-center mb-2
+                    ${formData.tipoExistencia === 'SERVICIOS' ? 'bg-white/20' : 'bg-purple-100'}
+                  `}>
+                    <svg 
+                      className={`w-7 h-7 ${formData.tipoExistencia === 'SERVICIOS' ? 'text-white' : 'text-purple-600'}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-bold mb-1">SERVICIO</span>
+                  <span className="text-xs text-center opacity-90">
+                    Sin control de inventario
+                  </span>
+                  
+                  {/* Checkmark cuando está seleccionado */}
+                  {formData.tipoExistencia === 'SERVICIOS' && (
+                    <div className="absolute top-2 right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
               </div>
+
+              {/* Mensaje informativo según selección */}
               <div className={`
-                flex items-center space-x-1 text-sm font-medium
-                ${trabajaConStock ? 'text-green-600' : 'text-gray-500'}
+                mt-3 p-3 rounded-lg border-2 text-sm
+                ${formData.tipoExistencia === 'SERVICIOS'
+                  ? 'bg-purple-50 border-purple-200 text-purple-800'
+                  : 'bg-blue-50 border-blue-200 text-blue-800'
+                }
               `}>
-                {trabajaConStock ? (
-                  <>
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span>Activado</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    <span>Desactivado</span>
-                  </>
-                )}
+                <div className="flex items-start space-x-2">
+                  <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    {formData.tipoExistencia === 'SERVICIOS' ? (
+                      <>
+                        <p className="font-semibold">Servicio seleccionado</p>
+                        <p className="text-xs mt-1 opacity-90">
+                          No se requerirá cantidad en inventario. Ideal para: consultoría, mantenimiento, instalaciones, etc.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-semibold">Bien/Producto seleccionado</p>
+                        <p className="text-xs mt-1 opacity-90">
+                          Podrás registrar cantidad en inventario y el sistema controlará automáticamente el stock.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
             {/* Nombre */}
             <div>
               <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1">
