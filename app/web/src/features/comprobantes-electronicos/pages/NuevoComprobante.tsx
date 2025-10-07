@@ -1,4 +1,7 @@
 import { AVAILABLE_PRODUCTS } from '../models/constants';
+import { useState } from 'react';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
 
 // Importar hooks customizados optimizados
 import { useCart } from '../hooks/useCart';
@@ -28,6 +31,8 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import ActionButtonsSection from '../components/ActionButtonsSection';
 
 const NuevoComprobante = () => {
+  const { state, dispatch } = useConfigurationContext();
+  
   // Use custom hooks optimizados
   const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
@@ -65,6 +70,19 @@ const NuevoComprobante = () => {
 
   // Calculate totals
   const totals = calculateTotals(cartItems);
+  
+  // Estado para el modal de nueva forma de pago
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+
+  // Handler para abrir modal de nueva forma de pago
+  const handleNuevaFormaPago = () => {
+    setShowPaymentMethodModal(true);
+  };
+
+  // Handler para actualizar payment methods
+  const handleUpdatePaymentMethods = async (updatedMethods: any[]) => {
+    dispatch({ type: 'SET_PAYMENT_METHODS', payload: updatedMethods });
+  };
 
   // Handlers mejorados con validación y feedback
   const handleVistaPrevia = () => {
@@ -227,6 +245,7 @@ const NuevoComprobante = () => {
               setMoneda={(value: string) => changeCurrency(value as any)}
               formaPago={formaPago}
               setFormaPago={setFormaPago}
+              onNuevaFormaPago={handleNuevaFormaPago}
             />
           </>
         )}
@@ -295,6 +314,14 @@ const NuevoComprobante = () => {
         observations={observaciones}
         internalNotes={notaInterna}
         onCreateDocument={handleCrearComprobante}
+      />
+
+      {/* Modal para crear nueva forma de pago */}
+      <PaymentMethodFormModal
+        isOpen={showPaymentMethodModal}
+        onClose={() => setShowPaymentMethodModal(false)}
+        paymentMethods={state.paymentMethods}
+        onUpdate={handleUpdatePaymentMethods}
       />
       </div>
     </ErrorBoundary>

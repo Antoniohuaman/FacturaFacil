@@ -101,6 +101,10 @@ export function PaymentMethodsSection({
           updatedAt: new Date()
         };
         updatedMethods = [...paymentMethods, newMethod];
+        
+        // Guardar el ID de la nueva forma de pago en sessionStorage
+        // para que se autoseleccione al regresar al formulario de emisión
+        sessionStorage.setItem('lastCreatedPaymentMethod', newMethod.id);
       }
 
       await onUpdate(updatedMethods);

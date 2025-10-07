@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Plus, Edit } from 'lucide-react';
 import type { TipoComprobante } from '../models/comprobante.types';
 import ClienteForm from '../../gestion-clientes/components/ClienteForm';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
 interface ClienteTradicional {
   id: number;
@@ -51,6 +52,10 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
   clienteSeleccionado,
   onNuevaFormaPago,
 }) => {
+  // Obtener formas de pago desde ConfigurationContext
+  const { state } = useConfigurationContext();
+  const { paymentMethods } = state;
+  
   // Estado para gestión de clientes
   const [showClienteForm, setShowClienteForm] = useState(false);
   const [clienteSeleccionadoLocal, setClienteSeleccionadoLocal] = useState<{
@@ -362,13 +367,18 @@ const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
             value={formaPago}
             onChange={e => setFormaPago?.(e.target.value)}
           >
-            <option value="contado">Contado</option>
-            <option value="deposito">Depósito en cuenta</option>
-            <option value="efectivo">Efectivo</option>
-            <option value="plin">Plin</option>
-            <option value="tarjeta">Tarjeta</option>
-            <option value="transferencia">Transferencia</option>
-            <option value="yape">Yape</option>
+            {paymentMethods.length > 0 ? (
+              paymentMethods
+                .filter(pm => pm.isActive) // Solo métodos activos
+                .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999)) // Ordenar por displayOrder
+                .map(pm => (
+                  <option key={pm.id} value={pm.id}>
+                    {pm.name}
+                  </option>
+                ))
+            ) : (
+              <option value="contado">Contado (por defecto)</option>
+            )}
           </select>
           <button
             type="button"

@@ -30,9 +30,12 @@ import { SuccessModal } from '../components/SuccessModal';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, LayoutList } from 'lucide-react';
 import { useState } from 'react';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
+  const { state, dispatch } = useConfigurationContext();
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
@@ -67,9 +70,22 @@ const EmisionTradicional = () => {
   // Estado para el modal de éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
+  
+  // Estado para el modal de nueva forma de pago
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
   // Calculate totals (SIN CAMBIOS)
   const totals = calculateTotals(cartItems);
+
+  // Handler para abrir modal de nueva forma de pago
+  const handleNuevaFormaPago = () => {
+    setShowPaymentMethodModal(true);
+  };
+
+  // Handler para actualizar payment methods
+  const handleUpdatePaymentMethods = async (updatedMethods: any[]) => {
+    dispatch({ type: 'SET_PAYMENT_METHODS', payload: updatedMethods });
+  };
 
   // Handlers (SIN CAMBIOS - exactamente igual que antes)
   const handleVistaPrevia = () => {
@@ -260,6 +276,7 @@ const EmisionTradicional = () => {
             setMoneda={(value: string) => changeCurrency(value as any)}
             formaPago={formaPago}
             setFormaPago={setFormaPago}
+            onNuevaFormaPago={handleNuevaFormaPago}
           />
         </div>
 
@@ -329,6 +346,14 @@ const EmisionTradicional = () => {
             onNewSale={handleNewSale}
           />
         )}
+
+        {/* Modal para crear nueva forma de pago */}
+        <PaymentMethodFormModal
+          isOpen={showPaymentMethodModal}
+          onClose={() => setShowPaymentMethodModal(false)}
+          paymentMethods={state.paymentMethods}
+          onUpdate={handleUpdatePaymentMethods}
+        />
       </div>
     </ErrorBoundary>
   );
