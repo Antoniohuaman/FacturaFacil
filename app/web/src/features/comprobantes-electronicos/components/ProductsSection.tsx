@@ -30,6 +30,7 @@ interface ProductsSectionProps {
   tipoComprobante: TipoComprobante;
   serieSeleccionada: string;
   clearCart: () => void;
+  refreshKey?: number; // ✅ NUEVO: Para forzar refresh del ProductSelector
 }
 
 const ProductsSection: React.FC<ProductsSectionProps> = ({
@@ -50,6 +51,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   tipoComprobante,
   serieSeleccionada,
   clearCart,
+  refreshKey = 0, // ✅ Valor por defecto
 }) => {
   // Función temporal para generar precios múltiples (será reemplazado por módulo de precios)
   const getAvailablePrices = (basePrice: number) => [
@@ -85,7 +87,9 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       {/* Add Product Form - flujo ágil */}
       <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
         {/* Buscador y selección de productos */}
+        {/* ✅ Key cambia con refreshKey para remontar y refrescar datos del catálogo */}
         <ProductSelector
+          key={`selector-${refreshKey}`}
           onAddProducts={addProductsFromSelector}
           existingProducts={cartItems.map(item => String(item.id))}
         />

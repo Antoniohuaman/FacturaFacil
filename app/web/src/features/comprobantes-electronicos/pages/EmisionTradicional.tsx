@@ -37,6 +37,9 @@ const EmisionTradicional = () => {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
 
+  // ✅ Estado para forzar refresh del ProductSelector
+  const [productSelectorKey, setProductSelectorKey] = useState(0);
+
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
@@ -147,6 +150,7 @@ const EmisionTradicional = () => {
     clearCart();
     resetForm();
     setShowSuccessModal(false);
+    setProductSelectorKey(prev => prev + 1); // ✅ Incrementar para remontar ProductSelector
   };
 
   return (
@@ -245,6 +249,7 @@ const EmisionTradicional = () => {
               tipoComprobante={tipoComprobante}
               serieSeleccionada={serieSeleccionada}
               clearCart={clearCart}
+              refreshKey={productSelectorKey} // ✅ Pasar el key para refresh
             />
 
             {/* Notes Section - Sin cambios */}

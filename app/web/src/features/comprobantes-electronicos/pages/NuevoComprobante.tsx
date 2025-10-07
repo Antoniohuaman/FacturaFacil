@@ -33,6 +33,9 @@ import ActionButtonsSection from '../components/ActionButtonsSection';
 const NuevoComprobante = () => {
   const { state, dispatch } = useConfigurationContext();
   
+  // ✅ Estado para forzar refresh del ProductSelector
+  const [productSelectorKey, setProductSelectorKey] = useState(0);
+  
   // Use custom hooks optimizados
   const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
@@ -116,6 +119,7 @@ const NuevoComprobante = () => {
         // Limpiar formulario y regresar
         clearCart();
         resetForm();
+        setProductSelectorKey(prev => prev + 1); // ✅ Incrementar para refresh
         setTimeout(() => goToComprobantes(), 1000);
       }
     } finally {
@@ -215,6 +219,7 @@ const NuevoComprobante = () => {
               tipoComprobante={tipoComprobante}
               serieSeleccionada={serieSeleccionada}
               clearCart={clearCart}
+              refreshKey={productSelectorKey} // ✅ Pasar el key para refresh
             />
               {/* Notes Section Component */}
               <NotesSection 
@@ -291,6 +296,7 @@ const NuevoComprobante = () => {
           setShowPaymentModal(false);
           clearCart();
           resetForm();
+          setProductSelectorKey(prev => prev + 1); // ✅ Incrementar para refresh
           goToComprobantes();
         }}
         onViewFullForm={() => {

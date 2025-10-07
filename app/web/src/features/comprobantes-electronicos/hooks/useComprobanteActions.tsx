@@ -3,6 +3,7 @@ import type { CartItem } from '../models/comprobante.types';
 import { useToast } from './useToast';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { MedioPago } from '../../control-caja/models/Caja';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -21,6 +22,7 @@ interface ComprobanteData {
 export const useComprobanteActions = () => {
   const toast = useToast();
   const { agregarMovimiento, status: cajaStatus } = useCaja();
+  const { addMovimiento: addMovimientoStock } = useProductStore();
 
   /**
    * Mapea las formas de pago de comprobantes a los medios de pago de caja
@@ -121,6 +123,35 @@ export const useComprobanteActions = () => {
         }
       }
 
+      // ✅ DESCONTAR STOCK DE LOS PRODUCTOS VENDIDOS
+      try {
+        for (const item of data.cartItems) {
+          // Solo descontar stock si el producto requiere control de stock
+          if (item.requiresStockControl) {
+            addMovimientoStock(
+              item.id,
+              'SALIDA',
+              'VENTA',
+              item.quantity,
+              `Venta en ${data.tipoComprobante} ${numeroComprobante}`,
+              numeroComprobante,
+              undefined, // ubicación
+              undefined, // establecimientoId
+              undefined, // establecimientoCodigo
+              undefined  // establecimientoNombre
+            );
+          }
+        }
+      } catch (stockError) {
+        console.error('Error descontando stock:', stockError);
+        // No lanzar error, el comprobante ya se creó
+        toast.warning(
+          'Stock no actualizado',
+          'El comprobante se creó pero no se pudo actualizar el stock automáticamente.',
+          { label: 'Entendido', onClick: () => {} }
+        );
+      }
+
       toast.success(
         '¡Comprobante creado!',
         `${data.tipoComprobante} ${numeroComprobante} generado exitosamente`,
@@ -154,7 +185,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago]);
+  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, addMovimientoStock]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

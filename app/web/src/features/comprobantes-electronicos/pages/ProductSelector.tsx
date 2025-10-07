@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 
@@ -8,6 +8,7 @@ interface Product {
   name: string;
   price: number;
   stock: number;
+  requiresStockControl?: boolean;
   category: string;
 }
 
@@ -35,15 +36,19 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Convertir productos del catálogo al formato esperado
-  const allProducts: Product[] = catalogProducts.map(p => ({
-    id: p.id,
-    code: p.codigo,
-    name: p.nombre,
-    price: p.precio,
-    stock: p.cantidad,
-    category: p.categoria || 'Sin categoría'
-  }));
+  // ✅ Convertir productos del catálogo al formato esperado CON useMemo
+  const allProducts: Product[] = useMemo(() => 
+    catalogProducts.map(p => ({
+      id: p.id,
+      code: p.codigo,
+      name: p.nombre,
+      price: p.precio,
+      stock: p.cantidad,
+      requiresStockControl: p.tipoExistencia !== 'SERVICIOS', // Servicios no requieren stock
+      category: p.categoria || 'Sin categoría'
+    })),
+    [catalogProducts] // ✅ Se actualiza cuando catalogProducts cambia
+  );
 
   // Intelligent search with prioritization
   const getFilteredProducts = useCallback(() => {
@@ -69,7 +74,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       
       return a.name.localeCompare(b.name);
     }).slice(0, 8); // Limit results for better performance
-  }, [searchTerm]);
+  }, [searchTerm, allProducts]); // ✅ Agregado allProducts como dependencia
 
   const filteredProducts = getFilteredProducts();
 
@@ -378,6 +383,18 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                             <span>{highlightMatch(product.code, searchTerm)}</span>
                             <span>•</span>
                             <span>{product.category}</span>
+                            {product.requiresStockControl && (
+                              <>
+                                <span>•</span>
+                                <span className={`font-medium ${
+                                  product.stock <= 0 ? 'text-red-600' : 
+                                  product.stock <= 10 ? 'text-yellow-600' : 
+                                  'text-green-600'
+                                }`}>
+                                  Stock: {product.stock}
+                                </span>
+                              </>
+                            )}
                             {isInCart && (
                               <>
                                 <span>•</span>

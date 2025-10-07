@@ -436,6 +436,21 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                     <p className="text-xs text-gray-500">
                       {product.code}
                     </p>
+
+                    {/* Badge de stock */}
+                    {product.requiresStockControl && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
+                          product.stock <= 0 
+                            ? 'bg-red-100 text-red-700' 
+                            : product.stock <= 10 
+                            ? 'bg-yellow-100 text-yellow-700' 
+                            : 'bg-green-100 text-green-700'
+                        }`}>
+                          {product.stock <= 0 ? '⚠️ Sin stock' : `📦 Stock: ${product.stock}`}
+                        </span>
+                      </div>
+                    )}
                     
                     {showCategory && product.category && (
                       <span className="inline-block text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md mt-1">

@@ -1,5 +1,5 @@
 // ===================================================================
-// HOOK PARA MANEJO DEL CARRITO DE COMPRAS
+// HOOK PARA MANEJO DEL CARRITO DE COMPRAS CON VALIDACIÓN DE STOCK
 // ===================================================================
 
 import { useState, useCallback, useMemo } from 'react';
@@ -28,8 +28,22 @@ export interface UseCartReturn {
 
 export const useCart = (): UseCartReturn => {
   // ===================================================================
-  // ESTADO DEL CARRITO
+  // CONFIGURACIÓN Y ESTADO
   // ===================================================================
+  // Obtener configuración de stock desde localStorage o usar valor por defecto
+  const allowNegativeStock = (() => {
+    try {
+      const config = localStorage.getItem('facturaFacilConfig');
+      if (config) {
+        const parsed = JSON.parse(config);
+        return parsed.sales?.allowNegativeStock ?? false;
+      }
+    } catch (e) {
+      console.error('Error reading stock configuration:', e);
+    }
+    return false; // Por defecto, stock estricto (no permite negativo)
+  })();
+  
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   // ===================================================================
@@ -37,10 +51,37 @@ export const useCart = (): UseCartReturn => {
   // ===================================================================
 
   /**
-   * Agregar producto al carrito (modo POS)
-   * Mantiene exactamente la misma lógica del archivo original
+   * Agregar producto al carrito con validación de stock
    */
   const addToCart = useCallback((product: Product, quantity: number = 1) => {
+    // ✅ VALIDACIÓN DE STOCK
+    if (product.requiresStockControl) {
+      const existing = cartItems.find(item => item.id === product.id);
+      const currentQuantityInCart = existing?.quantity || 0;
+      const totalQuantity = currentQuantityInCart + quantity;
+
+      // Si el control de stock es estricto (allowNegativeStock = false)
+      if (!allowNegativeStock) {
+        if (product.stock <= 0) {
+          alert(`⚠️ Sin stock disponible\n\nProducto: ${product.name}\nStock actual: ${product.stock}\n\nNo se puede agregar al carrito.`);
+          return;
+        }
+        
+        if (totalQuantity > product.stock) {
+          alert(`⚠️ Stock insuficiente\n\nProducto: ${product.name}\nStock disponible: ${product.stock}\nCantidad en carrito: ${currentQuantityInCart}\nIntentando agregar: ${quantity}\n\nSolo hay ${product.stock} unidades disponibles.`);
+          return;
+        }
+      }
+      
+      // Si permite stock negativo pero queremos advertir al usuario
+      if (allowNegativeStock && totalQuantity > product.stock) {
+        const confirmed = confirm(
+          `⚠️ Advertencia de stock\n\nProducto: ${product.name}\nStock disponible: ${product.stock}\nCantidad total en carrito: ${totalQuantity}\n\nEstás agregando más cantidad del stock disponible.\n¿Deseas continuar?`
+        );
+        if (!confirmed) return;
+      }
+    }
+
     setCartItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -61,7 +102,7 @@ export const useCart = (): UseCartReturn => {
         basePrice: product.price // Guardar precio base original
       }];
     });
-  }, []);
+  }, [cartItems, allowNegativeStock]);
 
   /**
    * Remover producto del carrito
@@ -72,21 +113,30 @@ export const useCart = (): UseCartReturn => {
   }, []);
 
   /**
-   * Actualizar cantidad de producto en carrito
-   * Mantiene exactamente la misma lógica del archivo original
+   * Actualizar cantidad de producto en carrito con validación de stock
    */
   const updateCartQuantity = useCallback((id: string, change: number) => {
-    setCartItems(prev => 
-      prev.map(item => 
-        item.id === id 
-          ? { 
-              ...item, 
-              quantity: Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, item.quantity + change) 
-            }
-          : item
-      )
-    );
-  }, []);
+    setCartItems(prev => {
+      const item = prev.find(i => i.id === id);
+      if (!item) return prev;
+
+      const newQuantity = Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, item.quantity + change);
+
+      // ✅ VALIDACIÓN DE STOCK al incrementar
+      if (change > 0 && item.requiresStockControl && !allowNegativeStock) {
+        if (newQuantity > item.stock) {
+          alert(`⚠️ Stock insuficiente\n\nProducto: ${item.name}\nStock disponible: ${item.stock}\nCantidad actual en carrito: ${item.quantity}\n\nNo puedes agregar más unidades.`);
+          return prev;
+        }
+      }
+
+      return prev.map(i => 
+        i.id === id 
+          ? { ...i, quantity: newQuantity }
+          : i
+      );
+    });
+  }, [allowNegativeStock]);
 
   /**
    * Actualizar cualquier propiedad de un item del carrito

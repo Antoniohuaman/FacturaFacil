@@ -15,6 +15,7 @@ export const useProductSearch = () => {
       name: p.nombre,
       price: p.precio,
       stock: p.cantidad,
+      requiresStockControl: p.tipoExistencia !== 'SERVICIOS', // Servicios no requieren stock
       category: p.categoria || 'Sin categoría',
       description: p.descripcion || ''
     })),

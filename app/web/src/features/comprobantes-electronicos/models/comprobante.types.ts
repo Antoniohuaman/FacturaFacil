@@ -61,7 +61,8 @@ export interface Product {
   price: number;
   category?: string;
   description?: string;
-  stock?: number;
+  stock: number; // ✅ Obligatorio para control de stock
+  requiresStockControl?: boolean; // ✅ Si requiere validación de stock
   image?: string;
 }
 
@@ -77,10 +78,12 @@ export interface CartItem {
   igv?: number;
   igvType?: IgvType;
   unidadMedida?: string;
-  currency?: Currency; // Nueva propiedad
-  priceType?: PriceType; // Tipo de precio seleccionado
-  availablePrices?: PriceOption[]; // Precios disponibles para este producto
-  basePrice?: number; // Precio base original para calcular otros precios
+  currency?: Currency;
+  priceType?: PriceType;
+  availablePrices?: PriceOption[];
+  basePrice?: number;
+  stock: number; // ✅ Stock disponible
+  requiresStockControl?: boolean; // ✅ Si requiere validación de stock
 }
 
 // ===================================================================
