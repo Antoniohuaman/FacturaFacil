@@ -62,8 +62,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
-  // ✅ Estado para control de stock - POR DEFECTO: INACTIVO (false)
-  const [trabajaConStock, setTrabajaConStock] = useState(false);
+  // ✅ Estado para control de stock - POR DEFECTO: ACTIVO (true) porque inicia como BIEN/MERCADERIAS
+  const [trabajaConStock, setTrabajaConStock] = useState(true);
   // Estado para el input de precio (permite borrar y escribir libremente)
   const [precioInput, setPrecioInput] = useState<string>('0.00');
   // Estado para mostrar el modal de categoría
@@ -103,8 +103,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
       setPrecioInput(product.precio.toFixed(2));
       setImagePreview(product.imagen || '');
     } else {
-      // ✅ Al crear nuevo: Stock INACTIVO por defecto
-      setTrabajaConStock(false);
+      // ✅ Al crear nuevo: BIEN por defecto (con stock)
+      setTrabajaConStock(true);
       
       setFormData({
         nombre: '',
@@ -129,7 +129,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
         marca: '',
         modelo: '',
         peso: 0,
-        tipoExistencia: 'SERVICIOS' // ✅ Por defecto SERVICIOS (sin stock)
+        tipoExistencia: 'MERCADERIAS' // ✅ Por defecto BIEN/MERCADERIAS (con stock)
       });
       setPrecioInput('0.00');
       setImagePreview('');
