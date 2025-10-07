@@ -27,6 +27,11 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
   
   // Obtener establecimiento basado en la serie seleccionada
   const establishmentInfo = useMemo(() => {
+    // Si no hay empresa configurada, retornar null
+    if (!state.company || !state.company.ruc) {
+      return null;
+    }
+    
     const selectedSerie = state.series.find(s => s.series === serieSeleccionada);
     if (selectedSerie) {
       const establishment = state.establishments.find(e => e.id === selectedSerie.establishmentId);
@@ -37,12 +42,9 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
         };
       }
     }
-    // Fallback si no se encuentra
-    return {
-      name: 'Establecimiento Principal',
-      code: '0001'
-    };
-  }, [serieSeleccionada, state.series, state.establishments]);
+    // Si no se encuentra, retornar null (no usar fallback)
+    return null;
+  }, [serieSeleccionada, state.series, state.establishments, state.company]);
   
   return (
     <ConfigurationCard
@@ -62,21 +64,29 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
             <span className="ml-1 text-red-500">*</span>
           </label>
           <div className="relative">
-            <select
-              className="w-full pl-4 pr-10 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-gray-900 transition-all duration-200 hover:border-gray-400 bg-white appearance-none cursor-pointer"
-              value={serieSeleccionada}
-              onChange={e => setSerieSeleccionada(e.target.value)}
-            >
-              {seriesFiltradas.map(serie => (
-                <option key={serie} value={serie}>{serie}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <ChevronDown className="w-4 h-4 text-gray-400" />
-            </div>
+            {seriesFiltradas.length > 0 ? (
+              <>
+                <select
+                  className="w-full pl-4 pr-10 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-gray-900 transition-all duration-200 hover:border-gray-400 bg-white appearance-none cursor-pointer"
+                  value={serieSeleccionada}
+                  onChange={e => setSerieSeleccionada(e.target.value)}
+                >
+                  {seriesFiltradas.map(serie => (
+                    <option key={serie} value={serie}>{serie}</option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                </div>
+              </>
+            ) : (
+              <div className="w-full px-4 py-3 border-2 border-amber-300 rounded-lg bg-amber-50 text-sm font-medium text-amber-700 flex items-center">
+                <span>⚠️ Primero configura tu empresa</span>
+              </div>
+            )}
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Asignada por SUNAT
+            {seriesFiltradas.length > 0 ? 'Asignada por SUNAT' : 'Ve a Configuración → Empresa'}
           </p>
         </div>
 
@@ -87,18 +97,26 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
             Establecimiento
           </label>
           <div className="relative">
-            <input
-              type="text"
-              value={`${establishmentInfo.name} (${establishmentInfo.code})`}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 cursor-not-allowed"
-              readOnly
-            />
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            </div>
+            {establishmentInfo ? (
+              <>
+                <input
+                  type="text"
+                  value={`${establishmentInfo.name} (${establishmentInfo.code})`}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 cursor-not-allowed"
+                  readOnly
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                </div>
+              </>
+            ) : (
+              <div className="w-full px-4 py-3 border-2 border-amber-300 rounded-lg bg-amber-50 text-sm font-medium text-amber-700 flex items-center">
+                <span>⚠️ Sin establecimiento</span>
+              </div>
+            )}
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Según serie seleccionada
+            {establishmentInfo ? 'Según serie seleccionada' : 'Configura primero tu empresa'}
           </p>
         </div>
 

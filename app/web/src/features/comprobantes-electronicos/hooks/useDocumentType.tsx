@@ -6,7 +6,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import type { TipoComprobante } from '../models/comprobante.types';
-import { SERIES_COMPROBANTES } from '../models/constants';
 
 export interface UseDocumentTypeReturn {
   // Estados principales
@@ -35,18 +34,26 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
   // ===================================================================
   
   /**
-   * Obtener series desde configuración o fallback a constantes
+   * Obtener series desde configuración SOLO si existe empresa configurada
+   * NO usar fallback - si no hay empresa, retornar array vacío
    */
   const availableSeries = useMemo(() => {
+    // Verificar si existe empresa configurada
+    if (!state.company || !state.company.ruc) {
+      // Sin empresa configurada = sin series disponibles
+      return [];
+    }
+    
     if (state.series.length > 0) {
       // Usar series configuradas (del onboarding o configuración manual)
       return state.series
         .filter(s => s.isActive && s.status === 'ACTIVE')
         .map(s => s.series);
     }
-    // Fallback a constantes si no hay series configuradas
-    return SERIES_COMPROBANTES;
-  }, [state.series]);
+    
+    // Si hay empresa pero no hay series, retornar vacío (no usar fallback)
+    return [];
+  }, [state.series, state.company]);
   
   // ===================================================================
   // FUNCIONES DE UTILIDAD
@@ -78,11 +85,12 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
 
   /**
    * Obtener serie por defecto para un tipo específico
+   * Retorna cadena vacía si no hay empresa configurada
    */
   const getDefaultSerieParaTipo = useCallback((tipo: TipoComprobante): string => {
     const seriesParaTipo = getSeriesParaTipo(tipo);
-    return seriesParaTipo[0] || availableSeries[0];
-  }, [getSeriesParaTipo, availableSeries]);
+    return seriesParaTipo[0] || '';
+  }, [getSeriesParaTipo]);
 
   /**
    * Obtener todas las series disponibles
