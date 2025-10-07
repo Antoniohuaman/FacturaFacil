@@ -62,7 +62,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
-  const [trabajaConStock, setTrabajaConStock] = useState(true); // Nuevo estado para control de stock
+  // ✅ Estado para control de stock - POR DEFECTO: INACTIVO (false)
+  const [trabajaConStock, setTrabajaConStock] = useState(false);
   // Estado para el input de precio (permite borrar y escribir libremente)
   const [precioInput, setPrecioInput] = useState<string>('0.00');
   // Estado para mostrar el modal de categoría
@@ -70,6 +71,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
   useEffect(() => {
     if (product) {
+      // ✅ Al editar: determinar si trabaja con stock según tipoExistencia
+      const tieneStock = product.tipoExistencia !== 'SERVICIOS';
+      setTrabajaConStock(tieneStock);
+      
       setFormData({
         nombre: product.nombre,
         codigo: product.codigo,
@@ -98,6 +103,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
       setPrecioInput(product.precio.toFixed(2));
       setImagePreview(product.imagen || '');
     } else {
+      // ✅ Al crear nuevo: Stock INACTIVO por defecto
+      setTrabajaConStock(false);
+      
       setFormData({
         nombre: '',
         codigo: '',
@@ -121,7 +129,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
         marca: '',
         modelo: '',
         peso: 0,
-        tipoExistencia: 'MERCADERIAS'
+        tipoExistencia: 'SERVICIOS' // ✅ Por defecto SERVICIOS (sin stock)
       });
       setPrecioInput('0.00');
       setImagePreview('');
@@ -239,11 +247,31 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   ${trabajaConStock ? 'bg-green-500' : 'bg-gray-300'}
                 `}
                 onClick={() => {
-                  setTrabajaConStock(!trabajaConStock);
-                  // Si desactiva stock, resetear cantidad a 0
-                  if (trabajaConStock) {
-                    setFormData(prev => ({ ...prev, cantidad: 0 }));
+                  const nuevoEstado = !trabajaConStock;
+                  
+                  // ✅ Sincronizar toggle con tipoExistencia
+                  if (nuevoEstado) {
+                    // Activar stock → cambiar a MERCADERIAS
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      tipoExistencia: 'MERCADERIAS'
+                    }));
+                  } else {
+                    // Desactivar stock → cambiar a SERVICIOS
+                    // Preguntar si hay cantidad ingresada
+                    if (formData.cantidad > 0) {
+                      if (!confirm('⚠️ Al desactivar el stock se perderá la cantidad ingresada.\n\n¿Deseas continuar?')) {
+                        return; // Cancelar cambio
+                      }
+                    }
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      tipoExistencia: 'SERVICIOS',
+                      cantidad: 0 
+                    }));
                   }
+                  
+                  setTrabajaConStock(nuevoEstado);
                 }}
                 >
                   <span className={`
@@ -259,7 +287,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   <p className="text-xs text-gray-500">
                     {trabajaConStock 
                       ? 'Se controlará el inventario de este producto'
-                      : 'Este producto no requiere control de inventario'
+                      : 'Este producto no requiere control de inventario (ideal para servicios)'
                     }
                   </p>
                 </div>
@@ -923,7 +951,27 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     <select
                       id="tipoExistencia"
                       value={formData.tipoExistencia}
-                      onChange={(e) => setFormData(prev => ({ ...prev, tipoExistencia: e.target.value as Product['tipoExistencia'] }))}
+                      onChange={(e) => {
+                        const nuevoTipo = e.target.value as Product['tipoExistencia'];
+                        setFormData(prev => ({ ...prev, tipoExistencia: nuevoTipo }));
+                        
+                        // ✅ Sincronizar con el toggle trabajaConStock
+                        if (nuevoTipo === 'SERVICIOS') {
+                          setTrabajaConStock(false);
+                          // Si hay stock, preguntar antes de resetear
+                          if (formData.cantidad > 0) {
+                            if (confirm('⚠️ Los servicios no requieren stock.\nSe perderá la cantidad ingresada. ¿Continuar?')) {
+                              setFormData(prev => ({ ...prev, cantidad: 0 }));
+                            } else {
+                              // Revertir cambio
+                              setFormData(prev => ({ ...prev, tipoExistencia: 'MERCADERIAS' }));
+                              return;
+                            }
+                          }
+                        } else {
+                          setTrabajaConStock(true);
+                        }
+                      }}
                       className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     >
                       <option value="MERCADERIAS">Mercaderías</option>
@@ -937,6 +985,12 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       <option value="EMBALAJES">Embalajes</option>
                       <option value="OTROS">Otros</option>
                     </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.tipoExistencia === 'SERVICIOS' 
+                        ? '⚠️ Los servicios no requieren control de stock' 
+                        : 'Este tipo de producto puede tener control de stock'
+                      }
+                    </p>
                   </div>
                 </div>
               )}
