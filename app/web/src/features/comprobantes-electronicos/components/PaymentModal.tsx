@@ -374,7 +374,61 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     'Otro'
   ];
 
+  // Manejar cambio de tipo de comprobante con validación
+  const handleTipoComprobanteChange = (nuevoTipo: 'boleta' | 'factura') => {
+    // Si se cambia a FACTURA, validar que el cliente tiene RUC
+    if (nuevoTipo === 'factura') {
+      if (clienteSeleccionado) {
+        // Hay un cliente seleccionado, verificar que tenga RUC
+        if (clienteSeleccionado.tipoDocumento !== 'RUC') {
+          const confirmar = window.confirm(
+            `⚠️ ADVERTENCIA: Para emitir FACTURA el cliente debe tener RUC.\n\n` +
+            `Cliente seleccionado: ${clienteSeleccionado.nombre}\n` +
+            `Tipo de documento actual: ${clienteSeleccionado.tipoDocumento}\n\n` +
+            `¿Deseas cambiar a FACTURA de todas formas?\n` +
+            `(Deberás seleccionar o crear un cliente con RUC antes de continuar)`
+          );
+          
+          if (!confirmar) {
+            return; // No cambiar el tipo de comprobante
+          }
+        }
+      } else {
+        // No hay cliente seleccionado, solo mostrar info
+        alert(
+          `ℹ️ RECUERDA: Para emitir FACTURA necesitarás seleccionar un cliente con RUC.\n\n` +
+          `Asegúrate de tener un cliente con RUC antes de continuar al pago.`
+        );
+      }
+    }
+    
+    // Realizar el cambio
+    setTipoComprobante(nuevoTipo);
+  };
+
   const handleContinueToPayment = () => {
+    // VALIDACIÓN CRÍTICA: Si es FACTURA, el cliente DEBE tener RUC
+    if (tipoComprobante === 'factura') {
+      // Verificar que hay un cliente seleccionado
+      if (!clienteSeleccionado) {
+        alert('⚠️ Para emitir una FACTURA es obligatorio seleccionar un cliente con RUC.\n\nPor favor, selecciona o crea un cliente con RUC.');
+        return;
+      }
+      
+      // Verificar que el cliente tiene tipo de documento RUC
+      if (clienteSeleccionado.tipoDocumento !== 'RUC') {
+        alert(`⚠️ Para emitir una FACTURA el cliente debe tener RUC.\n\nCliente actual: ${clienteSeleccionado.nombre}\nTipo de documento: ${clienteSeleccionado.tipoDocumento}\n\nPor favor, selecciona un cliente con RUC o edita este cliente para agregar su RUC.`);
+        return;
+      }
+      
+      // Verificar que el RUC tiene 11 dígitos
+      if (!clienteSeleccionado.documento || clienteSeleccionado.documento.length !== 11) {
+        alert(`⚠️ El RUC del cliente no es válido.\n\nCliente: ${clienteSeleccionado.nombre}\nRUC: ${clienteSeleccionado.documento || 'No especificado'}\n\nEl RUC debe tener exactamente 11 dígitos. Por favor, edita el cliente para corregir el RUC.`);
+        return;
+      }
+    }
+    
+    // Si pasa todas las validaciones, continuar al pago
     setActiveStep('payment');
   };
 
@@ -541,7 +595,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     <h4 className="font-semibold text-gray-900 mb-3">Tipo de Comprobante</h4>
                     <div className="grid grid-cols-2 gap-3">
                       <button
-                        onClick={() => setTipoComprobante('boleta')}
+                        onClick={() => handleTipoComprobanteChange('boleta')}
                         className={`p-4 rounded-lg border-2 text-center transition-all ${
                           tipoComprobante === 'boleta'
                             ? 'border-blue-500 bg-blue-50 text-blue-700'
@@ -553,7 +607,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       </button>
                       
                       <button
-                        onClick={() => setTipoComprobante('factura')}
+                        onClick={() => handleTipoComprobanteChange('factura')}
                         className={`p-4 rounded-lg border-2 text-center transition-all ${
                           tipoComprobante === 'factura'
                             ? 'border-blue-500 bg-blue-50 text-blue-700'
@@ -562,6 +616,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       >
                         <div className="font-medium">Factura</div>
                         <div className="text-xs text-gray-500 mt-1">Para empresas</div>
+                        <div className="text-xs text-red-600 font-medium mt-1">⚠️ Requiere RUC</div>
                       </button>
                     </div>
                   </div>
