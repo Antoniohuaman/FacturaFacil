@@ -1,10 +1,13 @@
 import CategoryModal from './CategoryModal';
+import { FieldsConfigPanel } from './FieldsConfigPanel';
 import { useProductStore } from '../hooks/useProductStore';
+import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
 import type { Product, ProductFormData, Category } from '../models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 // src/features/catalogo-articulos/components/ProductModal.tsx
 
 import React, { useState, useEffect } from 'react';
+import { Settings2 } from 'lucide-react';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -27,6 +30,18 @@ const ProductModal: React.FC<ProductModalProps> = ({
   // Acceder a los establecimientos desde el contexto de configuración
   const { state: configState } = useConfigurationContext();
   const establishments = configState.establishments.filter(e => e.isActive);
+  
+  // ✅ Hook para gestionar configuración de campos
+  const {
+    fieldsConfig,
+    isPanelOpen,
+    setIsPanelOpen,
+    toggleFieldVisibility,
+    toggleFieldRequired,
+    resetToDefault,
+    isFieldVisible,
+    isFieldRequired,
+  } = useProductFieldsConfig();
   
   type FormError = {
     [K in keyof ProductFormData]?: string;
@@ -60,7 +75,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
   
   const [errors, setErrors] = useState<FormError>({});
   const [loading, setLoading] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
   // ✅ Estado para control de stock - POR DEFECTO: ACTIVO (true) porque inicia como BIEN/MERCADERIAS
   const [trabajaConStock, setTrabajaConStock] = useState(true);
@@ -135,57 +149,95 @@ const ProductModal: React.FC<ProductModalProps> = ({
       setImagePreview('');
     }
     setErrors({});
-    setShowAdvanced(false);
   }, [product, isOpen, categories, establishments.length]);
 
   const validateForm = (): boolean => {
-  const newErrors: FormError = {};
+    const newErrors: FormError = {};
 
-    // 1. Tipo de producto (obligatorio)
-    if (!formData.tipoExistencia || formData.tipoExistencia.trim() === '') {
-      newErrors.tipoExistencia = 'El tipo de producto es requerido';
-    }
-
-    // 2. Nombre (obligatorio)
-    if (!formData.nombre.trim()) {
+    // ========== VALIDACIONES DE CAMPOS OBLIGATORIOS DEL SISTEMA ==========
+    
+    // 1. Nombre (siempre obligatorio)
+    if (isFieldVisible('nombre') && !formData.nombre.trim()) {
       newErrors.nombre = 'El nombre es requerido';
     }
 
-    // 3. Código (obligatorio + validar duplicados)
-    if (!formData.codigo.trim()) {
-      newErrors.codigo = 'El código es requerido';
-    } else {
-      // Validar código duplicado
-      const codigoDuplicado = allProducts.find(
-        p => p.codigo.toLowerCase() === formData.codigo.trim().toLowerCase() &&
-        p.id !== product?.id // Excluir el producto actual si está editando
-      );
-      if (codigoDuplicado) {
-        newErrors.codigo = `El código "${formData.codigo}" ya existe en el producto "${codigoDuplicado.nombre}"`;
+    // 2. Código (siempre obligatorio + validar duplicados)
+    if (isFieldVisible('codigo')) {
+      if (!formData.codigo.trim()) {
+        newErrors.codigo = 'El código es requerido';
+      } else {
+        // Validar código duplicado
+        const codigoDuplicado = allProducts.find(
+          p => p.codigo.toLowerCase() === formData.codigo.trim().toLowerCase() &&
+          p.id !== product?.id // Excluir el producto actual si está editando
+        );
+        if (codigoDuplicado) {
+          newErrors.codigo = `El código "${formData.codigo}" ya existe en el producto "${codigoDuplicado.nombre}"`;
+        }
       }
     }
 
-    // 4. Impuesto (obligatorio)
-    if (!formData.impuesto || formData.impuesto.trim() === '') {
+    // 3. Impuesto (siempre obligatorio)
+    if (isFieldVisible('impuesto') && (!formData.impuesto || formData.impuesto.trim() === '')) {
       newErrors.impuesto = 'El impuesto es requerido';
     }
 
-    // 5. Unidad de medida (obligatorio)
-    if (!formData.unidad || formData.unidad.trim() === '') {
+    // 4. Unidad de medida (siempre obligatorio)
+    if (isFieldVisible('unidad') && (!formData.unidad || formData.unidad.trim() === '')) {
       newErrors.unidad = 'La unidad de medida es requerida';
     }
 
-    // 6. Establecimiento (obligatorio - al menos uno o todos)
-    if (!formData.disponibleEnTodos && formData.establecimientoIds.length === 0) {
+    // 5. Establecimiento (siempre obligatorio - al menos uno o todos)
+    if (isFieldVisible('establecimiento') && !formData.disponibleEnTodos && formData.establecimientoIds.length === 0) {
       newErrors.establecimientoIds = 'Debes asignar al menos un establecimiento o marcar "Disponible en todos"';
     }
 
-    // Validación adicional: precio no negativo
-    if (formData.precio < 0) {
-      newErrors.precio = 'El precio no puede ser negativo';
+    // ========== VALIDACIONES DE CAMPOS PERSONALIZABLES (según configuración) ==========
+
+    // Categoría (si está visible Y marcada como obligatoria)
+    if (isFieldVisible('categoria') && isFieldRequired('categoria') && !formData.categoria) {
+      newErrors.categoria = 'La categoría es requerida';
     }
 
-    // NOTA: Categoría es OPCIONAL (se removió la validación)
+    // Precio (validar no negativo + obligatorio si está configurado)
+    if (isFieldVisible('precio')) {
+      if (formData.precio < 0) {
+        newErrors.precio = 'El precio no puede ser negativo';
+      }
+      if (isFieldRequired('precio') && formData.precio === 0) {
+        newErrors.precio = 'El precio es requerido';
+      }
+    }
+
+    // Descripción (si está marcada como obligatoria)
+    if (isFieldVisible('descripcion') && isFieldRequired('descripcion') && !formData.descripcion?.trim()) {
+      newErrors.descripcion = 'La descripción es requerida';
+    }
+
+    // Código de barras (si está marcado como obligatorio)
+    if (isFieldVisible('codigoBarras') && isFieldRequired('codigoBarras') && !formData.codigoBarras?.trim()) {
+      newErrors.codigoBarras = 'El código de barras es requerido';
+    }
+
+    // Marca (si está marcada como obligatoria)
+    if (isFieldVisible('marca') && isFieldRequired('marca') && !formData.marca?.trim()) {
+      newErrors.marca = 'La marca es requerida';
+    }
+
+    // Modelo (si está marcado como obligatorio)
+    if (isFieldVisible('modelo') && isFieldRequired('modelo') && !formData.modelo?.trim()) {
+      newErrors.modelo = 'El modelo es requerido';
+    }
+
+    // Peso (si está marcado como obligatorio)
+    if (isFieldVisible('peso') && isFieldRequired('peso') && formData.peso === 0) {
+      newErrors.peso = 'El peso es requerido';
+    }
+
+    // Precio de compra (si está marcado como obligatorio)
+    if (isFieldVisible('precioCompra') && isFieldRequired('precioCompra') && formData.precioCompra === 0) {
+      newErrors.precioCompra = 'El precio de compra es requerido';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -243,14 +295,29 @@ const ProductModal: React.FC<ProductModalProps> = ({
             <h3 className="text-lg font-medium text-gray-900">
               {product ? 'Editar producto' : 'Nuevo producto / servicio'}
             </h3>
-            <button
-              onClick={onClose}
-              className="rounded-md text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Botón Configurar Campos */}
+              <button
+                type="button"
+                onClick={() => setIsPanelOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-400 transition-colors group"
+                title="Configurar campos del formulario"
+              >
+                <Settings2 className="w-4 h-4 group-hover:text-blue-600 transition-colors" />
+                <span className="hidden sm:inline">Campos</span>
+              </button>
+              
+              {/* Botón Cerrar */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md text-gray-400 hover:text-gray-600 transition-colors p-1"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Form */}
@@ -404,36 +471,39 @@ const ProductModal: React.FC<ProductModalProps> = ({
               {errors.codigo && <p className="text-red-600 text-xs mt-1">{errors.codigo}</p>}
             </div>
 
-            {/* Precio */}
-            <div>
-              <label htmlFor="precio" className="block text-sm font-medium text-gray-700 mb-1">
-                Precio de venta
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 text-sm">S/</span>
+            {/* Precio - Campo configurable */}
+            {isFieldVisible('precio') && (
+              <div>
+                <label htmlFor="precio" className="block text-sm font-medium text-gray-700 mb-1">
+                  Precio de venta
+                  {isFieldRequired('precio') && <span className="text-red-500 ml-1">*</span>}
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500 text-sm">S/</span>
+                  </div>
+                  <input
+                    type="number"
+                    id="precio"
+                    step="0.01"
+                    min="0"
+                    value={precioInput}
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      setPrecioInput(inputValue);
+                      const numericValue = parseFloat(inputValue) || 0;
+                      setFormData(prev => ({ ...prev, precio: numericValue }));
+                    }}
+                    className={`
+                      w-full pl-10 pr-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors
+                      ${errors.precio ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+                    `}
+                    placeholder="0.00"
+                  />
                 </div>
-                <input
-                  type="number"
-                  id="precio"
-                  step="1"
-                  min="0"
-                  value={precioInput}
-                  onChange={(e) => {
-                    const inputValue = e.target.value;
-                    setPrecioInput(inputValue);
-                    const numericValue = parseFloat(inputValue) || 0;
-                    setFormData(prev => ({ ...prev, precio: numericValue }));
-                  }}
-                  className={`
-                    w-full pl-10 pr-3 py-2 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors
-                    ${errors.precio ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-                  `}
-                  placeholder="0.00"
-                />
+                {errors.precio && <p className="text-red-600 text-xs mt-1">{errors.precio}</p>}
               </div>
-              {/* El precio de venta es opcional, no se muestra error */}
-            </div>
+            )}
 
             {/* Impuesto */}
             <div>
@@ -477,38 +547,41 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </button>
             </div>
 
-            {/* Categoría */}
-            <div>
-              <label htmlFor="categoria" className="block text-sm font-medium text-gray-700 mb-1">
-                Categoría
-              </label>
-              <div className="flex space-x-2">
-                <select
-                  id="categoria"
-                  value={formData.categoria}
-                  onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
-                  className={`
-                    flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors
-                    ${errors.categoria ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-                  `}
-                >
-                  <option value="">Seleccionar categoría</option>
-                  {globalCategories.map(cat => (
-                    <option key={cat.id} value={cat.nombre}>
-                      {cat.nombre}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="px-4 py-2 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors"
-                  onClick={() => setShowCategoryModal(true)}
-                >
-                  Crear categoría
-                </button>
+            {/* Categoría - Campo configurable */}
+            {isFieldVisible('categoria') && (
+              <div>
+                <label htmlFor="categoria" className="block text-sm font-medium text-gray-700 mb-1">
+                  Categoría
+                  {isFieldRequired('categoria') && <span className="text-red-500 ml-1">*</span>}
+                </label>
+                <div className="flex space-x-2">
+                  <select
+                    id="categoria"
+                    value={formData.categoria}
+                    onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
+                    className={`
+                      flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors
+                      ${errors.categoria ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+                    `}
+                  >
+                    <option value="">Seleccionar categoría</option>
+                    {globalCategories.map(cat => (
+                      <option key={cat.id} value={cat.nombre}>
+                        {cat.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 transition-colors"
+                    onClick={() => setShowCategoryModal(true)}
+                  >
+                    Crear categoría
+                  </button>
+                </div>
+                {errors.categoria && <p className="text-red-600 text-xs mt-1">{errors.categoria}</p>}
               </div>
-              {errors.categoria && <p className="text-red-600 text-xs mt-1">{errors.categoria}</p>}
-            </div>
+            )}
 
             {/* Asignación de Establecimientos */}
             <div className="border-2 border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 p-4 space-y-4">
@@ -693,13 +766,14 @@ const ProductModal: React.FC<ProductModalProps> = ({
             </div>
 
             {/* Cantidad inicial - Solo si trabaja con stock */}
-            {trabajaConStock && (
+            {trabajaConStock && isFieldVisible('cantidad') && (
               <div className="border-l-4 border-green-500 bg-green-50 pl-4 pr-4 py-3 rounded-r-md">
                 <label htmlFor="cantidad" className="flex items-center text-sm font-medium text-gray-900 mb-2">
                   <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                   </svg>
                   Cantidad inicial en inventario
+                  {isFieldRequired('cantidad') && <span className="text-red-500 ml-1">*</span>}
                 </label>
                 <input
                   type="number"
@@ -713,137 +787,167 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 <p className="text-xs text-gray-600 mt-1">
                   Esta será la cantidad inicial del producto en tu inventario
                 </p>
+                {errors.cantidad && <p className="text-red-600 text-xs mt-1">{errors.cantidad}</p>}
               </div>
             )}
 
             {/* Imagen */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Imagen
-              </label>
-              <div className="flex items-center space-x-4">
-                <div className="flex-shrink-0">
-                  {imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="h-16 w-16 object-cover rounded-lg border-2 border-gray-200"
+            {isFieldVisible('imagen') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Imagen
+                  {isFieldRequired('imagen') && <span className="text-red-500 ml-1">*</span>}
+                </label>
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    {imagePreview ? (
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="h-16 w-16 object-cover rounded-lg border-2 border-gray-200"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                        <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="image-upload"
                     />
-                  ) : (
-                    <div className="h-16 w-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                      <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <label
+                      htmlFor="image-upload"
+                      className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                  >
-                    <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    Subir imagen
-                  </label>
+                      Subir imagen
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Opciones avanzadas */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center text-sm text-blue-600 hover:text-blue-700 transition-colors"
-              >
-                <svg 
-                  className={`mr-1 h-4 w-4 transform transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                Opciones avanzadas
-              </button>
-              
-              {showAdvanced && (
-                <div className="mt-4 p-6 bg-gray-50 rounded-lg space-y-4 border border-gray-200">
-                  {/* Descripción */}
-                  <div>
-                    <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 mb-1">
-                      Descripción
-                    </label>
-                    <textarea
-                      id="descripcion"
-                      rows={3}
-                      value={formData.descripcion}
-                      onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                      placeholder="Descripción detallada del producto..."
-                    />
-                  </div>
+            {/* Campos avanzados configurables */}
+            <div className="space-y-4">
+              {/* Descripción */}
+              {isFieldVisible('descripcion') && (
+                    <div>
+                      <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 mb-1">
+                        Descripción
+                        {isFieldRequired('descripcion') && <span className="text-red-500 ml-1">*</span>}
+                      </label>
+                      <textarea
+                        id="descripcion"
+                        rows={3}
+                        value={formData.descripcion}
+                        onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder="Descripción detallada del producto..."
+                      />
+                      {errors.descripcion && <p className="text-red-600 text-xs mt-1">{errors.descripcion}</p>}
+                    </div>
+                  )}
 
                   {/* Alias del producto */}
-                  <div>
-                    <label htmlFor="alias" className="block text-sm font-medium text-gray-700 mb-1">
-                      Alias del producto
-                    </label>
-                    <input
-                      type="text"
-                      id="alias"
-                      value={formData.alias}
-                      onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                      placeholder="Nombre alternativo del producto"
-                    />
-                  </div>
+                  {isFieldVisible('alias') && (
+                    <div>
+                      <label htmlFor="alias" className="block text-sm font-medium text-gray-700 mb-1">
+                        Alias del producto
+                        {isFieldRequired('alias') && <span className="text-red-500 ml-1">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        id="alias"
+                        value={formData.alias}
+                        onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder="Nombre alternativo del producto"
+                      />
+                      {errors.alias && <p className="text-red-600 text-xs mt-1">{errors.alias}</p>}
+                    </div>
+                  )}
 
                   {/* Grid para Precio de Compra y Porcentaje de Ganancia */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="precioCompra" className="block text-sm font-medium text-gray-700 mb-1">
-                        Precio inicial de compra
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 text-sm">S/</span>
+                  {(isFieldVisible('precioCompra') || isFieldVisible('porcentajeGanancia')) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {isFieldVisible('precioCompra') && (
+                        <div>
+                          <label htmlFor="precioCompra" className="block text-sm font-medium text-gray-700 mb-1">
+                            Precio inicial de compra
+                            {isFieldRequired('precioCompra') && <span className="text-red-500 ml-1">*</span>}
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <span className="text-gray-500 text-sm">S/</span>
+                            </div>
+                            <input
+                              type="number"
+                              id="precioCompra"
+                              step="0.01"
+                              min="0"
+                              value={formData.precioCompra}
+                              onChange={(e) => setFormData(prev => ({ ...prev, precioCompra: parseFloat(e.target.value) || 0 }))}
+                              className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          {errors.precioCompra && <p className="text-red-600 text-xs mt-1">{errors.precioCompra}</p>}
                         </div>
-                        <input
-                          type="number"
-                          id="precioCompra"
-                          step="0.01"
-                          min="0"
-                          value={formData.precioCompra}
-                          onChange={(e) => setFormData(prev => ({ ...prev, precioCompra: parseFloat(e.target.value) || 0 }))}
-                          className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
+                      )}
 
+                      {isFieldVisible('porcentajeGanancia') && (
+                        <div>
+                          <label htmlFor="porcentajeGanancia" className="block text-sm font-medium text-gray-700 mb-1">
+                            Porcentaje de ganancia
+                            {isFieldRequired('porcentajeGanancia') && <span className="text-red-500 ml-1">*</span>}
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              id="porcentajeGanancia"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={formData.porcentajeGanancia}
+                              onChange={(e) => setFormData(prev => ({ ...prev, porcentajeGanancia: parseFloat(e.target.value) || 0 }))}
+                              className="w-full pr-10 pl-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                              placeholder="0.00"
+                            />
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                              <span className="text-gray-500 text-sm">%</span>
+                            </div>
+                          </div>
+                          {errors.porcentajeGanancia && <p className="text-red-600 text-xs mt-1">{errors.porcentajeGanancia}</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Descuento del producto */}
+                  {isFieldVisible('descuentoProducto') && (
                     <div>
-                      <label htmlFor="porcentajeGanancia" className="block text-sm font-medium text-gray-700 mb-1">
-                        Porcentaje de ganancia
+                      <label htmlFor="descuentoProducto" className="block text-sm font-medium text-gray-700 mb-1">
+                        Descuento del producto
+                        {isFieldRequired('descuentoProducto') && <span className="text-red-500 ml-1">*</span>}
                       </label>
                       <div className="relative">
                         <input
                           type="number"
-                          id="porcentajeGanancia"
+                          id="descuentoProducto"
                           step="0.01"
                           min="0"
                           max="100"
-                          value={formData.porcentajeGanancia}
-                          onChange={(e) => setFormData(prev => ({ ...prev, porcentajeGanancia: parseFloat(e.target.value) || 0 }))}
+                          value={formData.descuentoProducto}
+                          onChange={(e) => setFormData(prev => ({ ...prev, descuentoProducto: parseFloat(e.target.value) || 0 }))}
                           className="w-full pr-10 pl-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                           placeholder="0.00"
                         />
@@ -851,185 +955,193 @@ const ProductModal: React.FC<ProductModalProps> = ({
                           <span className="text-gray-500 text-sm">%</span>
                         </div>
                       </div>
+                      {errors.descuentoProducto && <p className="text-red-600 text-xs mt-1">{errors.descuentoProducto}</p>}
                     </div>
-                  </div>
-
-                  {/* Descuento del producto */}
-                  <div>
-                    <label htmlFor="descuentoProducto" className="block text-sm font-medium text-gray-700 mb-1">
-                      Descuento del producto
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        id="descuentoProducto"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={formData.descuentoProducto}
-                        onChange={(e) => setFormData(prev => ({ ...prev, descuentoProducto: parseFloat(e.target.value) || 0 }))}
-                        className="w-full pr-10 pl-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                        placeholder="0.00"
-                      />
-                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                        <span className="text-gray-500 text-sm">%</span>
-                      </div>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Códigos */}
-                  <div className="space-y-4 pt-2">
-                    <h4 className="text-sm font-semibold text-gray-900 border-b pb-2">Códigos de identificación</h4>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="codigoBarras" className="block text-sm font-medium text-gray-700 mb-1">
-                          Código de barras
-                        </label>
-                        <input
-                          type="text"
-                          id="codigoBarras"
-                          value={formData.codigoBarras}
-                          onChange={(e) => setFormData(prev => ({ ...prev, codigoBarras: e.target.value }))}
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
-                          placeholder="EAN-13, UPC, etc."
-                        />
-                      </div>
+                  {(isFieldVisible('codigoBarras') || isFieldVisible('codigoFabrica') || isFieldVisible('codigoSunat')) && (
+                    <div className="space-y-4 pt-2">
+                      <h4 className="text-sm font-semibold text-gray-900 border-b pb-2">Códigos de identificación</h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {isFieldVisible('codigoBarras') && (
+                          <div>
+                            <label htmlFor="codigoBarras" className="block text-sm font-medium text-gray-700 mb-1">
+                              Código de barras
+                              {isFieldRequired('codigoBarras') && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            <input
+                              type="text"
+                              id="codigoBarras"
+                              value={formData.codigoBarras}
+                              onChange={(e) => setFormData(prev => ({ ...prev, codigoBarras: e.target.value }))}
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+                              placeholder="EAN-13, UPC, etc."
+                            />
+                            {errors.codigoBarras && <p className="text-red-600 text-xs mt-1">{errors.codigoBarras}</p>}
+                          </div>
+                        )}
 
-                      <div>
-                        <label htmlFor="codigoFabrica" className="block text-sm font-medium text-gray-700 mb-1">
-                          Código de fábrica
-                        </label>
-                        <input
-                          type="text"
-                          id="codigoFabrica"
-                          value={formData.codigoFabrica}
-                          onChange={(e) => setFormData(prev => ({ ...prev, codigoFabrica: e.target.value }))}
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
-                          placeholder="Código del fabricante"
-                        />
-                      </div>
+                        {isFieldVisible('codigoFabrica') && (
+                          <div>
+                            <label htmlFor="codigoFabrica" className="block text-sm font-medium text-gray-700 mb-1">
+                              Código de fábrica
+                              {isFieldRequired('codigoFabrica') && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            <input
+                              type="text"
+                              id="codigoFabrica"
+                              value={formData.codigoFabrica}
+                              onChange={(e) => setFormData(prev => ({ ...prev, codigoFabrica: e.target.value }))}
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+                              placeholder="Código del fabricante"
+                            />
+                            {errors.codigoFabrica && <p className="text-red-600 text-xs mt-1">{errors.codigoFabrica}</p>}
+                          </div>
+                        )}
 
-                      <div>
-                        <label htmlFor="codigoSunat" className="block text-sm font-medium text-gray-700 mb-1">
-                          Código SUNAT
-                        </label>
-                        <input
-                          type="text"
-                          id="codigoSunat"
-                          value={formData.codigoSunat}
-                          onChange={(e) => setFormData(prev => ({ ...prev, codigoSunat: e.target.value }))}
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
-                          placeholder="Código tributario"
-                        />
+                        {isFieldVisible('codigoSunat') && (
+                          <div>
+                            <label htmlFor="codigoSunat" className="block text-sm font-medium text-gray-700 mb-1">
+                              Código SUNAT
+                              {isFieldRequired('codigoSunat') && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            <input
+                              type="text"
+                              id="codigoSunat"
+                              value={formData.codigoSunat}
+                              onChange={(e) => setFormData(prev => ({ ...prev, codigoSunat: e.target.value }))}
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+                              placeholder="Código tributario"
+                            />
+                            {errors.codigoSunat && <p className="text-red-600 text-xs mt-1">{errors.codigoSunat}</p>}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Marca y Modelo */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                    <div>
-                      <label htmlFor="marca" className="block text-sm font-medium text-gray-700 mb-1">
-                        Marca
-                      </label>
-                      <input
-                        type="text"
-                        id="marca"
-                        value={formData.marca}
-                        onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                        placeholder="Marca del producto"
-                      />
-                    </div>
+                  {(isFieldVisible('marca') || isFieldVisible('modelo')) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      {isFieldVisible('marca') && (
+                        <div>
+                          <label htmlFor="marca" className="block text-sm font-medium text-gray-700 mb-1">
+                            Marca
+                            {isFieldRequired('marca') && <span className="text-red-500 ml-1">*</span>}
+                          </label>
+                          <input
+                            type="text"
+                            id="marca"
+                            value={formData.marca}
+                            onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                            placeholder="Marca del producto"
+                          />
+                          {errors.marca && <p className="text-red-600 text-xs mt-1">{errors.marca}</p>}
+                        </div>
+                      )}
 
-                    <div>
-                      <label htmlFor="modelo" className="block text-sm font-medium text-gray-700 mb-1">
-                        Modelo
-                      </label>
-                      <input
-                        type="text"
-                        id="modelo"
-                        value={formData.modelo}
-                        onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                        placeholder="Modelo del producto"
-                      />
+                      {isFieldVisible('modelo') && (
+                        <div>
+                          <label htmlFor="modelo" className="block text-sm font-medium text-gray-700 mb-1">
+                            Modelo
+                            {isFieldRequired('modelo') && <span className="text-red-500 ml-1">*</span>}
+                          </label>
+                          <input
+                            type="text"
+                            id="modelo"
+                            value={formData.modelo}
+                            onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                            placeholder="Modelo del producto"
+                          />
+                          {errors.modelo && <p className="text-red-600 text-xs mt-1">{errors.modelo}</p>}
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
 
                   {/* Peso */}
-                  <div>
-                    <label htmlFor="peso" className="block text-sm font-medium text-gray-700 mb-1">
-                      Peso (KGM)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        id="peso"
-                        step="0.001"
-                        min="0"
-                        value={formData.peso}
-                        onChange={(e) => setFormData(prev => ({ ...prev, peso: parseFloat(e.target.value) || 0 }))}
-                        className="w-full pr-10 pl-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                        placeholder="0.000"
-                      />
-                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                        <span className="text-gray-500 text-sm">KG</span>
+                  {isFieldVisible('peso') && (
+                    <div>
+                      <label htmlFor="peso" className="block text-sm font-medium text-gray-700 mb-1">
+                        Peso (KGM)
+                        {isFieldRequired('peso') && <span className="text-red-500 ml-1">*</span>}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          id="peso"
+                          step="0.001"
+                          min="0"
+                          value={formData.peso}
+                          onChange={(e) => setFormData(prev => ({ ...prev, peso: parseFloat(e.target.value) || 0 }))}
+                          className="w-full pr-10 pl-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                          placeholder="0.000"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 text-sm">KG</span>
+                        </div>
                       </div>
+                      {errors.peso && <p className="text-red-600 text-xs mt-1">{errors.peso}</p>}
                     </div>
-                  </div>
+                  )}
 
                   {/* Tipo de Existencia */}
-                  <div>
-                    <label htmlFor="tipoExistencia" className="block text-sm font-medium text-gray-700 mb-1">
-                      Tipo de existencia
-                    </label>
-                    <select
-                      id="tipoExistencia"
-                      value={formData.tipoExistencia}
-                      onChange={(e) => {
-                        const nuevoTipo = e.target.value as Product['tipoExistencia'];
-                        setFormData(prev => ({ ...prev, tipoExistencia: nuevoTipo }));
-                        
-                        // ✅ Sincronizar con el toggle trabajaConStock
-                        if (nuevoTipo === 'SERVICIOS') {
-                          setTrabajaConStock(false);
-                          // Si hay stock, preguntar antes de resetear
-                          if (formData.cantidad > 0) {
-                            if (confirm('⚠️ Los servicios no requieren stock.\nSe perderá la cantidad ingresada. ¿Continuar?')) {
-                              setFormData(prev => ({ ...prev, cantidad: 0 }));
-                            } else {
-                              // Revertir cambio
-                              setFormData(prev => ({ ...prev, tipoExistencia: 'MERCADERIAS' }));
-                              return;
+                  {isFieldVisible('tipoExistencia') && (
+                    <div>
+                      <label htmlFor="tipoExistencia" className="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo de existencia
+                        {isFieldRequired('tipoExistencia') && <span className="text-red-500 ml-1">*</span>}
+                      </label>
+                      <select
+                        id="tipoExistencia"
+                        value={formData.tipoExistencia}
+                        onChange={(e) => {
+                          const nuevoTipo = e.target.value as Product['tipoExistencia'];
+                          setFormData(prev => ({ ...prev, tipoExistencia: nuevoTipo }));
+                          
+                          // ✅ Sincronizar con el toggle trabajaConStock
+                          if (nuevoTipo === 'SERVICIOS') {
+                            setTrabajaConStock(false);
+                            // Si hay stock, preguntar antes de resetear
+                            if (formData.cantidad > 0) {
+                              if (confirm('⚠️ Los servicios no requieren stock.\nSe perderá la cantidad ingresada. ¿Continuar?')) {
+                                setFormData(prev => ({ ...prev, cantidad: 0 }));
+                              } else {
+                                // Revertir cambio
+                                setFormData(prev => ({ ...prev, tipoExistencia: 'MERCADERIAS' }));
+                                return;
+                              }
                             }
+                          } else {
+                            setTrabajaConStock(true);
                           }
-                        } else {
-                          setTrabajaConStock(true);
+                        }}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      >
+                        <option value="MERCADERIAS">Mercaderías</option>
+                        <option value="PRODUCTOS_TERMINADOS">Productos Terminados</option>
+                        <option value="SERVICIOS">Servicios</option>
+                        <option value="MATERIAS_PRIMAS">Materias Primas</option>
+                        <option value="ENVASES">Envases</option>
+                        <option value="MATERIALES_AUXILIARES">Materiales Auxiliares</option>
+                        <option value="SUMINISTROS">Suministros</option>
+                        <option value="REPUESTOS">Repuestos</option>
+                        <option value="EMBALAJES">Embalajes</option>
+                        <option value="OTROS">Otros</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formData.tipoExistencia === 'SERVICIOS' 
+                          ? '⚠️ Los servicios no requieren control de stock' 
+                          : 'Este tipo de producto puede tener control de stock'
                         }
-                      }}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                      <option value="MERCADERIAS">Mercaderías</option>
-                      <option value="PRODUCTOS_TERMINADOS">Productos Terminados</option>
-                      <option value="SERVICIOS">Servicios</option>
-                      <option value="MATERIAS_PRIMAS">Materias Primas</option>
-                      <option value="ENVASES">Envases</option>
-                      <option value="MATERIALES_AUXILIARES">Materiales Auxiliares</option>
-                      <option value="SUMINISTROS">Suministros</option>
-                      <option value="REPUESTOS">Repuestos</option>
-                      <option value="EMBALAJES">Embalajes</option>
-                      <option value="OTROS">Otros</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formData.tipoExistencia === 'SERVICIOS' 
-                        ? '⚠️ Los servicios no requieren control de stock' 
-                        : 'Este tipo de producto puede tener control de stock'
-                      }
-                    </p>
-                  </div>
-                </div>
-              )}
+                      </p>
+                      {errors.tipoExistencia && <p className="text-red-600 text-xs mt-1">{errors.tipoExistencia}</p>}
+                    </div>
+                  )}
             </div>
           </form>
 
@@ -1063,6 +1175,17 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* Panel de configuración de campos */}
+      <FieldsConfigPanel
+        isOpen={isPanelOpen}
+        onClose={() => setIsPanelOpen(false)}
+        fieldsConfig={fieldsConfig}
+        onToggleVisibility={toggleFieldVisibility}
+        onToggleRequired={toggleFieldRequired}
+        onReset={resetToDefault}
+      />
+      
       {/* Modal de categoría */}
       {showCategoryModal && (
         <CategoryModal
