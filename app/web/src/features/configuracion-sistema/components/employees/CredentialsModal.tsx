@@ -1,6 +1,6 @@
 // src/features/configuration/components/employees/CredentialsModal.tsx
 import { useState } from 'react';
-import { X, Copy, Check, User, Lock, Mail, Shield, Building2 } from 'lucide-react';
+import { X, Copy, Check, User, Lock, Mail, Shield, Building2, MessageCircle } from 'lucide-react';
 import type { Employee } from '../../models/Employee';
 import type { Establishment } from '../../models/Establishment';
 
@@ -71,6 +71,38 @@ ${establishmentsText || '  - Ninguno'}
     } catch (err) {
       console.error('Failed to copy all:', err);
     }
+  };
+
+  const handleSendWhatsApp = () => {
+    const rolesText = employeeRoles.map(r => `  - ${r.name}`).join('\n');
+    const establishmentsText = employeeEstablishments.map(e => `  - ${e.name}`).join('\n');
+
+    const message = `
+═══════════════════════════════════════
+    CREDENCIALES DE ACCESO
+═══════════════════════════════════════
+
+*Empleado:* ${credentials.fullName}
+*Email:* ${credentials.email}
+*Usuario:* ${credentials.username}
+*Contraseña:* ${credentials.password}
+
+*Roles Asignados:*
+${rolesText || '  - Ninguno'}
+
+*Establecimientos:*
+${establishmentsText || '  - Ninguno'}
+
+═══════════════════════════════════════
+⚠️ *IMPORTANTE:* Cambia tu contraseña en el primer inicio de sesión
+    `.trim();
+
+    // Encode the message for URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Open WhatsApp with pre-filled message
+    const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   return (
@@ -267,27 +299,39 @@ ${establishmentsText || '  - Ninguno'}
 
         {/* Footer - Fixed at bottom */}
         <div className="flex-shrink-0 border-t border-gray-200 p-4 bg-gray-50">
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              onClick={handleCopyAll}
-              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-lg shadow-blue-500/30"
-            >
-              {copiedField === 'all' ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span className="text-sm">¡Credenciales Copiadas!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  <span className="text-sm">Copiar Todas las Credenciales</span>
-                </>
-              )}
-            </button>
+          <div className="flex flex-col gap-2">
+            {/* Main action buttons */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={handleCopyAll}
+                className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-lg shadow-blue-500/30"
+              >
+                {copiedField === 'all' ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span className="text-sm">¡Credenciales Copiadas!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span className="text-sm">Copiar Credenciales</span>
+                  </>
+                )}
+              </button>
 
+              <button
+                onClick={handleSendWhatsApp}
+                className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#25D366] text-white rounded-lg hover:bg-[#20BA5A] transition-colors font-medium shadow-lg shadow-green-500/30"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span className="text-sm">Enviar por WhatsApp</span>
+              </button>
+            </div>
+
+            {/* Close button */}
             <button
               onClick={onClose}
-              className="sm:w-auto px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              className="w-full px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >
               <span className="text-sm">Cerrar</span>
             </button>
