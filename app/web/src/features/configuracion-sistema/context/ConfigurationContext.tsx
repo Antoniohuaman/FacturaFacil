@@ -8,6 +8,8 @@ import type { PaymentMethod } from '../models/PaymentMethod';
 import type { Currency } from '../models/Currency';
 import type { Unit } from '../models/Unit';
 import type { Tax } from '../models/Tax';
+import type { VoucherDesign } from '../models/VoucherDesign';
+import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesign';
 
 // Temporary interface for tax affectations until officially added to Tax model
 export interface TaxAffectations {
@@ -35,6 +37,7 @@ interface ConfigurationState {
   units: Unit[];
   taxes: Tax[];
   taxAffectations: TaxAffectations;
+  voucherDesigns: VoucherDesign[];
   isLoading: boolean;
   error: string | null;
 }
@@ -59,7 +62,9 @@ type ConfigurationAction =
   | { type: 'SET_CURRENCIES'; payload: Currency[] }
   | { type: 'SET_UNITS'; payload: Unit[] }
   | { type: 'SET_TAXES'; payload: Tax[] }
-  | { type: 'SET_TAX_AFFECTATIONS'; payload: TaxAffectations };
+  | { type: 'SET_TAX_AFFECTATIONS'; payload: TaxAffectations }
+  | { type: 'SET_VOUCHER_DESIGNS'; payload: VoucherDesign[] }
+  | { type: 'UPDATE_VOUCHER_DESIGN'; payload: VoucherDesign };
 
 const initialState: ConfigurationState = {
   company: null,
@@ -70,6 +75,7 @@ const initialState: ConfigurationState = {
   currencies: [],
   units: [],
   taxes: [],
+  voucherDesigns: [],
   taxAffectations: {
     igv: {
       isActive: true,
@@ -185,6 +191,17 @@ function configurationReducer(
 
     case 'SET_TAX_AFFECTATIONS':
       return { ...state, taxAffectations: action.payload };
+
+    case 'SET_VOUCHER_DESIGNS':
+      return { ...state, voucherDesigns: action.payload };
+
+    case 'UPDATE_VOUCHER_DESIGN':
+      return {
+        ...state,
+        voucherDesigns: state.voucherDesigns.map(design =>
+          design.id === action.payload.id ? action.payload : design
+        )
+      };
 
     default:
       return state;
@@ -615,6 +632,12 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
     dispatch({
       type: 'SET_EMPLOYEES',
       payload: []  // Start empty - users can create their own employees
+    });
+
+    // Default voucher designs
+    dispatch({
+      type: 'SET_VOUCHER_DESIGNS',
+      payload: [DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN]
     });
   }, []);
 

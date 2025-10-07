@@ -1,5 +1,5 @@
 // src/features/configuration/pages/VoucherDesignConfiguration.tsx
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft,
@@ -15,92 +15,70 @@ import {
 } from 'lucide-react';
 import { ConfigurationCard } from '../components/common/ConfigurationCard';
 import { SettingsToggle } from '../components/common/SettingsToggle';
+import { useConfigurationContext } from '../context/ConfigurationContext';
+import type { VoucherDesign, VoucherDesignSettings } from '../models/VoucherDesign';
 
 type DesignType = 'A4' | 'TICKET';
 type PreviewMode = 'desktop' | 'mobile';
 
-interface DesignSettings {
-  showLogo: boolean;
-  showCompanyInfo: boolean;
-  showFooter: boolean;
-  headerColor: string;
-  textColor: string;
-  borderColor: string;
-  fontSize: 'small' | 'medium' | 'large';
-  fontFamily: 'Arial' | 'Helvetica' | 'Times';
-  showBorder: boolean;
-  showWatermark: boolean;
-}
-
 export function VoucherDesignConfiguration() {
   const navigate = useNavigate();
+  const { state, dispatch } = useConfigurationContext();
   
   const [activeDesign, setActiveDesign] = useState<DesignType>('A4');
   const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
-  const [a4Settings, setA4Settings] = useState<DesignSettings>({
-    showLogo: true,
-    showCompanyInfo: true,
-    showFooter: true,
-    headerColor: '#2563eb',
-    textColor: '#374151',
-    borderColor: '#e5e7eb',
-    fontSize: 'medium',
-    fontFamily: 'Arial',
-    showBorder: true,
-    showWatermark: false
-  });
   
-  const [ticketSettings, setTicketSettings] = useState<DesignSettings>({
-    showLogo: true,
-    showCompanyInfo: true,
-    showFooter: true,
-    headerColor: '#1f2937',
-    textColor: '#000000',
-    borderColor: '#000000',
-    fontSize: 'small',
-    fontFamily: 'Arial',
-    showBorder: false,
-    showWatermark: false
-  });
+  // Get current design from context
+  const currentDesign = useMemo(() => {
+    return state.voucherDesigns.find(d => d.type === activeDesign && d.isDefault);
+  }, [state.voucherDesigns, activeDesign]);
 
-  const currentSettings = activeDesign === 'A4' ? a4Settings : ticketSettings;
-  const setCurrentSettings = activeDesign === 'A4' ? setA4Settings : setTicketSettings;
+  const currentSettings = currentDesign?.settings;
 
-  const updateSetting = (key: keyof DesignSettings, value: any) => {
-    setCurrentSettings(prev => ({ ...prev, [key]: value }));
+  const updateSetting = (key: keyof VoucherDesignSettings, value: any) => {
+    if (!currentDesign) return;
+    
+    const updatedDesign: VoucherDesign = {
+      ...currentDesign,
+      settings: {
+        ...currentDesign.settings,
+        [key]: value
+      },
+      updatedAt: new Date()
+    };
+    
+    dispatch({
+      type: 'UPDATE_VOUCHER_DESIGN',
+      payload: updatedDesign
+    });
   };
 
   const resetToDefault = () => {
-    if (activeDesign === 'A4') {
-      setA4Settings({
-        showLogo: true,
-        showCompanyInfo: true,
-        showFooter: true,
-        headerColor: '#2563eb',
-        textColor: '#374151',
-        borderColor: '#e5e7eb',
-        fontSize: 'medium',
-        fontFamily: 'Arial',
-        showBorder: true,
-        showWatermark: false
-      });
-    } else {
-      setTicketSettings({
-        showLogo: true,
-        showCompanyInfo: true,
-        showFooter: true,
-        headerColor: '#1f2937',
-        textColor: '#000000',
-        borderColor: '#000000',
-        fontSize: 'small',
-        fontFamily: 'Arial',
-        showBorder: false,
-        showWatermark: false
-      });
-    }
+    if (!currentDesign) return;
+    
+    // Import default settings based on type
+    const { DEFAULT_A4_DESIGN_SETTINGS, DEFAULT_TICKET_DESIGN_SETTINGS } = 
+      require('../models/VoucherDesign');
+    
+    const defaultSettings = activeDesign === 'A4' 
+      ? DEFAULT_A4_DESIGN_SETTINGS 
+      : DEFAULT_TICKET_DESIGN_SETTINGS;
+    
+    const updatedDesign: VoucherDesign = {
+      ...currentDesign,
+      settings: defaultSettings,
+      updatedAt: new Date()
+    };
+    
+    dispatch({
+      type: 'UPDATE_VOUCHER_DESIGN',
+      payload: updatedDesign
+    });
   };
 
   const exportTemplate = () => {
+    if (!currentDesign) return;
+    
     const templateData = {
       type: activeDesign,
       settings: currentSettings,
@@ -121,7 +99,7 @@ export function VoucherDesignConfiguration() {
 
   const importTemplate = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !currentDesign) return;
     
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -130,7 +108,16 @@ export function VoucherDesignConfiguration() {
         const templateData = JSON.parse(result);
         
         if (templateData.type === activeDesign) {
-          setCurrentSettings(templateData.settings);
+          const updatedDesign: VoucherDesign = {
+            ...currentDesign,
+            settings: templateData.settings,
+            updatedAt: new Date()
+          };
+          
+          dispatch({
+            type: 'UPDATE_VOUCHER_DESIGN',
+            payload: updatedDesign
+          });
         } else {
           alert('El archivo no corresponde al tipo de diseño seleccionado');
         }
@@ -164,10 +151,18 @@ export function VoucherDesignConfiguration() {
         </div>
       </div>
 
-      {/* Design Type Selector */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tipo de Diseño</h3>
+      {!currentSettings ? (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <p className="text-yellow-800 dark:text-yellow-200">
+            No se encontró configuración de diseño. Por favor, recarga la página.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Design Type Selector */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tipo de Diseño</h3>
           
           <div className="flex items-center space-x-2">
             <button
@@ -601,6 +596,8 @@ export function VoucherDesignConfiguration() {
           </button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }
