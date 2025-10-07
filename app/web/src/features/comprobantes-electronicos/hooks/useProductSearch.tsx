@@ -1,8 +1,26 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Product, ProductSearchFilters, ProductSearchResult } from '../models/comprobante.types';
-import { AVAILABLE_PRODUCTS, SEARCH_CONFIG } from '../models/constants';
+import { SEARCH_CONFIG } from '../models/constants';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 
 export const useProductSearch = () => {
+  // Obtener productos del catálogo real
+  const { allProducts: catalogProducts } = useProductStore();
+  
+  // Convertir productos del catálogo al formato de comprobantes
+  const AVAILABLE_PRODUCTS: Product[] = useMemo(() => 
+    catalogProducts.map(p => ({
+      id: p.id,
+      code: p.codigo,
+      name: p.nombre,
+      price: p.precio,
+      stock: p.cantidad,
+      category: p.categoria || 'Sin categoría',
+      description: p.descripcion || ''
+    })),
+    [catalogProducts]
+  );
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>(AVAILABLE_PRODUCTS);
   const [isSearching, setIsSearching] = useState(false);
@@ -122,18 +140,18 @@ export const useProductSearch = () => {
     setSelectedCategory('');
     setSearchFilters({});
     setSearchResults(AVAILABLE_PRODUCTS);
-  }, []);
+  }, [AVAILABLE_PRODUCTS]);
 
   // Buscar producto por ID
   const findProductById = useCallback((id: string): Product | undefined => {
     return AVAILABLE_PRODUCTS.find(product => product.id === id);
-  }, []);
+  }, [AVAILABLE_PRODUCTS]);
 
   // Obtener productos sugeridos basados en historial (simulado)
   const getSuggestedProducts = useCallback((): Product[] => {
     // En producción, esto vendría del historial de ventas del usuario
     return AVAILABLE_PRODUCTS.slice(0, 4);
-  }, []);
+  }, [AVAILABLE_PRODUCTS]);
 
   // Validar stock de producto
   const hasStock = useCallback((productId: string): boolean => {
@@ -145,7 +163,7 @@ export const useProductSearch = () => {
   const availableCategories = useMemo(() => {
     const categories = new Set(AVAILABLE_PRODUCTS.map(p => p.category).filter(Boolean));
     return Array.from(categories);
-  }, []);
+  }, [AVAILABLE_PRODUCTS]);
 
   // Estado computed
   const hasSearchQuery = searchQuery.length >= SEARCH_CONFIG.MIN_SEARCH_LENGTH;

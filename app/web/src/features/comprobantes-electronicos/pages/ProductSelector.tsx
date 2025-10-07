@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 
 interface Product {
   id: string;
@@ -19,6 +20,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   onAddProducts, 
   existingProducts = [] 
 }) => {
+  // Obtener productos del catálogo real
+  const { allProducts: catalogProducts } = useProductStore();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [isMultipleMode, setIsMultipleMode] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -31,17 +35,15 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Mock products database
-  const allProducts: Product[] = [
-  { id: '1', code: '00156389', name: 'Hojas Bond A4 ATLAS', price: 60.00, stock: 150, category: 'Útiles' },
-  { id: '2', code: '00168822', name: 'Sketch ARTESCO', price: 18.00, stock: 80, category: 'Útiles' },
-  { id: '3', code: '00170001', name: 'Resma Bond A3', price: 120.00, stock: 45, category: 'Útiles' },
-  { id: '4', code: '00180001', name: 'Lapicero BIC', price: 2.50, stock: 300, category: 'Útiles' },
-  { id: '5', code: '00190001', name: 'Cuaderno Loro', price: 8.00, stock: 200, category: 'Útiles' },
-    { id: '6', code: '00145678', name: 'Martillo de acero', price: 45.50, stock: 25, category: 'Herramientas' },
-    { id: '7', code: '00187654', name: 'Destornillador Phillips', price: 12.00, stock: 60, category: 'Herramientas' },
-    { id: '8', code: '00198765', name: 'Taladro eléctrico', price: 250.00, stock: 15, category: 'Herramientas' }
-  ];
+  // Convertir productos del catálogo al formato esperado
+  const allProducts: Product[] = catalogProducts.map(p => ({
+    id: p.id,
+    code: p.codigo,
+    name: p.nombre,
+    price: p.precio,
+    stock: p.cantidad,
+    category: p.categoria || 'Sin categoría'
+  }));
 
   // Intelligent search with prioritization
   const getFilteredProducts = useCallback(() => {
