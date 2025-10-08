@@ -163,6 +163,14 @@ export interface MovimientoStock {
   establecimientoId?: string;
   establecimientoCodigo?: string;
   establecimientoNombre?: string;
+  // Campos para transferencias entre establecimientos
+  esTransferencia?: boolean;
+  transferenciaId?: string; // ID único que vincula origen y destino
+  establecimientoOrigenId?: string;
+  establecimientoOrigenNombre?: string;
+  establecimientoDestinoId?: string;
+  establecimientoDestinoNombre?: string;
+  movimientoRelacionadoId?: string; // ID del movimiento complementario
 }
 
 export interface StockAlert {

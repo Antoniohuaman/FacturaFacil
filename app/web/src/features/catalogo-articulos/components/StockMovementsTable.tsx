@@ -258,12 +258,38 @@ const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
+                      {/* Transferencia */}
+                      {movimiento.esTransferencia && (
+                        <div className="mb-2 p-2 bg-indigo-50 border border-indigo-200 rounded-md">
+                          <div className="flex items-center space-x-2 text-xs">
+                            <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                            <span className="font-medium text-indigo-900">
+                              {movimiento.tipo === 'SALIDA' ? 'Desde:' : 'Hacia:'}{' '}
+                              {movimiento.tipo === 'SALIDA' 
+                                ? movimiento.establecimientoDestinoNombre 
+                                : movimiento.establecimientoOrigenNombre
+                              }
+                            </span>
+                          </div>
+                          <div className="text-xs text-indigo-600 mt-1">
+                            ID: {movimiento.transferenciaId}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Observaciones */}
                       {movimiento.observaciones && (
                         <p className="text-gray-700 mb-1">{movimiento.observaciones}</p>
                       )}
+                      
+                      {/* Documento de referencia */}
                       {movimiento.documentoReferencia && (
                         <p className="text-xs text-gray-500">Doc: {movimiento.documentoReferencia}</p>
                       )}
+                      
+                      {/* Ubicación (legacy) */}
                       {movimiento.ubicacion && (
                         <p className="text-xs text-gray-500">📍 {movimiento.ubicacion}</p>
                       )}

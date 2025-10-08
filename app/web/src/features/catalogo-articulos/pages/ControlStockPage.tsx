@@ -7,12 +7,14 @@ import StockAdjustmentModal from '../components/StockAdjustmentModal.tsx';
 import StockSummaryCards from '../components/StockSummaryCards.tsx';
 import StockAlertsPanel from '../components/StockAlertsPanel.tsx';
 import MassStockUpdateModal from '../components/MassStockUpdateModal.tsx';
+import TransferStockModal from '../components/TransferStockModal.tsx';
 import { useProductStore } from '../hooks/useProductStore';
 
 const ControlStockPage: React.FC = () => {
-  const { allProducts, movimientos, addMovimiento } = useProductStore();
+  const { allProducts, movimientos, addMovimiento, transferirStock } = useProductStore();
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedView, setSelectedView] = useState<'movimientos' | 'alertas' | 'resumen'>('movimientos');
   const [filterPeriodo, setFilterPeriodo] = useState<'hoy' | 'semana' | 'mes' | 'todo'>('semana');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -164,6 +166,19 @@ const ControlStockPage: React.FC = () => {
               </div>
             </button>
 
+            {/* Transfer Stock Button */}
+            <button
+              onClick={() => setShowTransferModal(true)}
+              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
+            >
+              <div className="flex items-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                <span>Transferir Stock</span>
+              </div>
+            </button>
+
             {/* Adjust Stock Button */}
             <button
               onClick={() => setShowAdjustmentModal(true)}
@@ -252,6 +267,30 @@ const ControlStockPage: React.FC = () => {
       <MassStockUpdateModal
         isOpen={showMassUpdateModal}
         onClose={() => setShowMassUpdateModal(false)}
+      />
+
+      {/* Transfer Stock Modal */}
+      <TransferStockModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        onTransfer={(data) => {
+          const resultado = transferirStock(
+            data.productoId,
+            data.establecimientoOrigenId,
+            data.establecimientoDestinoId,
+            data.cantidad,
+            data.documentoReferencia,
+            data.observaciones
+          );
+          
+          if (resultado) {
+            alert(`Transferencia realizada exitosamente.\nID: ${resultado.transferenciaId}`);
+          } else {
+            alert('Error al realizar la transferencia. Verifica el stock disponible.');
+          }
+          
+          setShowTransferModal(false);
+        }}
       />
     </div>
   );

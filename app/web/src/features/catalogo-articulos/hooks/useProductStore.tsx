@@ -466,6 +466,128 @@ export const useProductStore = () => {
     return nuevoMovimiento;
   }, [products]);
 
+  // Función especializada para transferencias entre establecimientos
+  const transferirStock = useCallback((
+    productoId: string,
+    establecimientoOrigenId: string,
+    establecimientoDestinoId: string,
+    cantidad: number,
+    documentoReferencia?: string,
+    observaciones?: string
+  ) => {
+    const producto = products.find(p => p.id === productoId);
+    if (!producto) {
+      console.error('Producto no encontrado');
+      return null;
+    }
+
+    // Validar que hay stock suficiente en origen
+    const stockOrigen = producto.stockPorEstablecimiento?.[establecimientoOrigenId] ?? 0;
+    if (stockOrigen < cantidad) {
+      console.error('Stock insuficiente en establecimiento origen');
+      return null;
+    }
+
+    // Generar ID único para vincular ambos movimientos
+    const transferenciaId = `TRANS-${Date.now()}`;
+    const timestamp = new Date();
+
+    // Calcular nuevos stocks
+    const nuevoStockOrigen = stockOrigen - cantidad;
+    const stockDestino = producto.stockPorEstablecimiento?.[establecimientoDestinoId] ?? 0;
+    const nuevoStockDestino = stockDestino + cantidad;
+
+    // Obtener nombres de establecimientos (puedes mejorar esto con un contexto)
+    const nombreOrigen = `Establecimiento ${establecimientoOrigenId}`;
+    const nombreDestino = `Establecimiento ${establecimientoDestinoId}`;
+
+    // Crear movimiento de SALIDA en origen
+    const movimientoSalida: MovimientoStock = {
+      id: `${transferenciaId}-SALIDA`,
+      productoId,
+      productoCodigo: producto.codigo,
+      productoNombre: producto.nombre,
+      tipo: 'SALIDA',
+      motivo: 'TRANSFERENCIA_ALMACEN',
+      cantidad,
+      cantidadAnterior: stockOrigen,
+      cantidadNueva: nuevoStockOrigen,
+      usuario: 'Usuario Actual',
+      observaciones: observaciones || `Transferencia a ${nombreDestino}`,
+      documentoReferencia,
+      fecha: timestamp,
+      establecimientoId: establecimientoOrigenId,
+      establecimientoNombre: nombreOrigen,
+      // Campos de transferencia
+      esTransferencia: true,
+      transferenciaId,
+      establecimientoOrigenId,
+      establecimientoOrigenNombre: nombreOrigen,
+      establecimientoDestinoId,
+      establecimientoDestinoNombre: nombreDestino,
+      movimientoRelacionadoId: `${transferenciaId}-ENTRADA`
+    };
+
+    // Crear movimiento de ENTRADA en destino
+    const movimientoEntrada: MovimientoStock = {
+      id: `${transferenciaId}-ENTRADA`,
+      productoId,
+      productoCodigo: producto.codigo,
+      productoNombre: producto.nombre,
+      tipo: 'ENTRADA',
+      motivo: 'TRANSFERENCIA_ALMACEN',
+      cantidad,
+      cantidadAnterior: stockDestino,
+      cantidadNueva: nuevoStockDestino,
+      usuario: 'Usuario Actual',
+      observaciones: observaciones || `Transferencia desde ${nombreOrigen}`,
+      documentoReferencia,
+      fecha: timestamp,
+      establecimientoId: establecimientoDestinoId,
+      establecimientoNombre: nombreDestino,
+      // Campos de transferencia
+      esTransferencia: true,
+      transferenciaId,
+      establecimientoOrigenId,
+      establecimientoOrigenNombre: nombreOrigen,
+      establecimientoDestinoId,
+      establecimientoDestinoNombre: nombreDestino,
+      movimientoRelacionadoId: `${transferenciaId}-SALIDA`
+    };
+
+    // Actualizar producto con nuevos stocks por establecimiento
+    setProducts(prev =>
+      prev.map(p =>
+        p.id === productoId
+          ? {
+              ...p,
+              stockPorEstablecimiento: {
+                ...p.stockPorEstablecimiento,
+                [establecimientoOrigenId]: nuevoStockOrigen,
+                [establecimientoDestinoId]: nuevoStockDestino
+              },
+              // Actualizar stock total (suma de todos los establecimientos)
+              cantidad: Object.values({
+                ...p.stockPorEstablecimiento,
+                [establecimientoOrigenId]: nuevoStockOrigen,
+                [establecimientoDestinoId]: nuevoStockDestino
+              }).reduce((sum, qty) => sum + qty, 0),
+              fechaActualizacion: new Date()
+            }
+          : p
+      )
+    );
+
+    // Agregar ambos movimientos al historial
+    setMovimientos(prev => [movimientoEntrada, movimientoSalida, ...prev]);
+
+    return {
+      transferenciaId,
+      movimientoSalida,
+      movimientoEntrada
+    };
+  }, [products]);
+
   return {
     // Estado
     products: filteredProducts,
@@ -495,6 +617,7 @@ export const useProductStore = () => {
     
     // Movimientos de Stock
     addMovimiento,
+    transferirStock,
 
     // Filtros y paginación
     updateFilters,
