@@ -15,6 +15,8 @@ const ControlStockPage: React.FC = () => {
   const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
   const [selectedView, setSelectedView] = useState<'movimientos' | 'alertas' | 'resumen'>('movimientos');
   const [filterPeriodo, setFilterPeriodo] = useState<'hoy' | 'semana' | 'mes' | 'todo'>('semana');
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [suggestedQuantity, setSuggestedQuantity] = useState<number>(0);
 
   // Generar alertas basadas en productos reales
   const alertas: StockAlert[] = allProducts
@@ -185,7 +187,25 @@ const ControlStockPage: React.FC = () => {
         )}
         
         {selectedView === 'alertas' && (
-          <StockAlertsPanel alertas={alertas} />
+          <StockAlertsPanel
+            alertas={alertas}
+            onReabastecerProducto={(productoId, cantidadSugerida) => {
+              setSelectedProductId(productoId);
+              setSuggestedQuantity(cantidadSugerida);
+              setShowAdjustmentModal(true);
+            }}
+            onProgramarCompra={(productoId, cantidadSugerida) => {
+              const producto = allProducts.find(p => p.id === productoId);
+              if (producto) {
+                const mensaje = `Se programará una compra para:\n\n` +
+                  `Producto: ${producto.nombre}\n` +
+                  `Código: ${producto.codigo}\n` +
+                  `Cantidad sugerida: ${cantidadSugerida} unidades\n\n` +
+                  `Esta funcionalidad se integrará con el módulo de compras.`;
+                alert(mensaje);
+              }
+            }}
+          />
         )}
         
         {selectedView === 'resumen' && (
@@ -200,7 +220,11 @@ const ControlStockPage: React.FC = () => {
       {showAdjustmentModal && (
         <StockAdjustmentModal
           isOpen={showAdjustmentModal}
-          onClose={() => setShowAdjustmentModal(false)}
+          onClose={() => {
+            setShowAdjustmentModal(false);
+            setSelectedProductId(null);
+            setSuggestedQuantity(0);
+          }}
           onAdjust={(data: any) => {
             // Registrar el movimiento en el store
             addMovimiento(
@@ -216,7 +240,11 @@ const ControlStockPage: React.FC = () => {
               data.establecimientoNombre
             );
             setShowAdjustmentModal(false);
+            setSelectedProductId(null);
+            setSuggestedQuantity(0);
           }}
+          preSelectedProductId={selectedProductId}
+          preSelectedQuantity={suggestedQuantity}
         />
       )}
 

@@ -9,6 +9,8 @@ interface StockAdjustmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdjust: (data: AdjustmentData) => void;
+  preSelectedProductId?: string | null;
+  preSelectedQuantity?: number;
 }
 
 interface AdjustmentData {
@@ -26,20 +28,32 @@ interface AdjustmentData {
 const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   isOpen,
   onClose,
-  onAdjust
+  onAdjust,
+  preSelectedProductId,
+  preSelectedQuantity
 }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
   const establecimientos = configState.establishments.filter(e => e.isActive);
-  
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState(preSelectedProductId || '');
   const [tipo, setTipo] = useState<MovimientoStockTipo>('ENTRADA');
   const [motivo, setMotivo] = useState<MovimientoStockMotivo>('COMPRA');
-  const [cantidad, setCantidad] = useState('');
+  const [cantidad, setCantidad] = useState(preSelectedQuantity ? String(preSelectedQuantity) : '');
   const [observaciones, setObservaciones] = useState('');
   const [documentoReferencia, setDocumentoReferencia] = useState('');
   const [selectedEstablecimientoId, setSelectedEstablecimientoId] = useState('');
+
+  // Actualizar cuando cambian los props
+  React.useEffect(() => {
+    if (preSelectedProductId) {
+      setSelectedProductId(preSelectedProductId);
+    }
+    if (preSelectedQuantity) {
+      setCantidad(String(preSelectedQuantity));
+    }
+  }, [preSelectedProductId, preSelectedQuantity]);
 
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
 

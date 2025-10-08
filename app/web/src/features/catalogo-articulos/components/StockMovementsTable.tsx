@@ -10,6 +10,8 @@ interface StockMovementsTableProps {
 const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('todos');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const getTipoBadge = (tipo: MovimientoStock['tipo']) => {
     const styles = {
@@ -81,15 +83,31 @@ const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }
   };
 
   const filteredMovimientos = movimientos.filter(mov => {
-    const matchesSearch = 
+    const matchesSearch =
       mov.productoNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mov.productoCodigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mov.usuario.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesTipo = filterTipo === 'todos' || mov.tipo === filterTipo;
-    
+
     return matchesSearch && matchesTipo;
   });
+
+  // Cálculos de paginación
+  const totalItems = filteredMovimientos.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedMovimientos = filteredMovimientos.slice(startIndex, endIndex);
+
+  // Resetear a página 1 cuando cambian los filtros
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterTipo]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -165,7 +183,7 @@ const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredMovimientos.length === 0 ? (
+            {paginatedMovimientos.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center">
@@ -178,7 +196,7 @@ const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }
                 </td>
               </tr>
             ) : (
-              filteredMovimientos.map((movimiento) => (
+              paginatedMovimientos.map((movimiento) => (
                 <tr key={movimiento.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{formatDate(movimiento.fecha)}</div>
@@ -259,18 +277,78 @@ const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }
       </div>
 
       {/* Pagination */}
-      {filteredMovimientos.length > 0 && (
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Mostrando <span className="font-medium">{filteredMovimientos.length}</span> movimientos
-          </div>
-          <div className="flex items-center space-x-2">
-            <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">
-              Anterior
-            </button>
-            <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">
-              Siguiente
-            </button>
+      {totalItems > 0 && (
+        <div className="px-6 py-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-700">
+                Mostrando <span className="font-medium">{startIndex + 1}</span> a{' '}
+                <span className="font-medium">{Math.min(endIndex, totalItems)}</span> de{' '}
+                <span className="font-medium">{totalItems}</span> movimientos
+              </div>
+
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(parseInt(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value={5}>5 por página</option>
+                <option value={10}>10 por página</option>
+                <option value={25}>25 por página</option>
+                <option value={50}>50 por página</option>
+              </select>
+            </div>
+
+            <nav className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Anterior
+              </button>
+
+              {/* Números de página */}
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`px-3 py-1 text-sm border rounded-md transition-colors ${
+                        currentPage === pageNum
+                          ? 'bg-red-50 border-red-500 text-red-600 font-medium'
+                          : 'border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Siguiente
+              </button>
+            </nav>
           </div>
         </div>
       )}
