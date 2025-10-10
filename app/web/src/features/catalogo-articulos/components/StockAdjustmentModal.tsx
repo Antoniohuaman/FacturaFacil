@@ -34,10 +34,24 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const establecimientos = configState.establishments.filter(e => e.isActive);
+  const todosLosEstablecimientos = configState.establishments.filter(e => e.isActive);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState(preSelectedProductId || '');
+
+  // ✅ NUEVO: Filtrar establecimientos según el producto seleccionado
+  const establecimientosDisponibles = selectedProductId
+    ? todosLosEstablecimientos.filter(est => {
+        const producto = allProducts.find(p => p.id === selectedProductId);
+        if (!producto) return false;
+
+        // Si el producto está disponible en todos, mostrar todos
+        if (producto.disponibleEnTodos) return true;
+
+        // Si no, solo mostrar los establecimientos asignados al producto
+        return producto.establecimientoIds?.includes(est.id) || false;
+      })
+    : todosLosEstablecimientos;
   const [tipo, setTipo] = useState<MovimientoStockTipo>('ENTRADA');
   const [motivo, setMotivo] = useState<MovimientoStockMotivo>('COMPRA');
   const [cantidad, setCantidad] = useState(preSelectedQuantity ? String(preSelectedQuantity) : '');
@@ -116,7 +130,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
         alert(
           `❌ STOCK INSUFICIENTE\n\n` +
           `Producto: ${selectedProduct.nombre}\n` +
-          `Establecimiento: ${establecimientos.find(e => e.id === selectedEstablecimientoId)?.name}\n\n` +
+          `Establecimiento: ${todosLosEstablecimientos.find(e => e.id === selectedEstablecimientoId)?.name}\n\n` +
           `Stock disponible: ${stockDisponible} ${selectedProduct.unidad}\n` +
           `Cantidad solicitada: ${cantidadSolicitada} ${selectedProduct.unidad}\n` +
           `Faltante: ${cantidadSolicitada - stockDisponible} ${selectedProduct.unidad}\n\n` +
@@ -126,7 +140,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
       }
     }
 
-    const establecimientoSeleccionado = establecimientos.find(e => e.id === selectedEstablecimientoId);
+    const establecimientoSeleccionado = todosLosEstablecimientos.find(e => e.id === selectedEstablecimientoId);
 
     onAdjust({
       productoId: selectedProductId,
@@ -348,9 +362,14 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                 onChange={(e) => setSelectedEstablecimientoId(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                 required
+                disabled={establecimientosDisponibles.length === 0}
               >
-                <option value="">Seleccionar establecimiento...</option>
-                {establecimientos.map(est => (
+                <option value="">
+                  {establecimientosDisponibles.length === 0
+                    ? 'No hay establecimientos disponibles para este producto'
+                    : 'Seleccionar establecimiento...'}
+                </option>
+                {establecimientosDisponibles.map(est => (
                   <option key={est.id} value={est.id}>
                     [{est.code}] {est.name} - {est.district}
                   </option>
@@ -359,6 +378,16 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
               {selectedEstablecimientoId && (
                 <p className="mt-1 text-xs text-gray-500">
                   El movimiento se registrará en este establecimiento
+                </p>
+              )}
+              {selectedProductId && establecimientosDisponibles.length === 0 && (
+                <p className="mt-2 text-sm text-red-600">
+                  ⚠️ Este producto no está asignado a ningún establecimiento activo
+                </p>
+              )}
+              {selectedProductId && establecimientosDisponibles.length > 0 && !selectedProduct?.disponibleEnTodos && (
+                <p className="mt-1 text-xs text-blue-600">
+                  ℹ️ Solo se muestran los {establecimientosDisponibles.length} establecimientos donde este producto está registrado
                 </p>
               )}
             </div>

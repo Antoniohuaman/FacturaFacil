@@ -27,7 +27,7 @@ const TransferStockModal: React.FC<TransferStockModalProps> = ({
 }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const establecimientos = configState.establishments.filter(e => e.isActive);
+  const todosLosEstablecimientos = configState.establishments.filter(e => e.isActive);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -37,6 +37,20 @@ const TransferStockModal: React.FC<TransferStockModalProps> = ({
   const [documentoReferencia, setDocumentoReferencia] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [showProductList, setShowProductList] = useState(false);
+
+  // ✅ NUEVO: Filtrar establecimientos según el producto seleccionado
+  const establecimientosDisponibles = selectedProductId
+    ? todosLosEstablecimientos.filter(est => {
+        const producto = allProducts.find(p => p.id === selectedProductId);
+        if (!producto) return false;
+
+        // Si el producto está disponible en todos, mostrar todos
+        if (producto.disponibleEnTodos) return true;
+
+        // Si no, solo mostrar los establecimientos asignados al producto
+        return producto.establecimientoIds?.includes(est.id) || false;
+      })
+    : todosLosEstablecimientos;
 
   // Reset form when modal closes
   useEffect(() => {
@@ -53,8 +67,8 @@ const TransferStockModal: React.FC<TransferStockModalProps> = ({
   }, [isOpen]);
 
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
-  const establecimientoOrigen = establecimientos.find(e => e.id === establecimientoOrigenId);
-  const establecimientoDestino = establecimientos.find(e => e.id === establecimientoDestinoId);
+  const establecimientoOrigen = todosLosEstablecimientos.find(e => e.id === establecimientoOrigenId);
+  const establecimientoDestino = todosLosEstablecimientos.find(e => e.id === establecimientoDestinoId);
 
   // Calcular stock disponible en origen
   // TEMPORAL: Usar stock total del producto hasta implementar distribución por establecimiento
@@ -210,14 +224,34 @@ const TransferStockModal: React.FC<TransferStockModalProps> = ({
                   value={establecimientoOrigenId}
                   onChange={(e) => setEstablecimientoOrigenId(e.target.value)}
                   className="w-full px-4 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white mb-3"
+                  disabled={establecimientosDisponibles.length === 0}
                 >
-                  <option value="">Seleccionar establecimiento de origen...</option>
-                  {establecimientos.map((est) => (
+                  <option value="">
+                    {establecimientosDisponibles.length === 0
+                      ? 'No hay establecimientos disponibles para este producto'
+                      : 'Seleccionar establecimiento de origen...'}
+                  </option>
+                  {establecimientosDisponibles.map((est) => (
                     <option key={est.id} value={est.id}>
                       {est.code} - {est.name}
                     </option>
                   ))}
                 </select>
+
+                {selectedProductId && establecimientosDisponibles.length === 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+                    <p className="text-sm text-red-600">
+                      ⚠️ Este producto no está asignado a ningún establecimiento activo
+                    </p>
+                  </div>
+                )}
+                {selectedProductId && establecimientosDisponibles.length > 0 && !selectedProduct?.disponibleEnTodos && (
+                  <div className="bg-blue-100 border border-blue-300 rounded-lg p-2 mb-3">
+                    <p className="text-xs text-blue-700">
+                      ℹ️ Solo se muestran los {establecimientosDisponibles.length} establecimientos donde este producto está registrado
+                    </p>
+                  </div>
+                )}
 
                 {establecimientoOrigenId && (
                   <div className="bg-white rounded-lg p-3 border border-blue-200">
@@ -251,10 +285,10 @@ const TransferStockModal: React.FC<TransferStockModalProps> = ({
                   value={establecimientoDestinoId}
                   onChange={(e) => setEstablecimientoDestinoId(e.target.value)}
                   className="w-full px-4 py-2.5 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white mb-3"
-                  disabled={!establecimientoOrigenId}
+                  disabled={!establecimientoOrigenId || establecimientosDisponibles.length === 0}
                 >
                   <option value="">Seleccionar establecimiento de destino...</option>
-                  {establecimientos
+                  {establecimientosDisponibles
                     .filter(est => est.id !== establecimientoOrigenId)
                     .map((est) => (
                       <option key={est.id} value={est.id}>
