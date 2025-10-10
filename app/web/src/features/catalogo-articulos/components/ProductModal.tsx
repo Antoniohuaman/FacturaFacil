@@ -59,6 +59,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
     // Asignación de establecimientos
     establecimientoIds: [],
     disponibleEnTodos: false,
+    // Control de stock
+    stockMinimo: 10,
+    stockMaximo: undefined,
     // Campos avanzados
     alias: '',
     precioCompra: 0,
@@ -105,6 +108,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
         // Asignación de establecimientos
         establecimientoIds: product.establecimientoIds || [],
         disponibleEnTodos: product.disponibleEnTodos || false,
+        // Control de stock
+        stockMinimo: product.stockMinimo ?? 10,
+        stockMaximo: product.stockMaximo,
         // Campos avanzados
         alias: product.alias || '',
         precioCompra: product.precioCompra || 0,
@@ -139,6 +145,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
         // Asignación de establecimientos - Por defecto sin selección (usuario elige)
         establecimientoIds: [],
         disponibleEnTodos: false, // ✅ Desmarcado por defecto - usuario decide
+        // Control de stock
+        stockMinimo: 10,
+        stockMaximo: undefined,
         // Campos avanzados
         alias: '',
         precioCompra: 0,

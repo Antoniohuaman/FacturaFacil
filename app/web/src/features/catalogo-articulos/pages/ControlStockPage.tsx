@@ -61,17 +61,63 @@ const ControlStockPage: React.FC = () => {
     return movimientos.filter(mov => mov.establecimientoId === selectedEstablishmentId);
   }, [movimientos, selectedEstablishmentId]);
 
-  // Generar alertas basadas en productos filtrados
-  const alertas: StockAlert[] = filteredProducts
-    .filter(p => p.cantidad <= 10)
-    .map(p => ({
-      productoId: p.id,
-      productoCodigo: p.codigo,
-      productoNombre: p.nombre,
-      cantidadActual: p.cantidad,
-      stockMinimo: 10,
-      estado: p.cantidad === 0 ? 'CRITICO' as const : 'BAJO' as const
-    }));
+  // ✅ MEJORADO: Generar alertas de stock considerando distribución por establecimiento
+  const alertas: StockAlert[] = useMemo(() => {
+    const alerts: StockAlert[] = [];
+
+    filteredProducts.forEach(producto => {
+      const stockMinimo = producto.stockMinimo ?? 10; // Usar stockMinimo del producto o default 10
+
+      // Si tiene distribución por establecimiento, generar alerta por cada uno
+      if (producto.stockPorEstablecimiento && Object.keys(producto.stockPorEstablecimiento).length > 0) {
+        Object.entries(producto.stockPorEstablecimiento).forEach(([establecimientoId, stockEstablecimiento]) => {
+          // Solo generar alerta si el stock está por debajo del mínimo
+          if (stockEstablecimiento <= stockMinimo) {
+            const establecimiento = establishments.find(e => e.id === establecimientoId);
+
+            let estado: StockAlert['estado'] = 'NORMAL';
+            if (stockEstablecimiento === 0) estado = 'CRITICO';
+            else if (stockEstablecimiento <= stockMinimo * 0.5) estado = 'CRITICO';
+            else if (stockEstablecimiento <= stockMinimo) estado = 'BAJO';
+
+            // Solo agregar si el establecimiento seleccionado coincide o si es TODOS
+            if (selectedEstablishmentId === 'TODOS' || establecimientoId === selectedEstablishmentId) {
+              alerts.push({
+                productoId: producto.id,
+                productoCodigo: producto.codigo,
+                productoNombre: producto.nombre,
+                cantidadActual: stockEstablecimiento,
+                stockMinimo,
+                estado,
+                establecimientoId,
+                establecimientoCodigo: establecimiento?.code,
+                establecimientoNombre: establecimiento?.name
+              });
+            }
+          }
+        });
+      } else {
+        // Si no tiene distribución, evaluar stock total
+        if (producto.cantidad <= stockMinimo) {
+          let estado: StockAlert['estado'] = 'NORMAL';
+          if (producto.cantidad === 0) estado = 'CRITICO';
+          else if (producto.cantidad <= stockMinimo * 0.5) estado = 'CRITICO';
+          else if (producto.cantidad <= stockMinimo) estado = 'BAJO';
+
+          alerts.push({
+            productoId: producto.id,
+            productoCodigo: producto.codigo,
+            productoNombre: producto.nombre,
+            cantidadActual: producto.cantidad,
+            stockMinimo,
+            estado
+          });
+        }
+      }
+    });
+
+    return alerts;
+  }, [filteredProducts, establishments, selectedEstablishmentId]);
 
   // ✅ NUEVA FUNCIÓN: Exportar a Excel con formato mejorado
   const handleExportToExcel = () => {
@@ -384,8 +430,8 @@ const ControlStockPage: React.FC = () => {
             setSuggestedQuantity(0);
           }}
           onAdjust={(data: any) => {
-            // Registrar el movimiento en el store
-            addMovimiento(
+            // ✅ MEJORADO: Registrar el movimiento y manejar errores
+            const resultado = addMovimiento(
               data.productoId,
               data.tipo,
               data.motivo,
@@ -397,9 +443,33 @@ const ControlStockPage: React.FC = () => {
               data.establecimientoCodigo,
               data.establecimientoNombre
             );
-            setShowAdjustmentModal(false);
-            setSelectedProductId(null);
-            setSuggestedQuantity(0);
+
+            if (resultado) {
+              // ✅ Movimiento exitoso
+              const producto = allProducts.find(p => p.id === data.productoId);
+              alert(
+                `✅ MOVIMIENTO REGISTRADO\n\n` +
+                `Producto: ${producto?.nombre}\n` +
+                `Tipo: ${data.tipo}\n` +
+                `Cantidad: ${data.cantidad}\n` +
+                `Establecimiento: ${data.establecimientoNombre}\n\n` +
+                `Stock actualizado correctamente`
+              );
+              setShowAdjustmentModal(false);
+              setSelectedProductId(null);
+              setSuggestedQuantity(0);
+            } else {
+              // ❌ Error en el movimiento (validaciones fallaron)
+              alert(
+                `❌ ERROR AL REGISTRAR MOVIMIENTO\n\n` +
+                `No se pudo completar la operación.\n` +
+                `Verifica:\n` +
+                `• Stock disponible suficiente\n` +
+                `• Establecimiento seleccionado correcto\n` +
+                `• Cantidad válida\n\n` +
+                `Revisa la consola para más detalles.`
+              );
+            }
           }}
           preSelectedProductId={selectedProductId}
           preSelectedQuantity={suggestedQuantity}

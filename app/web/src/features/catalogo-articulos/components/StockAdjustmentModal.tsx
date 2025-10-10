@@ -97,13 +97,33 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
   const handleSubmit = () => {
     if (!selectedProductId || !cantidad || Number(cantidad) <= 0) {
-      alert('Por favor completa todos los campos requeridos');
+      alert('⚠️ Por favor completa todos los campos requeridos\n\n• Producto\n• Cantidad (mayor a 0)');
       return;
     }
 
     if (!selectedEstablecimientoId) {
-      alert('Por favor selecciona un establecimiento');
+      alert('⚠️ Por favor selecciona un establecimiento');
       return;
+    }
+
+    // ✅ VALIDACIÓN ADICIONAL: Prevenir stock negativo en salidas
+    if (selectedProduct && (tipo === 'SALIDA' || tipo === 'AJUSTE_NEGATIVO' || tipo === 'MERMA')) {
+      const cantidadSolicitada = Number(cantidad);
+      const stockDisponible = selectedProduct.stockPorEstablecimiento?.[selectedEstablecimientoId]
+        ?? selectedProduct.cantidad;
+
+      if (cantidadSolicitada > stockDisponible) {
+        alert(
+          `❌ STOCK INSUFICIENTE\n\n` +
+          `Producto: ${selectedProduct.nombre}\n` +
+          `Establecimiento: ${establecimientos.find(e => e.id === selectedEstablecimientoId)?.name}\n\n` +
+          `Stock disponible: ${stockDisponible} ${selectedProduct.unidad}\n` +
+          `Cantidad solicitada: ${cantidadSolicitada} ${selectedProduct.unidad}\n` +
+          `Faltante: ${cantidadSolicitada - stockDisponible} ${selectedProduct.unidad}\n\n` +
+          `💡 Reduce la cantidad o selecciona ENTRADA en lugar de ${tipo}`
+        );
+        return;
+      }
     }
 
     const establecimientoSeleccionado = establecimientos.find(e => e.id === selectedEstablecimientoId);
