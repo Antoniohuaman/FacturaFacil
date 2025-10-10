@@ -172,7 +172,15 @@ const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }
                 Cantidad
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Stock Anterior → Nuevo
+                Stock Anterior
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <div className="flex items-center space-x-1">
+                  <span className="text-blue-600 font-bold">Stock Nuevo</span>
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </div>
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Usuario
@@ -185,7 +193,7 @@ const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedMovimientos.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-6 py-12 text-center">
+                <td colSpan={10} className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center">
                     <svg className="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -238,10 +246,24 @@ const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      <span className="font-medium">{movimiento.cantidadAnterior}</span>
-                      <span className="mx-2 text-gray-400">→</span>
-                      <span className="font-medium text-blue-600">{movimiento.cantidadNueva}</span>
+                    <div className="text-sm text-gray-600 font-medium">
+                      {movimiento.cantidadAnterior}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center space-x-2">
+                      <div className="text-base font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-md border border-blue-200">
+                        {movimiento.cantidadNueva}
+                      </div>
+                      {movimiento.cantidadNueva > movimiento.cantidadAnterior ? (
+                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                        </svg>
+                      ) : movimiento.cantidadNueva < movimiento.cantidadAnterior ? (
+                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        </svg>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
