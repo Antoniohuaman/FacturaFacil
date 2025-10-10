@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Product } from '../models/types';
+import * as XLSX from 'xlsx';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
 interface ExportColumn {
   key: string;
@@ -25,11 +27,16 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
   totalProductsCount,
   currentFilters
 }) => {
+  // ✅ Acceder a los establecimientos desde el contexto
+  const { state: configState } = useConfigurationContext();
+  const establishments = configState.establishments.filter(e => e.isActive);
+
   const [selectedFormat, setSelectedFormat] = useState<'excel' | 'csv' | 'pdf'>('excel');
   const [columnSet, setColumnSet] = useState<'basic' | 'all' | 'custom'>('basic');
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [includeStockByEstablishment, setIncludeStockByEstablishment] = useState(true);
 
   // Definir todas las columnas disponibles
   const availableColumns: ExportColumn[] = [
@@ -37,7 +44,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
     { key: 'nombre', label: 'Nombre', type: 'text', required: true },
     { key: 'precio', label: 'Precio de Venta', type: 'currency' },
     { key: 'unidad', label: 'Unidad', type: 'text' },
-    { key: 'cantidad', label: 'Stock/Cantidad', type: 'number' },
+    { key: 'cantidad', label: 'Stock Total', type: 'number' },
     { key: 'categoria', label: 'Categoría', type: 'text' },
     { key: 'impuesto', label: 'Tipo de Impuesto', type: 'text' },
     { key: 'descripcion', label: 'Descripción', type: 'text' },
@@ -122,12 +129,36 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
       selectedColumns.includes(col.key)
     );
 
-    const headers = selectedColumnObjects.map(col => col.label);
-    const rows = products.map(product => 
-      selectedColumnObjects.map(col => 
-        formatCellValue(product[col.key as keyof Product], col.type)
-      )
-    );
+    // ✅ Construir headers incluyendo stock por establecimiento si está activado
+    const headers: string[] = [];
+    selectedColumnObjects.forEach(col => headers.push(col.label));
+    
+    // Agregar columnas de stock por establecimiento
+    if (includeStockByEstablishment && establishments.length > 0) {
+      establishments.forEach(est => {
+        headers.push(`Stock - ${est.code}`);
+      });
+    }
+
+    // ✅ Construir filas con datos
+    const rows = products.map(product => {
+      const row: (string | number)[] = [];
+      
+      // Datos básicos del producto
+      selectedColumnObjects.forEach(col => {
+        row.push(formatCellValue(product[col.key as keyof Product], col.type));
+      });
+      
+      // Stock por establecimiento
+      if (includeStockByEstablishment && establishments.length > 0) {
+        establishments.forEach(est => {
+          const stockEnEst = product.stockPorEstablecimiento?.[est.id] || 0;
+          row.push(stockEnEst);
+        });
+      }
+      
+      return row;
+    });
 
     return { headers, rows, columns: selectedColumnObjects };
   };
@@ -142,8 +173,31 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
       const { headers, rows } = generateExportData();
       
       if (selectedFormat === 'excel') {
-        // Aquí iría la lógica real de generación de Excel
-        // Por ahora simulamos la descarga
+        // ✅ Generar Excel real usando XLSX
+        const workbook = XLSX.utils.book_new();
+        
+        // Crear hoja con datos
+        const worksheetData = [headers, ...rows];
+        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+        
+        // Ajustar ancho de columnas automáticamente
+        const columnWidths = headers.map((header, i) => {
+          const maxLength = Math.max(
+            header.length,
+            ...rows.map(row => String(row[i] || '').length)
+          );
+          return { wch: Math.min(maxLength + 2, 50) };
+        });
+        worksheet['!cols'] = columnWidths;
+        
+        // Agregar hoja al libro
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
+        
+        // ✅ Descargar archivo XLSX
+        XLSX.writeFile(workbook, `productos_${new Date().getTime()}.xlsx`);
+        
+      } else if (selectedFormat === 'csv') {
+        // Generar CSV
         const csvContent = [
           headers.join(','),
           ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
@@ -266,11 +320,38 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
                   </div>
                 </div>
 
+                {/* ✅ NUEVO: Opción para incluir stock por establecimiento */}
+                {establishments.length > 0 && (
+                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-lg p-4">
+                    <label className="flex items-start cursor-pointer">
+                      <div className="flex items-center h-5">
+                        <input
+                          type="checkbox"
+                          checked={includeStockByEstablishment}
+                          onChange={(e) => setIncludeStockByEstablishment(e.target.checked)}
+                          className="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        />
+                      </div>
+                      <div className="ml-3">
+                        <div className="text-sm font-semibold text-purple-900 flex items-center">
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                          Incluir stock por establecimiento
+                        </div>
+                        <div className="text-xs text-purple-700 mt-1">
+                          Agrega {establishments.length} columna(s) adicional(es) con el stock de cada establecimiento
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
                 {/* Export Info */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex">
                     <svg className="h-5 w-5 text-blue-400 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1 a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                     <div className="text-sm">
                       <p className="font-medium text-blue-800">Se exportarán</p>
