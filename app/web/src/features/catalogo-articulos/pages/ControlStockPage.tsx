@@ -8,19 +8,20 @@ import StockSummaryCards from '../components/StockSummaryCards.tsx';
 import StockAlertsPanel from '../components/StockAlertsPanel.tsx';
 import MassStockUpdateModal from '../components/MassStockUpdateModal.tsx';
 import TransferStockModal from '../components/TransferStockModal.tsx';
+import StockInventoryTable from '../components/StockInventoryTable.tsx';
 import { useProductStore } from '../hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import * as XLSX from 'xlsx';
 
 const ControlStockPage: React.FC = () => {
-  const { allProducts, movimientos, addMovimiento, transferirStock } = useProductStore();
+  const { allProducts, movimientos, addMovimiento, transferirStock, updateProduct } = useProductStore();
   const { state: configState } = useConfigurationContext();
   const establishments = configState.establishments.filter(e => e.isActive);
-  
+
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [selectedView, setSelectedView] = useState<'movimientos' | 'alertas' | 'resumen'>('movimientos');
+  const [selectedView, setSelectedView] = useState<'movimientos' | 'alertas' | 'resumen' | 'inventario'>('inventario');
   const [filterPeriodo, setFilterPeriodo] = useState<'hoy' | 'semana' | 'mes' | 'todo'>('semana');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [suggestedQuantity, setSuggestedQuantity] = useState<number>(0);
@@ -118,6 +119,25 @@ const ControlStockPage: React.FC = () => {
 
     return alerts;
   }, [filteredProducts, establishments, selectedEstablishmentId]);
+
+  // ✅ NUEVA FUNCIÓN: Actualizar límites de stock (Stock Mínimo y Máximo)
+  const handleUpdateStockLimits = (productId: string, stockMinimo?: number, stockMaximo?: number) => {
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) return;
+
+    updateProduct(productId, {
+      stockMinimo: stockMinimo ?? product.stockMinimo,
+      stockMaximo: stockMaximo ?? product.stockMaximo,
+      fechaActualizacion: new Date()
+    });
+
+    alert(
+      `✅ LÍMITES DE STOCK ACTUALIZADOS\n\n` +
+      `Producto: ${product.nombre}\n` +
+      `Stock Mínimo: ${stockMinimo ?? product.stockMinimo ?? 10}\n` +
+      `Stock Máximo: ${stockMaximo ? stockMaximo : 'Sin límite'}`
+    );
+  };
 
   // ✅ NUEVA FUNCIÓN: Exportar a Excel con formato mejorado
   const handleExportToExcel = () => {
@@ -273,6 +293,18 @@ const ControlStockPage: React.FC = () => {
             {/* View Selector */}
             <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button
+                onClick={() => setSelectedView('inventario')}
+                className={`
+                  px-4 py-2 text-sm font-medium rounded-md transition-all
+                  ${selectedView === 'inventario'
+                    ? 'bg-white text-red-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                  }
+                `}
+              >
+                Inventario
+              </button>
+              <button
                 onClick={() => setSelectedView('movimientos')}
                 className={`
                   px-4 py-2 text-sm font-medium rounded-md transition-all
@@ -386,10 +418,18 @@ const ControlStockPage: React.FC = () => {
 
       {/* Content Area */}
       <div>
+        {selectedView === 'inventario' && (
+          <StockInventoryTable
+            products={filteredProducts}
+            onUpdateStockLimits={handleUpdateStockLimits}
+            selectedEstablishmentId={selectedEstablishmentId}
+          />
+        )}
+
         {selectedView === 'movimientos' && (
           <StockMovementsTable movimientos={filteredMovimientos} />
         )}
-        
+
         {selectedView === 'alertas' && (
           <StockAlertsPanel
             alertas={alertas}
@@ -411,7 +451,7 @@ const ControlStockPage: React.FC = () => {
             }}
           />
         )}
-        
+
         {selectedView === 'resumen' && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Resumen de Stock</h3>
