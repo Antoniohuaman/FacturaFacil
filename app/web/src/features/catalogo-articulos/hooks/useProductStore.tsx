@@ -4,50 +4,12 @@ import type { Product, Category, Package, FilterOptions, PaginationConfig, Movim
 import { useState, useMemo, useCallback, useEffect } from 'react';
 
 // ===================================================================
-// DATOS INICIALES - SOLO PRODUCTOS GENÉRICOS
+// DATOS INICIALES - SISTEMA LIMPIO
 // Los usuarios crearán sus propios productos desde el catálogo
 // ===================================================================
-const mockProducts: Product[] = [
-  {
-    id: 'prod-varios',
-    codigo: 'PVARIOS',
-    nombre: 'PRODUCTO VARIOS',
-    descripcion: 'Producto genérico para ventas rápidas',
-    unidad: 'UNIDAD',
-    precio: 0.00,
-    cantidad: 0,
-    categoria: 'VARIOS',
-    impuesto: 'IGV (18.00%)',
-    establecimientoIds: [],
-    disponibleEnTodos: true,
-    stockPorEstablecimiento: {},
-    tipoExistencia: 'MERCADERIAS',
-    fechaCreacion: new Date(),
-    fechaActualizacion: new Date()
-  },
-  {
-    id: 'serv-varios',
-    codigo: 'SVARIOS',
-    nombre: 'SERVICIO VARIOS',
-    descripcion: 'Servicio genérico para ventas rápidas',
-    unidad: 'UNIDAD',
-    precio: 0.00,
-    cantidad: 0,
-    categoria: 'SERVICIOS',
-    impuesto: 'IGV (18.00%)',
-    establecimientoIds: [],
-    disponibleEnTodos: true,
-    stockPorEstablecimiento: {},
-    tipoExistencia: 'SERVICIOS',
-    fechaCreacion: new Date(),
-    fechaActualizacion: new Date()
-  }
-];
+const mockProducts: Product[] = [];
 
-const mockCategories: Category[] = [
-  { id: '1', nombre: 'VARIOS', productCount: 1, fechaCreacion: new Date() },
-  { id: '2', nombre: 'SERVICIOS', productCount: 1, fechaCreacion: new Date() }
-];
+const mockCategories: Category[] = [];
 
 // Helpers para localStorage con manejo de fechas
 const saveToLocalStorage = (key: string, data: any) => {
@@ -110,61 +72,6 @@ export const useProductStore = () => {
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>(() =>
     loadFromLocalStorage('catalog_movimientos', [])
   );
-
-  // Asegurar que los productos genéricos siempre existan
-  useEffect(() => {
-    const hasProductoVarios = products.some(p => p.id === 'prod-varios' || p.codigo === 'PVARIOS');
-    const hasServicioVarios = products.some(p => p.id === 'serv-varios' || p.codigo === 'SVARIOS');
-    
-    if (!hasProductoVarios || !hasServicioVarios) {
-      const productosGenericos: Product[] = [];
-      
-      if (!hasProductoVarios) {
-        productosGenericos.push({
-          id: 'prod-varios',
-          codigo: 'PVARIOS',
-          nombre: 'PRODUCTO VARIOS',
-          descripcion: 'Producto genérico para ventas rápidas',
-          unidad: 'UNIDAD',
-          precio: 0.00,
-          cantidad: 0,
-          categoria: 'VARIOS',
-          impuesto: 'IGV (18.00%)',
-          establecimientoIds: [],
-          disponibleEnTodos: true,
-          stockPorEstablecimiento: {},
-          tipoExistencia: 'MERCADERIAS',
-          fechaCreacion: new Date('2024-01-01'),
-          fechaActualizacion: new Date('2024-01-01')
-        });
-      }
-      
-      if (!hasServicioVarios) {
-        productosGenericos.push({
-          id: 'serv-varios',
-          codigo: 'SVARIOS',
-          nombre: 'SERVICIO VARIOS',
-          descripcion: 'Servicio genérico para ventas rápidas',
-          unidad: 'UNIDAD',
-          precio: 0.00,
-          cantidad: 0,
-          categoria: 'SERVICIOS',
-          impuesto: 'IGV (18.00%)',
-          establecimientoIds: [],
-          disponibleEnTodos: true,
-          stockPorEstablecimiento: {},
-          tipoExistencia: 'SERVICIOS',
-          fechaCreacion: new Date('2024-01-01'),
-          fechaActualizacion: new Date('2024-01-01')
-        });
-      }
-      
-      if (productosGenericos.length > 0) {
-        setProducts(prev => [...productosGenericos, ...prev]);
-        console.log('✅ Productos genéricos agregados automáticamente');
-      }
-    }
-  }, []); // Solo se ejecuta una vez al montar el componente
 
   // Persistir productos en localStorage
   useEffect(() => {
