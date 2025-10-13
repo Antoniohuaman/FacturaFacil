@@ -148,9 +148,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
         cantidad: 0,
         impuesto: 'IGV (18.00%)',
         descripcion: '',
-        // Asignación de establecimientos - Por defecto disponible en todos
+        // Asignación de establecimientos
         establecimientoIds: [],
-        disponibleEnTodos: establishments.length > 0, // Si hay establecimientos, activar por defecto
+        disponibleEnTodos: false, // El usuario debe decidir la asignación manualmente
         // Campos avanzados
         alias: '',
         precioCompra: 0,
