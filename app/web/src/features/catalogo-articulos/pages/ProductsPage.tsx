@@ -20,7 +20,6 @@ const ProductsPage: React.FC = () => {
     updateProduct,
     deleteProduct,
     deleteAllProducts,
-    resetCatalog, // ✅ NUEVO: Importar resetCatalog
     updateFilters,
     resetFilters,
     changePage,
@@ -265,23 +264,6 @@ const ProductsPage: React.FC = () => {
 
         {/* Botones de acción */}
         <div className="flex items-center space-x-3">
-          {/* ✅ NUEVO: Botón para resetear datos de prueba */}
-          <button
-            onClick={() => {
-              if (confirm('⚠️ ¿Resetear catálogo completo?\n\nEsto eliminará:\n• Todos los productos (excepto genéricos)\n• Todas las categorías personalizadas\n• Todo el historial de movimientos\n\n¿Continuar?')) {
-                resetCatalog();
-                alert('✅ Catálogo reseteado. Los datos de prueba han sido eliminados.');
-              }
-            }}
-            className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors shadow-sm"
-            title="Limpiar todos los datos de prueba"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            Resetear datos
-          </button>
-          
           <button
             onClick={() => setShowExportModal(true)}
             className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors shadow-sm"
