@@ -308,6 +308,25 @@ export const useProductStore = () => {
     );
   }, []);
 
+  // ✅ NUEVO: Resetear completamente el catálogo (limpiar localStorage)
+  const resetCatalog = useCallback(() => {
+    // Limpiar productos (dejar solo los genéricos)
+    setProducts(mockProducts);
+    // Resetear categorías
+    setCategories(mockCategories);
+    // Limpiar paquetes
+    setPackages([]);
+    // Limpiar movimientos
+    setMovimientos([]);
+    // Limpiar localStorage
+    localStorage.removeItem('catalog_products');
+    localStorage.removeItem('catalog_categories');
+    localStorage.removeItem('catalog_packages');
+    localStorage.removeItem('catalog_movimientos');
+    
+    console.log('✅ Catálogo reseteado completamente');
+  }, []);
+
   // CRUD Categorías
   const addCategory = useCallback((nombre: string, descripcion?: string, color?: string) => {
     setCategories(prev => {
@@ -604,6 +623,7 @@ export const useProductStore = () => {
     updateProduct,
     deleteProduct,
     deleteAllProducts,
+    resetCatalog, // ✅ NUEVO: Función para resetear todo
 
     // Categorías
     addCategory,
