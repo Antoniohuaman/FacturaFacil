@@ -658,99 +658,96 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
 
               {/* Lista de establecimientos - Solo si NO está en "Todos" */}
-              {!formData.disponibleEnTodos && (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {establishments.length === 0 ? (
-                    <div className="text-center py-6 text-gray-500">
-                      <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                      <p className="text-sm font-medium">No hay establecimientos activos</p>
-                      <p className="text-xs mt-1">Crea un establecimiento en Configuración</p>
-                    </div>
-                  ) : (
-                    establishments.map((est) => {
-                      const isSelected = formData.establecimientoIds.includes(est.id);
-                      return (
-                        <label
-                          key={est.id}
-                          className={`
-                            flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all
-                            ${isSelected 
-                              ? 'bg-purple-100 border-purple-400 shadow-sm' 
-                              : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-purple-50'
-                            }
-                          `}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              const newIds = e.target.checked
-                                ? [...formData.establecimientoIds, est.id]
-                                : formData.establecimientoIds.filter(id => id !== est.id);
-                              setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
-                            }}
-                            className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2">
-                              <p className="text-sm font-semibold text-gray-900 truncate">
-                                {est.name}
-                              </p>
-                              <span className="px-2 py-0.5 text-xs font-medium bg-purple-200 text-purple-800 rounded-full">
-                                {est.code}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-600 truncate mt-0.5">
-                              {est.address} - {est.district}
+              {/* ✅ FIX: Padre estable (no desmontar/remontar) - usar hidden en lugar de conditional render */}
+              <div className={`space-y-2 max-h-48 overflow-y-auto ${formData.disponibleEnTodos ? 'hidden' : ''}`}>
+                {establishments.length === 0 ? (
+                  <div className="text-center py-6 text-gray-500">
+                    <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <p className="text-sm font-medium">No hay establecimientos activos</p>
+                    <p className="text-xs mt-1">Crea un establecimiento en Configuración</p>
+                  </div>
+                ) : (
+                  establishments.map((est) => {
+                    const isSelected = formData.establecimientoIds.includes(est.id);
+                    return (
+                      <label
+                        key={est.id}
+                        className={`
+                          flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                          ${isSelected 
+                            ? 'bg-purple-100 border-purple-400 shadow-sm' 
+                            : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                          }
+                        `}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            const newIds = e.target.checked
+                              ? [...formData.establecimientoIds, est.id]
+                              : formData.establecimientoIds.filter(id => id !== est.id);
+                            setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
+                          }}
+                          className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {est.name}
                             </p>
+                            <span className="px-2 py-0.5 text-xs font-medium bg-purple-200 text-purple-800 rounded-full">
+                              {est.code}
+                            </span>
                           </div>
-                          {isSelected && (
-                            <svg className="w-5 h-5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-              )}
+                          <p className="text-xs text-gray-600 truncate mt-0.5">
+                            {est.address} - {est.district}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <svg className="w-5 h-5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </label>
+                    );
+                  })
+                )}
+              </div>
 
-              {/* Contador de selección */}
-              {!formData.disponibleEnTodos && establishments.length > 0 && (
-                <div className="flex items-center justify-between pt-2 border-t border-purple-200">
-                  <p className="text-xs text-gray-600">
-                    {formData.establecimientoIds.length} de {establishments.length} establecimiento(s) seleccionado(s)
-                  </p>
-                  {formData.establecimientoIds.length > 0 && formData.establecimientoIds.length < establishments.length && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          establecimientoIds: establishments.map(e => e.id)
-                        }));
-                      }}
-                      className="text-xs text-purple-600 hover:text-purple-700 font-medium underline"
-                    >
-                      Seleccionar todos
-                    </button>
-                  )}
-                  {formData.establecimientoIds.length === establishments.length && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, establecimientoIds: [] }));
-                      }}
-                      className="text-xs text-red-600 hover:text-red-700 font-medium underline"
-                    >
-                      Quitar todos
-                    </button>
-                  )}
-                </div>
-              )}
+              {/* Contador de selección - También usar hidden en vez de conditional */}
+              <div className={`flex items-center justify-between pt-2 border-t border-purple-200 ${formData.disponibleEnTodos || establishments.length === 0 ? 'hidden' : ''}`}>
+                <p className="text-xs text-gray-600">
+                  {formData.establecimientoIds.length} de {establishments.length} establecimiento(s) seleccionado(s)
+                </p>
+                {formData.establecimientoIds.length > 0 && formData.establecimientoIds.length < establishments.length && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        establecimientoIds: establishments.map(e => e.id)
+                      }));
+                    }}
+                    className="text-xs text-purple-600 hover:text-purple-700 font-medium underline"
+                  >
+                    Seleccionar todos
+                  </button>
+                )}
+                {formData.establecimientoIds.length === establishments.length && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, establecimientoIds: [] }));
+                    }}
+                    className="text-xs text-red-600 hover:text-red-700 font-medium underline"
+                  >
+                    Quitar todos
+                  </button>
+                )}
+              </div>
 
               {/* Error de validación */}
               {errors.establecimientoIds && (

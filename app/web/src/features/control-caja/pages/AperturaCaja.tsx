@@ -9,9 +9,15 @@ const usuarios = ['Carlos Rueda', 'Ana García', 'Miguel López', 'Sofia Hernán
 const AperturaCaja: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [montoEfectivo, setMontoEfectivo] = useState('');
-  const [montoTarjeta, setMontoTarjeta] = useState('');
-  const [montoYape, setMontoYape] = useState('');
+  
+  // ✅ FIX: Input controlado por string (evita "primer dígito congelado")
+  const [montoEfectivoTxt, setMontoEfectivoTxt] = useState('');
+  const [montoTarjetaTxt, setMontoTarjetaTxt] = useState('');
+  const [montoYapeTxt, setMontoYapeTxt] = useState('');
+  const [montoEfectivoNum, setMontoEfectivoNum] = useState(0);
+  const [montoTarjetaNum, setMontoTarjetaNum] = useState(0);
+  const [montoYapeNum, setMontoYapeNum] = useState(0);
+  
   const [notas, setNotas] = useState('');
   const [usuario, setUsuario] = useState(usuarios[0]);
   const [fechaApertura, setFechaApertura] = useState(new Date().toISOString().slice(0, 16));
@@ -22,14 +28,11 @@ const AperturaCaja: React.FC = () => {
   // Obtener la URL de retorno de los parámetros o sessionStorage
   const returnTo = searchParams.get('returnTo') || sessionStorage.getItem('returnAfterCajaOpen');
 
-  const montoTotal =
-    (parseFloat(montoEfectivo) || 0) +
-    (parseFloat(montoTarjeta) || 0) +
-    (parseFloat(montoYape) || 0);
+  const montoTotal = montoEfectivoNum + montoTarjetaNum + montoYapeNum;
 
   const isFormValid = () => {
     return (
-      parseFloat(montoEfectivo) >= 0 &&
+      montoEfectivoNum >= 0 &&
       fechaApertura &&
       usuario &&
       montoTotal > 0
@@ -48,9 +51,9 @@ const AperturaCaja: React.FC = () => {
       usuarioId: usuario,
       usuarioNombre: usuario,
       fechaHoraApertura: new Date(fechaApertura),
-      montoInicialEfectivo: parseFloat(montoEfectivo) || 0,
-      montoInicialTarjeta: parseFloat(montoTarjeta) || 0,
-      montoInicialYape: parseFloat(montoYape) || 0,
+      montoInicialEfectivo: montoEfectivoNum,
+      montoInicialTarjeta: montoTarjetaNum,
+      montoInicialYape: montoYapeNum,
       montoInicialOtros: 0,
       montoInicialTotal: montoTotal,
       notas: notas || undefined,
@@ -61,9 +64,12 @@ const AperturaCaja: React.FC = () => {
       setShowConfirmModal(false);
       
       // Limpiar formulario
-      setMontoEfectivo('');
-      setMontoTarjeta('');
-      setMontoYape('');
+      setMontoEfectivoTxt('');
+      setMontoTarjetaTxt('');
+      setMontoYapeTxt('');
+      setMontoEfectivoNum(0);
+      setMontoTarjetaNum(0);
+      setMontoYapeNum(0);
       setNotas('');
       
       // Limpiar sessionStorage
@@ -142,11 +148,17 @@ const AperturaCaja: React.FC = () => {
                   Efectivo Inicial <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
-                  value={montoEfectivo}
-                  onChange={e => setMontoEfectivo(e.target.value)}
-                  min={0}
-                  step="0.01"
+                  inputMode="decimal"
+                  value={montoEfectivoTxt}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^0-9.]/g, '');
+                    setMontoEfectivoTxt(v);
+                  }}
+                  onBlur={() => {
+                    const n = Number(montoEfectivoTxt || 0);
+                    setMontoEfectivoNum(n);
+                    setMontoEfectivoTxt(n.toFixed(2));
+                  }}
                   placeholder="0.00"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   required
@@ -159,11 +171,17 @@ const AperturaCaja: React.FC = () => {
                   Tarjeta Inicial
                 </label>
                 <input
-                  type="number"
-                  value={montoTarjeta}
-                  onChange={e => setMontoTarjeta(e.target.value)}
-                  min={0}
-                  step="0.01"
+                  inputMode="decimal"
+                  value={montoTarjetaTxt}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^0-9.]/g, '');
+                    setMontoTarjetaTxt(v);
+                  }}
+                  onBlur={() => {
+                    const n = Number(montoTarjetaTxt || 0);
+                    setMontoTarjetaNum(n);
+                    setMontoTarjetaTxt(n.toFixed(2));
+                  }}
                   placeholder="0.00"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   disabled={status === 'abierta' || isLoading}
@@ -175,11 +193,17 @@ const AperturaCaja: React.FC = () => {
                   Yape Inicial
                 </label>
                 <input
-                  type="number"
-                  value={montoYape}
-                  onChange={e => setMontoYape(e.target.value)}
-                  min={0}
-                  step="0.01"
+                  inputMode="decimal"
+                  value={montoYapeTxt}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^0-9.]/g, '');
+                    setMontoYapeTxt(v);
+                  }}
+                  onBlur={() => {
+                    const n = Number(montoYapeTxt || 0);
+                    setMontoYapeNum(n);
+                    setMontoYapeTxt(n.toFixed(2));
+                  }}
                   placeholder="0.00"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   disabled={status === 'abierta' || isLoading}
