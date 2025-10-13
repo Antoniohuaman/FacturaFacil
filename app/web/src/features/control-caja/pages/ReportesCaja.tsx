@@ -4,7 +4,7 @@ import { FileBarChart, Download, Filter, X, TrendingUp, TrendingDown, BarChart3 
 import { EmptyState } from '../components/common/EmptyState';
 
 const ReportesCaja: React.FC = () => {
-  const { movimientos, aperturaActual, showToast, getResumen } = useCaja();
+  const { movimientos, showToast } = useCaja();
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [usuarioFiltro, setUsuarioFiltro] = useState('');

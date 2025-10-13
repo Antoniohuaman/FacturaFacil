@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
   Users,
   Search,
-  UserPlus,
   UserCheck,
   Mail,
   X,
