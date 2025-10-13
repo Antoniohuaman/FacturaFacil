@@ -62,8 +62,8 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
       return;
     }
 
-    const establecimientosAplicar = aplicarATodos
-      ? establecimientos
+    const establecimientosAplicar = aplicarATodos 
+      ? establecimientos 
       : establecimientos.filter(e => establecimientosSeleccionados.includes(e.id));
 
     const confirmacion = confirm(
@@ -81,36 +81,17 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
     if (!confirmacion) return;
 
     let actualizados = 0;
-    let omitidos = 0;
-    const productosOmitidos: string[] = [];
-
+    
     // Iterar por cada establecimiento seleccionado
     establecimientosAplicar.forEach(establecimiento => {
       selectedProducts.forEach(productId => {
         const producto = allProducts.find(p => p.id === productId);
-        if (!producto) return;
-
-        // ✅ VALIDACIÓN CRÍTICA: Solo aplicar si el producto está disponible en este establecimiento
-        const estaDisponibleEnEstablecimiento = producto.disponibleEnTodos ||
-          producto.establecimientoIds?.includes(establecimiento.id);
-
-        if (!estaDisponibleEnEstablecimiento) {
-          omitidos++;
-          if (!productosOmitidos.includes(producto.codigo)) {
-            productosOmitidos.push(producto.codigo);
-          }
-          return; // Saltar este movimiento
-        }
-
-        // ✅ CORRECCIÓN: Usar stock del establecimiento específico, no el global
-        const stockEstablecimiento = producto.stockPorEstablecimiento?.[establecimiento.id] ?? producto.cantidad;
-
-        if (stockEstablecimiento > 0) {
+        if (producto && producto.cantidad > 0) {
           addMovimiento(
             productId,
             'AJUSTE_NEGATIVO',
             'AJUSTE_INVENTARIO',
-            stockEstablecimiento, // ← USAR STOCK DEL ESTABLECIMIENTO
+            producto.cantidad,
             `Reseteo masivo de stock`,
             '',
             undefined, // ubicacion - ya no se usa
@@ -118,28 +99,18 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
             establecimiento.code,
             establecimiento.name
           );
-
+          
           actualizados++;
         }
       });
     });
 
-    let mensaje = `✅ Stock reseteado exitosamente\n\n` +
+    alert(
+      `✅ Stock reseteado exitosamente\n\n` +
       `${actualizados} movimientos registrados\n` +
-      `${selectedProducts.size} productos × ${establecimientosAplicar.length} establecimiento(s)`;
-
-    if (omitidos > 0) {
-      mensaje += `\n\n⚠️ Se omitieron ${omitidos} operación(es) porque el producto no está asignado al establecimiento`;
-      if (productosOmitidos.length > 0) {
-        mensaje += `\n\nProductos omitidos: ${productosOmitidos.slice(0, 5).join(', ')}`;
-        if (productosOmitidos.length > 5) {
-          mensaje += `... y ${productosOmitidos.length - 5} más`;
-        }
-      }
-    }
-
-    alert(mensaje);
-
+      `${selectedProducts.size} productos × ${establecimientosAplicar.length} establecimiento(s)`
+    );
+    
     setSelectedProducts(new Set());
     onClose();
   };
@@ -289,8 +260,8 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
       return;
     }
 
-    const establecimientosAplicar = aplicarATodos
-      ? establecimientos
+    const establecimientosAplicar = aplicarATodos 
+      ? establecimientos 
       : establecimientos.filter(e => establecimientosSeleccionados.includes(e.id));
 
     const confirmacion = confirm(
@@ -306,31 +277,17 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
 
     let actualizados = 0;
     let sinCambios = 0;
-    let omitidos = 0;
     let noEncontrados: string[] = [];
-    const productosOmitidos: string[] = [];
 
     // Iterar por cada establecimiento seleccionado
     establecimientosAplicar.forEach(establecimiento => {
       importData.forEach(({ codigo, cantidad }) => {
         const producto = allProducts.find(p => p.codigo.toUpperCase() === codigo.toUpperCase());
-
+        
         if (producto) {
-          // ✅ VALIDACIÓN CRÍTICA: Solo aplicar si el producto está disponible en este establecimiento
-          const estaDisponibleEnEstablecimiento = producto.disponibleEnTodos ||
-            producto.establecimientoIds?.includes(establecimiento.id);
-
-          if (!estaDisponibleEnEstablecimiento) {
-            omitidos++;
-            if (!productosOmitidos.includes(producto.codigo)) {
-              productosOmitidos.push(producto.codigo);
-            }
-            return; // Saltar este movimiento
-          }
-
           const cantidadAnterior = producto.cantidad;
           const diferencia = cantidad - cantidadAnterior;
-
+          
           // Solo procesar si hay diferencia
           if (diferencia !== 0) {
             addMovimiento(
@@ -364,18 +321,7 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
     if (sinCambios > 0) {
       mensaje += `• Sin cambios (mismo stock): ${sinCambios}\n`;
     }
-
-    if (omitidos > 0) {
-      mensaje += `\n⚠️ Operaciones omitidas: ${omitidos}\n`;
-      mensaje += `  (Productos no asignados a establecimientos seleccionados)\n`;
-      if (productosOmitidos.length > 0) {
-        mensaje += `  Productos: ${productosOmitidos.slice(0, 5).join(', ')}`;
-        if (productosOmitidos.length > 5) {
-          mensaje += `... y ${productosOmitidos.length - 5} más`;
-        }
-      }
-    }
-
+    
     if (noEncontrados.length > 0) {
       mensaje += `\n⚠️ No encontrados (${noEncontrados.length}):\n`;
       mensaje += noEncontrados.slice(0, 10).join(', ');
@@ -383,7 +329,7 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
         mensaje += `\n... y ${noEncontrados.length - 10} más`;
       }
     }
-
+    
     mensaje += `\n\n✅ Revisa la pestaña "Movimientos" para ver el detalle`;
 
     alert(mensaje);
@@ -685,54 +631,35 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
 
                 {/* Product List */}
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {filteredProducts.map(product => {
-                    // Calcular stock contextual basado en establecimientos seleccionados
-                    let stockMostrar = product.cantidad; // Por defecto, stock global
-                    let etiquetaStock = 'Stock Total';
-
-                    if (!aplicarATodos && establecimientosSeleccionados.length > 0) {
-                      // Si hay establecimientos específicos seleccionados, calcular suma de esos
-                      stockMostrar = establecimientosSeleccionados.reduce((sum, estId) => {
-                        // Verificar que el producto esté asignado a este establecimiento
-                        const estaAsignado = product.disponibleEnTodos || product.establecimientoIds?.includes(estId);
-                        if (!estaAsignado) return sum;
-
-                        const stockEst = product.stockPorEstablecimiento?.[estId] ?? 0;
-                        return sum + stockEst;
-                      }, 0);
-                      etiquetaStock = `Stock en ${establecimientosSeleccionados.length} est.`;
-                    }
-
-                    return (
-                      <label
-                        key={product.id}
-                        className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                          selectedProducts.has(product.id)
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 flex-1">
-                          <input
-                            type="checkbox"
-                            checked={selectedProducts.has(product.id)}
-                            onChange={() => toggleProduct(product.id)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{product.nombre}</p>
-                            <p className="text-sm text-gray-500 font-mono">{product.codigo}</p>
-                          </div>
+                  {filteredProducts.map(product => (
+                    <label
+                      key={product.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        selectedProducts.has(product.id)
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedProducts.has(product.id)}
+                          onChange={() => toggleProduct(product.id)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{product.nombre}</p>
+                          <p className="text-sm text-gray-500 font-mono">{product.codigo}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500">{etiquetaStock}</p>
-                          <p className={`text-lg font-bold ${stockMostrar > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {stockMostrar}
-                          </p>
-                        </div>
-                      </label>
-                    );
-                  })}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">Stock Actual</p>
+                        <p className={`text-lg font-bold ${product.cantidad > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {product.cantidad}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </div>
             )}

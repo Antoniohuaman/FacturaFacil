@@ -4,12 +4,50 @@ import type { Product, Category, Package, FilterOptions, PaginationConfig, Movim
 import { useState, useMemo, useCallback, useEffect } from 'react';
 
 // ===================================================================
-// DATOS INICIALES - SISTEMA LIMPIO
+// DATOS INICIALES - SOLO PRODUCTOS GENÉRICOS
 // Los usuarios crearán sus propios productos desde el catálogo
 // ===================================================================
-const mockProducts: Product[] = [];
+const mockProducts: Product[] = [
+  {
+    id: 'prod-varios',
+    codigo: 'PVARIOS',
+    nombre: 'PRODUCTO VARIOS',
+    descripcion: 'Producto genérico para ventas rápidas',
+    unidad: 'UNIDAD',
+    precio: 0.00,
+    cantidad: 0,
+    categoria: 'VARIOS',
+    impuesto: 'IGV (18.00%)',
+    establecimientoIds: [],
+    disponibleEnTodos: true,
+    stockPorEstablecimiento: {},
+    tipoExistencia: 'MERCADERIAS',
+    fechaCreacion: new Date(),
+    fechaActualizacion: new Date()
+  },
+  {
+    id: 'serv-varios',
+    codigo: 'SVARIOS',
+    nombre: 'SERVICIO VARIOS',
+    descripcion: 'Servicio genérico para ventas rápidas',
+    unidad: 'UNIDAD',
+    precio: 0.00,
+    cantidad: 0,
+    categoria: 'SERVICIOS',
+    impuesto: 'IGV (18.00%)',
+    establecimientoIds: [],
+    disponibleEnTodos: true,
+    stockPorEstablecimiento: {},
+    tipoExistencia: 'SERVICIOS',
+    fechaCreacion: new Date(),
+    fechaActualizacion: new Date()
+  }
+];
 
-const mockCategories: Category[] = [];
+const mockCategories: Category[] = [
+  { id: '1', nombre: 'VARIOS', productCount: 1, fechaCreacion: new Date() },
+  { id: '2', nombre: 'SERVICIOS', productCount: 1, fechaCreacion: new Date() }
+];
 
 // Helpers para localStorage con manejo de fechas
 const saveToLocalStorage = (key: string, data: any) => {
@@ -72,6 +110,61 @@ export const useProductStore = () => {
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>(() =>
     loadFromLocalStorage('catalog_movimientos', [])
   );
+
+  // Asegurar que los productos genéricos siempre existan
+  useEffect(() => {
+    const hasProductoVarios = products.some(p => p.id === 'prod-varios' || p.codigo === 'PVARIOS');
+    const hasServicioVarios = products.some(p => p.id === 'serv-varios' || p.codigo === 'SVARIOS');
+    
+    if (!hasProductoVarios || !hasServicioVarios) {
+      const productosGenericos: Product[] = [];
+      
+      if (!hasProductoVarios) {
+        productosGenericos.push({
+          id: 'prod-varios',
+          codigo: 'PVARIOS',
+          nombre: 'PRODUCTO VARIOS',
+          descripcion: 'Producto genérico para ventas rápidas',
+          unidad: 'UNIDAD',
+          precio: 0.00,
+          cantidad: 0,
+          categoria: 'VARIOS',
+          impuesto: 'IGV (18.00%)',
+          establecimientoIds: [],
+          disponibleEnTodos: true,
+          stockPorEstablecimiento: {},
+          tipoExistencia: 'MERCADERIAS',
+          fechaCreacion: new Date('2024-01-01'),
+          fechaActualizacion: new Date('2024-01-01')
+        });
+      }
+      
+      if (!hasServicioVarios) {
+        productosGenericos.push({
+          id: 'serv-varios',
+          codigo: 'SVARIOS',
+          nombre: 'SERVICIO VARIOS',
+          descripcion: 'Servicio genérico para ventas rápidas',
+          unidad: 'UNIDAD',
+          precio: 0.00,
+          cantidad: 0,
+          categoria: 'SERVICIOS',
+          impuesto: 'IGV (18.00%)',
+          establecimientoIds: [],
+          disponibleEnTodos: true,
+          stockPorEstablecimiento: {},
+          tipoExistencia: 'SERVICIOS',
+          fechaCreacion: new Date('2024-01-01'),
+          fechaActualizacion: new Date('2024-01-01')
+        });
+      }
+      
+      if (productosGenericos.length > 0) {
+        setProducts(prev => [...productosGenericos, ...prev]);
+        console.log('✅ Productos genéricos agregados automáticamente');
+      }
+    }
+  }, []); // Solo se ejecuta una vez al montar el componente
 
   // Persistir productos en localStorage
   useEffect(() => {
@@ -314,26 +407,9 @@ export const useProductStore = () => {
     establecimientoNombre?: string
   ) => {
     const producto = products.find(p => p.id === productoId);
-    if (!producto) {
-      console.error('❌ Producto no encontrado');
-      return null;
-    }
+    if (!producto) return;
 
-    // ✅ VALIDACIÓN: Si tiene distribución por establecimiento, el establecimientoId es obligatorio
-    const tieneDistribucion = producto.stockPorEstablecimiento &&
-                             Object.keys(producto.stockPorEstablecimiento).length > 0;
-
-    if (tieneDistribucion && !establecimientoId) {
-      console.error('❌ Este producto requiere especificar un establecimiento');
-      return null;
-    }
-
-    // Obtener stock actual (por establecimiento o total)
-    const stockActual = establecimientoId && producto.stockPorEstablecimiento
-      ? (producto.stockPorEstablecimiento[establecimientoId] ?? 0)
-      : producto.cantidad;
-
-    const cantidadAnterior = stockActual;
+    const cantidadAnterior = producto.cantidad;
     let cantidadNueva = cantidadAnterior;
 
     // Calcular nueva cantidad según el tipo de movimiento
@@ -347,15 +423,9 @@ export const useProductStore = () => {
       case 'AJUSTE_NEGATIVO':
       case 'MERMA':
         cantidadNueva = cantidadAnterior - cantidad;
-
-        // ✅ VALIDACIÓN CRÍTICA: Prevenir stock negativo
-        if (cantidadNueva < 0) {
-          console.error(`❌ Stock insuficiente. Disponible: ${cantidadAnterior}, Solicitado: ${cantidad}`);
-          return null;
-        }
         break;
       case 'TRANSFERENCIA':
-        // Para transferencias, usar la función especializada transferirStock()
+        // Para transferencias, la lógica dependerá de si es entrada o salida
         cantidadNueva = cantidadAnterior;
         break;
     }
@@ -371,7 +441,7 @@ export const useProductStore = () => {
       cantidad,
       cantidadAnterior,
       cantidadNueva,
-      usuario: 'Usuario Actual', // TODO: Integrar con sistema de autenticación
+      usuario: 'Usuario Actual', // Esto debería venir del sistema de autenticación
       observaciones,
       documentoReferencia,
       fecha: new Date(),
@@ -381,37 +451,13 @@ export const useProductStore = () => {
       establecimientoNombre
     };
 
-    // ✅ ACTUALIZACIÓN MEJORADA: Actualizar stock del producto
+    // Actualizar stock del producto
     setProducts(prev =>
-      prev.map(p => {
-        if (p.id !== productoId) return p;
-
-        // Si tiene distribución por establecimiento
-        if (establecimientoId && p.stockPorEstablecimiento) {
-          const nuevoStockPorEstablecimiento = {
-            ...p.stockPorEstablecimiento,
-            [establecimientoId]: cantidadNueva
-          };
-
-          // Calcular nuevo stock total (suma de todos los establecimientos)
-          const nuevoStockTotal = Object.values(nuevoStockPorEstablecimiento)
-            .reduce((sum, qty) => sum + qty, 0);
-
-          return {
-            ...p,
-            stockPorEstablecimiento: nuevoStockPorEstablecimiento,
-            cantidad: nuevoStockTotal,
-            fechaActualizacion: new Date()
-          };
-        }
-
-        // Si no tiene distribución, actualizar solo cantidad total
-        return {
-          ...p,
-          cantidad: cantidadNueva,
-          fechaActualizacion: new Date()
-        };
-      })
+      prev.map(p =>
+        p.id === productoId
+          ? { ...p, cantidad: cantidadNueva, fechaActualizacion: new Date() }
+          : p
+      )
     );
 
     // Agregar movimiento al historial
@@ -431,34 +477,14 @@ export const useProductStore = () => {
   ) => {
     const producto = products.find(p => p.id === productoId);
     if (!producto) {
-      console.error('❌ Producto no encontrado');
-      return null;
-    }
-
-    // ✅ VALIDACIÓN: Establecimientos no pueden ser iguales
-    if (establecimientoOrigenId === establecimientoDestinoId) {
-      console.error('❌ El establecimiento de origen y destino no pueden ser el mismo');
-      return null;
-    }
-
-    // ✅ VALIDACIÓN: Cantidad debe ser mayor a 0
-    if (cantidad <= 0) {
-      console.error('❌ La cantidad debe ser mayor a 0');
-      return null;
-    }
-
-    // ✅ VALIDACIÓN: El producto debe tener distribución por establecimiento
-    if (!producto.stockPorEstablecimiento) {
-      console.error('❌ Este producto no tiene distribución por establecimiento');
+      console.error('Producto no encontrado');
       return null;
     }
 
     // Validar que hay stock suficiente en origen
-    const stockOrigen = producto.stockPorEstablecimiento[establecimientoOrigenId] ?? 0;
-
-    // ✅ VALIDACIÓN CRÍTICA: Stock insuficiente
+    const stockOrigen = producto.stockPorEstablecimiento?.[establecimientoOrigenId] ?? 0;
     if (stockOrigen < cantidad) {
-      console.error(`❌ Stock insuficiente en origen. Disponible: ${stockOrigen}, Solicitado: ${cantidad}`);
+      console.error('Stock insuficiente en establecimiento origen');
       return null;
     }
 
@@ -468,16 +494,10 @@ export const useProductStore = () => {
 
     // Calcular nuevos stocks
     const nuevoStockOrigen = stockOrigen - cantidad;
-    const stockDestino = producto.stockPorEstablecimiento[establecimientoDestinoId] ?? 0;
+    const stockDestino = producto.stockPorEstablecimiento?.[establecimientoDestinoId] ?? 0;
     const nuevoStockDestino = stockDestino + cantidad;
 
-    // ✅ VALIDACIÓN: Prevenir stock negativo en origen (doble verificación)
-    if (nuevoStockOrigen < 0) {
-      console.error('❌ La transferencia resultaría en stock negativo en origen');
-      return null;
-    }
-
-    // Obtener nombres de establecimientos (mejorado)
+    // Obtener nombres de establecimientos (puedes mejorar esto con un contexto)
     const nombreOrigen = `Establecimiento ${establecimientoOrigenId}`;
     const nombreDestino = `Establecimiento ${establecimientoDestinoId}`;
 
@@ -492,7 +512,7 @@ export const useProductStore = () => {
       cantidad,
       cantidadAnterior: stockOrigen,
       cantidadNueva: nuevoStockOrigen,
-      usuario: 'Usuario Actual', // TODO: Integrar con sistema de autenticación
+      usuario: 'Usuario Actual',
       observaciones: observaciones || `Transferencia a ${nombreDestino}`,
       documentoReferencia,
       fecha: timestamp,
@@ -519,7 +539,7 @@ export const useProductStore = () => {
       cantidad,
       cantidadAnterior: stockDestino,
       cantidadNueva: nuevoStockDestino,
-      usuario: 'Usuario Actual', // TODO: Integrar con sistema de autenticación
+      usuario: 'Usuario Actual',
       observaciones: observaciones || `Transferencia desde ${nombreOrigen}`,
       documentoReferencia,
       fecha: timestamp,
@@ -535,34 +555,31 @@ export const useProductStore = () => {
       movimientoRelacionadoId: `${transferenciaId}-SALIDA`
     };
 
-    // ✅ ACTUALIZACIÓN MEJORADA: Actualizar producto con nuevos stocks
+    // Actualizar producto con nuevos stocks por establecimiento
     setProducts(prev =>
-      prev.map(p => {
-        if (p.id !== productoId) return p;
-
-        const nuevoStockPorEstablecimiento = {
-          ...p.stockPorEstablecimiento,
-          [establecimientoOrigenId]: nuevoStockOrigen,
-          [establecimientoDestinoId]: nuevoStockDestino
-        };
-
-        // Calcular nuevo stock total (suma de todos los establecimientos)
-        const nuevoStockTotal = Object.values(nuevoStockPorEstablecimiento)
-          .reduce((sum, qty) => sum + qty, 0);
-
-        return {
-          ...p,
-          stockPorEstablecimiento: nuevoStockPorEstablecimiento,
-          cantidad: nuevoStockTotal,
-          fechaActualizacion: new Date()
-        };
-      })
+      prev.map(p =>
+        p.id === productoId
+          ? {
+              ...p,
+              stockPorEstablecimiento: {
+                ...p.stockPorEstablecimiento,
+                [establecimientoOrigenId]: nuevoStockOrigen,
+                [establecimientoDestinoId]: nuevoStockDestino
+              },
+              // Actualizar stock total (suma de todos los establecimientos)
+              cantidad: Object.values({
+                ...p.stockPorEstablecimiento,
+                [establecimientoOrigenId]: nuevoStockOrigen,
+                [establecimientoDestinoId]: nuevoStockDestino
+              }).reduce((sum, qty) => sum + qty, 0),
+              fechaActualizacion: new Date()
+            }
+          : p
+      )
     );
 
     // Agregar ambos movimientos al historial
     setMovimientos(prev => [movimientoEntrada, movimientoSalida, ...prev]);
-
-    console.log(`✅ Transferencia exitosa: ${cantidad} unidades de ${nombreOrigen} → ${nombreDestino}`);
 
     return {
       transferenciaId,

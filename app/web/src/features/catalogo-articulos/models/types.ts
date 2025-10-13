@@ -15,9 +15,6 @@ export interface Product {
   establecimientoIds: string[]; // Array de IDs de establecimientos
   disponibleEnTodos: boolean; // Si está disponible en todos los establecimientos
   stockPorEstablecimiento?: { [establecimientoId: string]: number }; // Stock separado por establecimiento
-  // Control de stock
-  stockMinimo?: number; // Stock mínimo para generar alertas (default: 10)
-  stockMaximo?: number; // Stock máximo recomendado
   // Campos avanzados
   alias?: string;
   precioCompra?: number;
@@ -92,9 +89,6 @@ export interface ProductFormData {
   // Asignación de establecimientos
   establecimientoIds: string[];
   disponibleEnTodos: boolean;
-  // Control de stock
-  stockMinimo?: number;
-  stockMaximo?: number;
   // Campos avanzados
   alias?: string;
   precioCompra?: number;

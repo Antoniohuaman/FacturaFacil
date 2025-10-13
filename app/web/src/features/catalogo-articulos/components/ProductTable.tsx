@@ -2,7 +2,6 @@ import type { Product, FilterOptions } from '../models/types';
 // src/features/catalogo-articulos/components/ProductTable.tsx
 import React, { useState, useEffect } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import StockDetailModal from './StockDetailModal';
 
 // Definir las columnas disponibles
 type ColumnKey = 
@@ -97,12 +96,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
   });
 
   const [showColumnSelector, setShowColumnSelector] = useState(false);
-
-  // ✅ NUEVO: Estado para modal de detalle de stock
-  const [stockDetailModal, setStockDetailModal] = useState<{
-    isOpen: boolean;
-    product: Product | null;
-  }>({ isOpen: false, product: null });
 
   // Guardar preferencias en localStorage cuando cambien
   useEffect(() => {
@@ -568,21 +561,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </td>
                 
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    {getStockBadge(product.cantidad)}
-                    {/* Botón para ver detalle de stock por establecimiento */}
-                    {!product.disponibleEnTodos && product.establecimientoIds && product.establecimientoIds.length > 0 && (
-                      <button
-                        onClick={() => setStockDetailModal({ isOpen: true, product })}
-                        className="p-1 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
-                        title="Ver stock por establecimiento"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
+                  {getStockBadge(product.cantidad)}
                 </td>
                 
                 {visibleColumns.has('unidad') && (
@@ -619,44 +598,25 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         </span>
                       </div>
                     ) : product.establecimientoIds && product.establecimientoIds.length > 0 ? (
-                      <div className="space-y-1">
-                        {/* Lista de establecimientos con stock */}
-                        {product.establecimientoIds.slice(0, 3).map(estId => {
+                      <div className="flex flex-wrap gap-1">
+                        {product.establecimientoIds.slice(0, 2).map(estId => {
                           const est = establishments.find(e => e.id === estId);
-                          const stockEnEst = product.stockPorEstablecimiento?.[estId] ?? 0;
-                          const tieneDistribucion = product.stockPorEstablecimiento && Object.keys(product.stockPorEstablecimiento).length > 0;
-                          
                           return est ? (
-                            <div 
+                            <span 
                               key={estId}
-                              className="flex items-center justify-between gap-2 px-2 py-1 rounded-md bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors group"
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
                               title={`${est.name} - ${est.address}`}
                             >
-                              <span className="text-xs font-medium text-purple-700 truncate">
-                                {est.code}
-                              </span>
-                              {tieneDistribucion && (
-                                <span className={`
-                                  text-xs font-bold px-1.5 py-0.5 rounded
-                                  ${stockEnEst > 0 
-                                    ? 'bg-green-100 text-green-700' 
-                                    : 'bg-gray-100 text-gray-500'
-                                  }
-                                `}>
-                                  {stockEnEst}
-                                </span>
-                              )}
-                            </div>
+                              {est.code}
+                            </span>
                           ) : null;
                         })}
-                        
-                        {/* Indicador de más establecimientos */}
-                        {product.establecimientoIds.length > 3 && (
+                        {product.establecimientoIds.length > 2 && (
                           <span 
-                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-pointer transition-colors"
-                            title={`Ver ${product.establecimientoIds.length - 3} más`}
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+                            title={`+${product.establecimientoIds.length - 2} más`}
                           >
-                            +{product.establecimientoIds.length - 3} más
+                            +{product.establecimientoIds.length - 2}
                           </span>
                         )}
                       </div>
@@ -848,13 +808,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
         </div>
       )}
     </div>
-
-    {/* ✅ Modal de detalle de stock por establecimiento */}
-    <StockDetailModal
-      isOpen={stockDetailModal.isOpen}
-      onClose={() => setStockDetailModal({ isOpen: false, product: null })}
-      product={stockDetailModal.product}
-    />
     </>
   );
 };
