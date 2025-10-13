@@ -22,7 +22,6 @@ interface UseEstablishmentsReturn {
   // Getters
   getEstablishment: (id: string) => Establishment | undefined;
   getMainEstablishment: () => Establishment | undefined;
-  getEstablishmentsByType: (type: Establishment['type']) => Establishment[];
   getActiveEstablishments: () => Establishment[];
   getEstablishmentSummaries: () => EstablishmentSummary[];
   
@@ -35,7 +34,6 @@ interface UseEstablishmentsReturn {
     total: number;
     active: number;
     inactive: number;
-    byType: Record<Establishment['type'], number>;
   };
 }
 
@@ -51,8 +49,7 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
     department: 'LIMA',
     postalCode: '15001',
     phone: '(01) 123-4567',
-    email: 'principal@empresademo.com',
-    type: 'MAIN',
+  email: 'principal@empresademo.com',
     isMainEstablishment: true,
     businessHours: {
       monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
@@ -126,8 +123,7 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
     department: 'LIMA',
     postalCode: '15036',
     phone: '(01) 234-5678',
-    email: 'sanisidro@empresademo.com',
-    type: 'BRANCH',
+  email: 'sanisidro@empresademo.com',
     isMainEstablishment: false,
     businessHours: {
       monday: { isOpen: true, openTime: '10:00', closeTime: '20:00', is24Hours: false },
@@ -190,8 +186,7 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
     district: 'ATE',
     province: 'LIMA',
     department: 'LIMA',
-    postalCode: '15012',
-    type: 'WAREHOUSE',
+  postalCode: '15012',
     isMainEstablishment: false,
     businessHours: {
       monday: { isOpen: true, openTime: '08:00', closeTime: '17:00', is24Hours: false },
@@ -293,7 +288,8 @@ export function useEstablishments(): UseEstablishmentsReturn {
           bankAccounts: [],
           ...data.financialConfiguration
         },
-        isMainEstablishment: data.type === 'MAIN' && establishments.length === 0,
+        // Si es el primer establecimiento creado, márcalo como principal por defecto
+        isMainEstablishment: establishments.length === 0,
         status: 'ACTIVE',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -417,7 +413,6 @@ export function useEstablishments(): UseEstablishmentsReturn {
       const updatedEstablishments = establishments.map(est => ({
         ...est,
         isMainEstablishment: est.id === id,
-        type: est.id === id ? 'MAIN' as const : (est.type === 'MAIN' ? 'BRANCH' as const : est.type),
         updatedAt: new Date(),
       }));
       
@@ -438,12 +433,11 @@ export function useEstablishments(): UseEstablishmentsReturn {
 
   // Get main establishment
   const getMainEstablishment = useCallback((): Establishment | undefined => {
-    return establishments.find(est => est.isMainEstablishment);
-  }, [establishments]);
-
-  // Get establishments by type
-  const getEstablishmentsByType = useCallback((type: Establishment['type']): Establishment[] => {
-    return establishments.filter(est => est.type === type && est.isActive);
+    // Preferir el marcado como principal
+    const main = establishments.find(est => est.isMainEstablishment);
+    if (main) return main;
+    // Si no existe, devolver el primero activo (heurística)
+    return establishments.find(est => est.isActive) || establishments[0];
   }, [establishments]);
 
   // Get active establishments
@@ -457,7 +451,6 @@ export function useEstablishments(): UseEstablishmentsReturn {
       id: est.id,
       code: est.code,
       name: est.name,
-      type: est.type,
       address: est.address,
       district: est.district,
       status: est.status,
@@ -541,22 +534,14 @@ export function useEstablishments(): UseEstablishmentsReturn {
       total: establishments.length,
       active: 0,
       inactive: 0,
-      byType: {
-        MAIN: 0,
-        BRANCH: 0,
-        WAREHOUSE: 0,
-        OFFICE: 0,
-      } as Record<Establishment['type'], number>,
     };
     
     establishments.forEach(est => {
-      if (est.status === 'ACTIVE') {
+      if (est.status === 'ACTIVE' && est.isActive) {
         stats.active++;
       } else {
         stats.inactive++;
       }
-      
-      stats.byType[est.type]++;
     });
     
     return stats;
@@ -582,7 +567,6 @@ export function useEstablishments(): UseEstablishmentsReturn {
     // Getters
     getEstablishment,
     getMainEstablishment,
-    getEstablishmentsByType,
     getActiveEstablishments,
     getEstablishmentSummaries,
     
