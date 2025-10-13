@@ -6,7 +6,7 @@ import type { Product, ProductFormData, Category } from '../models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 // src/features/catalogo-articulos/components/ProductModal.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Settings2 } from 'lucide-react';
 
 interface ProductModalProps {
@@ -27,10 +27,19 @@ const ProductModal: React.FC<ProductModalProps> = ({
   // Usar el store global para agregar categoría y validar códigos
   const { addCategory, categories: globalCategories, allProducts } = useProductStore();
   
-  // Acceder a los establecimientos desde el contexto de configuración
+  // Acceder a los establecimientos y unidades desde el contexto de configuración
   const { state: configState } = useConfigurationContext();
-  const establishments = configState.establishments.filter(e => e.isActive);
-  
+  const establishments = useMemo(
+    () => configState.establishments.filter(e => e.isActive),
+    [configState.establishments]
+  );
+
+  // ✅ Obtener unidades de medida desde configuración (activas y visibles) - Memoizado
+  const availableUnits = useMemo(
+    () => configState.units.filter(u => u.isActive && u.isVisible !== false),
+    [configState.units]
+  );
+
   // ✅ Hook para gestionar configuración de campos
   const {
     fieldsConfig,
@@ -42,16 +51,26 @@ const ProductModal: React.FC<ProductModalProps> = ({
     isFieldVisible,
     isFieldRequired,
   } = useProductFieldsConfig();
-  
+
   type FormError = {
     [K in keyof ProductFormData]?: string;
   };
 
-  const [formData, setFormData] = useState<Omit<ProductFormData, 'unidad'> & { unidad: Product['unidad'] }>({
+  // ✅ Determinar unidad por defecto: favorita, NIU, o la primera disponible - Memoizado
+  const getDefaultUnit = useCallback(() => {
+    if (availableUnits.length === 0) return 'NIU';
+    const favoriteUnit = availableUnits.find(u => u.isFavorite);
+    if (favoriteUnit) return favoriteUnit.code;
+    const niuUnit = availableUnits.find(u => u.code === 'NIU');
+    if (niuUnit) return niuUnit.code;
+    return availableUnits[0].code;
+  }, [availableUnits]);
+
+  const [formData, setFormData] = useState<Omit<ProductFormData, 'unidad'> & { unidad: Product['unidad'] }>(() => ({
     nombre: '',
     codigo: '',
     precio: 0,
-    unidad: 'UNIDAD',
+    unidad: getDefaultUnit() as Product['unidad'],
     categoria: '',
     cantidad: 0,
     impuesto: 'IGV (18.00%)',
@@ -71,7 +90,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     modelo: '',
     peso: 0,
     tipoExistencia: 'MERCADERIAS'
-  });
+  }));
   
   const [errors, setErrors] = useState<FormError>({});
   const [loading, setLoading] = useState(false);
@@ -124,7 +143,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
         nombre: '',
         codigo: '',
         precio: 0,
-        unidad: 'UNIDAD',
+        unidad: getDefaultUnit() as Product['unidad'], // ✅ Usar unidad por defecto del sistema
         categoria: categories[0]?.nombre || '',
         cantidad: 0,
         impuesto: 'IGV (18.00%)',
@@ -149,7 +168,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       setImagePreview('');
     }
     setErrors({});
-  }, [product, isOpen, categories, establishments.length]);
+  }, [product, isOpen, categories, establishments, availableUnits, getDefaultUnit]);
 
   const validateForm = (): boolean => {
     const newErrors: FormError = {};
@@ -531,20 +550,32 @@ const ProductModal: React.FC<ProductModalProps> = ({
               <select
                 id="unidad"
                 value={formData.unidad}
-                onChange={(e) => setFormData(prev => ({ ...prev, unidad: e.target.value as 'DOCENA' | 'UNIDAD' }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, unidad: e.target.value as Product['unidad'] }))}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
               >
-                <option value="UNIDAD">(NIU)UNIDAD</option>
-                <option value="DOCENA">(DZN) DOCENA</option>
-                <option value="CENTIMOS">(CMT) CENTIMOS</option>
-                <option value="KILOGRAMO">(KGM) KILOGRAMO</option>
+                {availableUnits.length > 0 ? (
+                  availableUnits
+                    .sort((a, b) => {
+                      // Mostrar favoritas primero
+                      if (a.isFavorite && !b.isFavorite) return -1;
+                      if (!a.isFavorite && b.isFavorite) return 1;
+                      return a.name.localeCompare(b.name);
+                    })
+                    .map(unit => (
+                      <option key={unit.id} value={unit.code}>
+                        ({unit.code}) {unit.name}
+                      </option>
+                    ))
+                ) : (
+                  <option value="UNIDAD">(NIU) UNIDAD</option>
+                )}
               </select>
-              <button
-                type="button"
-                className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
-              >
-              Nueva unidad de medida
-              </button>
+              <p className="text-xs text-gray-500 mt-1">
+                {availableUnits.length > 0
+                  ? `${availableUnits.length} unidad${availableUnits.length !== 1 ? 'es' : ''} disponible${availableUnits.length !== 1 ? 's' : ''}`
+                  : 'Ve a Configuración → Negocio para gestionar unidades de medida'
+                }
+              </p>
             </div>
 
             {/* Categoría - Campo configurable */}

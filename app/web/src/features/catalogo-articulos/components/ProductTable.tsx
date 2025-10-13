@@ -76,9 +76,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
   selectedProducts,
   onSelectedProductsChange
 }) => {
-  // Acceder a los establecimientos desde el contexto de configuración
+  // Acceder a los establecimientos y unidades desde el contexto de configuración
   const { state: configState } = useConfigurationContext();
   const establishments = configState.establishments;
+  const units = configState.units;
   
   // Estado para columnas visibles
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
@@ -566,15 +567,19 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 
                 {visibleColumns.has('unidad') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`
-                      inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                      ${product.unidad === 'DOCENA' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-purple-100 text-purple-800'
-                      }
-                    `}>
-                      {product.unidad}
-                    </span>
+                    {(() => {
+                      // Buscar la unidad en el catálogo para obtener el nombre completo
+                      const unit = units.find(u => u.code === product.unidad);
+                      const displayText = unit
+                        ? `${unit.code} - ${unit.name}`
+                        : product.unidad; // Fallback al código si no se encuentra
+
+                      return (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          {displayText}
+                        </span>
+                      );
+                    })()}
                   </td>
                 )}
                 
