@@ -567,7 +567,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       </option>
                     ))
                 ) : (
-                  <option value="UNIDAD">(NIU) UNIDAD</option>
+                  <option value="NIU">(NIU) UNIDAD</option>
                 )}
               </select>
               <p className="text-xs text-gray-500 mt-1">

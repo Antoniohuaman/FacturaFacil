@@ -1,5 +1,5 @@
 // src/features/configuration/components/business/UnitsSection.tsx
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Scale, Plus, Edit3, Trash2, Eye, EyeOff, Search,
   Grid3X3, List, Heart, Package, Zap, Clock,
@@ -37,24 +37,8 @@ export function UnitsSection({
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [selectedCategory, setSelectedCategory] = useState<Unit['category'] | 'all'>('all');
 
-  // Inicializar con todas las unidades SUNAT si no existen
-  useEffect(() => {
-    if (units.length === 0) {
-      const sunatUnitsWithDefaults: Unit[] = SUNAT_UNITS.map((sunatUnit, index) => ({
-        id: `sunat-${sunatUnit.code}`,
-        ...sunatUnit,
-        isActive: true,
-        isSystem: true,
-        isFavorite: ['NIU', 'KGM', 'LTR', 'MTR'].includes(sunatUnit.code), // Algunos favoritos por defecto
-        isVisible: true,
-        displayOrder: index,
-        usageCount: ['NIU', 'KGM', 'LTR', 'MTR'].includes(sunatUnit.code) ? 10 : 0,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }));
-      onUpdate(sunatUnitsWithDefaults);
-    }
-  }, [units.length, onUpdate]);
+  // Ya no es necesario inicializar aquí - las unidades se cargan desde ConfigurationContext
+  // useEffect removido para evitar conflictos de inicialización
 
   // Funciones helper
   const isSystemUnit = (unit: Unit) => unit.isSystem || SUNAT_UNITS.some(s => s.code === unit.code);

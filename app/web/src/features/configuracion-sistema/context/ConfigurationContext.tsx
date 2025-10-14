@@ -10,6 +10,7 @@ import type { Unit } from '../models/Unit';
 import type { Tax } from '../models/Tax';
 import type { VoucherDesign } from '../models/VoucherDesign';
 import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesign';
+import { SUNAT_UNITS } from '../models/Unit';
 
 // Temporary interface for tax affectations until officially added to Tax model
 export interface TaxAffectations {
@@ -583,8 +584,24 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
       ]
     });
 
-    // Units will be initialized by UnitsSection component
-    // (it has its own useEffect that loads all SUNAT units)
+    // Initialize SUNAT units - Carga todas las unidades de medida del catálogo SUNAT
+    const sunatUnitsWithDefaults: Unit[] = SUNAT_UNITS.map((sunatUnit, index) => ({
+      id: `sunat-${sunatUnit.code}`,
+      ...sunatUnit,
+      isActive: true,
+      isSystem: true,
+      isFavorite: ['NIU', 'KGM', 'LTR', 'MTR', 'ZZ'].includes(sunatUnit.code), // Unidades favoritas por defecto
+      isVisible: true,
+      displayOrder: index,
+      usageCount: ['NIU', 'KGM', 'LTR', 'MTR', 'ZZ'].includes(sunatUnit.code) ? 10 : 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }));
+
+    dispatch({
+      type: 'SET_UNITS',
+      payload: sunatUnitsWithDefaults
+    });
 
     // Mock taxes - Using a basic structure that can be adapted
     // Note: The TaxesSection component uses a different interface (TaxConfiguration)
