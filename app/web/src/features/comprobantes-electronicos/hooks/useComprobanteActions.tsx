@@ -4,6 +4,7 @@ import { useToast } from './useToast';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { MedioPago } from '../../control-caja/models/Caja';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import { useComprobanteContext } from '../context/ComprobanteContext';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -23,6 +24,7 @@ export const useComprobanteActions = () => {
   const toast = useToast();
   const { agregarMovimiento, status: cajaStatus } = useCaja();
   const { addMovimiento: addMovimientoStock } = useProductStore();
+  const { addComprobante } = useComprobanteContext();
 
   /**
    * Mapea las formas de pago de comprobantes a los medios de pago de caja
@@ -152,6 +154,39 @@ export const useComprobanteActions = () => {
         );
       }
 
+      // ✅ AGREGAR COMPROBANTE A LA LISTA GLOBAL
+      try {
+        // Formatear fecha actual en el formato esperado por la lista
+        const now = new Date();
+        const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
+        const formattedDate = `${now.getDate()} ${months[now.getMonth()]}. ${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        // Determinar el tipo de comprobante para la lista
+        let tipoComprobanteDisplay = 'Boleta de venta';
+        if (data.tipoComprobante.toLowerCase().includes('factura')) {
+          tipoComprobanteDisplay = 'Factura';
+        }
+
+        // Crear el objeto comprobante para la lista
+        const nuevoComprobante = {
+          id: numeroComprobante,
+          type: tipoComprobanteDisplay,
+          clientDoc: '00000000', // TODO: Obtener del cliente real cuando se implemente
+          client: 'Cliente Nuevo', // TODO: Obtener del cliente real cuando se implemente
+          date: formattedDate,
+          vendor: 'Usuario Temp', // TODO: Obtener del contexto de autenticación
+          total: data.totals.total,
+          status: 'Enviado',
+          statusColor: 'blue' as const
+        };
+
+        // Agregar al contexto global
+        addComprobante(nuevoComprobante);
+      } catch (contextError) {
+        console.error('Error agregando comprobante al contexto:', contextError);
+        // No lanzar error, el comprobante ya se creó exitosamente
+      }
+
       toast.success(
         '¡Comprobante creado!',
         `${data.tipoComprobante} ${numeroComprobante} generado exitosamente`,
@@ -185,7 +220,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, addMovimientoStock]);
+  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, addMovimientoStock, addComprobante]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

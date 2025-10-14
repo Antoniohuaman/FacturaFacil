@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import SideNav from "../components/SideNav";
 import Footer from "../components/Footer";
 import { ConfigurationProvider } from "../../features/configuracion-sistema/context/ConfigurationContext";
+import { ComprobanteProvider } from "../../features/comprobantes-electronicos/context/ComprobanteContext";
 import { ThemeProvider } from "../../contexts/ThemeContext";
 
 export default function AppShell() {
@@ -12,7 +13,8 @@ export default function AppShell() {
   return (
     <ThemeProvider>
       <ConfigurationProvider>
-        <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden">
+        <ComprobanteProvider>
+          <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden">
           {/* Header fijo */}
           <div className="flex-shrink-0 z-50">
             <Header 
@@ -36,6 +38,7 @@ export default function AppShell() {
             </div>
           </div>
         </div>
+        </ComprobanteProvider>
       </ConfigurationProvider>
     </ThemeProvider>
   );
