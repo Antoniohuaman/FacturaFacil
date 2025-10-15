@@ -42,82 +42,30 @@ export const SERIES_BOLETA = ["B001", "B002"];
 export const SERIES_FACTURA = ["F001"];
 
 // ===================================================================
-// PRODUCTOS DISPONIBLES (MODO POS) - Ahora con más datos para búsqueda
+// PRODUCTOS DISPONIBLES (MODO POS)
 // ===================================================================
-export const AVAILABLE_PRODUCTS: Product[] = [
-  {
-    id: "1",
-    code: "00156389",
-    name: "Hojas Bond A4 ATLAS",
-    price: 60.00,
-    category: "Útiles",
-    description: "Hojas bond tamaño A4, marca Atlas, paquete x500 hojas",
-    stock: 25
-  },
-  {
-    id: "2", 
-    code: "00168822",
-    name: "Sketch ARTESCO",
-    price: 18.00,
-    category: "Útiles",
-    description: "Block de dibujo Artesco, 20 hojas",
-    stock: 15
-  },
-  {
-    id: "3",
-    code: "00170001", 
-    name: "Resma Bond A3",
-    price: 120.00,
-    category: "Útiles",
-    description: "Resma bond A3, 500 hojas",
-    stock: 10
-  },
-  {
-    id: "4",
-    code: "00180001",
-    name: "Lapicero BIC",
-    price: 2.50,
-    category: "Útiles", 
-    description: "Lapicero BIC azul, punta fina",
-    stock: 100
-  },
-  {
-    id: "5",
-    code: "00190001",
-    name: "Cuaderno Loro",
-    price: 8.00,
-    category: "Útiles",
-    description: "Cuaderno Loro 100 hojas, rayado",
-    stock: 30
-  },
-  {
-    id: "6",
-    code: "00145678",
-    name: "Martillo de acero",
-    price: 45.50,
-    category: "Herramientas",
-    description: "Martillo de acero, mango de madera",
-    stock: 8
-  },
-  {
-    id: "7",
-    code: "00187654", 
-    name: "Destornillador Phillips",
-    price: 12.00,
-    category: "Herramientas",
-    description: "Destornillador Phillips mediano",
-    stock: 20
-  },
-  {
-    id: "8",
-    code: "00198765",
-    name: "Taladro eléctrico", 
-    price: 250.00,
-    category: "Herramientas",
-    description: "Taladro eléctrico 600W, incluye brocas",
-    stock: 3
-  }
-];
+// DEPRECADO: Los productos ahora se obtienen del catálogo real
+// usando el hook useAvailableProducts() que filtra por establecimiento
+//
+// Los productos se gestionan desde el módulo "Productos" y se almacenan
+// en localStorage bajo la clave 'catalog_products'
+// ===================================================================
+export const AVAILABLE_PRODUCTS: Product[] = [];
+
+// Productos de ejemplo (solo para referencia en desarrollo)
+// Para agregar productos reales, usar el módulo "Productos" en la aplicación
+/*
+EJEMPLOS:
+{
+  id: "1",
+  code: "00156389",
+  name: "Hojas Bond A4 ATLAS",
+  price: 60.00,
+  category: "Útiles",
+  description: "Hojas bond tamaño A4, marca Atlas, paquete x500 hojas",
+  stock: 25
+}
+*/
 
 // ===================================================================
 // CATEGORÍAS DE PRODUCTOS

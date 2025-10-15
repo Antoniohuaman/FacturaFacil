@@ -9,17 +9,18 @@ import { SYSTEM_CONFIG } from '../models/constants';
 export interface UseCartReturn {
   // Estado del carrito
   cartItems: CartItem[];
-  
+
   // Funciones básicas del carrito
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (id: string) => void;
   updateCartQuantity: (id: string, change: number) => void;
   updateCartItem: (id: string, updates: Partial<CartItem>) => void;
+  updateCartItemPrice: (id: string, newPrice: number) => void;
   clearCart: () => void;
-  
+
   // Funciones especiales
   addProductsFromSelector: (products: { product: Product; quantity: number }[]) => void;
-  
+
   // Datos calculados
   totalItems: number;
   isEmpty: boolean;
@@ -143,10 +144,36 @@ export const useCart = (): UseCartReturn => {
    * Para actualizaciones desde la tabla de productos del formulario
    */
   const updateCartItem = useCallback((id: string, updates: Partial<CartItem>) => {
-    setCartItems(prev => 
-      prev.map(item => 
-        item.id === id 
+    setCartItems(prev =>
+      prev.map(item =>
+        item.id === id
           ? { ...item, ...updates }
+          : item
+      )
+    );
+  }, []);
+
+  /**
+   * Actualizar el precio de un item del carrito
+   * Útil para productos sin precio o con precio variable
+   */
+  const updateCartItemPrice = useCallback((id: string, newPrice: number) => {
+    // Validar que el precio sea válido
+    if (newPrice < 0 || isNaN(newPrice)) {
+      console.warn('Precio inválido:', newPrice);
+      return;
+    }
+
+    setCartItems(prev =>
+      prev.map(item =>
+        item.id === id
+          ? {
+              ...item,
+              price: newPrice,
+              subtotal: newPrice / 1.18, // Recalcular subtotal sin IGV
+              total: newPrice,
+              basePrice: newPrice // Actualizar también el precio base
+            }
           : item
       )
     );
@@ -226,17 +253,18 @@ export const useCart = (): UseCartReturn => {
   return {
     // Estado
     cartItems,
-    
+
     // Funciones básicas
     addToCart,
     removeFromCart,
     updateCartQuantity,
     updateCartItem,
+    updateCartItemPrice,
     clearCart,
-    
+
     // Funciones especiales
     addProductsFromSelector,
-    
+
     // Datos calculados
     totalItems,
     isEmpty,

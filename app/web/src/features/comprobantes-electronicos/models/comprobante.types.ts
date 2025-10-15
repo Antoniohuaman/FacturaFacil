@@ -64,6 +64,16 @@ export interface Product {
   stock: number; // ✅ Obligatorio para control de stock
   requiresStockControl?: boolean; // ✅ Si requiere validación de stock
   image?: string;
+  barcode?: string;
+  unit?: string;
+  // Datos adicionales del catálogo (opcional)
+  catalogData?: {
+    impuesto?: string;
+    precioCompra?: number;
+    descuento?: number;
+    marca?: string;
+    modelo?: string;
+  };
 }
 
 export interface CartItem {

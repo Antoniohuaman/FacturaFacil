@@ -17,6 +17,7 @@ import { UI_MESSAGES } from '../models/constants';
 
 interface UpdatedCartSidebarProps extends CartSidebarProps {
   onAddProduct?: (product: Product) => void;
+  onUpdatePrice?: (id: string, newPrice: number) => void;
   currency?: 'PEN' | 'USD';
 }
 
@@ -24,6 +25,7 @@ export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
   cartItems,
   totals,
   onUpdateQuantity,
+  onUpdatePrice,
   onRemoveItem,
   onClearCart,
   onConfirmSale,
@@ -114,6 +116,32 @@ export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
                   </button>
                 </div>
                 
+                {/* Precio editable */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-500">Precio unitario:</span>
+                  {onUpdatePrice ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-500">{currency === 'PEN' ? 'S/' : '$'}</span>
+                      <input
+                        type="number"
+                        value={item.price || ''}
+                        onChange={(e) => {
+                          const newPrice = parseFloat(e.target.value) || 0;
+                          onUpdatePrice(item.id, newPrice);
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        step="1"
+                        min="0"
+                        className="w-20 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
+                        disabled={isProcessing}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-sm font-medium">{formatPrice(item.price, currency)}</span>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button
@@ -123,11 +151,11 @@ export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
                     >
                       <Minus className="h-3 w-3" />
                     </button>
-                    
+
                     <span className="w-8 text-center text-sm font-medium">
                       {item.quantity}
                     </span>
-                    
+
                     <button
                       onClick={() => onUpdateQuantity(item.id, 1)}
                       className="w-7 h-7 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
@@ -136,13 +164,11 @@ export const CartSidebar: React.FC<UpdatedCartSidebarProps> = ({
                       <Plus className="h-3 w-3" />
                     </button>
                   </div>
-                  
+
                   <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-xs text-gray-500 mb-0.5">Total:</div>
+                    <div className="text-sm font-bold text-blue-600">
                       {formatPrice(item.price * item.quantity, currency)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {formatPrice(item.price, currency)} c/u
                     </div>
                   </div>
                 </div>

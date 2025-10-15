@@ -411,10 +411,22 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                 >
                   {/* Imagen/Placeholder del producto */}
                   <div className="aspect-square bg-blue-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
-                    <div className="w-12 h-12 bg-blue-300 rounded-full flex items-center justify-center">
+                    {product.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Si falla la carga de la imagen, mostrar placeholder
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-12 h-12 bg-blue-300 rounded-full flex items-center justify-center ${product.image ? 'hidden' : ''}`}>
                       <div className="w-6 h-6 border-2 border-white rounded-full"></div>
                     </div>
-                    
+
                     {/* Badge de cantidad en carrito */}
                     {showQuantityBadge && inCart && (
                       <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">

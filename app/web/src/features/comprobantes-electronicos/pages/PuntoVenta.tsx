@@ -3,8 +3,6 @@
 // Preserva toda la funcionalidad original con mejor UX
 // ===================================================================
 
-import { AVAILABLE_PRODUCTS } from '../models/constants';
-
 // Importar hooks customizados (SIN CAMBIOS)
 import { useCart } from '../hooks/useCart';
 import { usePayment } from '../hooks/usePayment';
@@ -12,6 +10,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { useDocumentType } from '../hooks/useDocumentType';
 import { useComprobanteState } from '../hooks/useComprobanteState';
 import { useComprobanteActions } from '../hooks/useComprobanteActions';
+import { useAvailableProducts } from '../hooks/useAvailableProducts';
 
 // Importar componentes POS (TODOS preservados)
 import { ProductGrid } from '../components/ProductGrid';
@@ -31,7 +30,7 @@ const PuntoVenta = () => {
   const navigate = useNavigate();
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
-  const { cartItems, addToCart, removeFromCart, updateCartQuantity, clearCart } = useCart();
+  const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItemPrice, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
   const { currentCurrency } = useCurrency();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada } = useDocumentType();
@@ -57,8 +56,12 @@ const PuntoVenta = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
 
-  // Available products (SIN CAMBIOS)
-  const availableProducts = AVAILABLE_PRODUCTS;
+  // Obtener productos disponibles del catálogo (filtrados por establecimiento)
+  // TODO: Obtener establecimientoId del contexto de usuario/configuración cuando esté disponible
+  const availableProducts = useAvailableProducts({
+    // establecimientoId: currentEstablecimientoId, // Descomentar cuando se implemente
+    soloConStock: false // Cambiar a true si solo se quieren mostrar productos con stock
+  });
 
   // Calculate totals (SIN CAMBIOS)
   const totals = calculateTotals(cartItems);
@@ -218,6 +221,7 @@ const PuntoVenta = () => {
             totals={totals}
             onRemoveItem={removeFromCart}
             onUpdateQuantity={updateCartQuantity}
+            onUpdatePrice={updateCartItemPrice}
             onConfirmSale={handleConfirmSale}
             onClearCart={clearCart}
             onViewFullForm={() => navigate('/comprobantes/emision')}
