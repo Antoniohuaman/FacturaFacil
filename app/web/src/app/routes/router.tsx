@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import AppShell from "../layouts/AppShell";
 
 // Pages por módulo - Comprobantes
@@ -21,9 +22,14 @@ import { VoucherDesignConfiguration } from "../../features/configuracion-sistema
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../../features/lista-precios/components/ListaPrecios";
 
+// Documentos Comerciales (carga diferida para aislar errores)
+const DocumentosPage = lazy(() => import("../../features/documentos-comerciales/pages/DocumentosPage").then(m => ({ default: m.DocumentosPage })));
+import RouteErrorBoundary from "./RouteErrorBoundary";
+
 export const router = createBrowserRouter([
   {
     element: <AppShell />,
+    errorElement: <RouteErrorBoundary />,
     children: [
   { path: "/", element: <ComprobantesTabs /> },
   { path: "/comprobantes", element: <ComprobantesTabs /> },
@@ -32,6 +38,15 @@ export const router = createBrowserRouter([
   { path: "/comprobantes/pos", element: <PuntoVenta /> },
       { path: "/catalogo", element: <CatalogoArticulosMain /> },
       { path: "/lista-precios", element: <ListaPrecios /> },
+      { 
+        path: "/documentos-comerciales", 
+        element: (
+          <Suspense fallback={<div className="p-6">Cargando Documentos…</div>}>
+            <DocumentosPage />
+          </Suspense>
+        ),
+        errorElement: <RouteErrorBoundary />
+      },
       { path: "/control-caja", element: <ControlCajaHome /> },
       { path: "/clientes", element: <ClientesPage /> },
   { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },

@@ -1,6 +1,6 @@
 
 import { NavLink } from "react-router-dom";
-import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings } from "lucide-react";
+import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings, Receipt } from "lucide-react";
 import CompanySelector from "../../components/CompanySelector";
 
 interface SideNavProps {
@@ -14,6 +14,12 @@ const mainItems = [
     description: "Emitir facturas y boletas",
     badge: "12",
     icon: FileText
+  },
+  { 
+    to: "/documentos-comerciales", 
+    label: "Documentos", 
+    description: "Cotizaciones y notas de venta",
+    icon: Receipt
   },
   { 
     to: "/catalogo", 

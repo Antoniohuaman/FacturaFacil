@@ -58,6 +58,7 @@ export interface Movimiento {
   usuarioId: string;
   usuarioNombre: string;
   comprobante?: string;
+  observaciones?: string;
 }
 
 export interface ConfiguracionCaja {
