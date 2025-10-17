@@ -94,6 +94,23 @@ export interface CartItem {
   basePrice?: number;
   stock: number; // ✅ Stock disponible
   requiresStockControl?: boolean; // ✅ Si requiere validación de stock
+
+  // ✅ Campos adicionales del producto del catálogo
+  descripcion?: string;
+  alias?: string;
+  marca?: string;
+  modelo?: string;
+  codigoBarras?: string;
+  codigoFabrica?: string;
+  precioCompra?: number;
+  descuentoProducto?: number;
+  peso?: number;
+  tipoExistencia?: string; // Tipo de existencia SUNAT (MERCADERIAS, SERVICIOS, etc)
+  tipoProducto?: 'BIEN' | 'SERVICIO'; // ✅ Tipo de producto (BIEN o SERVICIO)
+  impuesto?: string;
+  imagen?: string;
+  codigoSunat?: string;
+  unidad?: string; // ✅ Nombre de la unidad del producto (ej: "UNIDAD", "KILOGRAMO")
 }
 
 // ===================================================================

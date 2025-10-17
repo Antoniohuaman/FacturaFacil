@@ -10,6 +10,22 @@ interface Product {
   stock: number;
   requiresStockControl?: boolean;
   category: string;
+  // ✅ Campos adicionales del catálogo para comprobantes
+  descripcion?: string;
+  alias?: string;
+  marca?: string;
+  modelo?: string;
+  codigoBarras?: string;
+  codigoFabrica?: string;
+  precioCompra?: number;
+  descuentoProducto?: number;
+  peso?: number;
+  tipoExistencia?: string;
+  tipoProducto?: 'BIEN' | 'SERVICIO';
+  impuesto?: string;
+  imagen?: string;
+  codigoSunat?: string;
+  unidad?: string; // ✅ Nombre de la unidad del producto
 }
 
 interface ProductSelectorProps {
@@ -37,7 +53,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // ✅ Convertir productos del catálogo al formato esperado CON useMemo
-  const allProducts: Product[] = useMemo(() => 
+  const allProducts: Product[] = useMemo(() =>
     catalogProducts.map(p => ({
       id: p.id,
       code: p.codigo,
@@ -45,7 +61,23 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       price: p.precio,
       stock: p.cantidad,
       requiresStockControl: p.tipoExistencia !== 'SERVICIOS', // Servicios no requieren stock
-      category: p.categoria || 'Sin categoría'
+      category: p.categoria || 'Sin categoría',
+      // ✅ Mapear todos los campos adicionales del catálogo
+      descripcion: p.descripcion,
+      alias: p.alias,
+      marca: p.marca,
+      modelo: p.modelo,
+      codigoBarras: p.codigoBarras,
+      codigoFabrica: p.codigoFabrica,
+      precioCompra: p.precioCompra,
+      descuentoProducto: p.descuentoProducto,
+      peso: p.peso,
+      tipoExistencia: p.tipoExistencia,
+      tipoProducto: p.tipoExistencia === 'SERVICIOS' ? 'SERVICIO' : 'BIEN', // ✅ Derivar tipo de producto
+      impuesto: p.impuesto,
+      imagen: p.imagen,
+      codigoSunat: p.codigoSunat,
+      unidad: p.unidad // ✅ Unidad del producto
     })),
     [catalogProducts] // ✅ Se actualiza cuando catalogProducts cambia
   );
