@@ -1,6 +1,6 @@
 // src/features/catalogo-articulos/pages/ControlStockPage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { StockAlert } from '../models/types';
 import StockMovementsTable from '../components/StockMovementsTable.tsx';
 import StockAdjustmentModal from '../components/StockAdjustmentModal.tsx';
@@ -9,9 +9,11 @@ import StockAlertsPanel from '../components/StockAlertsPanel.tsx';
 import MassStockUpdateModal from '../components/MassStockUpdateModal.tsx';
 import TransferStockModal from '../components/TransferStockModal.tsx';
 import { useProductStore } from '../hooks/useProductStore';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
 const ControlStockPage: React.FC = () => {
   const { allProducts, movimientos, addMovimiento, transferirStock } = useProductStore();
+  const { state: configState } = useConfigurationContext();
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -20,22 +22,94 @@ const ControlStockPage: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [suggestedQuantity, setSuggestedQuantity] = useState<number>(0);
 
-  // Generar alertas basadas en productos reales
-  const alertas: StockAlert[] = allProducts
-    .filter(p => p.cantidad <= 10)
-    .map(p => ({
-      productoId: p.id,
-      productoCodigo: p.codigo,
-      productoNombre: p.nombre,
-      cantidadActual: p.cantidad,
-      stockMinimo: 10,
-      estado: p.cantidad === 0 ? 'CRITICO' as const : 'BAJO' as const
-    }));
+  // ✅ Filtro por establecimiento
+  const [establecimientoFiltro, setEstablecimientoFiltro] = useState<string>('todos');
+
+  // Obtener establecimientos activos
+  const establishments = useMemo(
+    () => configState.establishments.filter(e => e.isActive),
+    [configState.establishments]
+  );
+
+  // ✅ Generar alertas por producto-establecimiento
+  const alertas: StockAlert[] = useMemo(() => {
+    const alerts: StockAlert[] = [];
+
+    allProducts.forEach(producto => {
+      // Si tiene stockPorEstablecimiento, generar alertas por cada establecimiento
+      if (producto.stockPorEstablecimiento) {
+        Object.entries(producto.stockPorEstablecimiento).forEach(([estId, stock]) => {
+          const establecimiento = establishments.find(e => e.id === estId);
+          if (!establecimiento) return;
+
+          // Obtener configuración de stock para este establecimiento (o usar defaults)
+          const config = producto.stockConfigPorEstablecimiento?.[estId];
+          const stockMinimo = config?.stockMinimo ?? 10;
+          const stockMaximo = config?.stockMaximo ?? 100;
+
+          // Determinar estado
+          let estado: StockAlert['estado'];
+          if (stock === 0) {
+            estado = 'CRITICO';
+          } else if (stock <= stockMinimo) {
+            estado = 'BAJO';
+          } else if (stock >= stockMaximo) {
+            estado = 'EXCESO';
+          } else {
+            return; // No generar alerta si está en rango normal
+          }
+
+          // Filtrar por establecimiento si hay uno seleccionado
+          if (establecimientoFiltro !== 'todos' && estId !== establecimientoFiltro) {
+            return;
+          }
+
+          alerts.push({
+            productoId: producto.id,
+            productoCodigo: producto.codigo,
+            productoNombre: producto.nombre,
+            cantidadActual: stock,
+            stockMinimo,
+            stockMaximo,
+            estado,
+            establecimientoId: estId,
+            establecimientoCodigo: establecimiento.code,
+            establecimientoNombre: establecimiento.name,
+            faltante: estado === 'CRITICO' || estado === 'BAJO' ? Math.max(0, stockMinimo - stock) : undefined,
+            excedente: estado === 'EXCESO' ? Math.max(0, stock - stockMaximo) : undefined
+          });
+        });
+      } else {
+        // Fallback: alertas basadas en stock global (retrocompatibilidad)
+        if (producto.cantidad <= 10) {
+          const stockMinimo = 10;
+          alerts.push({
+            productoId: producto.id,
+            productoCodigo: producto.codigo,
+            productoNombre: producto.nombre,
+            cantidadActual: producto.cantidad,
+            stockMinimo,
+            estado: producto.cantidad === 0 ? 'CRITICO' : 'BAJO',
+            establecimientoId: 'global',
+            establecimientoCodigo: 'GLOBAL',
+            establecimientoNombre: 'Stock Global',
+            faltante: Math.max(0, stockMinimo - producto.cantidad)
+          });
+        }
+      }
+    });
+
+    return alerts;
+  }, [allProducts, establishments, establecimientoFiltro]);
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <StockSummaryCards products={allProducts} />
+      <StockSummaryCards
+        products={allProducts}
+        establecimientoFiltro={establecimientoFiltro}
+        establishments={establishments}
+      />
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -97,6 +171,25 @@ const ControlStockPage: React.FC = () => {
               <option value="mes">Último mes</option>
               <option value="todo">Todo el historial</option>
             </select>
+
+            {/* ✅ Filtro por Establecimiento */}
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              <select
+                value={establecimientoFiltro}
+                onChange={(e) => setEstablecimientoFiltro(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+              >
+                <option value="todos">Todos los establecimientos</option>
+                {establishments.map(est => (
+                  <option key={est.id} value={est.id}>
+                    {est.code} - {est.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center space-x-3">
@@ -198,7 +291,10 @@ const ControlStockPage: React.FC = () => {
       {/* Content Area */}
       <div>
         {selectedView === 'movimientos' && (
-          <StockMovementsTable movimientos={movimientos} />
+          <StockMovementsTable
+            movimientos={movimientos}
+            establecimientoFiltro={establecimientoFiltro}
+          />
         )}
         
         {selectedView === 'alertas' && (

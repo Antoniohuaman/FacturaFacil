@@ -339,24 +339,80 @@ export const useProductStore = () => {
     const producto = products.find(p => p.id === productoId);
     if (!producto) return;
 
-    const cantidadAnterior = producto.cantidad;
-    let cantidadNueva = cantidadAnterior;
+    // Si no se especifica establecimiento, usar stock global (retrocompatibilidad)
+    if (!establecimientoId) {
+      const cantidadAnterior = producto.cantidad;
+      let cantidadNueva = cantidadAnterior;
 
-    // Calcular nueva cantidad según el tipo de movimiento
+      // Calcular nueva cantidad según el tipo de movimiento
+      switch (tipo) {
+        case 'ENTRADA':
+        case 'AJUSTE_POSITIVO':
+        case 'DEVOLUCION':
+          cantidadNueva = cantidadAnterior + cantidad;
+          break;
+        case 'SALIDA':
+        case 'AJUSTE_NEGATIVO':
+        case 'MERMA':
+          cantidadNueva = cantidadAnterior - cantidad;
+          break;
+        case 'TRANSFERENCIA':
+          cantidadNueva = cantidadAnterior;
+          break;
+      }
+
+      // Crear el movimiento
+      const nuevoMovimiento: MovimientoStock = {
+        id: Date.now().toString(),
+        productoId,
+        productoCodigo: producto.codigo,
+        productoNombre: producto.nombre,
+        tipo,
+        motivo,
+        cantidad,
+        cantidadAnterior,
+        cantidadNueva,
+        usuario: 'Usuario Actual',
+        observaciones,
+        documentoReferencia,
+        fecha: new Date(),
+        ubicacion,
+        establecimientoId,
+        establecimientoCodigo,
+        establecimientoNombre
+      };
+
+      // Actualizar stock global
+      setProducts(prev =>
+        prev.map(p =>
+          p.id === productoId
+            ? { ...p, cantidad: cantidadNueva, fechaActualizacion: new Date() }
+            : p
+        )
+      );
+
+      setMovimientos(prev => [nuevoMovimiento, ...prev]);
+      return nuevoMovimiento;
+    }
+
+    // ✅ STOCK POR ESTABLECIMIENTO
+    const stockAnterior = producto.stockPorEstablecimiento?.[establecimientoId] ?? 0;
+    let stockNuevo = stockAnterior;
+
+    // Calcular nuevo stock según el tipo de movimiento
     switch (tipo) {
       case 'ENTRADA':
       case 'AJUSTE_POSITIVO':
       case 'DEVOLUCION':
-        cantidadNueva = cantidadAnterior + cantidad;
+        stockNuevo = stockAnterior + cantidad;
         break;
       case 'SALIDA':
       case 'AJUSTE_NEGATIVO':
       case 'MERMA':
-        cantidadNueva = cantidadAnterior - cantidad;
+        stockNuevo = Math.max(0, stockAnterior - cantidad);
         break;
       case 'TRANSFERENCIA':
-        // Para transferencias, la lógica dependerá de si es entrada o salida
-        cantidadNueva = cantidadAnterior;
+        stockNuevo = stockAnterior;
         break;
     }
 
@@ -369,9 +425,9 @@ export const useProductStore = () => {
       tipo,
       motivo,
       cantidad,
-      cantidadAnterior,
-      cantidadNueva,
-      usuario: 'Usuario Actual', // Esto debería venir del sistema de autenticación
+      cantidadAnterior: stockAnterior,
+      cantidadNueva: stockNuevo,
+      usuario: 'Usuario Actual',
       observaciones,
       documentoReferencia,
       fecha: new Date(),
@@ -381,13 +437,27 @@ export const useProductStore = () => {
       establecimientoNombre
     };
 
-    // Actualizar stock del producto
+    // Actualizar stock por establecimiento y recalcular total
     setProducts(prev =>
-      prev.map(p =>
-        p.id === productoId
-          ? { ...p, cantidad: cantidadNueva, fechaActualizacion: new Date() }
-          : p
-      )
+      prev.map(p => {
+        if (p.id === productoId) {
+          const nuevoStockPorEst = {
+            ...p.stockPorEstablecimiento,
+            [establecimientoId]: stockNuevo
+          };
+
+          // Recalcular stock total (suma de todos los establecimientos)
+          const stockTotal = Object.values(nuevoStockPorEst).reduce((sum, qty) => sum + (qty || 0), 0);
+
+          return {
+            ...p,
+            stockPorEstablecimiento: nuevoStockPorEst,
+            cantidad: stockTotal,
+            fechaActualizacion: new Date()
+          };
+        }
+        return p;
+      })
     );
 
     // Agregar movimiento al historial
