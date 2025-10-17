@@ -12,6 +12,7 @@ import { useDocumentType } from '../hooks/useDocumentType';
 import { usePreview } from '../hooks/usePreview';
 import { useComprobanteState } from '../hooks/useComprobanteState';
 import { useComprobanteActions } from '../hooks/useComprobanteActions';
+import { useFieldsConfiguration } from '../hooks/useFieldsConfiguration';
 
 // Importar componentes (TODOS preservados)
 import ProductsSection from '../components/ProductsSection';
@@ -19,6 +20,7 @@ import DocumentInfoCard from '../components/DocumentInfoCard';
 import ClienteSection from '../components/ClienteSection';
 import NotesSection from '../components/NotesSection';
 import ActionButtonsSection from '../components/ActionButtonsSection';
+import FieldsConfigModal from '../components/FieldsConfigModal';
 import { Toast } from '../components/Toast';
 import { ToastContainer } from '../components/ToastContainer';
 import { DraftModal } from '../components/DraftModal';
@@ -40,6 +42,9 @@ const EmisionTradicional = () => {
   // ✅ Estado para forzar refresh del ProductSelector
   const [productSelectorKey, setProductSelectorKey] = useState(0);
 
+  // ✅ Estado para modal de configuración de campos
+  const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
+
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
@@ -47,6 +52,16 @@ const EmisionTradicional = () => {
   const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
   const { openPreview, showPreview, closePreview } = usePreview();
+
+  // ✅ Hook para configuración de visibilidad de campos
+  const {
+    config: fieldsConfig,
+    toggleNotesSection,
+    toggleActionButton,
+    toggleOptionalField,
+    toggleOptionalFieldRequired,
+    resetToDefaults: resetFieldsConfig,
+  } = useFieldsConfiguration();
 
   // Estado consolidado (SIN CAMBIOS)
   const {
@@ -289,6 +304,7 @@ const EmisionTradicional = () => {
               formaPago={formaPago}
               setFormaPago={setFormaPago}
               onNuevaFormaPago={handleNuevaFormaPago}
+              onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
             />
 
             {/* ✅ Cliente Section - NUEVA posición estratégica */}
@@ -316,20 +332,22 @@ const EmisionTradicional = () => {
               refreshKey={productSelectorKey}
             />
 
-            {/* Notes Section - Sin cambios */}
-            <NotesSection
-              observaciones={observaciones}
-              setObservaciones={setObservaciones}
-              notaInterna={notaInterna}
-              setNotaInterna={setNotaInterna}
-            />
+            {/* Notes Section - ✅ Renderizado condicional según configuración */}
+            {fieldsConfig.notesSection && (
+              <NotesSection
+                observaciones={observaciones}
+                setObservaciones={setObservaciones}
+                notaInterna={notaInterna}
+                setNotaInterna={setNotaInterna}
+              />
+            )}
 
             {/* Action Buttons Section - Sin cambios */}
             <ActionButtonsSection
-              onVistaPrevia={handleVistaPrevia}
+              onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
               onCancelar={goToComprobantes}
-              onGuardarBorrador={() => setShowDraftModal(true)}
-              onCrearComprobante={() => setShowPaymentModal(true)}
+              onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
+              onCrearComprobante={fieldsConfig.actionButtons.crearComprobante ? () => setShowPaymentModal(true) : undefined}
               isCartEmpty={cartItems.length === 0}
             />
           </div>
@@ -408,6 +426,18 @@ const EmisionTradicional = () => {
           onClose={() => setShowPaymentMethodModal(false)}
           paymentMethods={state.paymentMethods}
           onUpdate={handleUpdatePaymentMethods}
+        />
+
+        {/* ✅ Modal de configuración de campos */}
+        <FieldsConfigModal
+          isOpen={showFieldsConfigModal}
+          onClose={() => setShowFieldsConfigModal(false)}
+          config={fieldsConfig}
+          onToggleNotesSection={toggleNotesSection}
+          onToggleActionButton={toggleActionButton}
+          onToggleOptionalField={toggleOptionalField}
+          onToggleOptionalFieldRequired={toggleOptionalFieldRequired}
+          onResetToDefaults={resetFieldsConfig}
         />
       </div>
     </ErrorBoundary>

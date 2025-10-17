@@ -4,7 +4,7 @@
 // ===================================================================
 
 import React, { useMemo } from 'react';
-import { FileText, ChevronDown, ChevronUp, Calendar, Building2, Hash, DollarSign, CreditCard, User } from 'lucide-react';
+import { FileText, ChevronDown, Calendar, Building2, Hash, DollarSign, CreditCard, User, Settings } from 'lucide-react';
 import { ConfigurationCard } from './shared/ConfigurationCard';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
@@ -20,6 +20,8 @@ interface DocumentInfoCardProps {
   formaPago?: string;
   setFormaPago?: (value: string) => void;
   onNuevaFormaPago?: () => void;
+  // ✅ Props para modal de configuración
+  onOpenFieldsConfig?: () => void;
 }
 
 const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
@@ -27,12 +29,13 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
   setSerieSeleccionada,
   seriesFiltradas,
   showOptionalFields,
-  setShowOptionalFields,
+  // setShowOptionalFields - Ya no se usa (se eliminó el botón de toggle)
   moneda = "PEN",
   setMoneda,
   formaPago = "contado",
   setFormaPago,
   onNuevaFormaPago,
+  onOpenFieldsConfig,
 }) => {
   const { state } = useConfigurationContext();
   const { paymentMethods } = state;
@@ -64,6 +67,18 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
       description="Serie, establecimiento y fechas del comprobante electrónico"
       icon={FileText}
       helpText="La serie determina el tipo de comprobante (Boleta o Factura) y está asociada a un establecimiento específico. Es asignada por SUNAT."
+      actions={
+        onOpenFieldsConfig && (
+          <button
+            className="inline-flex items-center px-3 py-1.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md text-sm"
+            onClick={onOpenFieldsConfig}
+            title="Configurar campos visibles y obligatorios"
+          >
+            <Settings className="w-4 h-4 mr-1.5" />
+            Configuración Campos
+          </button>
+        )
+      }
     >
       {/* Campos principales - Grid responsive */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -220,38 +235,10 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
         </div>
       </div>
 
-      {/* Botón toggle de campos opcionales - Mejorado */}
-      <div className="flex items-center justify-between pt-6 border-t border-gray-200 mt-6">
-        <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <span className="font-medium">Campos opcionales</span>
-          {showOptionalFields && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-              7 campos adicionales
-            </span>
-          )}
-        </div>
-
-        <button
-          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-          onClick={() => setShowOptionalFields(v => !v)}
-        >
-          {showOptionalFields ? (
-            <>
-              <ChevronUp className="w-4 h-4 mr-2" />
-              Ocultar campos
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4 mr-2" />
-              Mostrar más campos
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Campos opcionales - Con transición suave */}
+      {/* ✅ Campos opcionales - Siempre visibles según configuración */}
       {showOptionalFields && (
-        <div className="mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
           <div className="flex items-center space-x-2 mb-4">
             <div className="w-1 h-6 bg-blue-600 rounded-full"></div>
             <h4 className="text-sm font-semibold text-gray-900">
@@ -362,6 +349,7 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
               </span>
             </p>
           </div>
+        </div>
         </div>
       )}
     </ConfigurationCard>

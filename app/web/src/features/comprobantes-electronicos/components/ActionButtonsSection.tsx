@@ -9,7 +9,7 @@ import { Eye, X, Save, CreditCard } from 'lucide-react';
 interface ActionButtonsSectionProps {
   onVistaPrevia?: () => void;
   onCancelar: () => void;
-  onGuardarBorrador: () => void;
+  onGuardarBorrador?: () => void;
   onCrearComprobante?: () => void;
   isCartEmpty?: boolean;
 }
@@ -47,21 +47,23 @@ const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
       <div className="flex items-center justify-between">
 
         {/* Left side - Vista previa */}
-        <button
-          className="group flex items-center gap-2 px-5 py-2.5 text-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-2 border-blue-200 hover:border-blue-300 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-50 disabled:hover:to-indigo-50 shadow-sm hover:shadow-md"
-          onClick={onVistaPrevia}
-          disabled={isCartEmpty}
-          title="Ver cómo quedará el comprobante antes de crearlo (Ctrl+P)"
-        >
-          <Eye className="h-4 w-4 transition-transform group-hover:scale-110" />
-          Vista previa
-          <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded font-mono opacity-70">
-            Ctrl+P
-          </span>
-        </button>
+        {onVistaPrevia && (
+          <button
+            className="group flex items-center gap-2 px-5 py-2.5 text-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-2 border-blue-200 hover:border-blue-300 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-50 disabled:hover:to-indigo-50 shadow-sm hover:shadow-md"
+            onClick={onVistaPrevia}
+            disabled={isCartEmpty}
+            title="Ver cómo quedará el comprobante antes de crearlo (Ctrl+P)"
+          >
+            <Eye className="h-4 w-4 transition-transform group-hover:scale-110" />
+            Vista previa
+            <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded font-mono opacity-70">
+              Ctrl+P
+            </span>
+          </button>
+        )}
 
         {/* Right side - Action buttons */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 ml-auto">
 
           {/* Cancelar */}
           <button
@@ -77,36 +79,40 @@ const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
           </button>
 
           {/* Guardar borrador */}
-          <button
-            className="group flex items-center gap-2 px-5 py-2.5 text-indigo-600 bg-white border-2 border-indigo-300 rounded-lg hover:bg-indigo-50 hover:border-indigo-400 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
-            onClick={onGuardarBorrador}
-            title="Guardar para continuar después (Ctrl+S)"
-          >
-            <Save className="h-4 w-4 transition-transform group-hover:scale-110" />
-            Guardar borrador
-            <span className="ml-1 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded font-mono opacity-70">
-              Ctrl+S
-            </span>
-          </button>
+          {onGuardarBorrador && (
+            <button
+              className="group flex items-center gap-2 px-5 py-2.5 text-indigo-600 bg-white border-2 border-indigo-300 rounded-lg hover:bg-indigo-50 hover:border-indigo-400 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
+              onClick={onGuardarBorrador}
+              title="Guardar para continuar después (Ctrl+S)"
+            >
+              <Save className="h-4 w-4 transition-transform group-hover:scale-110" />
+              Guardar borrador
+              <span className="ml-1 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded font-mono opacity-70">
+                Ctrl+S
+              </span>
+            </button>
+          )}
 
           {/* Crear comprobante - Principal */}
-          <button
-            className="group relative flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-indigo-600 transform hover:scale-105 disabled:hover:scale-100"
-            onClick={onCrearComprobante}
-            disabled={isCartEmpty}
-            title={isCartEmpty ? "Agregue productos primero" : "Proceder al pago y crear comprobante (Ctrl+Enter)"}
-          >
-            <CreditCard className="h-5 w-5 transition-transform group-hover:rotate-6" />
-            Crear comprobante
-            {!isCartEmpty && (
-              <span className="ml-1 px-1.5 py-0.5 bg-white/20 text-white text-xs rounded font-mono">
-                Ctrl+↵
-              </span>
-            )}
+          {onCrearComprobante && (
+            <button
+              className="group relative flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-indigo-600 transform hover:scale-105 disabled:hover:scale-100"
+              onClick={onCrearComprobante}
+              disabled={isCartEmpty}
+              title={isCartEmpty ? "Agregue productos primero" : "Proceder al pago y crear comprobante (Ctrl+Enter)"}
+            >
+              <CreditCard className="h-5 w-5 transition-transform group-hover:rotate-6" />
+              Crear comprobante
+              {!isCartEmpty && (
+                <span className="ml-1 px-1.5 py-0.5 bg-white/20 text-white text-xs rounded font-mono">
+                  Ctrl+↵
+                </span>
+              )}
 
-            {/* Glow effect on hover */}
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-400 to-indigo-400 opacity-0 group-hover:opacity-20 blur transition-opacity duration-200 -z-10"></div>
-          </button>
+              {/* Glow effect on hover */}
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-400 to-indigo-400 opacity-0 group-hover:opacity-20 blur transition-opacity duration-200 -z-10"></div>
+            </button>
+          )}
         </div>
       </div>
 
