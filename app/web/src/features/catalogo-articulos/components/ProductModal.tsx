@@ -72,7 +72,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     precio: 0,
     unidad: getDefaultUnit() as Product['unidad'],
     categoria: '',
-    cantidad: 0,
+    cantidad: 0, // Campo deprecado - mantener por compatibilidad
     impuesto: 'IGV (18.00%)',
     descripcion: '',
     // Asignación de establecimientos
@@ -91,6 +91,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
     peso: 0,
     tipoExistencia: 'MERCADERIAS'
   }));
+
+  // ✅ Estado para stock inicial por establecimiento
+  const [stockPorEstablecimiento, setStockPorEstablecimiento] = useState<{ [establecimientoId: string]: number }>({});
   
   const [errors, setErrors] = useState<FormError>({});
   const [loading, setLoading] = useState(false);
@@ -107,7 +110,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       // ✅ Al editar: determinar si trabaja con stock según tipoExistencia
       const tieneStock = product.tipoExistencia !== 'SERVICIOS';
       setTrabajaConStock(tieneStock);
-      
+
       setFormData({
         nombre: product.nombre,
         codigo: product.codigo,
@@ -133,12 +136,16 @@ const ProductModal: React.FC<ProductModalProps> = ({
         peso: product.peso || 0,
         tipoExistencia: product.tipoExistencia || 'MERCADERIAS'
       });
+
+      // ✅ Cargar stock por establecimiento
+      setStockPorEstablecimiento(product.stockPorEstablecimiento || {});
+
       setPrecioInput(product.precio.toFixed(2));
       setImagePreview(product.imagen || '');
     } else {
       // ✅ Al crear nuevo: BIEN por defecto (con stock)
       setTrabajaConStock(true);
-      
+
       setFormData({
         nombre: '',
         codigo: '',
@@ -164,6 +171,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
         peso: 0,
         tipoExistencia: 'MERCADERIAS' // ✅ Por defecto BIEN/MERCADERIAS (con stock)
       });
+
+      // ✅ Limpiar stock por establecimiento
+      setStockPorEstablecimiento({});
+
       setPrecioInput('0.00');
       setImagePreview('');
     }
@@ -264,19 +275,20 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setLoading(true);
-    
+
     try {
       await new Promise(resolve => setTimeout(resolve, 500)); // Simular API call
-      
+
       onSave({
         ...formData,
-        imagen: imagePreview
+        imagen: imagePreview,
+        stockPorEstablecimiento // ✅ Incluir stock por establecimiento
       });
-      
+
       onClose();
     } catch (error) {
       console.error('Error saving product:', error);
@@ -340,7 +352,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+          <form onSubmit={handleSubmit} className="px-6 py-3 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
             
             {/* ✅ Selección BIEN o SERVICIO - Versión compacta */}
             <div className="border border-gray-200 rounded-lg bg-gray-50 p-3">
@@ -614,90 +626,47 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
             )}
 
-            {/* Asignación de Establecimientos */}
-            <div className="border-2 border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 p-4 space-y-4">
+            {/* Asignación de Establecimientos - Diseño compacto y moderno */}
+            <div className="border border-purple-300 rounded-md bg-purple-50/30 p-2.5 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <label className="text-xs font-semibold text-gray-900 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
-                  <label className="text-sm font-semibold text-gray-900">
-                    Asignar a Establecimientos <span className="text-red-500">*</span>
-                  </label>
-                </div>
-                
-                {/* Toggle: Disponible en todos */}
+                  Establecimientos <span className="text-red-500">*</span>
+                </label>
+
+                {/* Switch compacto para marcar/desmarcar todos */}
                 <button
                   type="button"
                   onClick={() => {
-                    const newValue = !formData.disponibleEnTodos;
+                    const allSelected = formData.establecimientoIds.length === establishments.length;
                     setFormData(prev => ({
                       ...prev,
-                      disponibleEnTodos: newValue,
-                      establecimientoIds: newValue ? [] : prev.establecimientoIds
+                      establecimientoIds: allSelected ? [] : establishments.map(e => e.id)
                     }));
                   }}
                   className={`
-                    relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
-                    ${formData.disponibleEnTodos ? 'bg-purple-600' : 'bg-gray-300'}
+                    relative inline-flex h-4 w-8 items-center rounded-full transition-colors focus:outline-none focus:ring-1 focus:ring-purple-500
+                    ${formData.establecimientoIds.length === establishments.length ? 'bg-purple-600' : 'bg-gray-300'}
                   `}
+                  title={formData.establecimientoIds.length === establishments.length ? "Desmarcar todos" : "Marcar todos"}
                 >
                   <span className={`
-                    inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-                    ${formData.disponibleEnTodos ? 'translate-x-6' : 'translate-x-1'}
+                    inline-block h-3 w-3 transform rounded-full bg-white transition-transform
+                    ${formData.establecimientoIds.length === establishments.length ? 'translate-x-4.5' : 'translate-x-0.5'}
                   `} />
                 </button>
               </div>
 
-              {/* Mensaje de estado */}
-              <div className={`
-                flex items-center space-x-2 p-3 rounded-lg border-2
-                ${formData.disponibleEnTodos 
-                  ? 'bg-purple-100 border-purple-300' 
-                  : 'bg-white border-purple-200'
-                }
-              `}>
-                {formData.disponibleEnTodos ? (
-                  <>
-                    <svg className="w-5 h-5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-purple-900">
-                        Disponible en todos los establecimientos
-                      </p>
-                      <p className="text-xs text-purple-700">
-                        Este producto estará visible en los {establishments.length} establecimiento(s) activo(s)
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        Asignación personalizada
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        Selecciona establecimientos específicos
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Lista de establecimientos - Solo si NO está en "Todos" */}
-              {/* ✅ FIX: Padre estable (no desmontar/remontar) - usar hidden en lugar de conditional render */}
-              <div className={`space-y-2 max-h-48 overflow-y-auto ${formData.disponibleEnTodos ? 'hidden' : ''}`}>
+              {/* Lista de establecimientos compacta */}
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
                 {establishments.length === 0 ? (
-                  <div className="text-center py-6 text-gray-500">
-                    <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="text-center py-4 text-gray-500">
+                    <svg className="w-8 h-8 mx-auto mb-1 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
-                    <p className="text-sm font-medium">No hay establecimientos activos</p>
-                    <p className="text-xs mt-1">Crea un establecimiento en Configuración</p>
+                    <p className="text-xs font-medium">No hay establecimientos activos</p>
                   </div>
                 ) : (
                   establishments.map((est) => {
@@ -706,10 +675,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       <label
                         key={est.id}
                         className={`
-                          flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all
-                          ${isSelected 
-                            ? 'bg-purple-100 border-purple-400 shadow-sm' 
-                            : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                          flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer transition-all
+                          ${isSelected
+                            ? 'bg-purple-100 border-purple-300'
+                            : 'bg-white border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
                           }
                         `}
                       >
@@ -722,24 +691,21 @@ const ProductModal: React.FC<ProductModalProps> = ({
                               : formData.establecimientoIds.filter(id => id !== est.id);
                             setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
                           }}
-                          className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                          className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-1"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            <p className="text-sm font-semibold text-gray-900 truncate">
-                              {est.name}
-                            </p>
-                            <span className="px-2 py-0.5 text-xs font-medium bg-purple-200 text-purple-800 rounded-full">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-200 text-purple-800 rounded">
                               {est.code}
                             </span>
+                            <p className="text-xs font-medium text-gray-900 truncate">
+                              {est.name}
+                            </p>
                           </div>
-                          <p className="text-xs text-gray-600 truncate mt-0.5">
-                            {est.address} - {est.district}
-                          </p>
                         </div>
                         {isSelected && (
-                          <svg className="w-5 h-5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          <svg className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
                         )}
                       </label>
@@ -748,74 +714,121 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 )}
               </div>
 
-              {/* Contador de selección - También usar hidden en vez de conditional */}
-              <div className={`flex items-center justify-between pt-2 border-t border-purple-200 ${formData.disponibleEnTodos || establishments.length === 0 ? 'hidden' : ''}`}>
-                <p className="text-xs text-gray-600">
-                  {formData.establecimientoIds.length} de {establishments.length} establecimiento(s) seleccionado(s)
-                </p>
-                {formData.establecimientoIds.length > 0 && formData.establecimientoIds.length < establishments.length && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        establecimientoIds: establishments.map(e => e.id)
-                      }));
-                    }}
-                    className="text-xs text-purple-600 hover:text-purple-700 font-medium underline"
-                  >
-                    Seleccionar todos
-                  </button>
-                )}
-                {formData.establecimientoIds.length === establishments.length && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData(prev => ({ ...prev, establecimientoIds: [] }));
-                    }}
-                    className="text-xs text-red-600 hover:text-red-700 font-medium underline"
-                  >
-                    Quitar todos
-                  </button>
-                )}
-              </div>
+              {/* Contador de selección compacto */}
+              {establishments.length > 0 && (
+                <div className="flex items-center justify-between pt-1.5 border-t border-purple-200">
+                  <p className="text-[10px] text-gray-600">
+                    {formData.establecimientoIds.length} de {establishments.length} seleccionado(s)
+                  </p>
+                </div>
+              )}
 
               {/* Error de validación */}
               {errors.establecimientoIds && (
-                <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-300 rounded-lg">
-                  <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <div className="flex items-center gap-1.5 p-2 bg-red-50 border border-red-300 rounded">
+                  <svg className="w-3.5 h-3.5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
-                  <p className="text-xs text-red-700 font-medium">
+                  <p className="text-[10px] text-red-700 font-medium">
                     {errors.establecimientoIds}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Cantidad inicial - Solo si trabaja con stock */}
-            {trabajaConStock && isFieldVisible('cantidad') && (
-              <div className="border-l-4 border-green-500 bg-green-50 pl-4 pr-4 py-3 rounded-r-md">
-                <label htmlFor="cantidad" className="flex items-center text-sm font-medium text-gray-900 mb-2">
-                  <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            {/* ✅ Stock inicial por establecimiento - Solo si trabaja con stock Y tiene establecimientos asignados */}
+            {trabajaConStock && !formData.disponibleEnTodos && formData.establecimientoIds.length > 0 && (
+              <div className="border border-green-300 rounded-md bg-green-50/30 p-2.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                    <h4 className="text-xs font-semibold text-gray-900">
+                      Stock inicial
+                    </h4>
+                  </div>
+                  <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] rounded font-medium">
+                    {product ? 'Solo visual' : 'Solo al crear'}
+                  </span>
+                </div>
+
+                {!product && (
+                  <div className="bg-blue-50/50 border border-blue-200 rounded p-1.5">
+                    <p className="text-[10px] text-blue-800">
+                      Define el stock inicial. Actualizaciones futuras en "Control de Stock"
+                    </p>
+                  </div>
+                )}
+
+                {/* Lista de inputs por establecimiento compacta */}
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {establishments
+                    .filter(est => formData.establecimientoIds.includes(est.id))
+                    .map((est) => (
+                      <div
+                        key={est.id}
+                        className="flex items-center justify-between gap-2 px-2 py-1.5 bg-white border border-green-200 rounded hover:border-green-300 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                          <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 rounded">
+                            {est.code}
+                          </span>
+                          <p className="text-xs font-medium text-gray-900 truncate">
+                            {est.name}
+                          </p>
+                        </div>
+
+                        {/* Input de stock compacto */}
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={stockPorEstablecimiento[est.id] ?? 0}
+                          onChange={(e) => {
+                            const valor = parseInt(e.target.value) || 0;
+                            setStockPorEstablecimiento(prev => ({
+                              ...prev,
+                              [est.id]: Math.max(0, valor)
+                            }));
+                          }}
+                          disabled={!!product}
+                          className={`
+                            w-16 px-2 py-1 text-xs font-semibold text-center rounded border
+                            ${product
+                              ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-white border-green-300 text-gray-900 focus:outline-none focus:ring-1 focus:ring-green-500'
+                            }
+                          `}
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                </div>
+
+                {/* Resumen total compacto */}
+                <div className="flex items-center justify-between pt-1.5 border-t border-green-200">
+                  <p className="text-[10px] font-medium text-gray-600">
+                    Total inicial
+                  </p>
+                  <p className="text-xs font-bold text-green-700">
+                    {Object.values(stockPorEstablecimiento).reduce((sum, val) => sum + (val || 0), 0)} unidades
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Mensaje informativo si está en "Todos los establecimientos" */}
+            {trabajaConStock && formData.disponibleEnTodos && (
+              <div className="border border-green-300 rounded-md bg-green-50/30 p-2">
+                <div className="flex items-start gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                   </svg>
-                  Cantidad inicial en inventario
-                  {isFieldRequired('cantidad') && <span className="text-red-500 ml-1">*</span>}
-                </label>
-                <input
-                  type="number"
-                  id="cantidad"
-                  value={formData.cantidad}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cantidad: parseInt(e.target.value) || 0 }))}
-                  className="w-full rounded-md border border-green-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Ingrese la cantidad inicial en stock"
-                  min="0"
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Esta será la cantidad inicial del producto en tu inventario
-                </p>
-                {errors.cantidad && <p className="text-red-600 text-xs mt-1">{errors.cantidad}</p>}
+                  <p className="text-[10px] text-gray-700">
+                    Stock inicial en 0 para todos. Gestiona en <strong>"Control de Stock"</strong>.
+                  </p>
+                </div>
               </div>
             )}
 
