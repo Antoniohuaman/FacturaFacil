@@ -72,6 +72,11 @@ export interface FilterOptions {
     min: number;
     max: number;
   };
+  // Nuevos filtros
+  marca?: string;
+  modelo?: string;
+  tipoExistencia?: string;
+  impuesto?: string;
   ordenarPor: 'nombre' | 'precio' | 'cantidad' | 'fechaCreacion';
   direccion: 'asc' | 'desc';
 }
@@ -200,4 +205,20 @@ export interface PaginationConfig {
   totalPages: number;
   itemsPerPage: number;
   totalItems: number;
+}
+
+// Configuración de columnas personalizables por empresa
+export interface ProductColumnConfig {
+  key: string;
+  label: string;
+  visible: boolean;
+  filterable: boolean;
+  group: 'basicas' | 'codigos' | 'financieras' | 'caracteristicas' | 'visuales';
+}
+
+export interface ProductTableSettings {
+  columns: ProductColumnConfig[];
+  defaultFilters: Partial<FilterOptions>;
+  defaultEstablishment: string;
+  lastUpdated: Date;
 }

@@ -1,12 +1,14 @@
 // src/features/catalogo-articulos/pages/ProductsPage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Product } from '../models/types';
 import ProductTable from '../components/ProductTable';
 import BulkDeleteToolbar from '../components/BulkDeleteToolbar';
 import ProductModal from '../components/ProductModal';
 import ExportProductsModal from '../components/ExportProductsModal';
 import { useProductStore } from '../hooks/useProductStore';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const ProductsPage: React.FC = () => {
   const {
@@ -25,6 +27,40 @@ const ProductsPage: React.FC = () => {
     changePage,
     changeItemsPerPage
   } = useProductStore();
+
+  // Configuración y establecimientos
+  const { state: configState } = useConfigurationContext();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Estado del filtro de establecimiento desde URL
+  const [establishmentScope, setEstablishmentScope] = useState<string>(() => {
+    return searchParams.get('est') || 'ALL';
+  });
+
+  // Establecimientos activos
+  const establishments = useMemo(
+    () => configState.establishments.filter(e => e.isActive),
+    [configState.establishments]
+  );
+
+  // Sincronizar filtro de establecimiento con URL
+  useEffect(() => {
+    const estParam = searchParams.get('est') || 'ALL';
+    setEstablishmentScope(estParam);
+  }, [searchParams]);
+
+  // Cambiar filtro de establecimiento
+  const handleEstablishmentChange = (newScope: string) => {
+    setEstablishmentScope(newScope);
+    const params = new URLSearchParams(searchParams);
+    if (newScope === 'ALL') {
+      params.delete('est');
+    } else {
+      params.set('est', newScope);
+    }
+    navigate({ search: params.toString() }, { replace: true });
+  };
 
   // Estado para selección de productos
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
@@ -75,88 +111,352 @@ const ProductsPage: React.FC = () => {
     updateFilters({ busqueda: value });
   };
 
+  // Obtener listas únicas de valores para filtros
+  const uniqueMarcas = useMemo(() => {
+    const marcas = new Set(allProducts.filter(p => p.marca).map(p => p.marca!));
+    return Array.from(marcas).sort();
+  }, [allProducts]);
+
+  const uniqueModelos = useMemo(() => {
+    const modelos = new Set(allProducts.filter(p => p.modelo).map(p => p.modelo!));
+    return Array.from(modelos).sort();
+  }, [allProducts]);
+
+  const uniqueImpuestos = useMemo(() => {
+    const impuestos = new Set(allProducts.filter(p => p.impuesto).map(p => p.impuesto!));
+    return Array.from(impuestos).sort();
+  }, [allProducts]);
+
+  const tiposExistencia = [
+    'MERCADERIAS',
+    'PRODUCTOS_TERMINADOS',
+    'SERVICIOS',
+    'MATERIAS_PRIMAS',
+    'ENVASES',
+    'MATERIALES_AUXILIARES',
+    'SUMINISTROS',
+    'REPUESTOS',
+    'EMBALAJES',
+    'OTROS'
+  ];
+
+  // Calcular número de filtros activos
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (establishmentScope !== 'ALL') count++;
+    if (filters.categoria) count++;
+    if (filters.unidad) count++;
+    if (filters.marca) count++;
+    if (filters.modelo) count++;
+    if (filters.tipoExistencia) count++;
+    if (filters.impuesto) count++;
+    if (filters.rangoPrecios.min > 0) count++;
+    if (filters.rangoPrecios.max < 50000) count++;
+    return count;
+  }, [establishmentScope, filters]);
+
   const renderFilterBar = () => (
-    <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-all duration-200 ${showFilters ? 'block' : 'hidden'}`}>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Categoría */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Categoría
-          </label>
-          <select
-            value={filters.categoria}
-            onChange={(e) => updateFilters({ categoria: e.target.value })}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-          >
-            <option value="">Todas las categorías</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.nombre}>
-                {cat.nombre} ({cat.productCount})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Unidad */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Unidad
-          </label>
-          <select
-            value={filters.unidad}
-            onChange={(e) => updateFilters({ unidad: e.target.value })}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-          >
-            <option value="">Todas las unidades</option>
-            <option value="UNIDAD">UNIDAD</option>
-            <option value="DOCENA">DOCENA</option>
-          </select>
-        </div>
-
-        {/* Rango de precios */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Precio mínimo
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.10"
-            value={filters.rangoPrecios.min.toFixed(2)}
-            onChange={(e) => updateFilters({ 
-              rangoPrecios: { ...filters.rangoPrecios, min: parseFloat(e.target.value) || 0 }
-            })}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            placeholder="0.00"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Precio máximo
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.10"
-            value={filters.rangoPrecios.max.toFixed(2)}
-            onChange={(e) => updateFilters({ 
-              rangoPrecios: { ...filters.rangoPrecios, max: parseFloat(e.target.value) || 50000 }
-            })}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            placeholder="50000.00"
-          />
-        </div>
-
-        {/* Reset filters */}
-        <div className="flex items-end">
+    <div className={`bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm transition-all duration-200 ${showFilters ? 'block' : 'hidden'}`}>
+      <div className="p-5">
+        {/* Título y acciones */}
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Filtros Avanzados</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Refina tu búsqueda de productos</p>
+            </div>
+          </div>
           <button
-            onClick={resetFilters}
-            className="w-full px-3 py-2 text-sm text-gray-600 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors"
+            onClick={() => {
+              resetFilters();
+              handleEstablishmentChange('ALL');
+            }}
+            className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors flex items-center gap-1.5"
           >
-            Limpiar filtros
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Limpiar todo
           </button>
         </div>
+
+        {/* Grid de filtros */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Establecimiento - Destacado */}
+          <div className="md:col-span-2 lg:col-span-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span>Establecimiento</span>
+                {establishmentScope !== 'ALL' && (
+                  <span className="ml-auto px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium">
+                    Activo
+                  </span>
+                )}
+              </span>
+            </label>
+            <select
+              value={establishmentScope}
+              onChange={(e) => handleEstablishmentChange(e.target.value)}
+              className="w-full rounded-lg border-2 border-purple-200 dark:border-purple-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+            >
+              <option value="ALL">📍 Todos los establecimientos</option>
+              {establishments.map(est => (
+                <option key={est.id} value={est.id}>
+                  {est.code} - {est.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Categoría */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                <span>Categoría</span>
+                {filters.categoria && (
+                  <span className="ml-auto px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
+                    Activo
+                  </span>
+                )}
+              </span>
+            </label>
+            <select
+              value={filters.categoria}
+              onChange={(e) => updateFilters({ categoria: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+            >
+              <option value="">🏷️ Todas las categorías</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.nombre}>
+                  {cat.nombre} ({cat.productCount})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Unidad */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <span>Unidad de medida</span>
+                {filters.unidad && (
+                  <span className="ml-auto px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
+                    Activo
+                  </span>
+                )}
+              </span>
+            </label>
+            <select
+              value={filters.unidad}
+              onChange={(e) => updateFilters({ unidad: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+            >
+              <option value="">📦 Todas las unidades</option>
+              <option value="UNIDAD">UNIDAD</option>
+              <option value="DOCENA">DOCENA</option>
+            </select>
+          </div>
+
+          {/* Precio mínimo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Precio mínimo</span>
+                {filters.rangoPrecios.min > 0 && (
+                  <span className="ml-auto px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-full font-medium">
+                    Activo
+                  </span>
+                )}
+              </span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.10"
+              value={filters.rangoPrecios.min.toFixed(2)}
+              onChange={(e) => updateFilters({
+                rangoPrecios: { ...filters.rangoPrecios, min: parseFloat(e.target.value) || 0 }
+              })}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+              placeholder="S/ 0.00"
+            />
+          </div>
+
+          {/* Precio máximo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Precio máximo</span>
+                {filters.rangoPrecios.max < 50000 && (
+                  <span className="ml-auto px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-full font-medium">
+                    Activo
+                  </span>
+                )}
+              </span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.10"
+              value={filters.rangoPrecios.max.toFixed(2)}
+              onChange={(e) => updateFilters({
+                rangoPrecios: { ...filters.rangoPrecios, max: parseFloat(e.target.value) || 50000 }
+              })}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+              placeholder="S/ 50,000.00"
+            />
+          </div>
+
+          {/* Marca */}
+          {uniqueMarcas.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                  <span>Marca</span>
+                  {filters.marca && (
+                    <span className="ml-auto px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
+                      Activo
+                    </span>
+                  )}
+                </span>
+              </label>
+              <select
+                value={filters.marca || ''}
+                onChange={(e) => updateFilters({ marca: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+              >
+                <option value="">🏭 Todas las marcas</option>
+                {uniqueMarcas.map(marca => (
+                  <option key={marca} value={marca}>{marca}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Modelo */}
+          {uniqueModelos.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  <span>Modelo</span>
+                  {filters.modelo && (
+                    <span className="ml-auto px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
+                      Activo
+                    </span>
+                  )}
+                </span>
+              </label>
+              <select
+                value={filters.modelo || ''}
+                onChange={(e) => updateFilters({ modelo: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+              >
+                <option value="">📱 Todos los modelos</option>
+                {uniqueModelos.map(modelo => (
+                  <option key={modelo} value={modelo}>{modelo}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Impuesto */}
+          {uniqueImpuestos.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <span>Impuesto</span>
+                  {filters.impuesto && (
+                    <span className="ml-auto px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
+                      Activo
+                    </span>
+                  )}
+                </span>
+              </label>
+              <select
+                value={filters.impuesto || ''}
+                onChange={(e) => updateFilters({ impuesto: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+              >
+                <option value="">💰 Todos los impuestos</option>
+                {uniqueImpuestos.map(impuesto => (
+                  <option key={impuesto} value={impuesto}>{impuesto}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Tipo de Existencia */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <span>Tipo de Existencia</span>
+                {filters.tipoExistencia && (
+                  <span className="ml-auto px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
+                    Activo
+                  </span>
+                )}
+              </span>
+            </label>
+            <select
+              value={filters.tipoExistencia || ''}
+              onChange={(e) => updateFilters({ tipoExistencia: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+            >
+              <option value="">📋 Todos los tipos</option>
+              {tiposExistencia.map(tipo => (
+                <option key={tipo} value={tipo}>
+                  {tipo.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Info de filtros activos */}
+        {activeFiltersCount > 0 && (
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-center gap-2 text-sm">
+              <svg className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-blue-700 dark:text-blue-300 font-medium">
+                {activeFiltersCount} {activeFiltersCount === 1 ? 'filtro activo' : 'filtros activos'}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -244,74 +544,81 @@ const ProductsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pt-4">
-      {/* Toolbar: Buscador + Botones de acción */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-        {/* Search */}
-        <div className="flex-1 relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+      {/* Toolbar: Buscador + Filtros (izquierda) | Botones de acción (derecha) */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        {/* Lado izquierdo: Search + Filter button */}
+        <div className="flex items-center gap-2 flex-1 max-w-2xl">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar productos..."
+              value={filters.busqueda}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400 transition-colors"
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Buscar por nombre o código..."
-            value={filters.busqueda}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400"
-          />
+
+          {/* Filter toggle */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`inline-flex items-center px-4 py-2 border rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                showFilters
+                  ? 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-500 text-red-700 dark:text-red-400'
+                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+              }`}
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span className="hidden sm:inline">Filtros</span>
+              {activeFiltersCount > 0 && (
+                <span className="ml-2 px-2 py-0.5 bg-red-600 text-white text-xs rounded-full font-semibold">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
         </div>
 
-        {/* Botones de acción */}
-        <div className="flex items-center space-x-3">
+        {/* Lado derecho: Botones de acción */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowExportModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors shadow-sm"
+            className="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+            title="Exportar productos"
           >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            Exportar productos
+            <span className="hidden md:inline">Exportar</span>
           </button>
           <button
             onClick={handleCreateProduct}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+            className="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Nuevo producto / servicio
+            <span className="hidden md:inline">Nuevo producto</span>
+            <span className="md:hidden">Nuevo</span>
           </button>
         </div>
       </div>
 
-      {/* Info eliminación masiva + Filter toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        {/* Info eliminación masiva */}
-        {selectedProducts.size === 0 && (
-          <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Selecciona productos para acceder a <span className="text-red-600 dark:text-red-400 font-semibold">eliminación masiva</span></span>
-          </div>
-        )}
-        
-        {/* Filter toggle */}
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
-              showFilters 
-                ? 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-500 text-red-700 dark:text-red-400' 
-                : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-            }`}
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            Filtros
-          </button>
-      </div>
+      {/* Info eliminación masiva - más compacta */}
+      {selectedProducts.size === 0 && (
+        <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 -mt-3">
+          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Selecciona productos para opciones de eliminación</span>
+        </div>
+      )}
 
       {/* Filters */}
       {renderFilterBar()}
@@ -336,6 +643,8 @@ const ProductsPage: React.FC = () => {
         loading={loading}
         selectedProducts={selectedProducts}
         onSelectedProductsChange={setSelectedProducts}
+        establishmentScope={establishmentScope}
+        establishments={establishments}
       />
 
       {/* Pagination */}

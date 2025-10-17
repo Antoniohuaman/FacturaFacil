@@ -99,6 +99,10 @@ export const useProductStore = () => {
     categoria: '',
     unidad: '',
     rangoPrecios: { min: 0, max: 50000 },
+    marca: '',
+    modelo: '',
+    tipoExistencia: '',
+    impuesto: '',
     ordenarPor: 'fechaCreacion',
     direccion: 'desc'
   });
@@ -112,17 +116,32 @@ export const useProductStore = () => {
   // Productos filtrados y paginados
   const filteredProducts = useMemo(() => {
     let filtered = products.filter(product => {
-      const matchesBusqueda = !filters.busqueda || 
-        product.nombre.toLowerCase().includes(filters.busqueda.toLowerCase()) ||
-        product.codigo.toLowerCase().includes(filters.busqueda.toLowerCase());
-      
+      // Búsqueda expandida en múltiples campos
+      const searchTerm = filters.busqueda.toLowerCase();
+      const matchesBusqueda = !filters.busqueda ||
+        product.nombre.toLowerCase().includes(searchTerm) ||
+        product.codigo.toLowerCase().includes(searchTerm) ||
+        product.categoria.toLowerCase().includes(searchTerm) ||
+        (product.alias && product.alias.toLowerCase().includes(searchTerm)) ||
+        (product.codigoBarras && product.codigoBarras.toLowerCase().includes(searchTerm)) ||
+        (product.codigoFabrica && product.codigoFabrica.toLowerCase().includes(searchTerm)) ||
+        (product.codigoSunat && product.codigoSunat.toLowerCase().includes(searchTerm)) ||
+        (product.descripcion && product.descripcion.toLowerCase().includes(searchTerm)) ||
+        (product.marca && product.marca.toLowerCase().includes(searchTerm)) ||
+        (product.modelo && product.modelo.toLowerCase().includes(searchTerm));
+
       const matchesCategoria = !filters.categoria || product.categoria === filters.categoria;
       const matchesUnidad = !filters.unidad || product.unidad === filters.unidad;
-      
-      const matchesPrecio = product.precio >= filters.rangoPrecios.min && 
+      const matchesMarca = !filters.marca || product.marca === filters.marca;
+      const matchesModelo = !filters.modelo || product.modelo === filters.modelo;
+      const matchesTipoExistencia = !filters.tipoExistencia || product.tipoExistencia === filters.tipoExistencia;
+      const matchesImpuesto = !filters.impuesto || product.impuesto === filters.impuesto;
+
+      const matchesPrecio = product.precio >= filters.rangoPrecios.min &&
         product.precio <= filters.rangoPrecios.max;
 
-      return matchesBusqueda && matchesCategoria && matchesUnidad && matchesPrecio;
+      return matchesBusqueda && matchesCategoria && matchesUnidad && matchesPrecio &&
+             matchesMarca && matchesModelo && matchesTipoExistencia && matchesImpuesto;
     });
 
     // Ordenar
@@ -258,6 +277,10 @@ export const useProductStore = () => {
       categoria: '',
       unidad: '',
       rangoPrecios: { min: 0, max: 50000 },
+      marca: '',
+      modelo: '',
+      tipoExistencia: '',
+      impuesto: '',
       ordenarPor: 'fechaCreacion',
       direccion: 'desc'
     });
