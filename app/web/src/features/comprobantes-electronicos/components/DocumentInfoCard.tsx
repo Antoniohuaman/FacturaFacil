@@ -4,7 +4,7 @@
 // ===================================================================
 
 import React, { useMemo } from 'react';
-import { FileText, ChevronDown, ChevronUp, Calendar, Building2, Hash } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Calendar, Building2, Hash, DollarSign, CreditCard, User } from 'lucide-react';
 import { ConfigurationCard } from './shared/ConfigurationCard';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
@@ -14,6 +14,12 @@ interface DocumentInfoCardProps {
   seriesFiltradas: string[];
   showOptionalFields: boolean;
   setShowOptionalFields: (value: boolean | ((prev: boolean) => boolean)) => void;
+  // ✅ Props adicionales para Moneda y Forma de Pago
+  moneda?: string;
+  setMoneda?: (value: string) => void;
+  formaPago?: string;
+  setFormaPago?: (value: string) => void;
+  onNuevaFormaPago?: () => void;
 }
 
 const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
@@ -22,8 +28,14 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
   seriesFiltradas,
   showOptionalFields,
   setShowOptionalFields,
+  moneda = "PEN",
+  setMoneda,
+  formaPago = "contado",
+  setFormaPago,
+  onNuevaFormaPago,
 }) => {
   const { state } = useConfigurationContext();
+  const { paymentMethods } = state;
   
   // Obtener establecimiento basado en la serie seleccionada
   const establishmentInfo = useMemo(() => {
@@ -138,8 +150,78 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
         </div>
       </div>
 
+      {/* ✅ NUEVA SECCIÓN: Moneda y Forma de Pago */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-gray-200">
+        {/* Moneda */}
+        <div>
+          <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+            <DollarSign className="w-4 h-4 mr-1.5 text-green-600" />
+            Moneda
+          </label>
+          <select
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-gray-900 transition-all duration-200 hover:border-gray-400 bg-white appearance-none cursor-pointer"
+            value={moneda}
+            onChange={e => setMoneda?.(e.target.value)}
+          >
+            <option value="PEN">Soles (PEN)</option>
+            <option value="USD">Dólares (USD)</option>
+          </select>
+        </div>
+
+        {/* Forma de Pago */}
+        <div>
+          <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+            <CreditCard className="w-4 h-4 mr-1.5 text-purple-600" />
+            Forma de Pago
+          </label>
+          <select
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-gray-900 transition-all duration-200 hover:border-gray-400 bg-white appearance-none cursor-pointer"
+            value={formaPago}
+            onChange={e => setFormaPago?.(e.target.value)}
+          >
+            {paymentMethods.length > 0 ? (
+              paymentMethods
+                .filter(pm => pm.isActive)
+                .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
+                .map(pm => (
+                  <option key={pm.id} value={pm.id}>
+                    {pm.name}
+                  </option>
+                ))
+            ) : (
+              <option value="contado">Contado (por defecto)</option>
+            )}
+          </select>
+          {onNuevaFormaPago && (
+            <button
+              type="button"
+              className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium hover:underline"
+              onClick={onNuevaFormaPago}
+            >
+              + Nueva Forma de Pago
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ✅ NUEVA SECCIÓN: Vendedor */}
+      <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+              <User className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Vendedor</p>
+              <p className="text-base font-bold text-gray-900">Javier Masías Loza</p>
+              <p className="text-xs text-gray-500 font-medium">ID: 001</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Botón toggle de campos opcionales - Mejorado */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+      <div className="flex items-center justify-between pt-6 border-t border-gray-200 mt-6">
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <span className="font-medium">Campos opcionales</span>
           {showOptionalFields && (

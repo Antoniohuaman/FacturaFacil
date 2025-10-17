@@ -16,9 +16,9 @@ import { useComprobanteActions } from '../hooks/useComprobanteActions';
 // Importar componentes (TODOS preservados)
 import ProductsSection from '../components/ProductsSection';
 import DocumentInfoCard from '../components/DocumentInfoCard';
+import ClienteSection from '../components/ClienteSection';
 import NotesSection from '../components/NotesSection';
 import ActionButtonsSection from '../components/ActionButtonsSection';
-import PaymentMethodsSection from '../components/PaymentMethodsSection';
 import { Toast } from '../components/Toast';
 import { ToastContainer } from '../components/ToastContainer';
 import { DraftModal } from '../components/DraftModal';
@@ -53,7 +53,7 @@ const EmisionTradicional = () => {
     showOptionalFields, setShowOptionalFields,
     observaciones, setObservaciones,
     notaInterna, setNotaInterna,
-    receivedAmount, setReceivedAmount,
+    receivedAmount, // setReceivedAmount ya no se usa (eliminamos bloque "Efectivo rápido")
     formaPago, setFormaPago,
     setIsProcessing,
     canProcess, cajaStatus,
@@ -189,7 +189,7 @@ const EmisionTradicional = () => {
                 </div>
               </div>
 
-              {/* Right side - Estado de caja mejorado */}
+              {/* Right side - Estado de caja + Tipo de Comprobante */}
               <div className="flex items-center space-x-3">
                 <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium border-2 ${
                   cajaStatus === 'abierta'
@@ -211,26 +211,90 @@ const EmisionTradicional = () => {
                     {cartItems.length} productos
                   </span>
                 </div>
+
+                {/* ✅ Selector de Tipo de Comprobante - Botones Premium */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    className={`relative group px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      tipoComprobante === 'boleta'
+                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/50 border-2 border-blue-500'
+                        : 'text-gray-700 border-2 border-gray-300 hover:border-blue-300 hover:bg-blue-50/50 bg-white'
+                    }`}
+                    onClick={() => setTipoComprobante('boleta')}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        tipoComprobante === 'boleta' ? 'bg-white/20' : 'bg-blue-100'
+                      }`}>
+                        <span className={`text-xs font-bold ${
+                          tipoComprobante === 'boleta' ? 'text-white' : 'text-blue-600'
+                        }`}>B</span>
+                      </div>
+                      <span>Boleta</span>
+                    </div>
+                    {tipoComprobante === 'boleta' && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                  <button
+                    className={`relative group px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      tipoComprobante === 'factura'
+                        ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/50 border-2 border-indigo-500'
+                        : 'text-gray-700 border-2 border-gray-300 hover:border-indigo-300 hover:bg-indigo-50/50 bg-white'
+                    }`}
+                    onClick={() => setTipoComprobante('factura')}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        tipoComprobante === 'factura' ? 'bg-white/20' : 'bg-indigo-100'
+                      }`}>
+                        <span className={`text-xs font-bold ${
+                          tipoComprobante === 'factura' ? 'text-white' : 'text-indigo-600'
+                        }`}>F</span>
+                      </div>
+                      <span>Factura</span>
+                    </div>
+                    {tipoComprobante === 'factura' && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Main Content - Layout EXACTAMENTE igual que antes */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Form View - PRESERVADO COMPLETAMENTE */}
-          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+        {/* ✅ Main Content - Layout de columna única (full-width) */}
+        <div className="flex-1 overflow-hidden">
+          {/* Form View - Layout mejorado con ClienteSection */}
+          <div className="max-w-7xl mx-auto p-6 space-y-6 overflow-y-auto h-full">
 
-            {/* Document Info Card - Sin cambios */}
+            {/* Document Info Card - ✅ Con Moneda, Forma de Pago y Vendedor */}
             <DocumentInfoCard
               serieSeleccionada={serieSeleccionada}
               setSerieSeleccionada={setSerieSeleccionada}
               seriesFiltradas={seriesFiltradas}
               showOptionalFields={showOptionalFields}
               setShowOptionalFields={setShowOptionalFields}
+              moneda={currentCurrency}
+              setMoneda={(value: string) => changeCurrency(value as any)}
+              formaPago={formaPago}
+              setFormaPago={setFormaPago}
+              onNuevaFormaPago={handleNuevaFormaPago}
             />
 
-            {/* Products Section - PRESERVADO COMPLETAMENTE */}
+            {/* ✅ Cliente Section - NUEVA posición estratégica */}
+            <ClienteSection />
+
+            {/* Products Section - Sin cambios */}
             <ProductsSection
               cartItems={cartItems}
               addProductsFromSelector={addProductsFromSelector}
@@ -249,7 +313,7 @@ const EmisionTradicional = () => {
               tipoComprobante={tipoComprobante}
               serieSeleccionada={serieSeleccionada}
               clearCart={clearCart}
-              refreshKey={productSelectorKey} // ✅ Pasar el key para refresh
+              refreshKey={productSelectorKey}
             />
 
             {/* Notes Section - Sin cambios */}
@@ -269,20 +333,6 @@ const EmisionTradicional = () => {
               isCartEmpty={cartItems.length === 0}
             />
           </div>
-
-          {/* Payment Methods Section - PRESERVADO COMPLETAMENTE */}
-          <PaymentMethodsSection
-            tipoComprobante={tipoComprobante}
-            setTipoComprobante={setTipoComprobante}
-            totals={totals}
-            receivedAmount={receivedAmount}
-            setReceivedAmount={setReceivedAmount}
-            moneda={currentCurrency}
-            setMoneda={(value: string) => changeCurrency(value as any)}
-            formaPago={formaPago}
-            setFormaPago={setFormaPago}
-            onNuevaFormaPago={handleNuevaFormaPago}
-          />
         </div>
 
         {/* Toast Container - Sin cambios */}
