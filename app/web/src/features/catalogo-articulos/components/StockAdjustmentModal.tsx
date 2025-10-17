@@ -36,14 +36,19 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   const { state: configState } = useConfigurationContext();
   const establecimientos = configState.establishments.filter(e => e.isActive);
 
+  // ✅ PASO 1: Primero seleccionar establecimiento(s)
+  const [selectedEstablecimientoId, setSelectedEstablecimientoId] = useState('');
+
+  // PASO 2: Luego seleccionar producto
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState(preSelectedProductId || '');
+
+  // PASO 3: Detalles del movimiento
   const [tipo, setTipo] = useState<MovimientoStockTipo>('ENTRADA');
   const [motivo, setMotivo] = useState<MovimientoStockMotivo>('COMPRA');
   const [cantidad, setCantidad] = useState(preSelectedQuantity ? String(preSelectedQuantity) : '');
   const [observaciones, setObservaciones] = useState('');
   const [documentoReferencia, setDocumentoReferencia] = useState('');
-  const [selectedEstablecimientoId, setSelectedEstablecimientoId] = useState('');
 
   // Actualizar cuando cambian los props
   React.useEffect(() => {
@@ -133,10 +138,15 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
   if (!isOpen) return null;
 
-  const newStock = selectedProduct
+  // ✅ Obtener stock actual del establecimiento seleccionado (no global)
+  const stockActualEstablecimiento = selectedProduct && selectedEstablecimientoId
+    ? (selectedProduct.stockPorEstablecimiento?.[selectedEstablecimientoId] ?? 0)
+    : 0;
+
+  const newStock = selectedProduct && selectedEstablecimientoId
     ? tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION'
-      ? selectedProduct.cantidad + Number(cantidad || 0)
-      : selectedProduct.cantidad - Number(cantidad || 0)
+      ? stockActualEstablecimiento + Number(cantidad || 0)
+      : stockActualEstablecimiento - Number(cantidad || 0)
     : 0;
 
   return (
@@ -181,60 +191,101 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
           {/* Body */}
           <div className="px-6 py-6 space-y-6">
-            {/* Product Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Producto *
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Buscar producto por nombre o código..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-                {searchTerm && filteredProducts.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                    {filteredProducts.map((product) => (
-                      <button
-                        key={product.id}
-                        onClick={() => {
-                          setSelectedProductId(product.id);
-                          setSearchTerm(product.nombre);
-                        }}
-                        className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-gray-900">{product.nombre}</p>
-                            <p className="text-sm text-gray-500 font-mono">{product.codigo}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-gray-900">Stock: {product.cantidad}</p>
-                            <p className="text-xs text-gray-500">{product.unidad}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+            {/* ✅ PASO 1: Establecimiento (PRIMERO) */}
+            <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <label className="text-sm font-semibold text-gray-900">
+                  1. Seleccionar Establecimiento <span className="text-red-500">*</span>
+                </label>
+              </div>
+              <select
+                value={selectedEstablecimientoId}
+                onChange={(e) => {
+                  setSelectedEstablecimientoId(e.target.value);
+                  // Reset producto al cambiar establecimiento
+                  setSelectedProductId('');
+                  setSearchTerm('');
+                }}
+                className="w-full px-4 py-2.5 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                required
+              >
+                <option value="">Seleccionar establecimiento...</option>
+                {establecimientos.map(est => (
+                  <option key={est.id} value={est.id}>
+                    [{est.code}] {est.name} - {est.district}
+                  </option>
+                ))}
+              </select>
+              {selectedEstablecimientoId && (
+                <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-3 py-1.5 rounded">
+                  ✓ Movimiento se aplicará en este establecimiento
+                </p>
+              )}
+            </div>
+
+            {/* ✅ PASO 2: Product Selection (SEGUNDO - solo si hay establecimiento) */}
+            {selectedEstablecimientoId && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  2. Buscar Producto <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Buscar producto por nombre o código..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                  {searchTerm && filteredProducts.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {filteredProducts.map((product) => {
+                        // ✅ Mostrar stock del establecimiento seleccionado
+                        const stockEnEst = product.stockPorEstablecimiento?.[selectedEstablecimientoId] ?? 0;
+                        return (
+                          <button
+                            key={product.id}
+                            onClick={() => {
+                              setSelectedProductId(product.id);
+                              setSearchTerm(product.nombre);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-gray-900">{product.nombre}</p>
+                                <p className="text-sm text-gray-500 font-mono">{product.codigo}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-medium text-gray-900">Stock: {stockEnEst}</p>
+                                <p className="text-xs text-gray-500">{product.unidad}</p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                {selectedProduct && (
+                  <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900">{selectedProduct.nombre}</p>
+                        <p className="text-sm text-gray-600 font-mono">{selectedProduct.codigo}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">Stock en {establecimientos.find(e => e.id === selectedEstablecimientoId)?.code}</p>
+                        <p className="text-2xl font-bold text-blue-600">{stockActualEstablecimiento}</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-              {selectedProduct && (
-                <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-900">{selectedProduct.nombre}</p>
-                      <p className="text-sm text-gray-600 font-mono">{selectedProduct.codigo}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Stock Actual</p>
-                      <p className="text-2xl font-bold text-blue-600">{selectedProduct.cantidad}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* Tipo de Movimiento */}
             <div>
@@ -298,48 +349,23 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
-              {selectedProduct && cantidad && (
+              {selectedProduct && selectedEstablecimientoId && cantidad && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nuevo Stock
+                    Nuevo Stock en {establecimientos.find(e => e.id === selectedEstablecimientoId)?.code}
                   </label>
                   <div className={`
                     w-full px-4 py-2 border-2 rounded-md font-bold text-lg
                     ${newStock < 0
                       ? 'border-red-300 bg-red-50 text-red-600'
-                      : newStock > selectedProduct.cantidad
+                      : newStock > stockActualEstablecimiento
                       ? 'border-green-300 bg-green-50 text-green-600'
                       : 'border-blue-300 bg-blue-50 text-blue-600'
                     }
                   `}>
-                    {selectedProduct.cantidad} → {newStock}
+                    {stockActualEstablecimiento} → {newStock}
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Establecimiento */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Establecimiento <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={selectedEstablecimientoId}
-                onChange={(e) => setSelectedEstablecimientoId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                required
-              >
-                <option value="">Seleccionar establecimiento...</option>
-                {establecimientos.map(est => (
-                  <option key={est.id} value={est.id}>
-                    [{est.code}] {est.name} - {est.district}
-                  </option>
-                ))}
-              </select>
-              {selectedEstablecimientoId && (
-                <p className="mt-1 text-xs text-gray-500">
-                  El movimiento se registrará en este establecimiento
-                </p>
               )}
             </div>
 

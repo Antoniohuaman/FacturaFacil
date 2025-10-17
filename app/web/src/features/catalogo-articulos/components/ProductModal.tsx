@@ -659,7 +659,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 </button>
               </div>
 
-              {/* Lista de establecimientos compacta */}
+              {/* ✅ Lista de establecimientos: mostrar solo asignados al editar, todos al crear */}
               <div className="space-y-1.5 max-h-40 overflow-y-auto">
                 {establishments.length === 0 ? (
                   <div className="text-center py-4 text-gray-500">
@@ -669,48 +669,63 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     <p className="text-xs font-medium">No hay establecimientos activos</p>
                   </div>
                 ) : (
-                  establishments.map((est) => {
-                    const isSelected = formData.establecimientoIds.includes(est.id);
-                    return (
-                      <label
-                        key={est.id}
-                        className={`
-                          flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer transition-all
-                          ${isSelected
-                            ? 'bg-purple-100 border-purple-300'
-                            : 'bg-white border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
-                          }
-                        `}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            const newIds = e.target.checked
-                              ? [...formData.establecimientoIds, est.id]
-                              : formData.establecimientoIds.filter(id => id !== est.id);
-                            setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
-                          }}
-                          className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-1"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-200 text-purple-800 rounded">
-                              {est.code}
-                            </span>
-                            <p className="text-xs font-medium text-gray-900 truncate">
-                              {est.name}
-                            </p>
-                          </div>
+                  (() => {
+                    // Si estamos editando, mostrar SOLO los establecimientos asignados al producto
+                    const establishmentsToShow = product
+                      ? establishments.filter(est => formData.establecimientoIds.includes(est.id))
+                      : establishments;
+
+                    if (product && establishmentsToShow.length === 0) {
+                      return (
+                        <div className="text-center py-4 text-yellow-600 bg-yellow-50 rounded border border-yellow-200">
+                          <p className="text-xs font-medium">No hay establecimientos asignados a este producto</p>
                         </div>
-                        {isSelected && (
-                          <svg className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </label>
-                    );
-                  })
+                      );
+                    }
+
+                    return establishmentsToShow.map((est) => {
+                      const isSelected = formData.establecimientoIds.includes(est.id);
+                      return (
+                        <label
+                          key={est.id}
+                          className={`
+                            flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer transition-all
+                            ${isSelected
+                              ? 'bg-purple-100 border-purple-300'
+                              : 'bg-white border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
+                            }
+                          `}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const newIds = e.target.checked
+                                ? [...formData.establecimientoIds, est.id]
+                                : formData.establecimientoIds.filter(id => id !== est.id);
+                              setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
+                            }}
+                            className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-1"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-200 text-purple-800 rounded">
+                                {est.code}
+                              </span>
+                              <p className="text-xs font-medium text-gray-900 truncate">
+                                {est.name}
+                              </p>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <svg className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </label>
+                      );
+                    });
+                  })()
                 )}
               </div>
 
@@ -718,7 +733,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
               {establishments.length > 0 && (
                 <div className="flex items-center justify-between pt-1.5 border-t border-purple-200">
                   <p className="text-[10px] text-gray-600">
-                    {formData.establecimientoIds.length} de {establishments.length} seleccionado(s)
+                    {product
+                      ? `${formData.establecimientoIds.length} establecimiento(s) asignado(s)`
+                      : `${formData.establecimientoIds.length} de ${establishments.length} seleccionado(s)`
+                    }
                   </p>
                 </div>
               )}
