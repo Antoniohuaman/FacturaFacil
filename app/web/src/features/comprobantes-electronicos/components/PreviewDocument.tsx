@@ -8,7 +8,6 @@ interface PreviewDocumentProps {
 }
 
 export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl }) => {
-  // Cargar configuración de diseño
   const config = useVoucherDesignConfigReader('A4');
   const {
     companyData,
@@ -26,53 +25,19 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
   const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
   const currencySymbol = currency === 'USD' ? '$' : 'S/';
 
-  // Calcular subtotales por tipo de IGV
-  const subtotalGravado = cartItems
-    .filter(item => item.igvType === 'igv18')
-    .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // Calcular subtotales
+  const subtotalGravado = cartItems.filter(item => item.igvType === 'igv18').reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotalExonerado = cartItems.filter(item => item.igvType === 'exonerado').reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotalInafecto = cartItems.filter(item => item.igvType === 'inafecto').reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  const subtotalExonerado = cartItems
-    .filter(item => item.igvType === 'exonerado')
-    .reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-  const subtotalInafecto = cartItems
-    .filter(item => item.igvType === 'inafecto')
-    .reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-  // Calcular dimensiones del logo
-  const getLogoDimensions = () => {
-    if (!config.logo.enabled) return null;
-
-    if (config.logo.customWidth && config.logo.customHeight) {
-      return { width: config.logo.customWidth, height: config.logo.customHeight };
-    }
-
-    const baseSizes = { small: 60, medium: 100, large: 150 };
-    const baseSize = baseSizes[config.logo.size];
-
-    const ratios = {
-      square: { width: 1, height: 1 },
-      vertical: { width: 2, height: 3 },
-      horizontal: { width: 3, height: 2 }
-    };
-
-    const ratio = ratios[config.logo.orientation];
-    return {
-      width: baseSize * ratio.width / ratio.height,
-      height: baseSize
-    };
-  };
-
-  const logoDimensions = getLogoDimensions();
+  // Obtener columnas visibles
+  const visibleColumns = Object.entries(config.productFields).filter(([_, value]) => value.visible);
 
   return (
     <div className="w-full p-8 bg-white text-sm leading-relaxed print:p-4 relative">
       {/* Marca de agua */}
       {config.watermark.enabled && (
-        <div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
-          style={{ zIndex: 0 }}
-        >
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
           {config.watermark.type === 'text' && config.watermark.text && (
             <div
               className="text-6xl font-bold select-none"
@@ -101,195 +66,203 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
         </div>
       )}
 
-      {/* Contenido del documento */}
+      {/* Contenido */}
       <div className="relative" style={{ zIndex: 1 }}>
-        {/* Header Section */}
-        <div className="flex justify-between items-start mb-8">
-          {/* Company Info */}
-          <div className="flex-1">
-            {logoDimensions && (
-              <div
-                className={`mb-4 ${
-                  config.logo.position === 'center' ? 'mx-auto' : config.logo.position === 'right' ? 'ml-auto' : ''
-                }`}
-                style={{ width: 'fit-content' }}
-              >
-                {config.logo.url ? (
-                  <img
-                    src={config.logo.url}
-                    alt="Logo"
-                    style={{
-                      width: `${logoDimensions.width}px`,
-                      height: `${logoDimensions.height}px`,
-                      objectFit: 'contain'
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: `${logoDimensions.width}px`,
-                      height: `${logoDimensions.height}px`
-                    }}
-                    className="bg-gray-200 border border-gray-300 flex items-center justify-center"
-                  >
-                    <span className="text-xs font-semibold text-gray-600">LOGO</span>
+        {/* HEADER: EMPRESA | LOGO | RUC/DOC */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {/* Columna 1: Datos de la empresa */}
+          <div className="flex flex-col justify-center">
+            <h1 className="font-bold text-lg text-gray-900">{companyData.name}</h1>
+            <p className="text-xs text-gray-700 max-w-xs leading-tight mt-1">{companyData.address}</p>
+            <p className="text-xs text-gray-700">Telf: {companyData.phone}</p>
+            <p className="text-xs text-gray-700">E-mail: {companyData.email}</p>
+          </div>
+
+          {/* Columna 2: Logo (centrado) */}
+          <div className="flex items-center justify-center">
+            {config.logo.enabled && (
+              config.logo.url ? (
+                <img
+                  src={config.logo.url}
+                  alt="Logo"
+                  style={{
+                    width: `${config.logo.width}px`,
+                    height: `${config.logo.height}px`,
+                    objectFit: 'contain'
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: `${config.logo.width}px`,
+                    height: `${config.logo.height}px`
+                  }}
+                  className="bg-gray-200 border border-gray-300 flex items-center justify-center"
+                >
+                  <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                </div>
+              )
+            )}
+          </div>
+
+          {/* Columna 3: RUC y tipo de documento */}
+          <div className="border-2 border-gray-800 p-4 text-center flex flex-col justify-center min-w-[280px]">
+            <div className="bg-gray-800 text-white px-3 py-1 mb-3">
+              <span className="font-bold text-sm">R.U.C. {companyData.ruc}</span>
+            </div>
+            <h2 className="font-bold text-base mb-2 text-gray-900">{documentTitle}</h2>
+            <p className="font-bold text-lg text-gray-900">{series}-</p>
+          </div>
+        </div>
+
+        {/* Información del cliente y documento */}
+        <div className="grid grid-cols-2 gap-8 mb-6">
+          <div>
+            <h3 className="font-semibold mb-3 text-gray-900">DATOS DEL CLIENTE:</h3>
+            <div className="space-y-1 text-xs">
+              <p><span className="font-medium">Cliente:</span> {clientData.nombre}</p>
+              <p><span className="font-medium">{clientData.tipoDocumento.toUpperCase()}:</span> {clientData.documento}</p>
+              {config.documentFields.direccion.visible && clientData.direccion && (
+                <p><span className="font-medium">{config.documentFields.direccion.label}:</span> {clientData.direccion}</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-3 text-gray-900">DATOS DEL COMPROBANTE:</h3>
+            <div className="space-y-1 text-xs">
+              <p><span className="font-medium">F. Emisión:</span> {issueDate}</p>
+              <p><span className="font-medium">Moneda:</span> {currency === 'USD' ? 'Dólares Americanos' : 'Soles'}</p>
+              <p><span className="font-medium">Forma de Pago:</span> {paymentMethod}</p>
+              {config.documentFields.fechaVencimiento.visible && (
+                <p><span className="font-medium">{config.documentFields.fechaVencimiento.label}:</span> {issueDate}</p>
+              )}
+              {config.documentFields.establecimiento.visible && (
+                <p><span className="font-medium">{config.documentFields.establecimiento.label}:</span> Principal</p>
+              )}
+              {config.documentFields.ordenCompra.visible && (
+                <p><span className="font-medium">{config.documentFields.ordenCompra.label}:</span> -</p>
+              )}
+              {config.documentFields.guiaRemision.visible && (
+                <p><span className="font-medium">{config.documentFields.guiaRemision.label}:</span> -</p>
+              )}
+              {config.documentFields.correoElectronico.visible && (
+                <p><span className="font-medium">{config.documentFields.correoElectronico.label}:</span> {clientData.email || '-'}</p>
+              )}
+              {config.documentFields.centroCosto.visible && (
+                <p><span className="font-medium">{config.documentFields.centroCosto.label}:</span> -</p>
+              )}
+              {config.documentFields.direccionEnvio.visible && (
+                <p><span className="font-medium">{config.documentFields.direccionEnvio.label}:</span> {clientData.direccion || '-'}</p>
+              )}
+              {config.documentFields.vendedor.visible && (
+                <p><span className="font-medium">{config.documentFields.vendedor.label}:</span> -</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Tabla de productos */}
+        <div className="border border-gray-400 mb-6">
+          {/* Header */}
+          <div className="bg-gray-800 text-white px-2 py-2 text-xs font-medium flex gap-1">
+            {visibleColumns.map(([key, field]) => (
+              <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="text-center">
+                {field.label}
+              </div>
+            ))}
+          </div>
+
+          {/* Body */}
+          {cartItems.map((item, index) => (
+            <div
+              key={item.id}
+              className={`px-2 py-2 text-xs border-b border-gray-300 flex gap-1 ${
+                index % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+              }`}
+            >
+              {visibleColumns.map(([key, field]) => {
+                let content = '';
+                switch (key) {
+                  case 'imagen': content = '🖼️'; break;
+                  case 'descripcion': content = item.name; break;
+                  case 'cantidad': content = item.quantity.toString(); break;
+                  case 'precioUnitario': content = `${currencySymbol} ${item.price.toFixed(2)}`; break;
+                  case 'total': content = `${currencySymbol} ${(item.price * item.quantity).toFixed(2)}`; break;
+                  case 'marca': content = item.marca || '-'; break;
+                  case 'codigoBarras': content = item.codigoBarras || '-'; break;
+                  case 'alias': content = item.alias || '-'; break;
+                  case 'modelo': content = item.modelo || '-'; break;
+                  case 'codigoFabrica': content = item.codigoFabrica || '-'; break;
+                  case 'descuento': content = item.descuentoProducto ? `${item.descuentoProducto}%` : '-'; break;
+                  case 'tipo': content = item.tipoProducto || '-'; break;
+                  case 'codigoSunat': content = item.codigoSunat || '-'; break;
+                  case 'peso': content = item.peso ? `${item.peso}kg` : '-'; break;
+                  case 'categoria': content = item.category || '-'; break;
+                  case 'tipoExistencia': content = item.tipoExistencia || '-'; break;
+                  default: content = item.code || '-';
+                }
+                return (
+                  <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="truncate text-center">
+                    {content}
                   </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <h1 className="font-bold text-lg text-gray-900">{companyData.name}</h1>
-              <p className="text-xs text-gray-700 max-w-xs leading-tight">
-                {companyData.address}
-              </p>
-              <p className="text-xs text-gray-700">
-                Telf: {companyData.phone} | E-mail: {companyData.email}
-              </p>
+                );
+              })}
             </div>
-          </div>
+          ))}
 
-        {/* Document Info Box */}
-        <div className="border-2 border-gray-800 p-4 text-center min-w-[280px]">
-          <div className="bg-gray-800 text-white px-3 py-1 mb-3">
-            <span className="font-bold text-sm">R.U.C. {companyData.ruc}</span>
-          </div>
-          <h2 className="font-bold text-base mb-2 text-gray-900">{documentTitle}</h2>
-          <p className="font-bold text-lg text-gray-900">{series}-</p>
-        </div>
-      </div>
-
-      {/* Client and Document Details */}
-      <div className="grid grid-cols-2 gap-8 mb-6">
-        {/* Client Info */}
-        <div>
-          <h3 className="font-semibold mb-3 text-gray-900">DATOS DEL CLIENTE:</h3>
-          <div className="space-y-1 text-xs">
-            <p><span className="font-medium">Cliente:</span> {clientData.nombre}</p>
-            <p><span className="font-medium">{clientData.tipoDocumento.toUpperCase()}:</span> {clientData.documento}</p>
-            {clientData.direccion && (
-              <p><span className="font-medium">Dirección:</span> {clientData.direccion}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Document Details */}
-        <div>
-          <h3 className="font-semibold mb-3 text-gray-900">DATOS DEL COMPROBANTE:</h3>
-          <div className="space-y-1 text-xs">
-            <p><span className="font-medium">F. Emisión:</span> {issueDate}</p>
-            <p><span className="font-medium">Moneda:</span> {currency === 'USD' ? 'Dólares Americanos' : 'Soles'}</p>
-            <p><span className="font-medium">Forma de Pago:</span> {paymentMethod}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Products Table */}
-      <div className="border border-gray-400 mb-6">
-        {/* Table Header */}
-        <div className="bg-gray-800 text-white grid grid-cols-12 gap-2 p-2 text-xs font-medium">
-          <div className="col-span-1 text-center">CANT.</div>
-          <div className="col-span-1 text-center">UND</div>
-          <div className="col-span-4">DESCRIPCIÓN</div>
-          <div className="col-span-2 text-center">PRECIO UNIT.</div>
-          <div className="col-span-2 text-center">VALOR VENTA</div>
-          <div className="col-span-2 text-center">IMPORTE</div>
-        </div>
-
-        {/* Table Body */}
-        {cartItems.map((item, index) => (
-          <div key={item.id} className={`grid grid-cols-12 gap-2 p-2 text-xs border-b border-gray-300 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-            <div className="col-span-1 text-center">{item.quantity}</div>
-            <div className="col-span-1 text-center">{item.unidadMedida || 'UND'}</div>
-            <div className="col-span-4">
-              <div className="font-medium">{item.name}</div>
-              {item.code && <div className="text-gray-600">Código: {item.code}</div>}
-            </div>
-            <div className="col-span-2 text-center">{currencySymbol} {item.price.toFixed(2)}</div>
-            <div className="col-span-2 text-center">{currencySymbol} {(item.price * item.quantity / 1.18).toFixed(2)}</div>
-            <div className="col-span-2 text-center font-medium">{currencySymbol} {(item.price * item.quantity).toFixed(2)}</div>
-          </div>
-        ))}
-
-        {/* Empty rows for spacing */}
-        {Array.from({ length: Math.max(0, 3 - cartItems.length) }).map((_, index) => (
-          <div key={`empty-${index}`} className="grid grid-cols-12 gap-2 p-2 text-xs border-b border-gray-300 bg-white">
-            <div className="col-span-12 h-6"></div>
-          </div>
-        ))}
-      </div>
-
-      {/* Totals Section */}
-      <div className="flex justify-between items-start mb-8">
-        {/* Left side - Additional info */}
-        <div className="flex-1 pr-8">
-          {observations && (
-            <div className="mb-4">
-              <h4 className="font-semibold text-xs mb-2">OBSERVACIONES:</h4>
-              <p className="text-xs text-gray-700 leading-relaxed">{observations}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Right side - Totals */}
-        <div className="min-w-[300px]">
-          <div className="border border-gray-400">
-            <div className="bg-gray-100 p-2">
-              <h4 className="font-semibold text-xs text-center">RESUMEN</h4>
-            </div>
-            
-            <div className="p-3 space-y-2">
-              {subtotalGravado > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span>Op. Gravadas:</span>
-                  <span className="font-medium">{currencySymbol} {subtotalGravado.toFixed(2)}</span>
-                </div>
-              )}
-              
-              {subtotalExonerado > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span>Op. Exoneradas:</span>
-                  <span className="font-medium">{currencySymbol} {subtotalExonerado.toFixed(2)}</span>
-                </div>
-              )}
-              
-              {subtotalInafecto > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span>Op. Inafectas:</span>
-                  <span className="font-medium">{currencySymbol} {subtotalInafecto.toFixed(2)}</span>
-                </div>
-              )}
-              
-              <div className="flex justify-between text-xs">
-                <span>Descuentos:</span>
-                <span className="font-medium">{currencySymbol} 0.00</span>
-              </div>
-              
-              <div className="flex justify-between text-xs">
-                <span>I.G.V. (18%):</span>
-                <span className="font-medium">{currencySymbol} {totals.igv.toFixed(2)}</span>
-              </div>
-              
-              <div className="border-t border-gray-300 pt-2">
-                <div className="flex justify-between text-sm font-bold">
-                  <span>IMPORTE TOTAL:</span>
-                  <span>{currencySymbol} {totals.total.toFixed(2)}</span>
+          {/* Totales */}
+          <div className="bg-gray-50 border-t-2 border-gray-300 px-3 py-2">
+            <div className="flex justify-end">
+              <div className="min-w-[300px]">
+                <div className="space-y-2">
+                  {subtotalGravado > 0 && (
+                    <>
+                      <div className="flex justify-between text-xs">
+                        <span>Op. Gravadas:</span>
+                        <span>{currencySymbol} {(subtotalGravado / 1.18).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span>IGV (18%):</span>
+                        <span>{currencySymbol} {(subtotalGravado - subtotalGravado / 1.18).toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+                  {subtotalExonerado > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span>Op. Exoneradas:</span>
+                      <span>{currencySymbol} {subtotalExonerado.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {subtotalInafecto > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span>Op. Inafectas:</span>
+                      <span>{currencySymbol} {subtotalInafecto.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-300">
+                    <span className="text-sm font-bold">TOTAL:</span>
+                    <span className="text-base font-bold">{currencySymbol} {totals.total.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+
+        {/* Observaciones - SIEMPRE DESPUÉS DE LA TABLA */}
+        {config.documentFields.observaciones.visible && observations && (
+          <div className="mb-6">
+            <h4 className="font-semibold text-xs mb-2">{config.documentFields.observaciones.label}:</h4>
+            <p className="text-xs text-gray-700 leading-relaxed">{observations}</p>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex justify-between items-end">
           {/* QR Code */}
           <div className="text-center">
-            <img
-              src={qrUrl}
-              alt="QR Code"
-              className="w-24 h-24 border border-gray-300 mb-2"
-            />
+            <img src={qrUrl} alt="QR Code" className="w-24 h-24 border border-gray-300 mb-2" />
             <p className="text-xs text-gray-600 max-w-[200px] leading-tight">
               Consulta tu comprobante en<br />
               https://comprobantes.facturafacil.com/

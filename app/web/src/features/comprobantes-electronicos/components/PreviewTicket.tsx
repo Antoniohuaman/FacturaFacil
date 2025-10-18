@@ -8,7 +8,6 @@ interface PreviewTicketProps {
 }
 
 export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => {
-  // Cargar configuración de diseño para tickets
   const config = useVoucherDesignConfigReader('TICKET');
   const {
     companyData,
@@ -32,37 +31,18 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
     second: '2-digit'
   });
 
-  // Calcular subtotales por tipo de IGV
-  const subtotalGravado = cartItems
-    .filter(item => item.igvType === 'igv18')
-    .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotalGravado = cartItems.filter(item => item.igvType === 'igv18').reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotalExonerado = cartItems.filter(item => item.igvType === 'exonerado').reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  const subtotalExonerado = cartItems
-    .filter(item => item.igvType === 'exonerado')
-    .reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-  // Función para truncar texto en tickets
   const truncateText = (text: string, maxLength: number) => {
     return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text;
   };
 
-  // Calcular dimensiones del logo para ticket
-  const getLogoSize = () => {
-    if (!config.logo.enabled) return null;
-    const sizes = { small: 48, medium: 64, large: 80 };
-    return sizes[config.logo.size];
-  };
-
-  const logoSize = getLogoSize();
-
   return (
     <div className="w-full max-w-xs mx-auto bg-white p-4 font-mono text-xs leading-tight relative" style={{ fontFamily: 'Courier, monospace' }}>
-      {/* Marca de agua para ticket */}
+      {/* Marca de agua */}
       {config.watermark.enabled && config.watermark.type === 'text' && config.watermark.text && (
-        <div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
-          style={{ zIndex: 0 }}
-        >
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
           <div
             className="text-4xl font-bold select-none"
             style={{
@@ -77,28 +57,28 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         </div>
       )}
 
-      {/* Contenido del ticket */}
+      {/* Contenido */}
       <div className="relative" style={{ zIndex: 1 }}>
         {/* Header */}
         <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
           {/* Logo */}
-          {logoSize && (
+          {config.logo.enabled && (
             <div className="mb-3 flex justify-center">
               {config.logo.url ? (
                 <img
                   src={config.logo.url}
                   alt="Logo"
                   style={{
-                    width: `${logoSize}px`,
-                    height: `${logoSize}px`,
+                    width: `${config.logo.width}px`,
+                    height: `${config.logo.height}px`,
                     objectFit: 'contain'
                   }}
                 />
               ) : (
                 <div
                   style={{
-                    width: `${logoSize}px`,
-                    height: `${logoSize}px`
+                    width: `${config.logo.width}px`,
+                    height: `${config.logo.height}px`
                   }}
                   className="bg-gray-200 border border-gray-300 flex items-center justify-center"
                 >
@@ -109,100 +89,101 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
           )}
 
           <h1 className="font-bold text-sm mb-1">{companyData.name}</h1>
-        <p className="text-xs mb-1">RUC: {companyData.ruc}</p>
-        <p className="text-xs leading-tight mb-2">{truncateText(companyData.address, 35)}</p>
-        <p className="text-xs mb-2">Telf: {companyData.phone}</p>
-        <p className="text-xs">E-mail: {companyData.email}</p>
-      </div>
-
-      {/* Document info */}
-      <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
-        <div className="border border-black p-2 mb-2">
-          <p className="font-bold text-sm">{documentTitle}</p>
-          <p className="font-bold text-lg">{series}-</p>
+          <p className="text-xs mb-1">RUC: {companyData.ruc}</p>
+          <p className="text-xs leading-tight mb-2">{truncateText(companyData.address, 35)}</p>
+          <p className="text-xs mb-2">Telf: {companyData.phone}</p>
+          <p className="text-xs">E-mail: {companyData.email}</p>
         </div>
-        <p className="text-xs">Fecha: {currentDateTime}</p>
-        <p className="text-xs">Cliente: {truncateText(clientData.nombre, 25)}</p>
-        <p className="text-xs">{clientData.tipoDocumento.toUpperCase()}: {clientData.documento}</p>
-        <p className="text-xs">Dirección: {clientData.direccion || 'No especificada'}</p>
-        <p className="text-xs">Forma de pago: {paymentMethod}</p>
-      </div>
 
-      {/* Products */}
-      <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
-        <div className="grid grid-cols-3 gap-1 text-xs font-bold mb-2">
-          <span>CANT</span>
-          <span>DESCRIPCION</span>
-          <span className="text-right">PRECIO</span>
+        {/* Document info */}
+        <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
+          <div className="border border-black p-2 mb-2">
+            <p className="font-bold text-sm">{documentTitle}</p>
+            <p className="font-bold text-lg">{series}-</p>
+          </div>
+          <p className="text-xs">Fecha: {currentDateTime}</p>
+          <p className="text-xs">Cliente: {truncateText(clientData.nombre, 25)}</p>
+          <p className="text-xs">{clientData.tipoDocumento.toUpperCase()}: {clientData.documento}</p>
+          {config.documentFields.direccion.visible && (
+            <p className="text-xs">{config.documentFields.direccion.label}: {clientData.direccion || 'No especificada'}</p>
+          )}
+          <p className="text-xs">Forma de pago: {paymentMethod}</p>
+          {config.documentFields.vendedor.visible && (
+            <p className="text-xs">{config.documentFields.vendedor.label}: -</p>
+          )}
         </div>
-        
-        {cartItems.map((item) => (
-          <div key={item.id} className="mb-2">
-            <div className="grid grid-cols-3 gap-1 text-xs">
-              <span>{item.quantity}</span>
-              <span>{truncateText(item.name, 15)}</span>
-              <span className="text-right">{currencySymbol} {item.price.toFixed(2)}</span>
+
+        {/* Products */}
+        <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
+          <div className="grid grid-cols-3 gap-1 text-xs font-bold mb-2">
+            <span>CANT</span>
+            <span>DESCRIPCION</span>
+            <span className="text-right">PRECIO</span>
+          </div>
+
+          {cartItems.map((item) => (
+            <div key={item.id} className="mb-2">
+              <div className="grid grid-cols-3 gap-1 text-xs">
+                <span>{item.quantity}</span>
+                <span>{truncateText(item.name, 15)}</span>
+                <span className="text-right">{currencySymbol} {item.price.toFixed(2)}</span>
+              </div>
+              {item.code && (
+                <div className="text-xs text-gray-600">
+                  <span>Código: {item.code}</span>
+                </div>
+              )}
+              <div className="text-xs text-right">
+                <span>Subtotal: {currencySymbol} {(item.price * item.quantity).toFixed(2)}</span>
+              </div>
             </div>
-            {item.code && (
-              <div className="text-xs text-gray-600">
-                <span>Código: {item.code}</span>
+          ))}
+        </div>
+
+        {/* Observaciones - después de productos */}
+        {config.documentFields.observaciones.visible && data.observations && (
+          <div className="mb-4 pb-4 border-b border-dashed border-gray-400">
+            <p className="font-bold text-xs mb-1">{config.documentFields.observaciones.label}:</p>
+            <p className="text-xs">{truncateText(data.observations, 50)}</p>
+          </div>
+        )}
+
+        {/* Totals */}
+        <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
+          <div className="space-y-1 text-xs">
+            {subtotalGravado > 0 && (
+              <>
+                <div className="flex justify-between">
+                  <span>Op. Gravadas:</span>
+                  <span>{currencySymbol} {(subtotalGravado / 1.18).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>IGV (18%):</span>
+                  <span>{currencySymbol} {(subtotalGravado - subtotalGravado / 1.18).toFixed(2)}</span>
+                </div>
+              </>
+            )}
+            {subtotalExonerado > 0 && (
+              <div className="flex justify-between">
+                <span>Op. Exoneradas:</span>
+                <span>{currencySymbol} {subtotalExonerado.toFixed(2)}</span>
               </div>
             )}
-            <div className="text-xs text-right">
-              <span>Subtotal: {currencySymbol} {(item.price * item.quantity).toFixed(2)}</span>
+            <div className="flex justify-between font-bold text-sm pt-2 border-t border-gray-400">
+              <span>TOTAL:</span>
+              <span>{currencySymbol} {totals.total.toFixed(2)}</span>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Totals */}
-      <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
-        <div className="space-y-1 text-xs">
-          <div className="flex justify-between">
-            <span>Op. Exonerada: {currencySymbol}</span>
-            <span>{subtotalExonerado.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Op. Gravada: {currencySymbol}</span>
-            <span>{subtotalGravado.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>IGV: {currencySymbol}</span>
-            <span>{totals.igv.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between font-bold border-t border-gray-400 pt-1">
-            <span>Total: {currencySymbol}</span>
-            <span>{totals.total.toFixed(2)}</span>
-          </div>
         </div>
-      </div>
 
-      {/* Total en letras */}
-      <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
-        <p className="text-xs font-bold">
-          SON: {totals.total.toFixed(2).replace('.', ' Y ')}/100 {currency === 'USD' ? 'DÓLARES' : 'SOLES'}
-        </p>
-      </div>
-
-      {/* Footer info */}
-      <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
-        <p className="text-xs leading-tight mb-2">
-          Representación impresa de la {documentTitle.toLowerCase()}
-        </p>
-      </div>
-
-      {/* QR Code */}
-      <div className="text-center mb-4">
-        <img 
-          src={qrUrl} 
-          alt="QR Code" 
-          className="w-20 h-20 mx-auto border border-gray-300 mb-2"
-        />
-        <p className="text-xs leading-tight">
-          Consulta tu comprobante en<br />
-          https://comprobantes.facturafacil.com/
-        </p>
-      </div>
+        {/* QR Code */}
+        <div className="text-center mb-4">
+          <img src={qrUrl} alt="QR Code" className="w-24 h-24 mx-auto border border-gray-300 mb-2" />
+          <p className="text-xs text-gray-600 leading-tight">
+            Consulta tu comprobante en<br />
+            https://comprobantes.facturafacil.com/
+          </p>
+        </div>
 
         {/* Final message */}
         <div className="text-center text-xs leading-tight">

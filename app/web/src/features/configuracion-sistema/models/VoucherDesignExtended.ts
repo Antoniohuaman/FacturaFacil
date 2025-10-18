@@ -13,12 +13,10 @@
 // ===================================================================
 export interface LogoConfiguration {
   enabled: boolean;
-  size: 'small' | 'medium' | 'large'; // Pequeño: 60x60, Mediano: 100x100, Grande: 150x150
-  orientation: 'square' | 'vertical' | 'horizontal'; // Cuadrado, Vertical (portrait), Horizontal (landscape)
+  width: number; // Ancho en px (40-200)
+  height: number; // Alto en px (40-200)
   position: 'left' | 'center' | 'right';
   url?: string; // URL de la imagen del logo
-  customWidth?: number; // Ancho personalizado en px
-  customHeight?: number; // Alto personalizado en px
 }
 
 // ===================================================================
@@ -65,6 +63,7 @@ export interface DocumentFieldsConfiguration {
   guiaRemision: { visible: boolean; label: string };
   correoElectronico: { visible: boolean; label: string };
   centroCosto: { visible: boolean; label: string };
+  vendedor: { visible: boolean; label: string };
 }
 
 // ===================================================================
@@ -253,8 +252,8 @@ export interface VoucherDesignExtended {
 
 export const DEFAULT_LOGO_CONFIG: LogoConfiguration = {
   enabled: true,
-  size: 'medium',
-  orientation: 'square',
+  width: 100,
+  height: 100,
   position: 'left',
 };
 
@@ -289,6 +288,7 @@ export const DEFAULT_DOCUMENT_FIELDS: DocumentFieldsConfiguration = {
   guiaRemision: { visible: false, label: 'N° de Guía de Remisión' },
   correoElectronico: { visible: false, label: 'Correo Electrónico' },
   centroCosto: { visible: false, label: 'Centro de Costo' },
+  vendedor: { visible: false, label: 'Vendedor' },
 };
 
 export const DEFAULT_PRODUCT_FIELDS_A4: ProductFieldsConfiguration = {
@@ -371,8 +371,8 @@ export const DEFAULT_A4_DESIGN_EXTENDED: VoucherDesignSettingsA4Extended = {
 export const DEFAULT_TICKET_DESIGN_EXTENDED: VoucherDesignSettingsTicketExtended = {
   logo: {
     enabled: false,
-    size: 'small',
-    orientation: 'square',
+    width: 60,
+    height: 60,
     position: 'center',
   },
 
