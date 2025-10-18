@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useDocumentos } from '../../hooks/useDocumentos';
 import type { NotaVenta } from '../../models/types';
-import { DocumentoModal } from '../shared/DocumentoModal';
+import { FormularioDocumentoModal } from '../shared/FormularioDocumentoModal';
 import { EstadoBadge } from '../shared/EstadoBadge';
 import { FiltrosPanel } from '../shared/FiltrosPanel';
 
@@ -450,26 +450,22 @@ export function NotasVentaView() {
       )}
 
       {/* Modal de creación/edición */}
-      {modalOpen && (
-        <DocumentoModal
-          isOpen={modalOpen}
-          onClose={() => {
-            setModalOpen(false);
-            setNotaVentaEditar(null);
-          }}
-          tipo="NOTA_VENTA"
-          documento={notaVentaEditar}
-          onSave={async (data) => {
-            if (notaVentaEditar) {
-              await actualizarNotaVenta(notaVentaEditar.id, data);
-            } else {
-              await crearNotaVenta(data);
-            }
-            setModalOpen(false);
-            setNotaVentaEditar(null);
-          }}
-        />
-      )}
+      <FormularioDocumentoModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setNotaVentaEditar(null);
+        }}
+        tipo="NOTA_VENTA"
+        documentoEditar={notaVentaEditar}
+        onSave={async (data) => {
+          if (notaVentaEditar) {
+            await actualizarNotaVenta(notaVentaEditar.id, data);
+          } else {
+            await crearNotaVenta(data);
+          }
+        }}
+      />
     </>
   );
 }

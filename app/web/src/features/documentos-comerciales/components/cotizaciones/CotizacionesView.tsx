@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useDocumentos } from '../../hooks/useDocumentos';
 import type { Cotizacion } from '../../models/types';
-import { DocumentoModal } from '../shared/DocumentoModal';
+import { FormularioDocumentoModal } from '../shared/FormularioDocumentoModal';
 import { EstadoBadge } from '../shared/EstadoBadge';
 import { FiltrosPanel } from '../shared/FiltrosPanel';
 
@@ -475,27 +475,25 @@ export function CotizacionesView() {
         </div>
       )}
 
-      {/* Modal de creación/edición */}
-      {modalOpen && (
-        <DocumentoModal
-          isOpen={modalOpen}
-          onClose={() => {
-            setModalOpen(false);
-            setCotizacionEditar(null);
-          }}
-          tipo="COTIZACION"
-          documento={cotizacionEditar}
-          onSave={async (data) => {
-            if (cotizacionEditar) {
-              await actualizarCotizacion(cotizacionEditar.id, data);
-            } else {
-              await crearCotizacion(data);
-            }
-            setModalOpen(false);
-            setCotizacionEditar(null);
-          }}
-        />
-      )}
+      {/* Modal de creación/edición con formulario completo */}
+      <FormularioDocumentoModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setCotizacionEditar(null);
+        }}
+        tipo="COTIZACION"
+        documentoEditar={cotizacionEditar}
+        onSave={async (data) => {
+          if (cotizacionEditar) {
+            await actualizarCotizacion(cotizacionEditar.id, data);
+          } else {
+            await crearCotizacion(data);
+          }
+          setModalOpen(false);
+          setCotizacionEditar(null);
+        }}
+      />
     </>
   );
 }
