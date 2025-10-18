@@ -1,5 +1,6 @@
 import React from 'react';
 import type { PreviewData } from '../models/comprobante.types';
+import { useVoucherDesignConfigReader } from '../../configuracion-sistema/hooks/useVoucherDesignConfig';
 
 interface PreviewTicketProps {
   data: PreviewData;
@@ -7,6 +8,8 @@ interface PreviewTicketProps {
 }
 
 export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => {
+  // Cargar configuración de diseño para tickets
+  const config = useVoucherDesignConfigReader('TICKET');
   const {
     companyData,
     clientData,
@@ -43,16 +46,69 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
     return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text;
   };
 
+  // Calcular dimensiones del logo para ticket
+  const getLogoSize = () => {
+    if (!config.logo.enabled) return null;
+    const sizes = { small: 48, medium: 64, large: 80 };
+    return sizes[config.logo.size];
+  };
+
+  const logoSize = getLogoSize();
+
   return (
-    <div className="w-full max-w-xs mx-auto bg-white p-4 font-mono text-xs leading-tight" style={{ fontFamily: 'Courier, monospace' }}>
-      {/* Header */}
-      <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
-        {/* Logo placeholder */}
-        <div className="w-16 h-16 bg-gray-200 border border-gray-300 flex items-center justify-center mx-auto mb-3">
-          <span className="text-xs font-semibold text-gray-600">LOGO</span>
+    <div className="w-full max-w-xs mx-auto bg-white p-4 font-mono text-xs leading-tight relative" style={{ fontFamily: 'Courier, monospace' }}>
+      {/* Marca de agua para ticket */}
+      {config.watermark.enabled && config.watermark.type === 'text' && config.watermark.text && (
+        <div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
+          style={{ zIndex: 0 }}
+        >
+          <div
+            className="text-4xl font-bold select-none"
+            style={{
+              opacity: config.watermark.opacity,
+              color: config.watermark.color || '#e5e7eb',
+              transform: `rotate(${config.watermark.rotation}deg)`,
+              fontSize: config.watermark.size === 'small' ? '1.5rem' : config.watermark.size === 'large' ? '2.5rem' : '2rem'
+            }}
+          >
+            {config.watermark.text}
+          </div>
         </div>
-        
-        <h1 className="font-bold text-sm mb-1">{companyData.name}</h1>
+      )}
+
+      {/* Contenido del ticket */}
+      <div className="relative" style={{ zIndex: 1 }}>
+        {/* Header */}
+        <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
+          {/* Logo */}
+          {logoSize && (
+            <div className="mb-3 flex justify-center">
+              {config.logo.url ? (
+                <img
+                  src={config.logo.url}
+                  alt="Logo"
+                  style={{
+                    width: `${logoSize}px`,
+                    height: `${logoSize}px`,
+                    objectFit: 'contain'
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: `${logoSize}px`,
+                    height: `${logoSize}px`
+                  }}
+                  className="bg-gray-200 border border-gray-300 flex items-center justify-center"
+                >
+                  <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <h1 className="font-bold text-sm mb-1">{companyData.name}</h1>
         <p className="text-xs mb-1">RUC: {companyData.ruc}</p>
         <p className="text-xs leading-tight mb-2">{truncateText(companyData.address, 35)}</p>
         <p className="text-xs mb-2">Telf: {companyData.phone}</p>
@@ -148,10 +204,33 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         </p>
       </div>
 
-      {/* Final message */}
-      <div className="text-center text-xs leading-tight">
-        <p>¡Gracias por su compra!</p>
-        <p>Conserve este comprobante</p>
+        {/* Final message */}
+        <div className="text-center text-xs leading-tight">
+          <p>¡Gracias por su compra!</p>
+          <p>Conserve este comprobante</p>
+        </div>
+
+        {/* Footer personalizado */}
+        {config.footer.enabled && config.footer.showCustomText && config.footer.customText && (
+          <div
+            className="mt-4 pt-3 border-t border-dashed border-gray-400"
+            style={{
+              textAlign: config.footer.textAlignment,
+              backgroundColor: config.footer.backgroundColor,
+              padding: `${config.footer.padding}px 8px`
+            }}
+          >
+            <p
+              style={{
+                fontSize: config.footer.fontSize === 'small' ? '10px' : config.footer.fontSize === 'large' ? '13px' : '11px',
+                fontWeight: config.footer.fontWeight,
+                color: config.footer.textColor || '#374151'
+              }}
+            >
+              {config.footer.customText}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

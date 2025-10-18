@@ -18,7 +18,7 @@ import { EstablishmentsConfiguration } from "../../features/configuracion-sistem
 import { EmployeesConfiguration } from "../../features/configuracion-sistema/pages/EmployeesConfiguration";
 import { SeriesConfiguration } from "../../features/configuracion-sistema/pages/SeriesConfiguration";
 import { BusinessConfiguration } from "../../features/configuracion-sistema/pages/BusinessConfiguration";
-import { VoucherDesignConfiguration } from "../../features/configuracion-sistema/pages/VoucherDesignConfiguration";
+import { VoucherDesignConfigurationNew } from "../../features/configuracion-sistema/pages/VoucherDesignConfigurationNew";
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../../features/lista-precios/components/ListaPrecios";
 
@@ -58,7 +58,7 @@ export const router = createBrowserRouter([
       { path: "/configuracion/empleados", element: <EmployeesConfiguration /> },
       { path: "/configuracion/series", element: <SeriesConfiguration /> },
       { path: "/configuracion/negocio", element: <BusinessConfiguration /> },
-      { path: "/configuracion/diseno", element: <VoucherDesignConfiguration /> },
+      { path: "/configuracion/diseno", element: <VoucherDesignConfigurationNew /> },
     ],
   },
 ]);

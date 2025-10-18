@@ -1,7 +1,7 @@
 // src/features/configuration/pages/VoucherDesignConfiguration.tsx
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   ArrowLeft,
   Printer,
   FileText,
@@ -11,22 +11,71 @@ import {
   Upload,
   Image,
   Monitor,
-  Smartphone
+  Smartphone,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { ConfigurationCard } from '../components/common/ConfigurationCard';
 import { SettingsToggle } from '../components/common/SettingsToggle';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import type { VoucherDesign, VoucherDesignSettings } from '../models/VoucherDesign';
+import type {
+  VoucherDesignConfigurationExtended,
+  LogoConfiguration,
+  WatermarkConfiguration,
+  FooterConfiguration,
+  DocumentFieldsConfiguration,
+  ProductFieldsConfiguration
+} from '../models/VoucherDesignExtended';
+import { LogoConfigPanel } from '../components/voucher-design/LogoConfigPanel';
+import { WatermarkConfigPanel } from '../components/voucher-design/WatermarkConfigPanel';
+import { FooterConfigPanel } from '../components/voucher-design/FooterConfigPanel';
+import { DocumentFieldsConfigPanel } from '../components/voucher-design/DocumentFieldsConfigPanel';
+import { ProductFieldsConfigPanel } from '../components/voucher-design/ProductFieldsConfigPanel';
+import {
+  DEFAULT_LOGO_CONFIG,
+  DEFAULT_WATERMARK_CONFIG,
+  DEFAULT_FOOTER_CONFIG,
+  DEFAULT_DOCUMENT_FIELDS_CONFIG,
+  DEFAULT_PRODUCT_FIELDS_CONFIG
+} from '../models/VoucherDesignExtended';
 
 type DesignType = 'A4' | 'TICKET';
 type PreviewMode = 'desktop' | 'mobile';
+type ConfigSection = 'logo' | 'watermark' | 'footer' | 'documentFields' | 'productFields' | 'general';
 
 export function VoucherDesignConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  
+
   const [activeDesign, setActiveDesign] = useState<DesignType>('A4');
   const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
+  const [expandedSections, setExpandedSections] = useState<ConfigSection[]>(['logo']);
+
+  // Extended configuration state (stored in localStorage)
+  const [extendedConfig, setExtendedConfig] = useState<VoucherDesignConfigurationExtended>(() => {
+    const saved = localStorage.getItem(`voucher_design_extended_${activeDesign.toLowerCase()}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return {
+          logo: DEFAULT_LOGO_CONFIG,
+          watermark: DEFAULT_WATERMARK_CONFIG,
+          footer: DEFAULT_FOOTER_CONFIG,
+          documentFields: DEFAULT_DOCUMENT_FIELDS_CONFIG,
+          productFields: DEFAULT_PRODUCT_FIELDS_CONFIG
+        };
+      }
+    }
+    return {
+      logo: DEFAULT_LOGO_CONFIG,
+      watermark: DEFAULT_WATERMARK_CONFIG,
+      footer: DEFAULT_FOOTER_CONFIG,
+      documentFields: DEFAULT_DOCUMENT_FIELDS_CONFIG,
+      productFields: DEFAULT_PRODUCT_FIELDS_CONFIG
+    };
+  });
   
   // Get current design from context
   const currentDesign = useMemo(() => {
@@ -53,27 +102,72 @@ export function VoucherDesignConfiguration() {
     });
   };
 
+  // Save extended config to localStorage
+  const saveExtendedConfig = (config: VoucherDesignConfigurationExtended) => {
+    setExtendedConfig(config);
+    localStorage.setItem(`voucher_design_extended_${activeDesign.toLowerCase()}`, JSON.stringify(config));
+  };
+
+  // Update handlers for extended config
+  const updateLogoConfig = (logo: LogoConfiguration) => {
+    saveExtendedConfig({ ...extendedConfig, logo });
+  };
+
+  const updateWatermarkConfig = (watermark: WatermarkConfiguration) => {
+    saveExtendedConfig({ ...extendedConfig, watermark });
+  };
+
+  const updateFooterConfig = (footer: FooterConfiguration) => {
+    saveExtendedConfig({ ...extendedConfig, footer });
+  };
+
+  const updateDocumentFieldsConfig = (documentFields: DocumentFieldsConfiguration) => {
+    saveExtendedConfig({ ...extendedConfig, documentFields });
+  };
+
+  const updateProductFieldsConfig = (productFields: ProductFieldsConfiguration) => {
+    saveExtendedConfig({ ...extendedConfig, productFields });
+  };
+
+  const toggleSection = (section: ConfigSection) => {
+    setExpandedSections(prev =>
+      prev.includes(section)
+        ? prev.filter(s => s !== section)
+        : [...prev, section]
+    );
+  };
+
   const resetToDefault = () => {
     if (!currentDesign) return;
-    
+
     // Import default settings based on type
-    const { DEFAULT_A4_DESIGN_SETTINGS, DEFAULT_TICKET_DESIGN_SETTINGS } = 
+    const { DEFAULT_A4_DESIGN_SETTINGS, DEFAULT_TICKET_DESIGN_SETTINGS } =
       require('../models/VoucherDesign');
-    
-    const defaultSettings = activeDesign === 'A4' 
-      ? DEFAULT_A4_DESIGN_SETTINGS 
+
+    const defaultSettings = activeDesign === 'A4'
+      ? DEFAULT_A4_DESIGN_SETTINGS
       : DEFAULT_TICKET_DESIGN_SETTINGS;
-    
+
     const updatedDesign: VoucherDesign = {
       ...currentDesign,
       settings: defaultSettings,
       updatedAt: new Date()
     };
-    
+
     dispatch({
       type: 'UPDATE_VOUCHER_DESIGN',
       payload: updatedDesign
     });
+
+    // Also reset extended config
+    const defaultExtended: VoucherDesignConfigurationExtended = {
+      logo: DEFAULT_LOGO_CONFIG,
+      watermark: DEFAULT_WATERMARK_CONFIG,
+      footer: DEFAULT_FOOTER_CONFIG,
+      documentFields: DEFAULT_DOCUMENT_FIELDS_CONFIG,
+      productFields: DEFAULT_PRODUCT_FIELDS_CONFIG
+    };
+    saveExtendedConfig(defaultExtended);
   };
 
   const exportTemplate = () => {
@@ -251,196 +345,329 @@ export function VoucherDesignConfiguration() {
 
       <div className={`grid gap-8 ${previewMode === 'desktop' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
         {/* Configuration Panel */}
-        <div className="space-y-6">
-          {/* General Settings */}
-          <ConfigurationCard
-            title="Configuración General"
-            description="Elementos básicos del comprobante"
-          >
-            <div className="space-y-4">
-              <SettingsToggle
-                enabled={currentSettings.showLogo}
-                onToggle={(enabled) => updateSetting('showLogo', enabled)}
-                label="Mostrar Logo"
-                description="Incluir el logo de la empresa en el comprobante"
-              />
-              
-              <SettingsToggle
-                enabled={currentSettings.showCompanyInfo}
-                onToggle={(enabled) => updateSetting('showCompanyInfo', enabled)}
-                label="Mostrar Información de Empresa"
-                description="RUC, dirección y datos de contacto"
-              />
-              
-              <SettingsToggle
-                enabled={currentSettings.showFooter}
-                onToggle={(enabled) => updateSetting('showFooter', enabled)}
-                label="Mostrar Pie de Página"
-                description="Texto personalizado al final del comprobante"
-              />
-              
-              {activeDesign === 'A4' && (
-                <SettingsToggle
-                  enabled={currentSettings.showBorder}
-                  onToggle={(enabled) => updateSetting('showBorder', enabled)}
-                  label="Mostrar Bordes"
-                  description="Agregar bordes decorativos al comprobante"
-                />
+        <div className="space-y-4">
+          {/* Logo Configuration */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => toggleSection('logo')}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Image className="w-5 h-5 text-blue-600" />
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Configuración de Logo</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Tamaño, orientación y posición</p>
+                </div>
+              </div>
+              {expandedSections.includes('logo') ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
               )}
-              
-              <SettingsToggle
-                enabled={currentSettings.showWatermark}
-                onToggle={(enabled) => updateSetting('showWatermark', enabled)}
-                label="Marca de Agua"
-                description="Mostrar marca de agua con el nombre de la empresa"
-              />
-            </div>
-          </ConfigurationCard>
-
-          {/* Typography */}
-          <ConfigurationCard
-            title="Tipografía"
-            description="Configuración de fuentes y texto"
-          >
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Familia de Fuente
-                </label>
-                <select
-                  value={currentSettings.fontFamily}
-                  onChange={(e) => updateSetting('fontFamily', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                >
-                  <option value="Arial">Arial</option>
-                  <option value="Helvetica">Helvetica</option>
-                  <option value="Times">Times New Roman</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Tamaño de Fuente
-                </label>
-                <select
-                  value={currentSettings.fontSize}
-                  onChange={(e) => updateSetting('fontSize', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                >
-                  <option value="small">Pequeño</option>
-                  <option value="medium">Mediano</option>
-                  <option value="large">Grande</option>
-                </select>
-              </div>
-            </div>
-          </ConfigurationCard>
-
-          {/* Colors */}
-          <ConfigurationCard
-            title="Colores"
-            description="Personaliza la paleta de colores"
-          >
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Color de Encabezado
-                </label>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="color"
-                    value={currentSettings.headerColor}
-                    onChange={(e) => updateSetting('headerColor', e.target.value)}
-                    className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={currentSettings.headerColor}
-                    onChange={(e) => updateSetting('headerColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    placeholder="#2563eb"
-                  />
+            </button>
+            {expandedSections.includes('logo') && (
+              <div className="px-6 pb-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="pt-4">
+                  <LogoConfigPanel config={extendedConfig.logo} onChange={updateLogoConfig} />
                 </div>
               </div>
+            )}
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Color de Texto
-                </label>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="color"
-                    value={currentSettings.textColor}
-                    onChange={(e) => updateSetting('textColor', e.target.value)}
-                    className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={currentSettings.textColor}
-                    onChange={(e) => updateSetting('textColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    placeholder="#374151"
-                  />
+          {/* Watermark Configuration */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => toggleSection('watermark')}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Eye className="w-5 h-5 text-purple-600" />
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Marca de Agua</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Texto o imagen de fondo</p>
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Color de Bordes
-                </label>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="color"
-                    value={currentSettings.borderColor}
-                    onChange={(e) => updateSetting('borderColor', e.target.value)}
-                    className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={currentSettings.borderColor}
-                    onChange={(e) => updateSetting('borderColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    placeholder="#e5e7eb"
-                  />
+              {expandedSections.includes('watermark') ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSections.includes('watermark') && (
+              <div className="px-6 pb-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="pt-4">
+                  <WatermarkConfigPanel config={extendedConfig.watermark} onChange={updateWatermarkConfig} />
                 </div>
               </div>
-            </div>
-          </ConfigurationCard>
+            )}
+          </div>
 
-          {/* Template Actions */}
-          <ConfigurationCard
-            title="Plantillas"
-            description="Importar y exportar diseños personalizados"
-          >
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={exportTemplate}
-                  className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-                >
-                  <Download className="w-5 h-5" />
-                  <span>Exportar</span>
-                </button>
-                
-                <label className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors cursor-pointer">
-                  <Upload className="w-5 h-5" />
-                  <span>Importar</span>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={importTemplate}
-                    className="sr-only"
-                  />
-                </label>
+          {/* Footer Configuration */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => toggleSection('footer')}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-green-600" />
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Pie de Página</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Texto personalizado al final</p>
+                </div>
               </div>
-              
-              <button
-                onClick={resetToDefault}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                Restaurar por Defecto
-              </button>
-            </div>
-          </ConfigurationCard>
+              {expandedSections.includes('footer') ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSections.includes('footer') && (
+              <div className="px-6 pb-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="pt-4">
+                  <FooterConfigPanel config={extendedConfig.footer} onChange={updateFooterConfig} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Document Fields Configuration */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => toggleSection('documentFields')}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Receipt className="w-5 h-5 text-orange-600" />
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Campos del Documento</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Información adicional del comprobante</p>
+                </div>
+              </div>
+              {expandedSections.includes('documentFields') ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSections.includes('documentFields') && (
+              <div className="px-6 pb-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="pt-4">
+                  <DocumentFieldsConfigPanel config={extendedConfig.documentFields} onChange={updateDocumentFieldsConfig} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Product Fields Configuration */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => toggleSection('productFields')}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Printer className="w-5 h-5 text-emerald-600" />
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Columnas de Productos</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Campos de la tabla de productos</p>
+                </div>
+              </div>
+              {expandedSections.includes('productFields') ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSections.includes('productFields') && (
+              <div className="px-6 pb-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="pt-4">
+                  <ProductFieldsConfigPanel config={extendedConfig.productFields} onChange={updateProductFieldsConfig} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* General Settings (Collapsed) */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => toggleSection('general')}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Monitor className="w-5 h-5 text-gray-600" />
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Configuración General</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Tipografía, colores y plantillas</p>
+                </div>
+              </div>
+              {expandedSections.includes('general') ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSections.includes('general') && (
+              <div className="px-6 pb-6 border-t border-gray-200 dark:border-gray-700 space-y-6">
+                <div className="pt-4">
+                  <div className="space-y-4">
+                    <SettingsToggle
+                      enabled={currentSettings.showCompanyInfo}
+                      onToggle={(enabled) => updateSetting('showCompanyInfo', enabled)}
+                      label="Mostrar Información de Empresa"
+                      description="RUC, dirección y datos de contacto"
+                    />
+
+                    {activeDesign === 'A4' && (
+                      <SettingsToggle
+                        enabled={currentSettings.showBorder}
+                        onToggle={(enabled) => updateSetting('showBorder', enabled)}
+                        label="Mostrar Bordes"
+                        description="Agregar bordes decorativos al comprobante"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Typography Section */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-4">Tipografía</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Familia de Fuente
+                      </label>
+                      <select
+                        value={currentSettings.fontFamily}
+                        onChange={(e) => updateSetting('fontFamily', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      >
+                        <option value="Arial">Arial</option>
+                        <option value="Helvetica">Helvetica</option>
+                        <option value="Times">Times New Roman</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Tamaño de Fuente
+                      </label>
+                      <select
+                        value={currentSettings.fontSize}
+                        onChange={(e) => updateSetting('fontSize', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      >
+                        <option value="small">Pequeño</option>
+                        <option value="medium">Mediano</option>
+                        <option value="large">Grande</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Colors Section */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-4">Colores</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Color de Encabezado
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          value={currentSettings.headerColor}
+                          onChange={(e) => updateSetting('headerColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={currentSettings.headerColor}
+                          onChange={(e) => updateSetting('headerColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                          placeholder="#2563eb"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Color de Texto
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          value={currentSettings.textColor}
+                          onChange={(e) => updateSetting('textColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={currentSettings.textColor}
+                          onChange={(e) => updateSetting('textColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                          placeholder="#374151"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Color de Bordes
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          value={currentSettings.borderColor}
+                          onChange={(e) => updateSetting('borderColor', e.target.value)}
+                          className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={currentSettings.borderColor}
+                          onChange={(e) => updateSetting('borderColor', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                          placeholder="#e5e7eb"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Template Actions Section */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-4">Plantillas</h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        onClick={exportTemplate}
+                        className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                      >
+                        <Download className="w-5 h-5" />
+                        <span>Exportar</span>
+                      </button>
+
+                      <label className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors cursor-pointer">
+                        <Upload className="w-5 h-5" />
+                        <span>Importar</span>
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={importTemplate}
+                          className="sr-only"
+                        />
+                      </label>
+                    </div>
+
+                    <button
+                      onClick={resetToDefault}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Restaurar por Defecto
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Preview Panel */}
