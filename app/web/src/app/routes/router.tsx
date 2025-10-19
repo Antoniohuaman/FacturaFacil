@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import AppShell from "../layouts/AppShell";
+import { authRoutes } from "../../features/autenticacion/routes";
 
 // Pages por módulo - Comprobantes
 import ComprobantesTabs from "../../features/comprobantes-electronicos/pages/ComprobantesTabs";
@@ -27,6 +28,10 @@ const DocumentosPage = lazy(() => import("../../features/documentos-comerciales/
 import RouteErrorBoundary from "./RouteErrorBoundary";
 
 export const router = createBrowserRouter([
+  // Rutas de autenticación (públicas)
+  ...authRoutes,
+
+  // Rutas de la aplicación (protegidas)
   {
     element: <AppShell />,
     errorElement: <RouteErrorBoundary />,

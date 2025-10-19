@@ -4,7 +4,9 @@
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
       "Bash(tree:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npm install)",
+      "Bash(npx tsc --noEmit)"
     ],
     "deny": [],
     "ask": []
