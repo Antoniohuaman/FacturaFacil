@@ -12,10 +12,12 @@ export function LoginPage() {
 
   // Redirigir si ya está autenticado
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/app/dashboard', { replace: true });
+    if (isAuthenticated && status === 'authenticated') {
+      navigate('/', { replace: true });
     } else if (status === 'requires_workspace') {
       navigate('/auth/context', { replace: true });
+    } else if (status === 'requires_2fa') {
+      navigate('/auth/verify-2fa', { replace: true });
     }
   }, [isAuthenticated, status, navigate]);
 

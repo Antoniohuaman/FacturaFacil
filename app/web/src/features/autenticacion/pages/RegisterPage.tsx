@@ -7,6 +7,7 @@ import { AuthLayout } from '../layouts/AuthLayout';
 import { EmailInput } from '../components/EmailInput';
 import { PasswordInput } from '../components/PasswordInput';
 import { usePasswordStrength } from '../hooks/usePasswordStrength';
+import { authRepository } from '../services/AuthRepository';
 import {
   registerStep1Schema,
   registerStep2Schema,
@@ -85,11 +86,26 @@ export function RegisterPage() {
       setIsLoading(true);
       setError(null);
 
-      // TODO: Llamar al authRepository.register(completeData)
-      console.log('Datos de registro:', completeData);
+      // Llamar al authRepository para registrar al usuario
+      const result = await authRepository.register({
+        nombre: completeData.nombre,
+        apellido: completeData.apellido,
+        celular: completeData.celular,
+        email: completeData.email,
+        password: completeData.password,
+        ruc: completeData.ruc,
+        razonSocial: completeData.razonSocial,
+        nombreComercial: completeData.nombreComercial,
+        direccion: completeData.direccion,
+        telefono: completeData.telefono,
+        regimen: completeData.regimen,
+        actividadEconomica: completeData.actividadEconomica,
+      });
 
-      // Simulación - eliminar cuando tengas el backend
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (!result.success) {
+        setError(result.error || 'Error al crear la cuenta');
+        return;
+      }
 
       // Redirigir al login con mensaje de éxito
       navigate('/auth/login?registered=true');
@@ -229,6 +245,21 @@ export function RegisterPage() {
                     <p className="mt-1.5 text-sm text-red-600">{errors.apellido.message as string}</p>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Celular
+                </label>
+                <input
+                  type="tel"
+                  {...register('celular')}
+                  className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="987654321"
+                />
+                {errors.celular && (
+                  <p className="mt-1.5 text-sm text-red-600">{errors.celular.message as string}</p>
+                )}
               </div>
 
               <EmailInput

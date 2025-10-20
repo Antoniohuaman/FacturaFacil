@@ -21,6 +21,12 @@ export const registerStep1Schema = z.object({
     .max(50, 'El apellido no puede exceder 50 caracteres')
     .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, 'El apellido solo puede contener letras'),
 
+  celular: z
+    .string()
+    .min(9, 'El celular debe tener al menos 9 dígitos')
+    .max(15, 'El celular no puede exceder 15 caracteres')
+    .regex(/^[0-9+\-\s()]+$/, 'Celular inválido'),
+
   email: z
     .string()
     .min(1, 'El correo es requerido')
@@ -117,6 +123,12 @@ export const registerCompleteSchema = z.object({
     .min(2, 'El apellido debe tener al menos 2 caracteres')
     .max(50, 'El apellido no puede exceder 50 caracteres')
     .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]+$/, 'El apellido solo puede contener letras'),
+
+  celular: z
+    .string()
+    .min(9, 'El celular debe tener al menos 9 dígitos')
+    .max(15, 'El celular no puede exceder 15 caracteres')
+    .regex(/^[0-9+\\-\\s()]+$/, 'Celular inválido'),
 
   email: z
     .string()

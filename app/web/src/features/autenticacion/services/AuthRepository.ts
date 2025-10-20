@@ -20,6 +20,41 @@ import type { LoginCredentials, AuthResponse } from '../types/auth.types';
 
 class AuthRepository {
   /**
+   * Registro de nuevo usuario
+   */
+  async register(data: {
+    nombre: string;
+    apellido: string;
+    celular: string;
+    email: string;
+    password: string;
+    ruc: string;
+    razonSocial: string;
+    nombreComercial?: string;
+    direccion: string;
+    telefono?: string;
+    regimen: string;
+    actividadEconomica?: string;
+  }): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      const response = await authClient.register(data);
+      return {
+        success: true,
+        message: response.message
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Error al crear la cuenta'
+      };
+    }
+  }
+
+  /**
    * Login completo con manejo de 2FA y contexto
    */
   async login(credentials: LoginCredentials): Promise<{
