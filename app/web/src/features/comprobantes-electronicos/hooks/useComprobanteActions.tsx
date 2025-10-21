@@ -1,11 +1,13 @@
 import { useCallback } from 'react';
 import type { CartItem } from '../models/comprobante.types';
-import { useToast } from './useToast';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { MedioPago } from '../../control-caja/models/Caja';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
-import { useComprobanteContext } from '../context/ComprobanteContext';
+import { useComprobanteContext } from '../lista-comprobantes/contexts/ComprobantesListContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
+
+// TODO: Integrar con sistema de toasts global (ToastContainer)
+// Por ahora usamos console para logging
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -24,7 +26,14 @@ interface ComprobanteData {
 }
 
 export const useComprobanteActions = () => {
-  const toast = useToast();
+  // Mock temporal de toast hasta integrar ToastContainer
+  const toast = {
+    success: (title: string, message: string, _options?: any) => console.log('✅', title, message),
+    error: (title: string, message: string, _options?: any) => console.error('❌', title, message),
+    warning: (title: string, message: string, _options?: any) => console.warn('⚠️', title, message),
+    info: (title: string, message: string, _options?: any) => console.info('ℹ️', title, message),
+  };
+
   const { agregarMovimiento, status: cajaStatus } = useCaja();
   const { addMovimiento: addMovimientoStock } = useProductStore();
   const { addComprobante } = useComprobanteContext();
@@ -366,5 +375,7 @@ export const useComprobanteActions = () => {
 
     // Toast utilities
     ...toast,
+    toasts: [], // Mock: array vacío para compatibilidad
+    removeToast: (id: string) => console.log('Remove toast:', id), // Mock
   };
 };

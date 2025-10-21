@@ -4,7 +4,7 @@ import Header from "../components/Header";
 import SideNav from "../components/SideNav";
 import Footer from "../components/Footer";
 import { ConfigurationProvider } from "../../features/configuracion-sistema/context/ConfigurationContext";
-import { ComprobanteProvider } from "../../features/comprobantes-electronicos/context/ComprobanteContext";
+import { ComprobanteProvider } from "../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 import { ThemeProvider } from "../../contexts/ThemeContext";
 import { UserSessionProvider } from "../../contexts/UserSessionContext";
 

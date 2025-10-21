@@ -20,7 +20,6 @@ import {
   User,
   Building,
   RefreshCw,
-  Receipt,
   Sparkles
 } from 'lucide-react';
 import { useDocumentos } from '../../hooks/useDocumentos';

@@ -15,7 +15,7 @@ import {
   AlertCircle,
   Sparkles
 } from 'lucide-react';
-import type { Cotizacion, NotaVenta, TipoDocumento } from '../../models/types';
+import type { Cotizacion, NotaVenta } from '../../models/types';
 
 interface ConversionPreviewModalProps {
   isOpen: boolean;
@@ -35,8 +35,7 @@ export function ConversionPreviewModal({
   onClose,
   onConfirm,
   documentoOrigen,
-  tipoDestino,
-  loading = false
+  tipoDestino
 }: ConversionPreviewModalProps) {
   const [confirmando, setConfirmando] = useState(false);
 

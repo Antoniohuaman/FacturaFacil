@@ -3,31 +3,31 @@
 // Preserva toda la funcionalidad original con mejor UX
 // ===================================================================
 
-// Importar hooks customizados (SIN CAMBIOS)
-import { useCart } from '../hooks/useCart';
-import { usePayment } from '../hooks/usePayment';
-import { useCurrency } from '../hooks/useCurrency';
+// Importar hooks del form-core y hooks específicos
+import { useCart } from '../punto-venta/hooks/useCart';
+import { usePayment } from '../shared/form-core/hooks/usePayment';
+import { useCurrency } from '../shared/form-core/hooks/useCurrency';
 import { useDrafts } from '../hooks/useDrafts';
-import { useDocumentType } from '../hooks/useDocumentType';
+import { useDocumentType } from '../shared/form-core/hooks/useDocumentType';
 import { usePreview } from '../hooks/usePreview';
 import { useComprobanteState } from '../hooks/useComprobanteState';
 import { useComprobanteActions } from '../hooks/useComprobanteActions';
-import { useFieldsConfiguration } from '../hooks/useFieldsConfiguration';
+import { useFieldsConfiguration } from '../shared/form-core/hooks/useFieldsConfiguration';
 
-// Importar componentes (TODOS preservados)
-import ProductsSection from '../components/ProductsSection';
-import DocumentInfoCard from '../components/DocumentInfoCard';
-import ClienteSection from '../components/ClienteSection';
-import NotesSection from '../components/NotesSection';
-import ActionButtonsSection from '../components/ActionButtonsSection';
-import FieldsConfigModal from '../components/FieldsConfigModal';
-import { Toast } from '../components/Toast';
-import { ToastContainer } from '../components/ToastContainer';
-import { DraftModal } from '../components/DraftModal';
-import { PaymentModal } from '../components/PaymentModal';
-import { PreviewModal } from '../components/PreviewModal';
-import { ErrorBoundary } from '../components/ErrorBoundary';
-import { SuccessModal } from '../components/SuccessModal';
+// Importar componentes del form-core
+import ProductsSection from '../shared/form-core/components/ProductsSection';
+import DocumentInfoCard from '../shared/form-core/components/DocumentInfoCard';
+import ClienteSection from '../shared/form-core/components/ClienteSection';
+import NotesSection from '../shared/form-core/components/NotesSection';
+import ActionButtonsSection from '../shared/form-core/components/ActionButtonsSection';
+import FieldsConfigModal from '../shared/form-core/components/FieldsConfigModal';
+import { Toast } from '../shared/ui/Toast/Toast';
+import { ToastContainer } from '../shared/ui/Toast/ToastContainer';
+import { DraftModal } from '../shared/modales/DraftModal';
+import { PaymentModal } from '../shared/modales/PaymentModal';
+import { PreviewModal } from '../shared/modales/PreviewModal';
+import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
+import { SuccessModal } from '../shared/modales/SuccessModal';
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, LayoutList } from 'lucide-react';

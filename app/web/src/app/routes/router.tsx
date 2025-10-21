@@ -4,11 +4,11 @@ import AppShell from "../layouts/AppShell";
 import { authRoutes } from "../../features/autenticacion/routes";
 
 // Pages por módulo - Comprobantes
-import ComprobantesTabs from "../../features/comprobantes-electronicos/pages/ComprobantesTabs";
+import ComprobantesTabs from "../../features/comprobantes-electronicos/lista-comprobantes/pages/ComprobantesTabs";
 import { SelectorModoEmision } from "../../features/comprobantes-electronicos/pages/SelectorModoEmision";
 import EmisionTradicional from "../../features/comprobantes-electronicos/pages/EmisionTradicional";
-import PuntoVenta from "../../features/comprobantes-electronicos/pages/PuntoVenta";
-import { PuntoVentaHome } from "../../features/comprobantes-electronicos/pages/PuntoVentaHome";
+import PuntoVenta from "../../features/comprobantes-electronicos/punto-venta/pages/PuntoVenta";
+import { PuntoVentaHome } from "../../features/comprobantes-electronicos/punto-venta/pages/PuntoVentaHome";
 import ImportarClientesPage from "../../features/gestion-clientes/pages/ImportarClientesPage";
 import HistorialCompras from "../../features/gestion-clientes/pages/HistorialCompras";
 import ControlCajaHome from "../../features/control-caja/pages/Home";

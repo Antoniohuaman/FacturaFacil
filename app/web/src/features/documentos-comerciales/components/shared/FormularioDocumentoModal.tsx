@@ -9,23 +9,23 @@ import type { TipoComprobante } from '../../../comprobantes-electronicos/models/
 import { useCurrentEstablishmentId, useCurrentCompanyId } from '../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 
-// Importar hooks del módulo de comprobantes
-import { useCart } from '../../../comprobantes-electronicos/hooks/useCart';
-import { usePayment } from '../../../comprobantes-electronicos/hooks/usePayment';
-import { useCurrency } from '../../../comprobantes-electronicos/hooks/useCurrency';
+// Importar hooks desde shared/form-core
+import { useCart } from '../../../comprobantes-electronicos/punto-venta/hooks/useCart';
+import { usePayment } from '../../../comprobantes-electronicos/shared/form-core/hooks/usePayment';
+import { useCurrency } from '../../../comprobantes-electronicos/shared/form-core/hooks/useCurrency';
 import { useComprobanteState } from '../../../comprobantes-electronicos/hooks/useComprobanteState';
-import { useFieldsConfiguration } from '../../../comprobantes-electronicos/hooks/useFieldsConfiguration';
+import { useFieldsConfiguration } from '../../../comprobantes-electronicos/shared/form-core/hooks/useFieldsConfiguration';
 import { usePreview } from '../../../comprobantes-electronicos/hooks/usePreview';
 
-// Importar componentes del módulo de comprobantes
-import ProductsSection from '../../../comprobantes-electronicos/components/ProductsSection';
-import DocumentInfoCard from '../../../comprobantes-electronicos/components/DocumentInfoCard';
-import ClienteSection from '../../../comprobantes-electronicos/components/ClienteSection';
-import NotesSection from '../../../comprobantes-electronicos/components/NotesSection';
-import ActionButtonsSection from '../../../comprobantes-electronicos/components/ActionButtonsSection';
-import { PreviewModal } from '../../../comprobantes-electronicos/components/PreviewModal';
-import FieldsConfigModal from '../../../comprobantes-electronicos/components/FieldsConfigModal';
-import { ErrorBoundary } from '../../../comprobantes-electronicos/components/ErrorBoundary';
+// Importar componentes desde shared/form-core y shared/modales
+import ProductsSection from '../../../comprobantes-electronicos/shared/form-core/components/ProductsSection';
+import DocumentInfoCard from '../../../comprobantes-electronicos/shared/form-core/components/DocumentInfoCard';
+import ClienteSection from '../../../comprobantes-electronicos/shared/form-core/components/ClienteSection';
+import NotesSection from '../../../comprobantes-electronicos/shared/form-core/components/NotesSection';
+import ActionButtonsSection from '../../../comprobantes-electronicos/shared/form-core/components/ActionButtonsSection';
+import { PreviewModal } from '../../../comprobantes-electronicos/shared/modales/PreviewModal';
+import FieldsConfigModal from '../../../comprobantes-electronicos/shared/form-core/components/FieldsConfigModal';
+import { ErrorBoundary } from '../../../comprobantes-electronicos/shared/ui/ErrorBoundary';
 
 interface FormularioDocumentoModalProps {
   isOpen: boolean;
