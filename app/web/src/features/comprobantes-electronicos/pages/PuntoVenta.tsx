@@ -11,6 +11,7 @@ import { useDocumentType } from '../hooks/useDocumentType';
 import { useComprobanteState } from '../hooks/useComprobanteState';
 import { useComprobanteActions } from '../hooks/useComprobanteActions';
 import { useAvailableProducts } from '../hooks/useAvailableProducts';
+import { useCurrentEstablishmentId, useCurrentCompanyId, useUserSession } from '../../../contexts/UserSessionContext';
 
 // Importar componentes POS (TODOS preservados)
 import { ProductGrid } from '../components/ProductGrid';
@@ -23,11 +24,17 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { SuccessModal } from '../components/SuccessModal';
 
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, LayoutGrid, MapPin } from 'lucide-react';
 import { useState } from 'react';
 
 const PuntoVenta = () => {
   const navigate = useNavigate();
+
+  // Obtener establecimiento y empresa del usuario actual
+  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentCompanyId = useCurrentCompanyId();
+  const { session } = useUserSession();
+  const currentEstablishment = session?.currentEstablishment;
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItemPrice, clearCart } = useCart();
@@ -57,9 +64,8 @@ const PuntoVenta = () => {
   const [lastComprobante, setLastComprobante] = useState<any>(null);
 
   // Obtener productos disponibles del catálogo (filtrados por establecimiento)
-  // TODO: Obtener establecimientoId del contexto de usuario/configuración cuando esté disponible
   const availableProducts = useAvailableProducts({
-    // establecimientoId: currentEstablecimientoId, // Descomentar cuando se implemente
+    establecimientoId: currentEstablishmentId,
     soloConStock: false // Cambiar a true si solo se quieren mostrar productos con stock
   });
 
@@ -95,7 +101,9 @@ const PuntoVenta = () => {
         serieSeleccionada,
         cartItems,
         totals,
-        formaPago
+        formaPago,
+        establishmentId: currentEstablishmentId,
+        companyId: currentCompanyId
       });
 
       if (success) {
@@ -170,6 +178,18 @@ const PuntoVenta = () => {
 
               {/* Right side - Estado de caja mejorado */}
               <div className="flex items-center space-x-3">
+                {/* Establecimiento actual */}
+                {currentEstablishment && (
+                  <div className="hidden md:flex items-center space-x-2 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                    <div className="text-sm">
+                      <span className="text-blue-900 font-medium">{currentEstablishment.code}</span>
+                      <span className="text-blue-600 mx-1">-</span>
+                      <span className="text-blue-700">{currentEstablishment.name}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium border-2 ${
                   cajaStatus === 'abierta'
                     ? 'bg-green-50 text-green-700 border-green-200'

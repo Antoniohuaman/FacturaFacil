@@ -6,15 +6,17 @@ import Footer from "../components/Footer";
 import { ConfigurationProvider } from "../../features/configuracion-sistema/context/ConfigurationContext";
 import { ComprobanteProvider } from "../../features/comprobantes-electronicos/context/ComprobanteContext";
 import { ThemeProvider } from "../../contexts/ThemeContext";
+import { UserSessionProvider } from "../../contexts/UserSessionContext";
 
 export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
     <ThemeProvider>
-      <ConfigurationProvider>
-        <ComprobanteProvider>
-          <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden">
+      <UserSessionProvider>
+        <ConfigurationProvider>
+          <ComprobanteProvider>
+            <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden">
           {/* Header fijo */}
           <div className="flex-shrink-0 z-50">
             <Header 
@@ -38,8 +40,9 @@ export default function AppShell() {
             </div>
           </div>
         </div>
-        </ComprobanteProvider>
-      </ConfigurationProvider>
+          </ComprobanteProvider>
+        </ConfigurationProvider>
+      </UserSessionProvider>
     </ThemeProvider>
   );
 }

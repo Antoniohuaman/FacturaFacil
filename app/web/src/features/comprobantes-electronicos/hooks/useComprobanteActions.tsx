@@ -5,6 +5,7 @@ import { useCaja } from '../../control-caja/context/CajaContext';
 import type { MedioPago } from '../../control-caja/models/Caja';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useComprobanteContext } from '../context/ComprobanteContext';
+import { useUserSession } from '../../../contexts/UserSessionContext';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -18,6 +19,8 @@ interface ComprobanteData {
   observaciones?: string;
   notaInterna?: string;
   formaPago?: string;
+  establishmentId?: string;
+  companyId?: string;
 }
 
 export const useComprobanteActions = () => {
@@ -25,6 +28,7 @@ export const useComprobanteActions = () => {
   const { agregarMovimiento, status: cajaStatus } = useCaja();
   const { addMovimiento: addMovimientoStock } = useProductStore();
   const { addComprobante } = useComprobanteContext();
+  const { session } = useUserSession();
 
   /**
    * Mapea las formas de pago de comprobantes a los medios de pago de caja
@@ -127,6 +131,10 @@ export const useComprobanteActions = () => {
 
       // ✅ DESCONTAR STOCK DE LOS PRODUCTOS VENDIDOS
       try {
+        // Obtener datos del establecimiento desde la sesión o datos recibidos
+        const establishmentId = data.establishmentId || session?.currentEstablishmentId;
+        const establishment = session?.currentEstablishment;
+
         for (const item of data.cartItems) {
           // Solo descontar stock si el producto requiere control de stock
           if (item.requiresStockControl) {
@@ -138,9 +146,9 @@ export const useComprobanteActions = () => {
               `Venta en ${data.tipoComprobante} ${numeroComprobante}`,
               numeroComprobante,
               undefined, // ubicación
-              undefined, // establecimientoId
-              undefined, // establecimientoCodigo
-              undefined  // establecimientoNombre
+              establishmentId,
+              establishment?.code,
+              establishment?.name
             );
           }
         }

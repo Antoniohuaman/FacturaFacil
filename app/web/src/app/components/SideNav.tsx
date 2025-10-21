@@ -2,6 +2,7 @@
 import { NavLink } from "react-router-dom";
 import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings, Receipt } from "lucide-react";
 import CompanySelector from "../../components/CompanySelector";
+import { useUserSession } from "../../contexts/UserSessionContext";
 
 interface SideNavProps {
   collapsed?: boolean;
@@ -66,8 +67,21 @@ const secondaryItems = [
 ];
 
 export default function SideNav({ collapsed = false }: SideNavProps) {
+  const { session } = useUserSession();
+  const currentCompany = session?.currentCompany;
+  const currentEstablishment = session?.currentEstablishment;
+
+  // Obtener iniciales de la empresa para el botón compacto
+  const companyName = currentCompany?.tradeName || currentCompany?.businessName || 'Empresa';
+  const companyInitials = companyName
+    .split(' ').slice(0, 2).map((word: string) => word[0]).join('').toUpperCase();
+
+  const companyTitle = currentCompany && currentEstablishment
+    ? `${companyName} - ${currentEstablishment.name}`
+    : 'Sin empresa seleccionada';
+
   return (
-    <aside 
+    <aside
       className={`h-full flex flex-col bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700 transition-all duration-300 shadow-sm overflow-hidden`}
       onWheel={(e) => {
         // Prevenir el scroll del contenido principal cuando se hace scroll en el sidebar
@@ -75,7 +89,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
         const scrollTop = sidebar.scrollTop;
         const scrollHeight = sidebar.scrollHeight;
         const clientHeight = sidebar.clientHeight;
-        
+
         // Si estamos en el tope y queremos subir más, o en el fondo y queremos bajar más
         if ((scrollTop === 0 && e.deltaY < 0) || (scrollTop >= scrollHeight - clientHeight && e.deltaY > 0)) {
           e.preventDefault();
@@ -101,14 +115,14 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
         /* Versión compacta del selector cuando está contraído */
         <div className="p-2 border-b border-gray-100/50 dark:border-gray-700/50 flex justify-center">
           <div className="relative">
-            <button 
+            <button
               className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm transition-all duration-200"
-              title="Mi Empresa SAC - Tienda Sur"
+              title={companyTitle}
             >
-              ME
+              {companyInitials}
             </button>
             {/* Indicador de empresa activa */}
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+            {session && <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
           </div>
         </div>
       )}

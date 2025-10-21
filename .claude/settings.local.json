@@ -6,7 +6,9 @@
       "Bash(tree:*)",
       "Bash(cat:*)",
       "Bash(npm install)",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(xargs ls -la)",
+      "Bash(find \"c:\\FacturaFacil\\app\\web\\src\" -type f ( -name \"*establish*\" -o -name \"*tienda*\" -o -name \"*sucursal*\" -o -name \"*branch*\" ))"
     ],
     "deny": [],
     "ask": []

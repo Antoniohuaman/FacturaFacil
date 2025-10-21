@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import { useNavigate } from 'react-router-dom'; // Eliminado porque no se usa
-import { Search, Filter, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { useComprobanteContext } from '../context/ComprobanteContext';
 
 function getToday() {
@@ -274,7 +274,30 @@ const InvoiceListDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {paginatedInvoices.map((invoice, index) => (
+                {paginatedInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={massPrintMode ? 10 : 9} className="px-6 py-12">
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <FileText className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                          No se encontraron comprobantes
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-md">
+                          {dateFrom || dateTo
+                            ? 'No hay comprobantes en el rango de fechas seleccionado. Intenta ajustar los filtros de fecha.'
+                            : 'Aún no se han emitido comprobantes. Comienza creando tu primer comprobante desde Punto de Venta o Emisión Tradicional.'}
+                        </p>
+                        <button
+                          onClick={() => navigate('/app/comprobantes/nuevo')}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          Crear comprobante
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedInvoices.map((invoice, index) => (
                   <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${massPrintMode && selectedInvoices.includes(invoice.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                     {massPrintMode && (
                       <td className="px-2 py-4">
@@ -322,7 +345,8 @@ const InvoiceListDashboard = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
       {/* Barra de acciones masivas para impresión */}
               </tbody>
             </table>

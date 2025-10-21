@@ -66,7 +66,7 @@ export interface DocumentType {
   code: string; // SUNAT code (01, 03, 07, 08, etc.)
   name: string;
   shortName: string;
-  category: 'INVOICE' | 'RECEIPT' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | 'GUIDE' | 'OTHER';
+  category: 'INVOICE' | 'RECEIPT' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | 'GUIDE' | 'QUOTATION' | 'SALES_NOTE' | 'OTHER';
   
   // Document properties
   properties: {

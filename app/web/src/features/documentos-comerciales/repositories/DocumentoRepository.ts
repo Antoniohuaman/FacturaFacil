@@ -486,6 +486,8 @@ export class DocumentoRepository implements IDocumentoRepository {
     ];
 
     // Crear cotizaciones de ejemplo
+    // NOTA: Los siguientes datos son MOCK para demostración inicial
+    // Los documentos reales creados desde los formularios usarán el establishmentId dinámico del usuario
     const cotizacion1: Cotizacion = {
       id: 'COT001',
       tipo: 'COTIZACION',
@@ -493,8 +495,8 @@ export class DocumentoRepository implements IDocumentoRepository {
       fechaEmision: '2025-01-15',
       validoHasta: '2025-01-30',
       moneda: 'PEN',
-      establecimientoId: 'EST001',
-      establecimientoNombre: 'Tienda Principal',
+      establecimientoId: 'est-1', // Mock data - los nuevos documentos usan establishmentId real
+      establecimientoNombre: 'Establecimiento Principal',
       vendedorId: 'VEN001',
       vendedorNombre: 'Carlos Mendoza',
       formaPago: 'CREDITO',
@@ -517,8 +519,8 @@ export class DocumentoRepository implements IDocumentoRepository {
       validoHasta: '2025-01-29',
       moneda: 'USD',
       tipoCambio: 3.75,
-      establecimientoId: 'EST001',
-      establecimientoNombre: 'Tienda Principal',
+      establecimientoId: 'est-1', // Mock data
+      establecimientoNombre: 'Establecimiento Principal',
       vendedorId: 'VEN002',
       vendedorNombre: 'Ana García',
       formaPago: 'CONTADO',
@@ -537,8 +539,8 @@ export class DocumentoRepository implements IDocumentoRepository {
       serieNumero: 'NV001-00000001',
       fechaEmision: '2025-01-15',
       moneda: 'PEN',
-      establecimientoId: 'EST001',
-      establecimientoNombre: 'Tienda Principal',
+      establecimientoId: 'est-1', // Mock data
+      establecimientoNombre: 'Establecimiento Principal',
       vendedorId: 'VEN001',
       vendedorNombre: 'Carlos Mendoza',
       formaPago: 'CREDITO',

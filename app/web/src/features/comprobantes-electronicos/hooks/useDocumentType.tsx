@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useCurrentEstablishmentId } from '../../../contexts/UserSessionContext';
 import type { TipoComprobante } from '../models/comprobante.types';
 
 export interface UseDocumentTypeReturn {
@@ -28,14 +29,15 @@ export interface UseDocumentTypeReturn {
 export const useDocumentType = (): UseDocumentTypeReturn => {
   const location = useLocation();
   const { state } = useConfigurationContext();
-  
+  const currentEstablishmentId = useCurrentEstablishmentId();
+
   // ===================================================================
   // SERIES DINÁMICAS DESDE CONFIGURACIÓN
   // ===================================================================
-  
+
   /**
    * Obtener series desde configuración SOLO si existe empresa configurada
-   * NO usar fallback - si no hay empresa, retornar array vacío
+   * FILTRAR por establecimiento actual del usuario
    */
   const availableSeries = useMemo(() => {
     // Verificar si existe empresa configurada
@@ -43,17 +45,23 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
       // Sin empresa configurada = sin series disponibles
       return [];
     }
-    
+
     if (state.series.length > 0) {
       // Usar series configuradas (del onboarding o configuración manual)
+      // FILTRAR SOLO las series del establecimiento actual
       return state.series
-        .filter(s => s.isActive && s.status === 'ACTIVE')
+        .filter(s => {
+          const isActive = s.isActive && s.status === 'ACTIVE';
+          // Si hay establecimiento seleccionado, filtrar por ese establecimiento
+          const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
+          return isActive && belongsToEstablishment;
+        })
         .map(s => s.series);
     }
-    
+
     // Si hay empresa pero no hay series, retornar vacío (no usar fallback)
     return [];
-  }, [state.series, state.company]);
+  }, [state.series, state.company, currentEstablishmentId]);
   
   // ===================================================================
   // FUNCIONES DE UTILIDAD
@@ -61,6 +69,7 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
 
   /**
    * Obtener series disponibles para un tipo específico
+   * FILTRADAS por establecimiento actual
    */
   const getSeriesParaTipo = useCallback((tipo: TipoComprobante): string[] => {
     // Filtrar por código de documento
@@ -69,19 +78,31 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
     if (tipo === 'boleta') {
       if (state.series.length > 0) {
         return state.series
-          .filter(s => s.isActive && s.status === 'ACTIVE' && s.documentType.code === '03')
+          .filter(s => {
+            const isActive = s.isActive && s.status === 'ACTIVE';
+            const isCorrectType = s.documentType.code === '03';
+            // Filtrar por establecimiento
+            const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
+            return isActive && isCorrectType && belongsToEstablishment;
+          })
           .map(s => s.series);
       }
       return availableSeries.filter(s => s.startsWith('B'));
     } else {
       if (state.series.length > 0) {
         return state.series
-          .filter(s => s.isActive && s.status === 'ACTIVE' && s.documentType.code === '01')
+          .filter(s => {
+            const isActive = s.isActive && s.status === 'ACTIVE';
+            const isCorrectType = s.documentType.code === '01';
+            // Filtrar por establecimiento
+            const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
+            return isActive && isCorrectType && belongsToEstablishment;
+          })
           .map(s => s.series);
       }
       return availableSeries.filter(s => s.startsWith('F'));
     }
-  }, [state.series, availableSeries]);
+  }, [state.series, availableSeries, currentEstablishmentId]);
 
   /**
    * Obtener serie por defecto para un tipo específico

@@ -3,9 +3,11 @@
 // Reutiliza el formulario completo de EmisionTradicional para documentos
 // ===================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import type { TipoComprobante } from '../../../comprobantes-electronicos/models/comprobante.types';
+import { useCurrentEstablishmentId, useCurrentCompanyId } from '../../../../contexts/UserSessionContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 
 // Importar hooks del módulo de comprobantes
 import { useCart } from '../../../comprobantes-electronicos/hooks/useCart';
@@ -43,6 +45,11 @@ export const FormularioDocumentoModal: React.FC<FormularioDocumentoModalProps> =
   const [productSelectorKey] = useState(0);
   const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
 
+  // Obtener establecimiento y empresa del usuario actual
+  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentCompanyId = useCurrentCompanyId();
+  const { state: configState } = useConfigurationContext();
+
   // Usar los mismos hooks que EmisionTradicional
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals } = usePayment();
@@ -54,9 +61,48 @@ export const FormularioDocumentoModal: React.FC<FormularioDocumentoModalProps> =
     tipo === 'COTIZACION' ? 'cotizacion' : 'nota-venta'
   );
 
-  // Serie seleccionada (las series vienen de configuración)
-  const [serieSeleccionada, setSerieSeleccionada] = useState('COT-001'); // TODO: obtener de configuración
-  const [seriesFiltradas] = useState<string[]>(['COT-001', 'NV-001']);
+  // Obtener series disponibles para el establecimiento actual
+  // Filtrar SOLO las series que corresponden al tipo de documento
+  const seriesFiltradas = useMemo(() => {
+    if (!configState.company || !configState.company.ruc) {
+      return [];
+    }
+
+    // Determinar qué categoría de documento buscar según el tipo
+    const targetCategory = tipo === 'COTIZACION' ? 'QUOTATION' : 'SALES_NOTE';
+
+    return configState.series
+      .filter(s => {
+        const isActive = s.isActive && s.status === 'ACTIVE';
+        const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
+
+        // Detectar si es el tipo correcto de serie (por categoría, código o nombre)
+        const matchesCategory = s.documentType.category === targetCategory;
+        const matchesByCode = tipo === 'COTIZACION'
+          ? (s.documentType.code === 'COT' || s.series.startsWith('COT'))
+          : (s.documentType.code === 'NV' || s.series.startsWith('NV'));
+        const matchesByName = tipo === 'COTIZACION'
+          ? s.documentType.name.toLowerCase().includes('cotiz')
+          : s.documentType.name.toLowerCase().includes('nota de venta');
+
+        const isCorrectType = matchesCategory || matchesByCode || matchesByName;
+
+        return isActive && belongsToEstablishment && isCorrectType;
+      })
+      .map(s => s.series);
+  }, [configState.series, configState.company, currentEstablishmentId, tipo]);
+
+  // Serie seleccionada - usar la primera disponible
+  const [serieSeleccionada, setSerieSeleccionada] = useState(() => {
+    return seriesFiltradas.length > 0 ? seriesFiltradas[0] : '';
+  });
+
+  // Actualizar serie seleccionada cuando cambien las series filtradas
+  useEffect(() => {
+    if (seriesFiltradas.length > 0 && !seriesFiltradas.includes(serieSeleccionada)) {
+      setSerieSeleccionada(seriesFiltradas[0]);
+    }
+  }, [seriesFiltradas, serieSeleccionada]);
 
   const {
     observaciones, setObservaciones,
@@ -114,7 +160,10 @@ export const FormularioDocumentoModal: React.FC<FormularioDocumentoModalProps> =
         observaciones,
         notaInterna,
         formaPago,
-        moneda: currentCurrency
+        moneda: currentCurrency,
+        // Incluir IDs de establecimiento y empresa
+        establishmentId: currentEstablishmentId,
+        companyId: currentCompanyId
       };
 
       await onSave(data);

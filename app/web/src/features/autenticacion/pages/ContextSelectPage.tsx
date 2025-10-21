@@ -1,8 +1,10 @@
 // src/features/autenticacion/pages/ContextSelectPage.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { useAuth } from '../hooks';
+import { useUserSession } from '../../../contexts/UserSessionContext';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import type { Empresa, Establecimiento } from '../types/auth.types';
 
 /**
@@ -16,6 +18,8 @@ import type { Empresa, Establecimiento } from '../types/auth.types';
 export function ContextSelectPage() {
   const navigate = useNavigate();
   const { user, empresas, selectContext, isLoading } = useAuth();
+  const { setSession, updateAvailableEstablishments } = useUserSession();
+  const { state: configState, dispatch } = useConfigurationContext();
 
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(
     empresas.length === 1 ? empresas[0] : null
@@ -31,14 +35,414 @@ export function ContextSelectPage() {
     setSelectedEstablecimiento(principal || empresa.establecimientos[0] || null);
   };
 
+  // Sincronizar establecimientos desde configuración cuando se carga
+  useEffect(() => {
+    if (configState.establishments.length > 0 && selectedEmpresa) {
+      updateAvailableEstablishments(configState.establishments.filter(e => e.isActive));
+    }
+  }, [configState.establishments, selectedEmpresa, updateAvailableEstablishments]);
+
   const handleContinue = async () => {
-    if (!selectedEmpresa || !selectedEstablecimiento) return;
+    if (!selectedEmpresa || !selectedEstablecimiento || !user) return;
 
     try {
       await selectContext({
         empresaId: selectedEmpresa.id,
         establecimientoId: selectedEstablecimiento.id,
       });
+
+      // ===================================================================
+      // SINCRONIZAR DATOS DE EMPRESA A CONFIGURATIONCONTEXT
+      // ===================================================================
+      // Crear objeto Company con estructura correcta
+      const companyForConfig = {
+        id: selectedEmpresa.id,
+        ruc: selectedEmpresa.ruc,
+        businessName: selectedEmpresa.razonSocial,
+        tradeName: selectedEmpresa.nombreComercial || selectedEmpresa.razonSocial,
+        address: selectedEmpresa.direccion || '',
+        district: '',
+        province: '',
+        department: '',
+        postalCode: '',
+        phones: [],
+        emails: [],
+        website: undefined,
+        logo: selectedEmpresa.logo,
+        footerText: undefined,
+        economicActivity: '',
+        taxRegime: 'GENERAL' as const,
+        baseCurrency: 'PEN' as const,
+        legalRepresentative: {
+          name: '',
+          documentType: 'DNI' as const,
+          documentNumber: ''
+        },
+        digitalCertificate: undefined,
+        sunatConfiguration: {
+          isConfigured: false,
+          username: undefined,
+          environment: 'TESTING' as const,
+          lastSyncDate: undefined
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: selectedEmpresa.estado === 'activa'
+      };
+
+      // Si la empresa NO existe en ConfigurationContext, crearla
+      if (!configState.company || configState.company.ruc !== selectedEmpresa.ruc) {
+        dispatch({ type: 'SET_COMPANY', payload: companyForConfig });
+      }
+
+      // Si el establecimiento NO existe en ConfigurationContext, crearlo
+      const establishmentExists = configState.establishments.find(
+        est => est.code === selectedEstablecimiento.codigo
+      );
+
+      let fullEstablishment = establishmentExists;
+
+      if (!establishmentExists) {
+        const newEstablishment = {
+          id: selectedEstablecimiento.id,
+          code: selectedEstablecimiento.codigo,
+          name: selectedEstablecimiento.nombre,
+          address: selectedEstablecimiento.direccion || '',
+          district: '',
+          province: '',
+          department: '',
+          postalCode: '',
+          phone: undefined,
+          email: undefined,
+          isMainEstablishment: selectedEstablecimiento.esPrincipal || true,
+          businessHours: {
+            monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            wednesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            thursday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            friday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+            saturday: { isOpen: true, openTime: '09:00', closeTime: '13:00', is24Hours: false },
+            sunday: { isOpen: false, openTime: '00:00', closeTime: '00:00', is24Hours: false }
+          },
+          sunatConfiguration: {
+            isRegistered: true,
+            registrationDate: new Date(),
+            annexCode: '0000',
+            economicActivity: 'Comercio'
+          },
+          posConfiguration: {
+            hasPos: true,
+            terminalCount: 1,
+            printerConfiguration: {
+              hasPrinter: false,
+              printerType: 'THERMAL' as const,
+              paperSize: 'TICKET_80MM' as const,
+              isNetworkPrinter: false
+            },
+            cashDrawerConfiguration: {
+              hasCashDrawer: false,
+              openMethod: 'MANUAL' as const,
+              currency: 'PEN' as const
+            },
+            barcodeScanner: {
+              hasScanner: false,
+              scannerType: 'USB' as const
+            }
+          },
+          inventoryConfiguration: {
+            managesInventory: true,
+            isWarehouse: false,
+            allowNegativeStock: false,
+            autoTransferStock: false
+          },
+          financialConfiguration: {
+            handlesCash: true,
+            defaultCurrencyId: 'PEN',
+            acceptedCurrencies: ['PEN', 'USD'],
+            defaultTaxId: 'IGV',
+            bankAccounts: []
+          },
+          status: 'ACTIVE' as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          isActive: selectedEstablecimiento.activo
+        };
+
+        dispatch({ type: 'ADD_ESTABLISHMENT', payload: newEstablishment });
+        fullEstablishment = newEstablishment;
+
+        // Crear series por defecto para el nuevo establecimiento
+        const now = new Date();
+
+        const facturaSeries = {
+          id: `series-factura-${selectedEstablecimiento.id}`,
+          establishmentId: selectedEstablecimiento.id,
+          documentType: {
+            id: 'invoice',
+            code: '01',
+            name: 'Factura Electrónica',
+            shortName: 'FAC',
+            category: 'INVOICE' as const,
+            properties: {
+              affectsTaxes: true,
+              requiresCustomerRuc: true,
+              requiresCustomerName: true,
+              allowsCredit: true,
+              requiresPaymentMethod: true,
+              canBeVoided: true,
+              canHaveCreditNote: true,
+              canHaveDebitNote: true,
+              isElectronic: true,
+              requiresSignature: true
+            },
+            seriesConfiguration: {
+              defaultPrefix: 'F',
+              seriesLength: 3,
+              correlativeLength: 8,
+              allowedPrefixes: ['F', 'FE']
+            },
+            isActive: true
+          },
+          series: 'FE01',
+          correlativeNumber: 1,
+          configuration: {
+            minimumDigits: 8,
+            startNumber: 1,
+            autoIncrement: true,
+            allowManualNumber: false,
+            requireAuthorization: false
+          },
+          sunatConfiguration: {
+            isElectronic: true,
+            environmentType: 'TESTING' as const,
+            certificateRequired: true,
+            mustReportToSunat: true,
+            maxDaysToReport: 7
+          },
+          status: 'ACTIVE' as const,
+          isDefault: true,
+          statistics: {
+            documentsIssued: 0,
+            averageDocumentsPerDay: 0
+          },
+          validation: {
+            allowZeroAmount: false,
+            requireCustomer: true
+          },
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'system',
+          isActive: true
+        };
+
+        const boletaSeries = {
+          id: `series-boleta-${selectedEstablecimiento.id}`,
+          establishmentId: selectedEstablecimiento.id,
+          documentType: {
+            id: 'receipt',
+            code: '03',
+            name: 'Boleta de Venta Electrónica',
+            shortName: 'BOL',
+            category: 'RECEIPT' as const,
+            properties: {
+              affectsTaxes: true,
+              requiresCustomerRuc: false,
+              requiresCustomerName: true,
+              allowsCredit: false,
+              requiresPaymentMethod: true,
+              canBeVoided: true,
+              canHaveCreditNote: true,
+              canHaveDebitNote: false,
+              isElectronic: true,
+              requiresSignature: true
+            },
+            seriesConfiguration: {
+              defaultPrefix: 'B',
+              seriesLength: 3,
+              correlativeLength: 8,
+              allowedPrefixes: ['B', 'BE']
+            },
+            isActive: true
+          },
+          series: 'BE01',
+          correlativeNumber: 1,
+          configuration: {
+            minimumDigits: 8,
+            startNumber: 1,
+            autoIncrement: true,
+            allowManualNumber: false,
+            requireAuthorization: false
+          },
+          sunatConfiguration: {
+            isElectronic: true,
+            environmentType: 'TESTING' as const,
+            certificateRequired: true,
+            mustReportToSunat: true,
+            maxDaysToReport: 7
+          },
+          status: 'ACTIVE' as const,
+          isDefault: true,
+          statistics: {
+            documentsIssued: 0,
+            averageDocumentsPerDay: 0
+          },
+          validation: {
+            allowZeroAmount: false,
+            requireCustomer: false
+          },
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'system',
+          isActive: true
+        };
+
+        // Serie de COTIZACIÓN (COT01)
+        const cotizacionSeries = {
+          id: `series-cotizacion-${selectedEstablecimiento.id}`,
+          establishmentId: selectedEstablecimiento.id,
+          documentType: {
+            id: 'cotizacion',
+            code: 'COT',
+            name: 'Cotización',
+            shortName: 'COT',
+            category: 'QUOTATION' as const,
+            properties: {
+              affectsTaxes: false,
+              requiresCustomerRuc: false,
+              requiresCustomerName: true,
+              allowsCredit: false,
+              requiresPaymentMethod: false,
+              canBeVoided: false,
+              canHaveCreditNote: false,
+              canHaveDebitNote: false,
+              isElectronic: false,
+              requiresSignature: false
+            },
+            seriesConfiguration: {
+              defaultPrefix: 'COT',
+              seriesLength: 3,
+              correlativeLength: 6,
+              allowedPrefixes: ['COT']
+            },
+            isActive: true
+          },
+          series: 'COT01',
+          correlativeNumber: 1,
+          configuration: {
+            minimumDigits: 6,
+            startNumber: 1,
+            autoIncrement: true,
+            allowManualNumber: false,
+            requireAuthorization: false
+          },
+          sunatConfiguration: {
+            isElectronic: false,
+            environmentType: 'TESTING' as const,
+            certificateRequired: false,
+            mustReportToSunat: false,
+            maxDaysToReport: 0
+          },
+          status: 'ACTIVE' as const,
+          isDefault: true,
+          statistics: {
+            documentsIssued: 0,
+            averageDocumentsPerDay: 0
+          },
+          validation: {
+            allowZeroAmount: true,
+            requireCustomer: false
+          },
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'system',
+          isActive: true
+        };
+
+        // Serie de NOTA DE VENTA (NV01)
+        const notaVentaSeries = {
+          id: `series-notaventa-${selectedEstablecimiento.id}`,
+          establishmentId: selectedEstablecimiento.id,
+          documentType: {
+            id: 'nota-venta',
+            code: 'NV',
+            name: 'Nota de Venta',
+            shortName: 'NV',
+            category: 'SALES_NOTE' as const,
+            properties: {
+              affectsTaxes: false,
+              requiresCustomerRuc: false,
+              requiresCustomerName: true,
+              allowsCredit: false,
+              requiresPaymentMethod: true,
+              canBeVoided: false,
+              canHaveCreditNote: false,
+              canHaveDebitNote: false,
+              isElectronic: false,
+              requiresSignature: false
+            },
+            seriesConfiguration: {
+              defaultPrefix: 'NV',
+              seriesLength: 3,
+              correlativeLength: 6,
+              allowedPrefixes: ['NV']
+            },
+            isActive: true
+          },
+          series: 'NV01',
+          correlativeNumber: 1,
+          configuration: {
+            minimumDigits: 6,
+            startNumber: 1,
+            autoIncrement: true,
+            allowManualNumber: false,
+            requireAuthorization: false
+          },
+          sunatConfiguration: {
+            isElectronic: false,
+            environmentType: 'TESTING' as const,
+            certificateRequired: false,
+            mustReportToSunat: false,
+            maxDaysToReport: 0
+          },
+          status: 'ACTIVE' as const,
+          isDefault: true,
+          statistics: {
+            documentsIssued: 0,
+            averageDocumentsPerDay: 0
+          },
+          validation: {
+            allowZeroAmount: true,
+            requireCustomer: false
+          },
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'system',
+          isActive: true
+        };
+
+        dispatch({ type: 'ADD_SERIES', payload: facturaSeries });
+        dispatch({ type: 'ADD_SERIES', payload: boletaSeries });
+        dispatch({ type: 'ADD_SERIES', payload: cotizacionSeries });
+        dispatch({ type: 'ADD_SERIES', payload: notaVentaSeries });
+      }
+
+      // Usar el mismo objeto de empresa ya creado para ConfigurationContext
+      const companyData = configState.company || companyForConfig;
+
+      // Guardar sesión en UserSessionContext
+      setSession({
+        userId: user.id,
+        userName: user.nombre,
+        userEmail: user.email,
+        currentCompanyId: selectedEmpresa.id,
+        currentCompany: companyData,
+        currentEstablishmentId: fullEstablishment?.id || selectedEstablecimiento.id,
+        currentEstablishment: fullEstablishment || null,
+        availableEstablishments: configState.establishments.filter(e => e.isActive),
+        permissions: ['*'], // Por defecto admin tiene todos los permisos
+        role: user.rol,
+      });
+
       navigate('/app/dashboard', { replace: true });
     } catch (err) {
       console.error('Error seleccionando contexto:', err);

@@ -1,14 +1,15 @@
 // app/web/src/features/documentos-comerciales/components/shared/FiltrosPanel.tsx
 
 import { useState } from 'react';
-import { 
-  X, 
-  Calendar, 
-  User, 
-  Building, 
+import {
+  X,
+  Calendar,
+  User,
+  Building,
   DollarSign,
   Filter
 } from 'lucide-react';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 import type { FiltrosDocumentos, TipoDocumento, EstadoDocumento } from '../../models/types';
 
 interface FiltrosPanelProps {
@@ -20,6 +21,10 @@ interface FiltrosPanelProps {
 
 export function FiltrosPanel({ filtros, setFiltros, tipo, className = '' }: FiltrosPanelProps) {
   const [filtrosTemp, setFiltrosTemp] = useState<FiltrosDocumentos>(filtros);
+  const { state: configState } = useConfigurationContext();
+
+  // Obtener establecimientos activos desde la configuración
+  const establecimientos = configState.establishments.filter(e => e.isActive);
 
   const estados: { value: EstadoDocumento | 'TODOS'; label: string }[] = [
     { value: 'TODOS', label: 'Todos los estados' },
@@ -170,9 +175,11 @@ export function FiltrosPanel({ filtros, setFiltros, tipo, className = '' }: Filt
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Todos</option>
-            <option value="EST001">Tienda Principal</option>
-            <option value="EST002">Tienda Sur</option>
-            <option value="EST003">Tienda Norte</option>
+            {establecimientos.map(est => (
+              <option key={est.id} value={est.id}>
+                {est.code} - {est.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>

@@ -1,15 +1,16 @@
 // app/web/src/features/documentos-comerciales/components/shared/DocumentoModal.tsx
 
 import { useState, useEffect } from 'react';
-import { 
+import {
   X, Trash2, Save, FileText, Calculator, User, Building, Package, AlertCircle
 } from 'lucide-react';
-import type { 
-  Cotizacion, NotaVenta, DocumentoFormData, DocumentoCliente, 
+import type {
+  Cotizacion, NotaVenta, DocumentoFormData, DocumentoCliente,
   DocumentoItem, TipoDocumento, TipoImpuesto
 } from '../../models/types';
 import { DocumentoCalculoService, DocumentoValidationService } from '../../services';
 import { useDocumentos } from '../../hooks/useDocumentos';
+import { useCurrentEstablishmentId } from '../../../../contexts/UserSessionContext';
 
 interface DocumentoModalProps {
   isOpen: boolean;
@@ -48,22 +49,25 @@ const mockProductos = [
 
 type TabId = 'encabezado' | 'cliente' | 'items' | 'totales' | 'condiciones' | 'bancos';
 
-export function DocumentoModal({ 
-  isOpen, 
-  onClose, 
-  tipo, 
-  documento, 
+export function DocumentoModal({
+  isOpen,
+  onClose,
+  tipo,
+  documento,
   cotizacionOrigen,
-  onSave 
+  onSave
 }: DocumentoModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>('encabezado');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  
+
   const calculoService = new DocumentoCalculoService();
   const validationService = new DocumentoValidationService();
   const { obtenerVisibilidad } = useDocumentos();
   const uiVisibility = obtenerVisibilidad();
+
+  // Obtener establecimiento del usuario actual
+  const currentEstablishmentId = useCurrentEstablishmentId();
 
   // Estado del formulario
   const [formData, setFormData] = useState<DocumentoFormData>(() => {
@@ -74,7 +78,7 @@ export function DocumentoModal({
       tipo,
       fechaEmision: hoy,
       moneda: 'PEN',
-      establecimientoId: 'EST001',
+      establecimientoId: currentEstablishmentId || '',
       vendedorId: 'VEN001',
       formaPago: 'CONTADO',
       validoHasta: tipo === 'COTIZACION' ? validoHasta : undefined,
