@@ -8,6 +8,7 @@ import ComprobantesTabs from "../../features/comprobantes-electronicos/pages/Com
 import { SelectorModoEmision } from "../../features/comprobantes-electronicos/pages/SelectorModoEmision";
 import EmisionTradicional from "../../features/comprobantes-electronicos/pages/EmisionTradicional";
 import PuntoVenta from "../../features/comprobantes-electronicos/pages/PuntoVenta";
+import { PuntoVentaHome } from "../../features/comprobantes-electronicos/pages/PuntoVentaHome";
 import ImportarClientesPage from "../../features/gestion-clientes/pages/ImportarClientesPage";
 import HistorialCompras from "../../features/gestion-clientes/pages/HistorialCompras";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
   { path: "/comprobantes/nuevo", element: <SelectorModoEmision /> },
   { path: "/comprobantes/emision", element: <EmisionTradicional /> },
   { path: "/comprobantes/pos", element: <PuntoVenta /> },
+
+  // Rutas del nuevo módulo Punto de Venta
+  { path: "/punto-venta", element: <PuntoVentaHome /> },
+  { path: "/punto-venta/nueva-venta", element: <PuntoVenta /> },
       { path: "/catalogo", element: <CatalogoArticulosMain /> },
       { path: "/lista-precios", element: <ListaPrecios /> },
       { 

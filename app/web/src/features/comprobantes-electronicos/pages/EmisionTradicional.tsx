@@ -179,9 +179,9 @@ const EmisionTradicional = () => {
               {/* Left side */}
               <div className="flex items-center space-x-4">
                 <button
-                  onClick={() => navigate('/comprobantes/nuevo')}
+                  onClick={() => navigate('/comprobantes')}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Volver al selector de modo"
+                  title="Volver a comprobantes"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>

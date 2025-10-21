@@ -160,13 +160,13 @@ const InvoiceListDashboard = () => {
             <div className="flex items-center space-x-2">
               <button
                 className="px-4 py-2 border border-blue-500 text-blue-600 bg-white dark:bg-gray-800 dark:text-blue-400 dark:border-blue-400 rounded-md font-semibold text-sm hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
-                onClick={() => navigate('/comprobantes/nuevo?tipo=factura')}
+                onClick={() => navigate('/comprobantes/emision?tipo=factura')}
               >
                 Nueva factura
               </button>
               <button
                 className="px-4 py-2 bg-blue-600 text-white rounded-md font-semibold text-sm hover:bg-blue-700 transition-colors"
-                onClick={() => navigate('/comprobantes/nuevo?tipo=boleta')}
+                onClick={() => navigate('/comprobantes/emision?tipo=boleta')}
               >
                 Nueva boleta
               </button>
@@ -288,7 +288,7 @@ const InvoiceListDashboard = () => {
                             : 'Aún no se han emitido comprobantes. Comienza creando tu primer comprobante desde Punto de Venta o Emisión Tradicional.'}
                         </p>
                         <button
-                          onClick={() => navigate('/app/comprobantes/nuevo')}
+                          onClick={() => navigate('/comprobantes/emision')}
                           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                         >
                           Crear comprobante

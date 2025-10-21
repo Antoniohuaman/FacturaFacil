@@ -1,6 +1,6 @@
 
 import { NavLink } from "react-router-dom";
-import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings, Receipt } from "lucide-react";
+import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings, Receipt, Wallet } from "lucide-react";
 import CompanySelector from "../../components/CompanySelector";
 import { useUserSession } from "../../contexts/UserSessionContext";
 
@@ -9,16 +9,24 @@ interface SideNavProps {
 }
 
 const mainItems = [
-  { 
-    to: "/comprobantes", 
-    label: "Comprobantes", 
-    description: "Emitir facturas y boletas",
+  {
+    to: "/comprobantes",
+    label: "Comprobantes",
+    description: "Facturación detallada",
     badge: "12",
     icon: FileText
   },
-  { 
-    to: "/documentos-comerciales", 
-    label: "Documentos", 
+  {
+    to: "/punto-venta",
+    label: "Punto de Venta",
+    description: "Ventas rápidas",
+    badge: "Rápido",
+    badgeColor: "emerald",
+    icon: ShoppingCart
+  },
+  {
+    to: "/documentos-comerciales",
+    label: "Documentos",
     description: "Cotizaciones y notas de venta",
     icon: Receipt
   },
@@ -34,13 +42,13 @@ const mainItems = [
     description: "Configurar tarifas",
     icon: DollarSign
   },
-  { 
-    to: "/control-caja", 
-    label: "Caja", 
+  {
+    to: "/control-caja",
+    label: "Caja",
     description: "Control de efectivo",
     badge: "Activa",
     badgeColor: "green",
-    icon: ShoppingCart
+    icon: Wallet
   },
   { 
     to: "/clientes", 
@@ -171,8 +179,10 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
                       
                       {item.badge && (
                         <span className={`ml-auto px-2 py-1 text-xs font-medium rounded-full transition-colors duration-200 ${
-                          item.badgeColor === 'green' 
-                            ? 'bg-green-100 text-green-700' 
+                          item.badgeColor === 'green'
+                            ? 'bg-green-100 text-green-700'
+                            : item.badgeColor === 'emerald'
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
                             : 'bg-blue-100 text-blue-700'
                         }`}>
                           {item.badge}
