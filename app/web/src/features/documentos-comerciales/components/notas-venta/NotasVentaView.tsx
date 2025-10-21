@@ -1,7 +1,7 @@
 // app/web/src/features/documentos-comerciales/components/notas-venta/NotasVentaView.tsx
 
 import { useState, useMemo } from 'react';
-import { 
+import {
   Plus,
   Search,
   Filter,
@@ -18,13 +18,17 @@ import {
   Building,
   RefreshCw,
   Receipt,
-  Link
+  Link,
+  Sparkles
 } from 'lucide-react';
 import { useDocumentos } from '../../hooks/useDocumentos';
 import type { NotaVenta } from '../../models/types';
 import { FormularioDocumentoModal } from '../shared/FormularioDocumentoModal';
 import { EstadoBadge } from '../shared/EstadoBadge';
 import { FiltrosPanel } from '../shared/FiltrosPanel';
+import { ConversionButton } from '../shared/ConversionButton';
+import { DocumentoRelacionado } from '../shared/DocumentoRelacionado';
+import { ConversionPreviewModal } from '../shared/ConversionPreviewModal';
 
 export function NotasVentaView() {
   const {
@@ -47,6 +51,11 @@ export function NotasVentaView() {
   const [menuAbierto, setMenuAbierto] = useState<string | null>(null);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  const [notaVentaExpandida, setNotaVentaExpandida] = useState<string | null>(null);
+  const [conversionModal, setConversionModal] = useState<{
+    open: boolean;
+    notaVenta: NotaVenta | null;
+  }>({ open: false, notaVenta: null });
 
   // Filtrar notas de venta localmente por búsqueda
   const notasVentaFiltradas = useMemo(() => {
@@ -80,10 +89,23 @@ export function NotasVentaView() {
     });
   };
 
+  // Manejar confirmación de conversión
+  const handleConfirmConversion = async () => {
+    if (!conversionModal.notaVenta) return;
+
+    try {
+      await convertirNotaVentaAComprobante(conversionModal.notaVenta.id);
+      setConversionModal({ open: false, notaVenta: null });
+    } catch (error) {
+      console.error('Error al convertir:', error);
+      throw error;
+    }
+  };
+
   // Manejar acciones del menú
   const handleAction = async (action: string, notaVenta: NotaVenta) => {
     setMenuAbierto(null);
-    
+
     try {
       switch (action) {
         case 'ver':
@@ -105,7 +127,10 @@ export function NotasVentaView() {
           break;
         
         case 'convertir-comprobante':
-          await convertirNotaVentaAComprobante(notaVenta.id);
+          setConversionModal({
+            open: true,
+            notaVenta: notaVenta
+          });
           break;
         
         case 'anular':
@@ -270,8 +295,22 @@ export function NotasVentaView() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white">
-            {notasVentaFiltradas.map((notaVenta) => (
-              <tr key={notaVenta.id} className="hover:bg-gray-50 transition-colors">
+            {notasVentaFiltradas.map((notaVenta) => {
+              const tieneConversiones = !!notaVenta.convertidoAComprobante;
+              const tieneOrigen = !!notaVenta.referencias?.referenciaOrigen;
+              const estaExpandida = notaVentaExpandida === notaVenta.id;
+              const tieneRelaciones = tieneConversiones || tieneOrigen;
+
+              return (
+                <>
+                <tr
+                  key={notaVenta.id}
+                  className={`
+                    transition-colors
+                    ${estaExpandida ? 'bg-purple-50' : 'hover:bg-gray-50'}
+                    ${tieneConversiones ? 'border-l-4 border-l-emerald-400' : ''}
+                  `}
+                >
                 {/* Documento */}
                 <td className="px-6 py-4">
                   <div>
@@ -348,12 +387,18 @@ export function NotasVentaView() {
 
                 {/* Estado */}
                 <td className="px-6 py-4 text-center">
-                  <EstadoBadge estado={notaVenta.estado} tipo="NOTA_VENTA" />
-                  {notaVenta.convertidoAComprobante && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      → {notaVenta.convertidoAComprobante.numero}
-                    </p>
-                  )}
+                  <div className="flex flex-col items-center gap-2">
+                    <EstadoBadge estado={notaVenta.estado} tipo="NOTA_VENTA" />
+                    {tieneRelaciones && (
+                      <button
+                        onClick={() => setNotaVentaExpandida(estaExpandida ? null : notaVenta.id)}
+                        className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        {estaExpandida ? 'Ocultar' : 'Ver'} detalles
+                      </button>
+                    )}
+                  </div>
                 </td>
 
                 {/* Acciones */}
@@ -392,7 +437,60 @@ export function NotasVentaView() {
                   </div>
                 </td>
               </tr>
-            ))}
+
+              {/* Fila expandible con detalles de conversiones y origen */}
+              {estaExpandida && (
+                <tr className="bg-gradient-to-r from-purple-50 to-emerald-50">
+                  <td colSpan={7} className="px-6 py-4">
+                    <div className="space-y-4">
+                      {/* Documentos relacionados */}
+                      <DocumentoRelacionado
+                        origen={
+                          tieneOrigen && notaVenta.referencias?.referenciaOrigen
+                            ? {
+                                tipo: notaVenta.referencias.referenciaOrigen.tipo,
+                                numero: notaVenta.referencias.referenciaOrigen.numero,
+                                fecha: notaVenta.fechaEmision,
+                                id: notaVenta.referencias.referenciaOrigen.id
+                              }
+                            : undefined
+                        }
+                        destinos={
+                          tieneConversiones && notaVenta.convertidoAComprobante
+                            ? [{
+                                tipo: 'COMPROBANTE' as const,
+                                numero: notaVenta.convertidoAComprobante.numero,
+                                fecha: notaVenta.convertidoAComprobante.fecha,
+                                id: notaVenta.convertidoAComprobante.id
+                              }]
+                            : []
+                        }
+                      />
+
+                      {/* Botón de conversión rápida si está aprobado */}
+                      {notaVenta.estado === 'APROBADO' && !notaVenta.convertidoAComprobante && (
+                        <div className="bg-white rounded-lg p-4 border border-gray-200">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                            Acciones de conversión
+                          </h4>
+                          <ConversionButton
+                            tipo="comprobante"
+                            onClick={() => {
+                              setConversionModal({
+                                open: true,
+                                notaVenta: notaVenta
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </>
+              );
+            })}
           </tbody>
         </table>
         
@@ -464,8 +562,21 @@ export function NotasVentaView() {
           } else {
             await crearNotaVenta(data);
           }
+          setModalOpen(false);
+          setNotaVentaEditar(null);
         }}
       />
+
+      {/* Modal de confirmación de conversión */}
+      {conversionModal.open && conversionModal.notaVenta && (
+        <ConversionPreviewModal
+          isOpen={conversionModal.open}
+          onClose={() => setConversionModal({ open: false, notaVenta: null })}
+          onConfirm={handleConfirmConversion}
+          documentoOrigen={conversionModal.notaVenta}
+          tipoDestino="COMPROBANTE"
+        />
+      )}
     </>
   );
 }

@@ -1,7 +1,7 @@
 // app/web/src/features/documentos-comerciales/components/cotizaciones/CotizacionesView.tsx
 
 import { useState, useMemo } from 'react';
-import { 
+import {
   Plus,
   Search,
   Filter,
@@ -19,13 +19,18 @@ import {
   Calendar,
   User,
   Building,
-  RefreshCw
+  RefreshCw,
+  Receipt,
+  Sparkles
 } from 'lucide-react';
 import { useDocumentos } from '../../hooks/useDocumentos';
 import type { Cotizacion } from '../../models/types';
 import { FormularioDocumentoModal } from '../shared/FormularioDocumentoModal';
 import { EstadoBadge } from '../shared/EstadoBadge';
 import { FiltrosPanel } from '../shared/FiltrosPanel';
+import { ConversionButton } from '../shared/ConversionButton';
+import { DocumentoRelacionado } from '../shared/DocumentoRelacionado';
+import { ConversionPreviewModal } from '../shared/ConversionPreviewModal';
 
 export function CotizacionesView() {
   const {
@@ -49,6 +54,12 @@ export function CotizacionesView() {
   const [menuAbierto, setMenuAbierto] = useState<string | null>(null);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  const [cotizacionExpandida, setCotizacionExpandida] = useState<string | null>(null);
+  const [conversionModal, setConversionModal] = useState<{
+    open: boolean;
+    cotizacion: Cotizacion | null;
+    tipo: 'NOTA_VENTA' | 'COMPROBANTE' | null;
+  }>({ open: false, cotizacion: null, tipo: null });
 
   // Filtrar cotizaciones localmente por búsqueda
   const cotizacionesFiltradas = useMemo(() => {
@@ -90,10 +101,27 @@ export function CotizacionesView() {
     return diferencia;
   };
 
+  // Manejar confirmación de conversión
+  const handleConfirmConversion = async () => {
+    if (!conversionModal.cotizacion || !conversionModal.tipo) return;
+
+    try {
+      if (conversionModal.tipo === 'NOTA_VENTA') {
+        await convertirCotizacionANotaVenta(conversionModal.cotizacion.id);
+      } else {
+        await convertirCotizacionAComprobante(conversionModal.cotizacion.id);
+      }
+      setConversionModal({ open: false, cotizacion: null, tipo: null });
+    } catch (error) {
+      console.error('Error al convertir:', error);
+      throw error;
+    }
+  };
+
   // Manejar acciones del menú
   const handleAction = async (action: string, cotizacion: Cotizacion) => {
     setMenuAbierto(null);
-    
+
     try {
       switch (action) {
         case 'ver':
@@ -123,11 +151,19 @@ export function CotizacionesView() {
           break;
         
         case 'convertir-nota':
-          await convertirCotizacionANotaVenta(cotizacion.id);
+          setConversionModal({
+            open: true,
+            cotizacion: cotizacion,
+            tipo: 'NOTA_VENTA'
+          });
           break;
-        
+
         case 'convertir-comprobante':
-          await convertirCotizacionAComprobante(cotizacion.id);
+          setConversionModal({
+            open: true,
+            cotizacion: cotizacion,
+            tipo: 'COMPROBANTE'
+          });
           break;
         
         case 'anular':
@@ -305,9 +341,19 @@ export function CotizacionesView() {
             {cotizacionesFiltradas.map((cotizacion) => {
               const diasRestantes = getDiasRestantes(cotizacion.validoHasta);
               const vencido = diasRestantes < 0 && cotizacion.estado === 'EMITIDO';
-              
+              const tieneConversiones = cotizacion.convertidoANotaVenta || cotizacion.convertidoAComprobante;
+              const estaExpandida = cotizacionExpandida === cotizacion.id;
+
               return (
-                <tr key={cotizacion.id} className="hover:bg-gray-50 transition-colors">
+                <>
+                <tr
+                  key={cotizacion.id}
+                  className={`
+                    transition-colors
+                    ${estaExpandida ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                    ${tieneConversiones ? 'border-l-4 border-l-purple-400' : ''}
+                  `}
+                >
                   {/* Documento */}
                   <td className="px-6 py-4">
                     <div>
@@ -378,7 +424,18 @@ export function CotizacionesView() {
 
                   {/* Estado */}
                   <td className="px-6 py-4 text-center">
-                    <EstadoBadge estado={cotizacion.estado} tipo="COTIZACION" />
+                    <div className="flex flex-col items-center gap-2">
+                      <EstadoBadge estado={cotizacion.estado} tipo="COTIZACION" />
+                      {tieneConversiones && (
+                        <button
+                          onClick={() => setCotizacionExpandida(estaExpandida ? null : cotizacion.id)}
+                          className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          {estaExpandida ? 'Ocultar' : 'Ver'} conversiones
+                        </button>
+                      )}
+                    </div>
                   </td>
 
                   {/* Acciones */}
@@ -417,6 +474,73 @@ export function CotizacionesView() {
                     </div>
                   </td>
                 </tr>
+
+                {/* Fila expandible con detalles de conversiones */}
+                {estaExpandida && (
+                  <tr className="bg-gradient-to-r from-blue-50 to-purple-50">
+                    <td colSpan={7} className="px-6 py-4">
+                      <div className="space-y-4">
+                        {/* Documentos relacionados */}
+                        <DocumentoRelacionado
+                          destinos={[
+                            ...(cotizacion.convertidoANotaVenta
+                              ? [{
+                                  tipo: 'NOTA_VENTA' as const,
+                                  numero: cotizacion.convertidoANotaVenta.numero,
+                                  fecha: cotizacion.convertidoANotaVenta.fecha,
+                                  id: cotizacion.convertidoANotaVenta.id
+                                }]
+                              : []),
+                            ...(cotizacion.convertidoAComprobante
+                              ? [{
+                                  tipo: 'COMPROBANTE' as const,
+                                  numero: cotizacion.convertidoAComprobante.numero,
+                                  fecha: cotizacion.convertidoAComprobante.fecha,
+                                  id: cotizacion.convertidoAComprobante.id
+                                }]
+                              : [])
+                          ]}
+                        />
+
+                        {/* Botones de conversión rápida si está aprobado */}
+                        {cotizacion.estado === 'APROBADO' && (
+                          <div className="bg-white rounded-lg p-4 border border-gray-200">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                              Acciones de conversión
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {!cotizacion.convertidoANotaVenta && (
+                                <ConversionButton
+                                  tipo="nota-venta"
+                                  onClick={() => {
+                                    setConversionModal({
+                                      open: true,
+                                      cotizacion: cotizacion,
+                                      tipo: 'NOTA_VENTA'
+                                    });
+                                  }}
+                                />
+                              )}
+                              {!cotizacion.convertidoAComprobante && (
+                                <ConversionButton
+                                  tipo="comprobante"
+                                  onClick={() => {
+                                    setConversionModal({
+                                      open: true,
+                                      cotizacion: cotizacion,
+                                      tipo: 'COMPROBANTE'
+                                    });
+                                  }}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </>
               );
             })}
           </tbody>
@@ -494,6 +618,17 @@ export function CotizacionesView() {
           setCotizacionEditar(null);
         }}
       />
+
+      {/* Modal de confirmación de conversión */}
+      {conversionModal.open && conversionModal.cotizacion && conversionModal.tipo && (
+        <ConversionPreviewModal
+          isOpen={conversionModal.open}
+          onClose={() => setConversionModal({ open: false, cotizacion: null, tipo: null })}
+          onConfirm={handleConfirmConversion}
+          documentoOrigen={conversionModal.cotizacion}
+          tipoDestino={conversionModal.tipo}
+        />
+      )}
     </>
   );
 }
