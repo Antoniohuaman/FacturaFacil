@@ -69,7 +69,7 @@ const EmisionTradicional = () => {
     receivedAmount, // setReceivedAmount ya no se usa (eliminamos bloque "Efectivo rápido")
     formaPago, setFormaPago,
     setIsProcessing,
-    canProcess, cajaStatus,
+    canProcess,
     getPaymentMethodLabel,
     resetForm,
     goToComprobantes
@@ -202,21 +202,8 @@ const EmisionTradicional = () => {
                 </div>
               </div>
 
-              {/* Right side - Estado de caja + Tipo de Comprobante */}
+              {/* Right side - Tipo de Comprobante */}
               <div className="flex items-center space-x-3">
-                <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium border-2 ${
-                  cajaStatus === 'abierta'
-                    ? 'bg-green-50 text-green-700 border-green-200'
-                    : 'bg-red-50 text-red-700 border-red-200'
-                }`}>
-                  <div className={`w-2.5 h-2.5 rounded-full ${
-                    cajaStatus === 'abierta' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                  }`} />
-                  <span className="font-semibold">
-                    {cajaStatus === 'abierta' ? 'Caja Abierta' : 'Caja Cerrada'}
-                  </span>
-                </div>
-
                 {/* ✅ Selector de Tipo de Comprobante - Botones Premium */}
                 <div className="flex items-center space-x-2">
                   <button
