@@ -115,27 +115,6 @@ const NotesSection: React.FC<NotesSectionProps> = ({
           </p>
         </div>
       </div>
-
-      {/* Info helper - Cuándo usar cada campo */}
-      <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-gray-50 rounded-lg border border-gray-200">
-        <div className="flex items-start space-x-3 text-xs text-gray-700">
-          <div className="flex-1">
-            <div className="flex items-center space-x-1.5 mb-1">
-              <Eye className="w-3.5 h-3.5 text-blue-600" />
-              <strong className="text-blue-900">Observaciones:</strong>
-            </div>
-            <span>Condiciones de pago, garantías, instrucciones de entrega</span>
-          </div>
-          <div className="w-px h-12 bg-gray-300"></div>
-          <div className="flex-1">
-            <div className="flex items-center space-x-1.5 mb-1">
-              <EyeOff className="w-3.5 h-3.5 text-gray-600" />
-              <strong className="text-gray-900">Notas Internas:</strong>
-            </div>
-            <span>Recordatorios, preferencias del cliente, datos de seguimiento</span>
-          </div>
-        </div>
-      </div>
     </ConfigurationCard>
   );
 };
