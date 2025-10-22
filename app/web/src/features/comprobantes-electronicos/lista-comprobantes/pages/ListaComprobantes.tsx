@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import { useNavigate } from 'react-router-dom'; // Eliminado porque no se usa
-import { Search, Filter, Printer, Share2, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { Search, Printer, ChevronLeft, ChevronRight, FileText, MoreHorizontal } from 'lucide-react';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
 
 function getToday() {
@@ -10,37 +10,56 @@ function getToday() {
 }
 
 // Función para convertir fecha del formato "20 ago. 2025 19:17" a Date
-function parseInvoiceDate(dateStr: string): Date {
+function parseInvoiceDate(dateStr?: string): Date {
+  // dateStr puede ser undefined/null o no tener el formato esperado.
+  // Devolvemos una fecha segura (Epoch) cuando no se pueda parsear para
+  // evitar que la UI rompa. Los items con fecha inválida quedarán al final
+  // del orden DESC si usamos epoch (1970) — consideralo como "más viejo".
+  if (!dateStr || typeof dateStr !== 'string') return new Date(0);
+
   const monthMap: Record<string, number> = {
     'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
     'jul': 6, 'ago': 7, 'set': 8, 'oct': 9, 'nov': 10, 'dic': 11
   };
-  
-  const parts = dateStr.split(' ');
-  const day = parseInt(parts[0]);
-  const month = monthMap[parts[1].replace('.', '')];
-  const year = parseInt(parts[2]);
-  
-  // Extraer hora si existe
-  const timePart = parts[3] || '00:00';
-  const [hours, minutes] = timePart.split(':').map(n => parseInt(n));
-  
-  return new Date(year, month, day, hours || 0, minutes || 0);
+
+  try {
+    const parts = dateStr.split(' ').filter(Boolean);
+    if (parts.length < 3) return new Date(0);
+
+    const day = parseInt(parts[0], 10);
+    const monthKey = parts[1].replace('.', '').toLowerCase();
+    const month = monthMap[monthKey];
+    const year = parseInt(parts[2], 10);
+
+    if (Number.isNaN(day) || Number.isNaN(year) || month === undefined) return new Date(0);
+
+    // Hora opcional
+    const timePart = parts[3] || '00:00';
+    const [hoursRaw, minutesRaw] = timePart.split(':');
+    const hours = parseInt(hoursRaw || '0', 10) || 0;
+    const minutes = parseInt(minutesRaw || '0', 10) || 0;
+
+    return new Date(year, month, day, hours, minutes);
+  } catch (e) {
+    return new Date(0);
+  }
 }
 
 // Función para filtrar facturas por rango de fechas
-function filterInvoicesByDateRange(invoices: any[], dateFrom: string, dateTo: string) {
+function filterInvoicesByDateRange(invoices: any[], dateFrom?: string, dateTo?: string) {
   if (!dateFrom && !dateTo) return invoices;
-  
+
   const fromDate = dateFrom ? new Date(dateFrom + 'T00:00:00') : null;
   const toDate = dateTo ? new Date(dateTo + 'T23:59:59.999') : null;
-  
+
   return invoices.filter(invoice => {
-    const invoiceDate = parseInvoiceDate(invoice.date);
-    
+    // Si invoice.date no existe, lo dejamos pasar (o podríamos filtrarlo fuera
+    // del rango). Optamos por incluirlo para no ocultar registros inesperados.
+    const invoiceDate = parseInvoiceDate((invoice && invoice.date) || undefined);
+
     if (fromDate && invoiceDate < fromDate) return false;
     if (toDate && invoiceDate > toDate) return false;
-    
+
     return true;
   });
 }
@@ -63,6 +82,67 @@ const InvoiceListDashboard = () => {
   const [showTotals, setShowTotals] = useState(false);
   const [recordsPerPage, setRecordsPerPage] = useState(10); // Por defecto 10 registros
 
+  // --------------------
+  // Column manager (config local)
+  // --------------------
+  interface ColumnConfig {
+    id: string;
+    key: string;
+    label: string;
+    visible: boolean;
+    fixed: 'left' | 'right' | null;
+    align: 'left' | 'right' | 'center';
+    truncate?: boolean;
+  }
+  // Lista maestra en orden (no cambia la keys del modelo de datos)
+  const MASTER_COLUMNS = useMemo(() => ([
+    { id: 'documentNumber', key: 'id', label: 'N° Comprobante', visible: true, fixed: 'left', align: 'left' },
+    { id: 'type', key: 'type', label: 'Tipo', visible: true, fixed: null, align: 'left' },
+    { id: 'date', key: 'date', label: 'F. Emisión', visible: true, fixed: null, align: 'center' },
+    { id: 'dueDate', key: 'dueDate', label: 'F. Vencimiento', visible: false, fixed: null, align: 'center' },
+    { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', truncate: true },
+    { id: 'clientDoc', key: 'clientDoc', label: 'N° Doc Cliente', visible: true, fixed: null, align: 'left' },
+    { id: 'email', key: 'email', label: 'Correo Electrónico', visible: false, fixed: null, align: 'left' },
+    { id: 'vendor', key: 'vendor', label: 'Vendedor', visible: true, fixed: null, align: 'left' },
+    { id: 'paymentMethod', key: 'paymentMethod', label: 'Forma de pago', visible: true, fixed: null, align: 'left' },
+    { id: 'currency', key: 'currency', label: 'Moneda', visible: false, fixed: null, align: 'left' },
+    { id: 'total', key: 'total', label: 'Total', visible: true, fixed: null, align: 'right' },
+    { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'left' },
+    { id: 'address', key: 'address', label: 'Dirección (fiscal)', visible: false, fixed: null, align: 'left', truncate: true },
+    { id: 'shippingAddress', key: 'shippingAddress', label: 'Dirección de Envío', visible: false, fixed: null, align: 'left', truncate: true },
+    { id: 'purchaseOrder', key: 'purchaseOrder', label: 'Orden de compra', visible: false, fixed: null, align: 'left' },
+    { id: 'costCenter', key: 'costCenter', label: 'Centro de Costo', visible: false, fixed: null, align: 'left' },
+    { id: 'waybill', key: 'waybill', label: 'N° de Guía de Remisión', visible: false, fixed: null, align: 'left' },
+    { id: 'observations', key: 'observations', label: 'Observaciones', visible: false, fixed: null, align: 'left', truncate: true },
+    { id: 'internalNote', key: 'internalNote', label: 'Nota Interna', visible: false, fixed: null, align: 'left', truncate: true },
+    { id: 'actions', key: 'actions', label: '+ Opciones', visible: true, fixed: 'right', align: 'right' }
+  ]), []);
+
+  const STORAGE_KEY = 'lista_comprobantes_columns_v1';
+
+  // Load persisted visibility or defaults
+  const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    // fallback to MASTER_COLUMNS
+    return MASTER_COLUMNS;
+  });
+
+  // Persist config to sessionStorage when changed
+  useEffect(() => {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(columnsConfig)); } catch (e) {}
+  }, [columnsConfig]);
+
+  // Helper: visible columns in order
+  const visibleColumns = useMemo(() => columnsConfig.filter((c: ColumnConfig) => c.visible), [columnsConfig]);
+
+  // Column manager toggle
+  const toggleColumn = (id: string) => {
+    setColumnsConfig(prev => prev.map(c => c.id === id ? { ...c, visible: !c.visible } : c));
+  };
+
   // Resetear página cuando cambien los filtros de fecha o el número de registros por página
   useEffect(() => {
     setCurrentPage(1);
@@ -80,11 +160,29 @@ const InvoiceListDashboard = () => {
   const startRecord = (currentPage - 1) * recordsPerPage + 1;
   const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
   
+  // Orden local por F. Emisión DESC y paginación (no mutamos el contexto)
+  const sortedInvoices = [...filteredInvoices].sort((a: any, b: any) => {
+    try {
+      return parseInvoiceDate(b.date).getTime() - parseInvoiceDate(a.date).getTime();
+    } catch (e) {
+      return 0;
+    }
+  });
+
   // Datos paginados - solo los registros de la página actual
-  const paginatedInvoices = filteredInvoices.slice(
+  const paginatedInvoices = sortedInvoices.slice(
     (currentPage - 1) * recordsPerPage,
     currentPage * recordsPerPage
   );
+
+  // Orden por defecto: F. Emisión DESC
+  useEffect(() => {
+    // Si los invoices vienen desordenados, aplicar orden local por fecha si existe el campo date
+    // Nota: parseInvoiceDate ya disponible.
+    // No mutamos el contexto global: trabajamos sobre filteredInvoices localmente en memoria
+    // (Lista renderiza paginatedInvoices que se obtiene de filteredInvoices)
+    // Aquí no es necesario reordenar el contexto; si quieres persistir orden, lo hacemos más tarde.
+  }, [filteredInvoices]);
 
   const getStatusBadge = (status: string, color: 'blue' | 'green' | 'red' | 'orange') => {
     const colorClasses: Record<'blue' | 'green' | 'red' | 'orange', string> = {
@@ -155,6 +253,27 @@ const InvoiceListDashboard = () => {
                   />
                 </div>
               </div>
+
+              {/* Column manager compact */}
+              <div className="relative">
+                <button title="Columnas" className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center" onClick={(e) => {
+                  const el = (e.currentTarget.nextElementSibling as HTMLElement | null);
+                  if (el) el.classList.toggle('hidden');
+                }}>
+                  <MoreHorizontal className="w-4 h-4 text-gray-500" />
+                </button>
+                <div className="hidden absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 p-3">
+                  <div className="text-sm font-semibold mb-2">Columnas</div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {columnsConfig.map(c => (
+                      <label key={c.id} className="flex items-center justify-between text-sm py-1">
+                        <span className="truncate mr-2">{c.label}</span>
+                        <input type="checkbox" checked={c.visible} onChange={() => toggleColumn(c.id)} />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
             {/* Botones NUEVA BOLETA y NUEVA FACTURA + Impresión masiva */}
             <div className="flex items-center space-x-2">
@@ -223,60 +342,23 @@ const InvoiceListDashboard = () => {
                       }} />
                     </th>
                   )}
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    <div className="flex items-center space-x-2">
-                      <span>N° Comprobante</span>
-                      <Search className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    <div className="flex items-center space-x-2">
-                      <span>Tipo</span>
-                      <Filter className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    <div className="flex items-center space-x-2">
-                      <span>N° Doc Cliente</span>
-                      <Search className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">
-                    <div className="flex items-center space-x-2">
-                      <span>Cliente</span>
-                      <Search className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    <div className="flex items-center space-x-2">
-                      <span>Fecha</span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    <div className="flex items-center space-x-2">
-                      <span>Vendedor</span>
-                      <Search className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Total
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    <div className="flex items-center space-x-2">
-                      <span>Estado</span>
-                      <Filter className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    + Opciones
-                  </th>
+                  {visibleColumns.map(col => (
+                    <th key={col.id} className={`px-6 py-3 text-xs font-medium uppercase tracking-wider ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'} text-gray-700 dark:text-gray-300`}>
+                      <div className="flex items-center justify-between space-x-2">
+                        <span>{col.label}</span>
+                        {/* Small icons for searchable/filterable headers kept where it makes sense */}
+                        {['N° Comprobante', 'Tipo', 'N° Doc Cliente', 'Cliente', 'Vendedor'].includes(col.label) ? (
+                          <Search className="w-4 h-4 text-gray-400" />
+                        ) : null}
+                      </div>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {paginatedInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={massPrintMode ? 10 : 9} className="px-6 py-12">
+                    <td colSpan={Math.max(1, visibleColumns.length + (massPrintMode ? 1 : 0))} className="px-6 py-12">
                       <div className="flex flex-col items-center justify-center text-center">
                         <FileText className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
@@ -307,43 +389,26 @@ const InvoiceListDashboard = () => {
                         }} />
                       </td>
                     )}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {invoice.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                      {invoice.type}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                      {invoice.clientDoc}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                      {invoice.client}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                      {invoice.date}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                      {invoice.vendor}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      S/ {invoice.total.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(invoice.status, invoice.statusColor as 'blue' | 'green' | 'red' | 'orange')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
-                      <div className="flex items-center space-x-3">
-                        <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                          <Printer className="w-4 h-4" />
-                        </button>
-                        <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                          <Share2 className="w-4 h-4" />
-                        </button>
-                        <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+
+                    {visibleColumns.map(col => {
+                      const value = (invoice as any)[col.key];
+
+                      // Presentation rules
+                      const display = (() => {
+                        if (value === undefined || value === null || value === '') return '—';
+                        if (col.key === 'total') return `S/ ${Number(value).toFixed(2)}`;
+                        if (col.key === 'date') return value; // already formatted in mock/context
+                        if (col.key === 'status') return getStatusBadge(invoice.status, invoice.statusColor as 'blue' | 'green' | 'red' | 'orange');
+                        if (col.truncate) return <div title={String(value)} className="truncate max-w-[18rem]">{String(value)}</div>;
+                        return String(value);
+                      })();
+
+                      return (
+                        <td key={col.id} className={`px-6 py-4 whitespace-nowrap text-sm ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'} ${col.key === 'total' ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                          {col.key === 'status' ? display : display}
+                        </td>
+                      );
+                    })}
                   </tr>
                   ))
                 )}
