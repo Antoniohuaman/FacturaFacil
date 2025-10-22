@@ -27,7 +27,6 @@ const NotesSection: React.FC<NotesSectionProps> = ({
   return (
     <ConfigurationCard
       title="Notas y Observaciones"
-      description="Información adicional para el comprobante e ingreso de comentario interno"
       icon={FileText}
       helpText="Las observaciones aparecen en el comprobante impreso. Las notas internas solo son visibles en el sistema para gestión interna."
     >
