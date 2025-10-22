@@ -3,6 +3,7 @@ import { Bell, Settings, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
+import EstablishmentSelector from './EstablishmentSelector';
 
 interface HeaderProps {
   sidebarCollapsed?: boolean;
@@ -92,7 +93,10 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
       </div>
       
       {/* Información de sesión activa */}
-      <div className="flex items-center space-x-7 text-sm">
+      <div className="flex items-center space-x-4 text-sm">
+        {/* Selector de Establecimiento */}
+        <EstablishmentSelector />
+
         {/* Estado de caja con dropdown */}
         <div className="relative" ref={cashMenuRef}>
           <button 

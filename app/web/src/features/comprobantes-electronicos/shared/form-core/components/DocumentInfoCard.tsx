@@ -3,8 +3,8 @@
 // Preserva 100% la funcionalidad, mejora UX y apariencia
 // ===================================================================
 
-import React, { useMemo } from 'react';
-import { FileText, ChevronDown, Calendar, Building2, Hash, DollarSign, CreditCard, User, Settings } from 'lucide-react';
+import React from 'react';
+import { FileText, ChevronDown, Calendar, Hash, DollarSign, CreditCard, User, Settings } from 'lucide-react';
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
 
@@ -40,27 +40,6 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
   const { state } = useConfigurationContext();
   const { paymentMethods } = state;
   
-  // Obtener establecimiento basado en la serie seleccionada
-  const establishmentInfo = useMemo(() => {
-    // Si no hay empresa configurada, retornar null
-    if (!state.company || !state.company.ruc) {
-      return null;
-    }
-    
-    const selectedSerie = state.series.find(s => s.series === serieSeleccionada);
-    if (selectedSerie) {
-      const establishment = state.establishments.find(e => e.id === selectedSerie.establishmentId);
-      if (establishment) {
-        return {
-          name: establishment.name,
-          code: establishment.code
-        };
-      }
-    }
-    // Si no se encuentra, retornar null (no usar fallback)
-    return null;
-  }, [serieSeleccionada, state.series, state.establishments, state.company]);
-  
   return (
     <ConfigurationCard
       title="Información del Documento"
@@ -81,7 +60,7 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
       }
     >
       {/* Campos principales - Grid responsive */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
 
         {/* Serie del comprobante */}
         <div>
@@ -108,42 +87,12 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
               </>
             ) : (
               <div className="w-full px-4 py-3 border-2 border-amber-300 rounded-lg bg-amber-50 text-sm font-medium text-amber-700 flex items-center">
-                <span>⚠️ Primero configura tu empresa</span>
+                <span>⚠️ Selecciona un establecimiento en el header</span>
               </div>
             )}
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            {seriesFiltradas.length > 0 ? 'Asignada por SUNAT' : 'Ve a Configuración → Empresa'}
-          </p>
-        </div>
-
-        {/* Establecimiento */}
-        <div>
-          <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-            <Building2 className="w-4 h-4 mr-1.5 text-blue-600" />
-            Establecimiento
-          </label>
-          <div className="relative">
-            {establishmentInfo ? (
-              <>
-                <input
-                  type="text"
-                  value={`${establishmentInfo.name} (${establishmentInfo.code})`}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 cursor-not-allowed"
-                  readOnly
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                </div>
-              </>
-            ) : (
-              <div className="w-full px-4 py-3 border-2 border-amber-300 rounded-lg bg-amber-50 text-sm font-medium text-amber-700 flex items-center">
-                <span>⚠️ Sin establecimiento</span>
-              </div>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-gray-500">
-            {establishmentInfo ? 'Según serie seleccionada' : 'Configura primero tu empresa'}
+            {seriesFiltradas.length > 0 ? 'Asignada por SUNAT' : 'Las series se filtran según el establecimiento seleccionado'}
           </p>
         </div>
 

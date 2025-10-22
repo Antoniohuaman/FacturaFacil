@@ -177,7 +177,7 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tipoFromURL = params.get('tipo') as TipoComprobante;
-    
+
     // Solo aplicar si hay un tipo específico en la URL y es diferente al actual
     if (tipoFromURL && tipoFromURL !== tipoComprobanteRef.current) {
       if (tipoFromURL === 'factura' || tipoFromURL === 'boleta') {
@@ -186,6 +186,23 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
       }
     }
   }, [location.search, getDefaultSerieParaTipo]);
+
+  /**
+   * Efecto para actualizar la serie cuando cambia el establecimiento
+   * Si la serie actual no está disponible en el nuevo establecimiento, selecciona la primera disponible
+   */
+  useEffect(() => {
+    if (!currentEstablishmentId) return;
+
+    // Verificar si la serie actual sigue siendo válida para este establecimiento
+    const seriesDisponibles = getSeriesParaTipo(tipoComprobante);
+
+    // Si no hay series disponibles o la serie actual no está en la lista, actualizar
+    if (seriesDisponibles.length === 0 || !seriesDisponibles.includes(serieSeleccionada)) {
+      const nuevaSerie = seriesDisponibles[0] || '';
+      setSerieSeleccionadaState(nuevaSerie);
+    }
+  }, [currentEstablishmentId, tipoComprobante, getSeriesParaTipo, serieSeleccionada]);
 
   // ===================================================================
   // VALORES CALCULADOS
