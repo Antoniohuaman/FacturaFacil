@@ -2,7 +2,7 @@
 // CONSTANTES DEL SISTEMA DE COMPROBANTES ELECTRÓNICOS
 // ===================================================================
 
-import type { Product, CurrencyInfo, CajaIntegrationConfig, UnidadMedida } from './comprobante.types';
+import type { CurrencyInfo, CajaIntegrationConfig, UnidadMedida } from './comprobante.types';
 
 // ===================================================================
 // CONFIGURACIÓN DE MONEDAS
@@ -40,32 +40,6 @@ export const UNIDADES_MEDIDA: UnidadMedida[] = [
 export const SERIES_COMPROBANTES = ["B001", "B002", "F001"];
 export const SERIES_BOLETA = ["B001", "B002"];
 export const SERIES_FACTURA = ["F001"];
-
-// ===================================================================
-// PRODUCTOS DISPONIBLES (MODO POS)
-// ===================================================================
-// DEPRECADO: Los productos ahora se obtienen del catálogo real
-// usando el hook useAvailableProducts() que filtra por establecimiento
-//
-// Los productos se gestionan desde el módulo "Productos" y se almacenan
-// en localStorage bajo la clave 'catalog_products'
-// ===================================================================
-export const AVAILABLE_PRODUCTS: Product[] = [];
-
-// Productos de ejemplo (solo para referencia en desarrollo)
-// Para agregar productos reales, usar el módulo "Productos" en la aplicación
-/*
-EJEMPLOS:
-{
-  id: "1",
-  code: "00156389",
-  name: "Hojas Bond A4 ATLAS",
-  price: 60.00,
-  category: "Útiles",
-  description: "Hojas bond tamaño A4, marca Atlas, paquete x500 hojas",
-  stock: 25
-}
-*/
 
 // ===================================================================
 // CATEGORÍAS DE PRODUCTOS

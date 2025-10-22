@@ -5,9 +5,7 @@ import type { MedioPago } from '../../control-caja/models/Caja';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useComprobanteContext } from '../lista-comprobantes/contexts/ComprobantesListContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
-
-// TODO: Integrar con sistema de toasts global (ToastContainer)
-// Por ahora usamos console para logging
+import { useToast } from '../shared/ui/Toast/useToast';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -26,14 +24,7 @@ interface ComprobanteData {
 }
 
 export const useComprobanteActions = () => {
-  // Mock temporal de toast hasta integrar ToastContainer
-  const toast = {
-    success: (title: string, message: string, _options?: any) => console.log('✅', title, message),
-    error: (title: string, message: string, _options?: any) => console.error('❌', title, message),
-    warning: (title: string, message: string, _options?: any) => console.warn('⚠️', title, message),
-    info: (title: string, message: string, _options?: any) => console.info('ℹ️', title, message),
-  };
-
+  const toast = useToast();
   const { agregarMovimiento, status: cajaStatus } = useCaja();
   const { addMovimiento: addMovimientoStock } = useProductStore();
   const { addComprobante } = useComprobanteContext();
@@ -58,34 +49,64 @@ export const useComprobanteActions = () => {
 
   // Validar datos del comprobante
   const validateComprobanteData = useCallback((data: ComprobanteData): boolean => {
+    // Validar productos
     if (!data.cartItems || data.cartItems.length === 0) {
       toast.error(
-        'Productos requeridos',
-        'Debe agregar al menos un producto al comprobante'
+        'Carrito vacío',
+        'Debe agregar al menos un producto al comprobante antes de continuar.'
       );
       return false;
     }
 
+    // Validar tipo de comprobante
     if (!data.tipoComprobante) {
       toast.error(
         'Tipo de comprobante requerido',
-        'Debe seleccionar un tipo de comprobante'
+        'Por favor, seleccione si desea emitir una Boleta o Factura.'
       );
       return false;
     }
 
+    // Validar serie
     if (!data.serieSeleccionada) {
       toast.error(
         'Serie requerida',
-        'Debe seleccionar una serie para el comprobante'
+        'Debe seleccionar una serie válida para el comprobante. Verifique su configuración.'
       );
       return false;
     }
 
+    // Validar total
     if (data.totals.total <= 0) {
       toast.error(
         'Total inválido',
-        'El total del comprobante debe ser mayor a cero'
+        'El total del comprobante debe ser mayor a cero. Verifique los precios de los productos.'
+      );
+      return false;
+    }
+
+    // Validar productos con precios válidos
+    const productosInvalidos = data.cartItems.filter(item => 
+      !item.price || item.price <= 0 || isNaN(item.price)
+    );
+
+    if (productosInvalidos.length > 0) {
+      toast.error(
+        'Productos con precios inválidos',
+        `${productosInvalidos.length} producto(s) tienen precio inválido. Verifique los precios antes de continuar.`
+      );
+      return false;
+    }
+
+    // Validar cantidades válidas
+    const productosConCantidadInvalida = data.cartItems.filter(item => 
+      !item.quantity || item.quantity <= 0 || isNaN(item.quantity)
+    );
+
+    if (productosConCantidadInvalida.length > 0) {
+      toast.error(
+        'Productos con cantidad inválida',
+        `${productosConCantidadInvalida.length} producto(s) tienen cantidad inválida. Verifique las cantidades.`
       );
       return false;
     }
@@ -118,14 +139,19 @@ export const useComprobanteActions = () => {
       if (cajaStatus === 'abierta') {
         try {
           const medioPago = mapFormaPagoToMedioPago(data.formaPago || 'contado');
+          
+          // Obtener usuario actual desde sesión
+          const userId = session?.userId || 'temp-user-id';
+          const userName = session?.userName || 'Usuario';
+
           await agregarMovimiento({
             tipo: 'Ingreso',
             concepto: `${data.tipoComprobante} ${numeroComprobante}`,
             medioPago: medioPago,
             monto: data.totals.total,
             referencia: numeroComprobante,
-            usuarioId: 'user-temp-id', // TODO: Obtener del contexto de autenticación
-            usuarioNombre: 'Usuario Temp' // TODO: Obtener del contexto de autenticación
+            usuarioId: userId,
+            usuarioNombre: userName
           });
         } catch (cajaError) {
           console.error('Error registrando movimiento en caja:', cajaError);
@@ -133,7 +159,12 @@ export const useComprobanteActions = () => {
           toast.warning(
             'Comprobante creado',
             'El comprobante se creó pero no se pudo registrar en caja. Registre manualmente.',
-            { label: 'Entendido', onClick: () => {} }
+            {
+              action: {
+                label: 'Entendido',
+                onClick: () => {}
+              }
+            }
           );
         }
       }
@@ -167,7 +198,12 @@ export const useComprobanteActions = () => {
         toast.warning(
           'Stock no actualizado',
           'El comprobante se creó pero no se pudo actualizar el stock automáticamente.',
-          { label: 'Entendido', onClick: () => {} }
+          {
+            action: {
+              label: 'Entendido',
+              onClick: () => {}
+            }
+          }
         );
       }
 
@@ -184,14 +220,17 @@ export const useComprobanteActions = () => {
           tipoComprobanteDisplay = 'Factura';
         }
 
+        // Obtener usuario actual
+        const vendorName = session?.userName || 'Usuario';
+
         // Crear el objeto comprobante para la lista
         const nuevoComprobante = {
           id: numeroComprobante,
           type: tipoComprobanteDisplay,
           clientDoc: '00000000', // TODO: Obtener del cliente real cuando se implemente
-          client: 'Cliente Nuevo', // TODO: Obtener del cliente real cuando se implemente
+          client: 'Cliente General', // TODO: Obtener del cliente real cuando se implemente
           date: formattedDate,
-          vendor: 'Usuario Temp', // TODO: Obtener del contexto de autenticación
+          vendor: vendorName,
           total: data.totals.total,
           status: 'Enviado',
           statusColor: 'blue' as const
@@ -208,10 +247,12 @@ export const useComprobanteActions = () => {
         '¡Comprobante creado!',
         `${data.tipoComprobante} ${numeroComprobante} generado exitosamente`,
         {
-          label: 'Ver comprobante',
-          onClick: () => {
-            // Aquí iría la navegación al detalle del comprobante
-            console.log('Navegando a comprobante:', numeroComprobante);
+          action: {
+            label: 'Ver comprobante',
+            onClick: () => {
+              // Aquí iría la navegación al detalle del comprobante
+              console.log('Navegando a comprobante:', numeroComprobante);
+            }
           }
         }
       );
@@ -225,8 +266,10 @@ export const useComprobanteActions = () => {
         'Error al crear comprobante',
         'Ocurrió un error inesperado. Por favor, inténtelo nuevamente.',
         {
-          label: 'Reintentar',
-          onClick: () => createComprobante(data)
+          action: {
+            label: 'Reintentar',
+            onClick: () => createComprobante(data)
+          }
         }
       );
 
@@ -277,10 +320,12 @@ export const useComprobanteActions = () => {
         'Borrador guardado',
         `Se guardó el borrador con ${data.cartItems.length} producto${data.cartItems.length > 1 ? 's' : ''}`,
         {
-          label: 'Ver borradores',
-          onClick: () => {
-            // Aquí iría la navegación a la lista de borradores
-            console.log('Navegando a borradores');
+          action: {
+            label: 'Ver borradores',
+            onClick: () => {
+              // Aquí iría la navegación a la lista de borradores
+              console.log('Navegando a borradores');
+            }
           }
         }
       );
@@ -345,8 +390,10 @@ export const useComprobanteActions = () => {
             'Vuelto',
             `Entregar S/ ${change.toFixed(2)} de vuelto`,
             {
-              label: 'Entregado',
-              onClick: () => toast.success('Vuelto entregado', 'Transacción completada')
+              action: {
+                label: 'Entregado',
+                onClick: () => toast.success('Vuelto entregado', 'Transacción completada')
+              }
             }
           );
         }
@@ -373,9 +420,12 @@ export const useComprobanteActions = () => {
     processPayment,
     validateComprobanteData,
 
-    // Toast utilities
-    ...toast,
-    toasts: [], // Mock: array vacío para compatibilidad
-    removeToast: (id: string) => console.log('Remove toast:', id), // Mock
+    // Toast utilities (sistema real de toasts)
+    success: toast.success,
+    error: toast.error,
+    warning: toast.warning,
+    info: toast.info,
+    toasts: toast.toasts,
+    removeToast: toast.removeToast,
   };
 };
