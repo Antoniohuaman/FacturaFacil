@@ -166,7 +166,7 @@ const PuntoVenta = () => {
                     <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                       Punto de Venta
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                        Rápido
+                        POS
                       </span>
                     </h1>
                     <p className="text-sm text-gray-500">
