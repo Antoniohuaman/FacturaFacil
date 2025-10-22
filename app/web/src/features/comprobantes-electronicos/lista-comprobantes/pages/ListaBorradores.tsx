@@ -729,15 +729,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center space-x-3">
-                <button className="px-4 py-2 border rounded-md transition-colors text-sm font-medium" style={{ color: '#1478D4', borderColor: '#1478D4' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#1478D411'; }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                  Nueva factura
-                </button>
-                <button className="px-4 py-2 text-white rounded-md transition-colors text-sm font-medium" style={{ backgroundColor: '#1478D4' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1068C4'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1478D4'}>
-                  Nueva boleta
-                </button>
-              </div>
+              {/* Action buttons removed for this view */}
             </div>
           </div>
 
