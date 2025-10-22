@@ -27,7 +27,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({
   return (
     <ConfigurationCard
       title="Notas y Observaciones"
-      description="Información adicional para el comprobante e interna"
+      description="Información adicional para el comprobante e ingreso de comentario interno"
       icon={FileText}
       helpText="Las observaciones aparecen en el comprobante impreso. Las notas internas solo son visibles en el sistema para gestión interna."
     >
@@ -66,11 +66,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({
             value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}
           />
-          <p className="mt-1.5 text-xs text-gray-500 flex items-start">
-            <FileText className="w-3 h-3 mr-1 flex-shrink-0 mt-0.5" />
-            <span>
-              Aparecerá impreso en el comprobante electrónico que recibirá el cliente
-            </span>
+          <p className="mt-1.5 text-xs text-gray-500">
           </p>
         </div>
 
@@ -82,7 +78,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({
               Nota Interna
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
                 <EyeOff className="w-3 h-3 mr-1" />
-                Solo interna
+                Solo en el sistema
               </span>
             </label>
             <span className={`text-xs font-medium ${
@@ -107,11 +103,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({
             value={notaInterna}
             onChange={(e) => setNotaInterna(e.target.value)}
           />
-          <p className="mt-1.5 text-xs text-gray-500 flex items-start">
-            <EyeOff className="w-3 h-3 mr-1 flex-shrink-0 mt-0.5" />
-            <span>
-              Visible solo en el sistema para gestión y seguimiento interno
-            </span>
+          <p className="mt-1.5 text-xs text-gray-500">
           </p>
         </div>
       </div>
