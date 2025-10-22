@@ -12,7 +12,7 @@ import { useDocumentType } from '../shared/form-core/hooks/useDocumentType';
 import { usePreview } from '../hooks/usePreview';
 import { useComprobanteState } from '../hooks/useComprobanteState';
 import { useComprobanteActions } from '../hooks/useComprobanteActions';
-import { useFieldsConfiguration } from '../shared/form-core/hooks/useFieldsConfiguration';
+import { useFieldsConfiguration } from '../shared/form-core/contexts/FieldsConfigurationContext';
 
 // Importar componentes del form-core
 import ProductsSection from '../shared/form-core/components/ProductsSection';

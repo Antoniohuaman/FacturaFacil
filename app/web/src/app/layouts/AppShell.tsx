@@ -8,6 +8,7 @@ import { ComprobanteProvider } from "../../features/comprobantes-electronicos/li
 import { ThemeProvider } from "../../contexts/ThemeContext";
 import { UserSessionProvider } from "../../contexts/UserSessionContext";
 import { SessionInitializer } from "../../contexts/SessionInitializer";
+import { FieldsConfigurationProvider } from "../../features/comprobantes-electronicos/shared/form-core/contexts/FieldsConfigurationContext";
 
 export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -17,8 +18,9 @@ export default function AppShell() {
       <UserSessionProvider>
         <ConfigurationProvider>
           <SessionInitializer>
-            <ComprobanteProvider>
-              <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden">
+            <FieldsConfigurationProvider>
+              <ComprobanteProvider>
+                <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden">
             {/* Header fijo */}
             <div className="flex-shrink-0 z-50">
               <Header
@@ -42,7 +44,8 @@ export default function AppShell() {
               </div>
             </div>
           </div>
-            </ComprobanteProvider>
+              </ComprobanteProvider>
+            </FieldsConfigurationProvider>
           </SessionInitializer>
         </ConfigurationProvider>
       </UserSessionProvider>

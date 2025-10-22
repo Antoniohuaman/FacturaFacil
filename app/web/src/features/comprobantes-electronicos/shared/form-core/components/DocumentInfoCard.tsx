@@ -3,17 +3,18 @@
 // Preserva 100% la funcionalidad, mejora UX y apariencia
 // ===================================================================
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FileText, ChevronDown, Calendar, Hash, DollarSign, CreditCard, User, Settings } from 'lucide-react';
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
+import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
 
 interface DocumentInfoCardProps {
   serieSeleccionada: string;
   setSerieSeleccionada: (value: string) => void;
   seriesFiltradas: string[];
-  showOptionalFields: boolean;
-  setShowOptionalFields: (value: boolean | ((prev: boolean) => boolean)) => void;
+  showOptionalFields?: boolean; // Deprecated - se usa fieldsConfig internamente
+  setShowOptionalFields?: (value: boolean | ((prev: boolean) => boolean)) => void; // Deprecated
   // ✅ Props adicionales para Moneda y Forma de Pago
   moneda?: string;
   setMoneda?: (value: string) => void;
@@ -28,8 +29,7 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
   serieSeleccionada,
   setSerieSeleccionada,
   seriesFiltradas,
-  showOptionalFields,
-  // setShowOptionalFields - Ya no se usa (se eliminó el botón de toggle)
+  // showOptionalFields y setShowOptionalFields - deprecated, ahora se usa fieldsConfig
   moneda = "PEN",
   setMoneda,
   formaPago = "contado",
@@ -39,6 +39,12 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
 }) => {
   const { state } = useConfigurationContext();
   const { paymentMethods } = state;
+  const { config } = useFieldsConfiguration();
+
+  // Calcular si hay algún campo opcional visible
+  const hasVisibleOptionalFields = useMemo(() => {
+    return Object.values(config.optionalFields).some(field => field.visible);
+  }, [config.optionalFields]);
   
   return (
     <ConfigurationCard
@@ -184,121 +190,149 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
         </div>
       </div>
 
-      {/* ✅ Campos opcionales - Siempre visibles según configuración */}
-      {showOptionalFields && (
+      {/* ✅ Campos opcionales - Renderizados según configuración */}
+      {hasVisibleOptionalFields && (
         <div className="mt-6 pt-6 border-t border-gray-200">
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-          <div className="flex items-center space-x-2 mb-4">
-            <div className="w-1 h-6 bg-blue-600 rounded-full"></div>
-            <h4 className="text-sm font-semibold text-gray-900">
-              Información Adicional del Comprobante
-            </h4>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Dirección */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Dirección
-              </label>
-              <input
-                type="text"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
-                placeholder="Ingrese dirección del cliente"
-              />
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+            <div className="flex items-center space-x-2 mb-4">
+              <div className="w-1 h-6 bg-blue-600 rounded-full"></div>
+              <h4 className="text-sm font-semibold text-gray-900">
+                Información Adicional del Comprobante
+              </h4>
             </div>
 
-            {/* Fecha de vencimiento */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fecha de Vencimiento
-              </label>
-              <input
-                type="date"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
-                value={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Por defecto: 30 días desde emisión
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Dirección */}
+              {config.optionalFields.direccion.visible && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Dirección
+                    {config.optionalFields.direccion.required && <span className="ml-1 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={config.optionalFields.direccion.required}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
+                    placeholder="Ingrese dirección del cliente"
+                  />
+                </div>
+              )}
+
+              {/* Fecha de vencimiento */}
+              {config.optionalFields.fechaVencimiento.visible && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fecha de Vencimiento
+                    {config.optionalFields.fechaVencimiento.required && <span className="ml-1 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="date"
+                    required={config.optionalFields.fechaVencimiento.required}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
+                    defaultValue={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Por defecto: 30 días desde emisión
+                  </p>
+                </div>
+              )}
+
+              {/* Dirección de envío */}
+              {config.optionalFields.direccionEnvio.visible && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Dirección de Envío
+                    {config.optionalFields.direccionEnvio.required && <span className="ml-1 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={config.optionalFields.direccionEnvio.required}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
+                    placeholder="Ej: Av. Principal 123, Lima"
+                  />
+                </div>
+              )}
+
+              {/* Orden de compra */}
+              {config.optionalFields.ordenCompra.visible && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Orden de Compra
+                    {config.optionalFields.ordenCompra.required && <span className="ml-1 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={config.optionalFields.ordenCompra.required}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
+                    placeholder="Ej: OC01-0000236"
+                  />
+                </div>
+              )}
+
+              {/* Número de guía */}
+              {config.optionalFields.guiaRemision.visible && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    N° de Guía de Remisión
+                    {config.optionalFields.guiaRemision.required && <span className="ml-1 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={config.optionalFields.guiaRemision.required}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
+                    placeholder="Ej: T001-00000256"
+                  />
+                </div>
+              )}
+
+              {/* Correo electrónico */}
+              {config.optionalFields.correo.visible && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Correo Electrónico
+                    {config.optionalFields.correo.required && <span className="ml-1 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="email"
+                    required={config.optionalFields.correo.required}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
+                    placeholder="cliente@empresa.com"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Para envío automático del PDF
+                  </p>
+                </div>
+              )}
+
+              {/* Centro de costo */}
+              {config.optionalFields.centroCosto.visible && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Centro de Costo
+                    {config.optionalFields.centroCosto.required && <span className="ml-1 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={config.optionalFields.centroCosto.required}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
+                    placeholder="Ingrese centro de costos"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Info helper */}
+            <div className="mt-4 p-3 bg-blue-100/50 rounded-lg border border-blue-200">
+              <p className="text-xs text-blue-800 flex items-start">
+                <FileText className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                <span>
+                  Estos campos son <strong>opcionales</strong> y aparecerán en el comprobante electrónico solo si los completas.
+                  Son útiles para facturación empresarial (B2B) o cuando requieres documentación detallada.
+                </span>
               </p>
             </div>
-
-            {/* Dirección de envío */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Dirección de Envío
-              </label>
-              <input
-                type="text"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
-                placeholder="Ej: Av. Principal 123, Lima"
-              />
-            </div>
-
-            {/* Orden de compra */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Orden de Compra
-              </label>
-              <input
-                type="text"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
-                placeholder="Ej: OC01-0000236"
-              />
-            </div>
-
-            {/* Número de guía */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                N° de Guía de Remisión
-              </label>
-              <input
-                type="text"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
-                placeholder="Ej: T001-00000256"
-              />
-            </div>
-
-            {/* Correo electrónico */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Correo Electrónico
-              </label>
-              <input
-                type="email"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
-                placeholder="cliente@empresa.com"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Para envío automático del PDF
-              </p>
-            </div>
-
-            {/* Centro de costo */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Centro de Costo
-              </label>
-              <input
-                type="text"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
-                placeholder="Ingrese centro de costos"
-              />
-            </div>
           </div>
-
-          {/* Info helper */}
-          <div className="mt-4 p-3 bg-blue-100/50 rounded-lg border border-blue-200">
-            <p className="text-xs text-blue-800 flex items-start">
-              <FileText className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
-              <span>
-                Estos campos son <strong>opcionales</strong> y aparecerán en el comprobante electrónico solo si los completas.
-                Son útiles para facturación empresarial (B2B) o cuando requieres documentación detallada.
-              </span>
-            </p>
-          </div>
-        </div>
         </div>
       )}
     </ConfigurationCard>

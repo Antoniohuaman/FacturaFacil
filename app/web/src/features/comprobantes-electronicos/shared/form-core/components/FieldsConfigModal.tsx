@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { X, Settings, Eye, EyeOff } from 'lucide-react';
-import type { ComponentVisibility } from '../hooks/useFieldsConfiguration';
+import type { ComponentVisibility } from '../contexts/FieldsConfigurationContext';
 
 interface FieldsConfigModalProps {
   isOpen: boolean;
