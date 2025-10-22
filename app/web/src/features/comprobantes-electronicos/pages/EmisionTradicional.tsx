@@ -16,8 +16,7 @@ import { useFieldsConfiguration } from '../shared/form-core/contexts/FieldsConfi
 
 // Importar componentes del form-core
 import ProductsSection from '../shared/form-core/components/ProductsSection';
-import DocumentInfoCard from '../shared/form-core/components/DocumentInfoCard';
-import ClienteSection from '../shared/form-core/components/ClienteSection';
+import CompactDocumentForm from '../shared/form-core/components/CompactDocumentForm';
 import NotesSection from '../shared/form-core/components/NotesSection';
 import ActionButtonsSection from '../shared/form-core/components/ActionButtonsSection';
 import FieldsConfigModal from '../shared/form-core/components/FieldsConfigModal';
@@ -65,7 +64,6 @@ const EmisionTradicional = () => {
 
   // Estado consolidado (SIN CAMBIOS)
   const {
-    showOptionalFields, setShowOptionalFields,
     observaciones, setObservaciones,
     notaInterna, setNotaInterna,
     receivedAmount, // setReceivedAmount ya no se usa (eliminamos bloque "Efectivo rápido")
@@ -292,13 +290,11 @@ const EmisionTradicional = () => {
           {/* Form View - Layout mejorado con ClienteSection */}
           <div className="max-w-7xl mx-auto p-6 space-y-6 overflow-y-auto h-full">
 
-            {/* Document Info Card - ✅ Con Moneda, Forma de Pago y Vendedor */}
-            <DocumentInfoCard
+            {/* ✅ Formulario Compacto - Todos los campos organizados */}
+            <CompactDocumentForm
               serieSeleccionada={serieSeleccionada}
               setSerieSeleccionada={setSerieSeleccionada}
               seriesFiltradas={seriesFiltradas}
-              showOptionalFields={showOptionalFields}
-              setShowOptionalFields={setShowOptionalFields}
               moneda={currentCurrency}
               setMoneda={(value: string) => changeCurrency(value as any)}
               formaPago={formaPago}
@@ -306,9 +302,6 @@ const EmisionTradicional = () => {
               onNuevaFormaPago={handleNuevaFormaPago}
               onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
             />
-
-            {/* ✅ Cliente Section - NUEVA posición estratégica */}
-            <ClienteSection />
 
             {/* Products Section - Sin cambios */}
             <ProductsSection
