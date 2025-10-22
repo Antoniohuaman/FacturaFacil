@@ -518,7 +518,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Productos del Comprobante</h3>
             <p className="text-sm text-gray-500 mt-0.5">
-              Agregue productos, configure precios e impuestos
+              Agregue productos para la venta y configure las columnas visibles de su preferencia.
             </p>
           </div>
           <div className="flex items-center gap-3">
