@@ -4,7 +4,7 @@
 // ===================================================================
 
 import React from 'react';
-import { Eye, X, Save, CreditCard } from 'lucide-react';
+import { Eye, X, Save, CreditCard, ShoppingCart } from 'lucide-react';
 
 interface ActionButtonsSectionProps {
   onVistaPrevia?: () => void;
@@ -12,6 +12,7 @@ interface ActionButtonsSectionProps {
   onGuardarBorrador?: () => void;
   onCrearComprobante?: () => void;
   isCartEmpty?: boolean;
+  productsCount?: number;
 }
 
 const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
@@ -20,16 +21,27 @@ const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
   onGuardarBorrador,
   onCrearComprobante,
   isCartEmpty = false,
+  productsCount = 0,
 }) => {
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
       {/* Header section */}
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Acciones del Comprobante</h3>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Revisa, guarda o procede a crear el comprobante electrónico
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Acciones del Comprobante</h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Revisa, guarda o procede a crear el comprobante electrónico
+            </p>
+          </div>
+          
+          {/* Contador de productos - Pequeño y discreto */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-md">
+            <ShoppingCart className="w-3.5 h-3.5 text-blue-600" />
+            <span className="text-xs font-semibold text-blue-700">
+              {productsCount}
+            </span>
+          </div>
         </div>
 
         {/* Estado visual */}

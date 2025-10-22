@@ -29,7 +29,7 @@ import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../shared/modales/SuccessModal';
 
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, LayoutList } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
@@ -217,14 +217,6 @@ const EmisionTradicional = () => {
                   </span>
                 </div>
 
-                {/* Mini stats */}
-                <div className="hidden lg:flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
-                  <LayoutList className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">
-                    {cartItems.length} productos
-                  </span>
-                </div>
-
                 {/* ✅ Selector de Tipo de Comprobante - Botones Premium */}
                 <div className="flex items-center space-x-2">
                   <button
@@ -342,6 +334,7 @@ const EmisionTradicional = () => {
               onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
               onCrearComprobante={fieldsConfig.actionButtons.crearComprobante ? () => setShowPaymentModal(true) : undefined}
               isCartEmpty={cartItems.length === 0}
+              productsCount={cartItems.length}
             />
           </div>
         </div>
