@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 // import { useNavigate } from 'react-router-dom'; // Eliminado porque no se usa
 import { Search, Printer, ChevronLeft, ChevronRight, FileText, MoreHorizontal, Share2, Copy, Eye, Edit2, XCircle } from 'lucide-react';
@@ -82,6 +83,8 @@ const InvoiceListDashboard = () => {
   const [showTotals, setShowTotals] = useState(false);
   const [recordsPerPage, setRecordsPerPage] = useState(10); // Por defecto 10 registros
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
 
   // --------------------
   // Column manager (config local)
@@ -331,7 +334,7 @@ const InvoiceListDashboard = () => {
       <div className="px-6 py-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Table */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-visible">
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                 <tr>
@@ -424,30 +427,53 @@ const InvoiceListDashboard = () => {
                               </button>
 
                               {/* Menú desplegable con más opciones */}
-                              <div className="relative z-30">
+                              <div className="relative">
                                 <button
-                                  onClick={() => setOpenMenuId(openMenuId === invoice.id ? null : invoice.id)}
+                                  ref={(el) => { buttonRefs.current[invoice.id] = el; }}
+                                  onClick={(e) => {
+                                    if (openMenuId === invoice.id) {
+                                      setOpenMenuId(null);
+                                      setMenuPosition(null);
+                                    } else {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      setMenuPosition({
+                                        top: rect.bottom + window.scrollY + 4,
+                                        left: rect.right + window.scrollX - 176 // 176px = w-44 (11rem)
+                                      });
+                                      setOpenMenuId(invoice.id);
+                                    }
+                                  }}
                                   className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                                   title="Más opciones"
                                 >
                                   <MoreHorizontal className="w-4 h-4" />
                                 </button>
 
-                                {/* Dropdown menu */}
-                                {openMenuId === invoice.id && (
+                                {/* Dropdown menu con Portal */}
+                                {openMenuId === invoice.id && menuPosition && createPortal(
                                   <>
                                     {/* Backdrop para cerrar el menú */}
                                     <div 
                                       className="fixed inset-0 z-40" 
-                                      onClick={() => setOpenMenuId(null)}
+                                      onClick={() => {
+                                        setOpenMenuId(null);
+                                        setMenuPosition(null);
+                                      }}
                                     />
                                     
                                     {/* Menú */}
-                                    <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50">
+                                    <div 
+                                      className="fixed w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50"
+                                      style={{
+                                        top: `${menuPosition.top}px`,
+                                        left: `${menuPosition.left}px`
+                                      }}
+                                    >
                                       <button
                                         onClick={() => {
                                           console.log('Duplicar:', invoice.id);
                                           setOpenMenuId(null);
+                                          setMenuPosition(null);
                                           // TODO: Implementar lógica de duplicar
                                         }}
                                         className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5"
@@ -460,6 +486,7 @@ const InvoiceListDashboard = () => {
                                         onClick={() => {
                                           console.log('Ver detalle:', invoice.id);
                                           setOpenMenuId(null);
+                                          setMenuPosition(null);
                                           // TODO: Implementar lógica de ver detalle
                                         }}
                                         className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5"
@@ -472,6 +499,7 @@ const InvoiceListDashboard = () => {
                                         onClick={() => {
                                           console.log('Editar:', invoice.id);
                                           setOpenMenuId(null);
+                                          setMenuPosition(null);
                                           // TODO: Implementar lógica de editar
                                         }}
                                         className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-gray-700 hover:text-amber-600 transition-colors flex items-center gap-2.5"
@@ -486,6 +514,7 @@ const InvoiceListDashboard = () => {
                                         onClick={() => {
                                           console.log('Anular:', invoice.id);
                                           setOpenMenuId(null);
+                                          setMenuPosition(null);
                                           // TODO: Implementar lógica de anular
                                         }}
                                         className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2.5"
@@ -494,7 +523,8 @@ const InvoiceListDashboard = () => {
                                         <span>Anular</span>
                                       </button>
                                     </div>
-                                  </>
+                                  </>,
+                                  document.body
                                 )}
                               </div>
                             </div>
