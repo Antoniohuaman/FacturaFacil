@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Search, Printer, ChevronLeft, ChevronRight, FileText, MoreHorizontal, 
   Share2, Copy, Eye, Edit2, XCircle, Filter, RefreshCw, Download, 
-  Plus, CheckCircle2, Send, XOctagon, AlertTriangle, Ban 
+  Plus, CheckCircle2, Send, XOctagon, AlertTriangle, Ban, Calendar, ChevronDown, X
 } from 'lucide-react';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
 
@@ -92,7 +92,18 @@ const InvoiceListDashboard = () => {
   const [globalSearch, setGlobalSearch] = useState('');
   const [density, setDensity] = useState<'comfortable' | 'intermediate' | 'compact'>('comfortable');
   const [showColumnManager, setShowColumnManager] = useState(false);
-  const [isLoading] = useState(false); // Simular estado de carga (conectar con lógica real)
+  const [isLoading] = useState(false);
+  
+  // Estados para Date Range
+  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
+  const [tempDateFrom, setTempDateFrom] = useState(dateFrom);
+  const [tempDateTo, setTempDateTo] = useState(dateTo);
+  
+  // Estados para filtros por columna
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [tempColumnFilters, setTempColumnFilters] = useState<Record<string, string>>({});
+  const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
+  const [filterPopoverPosition, setFilterPopoverPosition] = useState<{ top: number; left: number } | null>(null);
 
   // --------------------
   // Column manager (config local)
@@ -156,6 +167,78 @@ const InvoiceListDashboard = () => {
     setColumnsConfig(prev => prev.map(c => c.id === id ? { ...c, visible: !c.visible } : c));
   };
 
+  // Función para formatear fecha a formato corto
+  const formatDateShort = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  // Presets de fecha
+  const applyDatePreset = (preset: string) => {
+    const today = new Date();
+    let from = '';
+    let to = '';
+
+    switch (preset) {
+      case 'today':
+        from = to = today.toISOString().slice(0, 10);
+        break;
+      case 'yesterday':
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        from = to = yesterday.toISOString().slice(0, 10);
+        break;
+      case 'last7days':
+        const last7 = new Date(today);
+        last7.setDate(last7.getDate() - 7);
+        from = last7.toISOString().slice(0, 10);
+        to = today.toISOString().slice(0, 10);
+        break;
+      case 'thisMonth':
+        from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+        to = today.toISOString().slice(0, 10);
+        break;
+      case 'lastMonth':
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        from = lastMonth.toISOString().slice(0, 10);
+        to = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().slice(0, 10);
+        break;
+      case 'last30days':
+        const last30 = new Date(today);
+        last30.setDate(last30.getDate() - 30);
+        from = last30.toISOString().slice(0, 10);
+        to = today.toISOString().slice(0, 10);
+        break;
+    }
+
+    setTempDateFrom(from);
+    setTempDateTo(to);
+  };
+
+  // Aplicar rango de fechas
+  const applyDateRange = () => {
+    setDateFrom(tempDateFrom);
+    setDateTo(tempDateTo);
+    setShowDateRangePicker(false);
+  };
+
+  // Limpiar filtro de columna
+  const clearColumnFilter = (columnId: string) => {
+    const newFilters = { ...columnFilters };
+    delete newFilters[columnId];
+    setColumnFilters(newFilters);
+  };
+
+  // Limpiar todos los filtros
+  const clearAllFilters = () => {
+    setGlobalSearch('');
+    setColumnFilters({});
+    setDateFrom(getToday());
+    setDateTo(getToday());
+  };
+
   // Atajos de teclado
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -172,7 +255,6 @@ const InvoiceListDashboard = () => {
       // e para exportar
       if (e.key === 'e' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
         e.preventDefault();
-        // TODO: Ejecutar exportación
         console.log('Atajo de exportar activado');
       }
     };
@@ -186,25 +268,48 @@ const InvoiceListDashboard = () => {
     setCurrentPage(1);
   }, [dateFrom, dateTo, recordsPerPage]);
 
+  // Sincronizar tempColumnFilters cuando se abre un popover de filtro
+  useEffect(() => {
+    if (activeFilterColumn) {
+      setTempColumnFilters(columnFilters);
+    }
+  }, [activeFilterColumn, columnFilters]);
+
   // ✅ Los comprobantes ahora vienen del contexto
   // Datos filtrados por rango de fechas
   const filteredInvoices = filterInvoicesByDateRange(invoices, dateFrom, dateTo);
   
   // Filtrado por búsqueda global
   const searchedInvoices = useMemo(() => {
-    if (!globalSearch.trim()) return filteredInvoices;
+    let result = filteredInvoices;
     
-    const search = globalSearch.toLowerCase();
-    return filteredInvoices.filter(invoice => {
-      return (
-        invoice.id?.toLowerCase().includes(search) ||
-        invoice.client?.toLowerCase().includes(search) ||
-        invoice.clientDoc?.toLowerCase().includes(search) ||
-        invoice.vendor?.toLowerCase().includes(search) ||
-        invoice.type?.toLowerCase().includes(search)
-      );
+    // Filtro global
+    if (globalSearch.trim()) {
+      const search = globalSearch.toLowerCase();
+      result = result.filter(invoice => {
+        return (
+          invoice.id?.toLowerCase().includes(search) ||
+          invoice.client?.toLowerCase().includes(search) ||
+          invoice.clientDoc?.toLowerCase().includes(search) ||
+          invoice.vendor?.toLowerCase().includes(search) ||
+          invoice.type?.toLowerCase().includes(search)
+        );
+      });
+    }
+    
+    // Filtros por columna (AND)
+    Object.entries(columnFilters).forEach(([columnKey, filterValue]) => {
+      if (filterValue.trim()) {
+        const filterLower = filterValue.toLowerCase();
+        result = result.filter(invoice => {
+          const value = (invoice as any)[columnKey];
+          return value && String(value).toLowerCase().includes(filterLower);
+        });
+      }
     });
-  }, [filteredInvoices, globalSearch]);
+    
+    return result;
+  }, [filteredInvoices, globalSearch, columnFilters]);
 
   // Cálculos de paginación
   const totalRecords = searchedInvoices.length;
@@ -289,6 +394,46 @@ const InvoiceListDashboard = () => {
     </tr>
   );
 
+  // Ref para debounce
+  const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+
+  // Filtro por columna con debounce (300ms)
+  const handleColumnFilterChange = (columnKey: string, value: string) => {
+    // Limpiar timer anterior para esta columna
+    if (debounceTimerRef.current[columnKey]) {
+      clearTimeout(debounceTimerRef.current[columnKey]);
+    }
+
+    // Aplicar debounce solo para inputs de texto
+    if (['id', 'client', 'vendor', 'clientDoc'].includes(columnKey)) {
+      debounceTimerRef.current[columnKey] = setTimeout(() => {
+        setColumnFilters(prev => {
+          if (!value.trim()) {
+            const newFilters = { ...prev };
+            delete newFilters[columnKey];
+            return newFilters;
+          }
+          return { ...prev, [columnKey]: value };
+        });
+      }, 300);
+    } else {
+      // Para checkboxes (type) aplicar inmediatamente
+      setColumnFilters(prev => {
+        if (!value.trim()) {
+          const newFilters = { ...prev };
+          delete newFilters[columnKey];
+          return newFilters;
+        }
+        return { ...prev, [columnKey]: value };
+      });
+    }
+  };
+
+  // Verificar si una columna tiene filtro activo
+  const hasActiveFilter = (columnKey: string) => {
+    return !!columnFilters[columnKey];
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Popup de confirmación de impresión masiva */}
@@ -320,7 +465,7 @@ const InvoiceListDashboard = () => {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="px-6 py-4">
-          {/* Fila principal: Búsqueda → Fechas → Acciones → Botones */}
+          {/* Fila principal: Búsqueda → Date Range → Acciones → Botones */}
           <div className="flex items-center gap-3">
             {/* Búsqueda global */}
             <div className="relative w-64">
@@ -330,25 +475,109 @@ const InvoiceListDashboard = () => {
                 placeholder="Buscar por número, cliente, vendedor..."
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
 
-            {/* Rango de fechas */}
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-              <span className="text-gray-500 dark:text-gray-400 text-sm">—</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
+            {/* Date Range Picker (Single Input) */}
+            <div className="relative">
+              <button
+                onClick={() => setShowDateRangePicker(!showDateRangePicker)}
+                className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Seleccionar rango de fechas"
+                aria-haspopup="dialog"
+                aria-expanded={showDateRangePicker}
+              >
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <span className="font-medium">
+                  {formatDateShort(dateFrom)} — {formatDateShort(dateTo)}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+
+              {/* Date Range Popover */}
+              {showDateRangePicker && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowDateRangePicker(false)}
+                  />
+                  
+                  <div className="absolute left-0 top-full mt-2 z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 w-[420px]">
+                    {/* Presets */}
+                    <div className="mb-4">
+                      <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                        Presets
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: 'Hoy', value: 'today' },
+                          { label: 'Ayer', value: 'yesterday' },
+                          { label: 'Últimos 7 días', value: 'last7days' },
+                          { label: 'Este mes', value: 'thisMonth' },
+                          { label: 'Mes pasado', value: 'lastMonth' },
+                          { label: 'Últimos 30 días', value: 'last30days' }
+                        ].map((preset) => (
+                          <button
+                            key={preset.value}
+                            onClick={() => applyDatePreset(preset.value)}
+                            className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-left"
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Inputs personalizados */}
+                    <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                      <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                        Personalizado
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Desde</label>
+                          <input
+                            type="date"
+                            value={tempDateFrom}
+                            onChange={(e) => setTempDateFrom(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Hasta</label>
+                          <input
+                            type="date"
+                            value={tempDateTo}
+                            onChange={(e) => setTempDateTo(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setTempDateFrom(dateFrom);
+                          setTempDateTo(dateTo);
+                          setShowDateRangePicker(false);
+                        }}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={applyDateRange}
+                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      >
+                        Aplicar
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Separador */}
@@ -358,7 +587,7 @@ const InvoiceListDashboard = () => {
             <button
               title="Filtros (Atajo: F)"
               aria-label="Abrir filtros"
-              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
               onClick={() => {/* TODO: Implementar panel de filtros */}}
             >
               <Filter className="w-5 h-5" />
@@ -367,7 +596,7 @@ const InvoiceListDashboard = () => {
             <button
               title="Refrescar lista"
               aria-label="Refrescar comprobantes"
-              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
               onClick={() => window.location.reload()}
             >
               <RefreshCw className="w-5 h-5" />
@@ -376,7 +605,7 @@ const InvoiceListDashboard = () => {
             <button
               title="Exportar (Atajo: E)"
               aria-label="Exportar comprobantes"
-              className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
+              className="px-3 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               onClick={() => {/* TODO: Implementar exportación */}}
             >
               <Download className="w-4 h-4" />
@@ -477,19 +706,21 @@ const InvoiceListDashboard = () => {
             </div>
 
             {/* Separador */}
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 ml-auto"></div>
 
-            {/* Botones principales */}
+            {/* Botones de Acción Perfectos */}
             <button
-              className="px-4 py-2 border border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400 bg-white dark:bg-gray-800 rounded-lg font-medium text-sm hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
               onClick={() => navigate('/comprobantes/emision?tipo=factura')}
+              className="h-[44px] px-5 border-2 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 rounded-[12px] font-semibold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Crear nueva factura"
             >
               Nueva factura
             </button>
             
             <button
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
               onClick={() => navigate('/comprobantes/emision?tipo=boleta')}
+              className="h-[44px] px-5 bg-blue-600 dark:bg-blue-600 text-white rounded-[12px] font-semibold text-sm hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm"
+              aria-label="Crear nueva boleta"
             >
               Nueva boleta
             </button>
@@ -497,7 +728,7 @@ const InvoiceListDashboard = () => {
             <button
               title="Más tipos de comprobantes"
               aria-label="Más opciones de comprobantes"
-              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="h-[44px] w-[44px] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-[12px] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
               onClick={() => {/* TODO: Implementar menú de más tipos */}}
             >
               <Plus className="w-5 h-5" />
@@ -505,32 +736,66 @@ const InvoiceListDashboard = () => {
           </div>
 
           {/* Chips de filtros activos */}
-          {(globalSearch || dateFrom || dateTo) && (
+          {(globalSearch || Object.keys(columnFilters).length > 0 || (dateFrom !== getToday() || dateTo !== getToday())) && (
             <div className="mt-3 flex items-center gap-2 flex-wrap">
               {globalSearch && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md text-xs">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium border border-blue-200 dark:border-blue-800">
                   <span>Búsqueda: {globalSearch}</span>
                   <button
                     onClick={() => setGlobalSearch('')}
-                    className="hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full p-0.5"
+                    className="hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full p-0.5 transition-colors"
+                    aria-label="Limpiar búsqueda"
                   >
-                    <XCircle className="w-3 h-3" />
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               )}
-              {(dateFrom || dateTo) && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md text-xs">
-                  <span>Fecha: {dateFrom} — {dateTo}</span>
+              
+              {(dateFrom !== getToday() || dateTo !== getToday()) && (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-800">
+                  <span>Fecha: {formatDateShort(dateFrom)} — {formatDateShort(dateTo)}</span>
                   <button
                     onClick={() => {
                       setDateFrom(getToday());
                       setDateTo(getToday());
                     }}
-                    className="hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full p-0.5"
+                    className="hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full p-0.5 transition-colors"
+                    aria-label="Limpiar filtro de fecha"
                   >
-                    <XCircle className="w-3 h-3" />
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
+              )}
+              
+              {Object.entries(columnFilters).map(([columnKey, filterValue]) => {
+                const column = columnsConfig.find(c => c.key === columnKey);
+                return (
+                  <div 
+                    key={columnKey}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg text-xs font-medium border border-green-200 dark:border-green-800"
+                  >
+                    <span>{column?.label || columnKey}: {filterValue}</span>
+                    <button
+                      onClick={() => clearColumnFilter(columnKey)}
+                      className="hover:bg-green-100 dark:hover:bg-green-900/40 rounded-full p-0.5 transition-colors"
+                      aria-label={`Limpiar filtro de ${column?.label || columnKey}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+              
+              {/* Botón Limpiar todo */}
+              {(globalSearch || Object.keys(columnFilters).length > 0 || dateFrom !== getToday() || dateTo !== getToday()) && (
+                <button
+                  onClick={clearAllFilters}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-xs font-medium transition-colors"
+                  aria-label="Limpiar todos los filtros"
+                >
+                  <X className="w-3 h-3" />
+                  Limpiar todo
+                </button>
               )}
             </div>
           )}
@@ -575,7 +840,23 @@ const InvoiceListDashboard = () => {
                         <div className="flex items-center justify-between space-x-2">
                           <span>{col.label}</span>
                           {['N° Comprobante', 'Tipo', 'N° Doc Cliente', 'Cliente', 'Vendedor'].includes(col.label) && (
-                            <Search className="w-4 h-4 text-gray-400" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                const columnKey = col.label === 'N° Comprobante' ? 'id' :
+                                                  col.label === 'Tipo' ? 'type' :
+                                                  col.label === 'N° Doc Cliente' ? 'clientDoc' :
+                                                  col.label === 'Cliente' ? 'client' :
+                                                  'vendor';
+                                setActiveFilterColumn(activeFilterColumn === columnKey ? null : columnKey);
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setFilterPopoverPosition({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX });
+                              }}
+                              className={`transition-colors ${hasActiveFilter(col.label === 'N° Comprobante' ? 'id' : col.label === 'Tipo' ? 'type' : col.label === 'N° Doc Cliente' ? 'clientDoc' : col.label === 'Cliente' ? 'client' : 'vendor') ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                              aria-label={`Filtrar por ${col.label}`}
+                            >
+                              <Search className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
                       </th>
@@ -991,6 +1272,122 @@ const InvoiceListDashboard = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Popover de filtros por columna */}
+        {activeFilterColumn && filterPopoverPosition && createPortal(
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setActiveFilterColumn(null)}
+            />
+            {/* Popover */}
+            <div
+              className="fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 w-80"
+              style={{
+                top: `${filterPopoverPosition.top + 8}px`,
+                left: `${filterPopoverPosition.left - 320}px`,
+              }}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Filtrar por {activeFilterColumn === 'id' ? 'N° Comprobante' : activeFilterColumn === 'type' ? 'Tipo' : activeFilterColumn === 'clientDoc' ? 'N° Doc Cliente' : activeFilterColumn === 'client' ? 'Cliente' : 'Vendedor'}
+                  </h4>
+                  <button
+                    onClick={() => setActiveFilterColumn(null)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    aria-label="Cerrar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Input según tipo de columna */}
+                {['id', 'client', 'vendor'].includes(activeFilterColumn) && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Buscar
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Escribir para filtrar..."
+                      value={tempColumnFilters[activeFilterColumn] || ''}
+                      onChange={(e) => {
+                        setTempColumnFilters(prev => ({ ...prev, [activeFilterColumn]: e.target.value }));
+                        handleColumnFilterChange(activeFilterColumn, e.target.value);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {activeFilterColumn === 'type' && (
+                  <div className="space-y-2">
+                    {['Factura', 'Boleta', 'Nota de Crédito', 'Nota de Débito'].map((tipo) => (
+                      <label key={tipo} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(tempColumnFilters[activeFilterColumn] || '').split(',').includes(tipo)}
+                          onChange={(e) => {
+                            const current = (tempColumnFilters[activeFilterColumn] || '').split(',').filter(Boolean);
+                            const newValue = e.target.checked
+                              ? [...current, tipo].join(',')
+                              : current.filter(t => t !== tipo).join(',');
+                            setTempColumnFilters(prev => ({ ...prev, [activeFilterColumn]: newValue }));
+                            handleColumnFilterChange(activeFilterColumn, newValue);
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{tipo}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {activeFilterColumn === 'clientDoc' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Número de documento
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ej: 12345678"
+                      value={tempColumnFilters[activeFilterColumn] || ''}
+                      onChange={(e) => {
+                        setTempColumnFilters(prev => ({ ...prev, [activeFilterColumn]: e.target.value }));
+                        handleColumnFilterChange(activeFilterColumn, e.target.value);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {/* Botones de acción */}
+                <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-600">
+                  <button
+                    onClick={() => {
+                      clearColumnFilter(activeFilterColumn);
+                      setActiveFilterColumn(null);
+                    }}
+                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium"
+                  >
+                    Limpiar
+                  </button>
+                  <button
+                    onClick={() => setActiveFilterColumn(null)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>,
+          document.body
         )}
       </div>
     </div>
