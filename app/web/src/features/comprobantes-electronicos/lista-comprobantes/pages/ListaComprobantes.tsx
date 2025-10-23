@@ -116,16 +116,19 @@ const InvoiceListDashboard = () => {
     fixed: 'left' | 'right' | null;
     align: 'left' | 'right' | 'center';
     truncate?: boolean;
+    minWidth?: string;
+    maxWidth?: string;
+    shrink?: number;
   }
   // Lista maestra en orden (no cambia la keys del modelo de datos)
   const MASTER_COLUMNS = useMemo(() => ([
     { id: 'documentNumber', key: 'id', label: 'N° Comprobante', visible: true, fixed: 'left', align: 'left', minWidth: '176px' },
     { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '240px' },
     { id: 'clientDoc', key: 'clientDoc', label: 'N° Doc Cliente', visible: true, fixed: null, align: 'left', minWidth: '140px' },
-    { id: 'vendor', key: 'vendor', label: 'Vendedor', visible: true, fixed: null, align: 'left', minWidth: '160px' },
-    { id: 'paymentMethod', key: 'paymentMethod', label: 'Forma de pago', visible: true, fixed: null, align: 'left', minWidth: '140px' },
+    { id: 'vendor', key: 'vendor', label: 'Vendedor', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '160px' },
+    { id: 'paymentMethod', key: 'paymentMethod', label: 'Forma de pago', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '140px' },
     { id: 'total', key: 'total', label: 'Total', visible: true, fixed: null, align: 'right', minWidth: '120px' },
-    { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'center', minWidth: '120px' },
+    { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'center', minWidth: '136px', maxWidth: 'max-content', shrink: 0 },
     { id: 'actions', key: 'actions', label: 'ACCIONES', visible: true, fixed: 'right', align: 'center', minWidth: '100px' },
     // Columnas activables (ocultas por defecto)
     { id: 'type', key: 'type', label: 'Tipo', visible: false, fixed: null, align: 'left', minWidth: '100px' },
@@ -370,7 +373,12 @@ const InvoiceListDashboard = () => {
     const config = statusConfig[status.toLowerCase()] || statusConfig['sent'];
 
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.bgColor} ${config.color}`}>
+      <span 
+        className={`inline-flex items-center gap-1.5 px-3 h-7 rounded-full text-xs font-medium border whitespace-nowrap ${config.bgColor} ${config.color} focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`}
+        role="status"
+        aria-label={`Estado: ${config.label}`}
+        tabIndex={0}
+      >
         {config.icon}
         {config.label}
       </span>
@@ -822,11 +830,18 @@ const InvoiceListDashboard = () => {
                     const isPinnedLeft = col.fixed === 'left';
                     const isPinnedRight = col.fixed === 'right';
                     const minWidth = (col as any).minWidth || 'auto';
+                    const maxWidth = (col as any).maxWidth;
+                    const shrink = (col as any).shrink;
                     
                     return (
                       <th 
                         key={col.id} 
-                        style={{ minWidth }}
+                        style={{ 
+                          minWidth,
+                          maxWidth: maxWidth || undefined,
+                          width: maxWidth === 'max-content' ? 'max-content' : undefined,
+                          flex: shrink === 0 ? '0 0 auto' : col.truncate ? '1 1 0' : undefined
+                        }}
                         className={`px-6 py-3 text-xs font-medium uppercase tracking-wider ${
                           col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                         } text-gray-700 dark:text-gray-300 ${
@@ -918,6 +933,8 @@ const InvoiceListDashboard = () => {
                           const isPinnedLeft = col.fixed === 'left';
                           const isPinnedRight = col.fixed === 'right';
                           const minWidth = (col as any).minWidth || 'auto';
+                          const maxWidth = (col as any).maxWidth;
+                          const shrink = (col as any).shrink;
 
                           // Renderizado especial para columna de acciones
                           if (col.key === 'actions') {
@@ -1156,8 +1173,9 @@ const InvoiceListDashboard = () => {
                             if (col.truncate && value) {
                               return (
                                 <div 
-                                  className="truncate max-w-[200px]" 
+                                  className="truncate overflow-hidden text-ellipsis" 
                                   title={String(value)}
+                                  style={{ maxWidth: '100%' }}
                                 >
                                   {String(value)}
                                 </div>
@@ -1171,7 +1189,12 @@ const InvoiceListDashboard = () => {
                           return (
                             <td 
                               key={col.id} 
-                              style={{ minWidth }}
+                              style={{ 
+                                minWidth,
+                                maxWidth: maxWidth || undefined,
+                                width: maxWidth === 'max-content' ? 'max-content' : undefined,
+                                flex: shrink === 0 ? '0 0 auto' : col.truncate ? '1 1 0' : undefined
+                              }}
                               className={`px-6 ${rowPadding} text-sm ${
                                 col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                               } ${
