@@ -3,7 +3,7 @@
 // Reorganiza los campos para reducir scroll manteniendo toda la lógica
 // ===================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   ChevronDown,
@@ -49,6 +49,11 @@ interface CompactDocumentFormProps {
     dni: string;
     direccion: string;
   };
+  // Callbacks para elevar datos al padre (EmisionTradicional)
+  onClienteChange?: (cliente: { nombre: string; dni: string; direccion: string; email?: string } | null) => void;
+  fechaEmision?: string;
+  onFechaEmisionChange?: (value: string) => void;
+  onOptionalFieldsChange?: (fields: Record<string, any>) => void;
 }
 
 const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
@@ -62,6 +67,10 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   onNuevaFormaPago,
   onOpenFieldsConfig,
   clienteSeleccionado,
+  onClienteChange,
+  fechaEmision,
+  onFechaEmisionChange,
+  onOptionalFieldsChange,
 }) => {
   const { state } = useConfigurationContext();
   const { paymentMethods } = state;
@@ -74,6 +83,15 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     dni: string;
     direccion: string;
   } | null>(clienteSeleccionado || null);
+  // Optional fields local state to notify parent
+  const [localFechaEmision, setLocalFechaEmision] = useState<string>(fechaEmision || new Date().toISOString().split('T')[0]);
+  const [localFechaVencimiento, setLocalFechaVencimiento] = useState<string>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  const [localDireccion, setLocalDireccion] = useState<string>('');
+  const [localDireccionEnvio, setLocalDireccionEnvio] = useState<string>('');
+  const [localCorreo, setLocalCorreo] = useState<string>('');
+  const [localOrdenCompra, setLocalOrdenCompra] = useState<string>('');
+  const [localGuiaRemision, setLocalGuiaRemision] = useState<string>('');
+  const [localCentroCosto, setLocalCentroCosto] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [documentType, setDocumentType] = useState('DNI');
@@ -226,6 +244,9 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         direccion: nuevoCliente.address
       });
 
+      // Notify parent about new client
+      onClienteChange?.({ nombre: nuevoCliente.name, dni: formData.documentNumber, direccion: nuevoCliente.address, email: formData.email || '' });
+
       setShowClienteForm(false);
       setSearchQuery('');
     } catch (error) {
@@ -251,8 +272,33 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       direccion: cliente.direccion || 'Dirección no definida'
     });
 
+    // Notify parent
+    onClienteChange?.({ nombre: nombreCompleto, dni: cliente.numeroDocumento, direccion: cliente.direccion || 'Dirección no definida' });
+
     setSearchQuery('');
   };
+
+  // Notify parent about initial values so the parent has the same view
+  useEffect(() => {
+    // On mount, push current values to parent so fields that are not
+    // explicitly edited still get sent (e.g., fechaVencimiento default)
+    onFechaEmisionChange?.(localFechaEmision);
+    onOptionalFieldsChange?.({
+      fechaEmision: localFechaEmision,
+      fechaVencimiento: localFechaVencimiento,
+      direccion: localDireccion,
+      direccionEnvio: localDireccionEnvio,
+      correo: localCorreo,
+      ordenCompra: localOrdenCompra,
+      guiaRemision: localGuiaRemision,
+      centroCosto: localCentroCosto
+    });
+
+    if (clienteSeleccionadoLocal) {
+      onClienteChange?.(clienteSeleccionadoLocal);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -418,7 +464,12 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 </label>
                 <input
                   type="date"
-                  value={new Date().toISOString().split('T')[0]}
+                  value={localFechaEmision}
+                  onChange={(e) => {
+                    setLocalFechaEmision(e.target.value);
+                    onFechaEmisionChange?.(e.target.value);
+                    onOptionalFieldsChange?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
+                  }}
                   className="w-full px-2 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium text-gray-900"
                 />
               </div>
@@ -484,8 +535,9 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 <input
                   type="date"
                   required={config.optionalFields.fechaVencimiento.required}
+                  value={localFechaVencimiento}
+                  onChange={(e) => { setLocalFechaVencimiento(e.target.value); onOptionalFieldsChange?.({ fechaVencimiento: e.target.value }); }}
                   className="w-full px-2 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium text-gray-900"
-                  defaultValue={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                 />
                 
               </div>
@@ -509,6 +561,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 <input
                   type="text"
                   required={config.optionalFields.direccion.required}
+                  value={localDireccion}
+                  onChange={(e) => { setLocalDireccion(e.target.value); onOptionalFieldsChange?.({ direccion: e.target.value }); }}
                   className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                   placeholder="Dirección del cliente"
                 />
@@ -526,6 +580,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 <input
                   type="text"
                   required={config.optionalFields.direccionEnvio.required}
+                  value={localDireccionEnvio}
+                  onChange={(e) => { setLocalDireccionEnvio(e.target.value); onOptionalFieldsChange?.({ direccionEnvio: e.target.value }); }}
                   className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                   placeholder="Ej: Av. Principal 123, Lima"
                 />
@@ -563,6 +619,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 <input
                   type="text"
                   required={config.optionalFields.centroCosto.required}
+                  value={localCentroCosto}
+                  onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChange?.({ centroCosto: e.target.value }); }}
                   className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                   placeholder="Ingrese centro de costos"
                 />
@@ -588,6 +646,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <input
                     type="text"
                     required={config.optionalFields.ordenCompra.required}
+                    value={localOrdenCompra}
+                    onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChange?.({ ordenCompra: e.target.value }); }}
                     className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                     placeholder="Ej: OC01-0000236"
                   />
@@ -605,6 +665,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <input
                     type="email"
                     required={config.optionalFields.correo.required}
+                    value={localCorreo}
+                    onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChange?.({ correo: e.target.value }); }}
                     className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                     placeholder="cliente@empresa.com"
                   />
@@ -625,6 +687,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <input
                     type="text"
                     required={config.optionalFields.guiaRemision.required}
+                    value={localGuiaRemision}
+                    onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChange?.({ guiaRemision: e.target.value }); }}
                     className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                     placeholder="Ej: T001-00000256"
                   />

@@ -83,6 +83,11 @@ const EmisionTradicional = () => {
     error
   } = useComprobanteActions();
 
+  // ----- Lifted data from CompactDocumentForm (cliente y campos opcionales) -----
+  const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<{ nombre: string; dni: string; direccion: string; email?: string } | null>(null);
+  const [fechaEmision, setFechaEmision] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
+
   // Estado para el modal de éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
@@ -128,7 +133,18 @@ const EmisionTradicional = () => {
         totals,
         observaciones,
         notaInterna,
-        formaPago
+        formaPago,
+        currency: currentCurrency,
+        client: clienteSeleccionadoGlobal?.nombre,
+        clientDoc: clienteSeleccionadoGlobal?.dni,
+        fechaEmision: fechaEmision,
+        fechaVencimiento: optionalFields.fechaVencimiento,
+        email: optionalFields.correo || clienteSeleccionadoGlobal?.email,
+        address: optionalFields.direccion || clienteSeleccionadoGlobal?.direccion,
+        shippingAddress: optionalFields.direccionEnvio,
+        purchaseOrder: optionalFields.ordenCompra,
+        costCenter: optionalFields.centroCosto,
+        waybill: optionalFields.guiaRemision
       });
 
       if (success) {
@@ -280,6 +296,10 @@ const EmisionTradicional = () => {
               setFormaPago={setFormaPago}
               onNuevaFormaPago={handleNuevaFormaPago}
               onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
+              onClienteChange={setClienteSeleccionadoGlobal}
+              fechaEmision={fechaEmision}
+              onFechaEmisionChange={setFechaEmision}
+              onOptionalFieldsChange={(fields: Record<string, any>) => setOptionalFields(prev => ({ ...prev, ...fields }))}
             />
 
             {/* Products Section - Sin cambios */}

@@ -21,6 +21,18 @@ interface ComprobanteData {
   formaPago?: string;
   establishmentId?: string;
   companyId?: string;
+  // Campos opcionales provenientes del formulario de emisión
+  client?: string;
+  clientDoc?: string;
+  fechaEmision?: string; // ISO date 'YYYY-MM-DD'
+  fechaVencimiento?: string;
+  email?: string;
+  address?: string;
+  shippingAddress?: string;
+  purchaseOrder?: string;
+  costCenter?: string;
+  waybill?: string;
+  currency?: string;
 }
 
 export const useComprobanteActions = () => {
@@ -224,16 +236,42 @@ export const useComprobanteActions = () => {
         const vendorName = session?.userName || 'Usuario';
 
         // Crear el objeto comprobante para la lista
+        // Construir objeto usando los campos opcionales cuando estén presentes
+        const dateToUse = data.fechaEmision ? ((): string => {
+          try {
+            const d = new Date(data.fechaEmision + 'T00:00:00');
+            const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
+            return `${d.getDate()} ${months[d.getMonth()]}. ${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+          } catch (e) {
+            return formattedDate;
+          }
+        })() : formattedDate;
+
+        const paymentMethodLabel = data.formaPago ? mapFormaPagoToMedioPago(data.formaPago) : 'Efectivo';
+
         const nuevoComprobante = {
           id: numeroComprobante,
           type: tipoComprobanteDisplay,
-          clientDoc: '00000000', // TODO: Obtener del cliente real cuando se implemente
-          client: 'Cliente General', // TODO: Obtener del cliente real cuando se implemente
-          date: formattedDate,
+          clientDoc: data.clientDoc || '00000000',
+          client: data.client || 'Cliente General',
+          date: dateToUse,
           vendor: vendorName,
           total: data.totals.total,
           status: 'Enviado',
-          statusColor: 'blue' as const
+          statusColor: 'blue' as const,
+          // Optional fields
+          email: data.email,
+          dueDate: data.fechaVencimiento,
+          address: data.address,
+          shippingAddress: data.shippingAddress,
+          purchaseOrder: data.purchaseOrder,
+          costCenter: data.costCenter,
+          waybill: data.waybill,
+          observations: data.observaciones,
+          internalNote: data.notaInterna,
+          // Payment and currency
+          paymentMethod: paymentMethodLabel,
+          currency: data.currency || undefined,
         };
 
         // Agregar al contexto global
