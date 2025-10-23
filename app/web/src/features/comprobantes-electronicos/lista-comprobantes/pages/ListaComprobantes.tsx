@@ -119,17 +119,19 @@ const InvoiceListDashboard = () => {
     minWidth?: string;
     maxWidth?: string;
     shrink?: number;
+    whiteSpace?: string;
+    flex?: string;
   }
   // Lista maestra en orden (no cambia la keys del modelo de datos)
   const MASTER_COLUMNS = useMemo(() => ([
-    { id: 'documentNumber', key: 'id', label: 'N° Comprobante', visible: true, fixed: 'left', align: 'left', minWidth: '176px' },
-    { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '240px' },
+    { id: 'documentNumber', key: 'id', label: 'N° Comprobante', visible: true, fixed: 'left', align: 'left', minWidth: '180px', shrink: 0 },
+    { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '240px', flex: '1 1 0' },
     { id: 'clientDoc', key: 'clientDoc', label: 'N° Doc Cliente', visible: true, fixed: null, align: 'left', minWidth: '140px' },
-    { id: 'vendor', key: 'vendor', label: 'Vendedor', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '160px' },
-    { id: 'paymentMethod', key: 'paymentMethod', label: 'Forma de pago', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '140px' },
-    { id: 'total', key: 'total', label: 'Total', visible: true, fixed: null, align: 'right', minWidth: '120px' },
-    { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'center', minWidth: '136px', maxWidth: 'max-content', shrink: 0 },
-    { id: 'actions', key: 'actions', label: 'ACCIONES', visible: true, fixed: 'right', align: 'center', minWidth: '100px' },
+    { id: 'vendor', key: 'vendor', label: 'Vendedor', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '160px', flex: '1 1 0' },
+    { id: 'paymentMethod', key: 'paymentMethod', label: 'Forma de pago', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '140px', flex: '1 1 0' },
+    { id: 'total', key: 'total', label: 'Total', visible: true, fixed: null, align: 'right', minWidth: '120px', shrink: 0 },
+    { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'center', minWidth: '140px', whiteSpace: 'nowrap', shrink: 0 },
+    { id: 'actions', key: 'actions', label: 'ACCIONES', visible: true, fixed: 'right', align: 'center', minWidth: '100px', shrink: 0 },
     // Columnas activables (ocultas por defecto)
     { id: 'type', key: 'type', label: 'Tipo', visible: false, fixed: null, align: 'left', minWidth: '100px' },
     { id: 'date', key: 'date', label: 'F. Emisión', visible: false, fixed: null, align: 'center', minWidth: '120px' },
@@ -374,7 +376,16 @@ const InvoiceListDashboard = () => {
 
     return (
       <span 
-        className={`inline-flex items-center gap-1.5 px-3 h-7 rounded-full text-xs font-medium border whitespace-nowrap ${config.bgColor} ${config.color} focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`}
+        className={`inline-flex items-center border ${config.bgColor} ${config.color} focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`}
+        style={{
+          gap: '6px',
+          height: '28px',
+          padding: '0 12px',
+          borderRadius: '9999px',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          fontSize: '0.75rem'
+        }}
         role="status"
         aria-label={`Estado: ${config.label}`}
         tabIndex={0}
@@ -443,9 +454,42 @@ const InvoiceListDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Popup de confirmación de impresión masiva */}
-      {showPrintPopup && (
+    <>
+      <style>{`
+        @media (min-width: 1440px) {
+          .comprobantes-table-container {
+            --col-gap: 16px;
+            --cell-x: 14px;
+          }
+        }
+        @media (min-width: 1280px) and (max-width: 1439px) {
+          .comprobantes-table-container {
+            --col-gap: 14px;
+            --cell-x: 12px;
+          }
+        }
+        @media (min-width: 1024px) and (max-width: 1279px) {
+          .comprobantes-table-container {
+            --col-gap: 12px;
+            --cell-x: 10px;
+          }
+        }
+        @media (max-width: 1023px) {
+          .comprobantes-table-container {
+            --col-gap: 10px;
+            --cell-x: 8px;
+          }
+        }
+        .comprobantes-table-container th,
+        .comprobantes-table-container td {
+          padding-left: var(--cell-x, 14px);
+          padding-right: var(--cell-x, 14px);
+        }
+      `}</style>
+      
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Popup de confirmación de impresión masiva */}
+        {showPrintPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Confirmar impresión masiva</h3>
@@ -814,7 +858,7 @@ const InvoiceListDashboard = () => {
       <div className="px-6 py-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Table */}
-          <div className="overflow-x-auto overflow-y-visible">
+          <div className="overflow-x-auto overflow-y-visible comprobantes-table-container" style={{ paddingBottom: '12px' }}>
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                 <tr>
@@ -832,6 +876,8 @@ const InvoiceListDashboard = () => {
                     const minWidth = (col as any).minWidth || 'auto';
                     const maxWidth = (col as any).maxWidth;
                     const shrink = (col as any).shrink;
+                    const whiteSpace = (col as any).whiteSpace;
+                    const flex = (col as any).flex;
                     
                     return (
                       <th 
@@ -840,9 +886,10 @@ const InvoiceListDashboard = () => {
                           minWidth,
                           maxWidth: maxWidth || undefined,
                           width: maxWidth === 'max-content' ? 'max-content' : undefined,
-                          flex: shrink === 0 ? '0 0 auto' : col.truncate ? '1 1 0' : undefined
+                          flex: flex || (shrink === 0 ? '0 0 auto' : undefined),
+                          whiteSpace: whiteSpace || undefined
                         }}
-                        className={`px-6 py-3 text-xs font-medium uppercase tracking-wider ${
+                        className={`py-3 text-xs font-medium uppercase tracking-wider ${
                           col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                         } text-gray-700 dark:text-gray-300 ${
                           isPinnedLeft 
@@ -935,6 +982,8 @@ const InvoiceListDashboard = () => {
                           const minWidth = (col as any).minWidth || 'auto';
                           const maxWidth = (col as any).maxWidth;
                           const shrink = (col as any).shrink;
+                          const whiteSpace = (col as any).whiteSpace;
+                          const flex = (col as any).flex;
 
                           // Renderizado especial para columna de acciones
                           if (col.key === 'actions') {
@@ -1161,7 +1210,11 @@ const InvoiceListDashboard = () => {
 
                             // Estado con pill
                             if (col.key === 'status') {
-                              return getStatusBadge(invoice.status || 'sent');
+                              return (
+                                <div style={{ marginRight: '10px' }}>
+                                  {getStatusBadge(invoice.status || 'sent')}
+                                </div>
+                              );
                             }
 
                             // F. Vencimiento solo fecha (sin texto relativo)
@@ -1193,9 +1246,10 @@ const InvoiceListDashboard = () => {
                                 minWidth,
                                 maxWidth: maxWidth || undefined,
                                 width: maxWidth === 'max-content' ? 'max-content' : undefined,
-                                flex: shrink === 0 ? '0 0 auto' : col.truncate ? '1 1 0' : undefined
+                                flex: flex || (shrink === 0 ? '0 0 auto' : undefined),
+                                whiteSpace: whiteSpace || undefined
                               }}
-                              className={`px-6 ${rowPadding} text-sm ${
+                              className={`${rowPadding} text-sm ${
                                 col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                               } ${
                                 col.key === 'total' || col.key === 'id' ? '' : 'text-gray-700 dark:text-gray-300'
@@ -1414,6 +1468,7 @@ const InvoiceListDashboard = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 
