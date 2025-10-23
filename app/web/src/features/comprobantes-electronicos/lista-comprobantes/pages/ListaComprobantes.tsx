@@ -7,6 +7,15 @@ import {
   Plus, CheckCircle2, Send, XOctagon, AlertTriangle, Ban, Calendar, ChevronDown, X
 } from 'lucide-react';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
+import { 
+  SelectionProvider, 
+  useSelection, 
+  BulkBar, 
+  BulkPrintModal, 
+  ProgressModal,
+  exportToExcel,
+  createZipFile
+} from '../components/comprobantes-bulk';
 
 function getToday() {
   const d = new Date();
@@ -73,12 +82,15 @@ const InvoiceListDashboard = () => {
   const { state } = useComprobanteContext();
   const invoices = state.comprobantes;
 
-  // Estado para selección masiva y popup de impresión
+  // Hook de selección masiva
+  const selection = useSelection();
+
+  // Estado para navegación y modales
   const navigate = useNavigate();
-  const [massPrintMode] = useState(false); // TODO: Implementar modo de impresión masiva
-  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
-  const [showPrintPopup, setShowPrintPopup] = useState(false);
-  const [printFormat, setPrintFormat] = useState<'A4' | 'ticket'>('A4');
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
   const [dateFrom, setDateFrom] = useState(getToday());
   const [dateTo, setDateTo] = useState(getToday());
   const [currentPage, setCurrentPage] = useState(1);
@@ -453,6 +465,99 @@ const InvoiceListDashboard = () => {
     return !!columnFilters[columnKey];
   };
 
+  // ========== Handlers de acciones masivas ==========
+  
+  const handlePrintConfirm = async (format: 'ticket' | 'a4', output: 'combined' | 'separate') => {
+    setProgressMessage(`Preparando ${output === 'combined' ? 'PDF combinado' : 'archivos'} en formato ${format.toUpperCase()}...`);
+    setProgress(0);
+    setShowProgress(true);
+
+    try {
+      // Obtener comprobantes seleccionados
+      const selectedIds = Array.from(selection.selectedIds);
+      const selectedDocs = searchedInvoices.filter(inv => selectedIds.includes(inv.id));
+
+      if (output === 'combined') {
+        // Simular generación de PDF combinado
+        for (let i = 0; i <= 100; i += 10) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          setProgress(i);
+        }
+        console.log(`Generando PDF combinado con ${selectedDocs.length} comprobantes en formato ${format}`);
+      } else {
+        // Simular generación de ZIP con PDFs individuales
+        await createZipFile(
+          selectedDocs.map(doc => ({
+            name: `${doc.id}.pdf`,
+            content: new Blob(['PDF content'], { type: 'application/pdf' })
+          })),
+          'comprobantes',
+          setProgress
+        );
+      }
+    } finally {
+      setTimeout(() => {
+        setShowProgress(false);
+        setProgress(0);
+      }, 500);
+    }
+  };
+
+  const handleBulkExport = async () => {
+    setProgressMessage('Exportando seleccionados a Excel...');
+    setProgress(0);
+    setShowProgress(true);
+
+    try {
+      const selectedIds = Array.from(selection.selectedIds);
+      const selectedDocs = searchedInvoices.filter(inv => selectedIds.includes(inv.id));
+      
+      const exportData = selectedDocs.map(inv => ({
+        'N° Comprobante': inv.id,
+        'Tipo': inv.type,
+        'Cliente': inv.client,
+        'N° Doc Cliente': inv.clientDoc,
+        'Vendedor': inv.vendor,
+        'Forma de pago': inv.paymentMethod,
+        'Total': inv.total,
+        'Estado': inv.status,
+        'F. Emisión': inv.date
+      }));
+
+      await exportToExcel(exportData, 'comprobantes_seleccionados', setProgress);
+    } finally {
+      setTimeout(() => {
+        setShowProgress(false);
+        setProgress(0);
+      }, 500);
+    }
+  };
+
+  const handleDownloadXml = async () => {
+    setProgressMessage('Preparando archivos XML...');
+    setProgress(0);
+    setShowProgress(true);
+
+    try {
+      const selectedIds = Array.from(selection.selectedIds);
+      const selectedDocs = searchedInvoices.filter(inv => selectedIds.includes(inv.id));
+
+      await createZipFile(
+        selectedDocs.map(doc => ({
+          name: `${doc.id}.xml`,
+          content: new Blob(['<xml>content</xml>'], { type: 'application/xml' })
+        })),
+        'comprobantes_xml',
+        setProgress
+      );
+    } finally {
+      setTimeout(() => {
+        setShowProgress(false);
+        setProgress(0);
+      }, 500);
+    }
+  };
+
   return (
     <>
       <style>{`
@@ -487,33 +592,7 @@ const InvoiceListDashboard = () => {
         }
       `}</style>
       
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Popup de confirmación de impresión masiva */}
-        {showPrintPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Confirmar impresión masiva</h3>
-            <p className="mb-4 text-sm text-gray-700 dark:text-gray-300">Se van a imprimir <span className="font-bold">{selectedInvoices.length}</span> comprobante(s).</p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Formato de impresión</label>
-              <div className="flex space-x-4">
-                <label className="flex items-center text-gray-700 dark:text-gray-300">
-                  <input type="radio" name="printFormat" value="A4" checked={printFormat === 'A4'} onChange={() => setPrintFormat('A4')} className="mr-2" />
-                  A4
-                </label>
-                <label className="flex items-center text-gray-700 dark:text-gray-300">
-                  <input type="radio" name="printFormat" value="ticket" checked={printFormat === 'ticket'} onChange={() => setPrintFormat('ticket')} className="mr-2" />
-                  Ticket
-                </label>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-3 mt-6">
-              <button className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm" onClick={() => setShowPrintPopup(false)}>Cancelar</button>
-              <button className="px-4 py-2 text-white rounded-md transition-colors text-sm" style={{ backgroundColor: '#1478D4' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1068C4'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1478D4'} onClick={() => { setShowPrintPopup(false); /* Aquí va la lógica de impresión */ }}>Confirmar impresión</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900" style={{ paddingBottom: selection.selectedCount > 0 ? '80px' : '0' }}>
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="px-6 py-4">
@@ -862,14 +941,27 @@ const InvoiceListDashboard = () => {
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                 <tr>
-                  {massPrintMode && (
-                    <th className="px-2 py-3 sticky left-0 z-20 bg-gray-50 dark:bg-gray-700">
-                      <input type="checkbox" checked={paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoices.includes(inv.id))} onChange={e => {
-                        if (e.target.checked) setSelectedInvoices([...selectedInvoices, ...paginatedInvoices.filter(inv => !selectedInvoices.includes(inv.id)).map(inv => inv.id)]);
-                        else setSelectedInvoices(selectedInvoices.filter(id => !paginatedInvoices.some(inv => inv.id === id)));
-                      }} />
-                    </th>
-                  )}
+                  {/* Checkbox maestro con popover */}
+                  <th className="px-2 py-3 sticky left-0 z-20 bg-gray-50 dark:bg-gray-700 w-[50px]">
+                    <input 
+                      type="checkbox" 
+                      checked={paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selection.isSelected(inv.id))}
+                      ref={(el) => {
+                        if (el) {
+                          const someSelected = paginatedInvoices.some(inv => selection.isSelected(inv.id));
+                          const allSelected = paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selection.isSelected(inv.id));
+                          el.indeterminate = someSelected && !allSelected;
+                        }
+                      }}
+                      onChange={() => {
+                        const ids = paginatedInvoices.map(inv => inv.id);
+                        const totals = paginatedInvoices.map(inv => Number(inv.total) || 0);
+                        selection.toggleAll(ids, totals);
+                      }}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      aria-label="Seleccionar todos"
+                    />
+                  </th>
                   {visibleColumns.map((col) => {
                     const isPinnedLeft = col.fixed === 'left';
                     const isPinnedRight = col.fixed === 'right';
@@ -938,7 +1030,7 @@ const InvoiceListDashboard = () => {
                   </>
                 ) : paginatedInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={Math.max(1, visibleColumns.length + (massPrintMode ? 1 : 0))} className="px-6 py-12">
+                    <td colSpan={Math.max(1, visibleColumns.length + 1)} className="px-6 py-12">
                       <div className="flex flex-col items-center justify-center text-center">
                         <FileText className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
@@ -965,15 +1057,17 @@ const InvoiceListDashboard = () => {
                     const isMonedaVisible = visibleColumns.some(c => c.id === 'currency');
                     
                     return (
-                      <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${massPrintMode && selectedInvoices.includes(invoice.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-                        {massPrintMode && (
-                          <td className={`px-2 ${rowPadding} sticky left-0 z-10 bg-white dark:bg-gray-800`}>
-                            <input type="checkbox" checked={selectedInvoices.includes(invoice.id)} onChange={e => {
-                              if (e.target.checked) setSelectedInvoices(prev => [...prev, invoice.id]);
-                              else setSelectedInvoices(prev => prev.filter(id => id !== invoice.id));
-                            }} />
-                          </td>
-                        )}
+                      <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${selection.isSelected(invoice.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                        {/* Checkbox por fila */}
+                        <td className={`px-2 ${rowPadding} sticky left-0 z-10 bg-white dark:bg-gray-800`}>
+                          <input 
+                            type="checkbox" 
+                            checked={selection.isSelected(invoice.id)}
+                            onChange={() => selection.toggleSelection(invoice.id, Number(invoice.total) || 0)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            aria-label={`Seleccionar ${invoice.id}`}
+                          />
+                        </td>
 
                         {visibleColumns.map(col => {
                           const value = (invoice as any)[col.key];
@@ -1466,10 +1560,42 @@ const InvoiceListDashboard = () => {
           </>,
           document.body
         )}
+
+        {/* Barra de acciones masivas */}
+        <BulkBar
+          onPrint={() => setShowPrintModal(true)}
+          onExport={handleBulkExport}
+          onDownloadXml={handleDownloadXml}
+          formatCurrency={(amount) => `S/ ${amount.toFixed(2)}`}
+        />
+
+        {/* Modal de impresión */}
+        <BulkPrintModal
+          isOpen={showPrintModal}
+          onClose={() => setShowPrintModal(false)}
+          onConfirm={handlePrintConfirm}
+          selectedCount={selection.selectedCount}
+        />
+
+        {/* Modal de progreso */}
+        <ProgressModal
+          isOpen={showProgress}
+          progress={progress}
+          message={progressMessage}
+        />
       </div>
     </div>
     </>
   );
 };
 
-export default InvoiceListDashboard;
+// Wrapper con SelectionProvider
+const InvoiceListWithSelection = () => {
+  return (
+    <SelectionProvider>
+      <InvoiceListDashboard />
+    </SelectionProvider>
+  );
+};
+
+export default InvoiceListWithSelection;
