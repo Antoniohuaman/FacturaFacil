@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-// import { useNavigate } from 'react-router-dom'; // Eliminado porque no se usa
-import { Search, Printer, ChevronLeft, ChevronRight, FileText, MoreHorizontal, Share2, Copy, Eye, Edit2, XCircle } from 'lucide-react';
+import { 
+  Search, Printer, ChevronLeft, ChevronRight, FileText, MoreHorizontal, 
+  Share2, Copy, Eye, Edit2, XCircle, Filter, RefreshCw, Download, 
+  Plus, CheckCircle2, Send, XOctagon, AlertTriangle, Ban 
+} from 'lucide-react';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
 
 function getToday() {
@@ -72,19 +75,24 @@ const InvoiceListDashboard = () => {
 
   // Estado para selección masiva y popup de impresión
   const navigate = useNavigate();
-  const [massPrintMode, setMassPrintMode] = useState(false);
+  const [massPrintMode] = useState(false); // TODO: Implementar modo de impresión masiva
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [showPrintPopup, setShowPrintPopup] = useState(false);
   const [printFormat, setPrintFormat] = useState<'A4' | 'ticket'>('A4');
-  // const navigate = useNavigate(); // Eliminado porque no se usa
   const [dateFrom, setDateFrom] = useState(getToday());
   const [dateTo, setDateTo] = useState(getToday());
   const [currentPage, setCurrentPage] = useState(1);
   const [showTotals, setShowTotals] = useState(false);
-  const [recordsPerPage, setRecordsPerPage] = useState(10); // Por defecto 10 registros
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+  
+  // Estados para nuevas funcionalidades
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [density, setDensity] = useState<'comfortable' | 'intermediate' | 'compact'>('comfortable');
+  const [showColumnManager, setShowColumnManager] = useState(false);
+  const [isLoading] = useState(false); // Simular estado de carga (conectar con lógica real)
 
   // --------------------
   // Column manager (config local)
@@ -100,26 +108,27 @@ const InvoiceListDashboard = () => {
   }
   // Lista maestra en orden (no cambia la keys del modelo de datos)
   const MASTER_COLUMNS = useMemo(() => ([
-    { id: 'documentNumber', key: 'id', label: 'N° Comprobante', visible: true, fixed: 'left', align: 'left' },
-    { id: 'type', key: 'type', label: 'Tipo', visible: true, fixed: null, align: 'left' },
-    { id: 'date', key: 'date', label: 'F. Emisión', visible: true, fixed: null, align: 'center' },
-    { id: 'dueDate', key: 'dueDate', label: 'F. Vencimiento', visible: false, fixed: null, align: 'center' },
-    { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', truncate: true },
-    { id: 'clientDoc', key: 'clientDoc', label: 'N° Doc Cliente', visible: true, fixed: null, align: 'left' },
-    { id: 'email', key: 'email', label: 'Correo Electrónico', visible: false, fixed: null, align: 'left' },
-    { id: 'vendor', key: 'vendor', label: 'Vendedor', visible: true, fixed: null, align: 'left' },
-    { id: 'paymentMethod', key: 'paymentMethod', label: 'Forma de pago', visible: true, fixed: null, align: 'left' },
-    { id: 'currency', key: 'currency', label: 'Moneda', visible: false, fixed: null, align: 'left' },
-    { id: 'total', key: 'total', label: 'Total', visible: true, fixed: null, align: 'right' },
-    { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'left' },
-    { id: 'address', key: 'address', label: 'Dirección (fiscal)', visible: false, fixed: null, align: 'left', truncate: true },
-    { id: 'shippingAddress', key: 'shippingAddress', label: 'Dirección de Envío', visible: false, fixed: null, align: 'left', truncate: true },
-    { id: 'purchaseOrder', key: 'purchaseOrder', label: 'Orden de compra', visible: false, fixed: null, align: 'left' },
-    { id: 'costCenter', key: 'costCenter', label: 'Centro de Costo', visible: false, fixed: null, align: 'left' },
-    { id: 'waybill', key: 'waybill', label: 'N° de Guía de Remisión', visible: false, fixed: null, align: 'left' },
-    { id: 'observations', key: 'observations', label: 'Observaciones', visible: false, fixed: null, align: 'left', truncate: true },
-    { id: 'internalNote', key: 'internalNote', label: 'Nota Interna', visible: false, fixed: null, align: 'left', truncate: true },
-    { id: 'actions', key: 'actions', label: 'ACCIONES', visible: true, fixed: 'right', align: 'center' }
+    { id: 'documentNumber', key: 'id', label: 'N° Comprobante', visible: true, fixed: 'left', align: 'left', minWidth: '176px' },
+    { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '240px' },
+    { id: 'clientDoc', key: 'clientDoc', label: 'N° Doc Cliente', visible: true, fixed: null, align: 'left', minWidth: '140px' },
+    { id: 'vendor', key: 'vendor', label: 'Vendedor', visible: true, fixed: null, align: 'left', minWidth: '160px' },
+    { id: 'paymentMethod', key: 'paymentMethod', label: 'Forma de pago', visible: true, fixed: null, align: 'left', minWidth: '140px' },
+    { id: 'total', key: 'total', label: 'Total', visible: true, fixed: null, align: 'right', minWidth: '120px' },
+    { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'center', minWidth: '120px' },
+    { id: 'actions', key: 'actions', label: 'ACCIONES', visible: true, fixed: 'right', align: 'center', minWidth: '100px' },
+    // Columnas activables (ocultas por defecto)
+    { id: 'type', key: 'type', label: 'Tipo', visible: false, fixed: null, align: 'left', minWidth: '100px' },
+    { id: 'date', key: 'date', label: 'F. Emisión', visible: false, fixed: null, align: 'center', minWidth: '120px' },
+    { id: 'dueDate', key: 'dueDate', label: 'F. Vencimiento', visible: false, fixed: null, align: 'center', minWidth: '130px' },
+    { id: 'currency', key: 'currency', label: 'Moneda', visible: false, fixed: null, align: 'left', minWidth: '100px' },
+    { id: 'address', key: 'address', label: 'Dirección', visible: false, fixed: null, align: 'left', truncate: true, minWidth: '200px' },
+    { id: 'shippingAddress', key: 'shippingAddress', label: 'Dirección de Envío', visible: false, fixed: null, align: 'left', truncate: true, minWidth: '200px' },
+    { id: 'purchaseOrder', key: 'purchaseOrder', label: 'Orden de compra', visible: false, fixed: null, align: 'left', minWidth: '140px' },
+    { id: 'costCenter', key: 'costCenter', label: 'Centro de Costo', visible: false, fixed: null, align: 'left', minWidth: '140px' },
+    { id: 'waybill', key: 'waybill', label: 'N° Guía de Remisión', visible: false, fixed: null, align: 'left', minWidth: '150px' },
+    { id: 'observations', key: 'observations', label: 'Observaciones', visible: false, fixed: null, align: 'left', truncate: true, minWidth: '200px' },
+    { id: 'internalNote', key: 'internalNote', label: 'Nota Interna', visible: false, fixed: null, align: 'left', truncate: true, minWidth: '200px' },
+    { id: 'email', key: 'email', label: 'Correo Electrónico', visible: false, fixed: null, align: 'left', minWidth: '200px' }
   ]), []);
 
   const STORAGE_KEY = 'lista_comprobantes_columns_v1';
@@ -147,25 +156,64 @@ const InvoiceListDashboard = () => {
     setColumnsConfig(prev => prev.map(c => c.id === id ? { ...c, visible: !c.visible } : c));
   };
 
+  // Atajos de teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // / para buscar
+      if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault();
+        document.querySelector<HTMLInputElement>('input[placeholder*="Buscar"]')?.focus();
+      }
+      // f para filtros
+      if (e.key === 'f' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault();
+        // TODO: Abrir panel de filtros
+      }
+      // e para exportar
+      if (e.key === 'e' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault();
+        // TODO: Ejecutar exportación
+        console.log('Atajo de exportar activado');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Resetear página cuando cambien los filtros de fecha o el número de registros por página
   useEffect(() => {
     setCurrentPage(1);
   }, [dateFrom, dateTo, recordsPerPage]);
 
-  // ✅ Los comprobantes ahora vienen del contexto (línea 51)
-  // Ya no necesitamos el array hardcodeado aquí
-
+  // ✅ Los comprobantes ahora vienen del contexto
   // Datos filtrados por rango de fechas
   const filteredInvoices = filterInvoicesByDateRange(invoices, dateFrom, dateTo);
+  
+  // Filtrado por búsqueda global
+  const searchedInvoices = useMemo(() => {
+    if (!globalSearch.trim()) return filteredInvoices;
+    
+    const search = globalSearch.toLowerCase();
+    return filteredInvoices.filter(invoice => {
+      return (
+        invoice.id?.toLowerCase().includes(search) ||
+        invoice.client?.toLowerCase().includes(search) ||
+        invoice.clientDoc?.toLowerCase().includes(search) ||
+        invoice.vendor?.toLowerCase().includes(search) ||
+        invoice.type?.toLowerCase().includes(search)
+      );
+    });
+  }, [filteredInvoices, globalSearch]);
 
   // Cálculos de paginación
-  const totalRecords = filteredInvoices.length;
+  const totalRecords = searchedInvoices.length;
   const totalPages = Math.ceil(totalRecords / recordsPerPage);
   const startRecord = (currentPage - 1) * recordsPerPage + 1;
   const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
   
   // Orden local por F. Emisión DESC y paginación (no mutamos el contexto)
-  const sortedInvoices = [...filteredInvoices].sort((a: any, b: any) => {
+  const sortedInvoices = [...searchedInvoices].sort((a: any, b: any) => {
     try {
       return parseInvoiceDate(b.date).getTime() - parseInvoiceDate(a.date).getTime();
     } catch (e) {
@@ -179,29 +227,67 @@ const InvoiceListDashboard = () => {
     currentPage * recordsPerPage
   );
 
-  // Orden por defecto: F. Emisión DESC
-  useEffect(() => {
-    // Si los invoices vienen desordenados, aplicar orden local por fecha si existe el campo date
-    // Nota: parseInvoiceDate ya disponible.
-    // No mutamos el contexto global: trabajamos sobre filteredInvoices localmente en memoria
-    // (Lista renderiza paginatedInvoices que se obtiene de filteredInvoices)
-    // Aquí no es necesario reordenar el contexto; si quieres persistir orden, lo hacemos más tarde.
-  }, [filteredInvoices]);
-
-  const getStatusBadge = (status: string, color: 'blue' | 'green' | 'red' | 'orange') => {
-    const colorClasses: Record<'blue' | 'green' | 'red' | 'orange', string> = {
-      blue: 'bg-blue-100 text-blue-800 border-blue-200',
-      green: 'bg-green-100 text-green-800 border-green-200',
-      red: 'bg-red-100 text-red-800 border-red-200',
-      orange: 'bg-orange-100 text-orange-800 border-orange-200'
+  // Función para obtener el pill de estado con nombre e icono exacto y contraste AA
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
+      'sent': { 
+        label: 'Enviado', 
+        color: 'text-blue-800 dark:text-blue-200', 
+        bgColor: 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700',
+        icon: <Send className="w-3.5 h-3.5" />
+      },
+      'accepted': { 
+        label: 'Aceptado', 
+        color: 'text-green-800 dark:text-green-200', 
+        bgColor: 'bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700',
+        icon: <CheckCircle2 className="w-3.5 h-3.5" />
+      },
+      'rejected': { 
+        label: 'Rechazado', 
+        color: 'text-red-800 dark:text-red-200', 
+        bgColor: 'bg-red-100 dark:bg-red-900/40 border-red-300 dark:border-red-700',
+        icon: <XOctagon className="w-3.5 h-3.5" />
+      },
+      'fix': { 
+        label: 'Corregir', 
+        color: 'text-orange-800 dark:text-orange-200', 
+        bgColor: 'bg-orange-100 dark:bg-orange-900/40 border-orange-300 dark:border-orange-700',
+        icon: <AlertTriangle className="w-3.5 h-3.5" />
+      },
+      'voided': { 
+        label: 'Anulado', 
+        color: 'text-gray-800 dark:text-gray-200', 
+        bgColor: 'bg-gray-100 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700',
+        icon: <Ban className="w-3.5 h-3.5" />
+      }
     };
 
+    const config = statusConfig[status.toLowerCase()] || statusConfig['sent'];
+
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colorClasses[color]}`}>
-        {status}
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.bgColor} ${config.color}`}>
+        {config.icon}
+        {config.label}
       </span>
     );
   };
+
+  // Componente Skeleton Row
+  const SkeletonRow = () => (
+    <tr className="animate-pulse">
+      {visibleColumns.map((col) => (
+        <td key={col.id} className="px-6 py-4">
+          <div className={`h-4 bg-gray-200 dark:bg-gray-700 rounded ${
+            col.key === 'id' ? 'w-32' : 
+            col.key === 'client' ? 'w-48' : 
+            col.key === 'total' ? 'w-24 ml-auto' : 
+            col.key === 'status' ? 'w-28 mx-auto' : 
+            'w-32'
+          }`}></div>
+        </td>
+      ))}
+    </tr>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -234,99 +320,220 @@ const InvoiceListDashboard = () => {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4 flex-1">
-              {/* Date filters */}
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Desde (dd/mm/aaaa)"
-                  />
-                </div>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Hasta (dd/mm/aaaa)"
-                  />
-                </div>
-              </div>
-
-              {/* Column manager compact */}
-              <div className="relative">
-                <button title="Columnas" className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center" onClick={(e) => {
-                  const el = (e.currentTarget.nextElementSibling as HTMLElement | null);
-                  if (el) el.classList.toggle('hidden');
-                }}>
-                  <MoreHorizontal className="w-4 h-4 text-gray-500" />
-                </button>
-                <div className="hidden absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 p-3">
-                  <div className="text-sm font-semibold mb-2">Columnas</div>
-                  <div className="max-h-48 overflow-y-auto">
-                    {columnsConfig.map(c => (
-                      <label key={c.id} className="flex items-center justify-between text-sm py-1">
-                        <span className="truncate mr-2">{c.label}</span>
-                        <input type="checkbox" checked={c.visible} onChange={() => toggleColumn(c.id)} />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
+          {/* Fila principal: Búsqueda → Fechas → Acciones → Botones */}
+          <div className="flex items-center gap-3">
+            {/* Búsqueda global */}
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar por número, cliente, vendedor..."
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
             </div>
-            {/* Botones NUEVA BOLETA y NUEVA FACTURA + Impresión masiva */}
-            <div className="flex items-center space-x-2">
+
+            {/* Rango de fechas */}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <span className="text-gray-500 dark:text-gray-400 text-sm">—</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+
+            {/* Separador */}
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+            {/* Botones de acción */}
+            <button
+              title="Filtros (Atajo: F)"
+              aria-label="Abrir filtros"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              onClick={() => {/* TODO: Implementar panel de filtros */}}
+            >
+              <Filter className="w-5 h-5" />
+            </button>
+            
+            <button
+              title="Refrescar lista"
+              aria-label="Refrescar comprobantes"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              onClick={() => window.location.reload()}
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+            
+            <button
+              title="Exportar (Atajo: E)"
+              aria-label="Exportar comprobantes"
+              className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
+              onClick={() => {/* TODO: Implementar exportación */}}
+            >
+              <Download className="w-4 h-4" />
+              Exportar
+            </button>
+            
+            {/* Gestor de Columnas con Presentación */}
+            <div className="relative">
               <button
-                className="px-4 py-2 border border-blue-500 text-blue-600 bg-white dark:bg-gray-800 dark:text-blue-400 dark:border-blue-400 rounded-md font-semibold text-sm hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
-                onClick={() => navigate('/comprobantes/emision?tipo=factura')}
+                title="Columnas y Vista"
+                aria-label="Gestionar columnas y presentación"
+                className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
+                onClick={() => setShowColumnManager(!showColumnManager)}
               >
-                Nueva factura
+                <MoreHorizontal className="w-4 h-4" />
+                Columnas
               </button>
-              <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-md font-semibold text-sm hover:bg-blue-700 transition-colors"
-                onClick={() => navigate('/comprobantes/emision?tipo=boleta')}
-              >
-                Nueva boleta
-              </button>
-              {!massPrintMode ? (
-                <button
-                  className={`flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300`}
-                  onClick={() => {
-                    setMassPrintMode(true);
-                    setSelectedInvoices([]);
-                  }}
-                >
-                  <Printer className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  <span className="text-gray-700 dark:text-gray-300">Impresión Masiva</span>
-                </button>
-              ) : (
+              
+              {showColumnManager && (
                 <>
-                  <span className="font-semibold text-base text-gray-900 dark:text-white">{selectedInvoices.length} seleccionados</span>
-                  <button
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium"
-                    onClick={() => {
-                      setMassPrintMode(false);
-                      setSelectedInvoices([]);
-                    }}
-                  >Cancelar</button>
-                  <button
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium"
-                    onClick={() => setSelectedInvoices(paginatedInvoices.map(inv => inv.id))}
-                  >Seleccionar página</button>
-                  <button
-                    className="px-6 py-2 rounded-md bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-colors"
-                    disabled={selectedInvoices.length === 0}
-                    onClick={() => setShowPrintPopup(true)}
-                  >Imprimir seleccionados</button>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowColumnManager(false)}
+                  />
+                  
+                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50">
+                    {/* Sección Presentación */}
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Presentación</h3>
+                      <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                        <button
+                          onClick={() => setDensity('comfortable')}
+                          className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            density === 'comfortable'
+                              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                        >
+                          Cómodo
+                        </button>
+                        <button
+                          onClick={() => setDensity('intermediate')}
+                          className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            density === 'intermediate'
+                              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                        >
+                          Intermedio
+                        </button>
+                        <button
+                          onClick={() => setDensity('compact')}
+                          className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            density === 'compact'
+                              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                        >
+                          Compacto
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sección Columnas */}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Columnas visibles</h3>
+                        <button
+                          onClick={() => setShowColumnManager(false)}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          aria-label="Cerrar panel"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto space-y-1">
+                        {columnsConfig.map(c => (
+                          c.id !== 'actions' && c.id !== 'documentNumber' && (
+                            <label 
+                              key={c.id} 
+                              className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
+                            >
+                              <span className="text-sm text-gray-700 dark:text-gray-300">{c.label}</span>
+                              <input 
+                                type="checkbox" 
+                                checked={c.visible} 
+                                onChange={() => toggleColumn(c.id)}
+                                className="rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
+                              />
+                            </label>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
+
+            {/* Separador */}
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+            {/* Botones principales */}
+            <button
+              className="px-4 py-2 border border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400 bg-white dark:bg-gray-800 rounded-lg font-medium text-sm hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
+              onClick={() => navigate('/comprobantes/emision?tipo=factura')}
+            >
+              Nueva factura
+            </button>
+            
+            <button
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
+              onClick={() => navigate('/comprobantes/emision?tipo=boleta')}
+            >
+              Nueva boleta
+            </button>
+
+            <button
+              title="Más tipos de comprobantes"
+              aria-label="Más opciones de comprobantes"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              onClick={() => {/* TODO: Implementar menú de más tipos */}}
+            >
+              <Plus className="w-5 h-5" />
+            </button>
           </div>
+
+          {/* Chips de filtros activos */}
+          {(globalSearch || dateFrom || dateTo) && (
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              {globalSearch && (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md text-xs">
+                  <span>Búsqueda: {globalSearch}</span>
+                  <button
+                    onClick={() => setGlobalSearch('')}
+                    className="hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full p-0.5"
+                  >
+                    <XCircle className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+              {(dateFrom || dateTo) && (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md text-xs">
+                  <span>Fecha: {dateFrom} — {dateTo}</span>
+                  <button
+                    onClick={() => {
+                      setDateFrom(getToday());
+                      setDateTo(getToday());
+                    }}
+                    className="hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full p-0.5"
+                  >
+                    <XCircle className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -339,28 +546,54 @@ const InvoiceListDashboard = () => {
               <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                 <tr>
                   {massPrintMode && (
-                    <th className="px-2 py-3">
+                    <th className="px-2 py-3 sticky left-0 z-20 bg-gray-50 dark:bg-gray-700">
                       <input type="checkbox" checked={paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoices.includes(inv.id))} onChange={e => {
                         if (e.target.checked) setSelectedInvoices([...selectedInvoices, ...paginatedInvoices.filter(inv => !selectedInvoices.includes(inv.id)).map(inv => inv.id)]);
                         else setSelectedInvoices(selectedInvoices.filter(id => !paginatedInvoices.some(inv => inv.id === id)));
                       }} />
                     </th>
                   )}
-                  {visibleColumns.map(col => (
-                    <th key={col.id} className={`px-6 py-3 text-xs font-medium uppercase tracking-wider ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'} text-gray-700 dark:text-gray-300`}>
-                      <div className="flex items-center justify-between space-x-2">
-                        <span>{col.label}</span>
-                        {/* Small icons for searchable/filterable headers kept where it makes sense */}
-                        {['N° Comprobante', 'Tipo', 'N° Doc Cliente', 'Cliente', 'Vendedor'].includes(col.label) ? (
-                          <Search className="w-4 h-4 text-gray-400" />
-                        ) : null}
-                      </div>
-                    </th>
-                  ))}
+                  {visibleColumns.map((col) => {
+                    const isPinnedLeft = col.fixed === 'left';
+                    const isPinnedRight = col.fixed === 'right';
+                    const minWidth = (col as any).minWidth || 'auto';
+                    
+                    return (
+                      <th 
+                        key={col.id} 
+                        style={{ minWidth }}
+                        className={`px-6 py-3 text-xs font-medium uppercase tracking-wider ${
+                          col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
+                        } text-gray-700 dark:text-gray-300 ${
+                          isPinnedLeft 
+                            ? 'sticky left-0 z-20 bg-gray-50 dark:bg-gray-700 shadow-[2px_0_4px_rgba(0,0,0,0.06)]' 
+                            : isPinnedRight 
+                            ? 'sticky right-0 z-20 bg-gray-50 dark:bg-gray-700 shadow-[-2px_0_4px_rgba(0,0,0,0.06)]' 
+                            : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between space-x-2">
+                          <span>{col.label}</span>
+                          {['N° Comprobante', 'Tipo', 'N° Doc Cliente', 'Cliente', 'Vendedor'].includes(col.label) && (
+                            <Search className="w-4 h-4 text-gray-400" />
+                          )}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {paginatedInvoices.length === 0 ? (
+                {isLoading ? (
+                  // Skeleton rows durante carga
+                  <>
+                    <SkeletonRow />
+                    <SkeletonRow />
+                    <SkeletonRow />
+                    <SkeletonRow />
+                    <SkeletonRow />
+                  </>
+                ) : paginatedInvoices.length === 0 ? (
                   <tr>
                     <td colSpan={Math.max(1, visibleColumns.length + (massPrintMode ? 1 : 0))} className="px-6 py-12">
                       <div className="flex flex-col items-center justify-center text-center">
@@ -375,7 +608,7 @@ const InvoiceListDashboard = () => {
                         </p>
                         <button
                           onClick={() => navigate('/comprobantes/emision')}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                           Crear comprobante
                         </button>
@@ -383,181 +616,307 @@ const InvoiceListDashboard = () => {
                     </td>
                   </tr>
                 ) : (
-                  paginatedInvoices.map((invoice, index) => (
-                  <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${massPrintMode && selectedInvoices.includes(invoice.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-                    {massPrintMode && (
-                      <td className="px-2 py-4">
-                        <input type="checkbox" checked={selectedInvoices.includes(invoice.id)} onChange={e => {
-                          if (e.target.checked) setSelectedInvoices(prev => [...prev, invoice.id]);
-                          else setSelectedInvoices(prev => prev.filter(id => id !== invoice.id));
-                        }} />
-                      </td>
-                    )}
-
-                    {visibleColumns.map(col => {
-                      const value = (invoice as any)[col.key];
-
-                      // Special rendering for actions column
-                      if (col.key === 'actions') {
-                        return (
-                          <td key={col.id} className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-0.5">
-                              {/* Botón Imprimir */}
-                              <button
-                                onClick={() => {
-                                  console.log('Imprimir:', invoice.id);
-                                  // TODO: Implementar lógica de impresión
-                                }}
-                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                                title="Imprimir"
-                              >
-                                <Printer className="w-4 h-4" />
-                              </button>
-
-                              {/* Botón Compartir */}
-                              <button
-                                onClick={() => {
-                                  console.log('Compartir:', invoice.id);
-                                  // TODO: Implementar lógica de compartir
-                                }}
-                                className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
-                                title="Compartir"
-                              >
-                                <Share2 className="w-4 h-4" />
-                              </button>
-
-                              {/* Menú desplegable con más opciones */}
-                              <div className="relative">
-                                <button
-                                  ref={(el) => { buttonRefs.current[invoice.id] = el; }}
-                                  onClick={(e) => {
-                                    if (openMenuId === invoice.id) {
-                                      setOpenMenuId(null);
-                                      setMenuPosition(null);
-                                    } else {
-                                      const rect = e.currentTarget.getBoundingClientRect();
-                                      setMenuPosition({
-                                        top: rect.bottom + window.scrollY + 4,
-                                        left: rect.right + window.scrollX - 176 // 176px = w-44 (11rem)
-                                      });
-                                      setOpenMenuId(invoice.id);
-                                    }
-                                  }}
-                                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                                  title="Más opciones"
-                                >
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </button>
-
-                                {/* Dropdown menu con Portal */}
-                                {openMenuId === invoice.id && menuPosition && createPortal(
-                                  <>
-                                    {/* Backdrop para cerrar el menú */}
-                                    <div 
-                                      className="fixed inset-0 z-40" 
-                                      onClick={() => {
-                                        setOpenMenuId(null);
-                                        setMenuPosition(null);
-                                      }}
-                                    />
-                                    
-                                    {/* Menú */}
-                                    <div 
-                                      className="fixed w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50"
-                                      style={{
-                                        top: `${menuPosition.top}px`,
-                                        left: `${menuPosition.left}px`
-                                      }}
-                                    >
-                                      <button
-                                        onClick={() => {
-                                          console.log('Duplicar:', invoice.id);
-                                          setOpenMenuId(null);
-                                          setMenuPosition(null);
-                                          // TODO: Implementar lógica de duplicar
-                                        }}
-                                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5"
-                                      >
-                                        <Copy className="w-4 h-4 flex-shrink-0" />
-                                        <span>Duplicar</span>
-                                      </button>
-                                      
-                                      <button
-                                        onClick={() => {
-                                          console.log('Ver detalle:', invoice.id);
-                                          setOpenMenuId(null);
-                                          setMenuPosition(null);
-                                          // TODO: Implementar lógica de ver detalle
-                                        }}
-                                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5"
-                                      >
-                                        <Eye className="w-4 h-4 flex-shrink-0" />
-                                        <span>Ver detalle</span>
-                                      </button>
-                                      
-                                      <button
-                                        onClick={() => {
-                                          console.log('Editar:', invoice.id);
-                                          setOpenMenuId(null);
-                                          setMenuPosition(null);
-                                          // TODO: Implementar lógica de editar
-                                        }}
-                                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-gray-700 hover:text-amber-600 transition-colors flex items-center gap-2.5"
-                                      >
-                                        <Edit2 className="w-4 h-4 flex-shrink-0" />
-                                        <span>Editar</span>
-                                      </button>
-                                      
-                                      <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-                                      
-                                      <button
-                                        onClick={() => {
-                                          console.log('Anular:', invoice.id);
-                                          setOpenMenuId(null);
-                                          setMenuPosition(null);
-                                          // TODO: Implementar lógica de anular
-                                        }}
-                                        className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2.5"
-                                      >
-                                        <XCircle className="w-4 h-4 flex-shrink-0" />
-                                        <span>Anular</span>
-                                      </button>
-                                    </div>
-                                  </>,
-                                  document.body
-                                )}
-                              </div>
-                            </div>
+                  paginatedInvoices.map((invoice, index) => {
+                    const rowPadding = density === 'comfortable' ? 'py-4' : density === 'intermediate' ? 'py-3' : 'py-2';
+                    const isFechaEmisionVisible = visibleColumns.some(c => c.id === 'date');
+                    const isMonedaVisible = visibleColumns.some(c => c.id === 'currency');
+                    
+                    return (
+                      <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${massPrintMode && selectedInvoices.includes(invoice.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                        {massPrintMode && (
+                          <td className={`px-2 ${rowPadding} sticky left-0 z-10 bg-white dark:bg-gray-800`}>
+                            <input type="checkbox" checked={selectedInvoices.includes(invoice.id)} onChange={e => {
+                              if (e.target.checked) setSelectedInvoices(prev => [...prev, invoice.id]);
+                              else setSelectedInvoices(prev => prev.filter(id => id !== invoice.id));
+                            }} />
                           </td>
-                        );
-                      }
+                        )}
 
-                      // Presentation rules for other columns
-                      const display = (() => {
-                        if (value === undefined || value === null || value === '') return '—';
-                        if (col.key === 'total') return `S/ ${Number(value).toFixed(2)}`;
-                        if (col.key === 'date') return value; // already formatted in mock/context
-                        if (col.key === 'status') return getStatusBadge(invoice.status, invoice.statusColor as 'blue' | 'green' | 'red' | 'orange');
-                        if (col.truncate) return <div title={String(value)} className="truncate max-w-[18rem]">{String(value)}</div>;
-                        return String(value);
-                      })();
+                        {visibleColumns.map(col => {
+                          const value = (invoice as any)[col.key];
+                          const isPinnedLeft = col.fixed === 'left';
+                          const isPinnedRight = col.fixed === 'right';
+                          const minWidth = (col as any).minWidth || 'auto';
 
-                      return (
-                        <td key={col.id} className={`px-6 py-4 whitespace-nowrap text-sm ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'} ${col.key === 'total' ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
-                          {col.key === 'status' ? display : display}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  ))
+                          // Renderizado especial para columna de acciones
+                          if (col.key === 'actions') {
+                            return (
+                              <td 
+                                key={col.id} 
+                                style={{ minWidth }}
+                                className={`px-4 ${rowPadding} whitespace-nowrap ${
+                                  isPinnedRight 
+                                    ? 'sticky right-0 z-10 bg-white dark:bg-gray-800 shadow-[-2px_0_4px_rgba(0,0,0,0.06)]' 
+                                    : ''
+                                }`}
+                              >
+                                <div className="flex items-center justify-center gap-1">
+                                  {/* Botón Imprimir visible (opcional) */}
+                                  <button
+                                    onClick={() => {
+                                      console.log('Imprimir:', invoice.id);
+                                      // TODO: Implementar lógica de impresión
+                                    }}
+                                    className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    title="Imprimir"
+                                    aria-label={`Imprimir comprobante ${invoice.id}`}
+                                  >
+                                    <Printer className="w-4 h-4" />
+                                  </button>
+
+                                  {/* Menú kebab consolidado */}
+                                  <div className="relative">
+                                    <button
+                                      ref={(el) => { buttonRefs.current[invoice.id] = el; }}
+                                      onClick={(e) => {
+                                        if (openMenuId === invoice.id) {
+                                          setOpenMenuId(null);
+                                          setMenuPosition(null);
+                                        } else {
+                                          const rect = e.currentTarget.getBoundingClientRect();
+                                          setMenuPosition({
+                                            top: rect.bottom + window.scrollY + 4,
+                                            left: rect.right + window.scrollX - 176
+                                          });
+                                          setOpenMenuId(invoice.id);
+                                        }
+                                      }}
+                                      className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      title="Más acciones"
+                                      aria-label={`Más acciones para comprobante ${invoice.id}`}
+                                      aria-expanded={openMenuId === invoice.id}
+                                      aria-haspopup="true"
+                                    >
+                                      <MoreHorizontal className="w-4 h-4" />
+                                    </button>
+
+                                    {openMenuId === invoice.id && menuPosition && createPortal(
+                                      <>
+                                        <div 
+                                          className="fixed inset-0 z-40" 
+                                          onClick={() => {
+                                            setOpenMenuId(null);
+                                            setMenuPosition(null);
+                                          }}
+                                        />
+                                        
+                                        <div 
+                                          className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50"
+                                          style={{
+                                            top: `${menuPosition.top}px`,
+                                            left: `${menuPosition.left}px`
+                                          }}
+                                          role="menu"
+                                          aria-orientation="vertical"
+                                        >
+                                          <button
+                                            onClick={() => {
+                                              console.log('Ver detalles:', invoice.id);
+                                              setOpenMenuId(null);
+                                              setMenuPosition(null);
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-blue-50 dark:focus:bg-gray-700"
+                                            role="menuitem"
+                                            aria-label={`Ver detalles de ${invoice.id}`}
+                                          >
+                                            <Eye className="w-4 h-4 flex-shrink-0" />
+                                            <span>Ver detalles</span>
+                                          </button>
+                                          
+                                          <button
+                                            onClick={() => {
+                                              console.log('Imprimir:', invoice.id);
+                                              setOpenMenuId(null);
+                                              setMenuPosition(null);
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-blue-50 dark:focus:bg-gray-700"
+                                            role="menuitem"
+                                            aria-label={`Imprimir ${invoice.id}`}
+                                          >
+                                            <Printer className="w-4 h-4 flex-shrink-0" />
+                                            <span>Imprimir</span>
+                                          </button>
+
+                                          <button
+                                            onClick={() => {
+                                              console.log('Compartir:', invoice.id);
+                                              setOpenMenuId(null);
+                                              setMenuPosition(null);
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-blue-50 dark:focus:bg-gray-700"
+                                            role="menuitem"
+                                            aria-label={`Compartir ${invoice.id}`}
+                                          >
+                                            <Share2 className="w-4 h-4 flex-shrink-0" />
+                                            <span>Compartir</span>
+                                          </button>
+                                          
+                                          <button
+                                            onClick={() => {
+                                              console.log('Duplicar:', invoice.id);
+                                              setOpenMenuId(null);
+                                              setMenuPosition(null);
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-blue-50 dark:focus:bg-gray-700"
+                                            role="menuitem"
+                                            aria-label={`Duplicar ${invoice.id}`}
+                                          >
+                                            <Copy className="w-4 h-4 flex-shrink-0" />
+                                            <span>Duplicar</span>
+                                          </button>
+                                          
+                                          <button
+                                            onClick={() => {
+                                              console.log('Editar:', invoice.id);
+                                              setOpenMenuId(null);
+                                              setMenuPosition(null);
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-gray-700 hover:text-amber-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-amber-50 dark:focus:bg-gray-700"
+                                            role="menuitem"
+                                            aria-label={`Editar ${invoice.id}`}
+                                          >
+                                            <Edit2 className="w-4 h-4 flex-shrink-0" />
+                                            <span>Editar</span>
+                                          </button>
+                                          
+                                          <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                                          
+                                          <button
+                                            onClick={() => {
+                                              console.log('Anular:', invoice.id);
+                                              setOpenMenuId(null);
+                                              setMenuPosition(null);
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-red-50 dark:focus:bg-red-900/20"
+                                            role="menuitem"
+                                            aria-label={`Anular ${invoice.id}`}
+                                          >
+                                            <XCircle className="w-4 h-4 flex-shrink-0" />
+                                            <span>Anular</span>
+                                          </button>
+                                        </div>
+                                      </>,
+                                      document.body
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            );
+                          }
+
+                          // Renderizado de otras columnas
+                          const display = (() => {
+                            // N° Comprobante con lógica condicional
+                            if (col.key === 'id') {
+                              return (
+                                <div>
+                                  <div className="font-medium text-gray-900 dark:text-white">
+                                    {value || '—'}
+                                  </div>
+                                  {!isFechaEmisionVisible && invoice.date && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
+                                      📅 {invoice.date}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            // Cliente con doble línea
+                            if (col.key === 'client') {
+                              return (
+                                <div className="max-w-[240px]">
+                                  <div 
+                                    className="font-medium text-gray-900 dark:text-white truncate" 
+                                    title={value || '—'}
+                                  >
+                                    {value || '—'}
+                                  </div>
+                                  {invoice.clientDoc && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                      {invoice.clientDoc}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            // Total con símbolo de moneda
+                            if (col.key === 'total') {
+                              const currency = invoice.currency || 'PEN';
+                              const symbol = currency === 'USD' ? '$' : 'S/';
+                              const exchangeRate = invoice.exchangeRate;
+                              
+                              return (
+                                <div className="text-right">
+                                  <div className="font-bold text-gray-900 dark:text-white">
+                                    {symbol} {Number(value || 0).toFixed(2)}
+                                  </div>
+                                  {!isMonedaVisible && currency !== 'PEN' && exchangeRate && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                      TC: {Number(exchangeRate).toFixed(3)}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            // Estado con pill
+                            if (col.key === 'status') {
+                              return getStatusBadge(invoice.status || 'sent');
+                            }
+
+                            // F. Vencimiento solo fecha (sin texto relativo)
+                            if (col.key === 'dueDate') {
+                              return value || '—';
+                            }
+
+                            // Columnas con truncate
+                            if (col.truncate && value) {
+                              return (
+                                <div 
+                                  className="truncate max-w-[200px]" 
+                                  title={String(value)}
+                                >
+                                  {String(value)}
+                                </div>
+                              );
+                            }
+
+                            // Valor por defecto
+                            return value !== undefined && value !== null && value !== '' ? String(value) : '—';
+                          })();
+
+                          return (
+                            <td 
+                              key={col.id} 
+                              style={{ minWidth }}
+                              className={`px-6 ${rowPadding} text-sm ${
+                                col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
+                              } ${
+                                col.key === 'total' || col.key === 'id' ? '' : 'text-gray-700 dark:text-gray-300'
+                              } ${
+                                isPinnedLeft 
+                                  ? 'sticky left-0 z-10 bg-white dark:bg-gray-800 shadow-[2px_0_4px_rgba(0,0,0,0.06)]' 
+                                  : isPinnedRight 
+                                  ? 'sticky right-0 z-10 bg-white dark:bg-gray-800 shadow-[-2px_0_4px_rgba(0,0,0,0.06)]' 
+                                  : ''
+                              }`}
+                            >
+                              {display}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })
                 )}
-      {/* Barra de acciones masivas para impresión */}
               </tbody>
             </table>
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+          <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <button 
