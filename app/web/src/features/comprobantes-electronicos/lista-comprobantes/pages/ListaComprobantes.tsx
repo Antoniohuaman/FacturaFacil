@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import { useNavigate } from 'react-router-dom'; // Eliminado porque no se usa
-import { Search, Printer, ChevronLeft, ChevronRight, FileText, MoreHorizontal } from 'lucide-react';
+import { Search, Printer, ChevronLeft, ChevronRight, FileText, MoreHorizontal, Share2, Copy, Eye, Edit2, XCircle } from 'lucide-react';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
 
 function getToday() {
@@ -81,6 +81,7 @@ const InvoiceListDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showTotals, setShowTotals] = useState(false);
   const [recordsPerPage, setRecordsPerPage] = useState(10); // Por defecto 10 registros
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // --------------------
   // Column manager (config local)
@@ -115,7 +116,7 @@ const InvoiceListDashboard = () => {
     { id: 'waybill', key: 'waybill', label: 'N° de Guía de Remisión', visible: false, fixed: null, align: 'left' },
     { id: 'observations', key: 'observations', label: 'Observaciones', visible: false, fixed: null, align: 'left', truncate: true },
     { id: 'internalNote', key: 'internalNote', label: 'Nota Interna', visible: false, fixed: null, align: 'left', truncate: true },
-    { id: 'actions', key: 'actions', label: '+ Opciones', visible: true, fixed: 'right', align: 'right' }
+    { id: 'actions', key: 'actions', label: 'ACCIONES', visible: true, fixed: 'right', align: 'center' }
   ]), []);
 
   const STORAGE_KEY = 'lista_comprobantes_columns_v1';
@@ -393,7 +394,115 @@ const InvoiceListDashboard = () => {
                     {visibleColumns.map(col => {
                       const value = (invoice as any)[col.key];
 
-                      // Presentation rules
+                      // Special rendering for actions column
+                      if (col.key === 'actions') {
+                        return (
+                          <td key={col.id} className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-0.5">
+                              {/* Botón Imprimir */}
+                              <button
+                                onClick={() => {
+                                  console.log('Imprimir:', invoice.id);
+                                  // TODO: Implementar lógica de impresión
+                                }}
+                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                                title="Imprimir"
+                              >
+                                <Printer className="w-4 h-4" />
+                              </button>
+
+                              {/* Botón Compartir */}
+                              <button
+                                onClick={() => {
+                                  console.log('Compartir:', invoice.id);
+                                  // TODO: Implementar lógica de compartir
+                                }}
+                                className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                                title="Compartir"
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </button>
+
+                              {/* Menú desplegable con más opciones */}
+                              <div className="relative z-30">
+                                <button
+                                  onClick={() => setOpenMenuId(openMenuId === invoice.id ? null : invoice.id)}
+                                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                                  title="Más opciones"
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </button>
+
+                                {/* Dropdown menu */}
+                                {openMenuId === invoice.id && (
+                                  <>
+                                    {/* Backdrop para cerrar el menú */}
+                                    <div 
+                                      className="fixed inset-0 z-40" 
+                                      onClick={() => setOpenMenuId(null)}
+                                    />
+                                    
+                                    {/* Menú */}
+                                    <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50">
+                                      <button
+                                        onClick={() => {
+                                          console.log('Duplicar:', invoice.id);
+                                          setOpenMenuId(null);
+                                          // TODO: Implementar lógica de duplicar
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5"
+                                      >
+                                        <Copy className="w-4 h-4 flex-shrink-0" />
+                                        <span>Duplicar</span>
+                                      </button>
+                                      
+                                      <button
+                                        onClick={() => {
+                                          console.log('Ver detalle:', invoice.id);
+                                          setOpenMenuId(null);
+                                          // TODO: Implementar lógica de ver detalle
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5"
+                                      >
+                                        <Eye className="w-4 h-4 flex-shrink-0" />
+                                        <span>Ver detalle</span>
+                                      </button>
+                                      
+                                      <button
+                                        onClick={() => {
+                                          console.log('Editar:', invoice.id);
+                                          setOpenMenuId(null);
+                                          // TODO: Implementar lógica de editar
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-gray-700 hover:text-amber-600 transition-colors flex items-center gap-2.5"
+                                      >
+                                        <Edit2 className="w-4 h-4 flex-shrink-0" />
+                                        <span>Editar</span>
+                                      </button>
+                                      
+                                      <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                                      
+                                      <button
+                                        onClick={() => {
+                                          console.log('Anular:', invoice.id);
+                                          setOpenMenuId(null);
+                                          // TODO: Implementar lógica de anular
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2.5"
+                                      >
+                                        <XCircle className="w-4 h-4 flex-shrink-0" />
+                                        <span>Anular</span>
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        );
+                      }
+
+                      // Presentation rules for other columns
                       const display = (() => {
                         if (value === undefined || value === null || value === '') return '—';
                         if (col.key === 'total') return `S/ ${Number(value).toFixed(2)}`;
