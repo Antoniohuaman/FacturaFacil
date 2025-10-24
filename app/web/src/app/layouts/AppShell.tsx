@@ -21,29 +21,29 @@ export default function AppShell() {
             <FieldsConfigurationProvider>
               <ComprobanteProvider>
                 <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden">
-            {/* Header fijo */}
-            <div className="flex-shrink-0 z-50">
-              <Header
-                sidebarCollapsed={sidebarCollapsed}
-                onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-              />
-            </div>
-            <div className="flex flex-1 overflow-hidden">
-              {/* Sidebar fijo */}
-              <div className={`${sidebarCollapsed ? 'w-[88px]' : 'w-[260px]'} flex-shrink-0 z-40 transition-all duration-300 ease-in-out overflow-y-auto overflow-x-hidden`}>
-                <SideNav
-                  collapsed={sidebarCollapsed}
-                />
-              </div>
-              {/* Contenido principal */}
-              <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden`}>
-                <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                  <Outlet />
+                  {/* Header fijo */}
+                  <div className="flex-shrink-0 z-50">
+                    <Header
+                      sidebarCollapsed={sidebarCollapsed}
+                      onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    />
+                  </div>
+                  <div className="flex flex-1 overflow-hidden">
+                    {/* Sidebar fijo */}
+                    <div className={`${sidebarCollapsed ? 'w-[88px]' : 'w-[260px]'} flex-shrink-0 z-40 transition-all duration-300 ease-in-out overflow-y-auto overflow-x-hidden`}>
+                      <SideNav
+                        collapsed={sidebarCollapsed}
+                      />
+                    </div>
+                    {/* Contenido principal */}
+                    <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden`}>
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                        <Outlet />
+                      </div>
+                      <Footer />
+                    </div>
+                  </div>
                 </div>
-                <Footer />
-              </div>
-            </div>
-          </div>
               </ComprobanteProvider>
             </FieldsConfigurationProvider>
           </SessionInitializer>

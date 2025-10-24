@@ -3,7 +3,8 @@
 // Permite que los cambios en la configuración se propaguen inmediatamente
 // ===================================================================
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 
 export interface ComponentVisibility {
   // Componentes completos
