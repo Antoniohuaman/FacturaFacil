@@ -3,6 +3,9 @@
 // Preserva toda la funcionalidad original con mejor UX
 // ===================================================================
 
+// ✅ FEATURE FLAG - Side Preview
+const ENABLE_SIDE_PREVIEW_EMISION = true; // ✅ ACTIVADO para ver el panel
+
 // Importar hooks del form-core y hooks específicos
 import { useCart } from '../punto-venta/hooks/useCart';
 import { usePayment } from '../shared/form-core/hooks/usePayment';
@@ -13,6 +16,9 @@ import { usePreview } from '../hooks/usePreview';
 import { useComprobanteState } from '../hooks/useComprobanteState';
 import { useComprobanteActions } from '../hooks/useComprobanteActions';
 import { useFieldsConfiguration } from '../shared/form-core/contexts/FieldsConfigurationContext';
+
+// ✅ Importar side-preview (condicional por flag)
+import { SidePreviewPane, useSidePreviewPane } from '../shared/side-preview';
 
 // Importar componentes del form-core
 import ProductsSection from '../shared/form-core/components/ProductsSection';
@@ -29,14 +35,17 @@ import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../shared/modales/SuccessModal';
 
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, FileText, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
+
+  // ✅ Hook para side preview (solo si flag habilitado)
+  const sidePreview = ENABLE_SIDE_PREVIEW_EMISION ? useSidePreviewPane() : null;
 
   // ✅ Estado para forzar refresh del ProductSelector
   const [productSelectorKey, setProductSelectorKey] = useState(0);
@@ -97,6 +106,42 @@ const EmisionTradicional = () => {
 
   // Calculate totals (SIN CAMBIOS)
   const totals = calculateTotals(cartItems);
+
+  // ✅ Auto-abrir side preview cuando haya datos mínimos (solo si flag habilitado)
+  useEffect(() => {
+    if (!ENABLE_SIDE_PREVIEW_EMISION || !sidePreview) return;
+    
+    const hasMinimumData = 
+      clienteSeleccionadoGlobal !== null &&
+      serieSeleccionada !== '' &&
+      cartItems.length > 0;
+    
+    if (hasMinimumData && !sidePreview.isOpen) {
+      sidePreview.openPane();
+    }
+  }, [clienteSeleccionadoGlobal, serieSeleccionada, cartItems.length, sidePreview]);
+
+  // ✅ View model para side preview
+  const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {
+    tipoComprobante,
+    serieSeleccionada,
+    cartItems,
+    totals,
+    observaciones,
+    notaInterna,
+    formaPago,
+    currency: currentCurrency,
+    client: clienteSeleccionadoGlobal?.nombre,
+    clientDoc: clienteSeleccionadoGlobal?.dni,
+    fechaEmision,
+    optionalFields
+  } : null;
+
+  const hasMinimumDataForPreview = ENABLE_SIDE_PREVIEW_EMISION &&
+    clienteSeleccionadoGlobal !== null &&
+    serieSeleccionada !== '' &&
+    cartItems.length > 0;
+
 
   // Handler para abrir modal de nueva forma de pago
   const handleNuevaFormaPago = () => {
@@ -220,6 +265,22 @@ const EmisionTradicional = () => {
 
               {/* Right side - Tipo de Comprobante */}
               <div className="flex items-center space-x-3">
+                {/* ✅ Botón Vista Previa (solo si flag habilitado) */}
+                {ENABLE_SIDE_PREVIEW_EMISION && sidePreview && (
+                  <button
+                    onClick={sidePreview.togglePane}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                      sidePreview.isOpen
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                    }`}
+                    title="Mostrar/ocultar vista previa lateral"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Vista previa
+                  </button>
+                )}
+
                 {/* ✅ Selector de Tipo de Comprobante - Botones Premium */}
                 <div className="flex items-center space-x-2">
                   <button
@@ -280,10 +341,21 @@ const EmisionTradicional = () => {
           </div>
         </div>
 
-        {/* ✅ Main Content - Layout de columna única (full-width) */}
+        {/* ✅ Main Content - Layout Flex con Splitter cuando panel está abierto */}
         <div className="flex-1 overflow-hidden">
-          {/* Form View - Layout mejorado con ClienteSection */}
-          <div className="max-w-7xl mx-auto p-6 space-y-6 overflow-y-auto h-full">
+          <div className="h-full flex">
+            {/* Form View - Columna izquierda con scroll propio */}
+            <div 
+              className="overflow-y-auto"
+              style={{
+                flex: ENABLE_SIDE_PREVIEW_EMISION && sidePreview?.isOpen 
+                  ? '1 1 auto'
+                  : '1 1 100%',
+                minWidth: '640px',
+                height: '100%'
+              }}
+            >
+              <div className="max-w-7xl mx-auto p-6 space-y-6">
 
             {/* ✅ Formulario Compacto - Todos los campos organizados */}
             <CompactDocumentForm
@@ -343,6 +415,24 @@ const EmisionTradicional = () => {
               isCartEmpty={cartItems.length === 0}
               productsCount={cartItems.length}
             />
+            </div>
+          </div>
+
+          {/* ✅ Side Preview Panel (como hermano del formulario en el flex) */}
+          {ENABLE_SIDE_PREVIEW_EMISION && sidePreview && sidePreviewViewModel && sidePreview.isOpen && (
+            <SidePreviewPane
+              isOpen={sidePreview.isOpen}
+              onClose={sidePreview.closePane}
+              width={sidePreview.width}
+              onWidthChange={sidePreview.setWidth}
+              viewModel={sidePreviewViewModel}
+              hasMinimumData={hasMinimumDataForPreview}
+              validationErrors={[]} // TODO: Agregar validaciones reales si es necesario
+              onConfirm={handleCrearComprobante}
+              onSaveDraft={() => setShowDraftModal(true)}
+              isProcessing={false}
+            />
+          )}
           </div>
         </div>
 
