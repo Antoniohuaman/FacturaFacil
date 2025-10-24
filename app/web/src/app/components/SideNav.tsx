@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings, Receipt, Wallet } from "lucide-react";
 import CompanySelector from "../../components/CompanySelector";
 import { useUserSession } from "../../contexts/UserSessionContext";
+import { useComprobanteContext } from "../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 
 interface SideNavProps {
   collapsed?: boolean;
@@ -13,8 +14,8 @@ const mainItems = [
     to: "/comprobantes",
     label: "Comprobantes",
     description: "Facturación detallada",
-    badge: "12",
-    icon: FileText
+    icon: FileText,
+    useDynamicBadge: true
   },
   {
     to: "/punto-venta",
@@ -79,6 +80,10 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const currentCompany = session?.currentCompany;
   const currentEstablishment = session?.currentEstablishment;
 
+  // Obtener conteo de comprobantes del contexto
+  const { state } = useComprobanteContext();
+  const comprobantesCount = state.comprobantes.length;
+
   // Obtener iniciales de la empresa para el botón compacto
   const companyName = currentCompany?.tradeName || currentCompany?.businessName || 'Empresa';
   const companyInitials = companyName
@@ -87,6 +92,17 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const companyTitle = currentCompany && currentEstablishment
     ? `${companyName} - ${currentEstablishment.name}`
     : 'Sin empresa seleccionada';
+
+  // Crear items con badge dinámico
+  const mainItemsWithBadges = mainItems.map(item => {
+    if (item.useDynamicBadge && item.to === '/comprobantes') {
+      return {
+        ...item,
+        badge: comprobantesCount > 0 ? String(comprobantesCount) : undefined
+      };
+    }
+    return item;
+  });
 
   return (
     <aside
@@ -144,7 +160,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
         )}
         
         <div className="space-y-1 mt-2">
-          {mainItems.map(item => (
+          {mainItemsWithBadges.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
