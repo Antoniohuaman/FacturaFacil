@@ -16,6 +16,9 @@ import {
   exportToExcel,
   createZipFile
 } from '../components/comprobantes-bulk';
+import { FilterPanel, type FilterValues } from '../components/FilterPanel';
+import { PreviewModal } from '../../shared/modales/PreviewModal';
+import { SuccessModal } from '../../shared/modales/SuccessModal';
 
 function getToday() {
   const d = new Date();
@@ -116,6 +119,26 @@ const InvoiceListDashboard = () => {
   const [tempColumnFilters, setTempColumnFilters] = useState<Record<string, string>>({});
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
   const [filterPopoverPosition, setFilterPopoverPosition] = useState<{ top: number; left: number } | null>(null);
+
+  // Estados para panel de filtros avanzados
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<FilterValues>({
+    estados: [],
+    vendedores: [],
+    formasPago: [],
+    tipos: [],
+    totalMin: '',
+    totalMax: ''
+  });
+
+  // Estados para modales
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [selectedInvoiceForPreview, setSelectedInvoiceForPreview] = useState<any>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedInvoiceForShare, setSelectedInvoiceForShare] = useState<any>(null);
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [selectedInvoiceForVoid, setSelectedInvoiceForVoid] = useState<any>(null);
+  const [voidReason, setVoidReason] = useState('');
 
   // --------------------
   // Column manager (config local)
@@ -254,7 +277,115 @@ const InvoiceListDashboard = () => {
     setColumnFilters({});
     setDateFrom(getToday());
     setDateTo(getToday());
+    setAdvancedFilters({
+      estados: [],
+      vendedores: [],
+      formasPago: [],
+      tipos: [],
+      totalMin: '',
+      totalMax: ''
+    });
   };
+
+  // Obtener opciones únicas para filtros avanzados
+  const availableFilterOptions = useMemo(() => {
+    const estados = new Set<string>();
+    const vendedores = new Set<string>();
+    const formasPago = new Set<string>();
+    const tipos = new Set<string>();
+
+    invoices.forEach(inv => {
+      if (inv.status) estados.add(inv.status);
+      if (inv.vendor) vendedores.add(inv.vendor);
+      if ((inv as any).paymentMethod) formasPago.add((inv as any).paymentMethod);
+      if (inv.type) tipos.add(inv.type);
+    });
+
+    return {
+      estados: Array.from(estados).sort(),
+      vendedores: Array.from(vendedores).sort(),
+      formasPago: Array.from(formasPago).sort(),
+      tipos: Array.from(tipos).sort()
+    };
+  }, [invoices]);
+
+  // Handler para aplicar filtros avanzados
+  const handleApplyAdvancedFilters = (filters: FilterValues) => {
+    setAdvancedFilters(filters);
+  };
+
+  // Handlers para Ver detalle
+  const handleViewDetails = (invoice: any) => {
+    setSelectedInvoiceForPreview(invoice);
+    setShowPreviewModal(true);
+  };
+
+  // Handler para Imprimir
+  const handlePrint = (invoice: any) => {
+    // Seleccionar el comprobante e imprimir
+    console.log('Imprimiendo:', invoice.id);
+    // TODO: Implementar lógica de impresión real
+    window.print();
+  };
+
+  // Handler para Compartir
+  const handleShare = (invoice: any) => {
+    setSelectedInvoiceForShare(invoice);
+    setShowShareModal(true);
+  };
+
+  // Handler para Duplicar
+  const handleDuplicate = (invoice: any) => {
+    // Navegar al formulario de emisión con TODA la información del comprobante
+    // Solo se excluye el id (para que genere uno nuevo al crear)
+    // El correlativo se asignará automáticamente al crear el nuevo comprobante
+    const { id, numeroComprobante, ...invoiceData } = invoice;
+    
+    navigate('/comprobantes/emision', { 
+      state: { 
+        duplicate: {
+          ...invoiceData,
+          // Mantener TODA la información: cliente, productos, totales, etc.
+          // El formulario usará esta data para pre-llenar los campos
+          status: 'Borrador' // Estado inicial del duplicado
+        } 
+      } 
+    });
+  };
+
+  // Handler para Anular
+  const handleVoid = (invoice: any) => {
+    setSelectedInvoiceForVoid(invoice);
+    setVoidReason('');
+    setShowVoidModal(true);
+  };
+
+  const confirmVoid = () => {
+    if (!voidReason.trim()) {
+      alert('Debe ingresar un motivo de anulación');
+      return;
+    }
+    
+    console.log('Anulando:', selectedInvoiceForVoid?.id, 'Motivo:', voidReason);
+    // TODO: Implementar lógica de anulación
+    alert(`Comprobante ${selectedInvoiceForVoid?.id} anulado. Motivo: ${voidReason}`);
+    
+    setShowVoidModal(false);
+    setSelectedInvoiceForVoid(null);
+    setVoidReason('');
+  };
+
+  // Contar filtros activos
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (advancedFilters.estados.length > 0) count += advancedFilters.estados.length;
+    if (advancedFilters.vendedores.length > 0) count += advancedFilters.vendedores.length;
+    if (advancedFilters.formasPago.length > 0) count += advancedFilters.formasPago.length;
+    if (advancedFilters.tipos.length > 0) count += advancedFilters.tipos.length;
+    if (advancedFilters.totalMin) count++;
+    if (advancedFilters.totalMax) count++;
+    return count;
+  }, [advancedFilters]);
 
   // Atajos de teclado
   useEffect(() => {
@@ -300,16 +431,22 @@ const InvoiceListDashboard = () => {
   const searchedInvoices = useMemo(() => {
     let result = filteredInvoices;
     
-    // Filtro global
+    // Filtro global - búsqueda exhaustiva
     if (globalSearch.trim()) {
       const search = globalSearch.toLowerCase();
       result = result.filter(invoice => {
         return (
           invoice.id?.toLowerCase().includes(search) ||
+          invoice.type?.toLowerCase().includes(search) ||
           invoice.client?.toLowerCase().includes(search) ||
           invoice.clientDoc?.toLowerCase().includes(search) ||
           invoice.vendor?.toLowerCase().includes(search) ||
-          invoice.type?.toLowerCase().includes(search)
+          invoice.status?.toLowerCase().includes(search) ||
+          (invoice as any).paymentMethod?.toLowerCase().includes(search) ||
+          invoice.total?.toString().includes(search) ||
+          invoice.date?.toLowerCase().includes(search) ||
+          (invoice as any).currency?.toLowerCase().includes(search) ||
+          (invoice as any).observations?.toLowerCase().includes(search)
         );
       });
     }
@@ -324,9 +461,55 @@ const InvoiceListDashboard = () => {
         });
       }
     });
+
+    // Filtros avanzados
+    // Estados
+    if (advancedFilters.estados.length > 0) {
+      result = result.filter(invoice => {
+        const status = String(invoice.status || '').toLowerCase();
+        return advancedFilters.estados.some(estado => 
+          status.includes(estado.toLowerCase())
+        );
+      });
+    }
+
+    // Vendedores
+    if (advancedFilters.vendedores.length > 0) {
+      result = result.filter(invoice => 
+        advancedFilters.vendedores.includes(invoice.vendor)
+      );
+    }
+
+    // Formas de pago
+    if (advancedFilters.formasPago.length > 0) {
+      result = result.filter(invoice => 
+        advancedFilters.formasPago.includes((invoice as any).paymentMethod || '')
+      );
+    }
+
+    // Tipos
+    if (advancedFilters.tipos.length > 0) {
+      result = result.filter(invoice => 
+        advancedFilters.tipos.includes(invoice.type)
+      );
+    }
+
+    // Rango de totales
+    if (advancedFilters.totalMin) {
+      const min = parseFloat(advancedFilters.totalMin);
+      if (!isNaN(min)) {
+        result = result.filter(invoice => invoice.total >= min);
+      }
+    }
+    if (advancedFilters.totalMax) {
+      const max = parseFloat(advancedFilters.totalMax);
+      if (!isNaN(max)) {
+        result = result.filter(invoice => invoice.total <= max);
+      }
+    }
     
     return result;
-  }, [filteredInvoices, globalSearch, columnFilters]);
+  }, [filteredInvoices, globalSearch, columnFilters, advancedFilters]);
 
   // Cálculos de paginación
   const totalRecords = searchedInvoices.length;
@@ -761,10 +944,19 @@ const InvoiceListDashboard = () => {
             <button
               title="Filtros (Atajo: F)"
               aria-label="Abrir filtros"
-              className="p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onClick={() => {/* TODO: Implementar panel de filtros */}}
+              className={`relative p-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                activeFiltersCount > 0
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              onClick={() => setShowFilterPanel(true)}
             >
               <Filter className="w-5 h-5" />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
             </button>
             
             <button
@@ -780,7 +972,46 @@ const InvoiceListDashboard = () => {
               title="Exportar (Atajo: E)"
               aria-label="Exportar comprobantes"
               className="px-3 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onClick={() => {/* TODO: Implementar exportación */}}
+              onClick={async () => {
+                if (searchedInvoices.length === 0) {
+                  alert('No hay datos para exportar');
+                  return;
+                }
+
+                setProgressMessage('Exportando comprobantes...');
+                setProgress(0);
+                setShowProgress(true);
+
+                try {
+                  // Obtener solo las columnas visibles
+                  const exportData = searchedInvoices.map(inv => {
+                    const row: Record<string, any> = {};
+                    visibleColumns.forEach(col => {
+                      if (col.key === 'actions') return;
+                      const label = col.label;
+                      const value = (inv as any)[col.key];
+                      row[label] = value ?? '';
+                    });
+                    return row;
+                  });
+
+                  // Nombre con rango de fechas
+                  const filename = `comprobantes_${dateFrom}_${dateTo}`;
+                  await exportToExcel(exportData, filename, setProgress);
+                  
+                  // Toast de éxito (temporal - reemplazar con sistema de toasts real)
+                  setTimeout(() => {
+                    alert(`Exportación completada: ${searchedInvoices.length} registros`);
+                  }, 600);
+                } catch (error) {
+                  alert('Error al exportar');
+                } finally {
+                  setTimeout(() => {
+                    setShowProgress(false);
+                    setProgress(0);
+                  }, 500);
+                }
+              }}
             >
               <Download className="w-4 h-4" />
               Exportar
@@ -1121,10 +1352,7 @@ const InvoiceListDashboard = () => {
                                 <div className="flex items-center justify-center gap-1">
                                   {/* Botón Imprimir visible (opcional) */}
                                   <button
-                                    onClick={() => {
-                                      console.log('Imprimir:', invoice.id);
-                                      // TODO: Implementar lógica de impresión
-                                    }}
+                                    onClick={() => handlePrint(invoice)}
                                     className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     title="Imprimir"
                                     aria-label={`Imprimir comprobante ${invoice.id}`}
@@ -1179,7 +1407,7 @@ const InvoiceListDashboard = () => {
                                         >
                                           <button
                                             onClick={() => {
-                                              console.log('Ver detalles:', invoice.id);
+                                              handleViewDetails(invoice);
                                               setOpenMenuId(null);
                                               setMenuPosition(null);
                                             }}
@@ -1193,7 +1421,7 @@ const InvoiceListDashboard = () => {
                                           
                                           <button
                                             onClick={() => {
-                                              console.log('Imprimir:', invoice.id);
+                                              handlePrint(invoice);
                                               setOpenMenuId(null);
                                               setMenuPosition(null);
                                             }}
@@ -1207,7 +1435,7 @@ const InvoiceListDashboard = () => {
 
                                           <button
                                             onClick={() => {
-                                              console.log('Compartir:', invoice.id);
+                                              handleShare(invoice);
                                               setOpenMenuId(null);
                                               setMenuPosition(null);
                                             }}
@@ -1221,7 +1449,7 @@ const InvoiceListDashboard = () => {
                                           
                                           <button
                                             onClick={() => {
-                                              console.log('Duplicar:', invoice.id);
+                                              handleDuplicate(invoice);
                                               setOpenMenuId(null);
                                               setMenuPosition(null);
                                             }}
@@ -1235,7 +1463,7 @@ const InvoiceListDashboard = () => {
                                           
                                           <button
                                             onClick={() => {
-                                              console.log('Editar:', invoice.id);
+                                              navigate('/comprobantes/emision', { state: { edit: invoice } });
                                               setOpenMenuId(null);
                                               setMenuPosition(null);
                                             }}
@@ -1251,7 +1479,7 @@ const InvoiceListDashboard = () => {
                                           
                                           <button
                                             onClick={() => {
-                                              console.log('Anular:', invoice.id);
+                                              handleVoid(invoice);
                                               setOpenMenuId(null);
                                               setMenuPosition(null);
                                             }}
@@ -1735,6 +1963,121 @@ const InvoiceListDashboard = () => {
           progress={progress}
           message={progressMessage}
         />
+
+        {/* Panel de filtros avanzados */}
+        <FilterPanel
+          isOpen={showFilterPanel}
+          onClose={() => setShowFilterPanel(false)}
+          onApply={handleApplyAdvancedFilters}
+          currentFilters={advancedFilters}
+          availableOptions={availableFilterOptions}
+        />
+
+        {/* Modal de Vista Previa */}
+        {selectedInvoiceForPreview && (
+          <PreviewModal
+            isOpen={showPreviewModal}
+            onClose={() => {
+              setShowPreviewModal(false);
+              setSelectedInvoiceForPreview(null);
+            }}
+            cartItems={[]} // TODO: Convertir invoice a cartItems si es necesario
+            documentType={(selectedInvoiceForPreview.type?.toLowerCase() === 'factura' ? 'factura' : 'boleta') as any}
+            series={selectedInvoiceForPreview.id?.split('-')[0] || ''}
+            totals={{
+              subtotal: selectedInvoiceForPreview.total || 0,
+              igv: 0,
+              total: selectedInvoiceForPreview.total || 0
+            }}
+            paymentMethod={(selectedInvoiceForPreview as any).paymentMethod || 'CONTADO'}
+            currency={(selectedInvoiceForPreview as any).currency || 'PEN'}
+            observations={(selectedInvoiceForPreview as any).observations}
+            internalNotes={(selectedInvoiceForPreview as any).internalNote}
+          />
+        )}
+
+        {/* Modal de Compartir */}
+        {selectedInvoiceForShare && (
+          <SuccessModal
+            isOpen={showShareModal}
+            onClose={() => {
+              setShowShareModal(false);
+              setSelectedInvoiceForShare(null);
+            }}
+            comprobante={{
+              tipo: selectedInvoiceForShare.type || '',
+              serie: selectedInvoiceForShare.id?.split('-')[0] || '',
+              numero: selectedInvoiceForShare.id?.split('-')[1] || '',
+              total: selectedInvoiceForShare.total || 0,
+              cliente: selectedInvoiceForShare.client
+            }}
+            onPrint={() => handlePrint(selectedInvoiceForShare)}
+            onNewSale={() => {}}
+          />
+        )}
+
+        {/* Modal de Anulación */}
+        {showVoidModal && selectedInvoiceForVoid && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Anular Comprobante
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowVoidModal(false);
+                    setSelectedInvoiceForVoid(null);
+                    setVoidReason('');
+                  }}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <p className="text-sm text-red-800 dark:text-red-200">
+                  ¿Está seguro que desea anular el comprobante <strong>{selectedInvoiceForVoid.id}</strong>?
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Motivo de anulación *
+                </label>
+                <textarea
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                  rows={3}
+                  placeholder="Ingrese el motivo de la anulación..."
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowVoidModal(false);
+                    setSelectedInvoiceForVoid(null);
+                    setVoidReason('');
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmVoid}
+                  disabled={!voidReason.trim()}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Anular comprobante
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
     </>

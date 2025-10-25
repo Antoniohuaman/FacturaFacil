@@ -34,7 +34,7 @@ import { PreviewModal } from '../shared/modales/PreviewModal';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../shared/modales/SuccessModal';
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, FileText, Eye } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
@@ -42,6 +42,7 @@ import { PaymentMethodFormModal } from '../../configuracion-sistema/components/b
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { state, dispatch } = useConfigurationContext();
 
   // ✅ Hook para side preview (solo si flag habilitado)
@@ -91,11 +92,79 @@ const EmisionTradicional = () => {
     removeToast,
     error
   } = useComprobanteActions();
-
   // ----- Lifted data from CompactDocumentForm (cliente y campos opcionales) -----
   const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<{ nombre: string; dni: string; direccion: string; email?: string } | null>(null);
   const [fechaEmision, setFechaEmision] = useState<string>(new Date().toISOString().split('T')[0]);
   const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
+
+  // ✅ Cargar datos iniciales cuando se duplica un comprobante
+  useEffect(() => {
+    const duplicateData = (location.state as any)?.duplicate;
+    
+    if (duplicateData) {
+      console.log('📋 Cargando datos de comprobante duplicado:', duplicateData);
+      
+      // Cargar cliente si existe
+      if (duplicateData.client) {
+        setClienteSeleccionadoGlobal({
+          nombre: duplicateData.client,
+          dni: duplicateData.clientDoc || '',
+          direccion: duplicateData.address || '',
+          email: duplicateData.email
+        });
+      }
+      
+      // Cargar productos al carrito si existen
+      if (duplicateData.items && Array.isArray(duplicateData.items) && duplicateData.items.length > 0) {
+        // Usar addProductsFromSelector para cargar los productos
+        const productsToAdd = duplicateData.items.map((item: any) => ({
+          product: item,
+          quantity: item.quantity || 1
+        }));
+        addProductsFromSelector(productsToAdd);
+      }
+      
+      // Cargar observaciones y nota interna
+      if (duplicateData.observaciones) {
+        setObservaciones(duplicateData.observaciones);
+      }
+      if (duplicateData.notaInterna) {
+        setNotaInterna(duplicateData.notaInterna);
+      }
+      
+      // Cargar forma de pago
+      if (duplicateData.formaPago) {
+        setFormaPago(duplicateData.formaPago);
+      }
+      
+      // Cargar moneda
+      if (duplicateData.currency) {
+        changeCurrency(duplicateData.currency);
+      }
+      
+      // Cargar tipo de comprobante
+      if (duplicateData.tipo) {
+        const tipo = duplicateData.tipo.toLowerCase() === 'factura' ? 'factura' : 'boleta';
+        setTipoComprobante(tipo);
+      }
+      
+      // Cargar campos opcionales
+      if (duplicateData.fechaVencimiento || duplicateData.direccionEnvio || duplicateData.ordenCompra) {
+        setOptionalFields({
+          fechaVencimiento: duplicateData.fechaVencimiento,
+          direccionEnvio: duplicateData.direccionEnvio || duplicateData.shippingAddress,
+          ordenCompra: duplicateData.ordenCompra || duplicateData.purchaseOrder,
+          guiaRemision: duplicateData.guiaRemision || duplicateData.waybill,
+          centroCosto: duplicateData.centroCosto || duplicateData.costCenter,
+          direccion: duplicateData.address,
+          correo: duplicateData.email
+        });
+      }
+      
+      // Limpiar el state de navegación para que no se vuelva a cargar al remontar el componente
+      window.history.replaceState({}, document.title);
+    }
+  }, []); // Solo ejecutar una vez al montar
 
   // Estado para el modal de éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -107,7 +176,11 @@ const EmisionTradicional = () => {
   // Calculate totals (SIN CAMBIOS)
   const totals = calculateTotals(cartItems);
 
-  // ✅ Auto-abrir side preview cuando haya datos mínimos (solo si flag habilitado)
+  // ✅ NO auto-abrir side preview automáticamente
+  // La vista previa SOLO se abre cuando el usuario hace clic en el botón "Vista Previa"
+  // (comentado el useEffect que abría automáticamente al agregar productos)
+  
+  /*
   useEffect(() => {
     if (!ENABLE_SIDE_PREVIEW_EMISION || !sidePreview) return;
     
@@ -120,6 +193,7 @@ const EmisionTradicional = () => {
       sidePreview.openPane();
     }
   }, [clienteSeleccionadoGlobal, serieSeleccionada, cartItems.length, sidePreview]);
+  */
 
   // ✅ View model para side preview
   const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {

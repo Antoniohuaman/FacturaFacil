@@ -7,15 +7,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { PREVIEW_WIDTH_CONFIG, type UseSidePreviewPaneResult } from './types';
 
 export function useSidePreviewPane(): UseSidePreviewPaneResult {
-  // Estado persistente desde localStorage
-  const [isOpen, setIsOpen] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`${PREVIEW_WIDTH_CONFIG.PERSIST_KEY}:open`);
-      return saved === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Estado NO persistente - siempre cerrado al inicializar
+  const [isOpen, setIsOpen] = useState(false);
 
   const [width, setWidthState] = useState(() => {
     try {
@@ -43,15 +36,7 @@ export function useSidePreviewPane(): UseSidePreviewPaneResult {
   // Modo overlay si viewport < 1280px
   const isResponsiveOverlay = useMemo(() => viewportWidth < 1280, [viewportWidth]);
 
-  // Persistir estado
-  useEffect(() => {
-    try {
-      localStorage.setItem(`${PREVIEW_WIDTH_CONFIG.PERSIST_KEY}:open`, isOpen.toString());
-    } catch {
-      // Silent fail
-    }
-  }, [isOpen]);
-
+  // Persistir SOLO el ancho (NO el estado isOpen)
   useEffect(() => {
     try {
       localStorage.setItem(`${PREVIEW_WIDTH_CONFIG.PERSIST_KEY}:width`, width.toString());
