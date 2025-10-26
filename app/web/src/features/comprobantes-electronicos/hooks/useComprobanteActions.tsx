@@ -1,9 +1,11 @@
 import { useCallback } from 'react';
 import type { CartItem } from '../models/comprobante.types';
-import { useToast } from './useToast';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { MedioPago } from '../../control-caja/models/Caja';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import { useComprobanteContext } from '../lista-comprobantes/contexts/ComprobantesListContext';
+import { useUserSession } from '../../../contexts/UserSessionContext';
+import { useToast } from '../shared/ui/Toast/useToast';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -17,12 +19,28 @@ interface ComprobanteData {
   observaciones?: string;
   notaInterna?: string;
   formaPago?: string;
+  establishmentId?: string;
+  companyId?: string;
+  // Campos opcionales provenientes del formulario de emisión
+  client?: string;
+  clientDoc?: string;
+  fechaEmision?: string; // ISO date 'YYYY-MM-DD'
+  fechaVencimiento?: string;
+  email?: string;
+  address?: string;
+  shippingAddress?: string;
+  purchaseOrder?: string;
+  costCenter?: string;
+  waybill?: string;
+  currency?: string;
 }
 
 export const useComprobanteActions = () => {
   const toast = useToast();
   const { agregarMovimiento, status: cajaStatus } = useCaja();
   const { addMovimiento: addMovimientoStock } = useProductStore();
+  const { addComprobante } = useComprobanteContext();
+  const { session } = useUserSession();
 
   /**
    * Mapea las formas de pago de comprobantes a los medios de pago de caja
@@ -43,34 +61,64 @@ export const useComprobanteActions = () => {
 
   // Validar datos del comprobante
   const validateComprobanteData = useCallback((data: ComprobanteData): boolean => {
+    // Validar productos
     if (!data.cartItems || data.cartItems.length === 0) {
       toast.error(
-        'Productos requeridos',
-        'Debe agregar al menos un producto al comprobante'
+        'Carrito vacío',
+        'Debe agregar al menos un producto al comprobante antes de continuar.'
       );
       return false;
     }
 
+    // Validar tipo de comprobante
     if (!data.tipoComprobante) {
       toast.error(
         'Tipo de comprobante requerido',
-        'Debe seleccionar un tipo de comprobante'
+        'Por favor, seleccione si desea emitir una Boleta o Factura.'
       );
       return false;
     }
 
+    // Validar serie
     if (!data.serieSeleccionada) {
       toast.error(
         'Serie requerida',
-        'Debe seleccionar una serie para el comprobante'
+        'Debe seleccionar una serie válida para el comprobante. Verifique su configuración.'
       );
       return false;
     }
 
+    // Validar total
     if (data.totals.total <= 0) {
       toast.error(
         'Total inválido',
-        'El total del comprobante debe ser mayor a cero'
+        'El total del comprobante debe ser mayor a cero. Verifique los precios de los productos.'
+      );
+      return false;
+    }
+
+    // Validar productos con precios válidos
+    const productosInvalidos = data.cartItems.filter(item => 
+      !item.price || item.price <= 0 || isNaN(item.price)
+    );
+
+    if (productosInvalidos.length > 0) {
+      toast.error(
+        'Productos con precios inválidos',
+        `${productosInvalidos.length} producto(s) tienen precio inválido. Verifique los precios antes de continuar.`
+      );
+      return false;
+    }
+
+    // Validar cantidades válidas
+    const productosConCantidadInvalida = data.cartItems.filter(item => 
+      !item.quantity || item.quantity <= 0 || isNaN(item.quantity)
+    );
+
+    if (productosConCantidadInvalida.length > 0) {
+      toast.error(
+        'Productos con cantidad inválida',
+        `${productosConCantidadInvalida.length} producto(s) tienen cantidad inválida. Verifique las cantidades.`
       );
       return false;
     }
@@ -103,14 +151,19 @@ export const useComprobanteActions = () => {
       if (cajaStatus === 'abierta') {
         try {
           const medioPago = mapFormaPagoToMedioPago(data.formaPago || 'contado');
+          
+          // Obtener usuario actual desde sesión
+          const userId = session?.userId || 'temp-user-id';
+          const userName = session?.userName || 'Usuario';
+
           await agregarMovimiento({
             tipo: 'Ingreso',
             concepto: `${data.tipoComprobante} ${numeroComprobante}`,
             medioPago: medioPago,
             monto: data.totals.total,
             referencia: numeroComprobante,
-            usuarioId: 'user-temp-id', // TODO: Obtener del contexto de autenticación
-            usuarioNombre: 'Usuario Temp' // TODO: Obtener del contexto de autenticación
+            usuarioId: userId,
+            usuarioNombre: userName
           });
         } catch (cajaError) {
           console.error('Error registrando movimiento en caja:', cajaError);
@@ -118,13 +171,22 @@ export const useComprobanteActions = () => {
           toast.warning(
             'Comprobante creado',
             'El comprobante se creó pero no se pudo registrar en caja. Registre manualmente.',
-            { label: 'Entendido', onClick: () => {} }
+            {
+              action: {
+                label: 'Entendido',
+                onClick: () => {}
+              }
+            }
           );
         }
       }
 
       // ✅ DESCONTAR STOCK DE LOS PRODUCTOS VENDIDOS
       try {
+        // Obtener datos del establecimiento desde la sesión o datos recibidos
+        const establishmentId = data.establishmentId || session?.currentEstablishmentId;
+        const establishment = session?.currentEstablishment;
+
         for (const item of data.cartItems) {
           // Solo descontar stock si el producto requiere control de stock
           if (item.requiresStockControl) {
@@ -136,9 +198,9 @@ export const useComprobanteActions = () => {
               `Venta en ${data.tipoComprobante} ${numeroComprobante}`,
               numeroComprobante,
               undefined, // ubicación
-              undefined, // establecimientoId
-              undefined, // establecimientoCodigo
-              undefined  // establecimientoNombre
+              establishmentId,
+              establishment?.code,
+              establishment?.name
             );
           }
         }
@@ -148,18 +210,87 @@ export const useComprobanteActions = () => {
         toast.warning(
           'Stock no actualizado',
           'El comprobante se creó pero no se pudo actualizar el stock automáticamente.',
-          { label: 'Entendido', onClick: () => {} }
+          {
+            action: {
+              label: 'Entendido',
+              onClick: () => {}
+            }
+          }
         );
+      }
+
+      // ✅ AGREGAR COMPROBANTE A LA LISTA GLOBAL
+      try {
+        // Formatear fecha actual en el formato esperado por la lista
+        const now = new Date();
+        const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
+        const formattedDate = `${now.getDate()} ${months[now.getMonth()]}. ${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        // Determinar el tipo de comprobante para la lista
+        let tipoComprobanteDisplay = 'Boleta de venta';
+        if (data.tipoComprobante.toLowerCase().includes('factura')) {
+          tipoComprobanteDisplay = 'Factura';
+        }
+
+        // Obtener usuario actual
+        const vendorName = session?.userName || 'Usuario';
+
+        // Crear el objeto comprobante para la lista
+        // Construir objeto usando los campos opcionales cuando estén presentes
+        const dateToUse = data.fechaEmision ? ((): string => {
+          try {
+            const d = new Date(data.fechaEmision + 'T00:00:00');
+            const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
+            return `${d.getDate()} ${months[d.getMonth()]}. ${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+          } catch (e) {
+            return formattedDate;
+          }
+        })() : formattedDate;
+
+        const paymentMethodLabel = data.formaPago ? mapFormaPagoToMedioPago(data.formaPago) : 'Efectivo';
+
+        const nuevoComprobante = {
+          id: numeroComprobante,
+          type: tipoComprobanteDisplay,
+          clientDoc: data.clientDoc || '00000000',
+          client: data.client || 'Cliente General',
+          date: dateToUse,
+          vendor: vendorName,
+          total: data.totals.total,
+          status: 'Enviado',
+          statusColor: 'blue' as const,
+          // Optional fields
+          email: data.email,
+          dueDate: data.fechaVencimiento,
+          address: data.address,
+          shippingAddress: data.shippingAddress,
+          purchaseOrder: data.purchaseOrder,
+          costCenter: data.costCenter,
+          waybill: data.waybill,
+          observations: data.observaciones,
+          internalNote: data.notaInterna,
+          // Payment and currency
+          paymentMethod: paymentMethodLabel,
+          currency: data.currency || undefined,
+        };
+
+        // Agregar al contexto global
+        addComprobante(nuevoComprobante);
+      } catch (contextError) {
+        console.error('Error agregando comprobante al contexto:', contextError);
+        // No lanzar error, el comprobante ya se creó exitosamente
       }
 
       toast.success(
         '¡Comprobante creado!',
         `${data.tipoComprobante} ${numeroComprobante} generado exitosamente`,
         {
-          label: 'Ver comprobante',
-          onClick: () => {
-            // Aquí iría la navegación al detalle del comprobante
-            console.log('Navegando a comprobante:', numeroComprobante);
+          action: {
+            label: 'Ver comprobante',
+            onClick: () => {
+              // Aquí iría la navegación al detalle del comprobante
+              console.log('Navegando a comprobante:', numeroComprobante);
+            }
           }
         }
       );
@@ -173,8 +304,10 @@ export const useComprobanteActions = () => {
         'Error al crear comprobante',
         'Ocurrió un error inesperado. Por favor, inténtelo nuevamente.',
         {
-          label: 'Reintentar',
-          onClick: () => createComprobante(data)
+          action: {
+            label: 'Reintentar',
+            onClick: () => createComprobante(data)
+          }
         }
       );
 
@@ -185,7 +318,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, addMovimientoStock]);
+  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, addMovimientoStock, addComprobante]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {
@@ -225,10 +358,12 @@ export const useComprobanteActions = () => {
         'Borrador guardado',
         `Se guardó el borrador con ${data.cartItems.length} producto${data.cartItems.length > 1 ? 's' : ''}`,
         {
-          label: 'Ver borradores',
-          onClick: () => {
-            // Aquí iría la navegación a la lista de borradores
-            console.log('Navegando a borradores');
+          action: {
+            label: 'Ver borradores',
+            onClick: () => {
+              // Aquí iría la navegación a la lista de borradores
+              console.log('Navegando a borradores');
+            }
           }
         }
       );
@@ -293,8 +428,10 @@ export const useComprobanteActions = () => {
             'Vuelto',
             `Entregar S/ ${change.toFixed(2)} de vuelto`,
             {
-              label: 'Entregado',
-              onClick: () => toast.success('Vuelto entregado', 'Transacción completada')
+              action: {
+                label: 'Entregado',
+                onClick: () => toast.success('Vuelto entregado', 'Transacción completada')
+              }
             }
           );
         }
@@ -321,7 +458,12 @@ export const useComprobanteActions = () => {
     processPayment,
     validateComprobanteData,
 
-    // Toast utilities
-    ...toast,
+    // Toast utilities (sistema real de toasts)
+    success: toast.success,
+    error: toast.error,
+    warning: toast.warning,
+    info: toast.info,
+    toasts: toast.toasts,
+    removeToast: toast.removeToast,
   };
 };

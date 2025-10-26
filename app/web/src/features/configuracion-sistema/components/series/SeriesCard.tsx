@@ -59,12 +59,26 @@ const voucherTypeConfig = {
     prefix: 'GR',
     description: 'Para transporte de mercancías'
   },
+  QUOTATION: {
+    label: 'Cotización',
+    icon: MessageSquare,
+    color: 'purple',
+    prefix: 'COT',
+    description: 'Propuesta comercial para clientes'
+  },
+  SALES_NOTE: {
+    label: 'Nota de Venta',
+    icon: Clipboard,
+    color: 'orange',
+    prefix: 'NV',
+    description: 'Documento interno, sin validez tributaria'
+  },
   OTHER: {
     label: 'Otro Documento',
     icon: MessageSquare,
-    color: 'purple',
+    color: 'gray',
     prefix: '',
-    description: 'Propuesta comercial para clientes'
+    description: 'Otro tipo de documento'
   }
 };
 

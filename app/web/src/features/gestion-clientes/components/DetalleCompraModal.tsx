@@ -1,33 +1,6 @@
 import React from 'react';
 import { X, FileText, User, Calendar, CreditCard, Package } from 'lucide-react';
-
-interface Producto {
-  id: number;
-  nombre: string;
-  cantidad: number;
-  precioUnitario: number;
-  subtotal: number;
-}
-
-interface CompraDetalle {
-  id: number;
-  fecha: string;
-  comprobante: string;
-  tipoComprobante: 'Factura' | 'Boleta';
-  monto: number;
-  estado: 'Pagado' | 'Pendiente' | 'Cancelado';
-  productos: Producto[];
-  cliente: {
-    nombre: string;
-    documento: string;
-  };
-  vendedor: string;
-  metodoPago: string;
-  observaciones?: string;
-  subtotal: number;
-  igv: number;
-  total: number;
-}
+import type { CompraDetalle } from '../models';
 
 interface DetalleCompraModalProps {
   open: boolean;

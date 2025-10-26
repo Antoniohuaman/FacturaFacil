@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
 import type {
   CajaStatus,
   AperturaCaja,
@@ -112,6 +112,10 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     setIsLoading(true);
     try {
       // Simular llamada a API
+      // TODO: Enviar observaciones a la API cuando se implemente
+      if (observaciones) {
+        console.log('Observaciones de cierre:', observaciones);
+      }
       await new Promise((resolve) => setTimeout(resolve, 800));
 
       // Calcular resumen directamente

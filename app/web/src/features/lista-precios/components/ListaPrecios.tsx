@@ -21,6 +21,7 @@ export const ListaPrecios: React.FC = () => {
     editingColumn,
     selectedProduct,
     searchSKU,
+    catalogProducts,
 
     // Actions
     setActiveTab,
@@ -123,6 +124,8 @@ export const ListaPrecios: React.FC = () => {
             filteredProducts={filteredProducts}
             searchSKU={searchSKU}
             onSearchChange={setSearchSKU}
+            onSavePrice={addOrUpdateProductPrice}
+            catalogProducts={catalogProducts}
           />
         )}
       </div>
@@ -143,6 +146,7 @@ export const ListaPrecios: React.FC = () => {
         columns={columns}
         selectedProduct={selectedProduct}
         selectedColumn={null}
+        catalogProducts={catalogProducts}
         onSwitchToVolumeModal={(columnId) => {
           // Cerrar modal actual y mostrar mensaje informativo por ahora
           closePriceModal();

@@ -4,50 +4,12 @@ import type { Product, Category, Package, FilterOptions, PaginationConfig, Movim
 import { useState, useMemo, useCallback, useEffect } from 'react';
 
 // ===================================================================
-// DATOS INICIALES - SOLO PRODUCTOS GENÉRICOS
+// DATOS INICIALES - CATÁLOGO VACÍO
 // Los usuarios crearán sus propios productos desde el catálogo
 // ===================================================================
-const mockProducts: Product[] = [
-  {
-    id: 'prod-varios',
-    codigo: 'PVARIOS',
-    nombre: 'PRODUCTO VARIOS',
-    descripcion: 'Producto genérico para ventas rápidas',
-    unidad: 'UNIDAD',
-    precio: 0.00,
-    cantidad: 0,
-    categoria: 'VARIOS',
-    impuesto: 'IGV (18.00%)',
-    establecimientoIds: [],
-    disponibleEnTodos: true,
-    stockPorEstablecimiento: {},
-    tipoExistencia: 'MERCADERIAS',
-    fechaCreacion: new Date(),
-    fechaActualizacion: new Date()
-  },
-  {
-    id: 'serv-varios',
-    codigo: 'SVARIOS',
-    nombre: 'SERVICIO VARIOS',
-    descripcion: 'Servicio genérico para ventas rápidas',
-    unidad: 'UNIDAD',
-    precio: 0.00,
-    cantidad: 0,
-    categoria: 'SERVICIOS',
-    impuesto: 'IGV (18.00%)',
-    establecimientoIds: [],
-    disponibleEnTodos: true,
-    stockPorEstablecimiento: {},
-    tipoExistencia: 'SERVICIOS',
-    fechaCreacion: new Date(),
-    fechaActualizacion: new Date()
-  }
-];
+const mockProducts: Product[] = [];
 
-const mockCategories: Category[] = [
-  { id: '1', nombre: 'VARIOS', productCount: 1, fechaCreacion: new Date() },
-  { id: '2', nombre: 'SERVICIOS', productCount: 1, fechaCreacion: new Date() }
-];
+const mockCategories: Category[] = [];
 
 // Helpers para localStorage con manejo de fechas
 const saveToLocalStorage = (key: string, data: any) => {
@@ -111,61 +73,6 @@ export const useProductStore = () => {
     loadFromLocalStorage('catalog_movimientos', [])
   );
 
-  // Asegurar que los productos genéricos siempre existan
-  useEffect(() => {
-    const hasProductoVarios = products.some(p => p.id === 'prod-varios' || p.codigo === 'PVARIOS');
-    const hasServicioVarios = products.some(p => p.id === 'serv-varios' || p.codigo === 'SVARIOS');
-    
-    if (!hasProductoVarios || !hasServicioVarios) {
-      const productosGenericos: Product[] = [];
-      
-      if (!hasProductoVarios) {
-        productosGenericos.push({
-          id: 'prod-varios',
-          codigo: 'PVARIOS',
-          nombre: 'PRODUCTO VARIOS',
-          descripcion: 'Producto genérico para ventas rápidas',
-          unidad: 'UNIDAD',
-          precio: 0.00,
-          cantidad: 0,
-          categoria: 'VARIOS',
-          impuesto: 'IGV (18.00%)',
-          establecimientoIds: [],
-          disponibleEnTodos: true,
-          stockPorEstablecimiento: {},
-          tipoExistencia: 'MERCADERIAS',
-          fechaCreacion: new Date('2024-01-01'),
-          fechaActualizacion: new Date('2024-01-01')
-        });
-      }
-      
-      if (!hasServicioVarios) {
-        productosGenericos.push({
-          id: 'serv-varios',
-          codigo: 'SVARIOS',
-          nombre: 'SERVICIO VARIOS',
-          descripcion: 'Servicio genérico para ventas rápidas',
-          unidad: 'UNIDAD',
-          precio: 0.00,
-          cantidad: 0,
-          categoria: 'SERVICIOS',
-          impuesto: 'IGV (18.00%)',
-          establecimientoIds: [],
-          disponibleEnTodos: true,
-          stockPorEstablecimiento: {},
-          tipoExistencia: 'SERVICIOS',
-          fechaCreacion: new Date('2024-01-01'),
-          fechaActualizacion: new Date('2024-01-01')
-        });
-      }
-      
-      if (productosGenericos.length > 0) {
-        setProducts(prev => [...productosGenericos, ...prev]);
-        console.log('✅ Productos genéricos agregados automáticamente');
-      }
-    }
-  }, []); // Solo se ejecuta una vez al montar el componente
-
   // Persistir productos en localStorage
   useEffect(() => {
     saveToLocalStorage('catalog_products', products);
@@ -192,6 +99,10 @@ export const useProductStore = () => {
     categoria: '',
     unidad: '',
     rangoPrecios: { min: 0, max: 50000 },
+    marca: '',
+    modelo: '',
+    tipoExistencia: '',
+    impuesto: '',
     ordenarPor: 'fechaCreacion',
     direccion: 'desc'
   });
@@ -205,17 +116,32 @@ export const useProductStore = () => {
   // Productos filtrados y paginados
   const filteredProducts = useMemo(() => {
     let filtered = products.filter(product => {
-      const matchesBusqueda = !filters.busqueda || 
-        product.nombre.toLowerCase().includes(filters.busqueda.toLowerCase()) ||
-        product.codigo.toLowerCase().includes(filters.busqueda.toLowerCase());
-      
+      // Búsqueda expandida en múltiples campos
+      const searchTerm = filters.busqueda.toLowerCase();
+      const matchesBusqueda = !filters.busqueda ||
+        product.nombre.toLowerCase().includes(searchTerm) ||
+        product.codigo.toLowerCase().includes(searchTerm) ||
+        product.categoria.toLowerCase().includes(searchTerm) ||
+        (product.alias && product.alias.toLowerCase().includes(searchTerm)) ||
+        (product.codigoBarras && product.codigoBarras.toLowerCase().includes(searchTerm)) ||
+        (product.codigoFabrica && product.codigoFabrica.toLowerCase().includes(searchTerm)) ||
+        (product.codigoSunat && product.codigoSunat.toLowerCase().includes(searchTerm)) ||
+        (product.descripcion && product.descripcion.toLowerCase().includes(searchTerm)) ||
+        (product.marca && product.marca.toLowerCase().includes(searchTerm)) ||
+        (product.modelo && product.modelo.toLowerCase().includes(searchTerm));
+
       const matchesCategoria = !filters.categoria || product.categoria === filters.categoria;
       const matchesUnidad = !filters.unidad || product.unidad === filters.unidad;
-      
-      const matchesPrecio = product.precio >= filters.rangoPrecios.min && 
+      const matchesMarca = !filters.marca || product.marca === filters.marca;
+      const matchesModelo = !filters.modelo || product.modelo === filters.modelo;
+      const matchesTipoExistencia = !filters.tipoExistencia || product.tipoExistencia === filters.tipoExistencia;
+      const matchesImpuesto = !filters.impuesto || product.impuesto === filters.impuesto;
+
+      const matchesPrecio = product.precio >= filters.rangoPrecios.min &&
         product.precio <= filters.rangoPrecios.max;
 
-      return matchesBusqueda && matchesCategoria && matchesUnidad && matchesPrecio;
+      return matchesBusqueda && matchesCategoria && matchesUnidad && matchesPrecio &&
+             matchesMarca && matchesModelo && matchesTipoExistencia && matchesImpuesto;
     });
 
     // Ordenar
@@ -351,6 +277,10 @@ export const useProductStore = () => {
       categoria: '',
       unidad: '',
       rangoPrecios: { min: 0, max: 50000 },
+      marca: '',
+      modelo: '',
+      tipoExistencia: '',
+      impuesto: '',
       ordenarPor: 'fechaCreacion',
       direccion: 'desc'
     });
@@ -409,24 +339,80 @@ export const useProductStore = () => {
     const producto = products.find(p => p.id === productoId);
     if (!producto) return;
 
-    const cantidadAnterior = producto.cantidad;
-    let cantidadNueva = cantidadAnterior;
+    // Si no se especifica establecimiento, usar stock global (retrocompatibilidad)
+    if (!establecimientoId) {
+      const cantidadAnterior = producto.cantidad;
+      let cantidadNueva = cantidadAnterior;
 
-    // Calcular nueva cantidad según el tipo de movimiento
+      // Calcular nueva cantidad según el tipo de movimiento
+      switch (tipo) {
+        case 'ENTRADA':
+        case 'AJUSTE_POSITIVO':
+        case 'DEVOLUCION':
+          cantidadNueva = cantidadAnterior + cantidad;
+          break;
+        case 'SALIDA':
+        case 'AJUSTE_NEGATIVO':
+        case 'MERMA':
+          cantidadNueva = cantidadAnterior - cantidad;
+          break;
+        case 'TRANSFERENCIA':
+          cantidadNueva = cantidadAnterior;
+          break;
+      }
+
+      // Crear el movimiento
+      const nuevoMovimiento: MovimientoStock = {
+        id: Date.now().toString(),
+        productoId,
+        productoCodigo: producto.codigo,
+        productoNombre: producto.nombre,
+        tipo,
+        motivo,
+        cantidad,
+        cantidadAnterior,
+        cantidadNueva,
+        usuario: 'Usuario Actual',
+        observaciones,
+        documentoReferencia,
+        fecha: new Date(),
+        ubicacion,
+        establecimientoId,
+        establecimientoCodigo,
+        establecimientoNombre
+      };
+
+      // Actualizar stock global
+      setProducts(prev =>
+        prev.map(p =>
+          p.id === productoId
+            ? { ...p, cantidad: cantidadNueva, fechaActualizacion: new Date() }
+            : p
+        )
+      );
+
+      setMovimientos(prev => [nuevoMovimiento, ...prev]);
+      return nuevoMovimiento;
+    }
+
+    // ✅ STOCK POR ESTABLECIMIENTO
+    const stockAnterior = producto.stockPorEstablecimiento?.[establecimientoId] ?? 0;
+    let stockNuevo = stockAnterior;
+
+    // Calcular nuevo stock según el tipo de movimiento
     switch (tipo) {
       case 'ENTRADA':
       case 'AJUSTE_POSITIVO':
       case 'DEVOLUCION':
-        cantidadNueva = cantidadAnterior + cantidad;
+        stockNuevo = stockAnterior + cantidad;
         break;
       case 'SALIDA':
       case 'AJUSTE_NEGATIVO':
       case 'MERMA':
-        cantidadNueva = cantidadAnterior - cantidad;
+        stockNuevo = Math.max(0, stockAnterior - cantidad);
         break;
       case 'TRANSFERENCIA':
-        // Para transferencias, la lógica dependerá de si es entrada o salida
-        cantidadNueva = cantidadAnterior;
+        stockNuevo = stockAnterior;
         break;
     }
 
@@ -439,9 +425,9 @@ export const useProductStore = () => {
       tipo,
       motivo,
       cantidad,
-      cantidadAnterior,
-      cantidadNueva,
-      usuario: 'Usuario Actual', // Esto debería venir del sistema de autenticación
+      cantidadAnterior: stockAnterior,
+      cantidadNueva: stockNuevo,
+      usuario: 'Usuario Actual',
       observaciones,
       documentoReferencia,
       fecha: new Date(),
@@ -451,13 +437,27 @@ export const useProductStore = () => {
       establecimientoNombre
     };
 
-    // Actualizar stock del producto
+    // Actualizar stock por establecimiento y recalcular total
     setProducts(prev =>
-      prev.map(p =>
-        p.id === productoId
-          ? { ...p, cantidad: cantidadNueva, fechaActualizacion: new Date() }
-          : p
-      )
+      prev.map(p => {
+        if (p.id === productoId) {
+          const nuevoStockPorEst = {
+            ...p.stockPorEstablecimiento,
+            [establecimientoId]: stockNuevo
+          };
+
+          // Recalcular stock total (suma de todos los establecimientos)
+          const stockTotal = Object.values(nuevoStockPorEst).reduce((sum, qty) => sum + (qty || 0), 0);
+
+          return {
+            ...p,
+            stockPorEstablecimiento: nuevoStockPorEst,
+            cantidad: stockTotal,
+            fechaActualizacion: new Date()
+          };
+        }
+        return p;
+      })
     );
 
     // Agregar movimiento al historial

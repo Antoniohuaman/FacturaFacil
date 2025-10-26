@@ -1,58 +1,90 @@
 import type { Product, FilterOptions } from '../models/types';
+import type { Establishment } from '../../configuracion-sistema/models/Establishment';
 // src/features/catalogo-articulos/components/ProductTable.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
+// ✅ Extended Product Row: (Product, Establecimiento) pair
+interface ProductEstablishmentRow extends Product {
+  _establishmentId: string;
+  _establishmentCode: string;
+  _establishmentName: string;
+  _stockForEstablishment: number | null;
+}
+
 // Definir las columnas disponibles
-type ColumnKey = 
-  | 'unidad' 
+type ColumnKey =
+  | 'codigo'
+  | 'nombre'
+  | 'precio'
+  | 'stock'
+  | 'establecimiento'
   | 'categoria'
-  | 'establecimientos' 
-  | 'alias' 
-  | 'precioCompra' 
-  | 'porcentajeGanancia' 
-  | 'codigoBarras' 
-  | 'codigoFabrica' 
-  | 'codigoSunat' 
-  | 'descuentoProducto' 
-  | 'marca' 
-  | 'modelo' 
-  | 'peso' 
-  | 'tipoExistencia';
+  | 'imagen'
+  | 'unidad'
+  | 'descripcion'
+  | 'alias'
+  | 'impuesto'
+  | 'precioCompra'
+  | 'porcentajeGanancia'
+  | 'codigoBarras'
+  | 'codigoFabrica'
+  | 'codigoSunat'
+  | 'descuentoProducto'
+  | 'marca'
+  | 'modelo'
+  | 'peso'
+  | 'tipoExistencia'
+  | 'disponibleEnTodos'
+  | 'fechaCreacion'
+  | 'fechaActualizacion';
 
 interface ColumnConfig {
   key: ColumnKey;
   label: string;
   defaultVisible: boolean;
-  group: 'basicas' | 'codigos' | 'financieras' | 'caracteristicas' | 'asignacion';
+  filterable: boolean;
+  group: 'basicas' | 'codigos' | 'financieras' | 'caracteristicas' | 'visuales' | 'sistema';
 }
 
 const AVAILABLE_COLUMNS: ColumnConfig[] = [
-  // Columnas básicas
-  { key: 'unidad', label: 'Unidad', defaultVisible: true, group: 'basicas' },
-  { key: 'categoria', label: 'Categoría', defaultVisible: true, group: 'basicas' },
-  
-  // Asignación de ubicaciones
-  { key: 'establecimientos', label: 'Establecimientos', defaultVisible: true, group: 'asignacion' },
-  
-  // Información adicional
-  { key: 'alias', label: 'Alias', defaultVisible: false, group: 'basicas' },
-  
+  // Columnas básicas principales (visibles por defecto pero personalizables)
+  { key: 'codigo' as ColumnKey, label: 'Código', defaultVisible: true, filterable: false, group: 'basicas' },
+  { key: 'nombre' as ColumnKey, label: 'Nombre', defaultVisible: true, filterable: false, group: 'basicas' },
+  { key: 'precio' as ColumnKey, label: 'Precio', defaultVisible: true, filterable: false, group: 'basicas' },
+  { key: 'stock' as ColumnKey, label: 'Stock', defaultVisible: true, filterable: false, group: 'basicas' },
+  { key: 'establecimiento' as ColumnKey, label: 'Establecimiento', defaultVisible: true, filterable: false, group: 'basicas' },
+  { key: 'categoria', label: 'Categoría', defaultVisible: true, filterable: true, group: 'basicas' },
+  { key: 'unidad', label: 'Unidad', defaultVisible: true, filterable: true, group: 'basicas' },
+
+  // Otras columnas básicas
+  { key: 'descripcion', label: 'Descripción', defaultVisible: false, filterable: false, group: 'basicas' },
+  { key: 'alias', label: 'Alias', defaultVisible: false, filterable: true, group: 'basicas' },
+  { key: 'impuesto', label: 'Impuesto', defaultVisible: false, filterable: true, group: 'basicas' },
+
+  // Visuales
+  { key: 'imagen', label: 'Imagen', defaultVisible: false, filterable: false, group: 'visuales' },
+
   // Códigos
-  { key: 'codigoBarras', label: 'Código Barras', defaultVisible: false, group: 'codigos' },
-  { key: 'codigoFabrica', label: 'Código Fábrica', defaultVisible: false, group: 'codigos' },
-  { key: 'codigoSunat', label: 'Código SUNAT', defaultVisible: false, group: 'codigos' },
-  
+  { key: 'codigoBarras', label: 'Código Barras', defaultVisible: false, filterable: true, group: 'codigos' },
+  { key: 'codigoFabrica', label: 'Código Fábrica', defaultVisible: false, filterable: true, group: 'codigos' },
+  { key: 'codigoSunat', label: 'Código SUNAT', defaultVisible: false, filterable: true, group: 'codigos' },
+
   // Información financiera
-  { key: 'precioCompra', label: 'Precio Compra', defaultVisible: false, group: 'financieras' },
-  { key: 'porcentajeGanancia', label: '% Ganancia', defaultVisible: false, group: 'financieras' },
-  { key: 'descuentoProducto', label: '% Descuento', defaultVisible: false, group: 'financieras' },
-  
+  { key: 'precioCompra', label: 'Precio Compra', defaultVisible: false, filterable: false, group: 'financieras' },
+  { key: 'porcentajeGanancia', label: '% Ganancia', defaultVisible: false, filterable: false, group: 'financieras' },
+  { key: 'descuentoProducto', label: '% Descuento', defaultVisible: false, filterable: false, group: 'financieras' },
+
   // Características del producto
-  { key: 'marca', label: 'Marca', defaultVisible: false, group: 'caracteristicas' },
-  { key: 'modelo', label: 'Modelo', defaultVisible: false, group: 'caracteristicas' },
-  { key: 'peso', label: 'Peso (kg)', defaultVisible: false, group: 'caracteristicas' },
-  { key: 'tipoExistencia', label: 'Tipo Existencia', defaultVisible: false, group: 'caracteristicas' },
+  { key: 'marca', label: 'Marca', defaultVisible: false, filterable: true, group: 'caracteristicas' },
+  { key: 'modelo', label: 'Modelo', defaultVisible: false, filterable: true, group: 'caracteristicas' },
+  { key: 'peso', label: 'Peso (kg)', defaultVisible: false, filterable: false, group: 'caracteristicas' },
+  { key: 'tipoExistencia', label: 'Tipo Existencia', defaultVisible: false, filterable: true, group: 'caracteristicas' },
+
+  // Sistema
+  { key: 'disponibleEnTodos', label: 'Disp. en Todos', defaultVisible: false, filterable: false, group: 'sistema' },
+  { key: 'fechaCreacion', label: 'Fecha Creación', defaultVisible: false, filterable: false, group: 'sistema' },
+  { key: 'fechaActualizacion', label: 'Última Actualización', defaultVisible: false, filterable: false, group: 'sistema' },
 ];
 
 interface ProductTableProps {
@@ -62,8 +94,11 @@ interface ProductTableProps {
   onEditProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   loading?: boolean;
-  selectedProducts: Set<string>; // NUEVA
-  onSelectedProductsChange: (selected: Set<string>) => void; // NUEVA
+  selectedProducts: Set<string>;
+  onSelectedProductsChange: (selected: Set<string>) => void;
+  // ✅ Nuevas props para filtro de establecimiento
+  establishmentScope?: string;
+  establishments?: Establishment[];
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({
@@ -74,16 +109,82 @@ const ProductTable: React.FC<ProductTableProps> = ({
   onDeleteProduct,
   loading = false,
   selectedProducts,
-  onSelectedProductsChange
+  onSelectedProductsChange,
+  establishmentScope = 'ALL',
+  establishments: establishmentsProp
 }) => {
-  // Acceder a los establecimientos desde el contexto de configuración
+  // Acceder a los establecimientos y unidades desde el contexto de configuración
   const { state: configState } = useConfigurationContext();
-  const establishments = configState.establishments;
+  const establishmentsFromContext = configState.establishments;
+  const establishments = establishmentsProp || establishmentsFromContext;
+  const units = configState.units;
+
+  // ✅ TRANSFORMACIÓN: Expandir productos a filas por establecimiento
+  const expandedRows: ProductEstablishmentRow[] = useMemo(() => {
+    const rows: ProductEstablishmentRow[] = [];
+
+    products.forEach(product => {
+      // Determinar a qué establecimientos pertenece el producto
+      let targetEstablishments: Establishment[] = [];
+
+      if (product.disponibleEnTodos) {
+        // Disponible en todos: usar todos los establecimientos activos
+        targetEstablishments = establishments.filter(e => e.isActive);
+      } else if (product.establecimientoIds && product.establecimientoIds.length > 0) {
+        // Asignado a establecimientos específicos
+        targetEstablishments = establishments.filter(
+          e => product.establecimientoIds!.includes(e.id) && e.isActive
+        );
+      } else {
+        // Sin asignación: crear una fila especial "Sin asignar"
+        rows.push({
+          ...product,
+          _establishmentId: 'UNASSIGNED',
+          _establishmentCode: '—',
+          _establishmentName: 'Sin asignar',
+          _stockForEstablishment: null
+        });
+        return;
+      }
+
+      // Crear una fila por cada establecimiento
+      targetEstablishments.forEach(est => {
+        const stockForEst = product.stockPorEstablecimiento?.[est.id] ?? null;
+        rows.push({
+          ...product,
+          _establishmentId: est.id,
+          _establishmentCode: est.code,
+          _establishmentName: est.name,
+          _stockForEstablishment: stockForEst
+        });
+      });
+    });
+
+    // Filtrar por establecimiento si no es "ALL"
+    if (establishmentScope !== 'ALL') {
+      return rows.filter(row => row._establishmentId === establishmentScope);
+    }
+
+    return rows;
+  }, [products, establishments, establishmentScope]);
   
+  // Versión de la configuración de columnas (incrementar cuando cambien los defaults)
+  const COLUMN_CONFIG_VERSION = '2.0';
+
   // Estado para columnas visibles
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
     // Intentar cargar desde localStorage
     const saved = localStorage.getItem('productTableColumns');
+    const savedVersion = localStorage.getItem('productTableColumnsVersion');
+
+    // Si la versión no coincide, resetear a defaults
+    if (savedVersion !== COLUMN_CONFIG_VERSION) {
+      const defaults = new Set(AVAILABLE_COLUMNS.filter(col => col.defaultVisible).map(col => col.key));
+      localStorage.setItem('productTableColumnsVersion', COLUMN_CONFIG_VERSION);
+      localStorage.setItem('productTableColumns', JSON.stringify([...defaults]));
+      return defaults;
+    }
+
     if (saved) {
       try {
         return new Set(JSON.parse(saved));
@@ -100,6 +201,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   // Guardar preferencias en localStorage cuando cambien
   useEffect(() => {
     localStorage.setItem('productTableColumns', JSON.stringify([...visibleColumns]));
+    localStorage.setItem('productTableColumnsVersion', COLUMN_CONFIG_VERSION);
   }, [visibleColumns]);
 
   const toggleColumn = (columnKey: ColumnKey) => {
@@ -235,11 +337,12 @@ const ProductTable: React.FC<ProductTableProps> = ({
   }, {} as Record<string, ColumnConfig[]>);
 
   const groupLabels = {
+    visuales: 'Elementos Visuales',
     basicas: 'Información Básica',
-    asignacion: 'Asignación y Ubicación',
     codigos: 'Códigos',
     financieras: 'Información Financiera',
-    caracteristicas: 'Características del Producto'
+    caracteristicas: 'Características del Producto',
+    sistema: 'Información del Sistema'
   };
 
   return (
@@ -310,15 +413,15 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     {columns.map((column) => (
                       <label
                         key={column.key}
-                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded transition-colors"
+                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1.5 rounded transition-colors"
                       >
                         <input
                           type="checkbox"
                           checked={visibleColumns.has(column.key)}
                           onChange={() => toggleColumn(column.key)}
-                          className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 dark:border-gray-600 rounded"
                         />
-                        <span className="text-sm text-gray-700">{column.label}</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{column.label}</span>
                       </label>
                     ))}
                   </div>
@@ -334,7 +437,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </svg>
                 <div className="ml-3">
                   <p className="text-xs text-blue-700 dark:text-blue-300">
-                    Las columnas Código, Nombre, Precio, Stock y Acciones siempre estarán visibles. 
+                    Personaliza las columnas según tus necesidades. Por defecto se muestran: Código, Nombre, Precio, Stock, Establecimiento, Categoría y Unidad.
                     Tus preferencias se guardan automáticamente.
                   </p>
                 </div>
@@ -357,7 +460,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 <span className="font-medium">Desliza horizontalmente para ver más columnas</span>
               </div>
               <span className="px-2 py-1 bg-white rounded-md text-gray-700 font-mono shadow-sm">
-                {visibleColumns.size + 5} columnas visibles
+                {visibleColumns.size + 1} columnas visibles
               </span>
             </div>
           </div>
@@ -379,51 +482,79 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   onChange={(e) => handleSelectAll(e.target.checked)}
                 />
               </th>
-              
-              <th 
-                scope="col" 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                onClick={() => handleSort('codigo')}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>Código</span>
-                  {getSortIcon('codigo')}
-                </div>
-              </th>
-              
-              <th 
-                scope="col" 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                onClick={() => handleSort('nombre')}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>Nombre</span>
-                  {getSortIcon('nombre')}
-                </div>
-              </th>
-              
-              <th 
-                scope="col" 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                onClick={() => handleSort('precio')}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>Precio</span>
-                  {getSortIcon('precio')}
-                </div>
-              </th>
-              
-              <th 
-                scope="col" 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                onClick={() => handleSort('cantidad')}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>Stock</span>
-                  {getSortIcon('cantidad')}
-                </div>
-              </th>
-              
+
+              {visibleColumns.has('codigo') && (
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  onClick={() => handleSort('codigo')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Código</span>
+                    {getSortIcon('codigo')}
+                  </div>
+                </th>
+              )}
+
+              {visibleColumns.has('nombre') && (
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  onClick={() => handleSort('nombre')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Nombre</span>
+                    {getSortIcon('nombre')}
+                  </div>
+                </th>
+              )}
+
+              {visibleColumns.has('precio') && (
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  onClick={() => handleSort('precio')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Precio</span>
+                    {getSortIcon('precio')}
+                  </div>
+                </th>
+              )}
+
+              {visibleColumns.has('stock') && (
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  onClick={() => handleSort('cantidad')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Stock</span>
+                    {getSortIcon('cantidad')}
+                  </div>
+                </th>
+              )}
+
+              {visibleColumns.has('establecimiento') && (
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-purple-600 dark:text-purple-400 uppercase tracking-wider bg-purple-50 dark:bg-purple-900/20"
+                >
+                  <div className="flex items-center space-x-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span>Establecimiento</span>
+                  </div>
+                </th>
+              )}
+
+              {visibleColumns.has('imagen') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Imagen
+                </th>
+              )}
+
               {visibleColumns.has('unidad') && (
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Unidad
@@ -433,12 +564,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
               {visibleColumns.has('categoria') && (
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Categoría
-                </th>
-              )}
-
-              {visibleColumns.has('establecimientos') && (
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Establecimientos
                 </th>
               )}
 
@@ -515,121 +640,144 @@ const ProductTable: React.FC<ProductTableProps> = ({
           </thead>
           
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
-            {products.map((product) => (
+            {expandedRows.map((row, idx) => (
               <tr 
-                key={product.id}
+                key={`${row.id}-${row._establishmentId}-${idx}`}
                 className={`
                   hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors
-                  ${selectedProducts.has(product.id) ? 'bg-red-50 dark:bg-red-900/20' : ''}
+                  ${selectedProducts.has(row.id) ? 'bg-red-50 dark:bg-red-900/20' : ''}
                 `}
               >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <input
                     type="checkbox"
                     className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded"
-                    checked={selectedProducts.has(product.id)}
-                    onChange={(e) => handleSelectProduct(product.id, e.target.checked)}
+                    checked={selectedProducts.has(row.id)}
+                    onChange={(e) => handleSelectProduct(row.id, e.target.checked)}
                   />
                 </td>
-                
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-mono font-medium text-gray-900 dark:text-white">
-                    {product.codigo}
-                  </div>
-                </td>
-                
-                <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-gray-900 dark:text-white max-w-xs truncate">
-                    {product.nombre}
-                  </div>
-                  {product.descripcion && (
-                    <div className="text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                      {product.descripcion}
+
+                {visibleColumns.has('codigo') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-mono font-medium text-gray-900 dark:text-white">
+                      {row.codigo}
                     </div>
-                  )}
-                </td>
-                
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">
-                    {formatCurrency(product.precio)}
-                  </div>
-                  {product.impuesto && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {product.impuesto}
+                  </td>
+                )}
+
+                {visibleColumns.has('nombre') && (
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white max-w-xs truncate">
+                      {row.nombre}
                     </div>
-                  )}
-                </td>
-                
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {getStockBadge(product.cantidad)}
-                </td>
-                
+                    {row.descripcion && (
+                      <div className="text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                        {row.descripcion}
+                      </div>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('precio') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {formatCurrency(row.precio)}
+                    </div>
+                    {row.impuesto && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {row.impuesto}
+                      </div>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('stock') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {row._stockForEstablishment !== null ? (
+                      getStockBadge(row._stockForEstablishment)
+                    ) : (
+                      <span
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 cursor-help"
+                        title="Sin stock registrado para este establecimiento"
+                      >
+                        — (No asignado)
+                      </span>
+                    )}
+                  </td>
+                )}
+
+                {visibleColumns.has('establecimiento') && (
+                  <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
+                    {row._establishmentId === 'UNASSIGNED' ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600 italic">
+                        Sin asignar
+                      </span>
+                    ) : (
+                      <div>
+                        <div className="text-sm font-semibold text-purple-900 dark:text-purple-300">
+                          {row._establishmentCode}
+                        </div>
+                        <div className="text-xs text-purple-600 dark:text-purple-400 truncate max-w-[150px]">
+                          {row._establishmentName}
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                )}
+
+                {/* Columna Imagen */}
+                {visibleColumns.has('imagen') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {row.imagen ? (
+                      <img
+                        src={row.imagen}
+                        alt={row.nombre}
+                        className="h-12 w-12 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
+                        onError={(e) => {
+                          // Fallback si la imagen no carga
+                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Crect width="24" height="24" fill="%23f3f4f6"/%3E%3Cpath stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/%3E%3C/svg%3E';
+                        }}
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                        <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+                  </td>
+                )}
+
                 {visibleColumns.has('unidad') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`
-                      inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                      ${product.unidad === 'DOCENA' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-purple-100 text-purple-800'
-                      }
-                    `}>
-                      {product.unidad}
-                    </span>
+                    {(() => {
+                      // Buscar la unidad en el catálogo para obtener el nombre completo
+                      const unit = units.find(u => u.code === row.unidad);
+                      const displayText = unit
+                        ? `${unit.code} - ${unit.name}`
+                        : row.unidad; // Fallback al código si no se encuentra
+
+                      return (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          {displayText}
+                        </span>
+                      );
+                    })()}
                   </td>
                 )}
                 
                 {visibleColumns.has('categoria') && (
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {product.categoria}
+                      {row.categoria}
                     </span>
-                  </td>
-                )}
-
-                {visibleColumns.has('establecimientos') && (
-                  <td className="px-6 py-4">
-                    {product.disponibleEnTodos ? (
-                      <div className="flex items-center space-x-1">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          Todos ({establishments.filter(e => e.isActive).length})
-                        </span>
-                      </div>
-                    ) : product.establecimientoIds && product.establecimientoIds.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {product.establecimientoIds.slice(0, 2).map(estId => {
-                          const est = establishments.find(e => e.id === estId);
-                          return est ? (
-                            <span 
-                              key={estId}
-                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
-                              title={`${est.name} - ${est.address}`}
-                            >
-                              {est.code}
-                            </span>
-                          ) : null;
-                        })}
-                        {product.establecimientoIds.length > 2 && (
-                          <span 
-                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
-                            title={`+${product.establecimientoIds.length - 2} más`}
-                          >
-                            +{product.establecimientoIds.length - 2}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400 italic">Sin asignar</span>
-                    )}
                   </td>
                 )}
 
                 {visibleColumns.has('alias') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.alias ? (
-                      <div className="text-sm text-gray-900">{product.alias}</div>
+                    {row.alias ? (
+                      <div className="text-sm text-gray-900">{row.alias}</div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
                     )}
@@ -638,9 +786,9 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('precioCompra') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.precioCompra ? (
+                    {row.precioCompra ? (
                       <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(product.precioCompra)}
+                        {formatCurrency(row.precioCompra)}
                       </div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
@@ -650,8 +798,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('porcentajeGanancia') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.porcentajeGanancia !== undefined ? (
-                      <div className="text-sm text-gray-900">{product.porcentajeGanancia}%</div>
+                    {row.porcentajeGanancia !== undefined ? (
+                      <div className="text-sm text-gray-900">{row.porcentajeGanancia}%</div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
                     )}
@@ -660,8 +808,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('codigoBarras') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.codigoBarras ? (
-                      <div className="text-sm font-mono text-gray-900">{product.codigoBarras}</div>
+                    {row.codigoBarras ? (
+                      <div className="text-sm font-mono text-gray-900">{row.codigoBarras}</div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
                     )}
@@ -670,8 +818,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('codigoFabrica') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.codigoFabrica ? (
-                      <div className="text-sm font-mono text-gray-900">{product.codigoFabrica}</div>
+                    {row.codigoFabrica ? (
+                      <div className="text-sm font-mono text-gray-900">{row.codigoFabrica}</div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
                     )}
@@ -680,8 +828,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('codigoSunat') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.codigoSunat ? (
-                      <div className="text-sm font-mono text-gray-900">{product.codigoSunat}</div>
+                    {row.codigoSunat ? (
+                      <div className="text-sm font-mono text-gray-900">{row.codigoSunat}</div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
                     )}
@@ -690,8 +838,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('descuentoProducto') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.descuentoProducto !== undefined ? (
-                      <div className="text-sm text-gray-900">{product.descuentoProducto}%</div>
+                    {row.descuentoProducto !== undefined ? (
+                      <div className="text-sm text-gray-900">{row.descuentoProducto}%</div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
                     )}
@@ -700,8 +848,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('marca') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.marca ? (
-                      <div className="text-sm text-gray-900">{product.marca}</div>
+                    {row.marca ? (
+                      <div className="text-sm text-gray-900">{row.marca}</div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
                     )}
@@ -710,8 +858,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('modelo') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.modelo ? (
-                      <div className="text-sm text-gray-900">{product.modelo}</div>
+                    {row.modelo ? (
+                      <div className="text-sm text-gray-900">{row.modelo}</div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
                     )}
@@ -720,8 +868,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('peso') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.peso ? (
-                      <div className="text-sm text-gray-900">{product.peso} kg</div>
+                    {row.peso ? (
+                      <div className="text-sm text-gray-900">{row.peso} kg</div>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
                     )}
@@ -730,9 +878,9 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 {visibleColumns.has('tipoExistencia') && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {product.tipoExistencia ? (
+                    {row.tipoExistencia ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                        {product.tipoExistencia}
+                        {row.tipoExistencia}
                       </span>
                     ) : (
                       <span className="text-sm text-gray-400">-</span>
@@ -743,7 +891,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => onEditProduct(product)}
+                      onClick={() => onEditProduct(row)}
                       className="text-red-600 hover:text-red-900 transition-colors p-1 rounded-md hover:bg-red-50"
                       title="Editar producto"
                     >
@@ -755,7 +903,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     <button
                       onClick={() => {
                         if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-                          onDeleteProduct(product.id);
+                          onDeleteProduct(row.id);
                         }
                       }}
                       className="text-red-600 hover:text-red-900 transition-colors p-1 rounded-md hover:bg-red-50"
@@ -784,7 +932,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
         </table>
       </div>
       
-      {products.length === 0 && (
+      {expandedRows.length === 0 && (
         <div className="text-center py-12">
           <svg
             className="mx-auto h-12 w-12 text-gray-400"
@@ -803,7 +951,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
           </svg>
           <h3 className="mt-2 text-sm font-medium text-gray-900">No hay productos</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Comienza creando un nuevo producto o ajusta los filtros de búsqueda.
+            {establishmentScope !== 'ALL' 
+              ? 'No hay productos asignados al establecimiento seleccionado. Intenta cambiar el filtro o crea nuevos productos.'
+              : 'Comienza creando un nuevo producto o ajusta los filtros de búsqueda.'
+            }
           </p>
         </div>
       )}

@@ -1,15 +1,6 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-export type Cliente = {
-  id: number;
-  name: string;
-  document: string;
-  type: string;
-  address: string;
-  phone: string;
-  enabled: boolean;
-};
+import type { Cliente } from '../models';
 
 export type ClientesTableProps = {
   clients: Cliente[];
@@ -24,7 +15,7 @@ export interface ClientesTableRef {
 
 const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ clients, onEditClient, onDeleteClient }, ref) => {
   const navigate = useNavigate();
-  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<number | string | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>(clients);
   
   // Estados para los filtros
@@ -124,7 +115,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
     hasActiveFilters: () => hasInternalActiveFilters
   }));
 
-  const handleToggleEnabled = (id: number) => {
+  const handleToggleEnabled = (id: number | string) => {
     setClientes(prev => prev.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c));
     setMenuOpenId(null);
   };
@@ -180,7 +171,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
     setMenuOpenId(null);
   };
 
-  const handleOptionsClick = (clientId: number) => {
+  const handleOptionsClick = (clientId: number | string) => {
     setMenuOpenId(menuOpenId === clientId ? null : clientId);
   };
 

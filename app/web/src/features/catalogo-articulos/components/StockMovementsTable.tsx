@@ -5,9 +5,13 @@ import type { MovimientoStock } from '../models/types';
 
 interface StockMovementsTableProps {
   movimientos: MovimientoStock[];
+  establecimientoFiltro?: string; // Filtro externo por establecimiento
 }
 
-const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }) => {
+const StockMovementsTable: React.FC<StockMovementsTableProps> = ({
+  movimientos,
+  establecimientoFiltro
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('todos');
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,7 +94,13 @@ const StockMovementsTable: React.FC<StockMovementsTableProps> = ({ movimientos }
 
     const matchesTipo = filterTipo === 'todos' || mov.tipo === filterTipo;
 
-    return matchesSearch && matchesTipo;
+    // ✅ Filtro por establecimiento
+    const matchesEstablecimiento =
+      !establecimientoFiltro ||
+      establecimientoFiltro === 'todos' ||
+      mov.establecimientoId === establecimientoFiltro;
+
+    return matchesSearch && matchesTipo && matchesEstablecimiento;
   });
 
   // Cálculos de paginación

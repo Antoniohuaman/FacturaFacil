@@ -54,17 +54,29 @@ const voucherTypeConfig = {
     color: 'purple',
     prefix: 'GR'
   },
+  QUOTATION: {
+    label: 'Cotización',
+    icon: MessageSquare,
+    color: 'purple',
+    prefix: 'COT'
+  },
+  SALES_NOTE: {
+    label: 'Nota de Venta',
+    icon: Clipboard,
+    color: 'orange',
+    prefix: 'NV'
+  },
   SALE_NOTE: {
     label: 'Nota de Venta',
     icon: Clipboard,
     color: 'orange',
-    prefix: ''
+    prefix: 'NV'
   },
   QUOTE: {
     label: 'Cotización',
     icon: MessageSquare,
     color: 'purple',
-    prefix: ''
+    prefix: 'COT'
   },
   OTHER: {
     label: 'Otro Documento',

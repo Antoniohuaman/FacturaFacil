@@ -3,42 +3,56 @@
 // Preserva toda la funcionalidad original con mejor UX
 // ===================================================================
 
-// Importar hooks customizados (SIN CAMBIOS)
-import { useCart } from '../hooks/useCart';
-import { usePayment } from '../hooks/usePayment';
-import { useCurrency } from '../hooks/useCurrency';
+// ✅ FEATURE FLAG - Side Preview
+const ENABLE_SIDE_PREVIEW_EMISION = true; // ✅ ACTIVADO para ver el panel
+
+// Importar hooks del form-core y hooks específicos
+import { useCart } from '../punto-venta/hooks/useCart';
+import { usePayment } from '../shared/form-core/hooks/usePayment';
+import { useCurrency } from '../shared/form-core/hooks/useCurrency';
 import { useDrafts } from '../hooks/useDrafts';
-import { useDocumentType } from '../hooks/useDocumentType';
+import { useDocumentType } from '../shared/form-core/hooks/useDocumentType';
 import { usePreview } from '../hooks/usePreview';
 import { useComprobanteState } from '../hooks/useComprobanteState';
 import { useComprobanteActions } from '../hooks/useComprobanteActions';
+import { useFieldsConfiguration } from '../shared/form-core/contexts/FieldsConfigurationContext';
 
-// Importar componentes (TODOS preservados)
-import ProductsSection from '../components/ProductsSection';
-import DocumentInfoCard from '../components/DocumentInfoCard';
-import NotesSection from '../components/NotesSection';
-import ActionButtonsSection from '../components/ActionButtonsSection';
-import PaymentMethodsSection from '../components/PaymentMethodsSection';
-import { Toast } from '../components/Toast';
-import { ToastContainer } from '../components/ToastContainer';
-import { DraftModal } from '../components/DraftModal';
-import { PaymentModal } from '../components/PaymentModal';
-import { PreviewModal } from '../components/PreviewModal';
-import { ErrorBoundary } from '../components/ErrorBoundary';
-import { SuccessModal } from '../components/SuccessModal';
+// ✅ Importar side-preview (condicional por flag)
+import { SidePreviewPane, useSidePreviewPane } from '../shared/side-preview';
 
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, LayoutList } from 'lucide-react';
-import { useState } from 'react';
+// Importar componentes del form-core
+import ProductsSection from '../shared/form-core/components/ProductsSection';
+import CompactDocumentForm from '../shared/form-core/components/CompactDocumentForm';
+import NotesSection from '../shared/form-core/components/NotesSection';
+import ActionButtonsSection from '../shared/form-core/components/ActionButtonsSection';
+import FieldsConfigModal from '../shared/form-core/components/FieldsConfigModal';
+import { Toast } from '../shared/ui/Toast/Toast';
+import { ToastContainer } from '../shared/ui/Toast/ToastContainer';
+import { DraftModal } from '../shared/modales/DraftModal';
+import { PaymentModal } from '../shared/modales/PaymentModal';
+import { PreviewModal } from '../shared/modales/PreviewModal';
+import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
+import { SuccessModal } from '../shared/modales/SuccessModal';
+
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, FileText, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { state, dispatch } = useConfigurationContext();
+
+  // ✅ Hook para side preview (solo si flag habilitado)
+  const sidePreview = ENABLE_SIDE_PREVIEW_EMISION ? useSidePreviewPane() : null;
 
   // ✅ Estado para forzar refresh del ProductSelector
   const [productSelectorKey, setProductSelectorKey] = useState(0);
+
+  // ✅ Estado para modal de configuración de campos
+  const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
@@ -48,15 +62,24 @@ const EmisionTradicional = () => {
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
   const { openPreview, showPreview, closePreview } = usePreview();
 
+  // ✅ Hook para configuración de visibilidad de campos
+  const {
+    config: fieldsConfig,
+    toggleNotesSection,
+    toggleActionButton,
+    toggleOptionalField,
+    toggleOptionalFieldRequired,
+    resetToDefaults: resetFieldsConfig,
+  } = useFieldsConfiguration();
+
   // Estado consolidado (SIN CAMBIOS)
   const {
-    showOptionalFields, setShowOptionalFields,
     observaciones, setObservaciones,
     notaInterna, setNotaInterna,
-    receivedAmount, setReceivedAmount,
+    receivedAmount, // setReceivedAmount ya no se usa (eliminamos bloque "Efectivo rápido")
     formaPago, setFormaPago,
     setIsProcessing,
-    canProcess, cajaStatus,
+    canProcess,
     getPaymentMethodLabel,
     resetForm,
     goToComprobantes
@@ -69,6 +92,79 @@ const EmisionTradicional = () => {
     removeToast,
     error
   } = useComprobanteActions();
+  // ----- Lifted data from CompactDocumentForm (cliente y campos opcionales) -----
+  const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<{ nombre: string; dni: string; direccion: string; email?: string } | null>(null);
+  const [fechaEmision, setFechaEmision] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
+
+  // ✅ Cargar datos iniciales cuando se duplica un comprobante
+  useEffect(() => {
+    const duplicateData = (location.state as any)?.duplicate;
+    
+    if (duplicateData) {
+      console.log('📋 Cargando datos de comprobante duplicado:', duplicateData);
+      
+      // Cargar cliente si existe
+      if (duplicateData.client) {
+        setClienteSeleccionadoGlobal({
+          nombre: duplicateData.client,
+          dni: duplicateData.clientDoc || '',
+          direccion: duplicateData.address || '',
+          email: duplicateData.email
+        });
+      }
+      
+      // Cargar productos al carrito si existen
+      if (duplicateData.items && Array.isArray(duplicateData.items) && duplicateData.items.length > 0) {
+        // Usar addProductsFromSelector para cargar los productos
+        const productsToAdd = duplicateData.items.map((item: any) => ({
+          product: item,
+          quantity: item.quantity || 1
+        }));
+        addProductsFromSelector(productsToAdd);
+      }
+      
+      // Cargar observaciones y nota interna
+      if (duplicateData.observaciones) {
+        setObservaciones(duplicateData.observaciones);
+      }
+      if (duplicateData.notaInterna) {
+        setNotaInterna(duplicateData.notaInterna);
+      }
+      
+      // Cargar forma de pago
+      if (duplicateData.formaPago) {
+        setFormaPago(duplicateData.formaPago);
+      }
+      
+      // Cargar moneda
+      if (duplicateData.currency) {
+        changeCurrency(duplicateData.currency);
+      }
+      
+      // Cargar tipo de comprobante
+      if (duplicateData.tipo) {
+        const tipo = duplicateData.tipo.toLowerCase() === 'factura' ? 'factura' : 'boleta';
+        setTipoComprobante(tipo);
+      }
+      
+      // Cargar campos opcionales
+      if (duplicateData.fechaVencimiento || duplicateData.direccionEnvio || duplicateData.ordenCompra) {
+        setOptionalFields({
+          fechaVencimiento: duplicateData.fechaVencimiento,
+          direccionEnvio: duplicateData.direccionEnvio || duplicateData.shippingAddress,
+          ordenCompra: duplicateData.ordenCompra || duplicateData.purchaseOrder,
+          guiaRemision: duplicateData.guiaRemision || duplicateData.waybill,
+          centroCosto: duplicateData.centroCosto || duplicateData.costCenter,
+          direccion: duplicateData.address,
+          correo: duplicateData.email
+        });
+      }
+      
+      // Limpiar el state de navegación para que no se vuelva a cargar al remontar el componente
+      window.history.replaceState({}, document.title);
+    }
+  }, []); // Solo ejecutar una vez al montar
 
   // Estado para el modal de éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -79,6 +175,47 @@ const EmisionTradicional = () => {
 
   // Calculate totals (SIN CAMBIOS)
   const totals = calculateTotals(cartItems);
+
+  // ✅ NO auto-abrir side preview automáticamente
+  // La vista previa SOLO se abre cuando el usuario hace clic en el botón "Vista Previa"
+  // (comentado el useEffect que abría automáticamente al agregar productos)
+  
+  /*
+  useEffect(() => {
+    if (!ENABLE_SIDE_PREVIEW_EMISION || !sidePreview) return;
+    
+    const hasMinimumData = 
+      clienteSeleccionadoGlobal !== null &&
+      serieSeleccionada !== '' &&
+      cartItems.length > 0;
+    
+    if (hasMinimumData && !sidePreview.isOpen) {
+      sidePreview.openPane();
+    }
+  }, [clienteSeleccionadoGlobal, serieSeleccionada, cartItems.length, sidePreview]);
+  */
+
+  // ✅ View model para side preview
+  const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {
+    tipoComprobante,
+    serieSeleccionada,
+    cartItems,
+    totals,
+    observaciones,
+    notaInterna,
+    formaPago,
+    currency: currentCurrency,
+    client: clienteSeleccionadoGlobal?.nombre,
+    clientDoc: clienteSeleccionadoGlobal?.dni,
+    fechaEmision,
+    optionalFields
+  } : null;
+
+  const hasMinimumDataForPreview = ENABLE_SIDE_PREVIEW_EMISION &&
+    clienteSeleccionadoGlobal !== null &&
+    serieSeleccionada !== '' &&
+    cartItems.length > 0;
+
 
   // Handler para abrir modal de nueva forma de pago
   const handleNuevaFormaPago = () => {
@@ -115,7 +252,18 @@ const EmisionTradicional = () => {
         totals,
         observaciones,
         notaInterna,
-        formaPago
+        formaPago,
+        currency: currentCurrency,
+        client: clienteSeleccionadoGlobal?.nombre,
+        clientDoc: clienteSeleccionadoGlobal?.dni,
+        fechaEmision: fechaEmision,
+        fechaVencimiento: optionalFields.fechaVencimiento,
+        email: optionalFields.correo || clienteSeleccionadoGlobal?.email,
+        address: optionalFields.direccion || clienteSeleccionadoGlobal?.direccion,
+        shippingAddress: optionalFields.direccionEnvio,
+        purchaseOrder: optionalFields.ordenCompra,
+        costCenter: optionalFields.centroCosto,
+        waybill: optionalFields.guiaRemision
       });
 
       if (success) {
@@ -164,9 +312,9 @@ const EmisionTradicional = () => {
               {/* Left side */}
               <div className="flex items-center space-x-4">
                 <button
-                  onClick={() => navigate('/comprobantes/nuevo')}
+                  onClick={() => navigate('/comprobantes')}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Volver al selector de modo"
+                  title="Volver a comprobantes"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -179,7 +327,7 @@ const EmisionTradicional = () => {
                     <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                       Emisión Tradicional
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                        Completo
+                        Formulario
                       </span>
                     </h1>
                     <p className="text-sm text-gray-500">
@@ -189,48 +337,118 @@ const EmisionTradicional = () => {
                 </div>
               </div>
 
-              {/* Right side - Estado de caja mejorado */}
+              {/* Right side - Tipo de Comprobante */}
               <div className="flex items-center space-x-3">
-                <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium border-2 ${
-                  cajaStatus === 'abierta'
-                    ? 'bg-green-50 text-green-700 border-green-200'
-                    : 'bg-red-50 text-red-700 border-red-200'
-                }`}>
-                  <div className={`w-2.5 h-2.5 rounded-full ${
-                    cajaStatus === 'abierta' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                  }`} />
-                  <span className="font-semibold">
-                    {cajaStatus === 'abierta' ? 'Caja Abierta' : 'Caja Cerrada'}
-                  </span>
-                </div>
+                {/* ✅ Botón Vista Previa (solo si flag habilitado) */}
+                {ENABLE_SIDE_PREVIEW_EMISION && sidePreview && (
+                  <button
+                    onClick={sidePreview.togglePane}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                      sidePreview.isOpen
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                    }`}
+                    title="Mostrar/ocultar vista previa lateral"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Vista previa
+                  </button>
+                )}
 
-                {/* Mini stats */}
-                <div className="hidden lg:flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
-                  <LayoutList className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">
-                    {cartItems.length} productos
-                  </span>
+                {/* ✅ Selector de Tipo de Comprobante - Botones Premium */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    className={`relative group px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      tipoComprobante === 'boleta'
+                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/50 border-2 border-blue-500'
+                        : 'text-gray-700 border-2 border-gray-300 hover:border-blue-300 hover:bg-blue-50/50 bg-white'
+                    }`}
+                    onClick={() => setTipoComprobante('boleta')}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        tipoComprobante === 'boleta' ? 'bg-white/20' : 'bg-blue-100'
+                      }`}>
+                        <span className={`text-xs font-bold ${
+                          tipoComprobante === 'boleta' ? 'text-white' : 'text-blue-600'
+                        }`}>B</span>
+                      </div>
+                      <span>Boleta</span>
+                    </div>
+                    {tipoComprobante === 'boleta' && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                  <button
+                    className={`relative group px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      tipoComprobante === 'factura'
+                        ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/50 border-2 border-indigo-500'
+                        : 'text-gray-700 border-2 border-gray-300 hover:border-indigo-300 hover:bg-indigo-50/50 bg-white'
+                    }`}
+                    onClick={() => setTipoComprobante('factura')}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        tipoComprobante === 'factura' ? 'bg-white/20' : 'bg-indigo-100'
+                      }`}>
+                        <span className={`text-xs font-bold ${
+                          tipoComprobante === 'factura' ? 'text-white' : 'text-indigo-600'
+                        }`}>F</span>
+                      </div>
+                      <span>Factura</span>
+                    </div>
+                    {tipoComprobante === 'factura' && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Main Content - Layout EXACTAMENTE igual que antes */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Form View - PRESERVADO COMPLETAMENTE */}
-          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+        {/* ✅ Main Content - Layout Flex con Splitter cuando panel está abierto */}
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full flex">
+            {/* Form View - Columna izquierda con scroll propio */}
+            <div 
+              className="overflow-y-auto"
+              style={{
+                flex: ENABLE_SIDE_PREVIEW_EMISION && sidePreview?.isOpen 
+                  ? '1 1 auto'
+                  : '1 1 100%',
+                minWidth: '640px',
+                height: '100%'
+              }}
+            >
+              <div className="max-w-7xl mx-auto p-6 space-y-6">
 
-            {/* Document Info Card - Sin cambios */}
-            <DocumentInfoCard
+            {/* ✅ Formulario Compacto - Todos los campos organizados */}
+            <CompactDocumentForm
               serieSeleccionada={serieSeleccionada}
               setSerieSeleccionada={setSerieSeleccionada}
               seriesFiltradas={seriesFiltradas}
-              showOptionalFields={showOptionalFields}
-              setShowOptionalFields={setShowOptionalFields}
+              moneda={currentCurrency}
+              setMoneda={(value: string) => changeCurrency(value as any)}
+              formaPago={formaPago}
+              setFormaPago={setFormaPago}
+              onNuevaFormaPago={handleNuevaFormaPago}
+              onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
+              onClienteChange={setClienteSeleccionadoGlobal}
+              fechaEmision={fechaEmision}
+              onFechaEmisionChange={setFechaEmision}
+              onOptionalFieldsChange={(fields: Record<string, any>) => setOptionalFields(prev => ({ ...prev, ...fields }))}
             />
 
-            {/* Products Section - PRESERVADO COMPLETAMENTE */}
+            {/* Products Section - Sin cambios */}
             <ProductsSection
               cartItems={cartItems}
               addProductsFromSelector={addProductsFromSelector}
@@ -249,40 +467,47 @@ const EmisionTradicional = () => {
               tipoComprobante={tipoComprobante}
               serieSeleccionada={serieSeleccionada}
               clearCart={clearCart}
-              refreshKey={productSelectorKey} // ✅ Pasar el key para refresh
+              refreshKey={productSelectorKey}
             />
 
-            {/* Notes Section - Sin cambios */}
-            <NotesSection
-              observaciones={observaciones}
-              setObservaciones={setObservaciones}
-              notaInterna={notaInterna}
-              setNotaInterna={setNotaInterna}
-            />
+            {/* Notes Section - ✅ Renderizado condicional según configuración */}
+            {fieldsConfig.notesSection && (
+              <NotesSection
+                observaciones={observaciones}
+                setObservaciones={setObservaciones}
+                notaInterna={notaInterna}
+                setNotaInterna={setNotaInterna}
+              />
+            )}
 
             {/* Action Buttons Section - Sin cambios */}
             <ActionButtonsSection
-              onVistaPrevia={handleVistaPrevia}
+              onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
               onCancelar={goToComprobantes}
-              onGuardarBorrador={() => setShowDraftModal(true)}
-              onCrearComprobante={() => setShowPaymentModal(true)}
+              onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
+              onCrearComprobante={fieldsConfig.actionButtons.crearComprobante ? () => setShowPaymentModal(true) : undefined}
               isCartEmpty={cartItems.length === 0}
+              productsCount={cartItems.length}
             />
+            </div>
           </div>
 
-          {/* Payment Methods Section - PRESERVADO COMPLETAMENTE */}
-          <PaymentMethodsSection
-            tipoComprobante={tipoComprobante}
-            setTipoComprobante={setTipoComprobante}
-            totals={totals}
-            receivedAmount={receivedAmount}
-            setReceivedAmount={setReceivedAmount}
-            moneda={currentCurrency}
-            setMoneda={(value: string) => changeCurrency(value as any)}
-            formaPago={formaPago}
-            setFormaPago={setFormaPago}
-            onNuevaFormaPago={handleNuevaFormaPago}
-          />
+          {/* ✅ Side Preview Panel (como hermano del formulario en el flex) */}
+          {ENABLE_SIDE_PREVIEW_EMISION && sidePreview && sidePreviewViewModel && sidePreview.isOpen && (
+            <SidePreviewPane
+              isOpen={sidePreview.isOpen}
+              onClose={sidePreview.closePane}
+              width={sidePreview.width}
+              onWidthChange={sidePreview.setWidth}
+              viewModel={sidePreviewViewModel}
+              hasMinimumData={hasMinimumDataForPreview}
+              validationErrors={[]} // TODO: Agregar validaciones reales si es necesario
+              onConfirm={handleCrearComprobante}
+              onSaveDraft={() => setShowDraftModal(true)}
+              isProcessing={false}
+            />
+          )}
+          </div>
         </div>
 
         {/* Toast Container - Sin cambios */}
@@ -358,6 +583,18 @@ const EmisionTradicional = () => {
           onClose={() => setShowPaymentMethodModal(false)}
           paymentMethods={state.paymentMethods}
           onUpdate={handleUpdatePaymentMethods}
+        />
+
+        {/* ✅ Modal de configuración de campos */}
+        <FieldsConfigModal
+          isOpen={showFieldsConfigModal}
+          onClose={() => setShowFieldsConfigModal(false)}
+          config={fieldsConfig}
+          onToggleNotesSection={toggleNotesSection}
+          onToggleActionButton={toggleActionButton}
+          onToggleOptionalField={toggleOptionalField}
+          onToggleOptionalFieldRequired={toggleOptionalFieldRequired}
+          onResetToDefaults={resetFieldsConfig}
         />
       </div>
     </ErrorBoundary>

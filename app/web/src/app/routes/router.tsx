@@ -1,11 +1,14 @@
 import { createBrowserRouter } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import AppShell from "../layouts/AppShell";
+import { authRoutes } from "../../features/autenticacion/routes";
 
 // Pages por módulo - Comprobantes
-import ComprobantesTabs from "../../features/comprobantes-electronicos/pages/ComprobantesTabs";
+import ComprobantesTabs from "../../features/comprobantes-electronicos/lista-comprobantes/pages/ComprobantesTabs";
 import { SelectorModoEmision } from "../../features/comprobantes-electronicos/pages/SelectorModoEmision";
 import EmisionTradicional from "../../features/comprobantes-electronicos/pages/EmisionTradicional";
-import PuntoVenta from "../../features/comprobantes-electronicos/pages/PuntoVenta";
+import PuntoVenta from "../../features/comprobantes-electronicos/punto-venta/pages/PuntoVenta";
+import { PuntoVentaHome } from "../../features/comprobantes-electronicos/punto-venta/pages/PuntoVentaHome";
 import ImportarClientesPage from "../../features/gestion-clientes/pages/ImportarClientesPage";
 import HistorialCompras from "../../features/gestion-clientes/pages/HistorialCompras";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
@@ -17,21 +20,43 @@ import { EstablishmentsConfiguration } from "../../features/configuracion-sistem
 import { EmployeesConfiguration } from "../../features/configuracion-sistema/pages/EmployeesConfiguration";
 import { SeriesConfiguration } from "../../features/configuracion-sistema/pages/SeriesConfiguration";
 import { BusinessConfiguration } from "../../features/configuracion-sistema/pages/BusinessConfiguration";
-import { VoucherDesignConfiguration } from "../../features/configuracion-sistema/pages/VoucherDesignConfiguration";
+import { VoucherDesignConfigurationNew } from "../../features/configuracion-sistema/pages/VoucherDesignConfigurationNew";
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../../features/lista-precios/components/ListaPrecios";
 
+// Documentos Comerciales (carga diferida para aislar errores)
+const DocumentosPage = lazy(() => import("../../features/documentos-comerciales/pages/DocumentosPage").then(m => ({ default: m.DocumentosPage })));
+import RouteErrorBoundary from "./RouteErrorBoundary";
+
 export const router = createBrowserRouter([
+  // Rutas de autenticación (públicas)
+  ...authRoutes,
+
+  // Rutas de la aplicación (protegidas)
   {
     element: <AppShell />,
+    errorElement: <RouteErrorBoundary />,
     children: [
   { path: "/", element: <ComprobantesTabs /> },
   { path: "/comprobantes", element: <ComprobantesTabs /> },
   { path: "/comprobantes/nuevo", element: <SelectorModoEmision /> },
   { path: "/comprobantes/emision", element: <EmisionTradicional /> },
   { path: "/comprobantes/pos", element: <PuntoVenta /> },
+
+  // Rutas del nuevo módulo Punto de Venta
+  { path: "/punto-venta", element: <PuntoVentaHome /> },
+  { path: "/punto-venta/nueva-venta", element: <PuntoVenta /> },
       { path: "/catalogo", element: <CatalogoArticulosMain /> },
       { path: "/lista-precios", element: <ListaPrecios /> },
+      { 
+        path: "/documentos-comerciales", 
+        element: (
+          <Suspense fallback={<div className="p-6">Cargando Documentos…</div>}>
+            <DocumentosPage />
+          </Suspense>
+        ),
+        errorElement: <RouteErrorBoundary />
+      },
       { path: "/control-caja", element: <ControlCajaHome /> },
       { path: "/clientes", element: <ClientesPage /> },
   { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
@@ -43,7 +68,7 @@ export const router = createBrowserRouter([
       { path: "/configuracion/empleados", element: <EmployeesConfiguration /> },
       { path: "/configuracion/series", element: <SeriesConfiguration /> },
       { path: "/configuracion/negocio", element: <BusinessConfiguration /> },
-      { path: "/configuracion/diseno", element: <VoucherDesignConfiguration /> },
+      { path: "/configuracion/diseno", element: <VoucherDesignConfigurationNew /> },
     ],
   },
 ]);

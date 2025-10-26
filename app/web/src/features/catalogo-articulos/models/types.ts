@@ -15,6 +15,13 @@ export interface Product {
   establecimientoIds: string[]; // Array de IDs de establecimientos
   disponibleEnTodos: boolean; // Si está disponible en todos los establecimientos
   stockPorEstablecimiento?: { [establecimientoId: string]: number }; // Stock separado por establecimiento
+  // Configuración de alertas por establecimiento
+  stockConfigPorEstablecimiento?: {
+    [establecimientoId: string]: {
+      stockMinimo: number;
+      stockMaximo: number;
+    }
+  };
   // Campos avanzados
   alias?: string;
   precioCompra?: number;
@@ -72,6 +79,11 @@ export interface FilterOptions {
     min: number;
     max: number;
   };
+  // Nuevos filtros
+  marca?: string;
+  modelo?: string;
+  tipoExistencia?: string;
+  impuesto?: string;
   ordenarPor: 'nombre' | 'precio' | 'cantidad' | 'fechaCreacion';
   direccion: 'asc' | 'desc';
 }
@@ -179,10 +191,13 @@ export interface StockAlert {
   productoNombre: string;
   cantidadActual: number;
   stockMinimo: number;
+  stockMaximo?: number;
   estado: 'CRITICO' | 'BAJO' | 'NORMAL' | 'EXCESO';
-  establecimientoId?: string;
-  establecimientoCodigo?: string;
-  establecimientoNombre?: string;
+  establecimientoId: string;
+  establecimientoCodigo: string;
+  establecimientoNombre: string;
+  faltante?: number; // Cantidad que falta para llegar al mínimo
+  excedente?: number; // Cantidad que sobra del máximo
 }
 
 export interface StockSummary {
@@ -195,9 +210,34 @@ export interface StockSummary {
   ultimaActualizacion: Date;
 }
 
+// Filtros para Control de Stock
+export interface StockFilters {
+  establecimientoId?: string; // Filtrar por establecimiento específico
+  fechaDesde?: Date; // Rango de fechas
+  fechaHasta?: Date;
+  tipoMovimiento?: MovimientoStockTipo | 'todos';
+  busqueda?: string; // Búsqueda por producto/SKU
+}
+
 export interface PaginationConfig {
   currentPage: number;
   totalPages: number;
   itemsPerPage: number;
   totalItems: number;
+}
+
+// Configuración de columnas personalizables por empresa
+export interface ProductColumnConfig {
+  key: string;
+  label: string;
+  visible: boolean;
+  filterable: boolean;
+  group: 'basicas' | 'codigos' | 'financieras' | 'caracteristicas' | 'visuales';
+}
+
+export interface ProductTableSettings {
+  columns: ProductColumnConfig[];
+  defaultFilters: Partial<FilterOptions>;
+  defaultEstablishment: string;
+  lastUpdated: Date;
 }

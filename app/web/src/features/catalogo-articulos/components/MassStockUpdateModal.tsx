@@ -81,26 +81,31 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
     if (!confirmacion) return;
 
     let actualizados = 0;
-    
-    // Iterar por cada establecimiento seleccionado
+
+    // ✅ Iterar por cada establecimiento seleccionado
     establecimientosAplicar.forEach(establecimiento => {
       selectedProducts.forEach(productId => {
         const producto = allProducts.find(p => p.id === productId);
-        if (producto && producto.cantidad > 0) {
-          addMovimiento(
-            productId,
-            'AJUSTE_NEGATIVO',
-            'AJUSTE_INVENTARIO',
-            producto.cantidad,
-            `Reseteo masivo de stock`,
-            '',
-            undefined, // ubicacion - ya no se usa
-            establecimiento.id,
-            establecimiento.code,
-            establecimiento.name
-          );
-          
-          actualizados++;
+        if (producto) {
+          // ✅ Usar stock del establecimiento, no global
+          const stockEnEstablecimiento = producto.stockPorEstablecimiento?.[establecimiento.id] ?? 0;
+
+          if (stockEnEstablecimiento > 0) {
+            addMovimiento(
+              productId,
+              'AJUSTE_NEGATIVO',
+              'AJUSTE_INVENTARIO',
+              stockEnEstablecimiento, // ✅ Cantidad del establecimiento específico
+              `Reseteo masivo de stock`,
+              '',
+              undefined, // ubicacion - ya no se usa
+              establecimiento.id,
+              establecimiento.code,
+              establecimiento.name
+            );
+
+            actualizados++;
+          }
         }
       });
     });
@@ -279,15 +284,16 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
     let sinCambios = 0;
     let noEncontrados: string[] = [];
 
-    // Iterar por cada establecimiento seleccionado
+    // ✅ Iterar por cada establecimiento seleccionado
     establecimientosAplicar.forEach(establecimiento => {
       importData.forEach(({ codigo, cantidad }) => {
         const producto = allProducts.find(p => p.codigo.toUpperCase() === codigo.toUpperCase());
-        
+
         if (producto) {
-          const cantidadAnterior = producto.cantidad;
+          // ✅ Usar stock del establecimiento, no global
+          const cantidadAnterior = producto.stockPorEstablecimiento?.[establecimiento.id] ?? 0;
           const diferencia = cantidad - cantidadAnterior;
-          
+
           // Solo procesar si hay diferencia
           if (diferencia !== 0) {
             addMovimiento(
@@ -629,37 +635,55 @@ const MassStockUpdateModal: React.FC<MassStockUpdateModalProps> = ({ isOpen, onC
                   </span>
                 </div>
 
-                {/* Product List */}
+                {/* Product List - ✅ Mostrar stock por establecimiento si están seleccionados */}
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {filteredProducts.map(product => (
-                    <label
-                      key={product.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        selectedProducts.has(product.id)
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 flex-1">
-                        <input
-                          type="checkbox"
-                          checked={selectedProducts.has(product.id)}
-                          onChange={() => toggleProduct(product.id)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{product.nombre}</p>
-                          <p className="text-sm text-gray-500 font-mono">{product.codigo}</p>
+                  {filteredProducts.map(product => {
+                    // Calcular stock total considerando los establecimientos seleccionados
+                    let stockMostrar = product.cantidad; // Default: stock global
+                    let etiquetaStock = 'Stock Total';
+
+                    if (establecimientosSeleccionados.length > 0 && product.stockPorEstablecimiento) {
+                      // Si hay establecimientos seleccionados, sumar solo esos
+                      stockMostrar = establecimientosSeleccionados.reduce((sum, estId) => {
+                        return sum + (product.stockPorEstablecimiento?.[estId] ?? 0);
+                      }, 0);
+                      etiquetaStock = `Stock en ${establecimientosSeleccionados.length} est.`;
+                    } else if (aplicarATodos && product.stockPorEstablecimiento) {
+                      // Si es "aplicar a todos", mostrar stock total
+                      stockMostrar = Object.values(product.stockPorEstablecimiento).reduce((sum, qty) => sum + (qty || 0), 0);
+                      etiquetaStock = 'Stock Total';
+                    }
+
+                    return (
+                      <label
+                        key={product.id}
+                        className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          selectedProducts.has(product.id)
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts.has(product.id)}
+                            onChange={() => toggleProduct(product.id)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{product.nombre}</p>
+                            <p className="text-sm text-gray-500 font-mono">{product.codigo}</p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Stock Actual</p>
-                        <p className={`text-lg font-bold ${product.cantidad > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {product.cantidad}
-                        </p>
-                      </div>
-                    </label>
-                  ))}
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">{etiquetaStock}</p>
+                          <p className={`text-lg font-bold ${stockMostrar > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {stockMostrar}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             )}

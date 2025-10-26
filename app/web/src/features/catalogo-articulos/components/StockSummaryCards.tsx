@@ -1,28 +1,72 @@
 // src/features/catalogo-articulos/components/StockSummaryCards.tsx
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { Product } from '../models/types';
+import type { Establishment } from '../../configuracion-sistema/models/Establishment';
 
 interface StockSummaryCardsProps {
   products: Product[];
+  establecimientoFiltro?: string;
+  establishments?: Establishment[];
 }
 
-const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({ products }) => {
-  // Calcular estadísticas
-  const totalProductos = products.length;
-  const totalStock = products.reduce((sum, p) => sum + p.cantidad, 0);
-  const productosSinStock = products.filter(p => p.cantidad === 0).length;
-  const productosStockBajo = products.filter(p => p.cantidad > 0 && p.cantidad < 10).length;
-  
-  const valorTotalStock = products.reduce((sum, p) => {
-    const precioCompra = p.precioCompra || p.precio;
-    return sum + (precioCompra * p.cantidad);
-  }, 0);
+const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
+  products,
+  establecimientoFiltro
+}) => {
+  // ✅ Calcular estadísticas basadas en el filtro de establecimiento
+  const stats = useMemo(() => {
+    let totalProductos = 0;
+    let totalStock = 0;
+    let productosSinStock = 0;
+    let productosStockBajo = 0;
+    let valorTotalStock = 0;
+
+    if (!establecimientoFiltro || establecimientoFiltro === 'todos') {
+      // Sin filtro: calcular totales globales
+      totalProductos = products.length;
+      totalStock = products.reduce((sum, p) => sum + p.cantidad, 0);
+      productosSinStock = products.filter(p => p.cantidad === 0).length;
+      productosStockBajo = products.filter(p => p.cantidad > 0 && p.cantidad < 10).length;
+      valorTotalStock = products.reduce((sum, p) => {
+        const precioCompra = p.precioCompra || p.precio;
+        return sum + (precioCompra * p.cantidad);
+      }, 0);
+    } else {
+      // Con filtro: calcular solo para el establecimiento seleccionado
+      products.forEach(producto => {
+        // Solo contar productos que tienen stock en este establecimiento
+        const stockEnEst = producto.stockPorEstablecimiento?.[establecimientoFiltro] ?? 0;
+
+        if (producto.establecimientoIds.includes(establecimientoFiltro) || producto.disponibleEnTodos) {
+          totalProductos++;
+          totalStock += stockEnEst;
+
+          if (stockEnEst === 0) {
+            productosSinStock++;
+          } else if (stockEnEst < 10) {
+            productosStockBajo++;
+          }
+
+          const precioCompra = producto.precioCompra || producto.precio;
+          valorTotalStock += precioCompra * stockEnEst;
+        }
+      });
+    }
+
+    return {
+      totalProductos,
+      totalStock,
+      productosSinStock,
+      productosStockBajo,
+      valorTotalStock
+    };
+  }, [products, establecimientoFiltro]);
 
   const cards = [
     {
       title: 'Total Productos',
-      value: totalProductos,
+      value: stats.totalProductos,
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4M4 7v10l8 4" />
@@ -35,7 +79,7 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({ products }) => {
     },
     {
       title: 'Stock Total',
-      value: totalStock.toLocaleString(),
+      value: stats.totalStock.toLocaleString(),
       subtitle: 'unidades',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -49,7 +93,7 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({ products }) => {
     },
     {
       title: 'Valor Total Stock',
-      value: `S/ ${valorTotalStock.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: `S/ ${stats.valorTotalStock.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -62,7 +106,7 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({ products }) => {
     },
     {
       title: 'Sin Stock',
-      value: productosSinStock,
+      value: stats.productosSinStock,
       subtitle: 'productos',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,7 +120,7 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({ products }) => {
     },
     {
       title: 'Stock Bajo',
-      value: productosStockBajo,
+      value: stats.productosStockBajo,
       subtitle: 'productos',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

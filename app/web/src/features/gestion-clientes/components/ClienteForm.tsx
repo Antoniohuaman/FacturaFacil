@@ -1,31 +1,13 @@
 import React, { useState } from 'react';
-
-type DocumentType = {
-  value: string;
-  label: string;
-};
-
-type ClientType = {
-  value: string;
-  label: string;
-};
-
-type ClienteFormData = {
-  documentNumber: string;
-  legalName: string;
-  address: string;
-  gender: string;
-  phone: string;
-  email: string;
-  additionalData: string;
-};
+import { useConsultasExternas } from '../hooks';
+import type { ClienteFormData } from '../models';
 
 type ClienteFormProps = {
   formData: ClienteFormData;
   documentType: string;
   clientType: string;
-  documentTypes: DocumentType[];
-  clientTypes: ClientType[];
+  documentTypes: { value: string; label: string }[];
+  clientTypes: { value: string; label: string }[];
   onInputChange: (field: keyof ClienteFormData, value: string) => void;
   onDocumentTypeChange: (type: string) => void;
   onClientTypeChange: (type: string) => void;
@@ -51,157 +33,35 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
 }) => {
   const [showMoreDocTypes, setShowMoreDocTypes] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [isConsulting, setIsConsulting] = useState(false);
-  const mainDocTypes = documentTypes.slice(0, 3);
+  const { consultingReniec, consultingSunat, consultarReniec, consultarSunat } = useConsultasExternas();
 
-  // Función para consultar RENIEC (DNI)
-  const consultarReniec = async () => {
+  const mainDocTypes = documentTypes.slice(0, 3);
+  const isConsulting = consultingReniec || consultingSunat;
+
+  const handleConsultarReniec = async () => {
     if (!formData.documentNumber || formData.documentNumber.length !== 8) {
-      alert('Ingrese un DNI válido de 8 dígitos');
       return;
     }
 
-    setIsConsulting(true);
-    try {
-      // Simulación de consulta RENIEC (en producción sería una API real)
-      await new Promise(resolve => setTimeout(resolve, 1800));
-      
-      // Arrays expandidos para mayor variedad
-      const nombres = [
-        'JUAN CARLOS', 'MARIA ELENA', 'PEDRO LUIS', 'ANA SOFIA', 'CARLOS MIGUEL',
-        'ROSA MARIA', 'JOSE ANTONIO', 'CARMEN LUCIA', 'MIGUEL ANGEL', 'PATRICIA',
-        'LUIS FERNANDO', 'GLORIA ESPERANZA', 'FRANCISCO JAVIER', 'MARTHA CECILIA',
-        'RICARDO MANUEL', 'SILVIA BEATRIZ', 'ALEJANDRO', 'TERESA GUADALUPE',
-        'EDUARDO DANIEL', 'MONICA PATRICIA', 'RAFAEL ENRIQUE', 'CLAUDIA MERCEDES',
-        'SERGIO ALBERTO', 'VERONICA ELIZABETH', 'ANDRES FELIPE'
-      ];
+    const response = await consultarReniec(formData.documentNumber);
 
-      const apellidos = [
-        'RODRIGUEZ MARTINEZ', 'GONZALEZ TORRES', 'SANCHEZ VARGAS', 'RAMIREZ FLORES',
-        'HERRERA SILVA', 'LOPEZ CASTRO', 'GARCIA MENDOZA', 'MORALES DELGADO',
-        'TORRES AGUILAR', 'FLORES JIMENEZ', 'VARGAS ROMERO', 'CASTRO HERRERA',
-        'MENDOZA GUTIERREZ', 'AGUILAR MORENO', 'JIMENEZ ORTIZ', 'ROMERO RUIZ',
-        'GUTIERREZ PEÑA', 'MORENO VEGA', 'ORTIZ SALAZAR', 'RUIZ CORDOVA',
-        'PEÑA NAVARRO', 'VEGA PAREDES', 'SALAZAR RIOS', 'CORDOVA LUNA',
-        'NAVARRO SANTOS', 'PAREDES MONTES', 'RIOS ESPINOZA', 'LUNA CABRERA'
-      ];
-
-      const calles = [
-        'AV. AREQUIPA', 'AV. JAVIER PRADO', 'AV. BRASIL', 'JR. DE LA UNIÓN', 
-        'AV. SALAVERRY', 'AV. PETIT THOUARS', 'AV. WILSON', 'AV. TACNA',
-        'JR. LAMPA', 'AV. GRAU', 'AV. UNIVERSITARIA', 'AV. VENEZUELA',
-        'JR. CUSCO', 'AV. COLONIAL', 'AV. FAUCETT', 'AV. EJERCITO',
-        'JR. ANCASH', 'AV. ANGAMOS', 'AV. BENAVIDES', 'AV. LARCO'
-      ];
-
-      const distritos = [
-        'LIMA LIMA MIRAFLORES', 'LIMA LIMA CERCADO DE LIMA', 'LIMA LIMA SAN BORJA',
-        'LIMA LIMA JESÚS MARÍA', 'LIMA LIMA LINCE', 'LIMA LIMA SURQUILLO',
-        'LIMA LIMA SAN ISIDRO', 'LIMA LIMA BREÑA', 'LIMA LIMA MAGDALENA',
-        'LIMA LIMA PUEBLO LIBRE', 'LIMA LIMA LA VICTORIA', 'LIMA LIMA RIMAC',
-        'LIMA LIMA SAN MIGUEL', 'LIMA LIMA CALLAO CALLAO', 'LIMA LIMA BARRANCO'
-      ];
-
-      // Selección completamente aleatoria
-      const nombreAleatorio = nombres[Math.floor(Math.random() * nombres.length)];
-      const apellidoAleatorio = apellidos[Math.floor(Math.random() * apellidos.length)];
-      const calleAleatoria = calles[Math.floor(Math.random() * calles.length)];
-      const numeroAleatorio = Math.floor(Math.random() * 9999) + 100; // Entre 100 y 9999
-      const distritoAleatorio = distritos[Math.floor(Math.random() * distritos.length)];
-
-      const mockData = {
-        name: `${nombreAleatorio} ${apellidoAleatorio}`,
-        address: `${calleAleatoria} ${numeroAleatorio} - ${distritoAleatorio}`,
-      };
-
-      onInputChange('legalName', mockData.name);
-      onInputChange('address', mockData.address);
-      
-      // Mensaje más profesional
-      setTimeout(() => {
-        alert(`✅ Datos obtenidos exitosamente de RENIEC\n\nNombre: ${mockData.name}\nDirección: ${mockData.address}\n\nEstado: ACTIVO`);
-      }, 100);
-    } catch (error) {
-      alert('❌ Error al consultar RENIEC. Verifique el DNI e intente nuevamente.');
-    } finally {
-      setIsConsulting(false);
+    if (response?.success && response.data) {
+      onInputChange('legalName', response.data.nombreCompleto);
     }
   };
 
-  // Función para consultar SUNAT (RUC)
-  const consultarSunat = async () => {
+  const handleConsultarSunat = async () => {
     if (!formData.documentNumber || formData.documentNumber.length !== 11) {
-      alert('Ingrese un RUC válido de 11 dígitos');
       return;
     }
 
-    setIsConsulting(true);
-    try {
-      // Simulación de consulta SUNAT (en producción sería una API real)
-      await new Promise(resolve => setTimeout(resolve, 2200));
-      
-      // Arrays expandidos para mayor variedad de empresas
-      const tiposEmpresa = ['S.A.C.', 'E.I.R.L.', 'S.R.L.', 'S.A.', 'S.C.R.L.'];
-      
-      const nombresEmpresa = [
-        'COMERCIAL ANDINA', 'INVERSIONES DEL NORTE', 'DISTRIBUIDORA SANTA ROSA',
-        'SERVICIOS INTEGRALES LIMA', 'TECNOLOGÍA Y SOLUCIONES', 'CONSTRUCTORA PACIFIC',
-        'IMPORTACIONES GLOBALES', 'EXPORTACIONES DEL SUR', 'LOGÍSTICA MODERNA',
-        'CONSULTORÍA EMPRESARIAL', 'MANUFACTURAS INDUSTRIALES', 'COMERCIO EXTERIOR',
-        'DESARROLLO INMOBILIARIO', 'SERVICIOS PROFESIONALES', 'INDUSTRIAS UNIDAS',
-        'CORPORACIÓN MULTISERVICIOS', 'GRUPO COMERCIAL', 'EMPRESA FAMILIAR',
-        'NEGOCIOS ESTRATÉGICOS', 'SOLUCIONES CORPORATIVAS', 'COMERCIALIZADORA CENTRAL',
-        'DISTRIBUCIONES MAYORISTAS', 'SERVICIOS ESPECIALIZADOS', 'CORPORATIVO LIMA',
-        'EMPRESA DE TRANSPORTES', 'SERVICIOS LOGÍSTICOS', 'COMERCIAL DEL CENTRO'
-      ];
+    const response = await consultarSunat(formData.documentNumber);
 
-      const callesEmpresa = [
-        'AV. PRINCIPAL', 'AV. REPÚBLICA DE PANAMÁ', 'AV. JAVIER PRADO ESTE',
-        'AV. EL DERBY', 'AV. CAMINOS DEL INCA', 'AV. LA MARINA', 'AV. UNIVERSITARIA',
-        'JR. DE LA REPÚBLICA', 'AV. DEFENSORES DEL MORRO', 'AV. TOMAS MARSANO',
-        'AV. PRIMAVERA', 'AV. AVIACIÓN', 'AV. GUARDIA CIVIL', 'AV. CANADA',
-        'AV. DOMINGO ORUÉ', 'AV. SANTIAGO DE SURCO', 'AV. BENAVIDES',
-        'AV. RICARDO PALMA', 'AV. PARDO Y ALIAGA', 'AV. SAN LUIS'
-      ];
-
-      const distritosEmpresa = [
-        'LIMA LIMA SAN ISIDRO', 'LIMA LIMA MIRAFLORES', 'LIMA LIMA SAN BORJA',
-        'LIMA LIMA SURQUILLO', 'LIMA LIMA LA MOLINA', 'LIMA LIMA SANTIAGO DE SURCO',
-        'LA LIBERTAD TRUJILLO TRUJILLO', 'AREQUIPA AREQUIPA AREQUIPA',
-        'LIMA LIMA BREÑA', 'LIMA LIMA JESÚS MARÍA', 'LIMA LIMA LINCE',
-        'CUSCO CUSCO CUSCO', 'PIURA PIURA PIURA', 'LAMBAYEQUE CHICLAYO CHICLAYO',
-        'CALLAO CALLAO CALLAO', 'LIMA LIMA SAN MIGUEL', 'LIMA LIMA PUEBLO LIBRE'
-      ];
-
-      // Selección completamente aleatoria
-      const nombreAleatorio = nombresEmpresa[Math.floor(Math.random() * nombresEmpresa.length)];
-      const tipoAleatorio = tiposEmpresa[Math.floor(Math.random() * tiposEmpresa.length)];
-      const calleAleatoria = callesEmpresa[Math.floor(Math.random() * callesEmpresa.length)];
-      const numeroAleatorio = Math.floor(Math.random() * 999) + 100; // Entre 100 y 999
-      const distritoAleatorio = distritosEmpresa[Math.floor(Math.random() * distritosEmpresa.length)];
-
-      const estados = ['ACTIVO', 'ACTIVO', 'ACTIVO', 'SUSPENDIDO TEMPORALMENTE']; // Más probabilidad de ACTIVO
-      const condiciones = ['HABIDO', 'HABIDO', 'HABIDO', 'NO HABIDO']; // Más probabilidad de HABIDO
-      
-      const estadoAleatorio = estados[Math.floor(Math.random() * estados.length)];
-      const condicionAleatoria = condiciones[Math.floor(Math.random() * condiciones.length)];
-
-      const mockData = {
-        name: `${nombreAleatorio} ${tipoAleatorio}`,
-        address: `${calleAleatoria} ${numeroAleatorio} - ${distritoAleatorio}`,
-      };
-
-      onInputChange('legalName', mockData.name);
-      onInputChange('address', mockData.address);
-      
-      // Mensaje más profesional con datos variables
-      setTimeout(() => {
-        alert(`✅ Datos obtenidos exitosamente de SUNAT\n\nRazón Social: ${mockData.name}\nDirección Fiscal: ${mockData.address}\n\nEstado: ${estadoAleatorio}\nCondición: ${condicionAleatoria}`);
-      }, 100);
-    } catch (error) {
-      alert('❌ Error al consultar SUNAT. Verifique el RUC e intente nuevamente.');
-    } finally {
-      setIsConsulting(false);
+    if (response?.success && response.data) {
+      onInputChange('legalName', response.data.razonSocial);
+      if (response.data.direccion) {
+        onInputChange('address', response.data.direccion);
+      }
     }
   };
 
@@ -284,27 +144,45 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
         {documentType !== 'SIN_DOCUMENTO' && (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              N° de Documento
+              N° de Documento <span className="text-red-500">*</span>
             </label>
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={formData.documentNumber}
                 onChange={(e) => onInputChange('documentNumber', e.target.value)}
+                maxLength={documentType === 'DNI' ? 8 : documentType === 'RUC' ? 11 : undefined}
                 className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                placeholder="Ingresa el número de documento"
+                placeholder={
+                  documentType === 'DNI'
+                    ? 'Ingresa 8 dígitos'
+                    : documentType === 'RUC'
+                    ? 'Ingresa 11 dígitos'
+                    : 'Ingresa el número de documento'
+                }
               />
               {(documentType === 'RUC' || documentType === 'DNI') && (
                 <button
                   type="button"
-                  onClick={documentType === 'RUC' ? consultarSunat : consultarReniec}
-                  disabled={isConsulting || !formData.documentNumber}
+                  onClick={documentType === 'RUC' ? handleConsultarSunat : handleConsultarReniec}
+                  disabled={
+                    isConsulting ||
+                    !formData.documentNumber ||
+                    (documentType === 'DNI' && formData.documentNumber.length !== 8) ||
+                    (documentType === 'RUC' && formData.documentNumber.length !== 11)
+                  }
                   className={`px-8 py-2 min-w-[100px] rounded-lg font-semibold text-sm shadow transition-colors ${
-                    isConsulting || !formData.documentNumber
+                    isConsulting ||
+                    !formData.documentNumber ||
+                    (documentType === 'DNI' && formData.documentNumber.length !== 8) ||
+                    (documentType === 'RUC' && formData.documentNumber.length !== 11)
                       ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                       : 'text-white hover:opacity-90'
                   }`}
-                  style={!(isConsulting || !formData.documentNumber) ? { backgroundColor: '#1478D4' } : {}}
+                  style={!(isConsulting || !formData.documentNumber ||
+                    (documentType === 'DNI' && formData.documentNumber.length !== 8) ||
+                    (documentType === 'RUC' && formData.documentNumber.length !== 11))
+                    ? { backgroundColor: PRIMARY_COLOR } : {}}
                 >
                   {isConsulting ? (
                     <div className="flex items-center gap-2">
@@ -317,6 +195,12 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 </button>
               )}
             </div>
+            {documentType === 'DNI' && formData.documentNumber && formData.documentNumber.length !== 8 && (
+              <p className="text-xs text-red-500 mt-1">El DNI debe tener exactamente 8 dígitos</p>
+            )}
+            {documentType === 'RUC' && formData.documentNumber && formData.documentNumber.length !== 11 && (
+              <p className="text-xs text-red-500 mt-1">El RUC debe tener exactamente 11 dígitos</p>
+            )}
           </div>
         )}
 

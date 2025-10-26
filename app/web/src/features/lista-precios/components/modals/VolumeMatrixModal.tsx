@@ -1,7 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, AlertCircle, Info } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Plus, Trash2, AlertCircle, Info, Search } from 'lucide-react';
 import type { Column, Product, VolumePriceForm, VolumeRange } from '../../models/PriceTypes';
 import { generateDefaultVolumeRanges, validateVolumeRanges } from '../../utils/priceHelpers';
+
+interface CatalogProduct {
+  id: string;
+  codigo: string;
+  nombre: string;
+  precio: number;
+  [key: string]: any;
+}
 
 interface VolumeMatrixModalProps {
   isOpen: boolean;
@@ -9,6 +17,7 @@ interface VolumeMatrixModalProps {
   onSave: (priceData: VolumePriceForm) => boolean;
   column: Column;
   selectedProduct?: Product | null;
+  catalogProducts?: CatalogProduct[];
 }
 
 export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
@@ -16,7 +25,8 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
   onClose,
   onSave,
   column,
-  selectedProduct
+  selectedProduct,
+  catalogProducts = []
 }) => {
   const [formData, setFormData] = useState<VolumePriceForm>({
     type: 'volume',
@@ -28,6 +38,10 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
   });
 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [skuSearch, setSkuSearch] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedProductName, setSelectedProductName] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -38,6 +52,9 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
 
       if (selectedProduct) {
         // Editing existing product
+        setSkuSearch(selectedProduct.sku);
+        setSelectedProductName(selectedProduct.name);
+
         const existingPrice = selectedProduct.prices[column.id];
         if (existingPrice && existingPrice.type === 'volume') {
           setFormData({
@@ -69,6 +86,8 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
         }
       } else {
         // New product
+        setSkuSearch('');
+        setSelectedProductName('');
         setFormData({
           type: 'volume',
           sku: '',
@@ -84,6 +103,34 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
       }
     }
   }, [isOpen, selectedProduct, column]);
+
+  // Filtrar productos del catálogo según búsqueda
+  const filteredCatalogProducts = catalogProducts.filter(product =>
+    product.codigo.toLowerCase().includes(skuSearch.toLowerCase()) ||
+    product.nombre.toLowerCase().includes(skuSearch.toLowerCase())
+  ).slice(0, 10);
+
+  // Manejar selección de producto del catálogo
+  const handleSelectProduct = (product: CatalogProduct) => {
+    setSkuSearch(product.codigo);
+    setSelectedProductName(product.nombre);
+    setFormData({ ...formData, sku: product.codigo });
+    setShowSuggestions(false);
+  };
+
+  // Manejar cambio en el campo de búsqueda de SKU
+  const handleSkuSearchChange = (value: string) => {
+    setSkuSearch(value);
+    setFormData({ ...formData, sku: value });
+    setShowSuggestions(value.length > 0);
+
+    const product = catalogProducts.find(p => p.codigo === value);
+    if (product) {
+      setSelectedProductName(product.nombre);
+    } else {
+      setSelectedProductName('');
+    }
+  };
 
   const addRange = () => {
     const lastRange = formData.ranges[formData.ranges.length - 1];
@@ -160,6 +207,9 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
       validUntil: ''
     });
     setValidationErrors([]);
+    setSkuSearch('');
+    setSelectedProductName('');
+    setShowSuggestions(false);
     onClose();
   };
 
@@ -187,17 +237,60 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* SKU */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
-            <input
-              type="text"
-              value={formData.sku}
-              onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Ingrese SKU del producto"
-              disabled={!!selectedProduct}
-              required
-            />
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              SKU del producto
+            </label>
+            <div className="relative">
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={skuSearch}
+                onChange={(e) => handleSkuSearchChange(e.target.value)}
+                onFocus={() => setShowSuggestions(skuSearch.length > 0)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Buscar por SKU o nombre..."
+                disabled={!!selectedProduct}
+                required
+              />
+              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+            </div>
+
+            {selectedProductName && (
+              <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                Producto: <span className="font-medium">{selectedProductName}</span>
+              </div>
+            )}
+
+            {!selectedProduct && showSuggestions && filteredCatalogProducts.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {filteredCatalogProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => handleSelectProduct(product)}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 dark:text-white">{product.codigo}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">{product.nombre}</div>
+                    </div>
+                    <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                      S/ {product.precio.toFixed(2)}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!selectedProduct && showSuggestions && skuSearch.length > 0 && filteredCatalogProducts.length === 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-4">
+                <div className="text-center text-gray-500 dark:text-gray-400 text-sm">
+                  No se encontraron productos que coincidan con "{skuSearch}"
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Fecha de vigencia */}

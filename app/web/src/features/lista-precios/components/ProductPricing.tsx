@@ -5,12 +5,22 @@ import { filterVisibleColumns, formatPrice, formatDate, getVolumePreview, getVol
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
 
+interface CatalogProduct {
+  id: string;
+  codigo: string;
+  nombre: string;
+  precio: number;
+  [key: string]: any;
+}
+
 interface ProductPricingProps {
   columns: Column[];
   products: Product[];
   filteredProducts: Product[];
   searchSKU: string;
   onSearchChange: (value: string) => void;
+  onSavePrice: (priceData: any) => boolean;
+  catalogProducts?: CatalogProduct[];
 }
 
 export const ProductPricing: React.FC<ProductPricingProps> = ({
@@ -18,7 +28,9 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   products,
   filteredProducts,
   searchSKU,
-  onSearchChange
+  onSearchChange,
+  onSavePrice,
+  catalogProducts = []
 }) => {
   const visibleColumns = filterVisibleColumns(columns);
   
@@ -100,20 +112,23 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
 
   // Manejadores de guardado
   const handleSavePriceModal = (priceData: any) => {
-    // Esta función debería integrarse con el sistema de guardado real
-    console.log('Guardando precio fijo:', priceData);
-    setPriceModalOpen(false);
-    setSelectedPriceColumn(null);
-    return true; // Simular éxito
+    const success = onSavePrice(priceData);
+    if (success) {
+      setPriceModalOpen(false);
+      setSelectedPriceColumn(null);
+      setSelectedProductForPriceModal(null);
+    }
+    return success;
   };
 
   const handleSaveVolumeMatrix = (volumeData: any) => {
-    // Esta función debería integrarse con el sistema de guardado real
-    console.log('Guardando matriz de volumen:', volumeData);
-    setVolumeModalOpen(false);
-    setSelectedVolumePrice(null);
-    setSelectedPriceColumn(null);
-    return true; // Simular éxito
+    const success = onSavePrice(volumeData);
+    if (success) {
+      setVolumeModalOpen(false);
+      setSelectedVolumePrice(null);
+      setSelectedPriceColumn(null);
+    }
+    return success;
   };
 
   const renderPriceCell = (product: Product, column: Column) => {
@@ -359,6 +374,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
         columns={columns}
         selectedProduct={selectedProductForPriceModal}
         selectedColumn={selectedPriceColumn}
+        catalogProducts={catalogProducts}
         onSwitchToVolumeModal={handleSwitchToVolumeModal}
       />
 
@@ -374,6 +390,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           onSave={handleSaveVolumeMatrix}
           selectedProduct={selectedVolumePrice?.product || null}
           column={selectedVolumePrice?.column || selectedPriceColumn || columns[0]}
+          catalogProducts={catalogProducts}
         />
       )}
     </div>

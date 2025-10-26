@@ -1,6 +1,6 @@
 // src/features/catalogo-articulos/pages/ControlStockPage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { StockAlert } from '../models/types';
 import StockMovementsTable from '../components/StockMovementsTable.tsx';
 import StockAdjustmentModal from '../components/StockAdjustmentModal.tsx';
@@ -9,9 +9,12 @@ import StockAlertsPanel from '../components/StockAlertsPanel.tsx';
 import MassStockUpdateModal from '../components/MassStockUpdateModal.tsx';
 import TransferStockModal from '../components/TransferStockModal.tsx';
 import { useProductStore } from '../hooks/useProductStore';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import * as XLSX from 'xlsx';
 
 const ControlStockPage: React.FC = () => {
   const { allProducts, movimientos, addMovimiento, transferirStock } = useProductStore();
+  const { state: configState } = useConfigurationContext();
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -20,22 +23,277 @@ const ControlStockPage: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [suggestedQuantity, setSuggestedQuantity] = useState<number>(0);
 
-  // Generar alertas basadas en productos reales
-  const alertas: StockAlert[] = allProducts
-    .filter(p => p.cantidad <= 10)
-    .map(p => ({
-      productoId: p.id,
-      productoCodigo: p.codigo,
-      productoNombre: p.nombre,
-      cantidadActual: p.cantidad,
-      stockMinimo: 10,
-      estado: p.cantidad === 0 ? 'CRITICO' as const : 'BAJO' as const
-    }));
+  // ✅ Filtro por establecimiento
+  const [establecimientoFiltro, setEstablecimientoFiltro] = useState<string>('todos');
+
+  // Obtener establecimientos activos
+  const establishments = useMemo(
+    () => configState.establishments.filter(e => e.isActive),
+    [configState.establishments]
+  );
+
+  // ✅ Generar alertas por producto-establecimiento
+  const alertas: StockAlert[] = useMemo(() => {
+    const alerts: StockAlert[] = [];
+
+    allProducts.forEach(producto => {
+      // Si tiene stockPorEstablecimiento, generar alertas por cada establecimiento
+      if (producto.stockPorEstablecimiento) {
+        Object.entries(producto.stockPorEstablecimiento).forEach(([estId, stock]) => {
+          const establecimiento = establishments.find(e => e.id === estId);
+          if (!establecimiento) return;
+
+          // Obtener configuración de stock para este establecimiento (o usar defaults)
+          const config = producto.stockConfigPorEstablecimiento?.[estId];
+          const stockMinimo = config?.stockMinimo ?? 10;
+          const stockMaximo = config?.stockMaximo ?? 100;
+
+          // Determinar estado
+          let estado: StockAlert['estado'];
+          if (stock === 0) {
+            estado = 'CRITICO';
+          } else if (stock <= stockMinimo) {
+            estado = 'BAJO';
+          } else if (stock >= stockMaximo) {
+            estado = 'EXCESO';
+          } else {
+            return; // No generar alerta si está en rango normal
+          }
+
+          // Filtrar por establecimiento si hay uno seleccionado
+          if (establecimientoFiltro !== 'todos' && estId !== establecimientoFiltro) {
+            return;
+          }
+
+          alerts.push({
+            productoId: producto.id,
+            productoCodigo: producto.codigo,
+            productoNombre: producto.nombre,
+            cantidadActual: stock,
+            stockMinimo,
+            stockMaximo,
+            estado,
+            establecimientoId: estId,
+            establecimientoCodigo: establecimiento.code,
+            establecimientoNombre: establecimiento.name,
+            faltante: estado === 'CRITICO' || estado === 'BAJO' ? Math.max(0, stockMinimo - stock) : undefined,
+            excedente: estado === 'EXCESO' ? Math.max(0, stock - stockMaximo) : undefined
+          });
+        });
+      } else {
+        // Fallback: alertas basadas en stock global (retrocompatibilidad)
+        if (producto.cantidad <= 10) {
+          const stockMinimo = 10;
+          alerts.push({
+            productoId: producto.id,
+            productoCodigo: producto.codigo,
+            productoNombre: producto.nombre,
+            cantidadActual: producto.cantidad,
+            stockMinimo,
+            estado: producto.cantidad === 0 ? 'CRITICO' : 'BAJO',
+            establecimientoId: 'global',
+            establecimientoCodigo: 'GLOBAL',
+            establecimientoNombre: 'Stock Global',
+            faltante: Math.max(0, stockMinimo - producto.cantidad)
+          });
+        }
+      }
+    });
+
+    return alerts;
+  }, [allProducts, establishments, establecimientoFiltro]);
+
+  // ✅ Función de exportación Excel profesional
+  const handleExportToExcel = () => {
+    const fecha = new Date();
+
+    if (selectedView === 'movimientos') {
+      // ✅ EXPORTAR MOVIMIENTOS CON TODAS LAS COLUMNAS
+      const movimientosFiltrados = establecimientoFiltro === 'todos'
+        ? movimientos
+        : movimientos.filter(m => m.establecimientoId === establecimientoFiltro);
+
+      const datosExcel = movimientosFiltrados.map(mov => ({
+        'Fecha': new Intl.DateTimeFormat('es-PE', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        }).format(mov.fecha),
+        'Producto': mov.productoNombre,
+        'SKU/Código': mov.productoCodigo,
+        'Establecimiento': mov.establecimientoNombre || 'N/A',
+        'Código Est.': mov.establecimientoCodigo || 'N/A',
+        'Tipo Movimiento': mov.tipo,
+        'Motivo': mov.motivo,
+        'Cantidad': mov.cantidad,
+        'Stock Anterior': mov.cantidadAnterior,
+        'Stock Actual': mov.cantidadNueva,
+        'Diferencia': mov.cantidadNueva - mov.cantidadAnterior,
+        'Usuario': mov.usuario,
+        'Documento Ref.': mov.documentoReferencia || '-',
+        'Observaciones': mov.observaciones || '-'
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(datosExcel);
+
+      // Ajustar ancho de columnas automáticamente
+      const colWidths = [
+        { wch: 18 }, // Fecha
+        { wch: 30 }, // Producto
+        { wch: 15 }, // SKU
+        { wch: 25 }, // Establecimiento
+        { wch: 12 }, // Código Est.
+        { wch: 18 }, // Tipo
+        { wch: 20 }, // Motivo
+        { wch: 10 }, // Cantidad
+        { wch: 14 }, // Stock Anterior
+        { wch: 13 }, // Stock Actual
+        { wch: 11 }, // Diferencia
+        { wch: 20 }, // Usuario
+        { wch: 15 }, // Documento
+        { wch: 30 }  // Observaciones
+      ];
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Movimientos Stock');
+
+      // Nombre de archivo descriptivo
+      const establecimientoNombre = establecimientoFiltro === 'todos'
+        ? 'Todos'
+        : establishments.find(e => e.id === establecimientoFiltro)?.code || 'N/A';
+
+      XLSX.writeFile(workbook, `Movimientos_Stock_${establecimientoNombre}_${fecha.getTime()}.xlsx`);
+
+    } else if (selectedView === 'alertas') {
+      // ✅ EXPORTAR ALERTAS CON DETALLES COMPLETOS
+      const datosExcel = alertas.map(alerta => ({
+        'Producto': alerta.productoNombre,
+        'SKU/Código': alerta.productoCodigo,
+        'Establecimiento': alerta.establecimientoNombre,
+        'Código Est.': alerta.establecimientoCodigo,
+        'Stock Actual': alerta.cantidadActual,
+        'Stock Mínimo': alerta.stockMinimo,
+        'Stock Máximo': alerta.stockMaximo || '-',
+        'Estado': alerta.estado,
+        'Faltante': alerta.faltante || 0,
+        'Excedente': alerta.excedente || 0,
+        'Acción Requerida': alerta.estado === 'CRITICO'
+          ? 'URGENTE: Reabastecer'
+          : alerta.estado === 'BAJO'
+          ? 'Programar compra'
+          : alerta.estado === 'EXCESO'
+          ? 'Revisar sobrestock'
+          : 'Normal'
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(datosExcel);
+
+      const colWidths = [
+        { wch: 30 }, // Producto
+        { wch: 15 }, // SKU
+        { wch: 25 }, // Establecimiento
+        { wch: 12 }, // Código Est.
+        { wch: 13 }, // Stock Actual
+        { wch: 13 }, // Stock Mínimo
+        { wch: 13 }, // Stock Máximo
+        { wch: 10 }, // Estado
+        { wch: 10 }, // Faltante
+        { wch: 11 }, // Excedente
+        { wch: 22 }  // Acción
+      ];
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Alertas Stock');
+
+      const establecimientoNombre = establecimientoFiltro === 'todos'
+        ? 'Todos'
+        : establishments.find(e => e.id === establecimientoFiltro)?.code || 'N/A';
+
+      XLSX.writeFile(workbook, `Alertas_Stock_${establecimientoNombre}_${fecha.getTime()}.xlsx`);
+
+    } else if (selectedView === 'resumen') {
+      // ✅ EXPORTAR RESUMEN COMPLETO POR ESTABLECIMIENTO
+      const datosExcel: any[] = [];
+
+      allProducts.forEach(producto => {
+        if (producto.stockPorEstablecimiento) {
+          Object.entries(producto.stockPorEstablecimiento).forEach(([estId, stock]) => {
+            const establecimiento = establishments.find(e => e.id === estId);
+            if (!establecimiento) return;
+
+            // Filtrar por establecimiento si está seleccionado
+            if (establecimientoFiltro !== 'todos' && estId !== establecimientoFiltro) return;
+
+            const precioCompra = producto.precioCompra || producto.precio;
+            const valorStock = precioCompra * stock;
+
+            datosExcel.push({
+              'Producto': producto.nombre,
+              'SKU/Código': producto.codigo,
+              'Categoría': producto.categoria,
+              'Unidad': producto.unidad,
+              'Establecimiento': establecimiento.name,
+              'Código Est.': establecimiento.code,
+              'Stock Actual': stock,
+              'Stock Mínimo': producto.stockConfigPorEstablecimiento?.[estId]?.stockMinimo || 10,
+              'Stock Máximo': producto.stockConfigPorEstablecimiento?.[estId]?.stockMaximo || 100,
+              'Precio Compra': precioCompra.toFixed(2),
+              'Precio Venta': producto.precio.toFixed(2),
+              'Valor Stock': valorStock.toFixed(2),
+              'Estado Stock': stock === 0
+                ? 'SIN STOCK'
+                : stock <= (producto.stockConfigPorEstablecimiento?.[estId]?.stockMinimo || 10)
+                ? 'BAJO'
+                : stock >= (producto.stockConfigPorEstablecimiento?.[estId]?.stockMaximo || 100)
+                ? 'EXCESO'
+                : 'NORMAL'
+            });
+          });
+        }
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(datosExcel);
+
+      const colWidths = [
+        { wch: 30 }, // Producto
+        { wch: 15 }, // SKU
+        { wch: 20 }, // Categoría
+        { wch: 10 }, // Unidad
+        { wch: 25 }, // Establecimiento
+        { wch: 12 }, // Código Est.
+        { wch: 13 }, // Stock Actual
+        { wch: 13 }, // Stock Mínimo
+        { wch: 13 }, // Stock Máximo
+        { wch: 13 }, // Precio Compra
+        { wch: 13 }, // Precio Venta
+        { wch: 13 }, // Valor Stock
+        { wch: 13 }  // Estado
+      ];
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Resumen Stock');
+
+      const establecimientoNombre = establecimientoFiltro === 'todos'
+        ? 'Todos'
+        : establishments.find(e => e.id === establecimientoFiltro)?.code || 'N/A';
+
+      XLSX.writeFile(workbook, `Resumen_Stock_${establecimientoNombre}_${fecha.getTime()}.xlsx`);
+    }
+  };
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <StockSummaryCards products={allProducts} />
+      <StockSummaryCards
+        products={allProducts}
+        establecimientoFiltro={establecimientoFiltro}
+        establishments={establishments}
+      />
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -97,59 +355,38 @@ const ControlStockPage: React.FC = () => {
               <option value="mes">Último mes</option>
               <option value="todo">Todo el historial</option>
             </select>
+
+            {/* ✅ Filtro por Establecimiento */}
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              <select
+                value={establecimientoFiltro}
+                onChange={(e) => setEstablecimientoFiltro(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+              >
+                <option value="todos">Todos los establecimientos</option>
+                {establishments.map(est => (
+                  <option key={est.id} value={est.id}>
+                    {est.code} - {est.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center space-x-3">
-            {/* Export Button */}
-            <button 
-              onClick={() => {
-                const fecha = new Intl.DateTimeFormat('es-PE', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }).format(new Date());
-                
-                let reporte = `REPORTE DE MOVIMIENTOS DE STOCK\nFecha: ${fecha}\n\n`;
-                reporte += `Total de movimientos: ${movimientos.length}\n\n`;
-                
-                if (selectedView === 'movimientos') {
-                  reporte += `MOVIMIENTOS:\n`;
-                  movimientos.forEach((m, i) => {
-                    reporte += `\n${i + 1}. ${m.productoNombre} (${m.productoCodigo})\n`;
-                    reporte += `   Tipo: ${m.tipo}\n`;
-                    reporte += `   Cantidad: ${m.cantidad}\n`;
-                    reporte += `   Stock: ${m.cantidadAnterior} → ${m.cantidadNueva}\n`;
-                    reporte += `   Usuario: ${m.usuario}\n`;
-                    reporte += `   Fecha: ${new Intl.DateTimeFormat('es-PE').format(m.fecha)}\n`;
-                  });
-                } else if (selectedView === 'alertas') {
-                  reporte = `REPORTE DE ALERTAS DE STOCK\nFecha: ${fecha}\n\n`;
-                  reporte += `Total de alertas: ${alertas.length}\n\n`;
-                  alertas.forEach((a, i) => {
-                    reporte += `\n${i + 1}. ${a.productoNombre}\n`;
-                    reporte += `   Código: ${a.productoCodigo}\n`;
-                    reporte += `   Stock Actual: ${a.cantidadActual}\n`;
-                    reporte += `   Stock Mínimo: ${a.stockMinimo}\n`;
-                  });
-                }
-                
-                const blob = new Blob([reporte], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `reporte-stock-${Date.now()}.txt`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            {/* ✅ Export Button - Excel Profesional */}
+            <button
+              onClick={handleExportToExcel}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 transition-colors shadow-sm hover:shadow-md"
             >
               <div className="flex items-center space-x-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span>Exportar</span>
+                <span>Exportar Excel</span>
               </div>
             </button>
 
@@ -198,7 +435,10 @@ const ControlStockPage: React.FC = () => {
       {/* Content Area */}
       <div>
         {selectedView === 'movimientos' && (
-          <StockMovementsTable movimientos={movimientos} />
+          <StockMovementsTable
+            movimientos={movimientos}
+            establecimientoFiltro={establecimientoFiltro}
+          />
         )}
         
         {selectedView === 'alertas' && (

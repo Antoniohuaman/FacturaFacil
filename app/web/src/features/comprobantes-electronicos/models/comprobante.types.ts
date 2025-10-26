@@ -64,6 +64,16 @@ export interface Product {
   stock: number; // ✅ Obligatorio para control de stock
   requiresStockControl?: boolean; // ✅ Si requiere validación de stock
   image?: string;
+  barcode?: string;
+  unit?: string;
+  // Datos adicionales del catálogo (opcional)
+  catalogData?: {
+    impuesto?: string;
+    precioCompra?: number;
+    descuento?: number;
+    marca?: string;
+    modelo?: string;
+  };
 }
 
 export interface CartItem {
@@ -84,6 +94,23 @@ export interface CartItem {
   basePrice?: number;
   stock: number; // ✅ Stock disponible
   requiresStockControl?: boolean; // ✅ Si requiere validación de stock
+
+  // ✅ Campos adicionales del producto del catálogo
+  descripcion?: string;
+  alias?: string;
+  marca?: string;
+  modelo?: string;
+  codigoBarras?: string;
+  codigoFabrica?: string;
+  precioCompra?: number;
+  descuentoProducto?: number;
+  peso?: number;
+  tipoExistencia?: string; // Tipo de existencia SUNAT (MERCADERIAS, SERVICIOS, etc)
+  tipoProducto?: 'BIEN' | 'SERVICIO'; // ✅ Tipo de producto (BIEN o SERVICIO)
+  impuesto?: string;
+  imagen?: string;
+  codigoSunat?: string;
+  unidad?: string; // ✅ Nombre de la unidad del producto (ej: "UNIDAD", "KILOGRAMO")
 }
 
 // ===================================================================

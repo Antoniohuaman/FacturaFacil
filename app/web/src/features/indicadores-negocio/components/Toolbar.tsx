@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Filter, Plus } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import type { DateRange } from './DateRangePicker';
 
 interface PageHeaderProps {
@@ -30,6 +31,7 @@ export default function Toolbar({
   onEstablishmentChange,
   onDateRangeChange
 }: ToolbarProps) {
+  const { state: configState } = useConfigurationContext();
   const [selectedEstablishment, setSelectedEstablishment] = useState('Todos');
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(() => {
     // Inicializar con "Este mes"
@@ -39,12 +41,11 @@ export default function Toolbar({
     return { startDate: start, endDate: end, label: 'Este mes' };
   });
 
+  // Obtener establecimientos activos desde la configuración
+  const establishments = configState.establishments.filter(e => e.isActive);
   const establishmentOptions = [
-    'Todos',
-    'Tienda Principal',
-    'Tienda Norte',
-    'Tienda Sur',
-    'Almacén Central'
+    { id: 'Todos', name: 'Todos los establecimientos' },
+    ...establishments.map(est => ({ id: est.id, name: `${est.code} - ${est.name}` }))
   ];
 
   const handleEstablishmentChange = (establishment: string) => {
@@ -89,8 +90,8 @@ export default function Toolbar({
               className="h-10 px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white min-w-[150px]"
             >
               {establishmentOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
+                <option key={option.id} value={option.id}>
+                  {option.name}
                 </option>
               ))}
             </select>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useCaja } from '../context/CajaContext';
 import { DollarSign, Lock, Clock, User, Calendar, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { PageHeader } from '../../../components/PageHeader';
@@ -19,9 +20,18 @@ const TABS = [
 ];
 
 export default function ControlCajaHome() {
-  const [activeTab, setActiveTab] = useState('apertura');
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'apertura');
   const { status, aperturaActual, getResumen } = useCaja();
   const resumen = getResumen();
+
+  // Actualizar tab cuando cambie el parámetro URL
+  useEffect(() => {
+    if (tabFromUrl && TABS.some(t => t.key === tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   return (
     <div className="flex-1 bg-gray-50 dark:bg-gray-900">

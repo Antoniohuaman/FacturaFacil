@@ -1,19 +1,35 @@
 
 import { NavLink } from "react-router-dom";
-import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings } from "lucide-react";
+import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings, Receipt, Wallet } from "lucide-react";
 import CompanySelector from "../../components/CompanySelector";
+import { useUserSession } from "../../contexts/UserSessionContext";
+import { useComprobanteContext } from "../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 
 interface SideNavProps {
   collapsed?: boolean;
 }
 
 const mainItems = [
-  { 
-    to: "/comprobantes", 
-    label: "Comprobantes", 
-    description: "Emitir facturas y boletas",
-    badge: "12",
-    icon: FileText
+  {
+    to: "/comprobantes",
+    label: "Comprobantes",
+    description: "Facturación detallada",
+    icon: FileText,
+    useDynamicBadge: true
+  },
+  {
+    to: "/punto-venta",
+    label: "Punto de Venta",
+    description: "Ventas rápidas",
+    badge: "Rápido",
+    badgeColor: "emerald",
+    icon: ShoppingCart
+  },
+  {
+    to: "/documentos-comerciales",
+    label: "Documentos",
+    description: "Cotizaciones y notas de venta",
+    icon: Receipt
   },
   { 
     to: "/catalogo", 
@@ -27,13 +43,13 @@ const mainItems = [
     description: "Configurar tarifas",
     icon: DollarSign
   },
-  { 
-    to: "/control-caja", 
-    label: "Caja", 
+  {
+    to: "/control-caja",
+    label: "Caja",
     description: "Control de efectivo",
     badge: "Activa",
     badgeColor: "green",
-    icon: ShoppingCart
+    icon: Wallet
   },
   { 
     to: "/clientes", 
@@ -60,8 +76,36 @@ const secondaryItems = [
 ];
 
 export default function SideNav({ collapsed = false }: SideNavProps) {
+  const { session } = useUserSession();
+  const currentCompany = session?.currentCompany;
+  const currentEstablishment = session?.currentEstablishment;
+
+  // Obtener conteo de comprobantes del contexto
+  const { state } = useComprobanteContext();
+  const comprobantesCount = state.comprobantes.length;
+
+  // Obtener iniciales de la empresa para el botón compacto
+  const companyName = currentCompany?.tradeName || currentCompany?.businessName || 'Empresa';
+  const companyInitials = companyName
+    .split(' ').slice(0, 2).map((word: string) => word[0]).join('').toUpperCase();
+
+  const companyTitle = currentCompany && currentEstablishment
+    ? `${companyName} - ${currentEstablishment.name}`
+    : 'Sin empresa seleccionada';
+
+  // Crear items con badge dinámico
+  const mainItemsWithBadges = mainItems.map(item => {
+    if (item.useDynamicBadge && item.to === '/comprobantes') {
+      return {
+        ...item,
+        badge: comprobantesCount > 0 ? String(comprobantesCount) : undefined
+      };
+    }
+    return item;
+  });
+
   return (
-    <aside 
+    <aside
       className={`h-full flex flex-col bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700 transition-all duration-300 shadow-sm overflow-hidden`}
       onWheel={(e) => {
         // Prevenir el scroll del contenido principal cuando se hace scroll en el sidebar
@@ -69,7 +113,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
         const scrollTop = sidebar.scrollTop;
         const scrollHeight = sidebar.scrollHeight;
         const clientHeight = sidebar.clientHeight;
-        
+
         // Si estamos en el tope y queremos subir más, o en el fondo y queremos bajar más
         if ((scrollTop === 0 && e.deltaY < 0) || (scrollTop >= scrollHeight - clientHeight && e.deltaY > 0)) {
           e.preventDefault();
@@ -95,14 +139,14 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
         /* Versión compacta del selector cuando está contraído */
         <div className="p-2 border-b border-gray-100/50 dark:border-gray-700/50 flex justify-center">
           <div className="relative">
-            <button 
+            <button
               className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm transition-all duration-200"
-              title="Mi Empresa SAC - Tienda Sur"
+              title={companyTitle}
             >
-              ME
+              {companyInitials}
             </button>
             {/* Indicador de empresa activa */}
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+            {session && <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
           </div>
         </div>
       )}
@@ -116,7 +160,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
         )}
         
         <div className="space-y-1 mt-2">
-          {mainItems.map(item => (
+          {mainItemsWithBadges.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -151,8 +195,10 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
                       
                       {item.badge && (
                         <span className={`ml-auto px-2 py-1 text-xs font-medium rounded-full transition-colors duration-200 ${
-                          item.badgeColor === 'green' 
-                            ? 'bg-green-100 text-green-700' 
+                          item.badgeColor === 'green'
+                            ? 'bg-green-100 text-green-700'
+                            : item.badgeColor === 'emerald'
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
                             : 'bg-blue-100 text-blue-700'
                         }`}>
                           {item.badge}
