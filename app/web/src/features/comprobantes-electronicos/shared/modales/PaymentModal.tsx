@@ -480,58 +480,59 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       <div className="relative h-full flex items-center justify-center p-4">
         <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
           
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          {/* Header Mejorado */}
+          <div className="flex items-center justify-between p-5 border-b-2 border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-lg">
                 {activeStep === 'document' ? (
-                  <FileText className="h-5 w-5 text-blue-600" />
+                  <FileText className="h-6 w-6 text-white" />
                 ) : (
-                  <CreditCard className="h-5 w-5 text-blue-600" />
+                  <CreditCard className="h-6 w-6 text-white" />
                 )}
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  {activeStep === 'document' ? 'Confirmando datos ingresados' : 'Procesar Pago'}
+                <h2 className="text-xl font-bold text-white">
+                  {activeStep === 'document' ? 'Forma de Pago para ' + (tipoComprobante === 'boleta' ? 'BOLETA' : 'FACTURA') : 'Procesar Pago'}
                 </h2>
-                <p className="text-sm text-gray-600">
-                  {activeStep === 'document' 
-                    ? 'Define el tipo de comprobante y cliente'
-                    : `Total a pagar: ${formatPrice(totals.total, currency)}`
+                <p className="text-sm text-blue-100">
+                  {activeStep === 'document'
+                    ? 'Configura el tipo de documento y cliente'
+                    : `Total a cobrar: ${formatPrice(totals.total, currency)}`
                   }
                 </p>
               </div>
             </div>
 
-            {/* Progress Steps */}
-            <div className="flex items-center gap-3">
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-                activeStep === 'document' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'bg-green-100 text-green-700'
+            {/* Progress Steps y Close */}
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold ${
+                activeStep === 'document'
+                  ? 'bg-white text-blue-600'
+                  : 'bg-white/20 text-white'
               }`}>
                 <span className={`w-2 h-2 rounded-full ${
-                  activeStep === 'document' ? 'bg-blue-500' : 'bg-green-500'
+                  activeStep === 'document' ? 'bg-blue-600' : 'bg-white'
                 }`} />
-                1. Comprobante
+                Datos
               </div>
-              
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-                activeStep === 'payment' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'bg-gray-100 text-gray-500'
+
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold ${
+                activeStep === 'payment'
+                  ? 'bg-white text-blue-600'
+                  : 'bg-white/20 text-white'
               }`}>
                 <span className={`w-2 h-2 rounded-full ${
-                  activeStep === 'payment' ? 'bg-blue-500' : 'bg-gray-300'
+                  activeStep === 'payment' ? 'bg-blue-600' : 'bg-white'
                 }`} />
-                2. Pago
+                Pago
               </div>
-              
+
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors ml-2"
+                title="Cerrar"
               >
-                <X className="h-5 w-5 text-gray-500" />
+                <X className="h-5 w-5 text-white" />
               </button>
             </div>
           </div>
@@ -541,154 +542,172 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             {activeStep === 'document' ? (
               /* STEP 1: DOCUMENT CONFIGURATION */
               <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
-                
-                {/* Resumen de productos */}
+
+                {/* Lista de productos compacta */}
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Calculator className="h-4 w-4" />
-                    Resumen de la Orden
-                  </h3>
-                  
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    {cartItems.slice(0, 3).map((item) => (
-                      <div key={item.id} className="flex justify-between text-sm">
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium">{item.name}</span>
-                          <div className="text-gray-500 text-xs">
-                            {item.quantity} cant. × {formatPrice(item.price, currency)}
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                      <Calculator className="h-5 w-5 text-blue-600" />
+                      Lista de productos
+                    </h3>
+                    <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      {cartItems.length} {cartItems.length === 1 ? 'producto' : 'productos'}
+                    </span>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200 space-y-2 max-h-[400px] overflow-y-auto">
+                    {cartItems.map((item, index) => (
+                      <div key={item.id} className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                        <div className="flex items-start gap-2">
+                          <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-white">{index + 1}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm text-gray-900 leading-tight mb-1">
+                              {item.name}
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-gray-600">
+                              <span>{formatPrice(item.price, currency)} x {item.quantity} {(item as any).unit ?? 'Und.'}</span>
+                              <span className="font-bold text-blue-600">
+                                {formatPrice(item.price * item.quantity, currency)}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <span className="font-medium ml-2">
-                          {formatPrice(item.price * item.quantity, currency)}
-                        </span>
                       </div>
                     ))}
-                    
-                    {cartItems.length > 3 && (
-                      <div className="text-center text-sm text-gray-500">
-                        +{cartItems.length - 3} productos más
-                      </div>
-                    )}
-                    
-                    <div className="border-t border-gray-200 pt-3 space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span>Subtotal</span>
-                        <span>{formatPrice(totals.subtotal, currency)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>IGV (18%)</span>
-                        <span>{formatPrice(totals.igv, currency)}</span>
-                      </div>
-                      <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
-                        <span>Total</span>
-                        <span>{formatPrice(totals.total, currency)}</span>
+
+                    {/* Totales dentro del listado */}
+                    <div className="bg-white rounded-lg p-3 border-2 border-blue-300 mt-3">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 font-medium">Gravado:</span>
+                          <span className="font-semibold text-gray-900">{formatPrice(totals.subtotal, currency)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 font-medium">IGV (18%):</span>
+                          <span className="font-semibold text-gray-900">{formatPrice(totals.igv, currency)}</span>
+                        </div>
+                        <div className="border-t-2 border-blue-200 pt-2 mt-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-base font-bold text-gray-900">Total a Pagar:</span>
+                            <span className="text-xl font-bold text-blue-600">{formatPrice(totals.total, currency)}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Configuración del documento */}
-                <div className="space-y-6">
-                  
-                  {/* Tipo de comprobante */}
+                {/* Configuración del documento - Más compacto */}
+                <div className="space-y-4">
+
+                  {/* Tipo de Comprobante - Dropdown estilo */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">Tipo de Comprobante</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm font-bold text-gray-900 mb-2">
+                      Tipo de Comprobante
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => handleTipoComprobanteChange('boleta')}
-                        className={`p-4 rounded-lg border-2 text-center transition-all ${
+                        className={`p-3 rounded-lg border-2 text-center transition-all ${
                           tipoComprobante === 'boleta'
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-blue-600 bg-blue-600 text-white shadow-lg'
+                            : 'border-gray-300 bg-white hover:border-blue-400'
                         }`}
                       >
-                        <div className="font-medium">Boleta</div>
-                        <div className="text-xs text-gray-500 mt-1">Para consumidores finales</div>
+                        <div className="font-bold text-sm">Boleta</div>
+                        <div className={`text-xs mt-0.5 ${tipoComprobante === 'boleta' ? 'text-blue-100' : 'text-gray-500'}`}>
+                          B001
+                        </div>
                       </button>
-                      
+
                       <button
                         onClick={() => handleTipoComprobanteChange('factura')}
-                        className={`p-4 rounded-lg border-2 text-center transition-all ${
+                        className={`p-3 rounded-lg border-2 text-center transition-all ${
                           tipoComprobante === 'factura'
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-blue-600 bg-blue-600 text-white shadow-lg'
+                            : 'border-gray-300 bg-white hover:border-blue-400'
                         }`}
                       >
-                        <div className="font-medium">Factura</div>
-                        <div className="text-xs text-gray-500 mt-1">Para empresas</div>
-                        <div className="text-xs text-red-600 font-medium mt-1">⚠️ Requiere RUC</div>
+                        <div className="font-bold text-sm">Factura</div>
+                        <div className={`text-xs mt-0.5 ${tipoComprobante === 'factura' ? 'text-blue-100' : 'text-gray-500'}`}>
+                          F001 - Req. RUC
+                        </div>
                       </button>
                     </div>
                   </div>
 
-                  {/* Moneda */}
+                  {/* Moneda - Más compacto */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">Moneda</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm font-bold text-gray-900 mb-2">
+                      Moneda
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => handleCurrencyChange('PEN')}
-                        className={`p-3 rounded-lg border-2 text-center transition-all ${
+                        className={`p-2.5 rounded-lg border-2 text-center transition-all ${
                           currency === 'PEN'
-                            ? 'border-green-500 bg-green-50 text-green-700'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-emerald-600 bg-emerald-600 text-white shadow-lg'
+                            : 'border-gray-300 bg-white hover:border-emerald-400'
                         }`}
                       >
-                        <div className="font-medium">S/ Soles</div>
+                        <div className="font-bold text-sm">S/ Soles</div>
                       </button>
-                      
+
                       <button
                         onClick={() => handleCurrencyChange('USD')}
-                        className={`p-3 rounded-lg border-2 text-center transition-all ${
+                        className={`p-2.5 rounded-lg border-2 text-center transition-all ${
                           currency === 'USD'
-                            ? 'border-green-500 bg-green-50 text-green-700'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-emerald-600 bg-emerald-600 text-white shadow-lg'
+                            : 'border-gray-300 bg-white hover:border-emerald-400'
                         }`}
                       >
-                        <div className="font-medium">$ Dólares</div>
+                        <div className="font-bold text-sm">$ Dólares</div>
                       </button>
                     </div>
                   </div>
 
-                  {/* Datos del cliente */}
+                  {/* Datos del cliente - Estilo mejorado */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Datos del Cliente
-                    </h4>
-                    
+                    <label className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-2">
+                      <User className="h-4 w-4 text-blue-600" />
+                      Cliente
+                    </label>
+
                     {!clienteSeleccionado ? (
-                      /* Sin cliente seleccionado - Mostrar búsqueda */
-                      <div className="space-y-3">
+                      /* Sin cliente seleccionado - Búsqueda compacta */
+                      <div className="space-y-2">
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                           <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Buscar por nombre o documento..."
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            placeholder="N° de D.N.I., RUC o nombre..."
+                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                           />
                         </div>
 
-                        {/* Resultados de búsqueda */}
+                        {/* Resultados de búsqueda compactos */}
                         {searchQuery && (
-                          <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
+                          <div className="border-2 border-blue-200 rounded-lg max-h-36 overflow-y-auto bg-white">
                             {clientesFiltrados.length > 0 ? (
                               clientesFiltrados.map((cliente: ClientePOS) => (
                                 <button
                                   key={cliente.id}
                                   onClick={() => handleSeleccionarCliente(cliente)}
-                                  className="w-full text-left p-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                                  className="w-full text-left p-2.5 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
                                 >
-                                  <div className="font-medium text-sm">{cliente.nombre}</div>
-                                  <div className="text-xs text-gray-500">
+                                  <div className="font-semibold text-sm text-gray-900">{cliente.nombre}</div>
+                                  <div className="text-xs text-gray-600 mt-0.5">
                                     {cliente.tipoDocumento}: {cliente.documento}
                                   </div>
                                 </button>
                               ))
                             ) : (
                               <div className="p-3 text-center text-sm text-gray-500">
-                                No se encontraron clientes
+                                Sin resultados
                               </div>
                             )}
                           </div>
@@ -696,43 +715,44 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
                         <button
                           onClick={handleNuevoCliente}
-                          className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-bold shadow-md"
                         >
                           <Plus className="h-4 w-4" />
-                          Crear Nuevo Cliente
+                          Nuevo Cliente
                         </button>
                       </div>
                     ) : (
-                      /* Cliente seleccionado - Mostrar datos */
-                      <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                      /* Cliente seleccionado - Card elegante */
+                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-3 space-y-2">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="font-medium text-gray-900">{clienteSeleccionado.nombre}</div>
-                            <div className="text-sm text-gray-600 mt-1">
-                              {clienteSeleccionado.tipoDocumento}: {clienteSeleccionado.documento}
+                            <div className="font-bold text-gray-900 mb-1">{clienteSeleccionado.nombre}</div>
+                            <div className="text-sm text-gray-700 font-medium">
+                              N° {clienteSeleccionado.documento}
                             </div>
-                            <div className="text-sm text-gray-600">
-                              {clienteSeleccionado.direccion}
+                            <div className="text-xs text-gray-600 mt-1">
+                              {clienteSeleccionado.tipoDocumento}
                             </div>
                           </div>
                           <button
                             onClick={() => setClienteSeleccionado(null)}
-                            className="p-1 text-gray-400 hover:text-gray-600"
+                            className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                            title="Quitar cliente"
                           >
                             <X className="h-4 w-4" />
                           </button>
                         </div>
-                        <div className="flex gap-2 pt-2">
+                        <div className="flex gap-2 pt-1">
                           <button
                             onClick={handleEditarCliente}
-                            className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1 py-2 px-3 text-xs font-bold text-blue-600 bg-white hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors"
                           >
                             <Edit className="h-3 w-3" />
                             Editar
                           </button>
                           <button
                             onClick={() => setClienteSeleccionado(null)}
-                            className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 text-sm text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1 py-2 px-3 text-xs font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
                           >
                             <Search className="h-3 w-3" />
                             Cambiar
@@ -1026,57 +1046,56 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             )}
           </div>
 
-          {/* Footer Actions */}
-          <div className="p-6 border-t border-gray-200 bg-gray-50">
+          {/* Footer Actions - Mejorado */}
+          <div className="p-5 border-t-2 border-gray-200 bg-gray-50">
             {activeStep === 'document' ? (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <button
                   onClick={onViewFullForm}
-                  className="px-4 py-2 text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-blue-600 font-semibold transition-colors underline"
                 >
-                  Ir a Formulario Completo
+                  Usar Formulario Completo
                 </button>
-                
-                <div className="flex gap-3">
+
+                <div className="flex gap-2">
                   <button
                     onClick={onClose}
-                    className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors"
+                    className="px-5 py-2.5 text-gray-700 bg-white hover:bg-gray-100 border-2 border-gray-300 rounded-lg font-semibold transition-colors"
                   >
                     Cancelar
                   </button>
-                  
+
                   <button
                     onClick={handleContinueToPayment}
-                    className="px-6 py-2 text-white rounded-lg font-medium transition-colors hover:opacity-90"
-                    style={{ backgroundColor: '#1478D4' }}
+                    className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-bold transition-all shadow-lg hover:shadow-xl"
                   >
-                    Continuar al Pago
+                    Continuar →
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <button
                   onClick={handleBackToDocument}
-                  className="px-4 py-2 text-gray-700 hover:text-gray-800 font-medium transition-colors"
+                  className="px-4 py-2.5 text-gray-700 hover:text-gray-900 font-semibold transition-colors flex items-center gap-1"
                 >
                   ← Volver
                 </button>
-                
-                <div className="flex gap-3">
+
+                <div className="flex gap-2">
                   <button
                     onClick={onClose}
-                    className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors"
+                    className="px-5 py-2.5 text-gray-700 bg-white hover:bg-gray-100 border-2 border-gray-300 rounded-lg font-semibold transition-colors"
                     disabled={isProcessing}
                   >
                     Cancelar
                   </button>
-                  
+
                   <button
                     onClick={handleProcessPayment}
-                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                    className={`px-8 py-2.5 rounded-lg font-bold transition-all shadow-lg ${
                       getRemaining() <= 0 && !isProcessing
-                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white hover:shadow-xl'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                     disabled={getRemaining() > 0 || isProcessing}
@@ -1087,7 +1106,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         Procesando...
                       </span>
                     ) : (
-                      'Completar Venta'
+                      'PROCESAR VENTA'
                     )}
                   </button>
                 </div>
