@@ -2,131 +2,14 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as ExcelJS from 'exceljs';
 import ClienteForm from '../components/ClienteForm';
-import ClientesTable, { type ClientesTableRef, type Cliente } from '../components/ClientesTable';
+import ClientesTable, { type ClientesTableRef } from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
 import ConfirmationModal from '../../../../../shared/src/components/ConfirmationModal';
+import { useClientes } from '../hooks';
+import { useCaja } from '../../control-caja/context/CajaContext';
+import type { Cliente, ClienteFormData, DocumentType, ClientType } from '../models';
 
 const PRIMARY_COLOR = '#1478D4';
-
-const initialClients = [
-	{
-		id: 0,
-		name: 'CLIENTE VARIOS',
-		document: 'Sin documento',
-		type: 'Cliente',
-		address: 'Sin dirección',
-		phone: '',
-		enabled: true,
-	},
-	{
-		id: 1,
-		name: 'PLUSMEDIA S.A.C.',
-		document: 'RUC 20608822658',
-		type: 'Cliente',
-		address: 'AV. HÉROES NRO. 280 - LIMA LIMA SAN JUAN DE MIRAFLORES',
-		phone: '956 488 989',
-		enabled: true,
-	},
-	{
-		id: 2,
-		name: 'José Luis Márquez',
-		document: 'DNI 76274488',
-		type: 'Cliente',
-		address: 'Av. Huaylas 66 Mz A, Lote 09',
-		phone: '988 488 911',
-		enabled: true,
-	},
-	{
-		id: 3,
-		name: 'EXPORTACIONES Y MAYORISTAS SERVICE E.I.R.L.',
-		document: 'RUC 20668960582',
-		type: 'Cliente',
-		address: 'AV. DEFENSORES NRO. 311 - LIMA LIMA SAN JUAN DE LURIGANCHO',
-		phone: '962 658 244',
-		enabled: true,
-	},
-	{
-		id: 4,
-		name: 'ESTUDIO FUERA DE FOCO E.I.R.L.',
-		document: 'RUC 20882265860',
-		type: 'Cliente',
-		address: 'JR. DE LA REPÚBLICA - LIMA LIMA ATE',
-		phone: '989 962 359',
-		enabled: true,
-	},
-	{
-		id: 5,
-		name: 'SERVICIOS MÚLTIPLES S.A.',
-		document: 'RUC 20442233852',
-		type: 'Cliente',
-		address: 'AV. GUILLERMO PRESCOTT S/N - TACNA TACNA ZOFRATACNA',
-		phone: '956 989 488',
-		enabled: true,
-	},
-	{
-		id: 6,
-		name: 'Mariano Portal Campos',
-		document: 'DNI 77448822',
-		type: 'Cliente',
-		address: 'Av. Faucett Mz A5, Lote 20',
-		phone: '940 760 842',
-		enabled: true,
-	},
-	{
-		id: 7,
-		name: 'INVERSIONES DEL NORTE S.A.C.',
-		document: 'RUC 20567891234',
-		type: 'Cliente',
-		address: 'AV. PRINCIPAL 123 - TRUJILLO LA LIBERTAD',
-		phone: '987 654 321',
-		enabled: true,
-	},
-	{
-		id: 8,
-		name: 'COMERCIALIZADORA SUR S.A.',
-		document: 'RUC 20456789123',
-		type: 'Cliente',
-		address: 'JR. LOS OLIVOS 456 - AREQUIPA AREQUIPA',
-		phone: '986 123 456',
-		enabled: true,
-	},
-	{
-		id: 9,
-		name: 'FERRETERÍA EL MARTILLO',
-		document: 'RUC 20345678912',
-		type: 'Cliente',
-		address: 'AV. INDUSTRIAL 789 - CHICLAYO LAMBAYEQUE',
-		phone: '985 321 654',
-		enabled: true,
-	},
-	{
-		id: 10,
-		name: 'TRANSPORTES DEL SUR E.I.R.L.',
-		document: 'RUC 20234567891',
-		type: 'Cliente',
-		address: 'AV. PANAMERICANA SUR KM 20 - LIMA LIMA',
-		phone: '984 456 789',
-		enabled: true,
-	},
-	{
-		id: 11,
-		name: 'CONSORCIO EDUCATIVO S.A.C.',
-		document: 'RUC 20123456789',
-		type: 'Cliente',
-		address: 'AV. UNIVERSITARIA 321 - LIMA LIMA',
-		phone: '983 789 123',
-		enabled: true,
-	},
-	{
-		id: 12,
-		name: 'DNI Ejemplo',
-		document: 'DNI 12345678',
-		type: 'Cliente',
-		address: 'Calle Ficticia 99 - LIMA LIMA',
-		phone: '982 111 222',
-		enabled: true,
-	},
-];
 
 const documentTypes = [
 	{ value: 'RUC', label: 'RUC' },
@@ -148,38 +31,16 @@ const clientTypes = [
 
 function ClientesPage() {
 	const navigate = useNavigate();
-	
-	// Cargar clientes desde localStorage o usar initialClients
-	const loadClients = () => {
-		try {
-			const stored = localStorage.getItem('clientes');
-			if (stored) {
-				return JSON.parse(stored);
-			}
-			return initialClients;
-		} catch (error) {
-			console.error('Error loading clients from localStorage:', error);
-			return initialClients;
-		}
-	};
-	
-	const [clients, setClients] = useState(loadClients);
-	
-	// Guardar en localStorage cuando cambie clients
-	React.useEffect(() => {
-		try {
-			localStorage.setItem('clientes', JSON.stringify(clients));
-		} catch (error) {
-			console.error('Error saving clients to localStorage:', error);
-		}
-	}, [clients]);
-	
+	const { showToast } = useCaja();
+	const { clientes, loading, createCliente, updateCliente, deleteCliente } = useClientes();
+
 	const [showClientModal, setShowClientModal] = useState(false);
-	const [editingClient, setEditingClient] = useState<any>(null);
+	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
-	const [clientToDelete, setClientToDelete] = useState<any>(null);
+	const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null);
 	const clientesTableRef = useRef<ClientesTableRef>(null);
-	const [formData, setFormData] = useState({
+
+	const [formData, setFormData] = useState<ClienteFormData>({
 		documentNumber: '',
 		legalName: '',
 		address: '',
@@ -196,129 +57,110 @@ function ClientesPage() {
 	const [itemsPerPage] = useState(10);
 
 	// Lógica de paginación
-	const totalPages = Math.ceil(clients.length / itemsPerPage);
+	const totalPages = Math.ceil(clientes.length / itemsPerPage);
 	const startIndex = (currentPage - 1) * itemsPerPage;
-	const paginatedClients = clients.slice(startIndex, startIndex + itemsPerPage);
+	const paginatedClients = clientes.slice(startIndex, startIndex + itemsPerPage);
 
 	const handleExportClients = async () => {
-		// Crear un nuevo workbook
-		const workbook = new ExcelJS.Workbook();
-		const worksheet = workbook.addWorksheet('Clientes');
+		try {
+			const workbook = new ExcelJS.Workbook();
+			const worksheet = workbook.addWorksheet('Clientes');
 
-		// Configurar las columnas
-		worksheet.columns = [
-			{ header: 'Nombre/Razón Social', key: 'name', width: 40 },
-			{ header: 'Documento', key: 'document', width: 20 },
-			{ header: 'Tipo', key: 'type', width: 10 },
-			{ header: 'Dirección', key: 'address', width: 50 },
-			{ header: 'Teléfono', key: 'phone', width: 15 },
-			{ header: 'Estado', key: 'status', width: 10 }
-		];
+			worksheet.columns = [
+				{ header: 'Nombre/Razón Social', key: 'name', width: 40 },
+				{ header: 'Documento', key: 'document', width: 20 },
+				{ header: 'Tipo', key: 'type', width: 10 },
+				{ header: 'Dirección', key: 'address', width: 50 },
+				{ header: 'Teléfono', key: 'phone', width: 15 },
+				{ header: 'Estado', key: 'status', width: 10 }
+			];
 
-		// Agregar los datos
-		clients.forEach((client: Cliente) => {
-			worksheet.addRow({
-				name: client.name,
-				document: client.document,
-				type: client.type,
-				address: client.address,
-				phone: client.phone,
-				status: client.enabled ? 'Activo' : 'Inactivo'
+			clientes.forEach((client: Cliente) => {
+				worksheet.addRow({
+					name: client.name,
+					document: client.document,
+					type: client.type,
+					address: client.address,
+					phone: client.phone,
+					status: client.enabled ? 'Activo' : 'Inactivo'
+				});
 			});
-		});
 
-		// Estilizar el header
-		worksheet.getRow(1).font = { bold: true };
-		worksheet.getRow(1).fill = {
-			type: 'pattern',
-			pattern: 'solid',
-			fgColor: { argb: 'FFE6F3FF' }
-		};
+			worksheet.getRow(1).font = { bold: true };
+			worksheet.getRow(1).fill = {
+				type: 'pattern',
+				pattern: 'solid',
+				fgColor: { argb: 'FFE6F3FF' }
+			};
 
-		// Generar nombre del archivo con fecha actual
-		const today = new Date();
-		const dateString = today.toISOString().split('T')[0]; // YYYY-MM-DD
-		const fileName = `clientes_${dateString}.xlsx`;
+			const today = new Date();
+			const dateString = today.toISOString().split('T')[0];
+			const fileName = `clientes_${dateString}.xlsx`;
 
-		// Generar el buffer y descargar
-		const buffer = await workbook.xlsx.writeBuffer();
-		const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-		const url = URL.createObjectURL(blob);
-		
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = fileName;
-		link.click();
-		
-		URL.revokeObjectURL(url);
+			const buffer = await workbook.xlsx.writeBuffer();
+			const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+			const url = URL.createObjectURL(blob);
+
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = fileName;
+			link.click();
+
+			URL.revokeObjectURL(url);
+
+			showToast('success', '¡Exportación exitosa!', `Se exportaron ${clientes.length} clientes a Excel`);
+		} catch (error) {
+			showToast('error', 'Error al exportar', 'No se pudo exportar la lista de clientes');
+		}
 	};
 
-	const handleCreateClient = () => {
-		// Validaciones básicas
+	const handleCreateClient = async () => {
 		if (!formData.legalName.trim()) {
-			alert('El nombre/razón social es obligatorio');
+			showToast('warning', 'Campo requerido', 'El nombre/razón social es obligatorio');
 			return;
 		}
 
 		if (documentType !== 'SIN_DOCUMENTO' && !formData.documentNumber.trim()) {
-			alert('El número de documento es obligatorio');
+			showToast('warning', 'Campo requerido', 'El número de documento es obligatorio');
 			return;
 		}
 
-		// Validaciones específicas por tipo de documento
 		if (documentType === 'RUC' && formData.documentNumber.length !== 11) {
-			alert('El RUC debe tener exactamente 11 dígitos');
+			showToast('warning', 'RUC inválido', 'El RUC debe tener exactamente 11 dígitos');
 			return;
 		}
 
 		if (documentType === 'DNI' && formData.documentNumber.length !== 8) {
-			alert('El DNI debe tener exactamente 8 dígitos');
+			showToast('warning', 'DNI inválido', 'El DNI debe tener exactamente 8 dígitos');
 			return;
 		}
 
 		if (documentType === 'PASAPORTE' && formData.documentNumber.length < 6) {
-			alert('El Pasaporte debe tener al menos 6 caracteres');
+			showToast('warning', 'Pasaporte inválido', 'El Pasaporte debe tener al menos 6 caracteres');
 			return;
 		}
 
 		if (documentType === 'CARNET_EXTRANJERIA' && formData.documentNumber.length < 9) {
-			alert('El Carnet de Extranjería debe tener al menos 9 caracteres');
+			showToast('warning', 'Carnet inválido', 'El Carnet de Extranjería debe tener al menos 9 caracteres');
 			return;
 		}
 
-		// Verificar si ya existe un cliente con el mismo documento
-		const existingClient = clients.find((client: Cliente) => 
-			client.document.includes(formData.documentNumber) && 
-			formData.documentNumber.trim() !== ''
-		);
-
-		if (existingClient) {
-			alert('Ya existe un cliente con este número de documento');
-			return;
-		}
-
-		const newId = Math.max(...clients.map((c: Cliente) => c.id)) + 1;
-		const clientToAdd = {
-			id: newId,
+		const result = await createCliente({
+			documentType: documentType as DocumentType,
+			documentNumber: formData.documentNumber.trim(),
 			name: formData.legalName.trim(),
-			document: documentType !== 'SIN_DOCUMENTO' ? `${documentType} ${formData.documentNumber.trim()}` : 'Sin documento',
-			type: clientType,
-			address: formData.address.trim() || 'Sin dirección',
-			phone: formData.phone.trim() || 'Sin teléfono',
-			enabled: true,
-		};
-		
-		setClients((prev: Cliente[]) => [clientToAdd, ...prev]);
-		
-		resetForm();
-		setShowClientModal(false);
-		
-		// Log para debug
-		console.log('Cliente creado:', clientToAdd);
-		console.log('Total de clientes:', clients.length + 1);
-		
-		// Mostrar mensaje de éxito
-		alert(`Cliente "${clientToAdd.name}" creado exitosamente`);
+			type: clientType as ClientType,
+			address: formData.address.trim() || undefined,
+			phone: formData.phone.trim() || undefined,
+			email: formData.email.trim() || undefined,
+			gender: formData.gender || undefined,
+			additionalData: formData.additionalData.trim() || undefined,
+		});
+
+		if (result) {
+			resetForm();
+			setShowClientModal(false);
+		}
 	};
 
 	const handleCancelClient = () => {
@@ -326,7 +168,7 @@ function ClientesPage() {
 		setShowClientModal(false);
 	};
 
-	const handleInputChange = (field: keyof typeof formData, value: string) => {
+	const handleInputChange = (field: keyof ClienteFormData, value: string) => {
 		setFormData(prev => ({ ...prev, [field]: value }));
 	};
 
@@ -353,21 +195,17 @@ function ClientesPage() {
 		setEditingClient(null);
 	};
 
-	const handleEditClient = (client: any) => {
-		// Extraer tipo de documento y número del campo document
+	const handleEditClient = (client: Cliente) => {
 		let docType = 'SIN_DOCUMENTO';
 		let docNumber = '';
-		
+
 		if (client.document === 'Sin documento') {
-			// Sin documento (CLIENTE VARIOS)
 			docType = 'SIN_DOCUMENTO';
 			docNumber = '';
 		} else if (client.document && !client.document.includes(' ')) {
-			// Documento sin prefijo (casos especiales)
 			docNumber = client.document;
 			docType = 'SIN_DOCUMENTO';
 		} else if (client.document && client.document.includes(' ')) {
-			// Documento con prefijo (ej: "DNI 12345678", "RUC 20608822658")
 			const documentParts = client.document.split(' ');
 			docType = documentParts[0];
 			docNumber = documentParts.slice(1).join(' ');
@@ -377,27 +215,29 @@ function ClientesPage() {
 		setFormData({
 			documentNumber: docNumber || '',
 			legalName: client.name,
-			address: client.address.replace('Sin dirección', ''),
-			gender: '',
-			phone: client.phone.replace('Sin teléfono', ''),
-			email: '',
-			additionalData: '',
+			address: client.address === 'Sin dirección' ? '' : client.address,
+			gender: client.gender || '',
+			phone: client.phone || '',
+			email: client.email || '',
+			additionalData: client.additionalData || '',
 		});
 		setDocumentType(docType);
 		setClientType(client.type);
 		setShowClientModal(true);
 	};
 
-	const handleDeleteClient = (client: any) => {
+	const handleDeleteClient = (client: Cliente) => {
 		setClientToDelete(client);
 		setShowDeleteModal(true);
 	};
 
-	const handleConfirmDelete = () => {
+	const handleConfirmDelete = async () => {
 		if (clientToDelete) {
-			setClients((prev: Cliente[]) => prev.filter((c: Cliente) => c.id !== clientToDelete.id));
-			setShowDeleteModal(false);
-			setClientToDelete(null);
+			const success = await deleteCliente(clientToDelete.id);
+			if (success) {
+				setShowDeleteModal(false);
+				setClientToDelete(null);
+			}
 		}
 	};
 
@@ -406,67 +246,55 @@ function ClientesPage() {
 		setClientToDelete(null);
 	};
 
-	const handleUpdateClient = () => {
-		// Mismas validaciones que crear
+	const handleUpdateClient = async () => {
 		if (!formData.legalName.trim()) {
-			alert('El nombre/razón social es obligatorio');
+			showToast('warning', 'Campo requerido', 'El nombre/razón social es obligatorio');
 			return;
 		}
 
 		if (documentType !== 'SIN_DOCUMENTO' && !formData.documentNumber.trim()) {
-			alert('El número de documento es obligatorio');
+			showToast('warning', 'Campo requerido', 'El número de documento es obligatorio');
 			return;
 		}
 
-		// Validaciones específicas por tipo de documento
 		if (documentType === 'RUC' && formData.documentNumber.length !== 11) {
-			alert('El RUC debe tener exactamente 11 dígitos');
+			showToast('warning', 'RUC inválido', 'El RUC debe tener exactamente 11 dígitos');
 			return;
 		}
 
 		if (documentType === 'DNI' && formData.documentNumber.length !== 8) {
-			alert('El DNI debe tener exactamente 8 dígitos');
+			showToast('warning', 'DNI inválido', 'El DNI debe tener exactamente 8 dígitos');
 			return;
 		}
 
 		if (documentType === 'PASAPORTE' && formData.documentNumber.length < 6) {
-			alert('El Pasaporte debe tener al menos 6 caracteres');
+			showToast('warning', 'Pasaporte inválido', 'El Pasaporte debe tener al menos 6 caracteres');
 			return;
 		}
 
 		if (documentType === 'CARNET_EXTRANJERIA' && formData.documentNumber.length < 9) {
-			alert('El Carnet de Extranjería debe tener al menos 9 caracteres');
+			showToast('warning', 'Carnet inválido', 'El Carnet de Extranjería debe tener al menos 9 caracteres');
 			return;
 		}
 
-		// Verificar si ya existe otro cliente con el mismo documento
-		const existingClient = clients.find((client: Cliente) => 
-			client.id !== editingClient.id &&
-			client.document.includes(formData.documentNumber) && 
-			formData.documentNumber.trim() !== ''
-		);
+		if (!editingClient) return;
 
-		if (existingClient) {
-			alert('Ya existe otro cliente con este número de documento');
-			return;
-		}
-
-		// Actualizar cliente
-		const updatedClient = {
-			...editingClient,
+		const result = await updateCliente(editingClient.id, {
+			documentType: documentType as DocumentType,
+			documentNumber: formData.documentNumber.trim(),
 			name: formData.legalName.trim(),
-			document: documentType !== 'SIN_DOCUMENTO' ? `${documentType} ${formData.documentNumber.trim()}` : 'Sin documento',
-			type: clientType,
-			address: formData.address.trim() || 'Sin dirección',
-			phone: formData.phone.trim() || 'Sin teléfono',
-		};
+			type: clientType as ClientType,
+			address: formData.address.trim() || undefined,
+			phone: formData.phone.trim() || undefined,
+			email: formData.email.trim() || undefined,
+			gender: formData.gender || undefined,
+			additionalData: formData.additionalData.trim() || undefined,
+		});
 
-		setClients((prev: Cliente[]) => prev.map((c: Cliente) => c.id === editingClient.id ? updatedClient : c));
-		
-		resetForm();
-		setShowClientModal(false);
-		
-		alert(`Cliente "${updatedClient.name}" actualizado exitosamente`);
+		if (result) {
+			resetForm();
+			setShowClientModal(false);
+		}
 	};
 
 	return (
@@ -496,7 +324,8 @@ function ClientesPage() {
 					<button
 						title="Exporta lista de clientes"
 						onClick={handleExportClients}
-						className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center"
+						disabled={loading || clientes.length === 0}
+						className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
 						style={{ minWidth: 40, minHeight: 40 }}
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -510,39 +339,61 @@ function ClientesPage() {
 
 			{/* Contenido */}
 			<div className="px-6 pt-6 pb-6">
-				<ClientesFilters 
+				<ClientesFilters
 					tableRef={clientesTableRef}
 					onClearFilters={() => clientesTableRef.current?.clearAllFilters()}
 				/>
-				<ClientesTable 
-					ref={clientesTableRef}
-					clients={paginatedClients} 
-					onEditClient={handleEditClient}
-					onDeleteClient={handleDeleteClient}
-				/>
+				{loading ? (
+					<div className="flex items-center justify-center py-12">
+						<div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+						<span className="ml-3 text-gray-600 dark:text-gray-400">Cargando clientes...</span>
+					</div>
+				) : clientes.length === 0 ? (
+					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+						<svg xmlns="http://www.w3.org/2000/svg" className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+						</svg>
+						<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No hay clientes registrados</h3>
+						<p className="text-gray-500 dark:text-gray-400 mb-4">Comienza agregando tu primer cliente</p>
+						<button
+							onClick={() => setShowClientModal(true)}
+							style={{ backgroundColor: PRIMARY_COLOR }}
+							className="px-6 py-2 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+						>
+							Agregar cliente
+						</button>
+					</div>
+				) : (
+					<ClientesTable
+						ref={clientesTableRef}
+						clients={paginatedClients}
+						onEditClient={handleEditClient}
+						onDeleteClient={handleDeleteClient}
+					/>
+				)}
 			</div>
 
 			{/* Paginación */}
 			{totalPages > 1 && (
 				<div className="px-6 py-4 border-t border-gray-200 dark:border-gray-600">
 					<div className="flex items-center justify-between">
-						<div className="text-sm text-gray-500">
-							Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, clients.length)} de {clients.length} resultados
+						<div className="text-sm text-gray-500 dark:text-gray-400">
+							Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, clientes.length)} de {clientes.length} resultados
 						</div>
 						<div className="flex items-center gap-2">
 							<button
 								onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
 								disabled={currentPage === 1}
-								className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+								className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
 							>
 								Anterior
 							</button>
-							
+
 							<div className="flex items-center gap-1">
 								{Array.from({ length: totalPages }, (_, i) => i + 1)
-									.filter(page => 
-										page === 1 || 
-										page === totalPages || 
+									.filter(page =>
+										page === 1 ||
+										page === totalPages ||
 										Math.abs(page - currentPage) <= 1
 									)
 									.map((page, index, array) => (
@@ -555,9 +406,9 @@ function ClientesPage() {
 												className={`px-3 py-1 text-sm rounded-lg ${
 													page === currentPage
 														? 'text-white'
-														: 'border border-gray-300 hover:bg-gray-50'
+														: 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
 												}`}
-												style={page === currentPage ? { backgroundColor: '#1478D4' } : {}}
+												style={page === currentPage ? { backgroundColor: PRIMARY_COLOR } : {}}
 											>
 												{page}
 											</button>
@@ -565,11 +416,11 @@ function ClientesPage() {
 									))
 								}
 							</div>
-							
+
 							<button
 								onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
 								disabled={currentPage === totalPages}
-								className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+								className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
 							>
 								Siguiente
 							</button>
