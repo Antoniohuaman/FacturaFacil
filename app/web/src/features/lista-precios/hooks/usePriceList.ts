@@ -1,171 +1,51 @@
-import { useState } from 'react';
-import type { Column, Product, NewColumnForm, PriceForm, FixedPrice } from '../models/PriceTypes';
-import { 
-  generateColumnId, 
-  getNextOrder, 
-  removeProductPricesForColumn 
+import { useState, useEffect } from 'react';
+import type { Column, Product, NewColumnForm, PriceForm, FixedPrice, VolumePrice } from '../models/PriceTypes';
+import {
+  generateColumnId,
+  getNextOrder,
+  removeProductPricesForColumn
 } from '../utils/priceHelpers';
 
-export const usePriceList = () => {
-  const [columns, setColumns] = useState<Column[]>([
-    { 
-      id: 'P1', 
-      name: 'Precio de venta al público', 
-      mode: 'fixed', 
-      visible: true, 
-      isBase: true,
-      order: 1
-    },
-    { 
-      id: 'P2', 
-      name: 'Precio mayorista', 
-      mode: 'volume', 
-      visible: true, 
-      isBase: false,
-      order: 2
-    },
-    { 
-      id: 'P3', 
-      name: 'Precio online', 
-      mode: 'fixed', 
-      visible: false, 
-      isBase: false,
-      order: 3
-    }
-  ]);
+// Tipos del módulo de productos (catálogo)
+interface CatalogProduct {
+  id: string;
+  codigo: string;
+  nombre: string;
+  precio: number;
+  [key: string]: any;
+}
 
-  const [products, setProducts] = useState<Product[]>([
-    { 
-      sku: 'PROD001', 
-      name: 'Cable USB', 
-      prices: {
-        P1: { type: 'fixed', value: 25.50, validFrom: '2024-01-01', validUntil: '2024-12-31' },
-        P2: { 
-          type: 'volume',
-          ranges: [
-            { id: '1', minQuantity: 1, maxQuantity: 10, price: 22.00 },
-            { id: '2', minQuantity: 11, maxQuantity: 50, price: 20.00 },
-            { id: '3', minQuantity: 51, maxQuantity: null, price: 18.00 }
-          ],
-          validFrom: '2024-01-01', 
-          validUntil: '2024-12-31' 
-        },
-        P3: { type: 'fixed', value: 28.00, validFrom: '2024-01-01', validUntil: '2024-12-31' }
-      }
-    },
-    { 
-      sku: 'PROD002', 
-      name: 'Adaptador de memoria', 
-      prices: {
-        P1: { type: 'fixed', value: 15.75, validFrom: '2024-01-01', validUntil: '2024-12-31' },
-        P2: { 
-          type: 'volume',
-          ranges: [
-            { id: '1', minQuantity: 1, maxQuantity: 15, price: 13.50 },
-            { id: '2', minQuantity: 16, maxQuantity: null, price: 12.00 }
-          ],
-          validFrom: '2024-01-01', 
-          validUntil: '2024-12-31' 
-        }
-      }
-    },
-    {
-      sku: 'LAP001',
-      name: 'Laptop Dell XPS 13',
-      prices: {
-        P1: { type: 'fixed', value: 1250.00, validFrom: '2024-01-01', validUntil: '2024-12-31' },
-        P2: { 
-          type: 'volume',
-          ranges: [
-            { id: '1', minQuantity: 1, maxQuantity: 5, price: 1150.00 },
-            { id: '2', minQuantity: 6, maxQuantity: null, price: 1050.00 }
-          ],
-          validFrom: '2024-01-01', 
-          validUntil: '2024-12-31' 
-        }
-      }
-    },
-    {
-      sku: 'MON001',
-      name: 'Monitor Samsung 27" 4K',
-      prices: {
-        P1: { type: 'fixed', value: 350.00, validFrom: '2024-01-01', validUntil: '2024-12-31' },
-        P2: { 
-          type: 'volume',
-          ranges: [
-            { id: '1', minQuantity: 1, maxQuantity: 10, price: 320.00 },
-            { id: '2', minQuantity: 11, maxQuantity: null, price: 300.00 }
-          ],
-          validFrom: '2024-01-01', 
-          validUntil: '2024-12-31' 
-        }
-      }
-    },
-    {
-      sku: 'TEC001',
-      name: 'Teclado Mecánico RGB',
-      prices: {
-        P1: { type: 'fixed', value: 89.99, validFrom: '2024-01-01', validUntil: '2024-12-31' },
-        P2: { 
-          type: 'volume',
-          ranges: [
-            { id: '1', minQuantity: 1, maxQuantity: 20, price: 75.00 },
-            { id: '2', minQuantity: 21, maxQuantity: null, price: 65.00 }
-          ],
-          validFrom: '2024-01-01', 
-          validUntil: '2024-12-31' 
-        }
-      }
-    },
-    {
-      sku: 'MOU001',
-      name: 'Mouse Gaming Inalámbrico',
-      prices: {
-        P1: { type: 'fixed', value: 45.50, validFrom: '2024-01-01', validUntil: '2024-12-31' },
-        P2: { 
-          type: 'volume',
-          ranges: [
-            { id: '1', minQuantity: 1, maxQuantity: 25, price: 39.99 },
-            { id: '2', minQuantity: 26, maxQuantity: null, price: 35.00 }
-          ],
-          validFrom: '2024-01-01', 
-          validUntil: '2024-12-31' 
-        }
-      }
-    },
-    {
-      sku: 'CAM001',
-      name: 'Cámara Web HD 1080p',
-      prices: {
-        P1: { type: 'fixed', value: 55.00, validFrom: '2024-01-01', validUntil: '2024-12-31' },
-        P2: { 
-          type: 'volume',
-          ranges: [
-            { id: '1', minQuantity: 1, maxQuantity: 12, price: 48.00 },
-            { id: '2', minQuantity: 13, maxQuantity: null, price: 42.00 }
-          ],
-          validFrom: '2024-01-01', 
-          validUntil: '2024-12-31' 
-        }
-      }
-    },
-    {
-      sku: 'AUD001',
-      name: 'Audífonos Bluetooth Premium',
-      prices: {
-        P1: { type: 'fixed', value: 129.99, validFrom: '2024-01-01', validUntil: '2024-12-31' },
-        P2: { 
-          type: 'volume',
-          ranges: [
-            { id: '1', minQuantity: 1, maxQuantity: 8, price: 115.00 },
-            { id: '2', minQuantity: 9, maxQuantity: null, price: 105.00 }
-          ],
-          validFrom: '2024-01-01', 
-          validUntil: '2024-12-31' 
-        }
-      }
-    }
-  ]);
+// Utilidad para cargar desde localStorage
+const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return defaultValue;
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error(`Error loading ${key} from localStorage:`, error);
+    return defaultValue;
+  }
+};
+
+// Utilidad para guardar en localStorage
+const saveToLocalStorage = (key: string, data: any): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage:`, error);
+  }
+};
+
+export const usePriceList = () => {
+  // Cargar columnas desde localStorage (vacío por defecto)
+  const [columns, setColumns] = useState<Column[]>(() =>
+    loadFromLocalStorage<Column[]>('price_list_columns', [])
+  );
+
+  // Cargar precios desde localStorage (vacío por defecto)
+  const [products, setProducts] = useState<Product[]>(() =>
+    loadFromLocalStorage<Product[]>('price_list_products', [])
+  );
 
   const [activeTab, setActiveTab] = useState<'columns' | 'products'>('columns');
   const [showColumnModal, setShowColumnModal] = useState(false);
@@ -176,14 +56,46 @@ export const usePriceList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Computed values
+  // Cargar productos desde el catálogo
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>(() =>
+    loadFromLocalStorage<CatalogProduct[]>('catalog_products', [])
+  );
+
+  // Sincronizar con localStorage del catálogo cuando cambie
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'catalog_products' && e.newValue) {
+        try {
+          const newProducts = JSON.parse(e.newValue);
+          setCatalogProducts(newProducts);
+        } catch (error) {
+          console.error('Error parsing catalog products:', error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Persistir columnas en localStorage cuando cambien
+  useEffect(() => {
+    saveToLocalStorage('price_list_columns', columns);
+  }, [columns]);
+
+  // Persistir productos/precios en localStorage cuando cambien
+  useEffect(() => {
+    saveToLocalStorage('price_list_products', products);
+  }, [products]);
+
+  // Computed values - Filtrar productos que tienen precios asignados
   const filteredProducts = products.filter(product => {
     if (searchSKU === '') return true;
-    
+
     const searchTerm = searchSKU.toLowerCase().trim();
     const skuMatch = product.sku.toLowerCase().includes(searchTerm);
     const nameMatch = product.name.toLowerCase().includes(searchTerm);
-    
+
     return skuMatch || nameMatch;
   });
 
@@ -253,35 +165,56 @@ export const usePriceList = () => {
   // Product management functions
   const addOrUpdateProductPrice = (priceData: PriceForm) => {
     const { sku, columnId, validFrom, validUntil } = priceData;
-    
+
     if (!sku.trim() || !columnId || !validFrom || !validUntil) {
       return false;
     }
 
-    // Extract value based on type
-    let value: string;
-    if (priceData.type === 'fixed') {
-      value = priceData.value;
-    } else {
-      // For volume pricing, we'll need a different approach
-      return false; // For now, only support fixed prices
-    }
-
-    if (!value) {
+    // Buscar producto en el catálogo
+    const catalogProduct = catalogProducts.find(p => p.codigo === sku.trim());
+    if (!catalogProduct) {
+      setError(`El SKU "${sku}" no existe en el catálogo de productos`);
       return false;
     }
 
-    const existingProductIndex = products.findIndex(p => p.sku === sku);
-    
-    const newPrice: FixedPrice = {
-      type: 'fixed',
-      value: parseFloat(value),
-      validFrom,
-      validUntil
-    };
+    const existingProductIndex = products.findIndex(p => p.sku === sku.trim());
+
+    let newPrice: FixedPrice | VolumePrice;
+
+    if (priceData.type === 'fixed') {
+      // Precio fijo
+      const value = priceData.value;
+      if (!value) {
+        return false;
+      }
+
+      newPrice = {
+        type: 'fixed',
+        value: parseFloat(value),
+        validFrom,
+        validUntil
+      };
+    } else if (priceData.type === 'volume') {
+      // Precio por volumen
+      const ranges = priceData.ranges.map((range, index) => ({
+        id: (index + 1).toString(),
+        minQuantity: parseInt(range.minQuantity) || 0,
+        maxQuantity: range.maxQuantity ? parseInt(range.maxQuantity) : null,
+        price: parseFloat(range.price) || 0
+      }));
+
+      newPrice = {
+        type: 'volume',
+        ranges,
+        validFrom,
+        validUntil
+      };
+    } else {
+      return false;
+    }
 
     if (existingProductIndex >= 0) {
-      // Update existing product
+      // Actualizar producto existente
       const updatedProducts = [...products];
       updatedProducts[existingProductIndex] = {
         ...updatedProducts[existingProductIndex],
@@ -292,17 +225,17 @@ export const usePriceList = () => {
       };
       setProducts(updatedProducts);
     } else {
-      // Add new product
+      // Agregar nuevo producto con información del catálogo
       const newProduct: Product = {
-        sku: sku.trim(),
-        name: `Producto ${sku}`, // This should come from a product catalog
+        sku: catalogProduct.codigo,
+        name: catalogProduct.nombre,
         prices: {
           [columnId]: newPrice
         }
       };
       setProducts([...products, newProduct]);
     }
-    
+
     return true;
   };
 
@@ -327,6 +260,19 @@ export const usePriceList = () => {
     setSelectedProduct(null);
   };
 
+  // Función para obtener productos del catálogo
+  const getCatalogProducts = () => catalogProducts;
+
+  // Función para verificar si un SKU existe en el catálogo
+  const isSKUInCatalog = (sku: string): boolean => {
+    return catalogProducts.some(p => p.codigo === sku.trim());
+  };
+
+  // Función para obtener información de producto del catálogo por SKU
+  const getCatalogProductBySKU = (sku: string): CatalogProduct | undefined => {
+    return catalogProducts.find(p => p.codigo === sku.trim());
+  };
+
   return {
     // State
     columns,
@@ -340,6 +286,7 @@ export const usePriceList = () => {
     editingColumn,
     selectedProduct,
     searchSKU,
+    catalogProducts,
 
     // Actions
     setActiveTab,
@@ -353,6 +300,9 @@ export const usePriceList = () => {
     openColumnModal,
     closeColumnModal,
     openPriceModal,
-    closePriceModal
+    closePriceModal,
+    getCatalogProducts,
+    isSKUInCatalog,
+    getCatalogProductBySKU
   };
 };
