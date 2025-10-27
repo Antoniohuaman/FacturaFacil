@@ -51,7 +51,6 @@ const InvoiceListDashboard = () => {
   const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   
   // Estados para nuevas funcionalidades
-  const [globalSearch, setGlobalSearch] = useState('');
   const [density, setDensity] = useState<'comfortable' | 'intermediate' | 'compact'>('comfortable');
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [isLoading] = useState(false);
@@ -180,7 +179,6 @@ const InvoiceListDashboard = () => {
 
   // Limpiar todos los filtros
   const clearAllFilters = () => {
-    setGlobalSearch('');
     setColumnFilters({});
     setDateFrom(getTodayISO());
     setDateTo(getTodayISO());
@@ -297,11 +295,6 @@ const InvoiceListDashboard = () => {
   // Atajos de teclado
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // / para buscar
-      if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
-        e.preventDefault();
-        document.querySelector<HTMLInputElement>('input[placeholder*="Buscar"]')?.focus();
-      }
       // f para filtros
       if (e.key === 'f' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
         e.preventDefault();
@@ -339,29 +332,9 @@ const InvoiceListDashboard = () => {
     dateTo
   );
   
-  // Filtrado por búsqueda global
+  // Filtrado por filtros de columna y avanzados
   const searchedInvoices = useMemo(() => {
     let result = filteredInvoices;
-    
-    // Filtro global - búsqueda exhaustiva
-    if (globalSearch.trim()) {
-      const search = globalSearch.toLowerCase();
-      result = result.filter(invoice => {
-        return (
-          invoice.id?.toLowerCase().includes(search) ||
-          invoice.type?.toLowerCase().includes(search) ||
-          invoice.client?.toLowerCase().includes(search) ||
-          invoice.clientDoc?.toLowerCase().includes(search) ||
-          invoice.vendor?.toLowerCase().includes(search) ||
-          invoice.status?.toLowerCase().includes(search) ||
-          (invoice as any).paymentMethod?.toLowerCase().includes(search) ||
-          invoice.total?.toString().includes(search) ||
-          invoice.date?.toLowerCase().includes(search) ||
-          (invoice as any).currency?.toLowerCase().includes(search) ||
-          (invoice as any).observations?.toLowerCase().includes(search)
-        );
-      });
-    }
     
     // Filtros por columna (AND)
     Object.entries(columnFilters).forEach(([columnKey, filterValue]) => {
@@ -421,7 +394,7 @@ const InvoiceListDashboard = () => {
     }
     
     return result;
-  }, [filteredInvoices, globalSearch, columnFilters, advancedFilters]);
+  }, [filteredInvoices, columnFilters, advancedFilters]);
 
   // Cálculos de paginación
   const totalRecords = searchedInvoices.length;
@@ -734,20 +707,8 @@ const InvoiceListDashboard = () => {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="px-6 py-4">
-          {/* Fila principal: Búsqueda → Date Range → Acciones → Botones */}
+          {/* Fila principal: Date Range → Acciones → Botones */}
           <div className="flex items-center gap-3">
-            {/* Búsqueda global */}
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar por número, cliente, vendedor..."
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-
             {/* Date Range Picker (Single Input) */}
             <div className="relative">
               <button
@@ -1053,21 +1014,8 @@ const InvoiceListDashboard = () => {
           </div>
 
           {/* Chips de filtros activos */}
-          {(globalSearch || Object.keys(columnFilters).length > 0 || (dateFrom !== getTodayISO() || dateTo !== getTodayISO())) && (
+          {(Object.keys(columnFilters).length > 0 || (dateFrom !== getTodayISO() || dateTo !== getTodayISO())) && (
             <div className="mt-3 flex items-center gap-2 flex-wrap">
-              {globalSearch && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium border border-blue-200 dark:border-blue-800">
-                  <span>Búsqueda: {globalSearch}</span>
-                  <button
-                    onClick={() => setGlobalSearch('')}
-                    className="hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full p-0.5 transition-colors"
-                    aria-label="Limpiar búsqueda"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-
               {(dateFrom !== getTodayISO() || dateTo !== getTodayISO()) && (
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-800">
                   <span>Fecha: {formatDateShortSpanish(dateFrom)} — {formatDateShortSpanish(dateTo)}</span>
@@ -1104,7 +1052,7 @@ const InvoiceListDashboard = () => {
               })}
               
               {/* Botón Limpiar todo */}
-              {(globalSearch || Object.keys(columnFilters).length > 0 || dateFrom !== getTodayISO() || dateTo !== getTodayISO()) && (
+              {(Object.keys(columnFilters).length > 0 || dateFrom !== getTodayISO() || dateTo !== getTodayISO()) && (
                 <button
                   onClick={clearAllFilters}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-xs font-medium transition-colors"
