@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../features/autenticacion/hooks/useAuth';
+import ConfirmationModal from '../../../../shared/src/components/ConfirmationModal';
 
 interface UserDropdownProps {
   userName: string;
@@ -14,29 +17,42 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   userEmail,
   onClose
 }) => {
+  const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { logout } = useAuth();
   const [showThemeOptions, setShowThemeOptions] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleMenuClick = (action: string) => {
-    onClose();
-    
     switch (action) {
       case 'perfil':
+        onClose();
         alert('Redirigiendo a Mi Perfil...\n(Aquí se implementaría la navegación al perfil del usuario)');
         break;
       case 'ayuda':
+        onClose();
         alert('Redirigiendo a Centro de Ayuda...\n(Aquí se implementaría la navegación al centro de ayuda)');
         break;
       case 'suscripcion':
+        onClose();
         alert('Redirigiendo a Mi Suscripción...\n(Aquí se implementaría la navegación a la suscripción)');
         break;
       case 'logout':
-        const confirmLogout = window.confirm('¿Está seguro que desea cerrar la sesión?');
-        if (confirmLogout) {
-          alert('Cerrando sesión...\n(Aquí se implementaría el logout real)');
-        }
+        // NO cerrar el dropdown aquí, solo mostrar el modal
+        setShowLogoutModal(true);
         break;
     }
+  };
+
+  const handleConfirmLogout = async () => {
+    setShowLogoutModal(false);
+    onClose();
+    
+    // Ejecutar logout real
+    await logout();
+    
+    // Redirigir al login
+    navigate('/auth/login');
   };
 
   const getThemeLabel = () => {
@@ -269,6 +285,21 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Modal de Confirmación de Logout */}
+      <ConfirmationModal
+        isOpen={showLogoutModal}
+        title="Cerrar sesión"
+        message="¿Estás seguro que deseas cerrar tu sesión?"
+        confirmText="Cerrar sesión"
+        cancelText="Cancelar"
+        confirmButtonStyle="danger"
+        onConfirm={handleConfirmLogout}
+        onCancel={() => {
+          setShowLogoutModal(false);
+          // Mantener el dropdown abierto al cancelar
+        }}
+      />
     </>
   );
 };

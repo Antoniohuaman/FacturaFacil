@@ -29,6 +29,7 @@ export function RegisterPage() {
   const [formData, setFormData] = useState<Partial<RegisterFormData>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConsultingSunat, setIsConsultingSunat] = useState(false);
 
   const totalSteps = 2;
 
@@ -111,6 +112,16 @@ export function RegisterPage() {
       });
 
       if (loginResult.success) {
+        // Guardar datos de empresa en localStorage para pre-cargar en configuración
+        localStorage.setItem('pending_company_data', JSON.stringify({
+          ruc: completeData.ruc,
+          razonSocial: completeData.razonSocial,
+          nombreComercial: completeData.nombreComercial,
+          direccion: completeData.direccion,
+          telefono: completeData.telefono,
+          actividadEconomica: completeData.actividadEconomica,
+        }));
+
         // Login exitoso, la navegación se maneja automáticamente por los guards
         if (loginResult.requiresContext) {
           navigate('/auth/context', { replace: true });
@@ -126,6 +137,52 @@ export function RegisterPage() {
       setError(error.message || 'Error al crear la cuenta');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Función para consultar SUNAT con RUC
+  const handleConsultarSunat = async () => {
+    const rucValue = watch('ruc');
+    
+    if (!rucValue || rucValue.length !== 11) {
+      setError('Por favor ingrese un RUC válido de 11 dígitos');
+      return;
+    }
+
+    try {
+      setIsConsultingSunat(true);
+      setError(null);
+
+      // Simulación de consulta SUNAT (en producción se haría llamada a API real)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Datos de ejemplo - en producción vendrían de la API SUNAT
+      const datosSunat = {
+        razonSocial: 'EMPRESA DEMO S.A.C.',
+        direccion: 'AV. JAVIER PRADO ESTE 123, LIMA, LIMA, SAN ISIDRO',
+        actividadEconomica: 'VENTA AL POR MENOR DE PRODUCTOS ALIMENTICIOS, BEBIDAS Y TABACO EN COMERCIOS ESPECIALIZADOS',
+      };
+
+      // Autocompletar los campos con los datos de SUNAT
+      reset({
+        ...formData,
+        ruc: rucValue,
+        razonSocial: datosSunat.razonSocial,
+        direccion: datosSunat.direccion,
+        actividadEconomica: datosSunat.actividadEconomica,
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        razonSocial: datosSunat.razonSocial,
+        direccion: datosSunat.direccion,
+        actividadEconomica: datosSunat.actividadEconomica,
+      }));
+
+    } catch (err) {
+      setError('No se pudo consultar SUNAT. Intente nuevamente.');
+    } finally {
+      setIsConsultingSunat(false);
     }
   };
 
@@ -355,17 +412,53 @@ export function RegisterPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   RUC
                 </label>
-                <input
-                  type="text"
-                  {...register('ruc')}
-                  maxLength={11}
-                  className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="20123456789"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    {...register('ruc')}
+                    maxLength={11}
+                    className="block flex-1 px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="20123456789"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleConsultarSunat}
+                    disabled={isConsultingSunat || isLoading}
+                    className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center gap-2 whitespace-nowrap"
+                  >
+                    {isConsultingSunat ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Consultando...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                        </svg>
+                        Consultar SUNAT
+                      </>
+                    )}
+                  </button>
+                </div>
                 {errors.ruc && (
                   <p className="mt-1.5 text-sm text-red-600">{errors.ruc.message as string}</p>
                 )}
-                <p className="mt-1 text-xs text-gray-500">Validaremos tu RUC con SUNAT</p>
+                <p className="mt-1 text-xs text-gray-500">Datos para la creación de tu espacio de trabajo</p>
               </div>
 
               <div>
@@ -385,7 +478,7 @@ export function RegisterPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Nombre Comercial (Opcional)
+                  Nombre Comercial
                 </label>
                 <input
                   type="text"
@@ -417,7 +510,7 @@ export function RegisterPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Teléfono (Opcional)
+                  Teléfono
                 </label>
                 <input
                   type="tel"
@@ -432,7 +525,7 @@ export function RegisterPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Actividad Económica (Opcional)
+                  Actividad Económica
                 </label>
                 <textarea
                   {...register('actividadEconomica')}
@@ -440,9 +533,6 @@ export function RegisterPage() {
                   className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Venta de productos..."
                 />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Se autocompletará al consultar SUNAT con tu RUC
-                </p>
                 {errors.actividadEconomica && (
                   <p className="mt-1.5 text-sm text-red-600">
                     {errors.actividadEconomica.message as string}

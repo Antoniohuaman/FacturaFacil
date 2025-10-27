@@ -72,6 +72,7 @@ export function CompanyConfiguration() {
   // Load existing company data
   useEffect(() => {
     if (company) {
+      // Empresa ya existe en el contexto, cargar sus datos
       const loadedData = {
         ruc: company.ruc,
         businessName: company.businessName,
@@ -86,10 +87,72 @@ export function CompanyConfiguration() {
         logo: company.logo ? { url: company.logo, showInPrint: true } : undefined
       };
       setFormData(loadedData);
-      setOriginalData(loadedData); // Save original for comparison
-      setHasChanges(false); // Reset changes flag
+      setOriginalData(loadedData);
+      setHasChanges(false);
+    } else {
+      // No hay empresa en el contexto, intentar cargar desde pending_company_data
+      const pendingData = localStorage.getItem('pending_company_data');
+      if (pendingData) {
+        try {
+          const parsedData = JSON.parse(pendingData);
+          
+          // Crear objeto Company completo para el contexto
+          const newCompany: Company = {
+            id: 'company-1',
+            ruc: parsedData.ruc || '',
+            businessName: parsedData.razonSocial || '',
+            tradeName: parsedData.nombreComercial || parsedData.razonSocial || '',
+            address: parsedData.direccion || '',
+            district: '',
+            province: '',
+            department: '',
+            postalCode: '',
+            phones: parsedData.telefono ? [parsedData.telefono] : [],
+            emails: [],
+            website: undefined,
+            logo: undefined,
+            footerText: undefined,
+            economicActivity: parsedData.actividadEconomica || '',
+            taxRegime: 'GENERAL',
+            baseCurrency: 'PEN',
+            legalRepresentative: {
+              name: '',
+              documentType: 'DNI',
+              documentNumber: ''
+            },
+            digitalCertificate: undefined,
+            sunatConfiguration: {
+              isConfigured: false,
+              username: undefined,
+              environment: 'TESTING',
+              lastSyncDate: undefined
+            },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isActive: true
+          };
+
+          // Guardar la empresa en el contexto
+          dispatch({ type: 'SET_COMPANY', payload: newCompany });
+          
+          // Cargar los datos en el formulario
+          setFormData(prev => ({
+            ...prev,
+            ruc: parsedData.ruc || '',
+            businessName: parsedData.razonSocial || '',
+            tradeName: parsedData.nombreComercial || '',
+            fiscalAddress: parsedData.direccion || '',
+            phones: parsedData.telefono ? [parsedData.telefono] : [''],
+          }));
+          
+          // Limpiar los datos pendientes después de procesarlos
+          localStorage.removeItem('pending_company_data');
+        } catch (error) {
+          console.error('Error al cargar datos pendientes de empresa:', error);
+        }
+      }
     }
-  }, [company]);
+  }, [company, dispatch]);
 
   // Detect if form has changes compared to original data
   useEffect(() => {
