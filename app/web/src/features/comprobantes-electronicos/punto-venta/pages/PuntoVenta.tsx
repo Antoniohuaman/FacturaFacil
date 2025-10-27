@@ -15,11 +15,11 @@ import { useCurrentEstablishmentId, useCurrentCompanyId, useUserSession } from '
 
 // Importar componentes POS
 import { ProductGrid } from '../components/ProductGrid';
-import { CartSidebar } from '../components/CartSidebar';
+import { CartCheckoutPanel } from '../components/CartCheckoutPanel';
 
 // Importar componentes compartidos
 import { ToastContainer } from '../../shared/ui/Toast/ToastContainer';
-import { PaymentModal } from '../../shared/modales/PaymentModal';
+import { PaymentMethodModal } from '../../shared/modales/PaymentMethodModal';
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
 
@@ -62,6 +62,9 @@ const PuntoVenta = () => {
   // Estado para el modal de éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
+
+  // Estado para cliente seleccionado (nuevo flujo)
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null);
 
   // Obtener productos disponibles del catálogo (filtrados por establecimiento)
   const availableProducts = useAvailableProducts({
@@ -225,8 +228,8 @@ const PuntoVenta = () => {
             />
           </div>
 
-          {/* Cart Sidebar - PRESERVADO COMPLETAMENTE */}
-          <CartSidebar
+          {/* Cart Checkout Panel - NUEVO COMPONENTE UNIFICADO */}
+          <CartCheckoutPanel
             cartItems={cartItems}
             totals={totals}
             onRemoveItem={removeFromCart}
@@ -237,6 +240,13 @@ const PuntoVenta = () => {
             onViewFullForm={() => navigate('/comprobantes/emision')}
             onAddProduct={addToCart}
             currency={currentCurrency}
+            tipoComprobante={tipoComprobante}
+            setTipoComprobante={setTipoComprobante}
+            onCurrencyChange={(_newCurrency) => {
+              // Currency change is handled by useCurrency hook
+            }}
+            clienteSeleccionado={clienteSeleccionado}
+            setClienteSeleccionado={setClienteSeleccionado}
             cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
             isProcessing={isProcessing}
           />
@@ -248,17 +258,16 @@ const PuntoVenta = () => {
           onRemove={removeToast}
         />
 
-        {/* Payment Modal - PRESERVADO */}
-        <PaymentModal
+        {/* Payment Method Modal - NUEVO MODAL SIMPLIFICADO (SOLO PAGO) */}
+        <PaymentMethodModal
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
-          cartItems={cartItems}
-          totals={totals}
-          tipoComprobante={tipoComprobante}
-          setTipoComprobante={setTipoComprobante}
-          onPaymentComplete={handleCrearComprobante}
-          onViewFullForm={() => navigate('/comprobantes/emision')}
+          total={totals.total}
           currency={currentCurrency}
+          tipoComprobante={tipoComprobante}
+          clienteNombre={clienteSeleccionado?.nombre}
+          onPaymentComplete={handleCrearComprobante}
+          isProcessing={isProcessing}
         />
 
         {/* Modal de éxito con acciones de compartir */}
