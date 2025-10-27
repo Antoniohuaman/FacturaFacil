@@ -1,17 +1,17 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Search, Printer, ChevronLeft, ChevronRight, FileText, MoreHorizontal, 
-  Share2, Copy, Eye, Edit2, XCircle, Filter, RefreshCw, Download, 
+import {
+  Search, Printer, ChevronLeft, ChevronRight, FileText, MoreHorizontal,
+  Share2, Copy, Eye, Edit2, XCircle, Filter, RefreshCw, Download,
   Plus, CheckCircle2, Send, XOctagon, AlertTriangle, Ban, Calendar, ChevronDown, X
 } from 'lucide-react';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
-import { 
-  SelectionProvider, 
-  useSelection, 
-  BulkBar, 
-  BulkPrintModal, 
+import {
+  SelectionProvider,
+  useSelection,
+  BulkBar,
+  BulkPrintModal,
   ProgressModal,
   exportToExcel,
   createZipFile
@@ -19,65 +19,12 @@ import {
 import { FilterPanel, type FilterValues } from '../components/FilterPanel';
 import { PreviewModal } from '../../shared/modales/PreviewModal';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
+import { parseDateSpanish, filterByDateRange, getTodayISO, formatDateShortSpanish, DATE_PRESETS } from '../../utils/dateUtils';
+import { TABLE_CONFIG } from '../../models/constants';
 
-function getToday() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
-}
-
-// Función para convertir fecha del formato "20 ago. 2025 19:17" a Date
+// Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
-  // dateStr puede ser undefined/null o no tener el formato esperado.
-  // Devolvemos una fecha segura (Epoch) cuando no se pueda parsear para
-  // evitar que la UI rompa. Los items con fecha inválida quedarán al final
-  // del orden DESC si usamos epoch (1970) — consideralo como "más viejo".
-  if (!dateStr || typeof dateStr !== 'string') return new Date(0);
-
-  const monthMap: Record<string, number> = {
-    'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
-    'jul': 6, 'ago': 7, 'set': 8, 'oct': 9, 'nov': 10, 'dic': 11
-  };
-
-  try {
-    const parts = dateStr.split(' ').filter(Boolean);
-    if (parts.length < 3) return new Date(0);
-
-    const day = parseInt(parts[0], 10);
-    const monthKey = parts[1].replace('.', '').toLowerCase();
-    const month = monthMap[monthKey];
-    const year = parseInt(parts[2], 10);
-
-    if (Number.isNaN(day) || Number.isNaN(year) || month === undefined) return new Date(0);
-
-    // Hora opcional
-    const timePart = parts[3] || '00:00';
-    const [hoursRaw, minutesRaw] = timePart.split(':');
-    const hours = parseInt(hoursRaw || '0', 10) || 0;
-    const minutes = parseInt(minutesRaw || '0', 10) || 0;
-
-    return new Date(year, month, day, hours, minutes);
-  } catch (e) {
-    return new Date(0);
-  }
-}
-
-// Función para filtrar facturas por rango de fechas
-function filterInvoicesByDateRange(invoices: any[], dateFrom?: string, dateTo?: string) {
-  if (!dateFrom && !dateTo) return invoices;
-
-  const fromDate = dateFrom ? new Date(dateFrom + 'T00:00:00') : null;
-  const toDate = dateTo ? new Date(dateTo + 'T23:59:59.999') : null;
-
-  return invoices.filter(invoice => {
-    // Si invoice.date no existe, lo dejamos pasar (o podríamos filtrarlo fuera
-    // del rango). Optamos por incluirlo para no ocultar registros inesperados.
-    const invoiceDate = parseInvoiceDate((invoice && invoice.date) || undefined);
-
-    if (fromDate && invoiceDate < fromDate) return false;
-    if (toDate && invoiceDate > toDate) return false;
-
-    return true;
-  });
+  return parseDateSpanish(dateStr) || new Date(0);
 }
 
 const InvoiceListDashboard = () => {
@@ -94,11 +41,11 @@ const InvoiceListDashboard = () => {
   const [showProgress, setShowProgress] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
-  const [dateFrom, setDateFrom] = useState(getToday());
-  const [dateTo, setDateTo] = useState(getToday());
+  const [dateFrom, setDateFrom] = useState(getTodayISO());
+  const [dateTo, setDateTo] = useState(getTodayISO());
   const [currentPage, setCurrentPage] = useState(1);
   const [showTotals, setShowTotals] = useState(false);
-  const [recordsPerPage, setRecordsPerPage] = useState(10);
+  const [recordsPerPage, setRecordsPerPage] = useState<number>(TABLE_CONFIG.DEFAULT_RECORDS_PER_PAGE);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
@@ -182,21 +129,21 @@ const InvoiceListDashboard = () => {
     { id: 'email', key: 'email', label: 'Correo Electrónico', visible: false, fixed: null, align: 'left', minWidth: '200px' }
   ]), []);
 
-  const STORAGE_KEY = 'lista_comprobantes_columns_v1';
-
-  // Load persisted visibility or defaults
+  // Load persisted visibility or defaults from localStorage (not sessionStorage)
   const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(TABLE_CONFIG.COLUMN_CONFIG_STORAGE_KEY);
       if (raw) return JSON.parse(raw);
     } catch (e) {}
     // fallback to MASTER_COLUMNS
     return MASTER_COLUMNS;
   });
 
-  // Persist config to sessionStorage when changed
+  // Persist config to localStorage when changed
   useEffect(() => {
-    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(columnsConfig)); } catch (e) {}
+    try {
+      localStorage.setItem(TABLE_CONFIG.COLUMN_CONFIG_STORAGE_KEY, JSON.stringify(columnsConfig));
+    } catch (e) {}
   }, [columnsConfig]);
 
   // Helper: visible columns in order
@@ -207,54 +154,14 @@ const InvoiceListDashboard = () => {
     setColumnsConfig(prev => prev.map(c => c.id === id ? { ...c, visible: !c.visible } : c));
   };
 
-  // Función para formatear fecha a formato corto
-  const formatDateShort = (dateStr: string) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-  };
-
-  // Presets de fecha
+  // Aplicar preset de fecha usando las utilidades
   const applyDatePreset = (preset: string) => {
-    const today = new Date();
-    let from = '';
-    let to = '';
-
-    switch (preset) {
-      case 'today':
-        from = to = today.toISOString().slice(0, 10);
-        break;
-      case 'yesterday':
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        from = to = yesterday.toISOString().slice(0, 10);
-        break;
-      case 'last7days':
-        const last7 = new Date(today);
-        last7.setDate(last7.getDate() - 7);
-        from = last7.toISOString().slice(0, 10);
-        to = today.toISOString().slice(0, 10);
-        break;
-      case 'thisMonth':
-        from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-        to = today.toISOString().slice(0, 10);
-        break;
-      case 'lastMonth':
-        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        from = lastMonth.toISOString().slice(0, 10);
-        to = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().slice(0, 10);
-        break;
-      case 'last30days':
-        const last30 = new Date(today);
-        last30.setDate(last30.getDate() - 30);
-        from = last30.toISOString().slice(0, 10);
-        to = today.toISOString().slice(0, 10);
-        break;
+    const presetKey = preset as keyof typeof DATE_PRESETS;
+    if (DATE_PRESETS[presetKey]) {
+      const { from, to } = DATE_PRESETS[presetKey]();
+      setTempDateFrom(from);
+      setTempDateTo(to);
     }
-
-    setTempDateFrom(from);
-    setTempDateTo(to);
   };
 
   // Aplicar rango de fechas
@@ -275,8 +182,8 @@ const InvoiceListDashboard = () => {
   const clearAllFilters = () => {
     setGlobalSearch('');
     setColumnFilters({});
-    setDateFrom(getToday());
-    setDateTo(getToday());
+    setDateFrom(getTodayISO());
+    setDateTo(getTodayISO());
     setAdvancedFilters({
       estados: [],
       vendedores: [],
@@ -424,8 +331,13 @@ const InvoiceListDashboard = () => {
   }, [activeFilterColumn, columnFilters]);
 
   // ✅ Los comprobantes ahora vienen del contexto
-  // Datos filtrados por rango de fechas
-  const filteredInvoices = filterInvoicesByDateRange(invoices, dateFrom, dateTo);
+  // Datos filtrados por rango de fechas usando la utilidad
+  const filteredInvoices = filterByDateRange(
+    invoices,
+    (inv) => inv.date,
+    dateFrom,
+    dateTo
+  );
   
   // Filtrado por búsqueda global
   const searchedInvoices = useMemo(() => {
@@ -847,7 +759,7 @@ const InvoiceListDashboard = () => {
               >
                 <Calendar className="w-4 h-4 text-gray-500" />
                 <span className="font-medium">
-                  {formatDateShort(dateFrom)} — {formatDateShort(dateTo)}
+                  {formatDateShortSpanish(dateFrom)} — {formatDateShortSpanish(dateTo)}
                 </span>
                 <ChevronDown className="w-4 h-4 text-gray-400" />
               </button>
@@ -1141,7 +1053,7 @@ const InvoiceListDashboard = () => {
           </div>
 
           {/* Chips de filtros activos */}
-          {(globalSearch || Object.keys(columnFilters).length > 0 || (dateFrom !== getToday() || dateTo !== getToday())) && (
+          {(globalSearch || Object.keys(columnFilters).length > 0 || (dateFrom !== getTodayISO() || dateTo !== getTodayISO())) && (
             <div className="mt-3 flex items-center gap-2 flex-wrap">
               {globalSearch && (
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium border border-blue-200 dark:border-blue-800">
@@ -1155,14 +1067,14 @@ const InvoiceListDashboard = () => {
                   </button>
                 </div>
               )}
-              
-              {(dateFrom !== getToday() || dateTo !== getToday()) && (
+
+              {(dateFrom !== getTodayISO() || dateTo !== getTodayISO()) && (
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-800">
-                  <span>Fecha: {formatDateShort(dateFrom)} — {formatDateShort(dateTo)}</span>
+                  <span>Fecha: {formatDateShortSpanish(dateFrom)} — {formatDateShortSpanish(dateTo)}</span>
                   <button
                     onClick={() => {
-                      setDateFrom(getToday());
-                      setDateTo(getToday());
+                      setDateFrom(getTodayISO());
+                      setDateTo(getTodayISO());
                     }}
                     className="hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full p-0.5 transition-colors"
                     aria-label="Limpiar filtro de fecha"
@@ -1192,7 +1104,7 @@ const InvoiceListDashboard = () => {
               })}
               
               {/* Botón Limpiar todo */}
-              {(globalSearch || Object.keys(columnFilters).length > 0 || dateFrom !== getToday() || dateTo !== getToday()) && (
+              {(globalSearch || Object.keys(columnFilters).length > 0 || dateFrom !== getTodayISO() || dateTo !== getTodayISO()) && (
                 <button
                   onClick={clearAllFilters}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-xs font-medium transition-colors"

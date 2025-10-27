@@ -11,7 +11,8 @@
       "Bash(find \"c:\\FacturaFacil\\app\\web\\src\" -type f ( -name \"*establish*\" -o -name \"*tienda*\" -o -name \"*sucursal*\" -o -name \"*branch*\" ))",
       "Bash(mkdir:*)",
       "Bash(mv:*)",
-      "Bash(npm run build:dev:*)"
+      "Bash(npm run build:dev:*)",
+      "Bash(xargs cat:*)"
     ],
     "deny": [],
     "ask": []

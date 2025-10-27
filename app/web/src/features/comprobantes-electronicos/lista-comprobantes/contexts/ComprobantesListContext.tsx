@@ -15,6 +15,19 @@ export interface Comprobante {
   total: number;
   status: string;
   statusColor: 'blue' | 'green' | 'red' | 'orange';
+  // Campos opcionales agregados
+  currency?: string;
+  exchangeRate?: number;
+  paymentMethod?: string;
+  email?: string;
+  dueDate?: string;
+  address?: string;
+  shippingAddress?: string;
+  purchaseOrder?: string;
+  costCenter?: string;
+  waybill?: string;
+  observations?: string;
+  internalNote?: string;
 }
 
 interface ComprobanteState {

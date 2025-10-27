@@ -161,6 +161,32 @@ export const PRICE_TYPES = {
 } as const;
 
 // ===================================================================
+// LÍMITES DE SUNAT PARA BORRADORES
+// ===================================================================
+export const SUNAT_DRAFT_LIMITS = {
+  BOLETA_MAX_DAYS: 5,  // Boletas pueden emitirse hasta 5 días después de la fecha de emisión
+  FACTURA_MAX_DAYS: 1  // Facturas pueden emitirse hasta 1 día después de la fecha de emisión
+} as const;
+
+// ===================================================================
+// CONFIGURACIÓN DE TABLA
+// ===================================================================
+export const TABLE_CONFIG = {
+  DEFAULT_RECORDS_PER_PAGE: 10,
+  RECORDS_PER_PAGE_OPTIONS: [10, 25, 50],
+  DEFAULT_DENSITY: 'comfortable' as const,
+  COLUMN_CONFIG_STORAGE_KEY: 'lista_comprobantes_columns_v1'
+} as const;
+
+// ===================================================================
+// CONFIGURACIÓN DE PAGINACIÓN
+// ===================================================================
+export const PAGINATION_CONFIG = {
+  DRAFTS_PER_PAGE: 25,
+  MAX_PAGINATION_BUTTONS: 5
+} as const;
+
+// ===================================================================
 // CONFIGURACIÓN DE FORMULARIOS
 // ===================================================================
 export const FORM_VALIDATION = {
