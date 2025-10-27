@@ -12,7 +12,9 @@
       "Bash(mkdir:*)",
       "Bash(mv:*)",
       "Bash(npm run build:dev:*)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(cp:*)",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "ask": []
