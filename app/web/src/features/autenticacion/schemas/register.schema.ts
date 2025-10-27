@@ -23,9 +23,8 @@ export const registerStep1Schema = z.object({
 
   celular: z
     .string()
-    .min(9, 'El celular debe tener al menos 9 dígitos')
-    .max(15, 'El celular no puede exceder 15 caracteres')
-    .regex(/^[0-9+\-\s()]+$/, 'Celular inválido'),
+    .length(9, 'Ingrese número celular válido')
+    .regex(/^9[0-9]{8}$/, 'Ingrese número celular válido'),
 
   email: z
     .string()
@@ -35,7 +34,7 @@ export const registerStep1Schema = z.object({
 
   password: z
     .string()
-    .min(8, 'La contraseña debe tener al menos 8 caracteres')
+    .min(5, 'La contraseña debe tener al menos 5 caracteres')
     .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
     .regex(/[a-z]/, 'Debe contener al menos una minúscula')
     .regex(/[0-9]/, 'Debe contener al menos un número')

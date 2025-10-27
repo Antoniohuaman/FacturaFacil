@@ -1,9 +1,9 @@
 // src/features/autenticacion/hooks/usePasswordStrength.ts
 import { useMemo } from 'react';
-import type { PasswordStrength, PasswordPolicy } from '../types/auth.types';
+import type { PasswordPolicy } from '../types/auth.types';
 
 const DEFAULT_POLICY: PasswordPolicy = {
-  minLength: 8,
+  minLength: 5,
   requireUppercase: true,
   requireLowercase: true,
   requireNumbers: true,
@@ -11,64 +11,89 @@ const DEFAULT_POLICY: PasswordPolicy = {
   specialChars: '!@#$%^&*()_+-=[]{}|;:,.<>?',
 };
 
+export interface PasswordRequirement {
+  label: string;
+  met: boolean;
+}
+
+export interface EnhancedPasswordStrength {
+  score: 0 | 1 | 2 | 3 | 4;
+  feedback: string[];
+  isValid: boolean;
+  requirements: PasswordRequirement[];
+}
+
 /**
- * Hook para evaluar la fortaleza de contraseñas
+ * Hook para evaluar la fortaleza de contraseñas con feedback visual mejorado
  */
-export function usePasswordStrength(password: string, policy: PasswordPolicy = DEFAULT_POLICY): PasswordStrength {
+export function usePasswordStrength(password: string, policy: PasswordPolicy = DEFAULT_POLICY): EnhancedPasswordStrength {
   return useMemo(() => {
     if (!password) {
       return {
-        score: 0,
-        feedback: ['Ingresa una contraseña'],
+        score: 0 as 0,
+        feedback: [],
         isValid: false,
+        requirements: [
+          { label: 'Mínimo 5 caracteres', met: false },
+          { label: 'Una mayúscula (A-Z)', met: false },
+          { label: 'Una minúscula (a-z)', met: false },
+          { label: 'Un número (0-9)', met: false },
+          { label: 'Un símbolo (!@#$%...)', met: false },
+        ],
       };
     }
 
     let score = 0;
     const feedback: string[] = [];
+    const requirements: PasswordRequirement[] = [];
 
     // Longitud mínima
-    if (password.length < policy.minLength) {
-      feedback.push(`Mínimo ${policy.minLength} caracteres`);
-    } else {
-      score++;
-    }
+    const hasMinLength = password.length >= policy.minLength;
+    requirements.push({
+      label: `Mínimo ${policy.minLength} caracteres`,
+      met: hasMinLength,
+    });
+    if (hasMinLength) score++;
 
     // Mayúsculas
+    const hasUppercase = /[A-Z]/.test(password);
     if (policy.requireUppercase) {
-      if (!/[A-Z]/.test(password)) {
-        feedback.push('Debe contener mayúsculas');
-      } else {
-        score++;
-      }
+      requirements.push({
+        label: 'Una mayúscula (A-Z)',
+        met: hasUppercase,
+      });
+      if (hasUppercase) score++;
     }
 
     // Minúsculas
+    const hasLowercase = /[a-z]/.test(password);
     if (policy.requireLowercase) {
-      if (!/[a-z]/.test(password)) {
-        feedback.push('Debe contener minúsculas');
-      } else {
-        score++;
-      }
+      requirements.push({
+        label: 'Una minúscula (a-z)',
+        met: hasLowercase,
+      });
+      if (hasLowercase) score++;
     }
 
     // Números
+    const hasNumber = /[0-9]/.test(password);
     if (policy.requireNumbers) {
-      if (!/[0-9]/.test(password)) {
-        feedback.push('Debe contener números');
-      } else {
-        score++;
-      }
+      requirements.push({
+        label: 'Un número (0-9)',
+        met: hasNumber,
+      });
+      if (hasNumber) score++;
     }
 
     // Caracteres especiales
+    const specialRegex = new RegExp(`[${policy.specialChars.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`);
+    const hasSpecialChar = specialRegex.test(password);
     if (policy.requireSpecialChars) {
-      const specialRegex = new RegExp(`[${policy.specialChars.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`);
-      if (!specialRegex.test(password)) {
-        feedback.push('Debe contener caracteres especiales');
-      } else {
-        score++;
-      }
+      requirements.push({
+        label: 'Un símbolo (!@#$%...)',
+        met: hasSpecialChar,
+      });
+      if (hasSpecialChar) score++;
     }
 
     // Bonus por longitud extra
@@ -81,15 +106,25 @@ export function usePasswordStrength(password: string, policy: PasswordPolicy = D
     // Determinar si es válido
     const isValid = 
       password.length >= policy.minLength &&
-      (!policy.requireUppercase || /[A-Z]/.test(password)) &&
-      (!policy.requireLowercase || /[a-z]/.test(password)) &&
-      (!policy.requireNumbers || /[0-9]/.test(password)) &&
-      (!policy.requireSpecialChars || new RegExp(`[${policy.specialChars.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`).test(password));
+      (!policy.requireUppercase || hasUppercase) &&
+      (!policy.requireLowercase || hasLowercase) &&
+      (!policy.requireNumbers || hasNumber) &&
+      (!policy.requireSpecialChars || hasSpecialChar);
+
+    // Feedback solo si no es válido
+    if (!isValid) {
+      if (!hasMinLength) feedback.push(`Mínimo ${policy.minLength} caracteres`);
+      if (policy.requireUppercase && !hasUppercase) feedback.push('Falta mayúscula');
+      if (policy.requireLowercase && !hasLowercase) feedback.push('Falta minúscula');
+      if (policy.requireNumbers && !hasNumber) feedback.push('Falta número');
+      if (policy.requireSpecialChars && !hasSpecialChar) feedback.push('Falta símbolo');
+    }
 
     return {
       score: normalizedScore,
-      feedback: feedback.length > 0 ? feedback : ['Contraseña segura'],
+      feedback,
       isValid,
+      requirements,
     };
   }, [password, policy]);
 }

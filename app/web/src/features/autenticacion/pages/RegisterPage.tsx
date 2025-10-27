@@ -107,8 +107,24 @@ export function RegisterPage() {
         return;
       }
 
-      // Redirigir al login con mensaje de éxito
-      navigate('/auth/login?registered=true');
+      // Registro exitoso: Hacer login automático
+      const loginResult = await authRepository.login({
+        email: completeData.email,
+        password: completeData.password,
+        recordarme: true,
+      });
+
+      if (loginResult.success) {
+        // Login exitoso, la navegación se maneja automáticamente por los guards
+        if (loginResult.requiresContext) {
+          navigate('/auth/context', { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
+      } else {
+        // Si el login automático falla, redirigir al login manual
+        navigate('/auth/login?registered=true');
+      }
     } catch (err: unknown) {
       const error = err as { message?: string };
       setError(error.message || 'Error al crear la cuenta');
@@ -254,6 +270,7 @@ export function RegisterPage() {
                 <input
                   type="tel"
                   {...register('celular')}
+                  maxLength={9}
                   className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="987654321"
                 />
@@ -277,20 +294,54 @@ export function RegisterPage() {
                 strengthScore={passwordStrength.score}
               />
 
+              {/* Indicador Visual de Requisitos de Contraseña */}
               {password && (
-                <div className="text-xs space-y-1">
-                  {passwordStrength.feedback.map((feedback, i) => (
-                    <p
-                      key={i}
-                      className={
-                        passwordStrength.isValid
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }
-                    >
-                      {feedback}
-                    </p>
-                  ))}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Tu contraseña debe incluir:
+                  </p>
+                  <div className="space-y-2">
+                    {passwordStrength.requirements.map((req, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <div
+                          className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                            passwordStrength.isValid && req.met
+                              ? 'bg-green-500 text-white'
+                              : req.met
+                              ? 'bg-gray-400 dark:bg-gray-500 text-white'
+                              : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
+                          {passwordStrength.isValid && req.met ? '✓' : req.met ? '✓' : '○'}
+                        </div>
+                        <span
+                          className={`text-xs transition-colors ${
+                            passwordStrength.isValid && req.met
+                              ? 'text-green-600 dark:text-green-400 font-medium'
+                              : req.met
+                              ? 'text-gray-600 dark:text-gray-400 font-medium'
+                              : 'text-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          {req.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {passwordStrength.isValid && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-xs font-medium">¡Contraseña segura!</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
