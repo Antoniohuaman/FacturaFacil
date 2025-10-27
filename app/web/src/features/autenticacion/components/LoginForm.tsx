@@ -27,7 +27,7 @@ export function LoginForm({ onSubmit, isLoading = false }: LoginFormProps) {
   });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       {/* Email */}
       <EmailInput
         register={register('email')}

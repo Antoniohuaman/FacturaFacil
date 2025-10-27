@@ -38,21 +38,24 @@ export function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="space-y-8">
-        {/* Header */}
+      <div className="space-y-5">
+        {/* Header con Logo */}
         <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-              </svg>
-            </div>
+          {/* Logo SenciYO - Arriba */}
+          <div className="flex justify-center mb-8">
+            <img 
+              src="/SenciYO.svg" 
+              alt="SenciYO" 
+              className="h-10 w-auto"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            ¡Bienvenido de nuevo!
+          
+          {/* Título y subtítulo */}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+            Ingresa a tu cuenta
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Ingresa a tu cuenta para continuar
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Toma el control de tu negocio
           </p>
         </div>
 
@@ -93,7 +96,7 @@ export function LoginPage() {
         <LoginForm onSubmit={handleLogin} isLoading={isLoading} />
 
         {/* Footer */}
-        <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-center text-xs text-gray-500 dark:text-gray-400">
           <p>
             Al iniciar sesión, aceptas nuestros{' '}
             <a href="/terms" className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 font-medium">

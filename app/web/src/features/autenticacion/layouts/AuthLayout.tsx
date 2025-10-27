@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 /**
  * ============================================
- * AUTH LAYOUT - Diseño 50/50 con Hero
+ * AUTH LAYOUT - Diseño 60/40 con Hero
  * ============================================
  * Layout principal para todas las páginas de autenticación
  * Diseño moderno con glassmorphism y gradientes
@@ -17,9 +17,9 @@ interface AuthLayoutProps {
 export function AuthLayout({ children, showHero = true }: AuthLayoutProps) {
   return (
     <div className="min-h-screen flex">
-      {/* ==================== HERO SECTION (Izquierda) ==================== */}
+      {/* ==================== HERO SECTION (Izquierda - 65%) ==================== */}
       {showHero && (
-        <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800">
+        <div className="hidden lg:flex lg:w-[65%] relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800">
           {/* Patrón de fondo */}
           <div className="absolute inset-0 opacity-10">
             <div className="absolute inset-0" 
@@ -36,19 +36,10 @@ export function AuthLayout({ children, showHero = true }: AuthLayoutProps) {
 
           {/* Contenido del Hero */}
           <div className="relative z-10 flex flex-col justify-center px-12 xl:px-16 text-white">
-            {/* Logo */}
-            <div className="mb-8">
-              <img 
-                src="/SenciYO.svg" 
-                alt="SenciYO" 
-                className="h-12 w-auto filter drop-shadow-lg"
-              />
-            </div>
-
             {/* Título */}
             <h1 className="text-5xl xl:text-6xl font-bold mb-6 leading-tight">
               Facturación <br />
-              Electrónica <br />
+
               <span className="text-blue-200">Simple y Rápida</span>
             </h1>
 
@@ -84,9 +75,9 @@ export function AuthLayout({ children, showHero = true }: AuthLayoutProps) {
         </div>
       )}
 
-      {/* ==================== FORM SECTION (Derecha) ==================== */}
+      {/* ==================== FORM SECTION (Derecha - 35%) ==================== */}
       <div 
-        className={`flex-1 ${showHero ? 'lg:w-1/2' : 'w-full'} flex items-center justify-center p-6 sm:p-8 lg:p-12 bg-gray-50 dark:bg-gray-900`}
+        className={`flex-1 ${showHero ? 'lg:w-[35%]' : 'w-full'} flex items-center justify-center p-6 sm:p-8 lg:p-12 bg-gray-50 dark:bg-gray-900`}
       >
         <div className="w-full max-w-md">
           {children}
