@@ -11,19 +11,17 @@ import { authRepository } from '../services/AuthRepository';
 import {
   registerStep1Schema,
   registerStep2Schema,
-  registerStep3Schema,
   type RegisterStep1Data,
   type RegisterStep2Data,
-  type RegisterStep3Data,
 } from '../schemas';
 
 /**
  * ============================================
- * REGISTER PAGE - Registro Multi-Step
+ * REGISTER PAGE - Registro 2 Pasos
  * ============================================
  */
 
-type RegisterFormData = RegisterStep1Data & RegisterStep2Data & RegisterStep3Data;
+type RegisterFormData = RegisterStep1Data & RegisterStep2Data;
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -32,7 +30,7 @@ export function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const totalSteps = 3;
+  const totalSteps = 2;
 
   // Determinar qué schema usar según el step actual
   const getSchemaForStep = () => {
@@ -41,8 +39,6 @@ export function RegisterPage() {
         return registerStep1Schema;
       case 2:
         return registerStep2Schema;
-      case 3:
-        return registerStep3Schema;
       default:
         return registerStep1Schema;
     }
@@ -98,7 +94,7 @@ export function RegisterPage() {
         nombreComercial: completeData.nombreComercial,
         direccion: completeData.direccion,
         telefono: completeData.telefono,
-        regimen: completeData.regimen,
+        regimen: 'general', // Valor por defecto
         actividadEconomica: completeData.actividadEconomica,
       });
 
@@ -159,18 +155,16 @@ export function RegisterPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             {currentStep === 1 && 'Crea tu cuenta'}
             {currentStep === 2 && 'Información de tu empresa'}
-            {currentStep === 3 && 'Configuración inicial'}
           </h1>
 
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             {currentStep === 1 && 'Comienza tu experiencia con SenciYO'}
             {currentStep === 2 && 'Validaremos tu RUC con SUNAT'}
-            {currentStep === 3 && 'Últimos detalles para empezar'}
           </p>
 
           {/* Progress Bar */}
           <div className="flex items-center justify-center gap-2 mb-6">
-            {[1, 2, 3].map((step) => (
+            {[1, 2].map((step) => (
               <div key={step} className="flex items-center">
                 <div
                   className={`
@@ -196,7 +190,7 @@ export function RegisterPage() {
                     step
                   )}
                 </div>
-                {step < 3 && (
+                {step < 2 && (
                   <div
                     className={`w-12 h-1 mx-1 rounded transition-all ${
                       step < currentStep ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
@@ -435,43 +429,6 @@ export function RegisterPage() {
                   <p className="mt-1.5 text-sm text-red-600">{errors.telefono.message as string}</p>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* STEP 3: Configuración */}
-          {currentStep === 3 && (
-            <div className="space-y-6 animate-fadeIn">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Régimen Tributario
-                </label>
-                <div className="grid grid-cols-1 gap-3">
-                  {[
-                    { value: 'general', label: 'Régimen General', desc: 'Para empresas grandes' },
-                    { value: 'mype', label: 'Régimen MYPE', desc: 'Para pequeñas y medianas empresas' },
-                    { value: 'especial', label: 'Régimen Especial', desc: 'RER - Simplificado' },
-                  ].map((regimen) => (
-                    <label
-                      key={regimen.value}
-                      className="flex items-start p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 transition-colors"
-                    >
-                      <input
-                        type="radio"
-                        {...register('regimen')}
-                        value={regimen.value}
-                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <div className="ml-3">
-                        <p className="font-medium text-gray-900 dark:text-white">{regimen.label}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{regimen.desc}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                {errors.regimen && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.regimen.message as string}</p>
-                )}
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -483,6 +440,9 @@ export function RegisterPage() {
                   className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Venta de productos..."
                 />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Se autocompletará al consultar SUNAT con tu RUC
+                </p>
                 {errors.actividadEconomica && (
                   <p className="mt-1.5 text-sm text-red-600">
                     {errors.actividadEconomica.message as string}
