@@ -26,6 +26,14 @@ const mainItems = [
     icon: ShoppingCart
   },
   {
+    to: "/documentos-negociacion",
+    label: "Documentos Negociación",
+    description: "Cotizaciones y notas de venta",
+    icon: Receipt,
+    badge: "2",
+    badgeColor: "blue"
+  },
+  {
     to: "/documentos-comerciales",
     label: "Documentos",
     description: "Cotizaciones y notas de venta",

@@ -28,6 +28,11 @@ import { ListaPrecios } from "../../features/lista-precios/components/ListaPreci
 const DocumentosPage = lazy(() => import("../../features/documentos-comerciales/pages/DocumentosPage").then(m => ({ default: m.DocumentosPage })));
 import RouteErrorBoundary from "./RouteErrorBoundary";
 
+// Documentos de Negociación
+import DocumentosTabs from "../../features/Documentos-negociacion/pages/DocumentosTabs";
+import FormularioCotizacion from "../../features/Documentos-negociacion/pages/FormularioCotizacion";
+import FormularioNotaVenta from "../../features/Documentos-negociacion/pages/FormularioNotaVenta";
+
 export const router = createBrowserRouter([
   // Rutas de autenticación (públicas)
   ...authRoutes,
@@ -58,6 +63,12 @@ export const router = createBrowserRouter([
         errorElement: <RouteErrorBoundary />
       },
       { path: "/control-caja", element: <ControlCajaHome /> },
+      
+      // Documentos de Negociación
+      { path: "/documentos-negociacion", element: <DocumentosTabs /> },
+      { path: "/documentos/cotizacion/nueva", element: <FormularioCotizacion /> },
+      { path: "/documentos/nota-venta/nueva", element: <FormularioNotaVenta /> },
+      
       { path: "/clientes", element: <ClientesPage /> },
   { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
   { path: "/importar-clientes", element: <ImportarClientesPage /> },
