@@ -4,7 +4,7 @@
 
 // Tipos básicos del sistema
 export type TipoDocumento = 'cotizacion' | 'nota-venta';
-export type EstadoDocumento = 'Pendiente' | 'Aprobado' | 'Rechazado' | 'Convertido' | 'Vencido';
+export type EstadoDocumento = 'Borrador' | 'Pendiente' | 'Aprobado' | 'Rechazado' | 'Convertido' | 'Vencido';
 
 // ===================================================================
 // INTERFACES DE DOCUMENTOS
@@ -19,7 +19,8 @@ export interface Documento {
   vendor: string;
   total: number;
   status: string;
-  statusColor: 'blue' | 'green' | 'red' | 'orange' | 'purple';
+  statusColor: 'blue' | 'green' | 'red' | 'orange' | 'purple' | 'gray';
+  isDraft?: boolean; // Para identificar borradores
   // Campos opcionales
   currency?: string;
   exchangeRate?: number;
@@ -34,8 +35,11 @@ export interface Documento {
   observations?: string;
   internalNote?: string;
   validUntil?: string; // Para cotizaciones
+  items?: any[]; // Productos del documento
   convertedToInvoice?: boolean; // Si ya se convirtió a factura
   convertedDate?: string;
+  relatedDocumentId?: string; // ID del documento relacionado (comprobante generado)
+  relatedDocumentType?: string; // Tipo de documento relacionado
 }
 
 export interface DocumentoListItem extends Documento {
@@ -60,6 +64,7 @@ export interface DocumentoFilters {
 // ===================================================================
 
 export const ESTADOS_COTIZACION = [
+  'Borrador',
   'Pendiente',
   'Aprobado',
   'Rechazado',
@@ -68,6 +73,7 @@ export const ESTADOS_COTIZACION = [
 ] as const;
 
 export const ESTADOS_NOTA_VENTA = [
+  'Borrador',
   'Pendiente',
   'Aprobado',
   'Facturado',

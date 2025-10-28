@@ -67,7 +67,9 @@ export const router = createBrowserRouter([
       // Documentos de Negociación
       { path: "/documentos-negociacion", element: <DocumentosTabs /> },
       { path: "/documentos/cotizacion/nueva", element: <FormularioCotizacion /> },
+      { path: "/documentos/nueva-cotizacion", element: <FormularioCotizacion /> },
       { path: "/documentos/nota-venta/nueva", element: <FormularioNotaVenta /> },
+      { path: "/documentos/nueva-nota-venta", element: <FormularioNotaVenta /> },
       
       { path: "/clientes", element: <ClientesPage /> },
   { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },

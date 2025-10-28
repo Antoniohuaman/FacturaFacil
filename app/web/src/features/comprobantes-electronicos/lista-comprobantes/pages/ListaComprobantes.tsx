@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, Printer, FileText, MoreHorizontal,
   Share2, Copy, Eye, Edit2, XCircle,
-  CheckCircle2, Send, XOctagon, AlertTriangle, Ban, X
+  CheckCircle2, Send, XOctagon, AlertTriangle, Ban, X, Link
 } from 'lucide-react';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
 import {
@@ -1100,6 +1100,18 @@ const InvoiceListDashboard = () => {
                                     <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
                                       📅 {invoice.date}
                                     </div>
+                                  )}
+                                  {(invoice as any).relatedDocumentId && (
+                                    <button
+                                      onClick={() => navigate('/documentos')}
+                                      className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-full w-fit mt-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer transition-colors"
+                                      title={`Ver ${(invoice as any).relatedDocumentType}: ${(invoice as any).relatedDocumentId}`}
+                                    >
+                                      <Link className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                                      <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                                        ← {(invoice as any).relatedDocumentId}
+                                      </span>
+                                    </button>
                                   )}
                                 </div>
                               );

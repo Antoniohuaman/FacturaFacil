@@ -4,6 +4,7 @@
 
 export const TABLE_CONFIG = {
   DEFAULT_RECORDS_PER_PAGE: 10,
+  RECORDS_PER_PAGE_OPTIONS: [10, 25, 50, 100],
   COLUMN_CONFIG_STORAGE_KEY: 'documentos_column_config',
   FILTERS_STORAGE_KEY: 'documentos_filters'
 } as const;

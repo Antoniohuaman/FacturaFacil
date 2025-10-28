@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { Documento } from '../models/documento.types';
 
@@ -17,12 +17,23 @@ type DocumentoAction =
   | { type: 'DELETE_DOCUMENTO'; payload: string };
 
 // ============================================
-// DATOS INICIALES
+// DATOS INICIALES - CARGAR DESDE LOCALSTORAGE
 // ============================================
-const INITIAL_DOCUMENTOS: Documento[] = [];
+
+const loadDocumentosFromStorage = (): Documento[] => {
+  try {
+    const stored = localStorage.getItem('documentos_negociacion');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading documentos from localStorage:', error);
+  }
+  return [];
+};
 
 const initialState: DocumentoState = {
-  documentos: INITIAL_DOCUMENTOS
+  documentos: loadDocumentosFromStorage()
 };
 
 // ============================================
@@ -69,6 +80,7 @@ interface DocumentoContextValue {
   setDocumentos: (documentos: Documento[]) => void;
   updateDocumento: (documento: Documento) => void;
   deleteDocumento: (id: string) => void;
+  reloadFromStorage: () => void;
 }
 
 const DocumentoContext = createContext<DocumentoContextValue | undefined>(undefined);
@@ -83,6 +95,15 @@ interface DocumentoProviderProps {
 
 export function DocumentoProvider({ children }: DocumentoProviderProps) {
   const [state, dispatch] = useReducer(documentoReducer, initialState);
+
+  // Sincronizar con localStorage cada vez que cambian los documentos
+  useEffect(() => {
+    try {
+      localStorage.setItem('documentos_negociacion', JSON.stringify(state.documentos));
+    } catch (error) {
+      console.error('Error saving documentos to localStorage:', error);
+    }
+  }, [state.documentos]);
 
   const addDocumento = (documento: Documento) => {
     dispatch({ type: 'ADD_DOCUMENTO', payload: documento });
@@ -100,13 +121,19 @@ export function DocumentoProvider({ children }: DocumentoProviderProps) {
     dispatch({ type: 'DELETE_DOCUMENTO', payload: id });
   };
 
+  const reloadFromStorage = () => {
+    const documentos = loadDocumentosFromStorage();
+    dispatch({ type: 'SET_DOCUMENTOS', payload: documentos });
+  };
+
   const value = {
     state,
     dispatch,
     addDocumento,
     setDocumentos,
     updateDocumento,
-    deleteDocumento
+    deleteDocumento,
+    reloadFromStorage
   };
 
   return (

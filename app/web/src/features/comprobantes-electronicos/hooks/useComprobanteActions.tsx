@@ -249,6 +249,10 @@ export const useComprobanteActions = () => {
 
         const paymentMethodLabel = data.formaPago ? mapFormaPagoToMedioPago(data.formaPago) : 'Efectivo';
 
+        // ✅ VERIFICAR SI VIENE DE CONVERSIÓN PARA AGREGAR CORRELACIÓN
+        const conversionSourceId = sessionStorage.getItem('conversionSourceId');
+        const conversionSourceType = sessionStorage.getItem('conversionSourceType');
+
         const nuevoComprobante = {
           id: numeroComprobante,
           type: tipoComprobanteDisplay,
@@ -272,10 +276,58 @@ export const useComprobanteActions = () => {
           // Payment and currency
           paymentMethod: paymentMethodLabel,
           currency: data.currency || undefined,
+          // Correlación bidireccional (si viene de conversión)
+          ...(conversionSourceId && conversionSourceType ? {
+            relatedDocumentId: conversionSourceId,
+            relatedDocumentType: conversionSourceType,
+            convertedFromDocument: true
+          } : {})
         };
 
         // Agregar al contexto global
         addComprobante(nuevoComprobante);
+
+        // ✅ ACTUALIZAR DOCUMENTO ORIGEN SI VIENE DE CONVERSIÓN
+        try {
+          const conversionSourceId = sessionStorage.getItem('conversionSourceId');
+          const conversionSourceType = sessionStorage.getItem('conversionSourceType');
+          
+          if (conversionSourceId && conversionSourceType) {
+            // Obtener documentos del localStorage
+            const documentosLS = localStorage.getItem('documentos_negociacion');
+            if (documentosLS) {
+              const documentos = JSON.parse(documentosLS);
+              
+              // Buscar y actualizar el documento origen
+              const updatedDocumentos = documentos.map((doc: any) => {
+                if (doc.id === conversionSourceId) {
+                  return {
+                    ...doc,
+                    status: 'Convertido',
+                    statusColor: 'green',
+                    relatedDocumentId: numeroComprobante,
+                    relatedDocumentType: tipoComprobanteDisplay,
+                    convertedToInvoice: true,
+                    convertedDate: new Date().toISOString()
+                  };
+                }
+                return doc;
+              });
+              
+              // Guardar documentos actualizados
+              localStorage.setItem('documentos_negociacion', JSON.stringify(updatedDocumentos));
+              
+              console.log(`✅ Documento ${conversionSourceId} actualizado con relación a ${numeroComprobante}`);
+            }
+            
+            // Limpiar sessionStorage
+            sessionStorage.removeItem('conversionSourceId');
+            sessionStorage.removeItem('conversionSourceType');
+          }
+        } catch (conversionError) {
+          console.error('Error actualizando documento origen:', conversionError);
+          // No lanzar error, el comprobante ya se creó exitosamente
+        }
       } catch (contextError) {
         console.error('Error agregando comprobante al contexto:', contextError);
         // No lanzar error, el comprobante ya se creó exitosamente

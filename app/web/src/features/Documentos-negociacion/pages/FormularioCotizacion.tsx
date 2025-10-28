@@ -1,11 +1,11 @@
 // ===================================================================
 // FORMULARIO DE COTIZACIÓN - INDEPENDIENTE
-// Mismo diseño visual que EmisionTradicional, lógica propia
+// Series dinámicas desde configuración + Guardar borrador + Toasts
 // ===================================================================
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Check, Settings } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, FileText, Check, Settings, Save } from 'lucide-react';
 
 // Hooks reutilizables del sistema de comprobantes (solo para UI, no lógica)
 import { useCart } from '../../comprobantes-electronicos/punto-venta/hooks/useCart';
@@ -19,19 +19,32 @@ import NotesSection from '../../comprobantes-electronicos/shared/form-core/compo
 import FieldsConfigModal from '../../comprobantes-electronicos/shared/form-core/components/FieldsConfigModal';
 import { ErrorBoundary } from '../../comprobantes-electronicos/shared/ui/ErrorBoundary';
 import { DocumentoProductsSection } from '../components/DocumentoProductsSection';
+import { Toast } from '../../comprobantes-electronicos/shared/ui/Toast/Toast';
 
 // Contextos
 import { useDocumentoContext } from '../contexts/DocumentosContext';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useCurrentEstablishmentId } from '../../../contexts/UserSessionContext';
 
 const FormularioCotizacion = () => {
   const navigate = useNavigate();
-  const { addDocumento } = useDocumentoContext();
+  const location = useLocation();
+  const { addDocumento, updateDocumento } = useDocumentoContext();
+  const { state: configState } = useConfigurationContext();
+  const currentEstablishmentId = useCurrentEstablishmentId();
+
+  // Detectar modo edición
+  const documentoToEdit = location.state?.documento;
+  const isEditMode = !!documentoToEdit;
 
   // UI State
   const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [lastCotizacion, setLastCotizacion] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Toast state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
 
   // Hooks del sistema de comprobantes (solo para UI)
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
@@ -62,14 +75,45 @@ const FormularioCotizacion = () => {
   const [formaPago, setFormaPago] = useState<string>('Efectivo');
   const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
 
-  // Serie de cotización - obtener de configuración
-  const seriesCotizacion = [
-    { serie: 'COT-001', descripcion: 'Serie Principal Cotizaciones' },
-    { serie: 'COT-002', descripcion: 'Serie Secundaria' }
-  ];
+  // ===================================================================
+  // SERIES DINÁMICAS DESDE CONFIGURACIÓN
+  // ===================================================================
+
+  /**
+   * Obtener series de cotización desde configuración
+   * Filtradas por establecimiento actual
+   */
+  const seriesCotizacion = useMemo(() => {
+    if (!configState.series || configState.series.length === 0) {
+      return [];
+    }
+
+    return configState.series
+      .filter(s => {
+        const isActive = s.isActive && s.status === 'ACTIVE';
+        // Filtrar por tipo de documento: Cotización (code: 'COT' o category: 'QUOTATION')
+        const isCotizacion = 
+          s.documentType.code === 'COT' || 
+          s.documentType.category === 'QUOTATION' ||
+          s.documentType.name.toLowerCase().includes('cotización');
+        // Filtrar por establecimiento actual
+        const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
+        
+        return isActive && isCotizacion && belongsToEstablishment;
+      })
+      .map(s => s.series);
+  }, [configState.series, currentEstablishmentId]);
+
   const [serieSeleccionada, setSerieSeleccionada] = useState<string>(
-    seriesCotizacion[0]?.serie || ''
+    seriesCotizacion[0] || ''
   );
+
+  // Actualizar serie seleccionada cuando cambien las series disponibles
+  useMemo(() => {
+    if (seriesCotizacion.length > 0 && !serieSeleccionada) {
+      setSerieSeleccionada(seriesCotizacion[0]);
+    }
+  }, [seriesCotizacion, serieSeleccionada]);
 
   // Calcular totales
   const totals = calculateTotals(cartItems);
@@ -80,20 +124,195 @@ const FormularioCotizacion = () => {
     serieSeleccionada !== '' &&
     cartItems.length > 0;
 
-  // Handler para crear cotización
+  // ===================================================================
+  // FUNCIÓN PARA GENERAR CORRELATIVO
+  // ===================================================================
+  
+  const generarCorrelativo = (serie: string): string => {
+    // Buscar la configuración de serie para obtener el correlativo actual
+    const serieConfig = configState.series.find(s => s.series === serie);
+    
+    if (serieConfig) {
+      const nextNumber = serieConfig.correlativeNumber + 1;
+      const minDigits = serieConfig.configuration.minimumDigits || 4;
+      return String(nextNumber).padStart(minDigits, '0');
+    }
+    
+    // Fallback: generar número aleatorio
+    return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  };
+
+  // ===================================================================
+  // CARGAR DATOS EN MODO EDICIÓN
+  // ===================================================================
+
+  useEffect(() => {
+    if (isEditMode && documentoToEdit) {
+      // Cargar cliente
+      if (documentoToEdit.client && documentoToEdit.clientDoc) {
+        setClienteSeleccionado({
+          nombre: documentoToEdit.client,
+          dni: documentoToEdit.clientDoc,
+          direccion: documentoToEdit.address || '',
+          email: documentoToEdit.email || ''
+        });
+      }
+
+      // Cargar items al carrito
+      if (documentoToEdit.items && documentoToEdit.items.length > 0) {
+        // Limpiar carrito primero
+        clearCart();
+        // Cargar productos
+        const products = documentoToEdit.items.map((item: any) => ({
+          product: {
+            id: item.id || item.codigo || `PROD-${Date.now()}`,
+            name: item.name || item.descripcion,
+            description: item.descripcion || '',
+            price: item.price || item.precioUnitario,
+            unit: item.unit || item.unidad || 'UND',
+            stock: 9999,
+            category: '',
+            taxType: item.taxType || item.tipoImpuesto || 'IGV'
+          },
+          quantity: item.quantity || item.cantidad || 1
+        }));
+        
+        products.forEach((p: any) => addProductsFromSelector([p]));
+      }
+
+      // Cargar otros campos
+      setFechaVencimiento(documentoToEdit.validUntil || '');
+      setObservaciones(documentoToEdit.observations || '');
+      setNotaInterna(documentoToEdit.internalNote || '');
+      setFormaPago(documentoToEdit.paymentMethod || 'Efectivo');
+      
+      if (documentoToEdit.currency) {
+        changeCurrency(documentoToEdit.currency);
+      }
+
+      // Campos opcionales
+      if (documentoToEdit.ordenCompra || documentoToEdit.guiaRemision || documentoToEdit.centroCosto || documentoToEdit.direccionEnvio) {
+        setOptionalFields({
+          ordenCompra: documentoToEdit.ordenCompra || '',
+          guiaRemision: documentoToEdit.guiaRemision || '',
+          centroCosto: documentoToEdit.centroCosto || '',
+          direccionEnvio: documentoToEdit.direccionEnvio || ''
+        });
+      }
+    }
+  }, [isEditMode, documentoToEdit]);
+
+  // ===================================================================
+  // GUARDAR BORRADOR
+  // ===================================================================
+
+  const handleGuardarBorrador = () => {
+    if (!clienteSeleccionado || cartItems.length === 0) {
+      setToastMessage('Debe seleccionar un cliente y agregar al menos un producto');
+      setToastType('warning');
+      setShowToast(true);
+      return;
+    }
+
+    try {
+      let numeroDocumento: string;
+      
+      if (isEditMode && documentoToEdit) {
+        // Modo edición: mantener el mismo ID
+        numeroDocumento = documentoToEdit.id;
+      } else {
+        // Modo creación: generar nuevo número
+        const numeroCorrelativo = generarCorrelativo(serieSeleccionada);
+        numeroDocumento = `${serieSeleccionada}-${numeroCorrelativo}`;
+      }
+
+      const documentoData = {
+        id: numeroDocumento,
+        type: 'Cotización' as const,
+        clientDoc: clienteSeleccionado.dni,
+        client: clienteSeleccionado.nombre,
+        date: new Date().toLocaleDateString('es-PE', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        }),
+        vendor: 'Javier Masías Loza', // TODO: Usuario actual
+        total: totals.total,
+        status: 'Borrador' as const,
+        statusColor: 'gray' as const,
+        currency: currentCurrency,
+        paymentMethod: formaPago,
+        email: clienteSeleccionado?.email,
+        validUntil: fechaVencimiento,
+        address: clienteSeleccionado?.direccion,
+        observations: observaciones,
+        internalNote: notaInterna,
+        items: cartItems,
+        isDraft: true,
+        ...optionalFields,
+        // Auditoría
+        editedDate: isEditMode ? new Date().toISOString() : undefined,
+        editedBy: isEditMode ? 'Javier Masías Loza' : undefined, // TODO: Usuario actual
+        createdDate: isEditMode && documentoToEdit.createdDate ? documentoToEdit.createdDate : new Date().toISOString(),
+        createdBy: isEditMode && documentoToEdit.createdBy ? documentoToEdit.createdBy : 'Javier Masías Loza',
+        // Mantener correlación si existe
+        relatedDocumentId: isEditMode && documentoToEdit.relatedDocumentId ? documentoToEdit.relatedDocumentId : undefined,
+        relatedDocumentType: isEditMode && documentoToEdit.relatedDocumentType ? documentoToEdit.relatedDocumentType : undefined,
+      };
+
+      // Guardar o actualizar en contexto
+      if (isEditMode) {
+        updateDocumento(documentoData);
+        setToastMessage(`Cotización ${numeroDocumento} actualizada exitosamente`);
+      } else {
+        addDocumento(documentoData);
+        setToastMessage(`Borrador ${numeroDocumento} guardado exitosamente`);
+      }
+      
+      setToastType('success');
+      setShowToast(true);
+
+      // Volver al listado después de 1.5 segundos
+      setTimeout(() => {
+        navigate('/documentos-negociacion');
+      }, 1500);
+    } catch (error) {
+      console.error('Error al guardar borrador:', error);
+      setToastMessage('Error al guardar el borrador');
+      setToastType('error');
+      setShowToast(true);
+    }
+  };
+
+  // ===================================================================
+  // CREAR COTIZACIÓN
+  // ===================================================================
+
   const handleCrearCotizacion = async () => {
-    if (!canProcess) return;
+    if (!canProcess) {
+      setToastMessage('Complete todos los campos requeridos');
+      setToastType('warning');
+      setShowToast(true);
+      return;
+    }
 
     setIsProcessing(true);
 
     try {
-      // Generar número correlativo
-      const numeroCorrelativo = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-      const numeroCotizacion = `${serieSeleccionada}-${numeroCorrelativo}`;
+      let numeroDocumento: string;
+      
+      if (isEditMode && documentoToEdit) {
+        // Modo edición: mantener el mismo ID
+        numeroDocumento = documentoToEdit.id;
+      } else {
+        // Modo creación: generar nuevo número
+        const numeroCorrelativo = generarCorrelativo(serieSeleccionada);
+        numeroDocumento = `${serieSeleccionada}-${numeroCorrelativo}`;
+      }
 
-      const nuevaCotizacion = {
-        id: numeroCotizacion,
-        type: 'Cotización',
+      const cotizacionData = {
+        id: numeroDocumento,
+        type: 'Cotización' as const,
         clientDoc: clienteSeleccionado!.dni,
         client: clienteSeleccionado!.nombre,
         date: new Date().toLocaleDateString('es-PE', {
@@ -103,8 +322,8 @@ const FormularioCotizacion = () => {
         }),
         vendor: 'Javier Masías Loza', // TODO: Usuario actual
         total: totals.total,
-        status: 'Pendiente',
-        statusColor: 'orange' as const,
+        status: (isEditMode && documentoToEdit.status === 'Convertido') ? 'Convertido' as const : 'Pendiente' as const,
+        statusColor: (isEditMode && documentoToEdit.status === 'Convertido') ? 'green' as const : 'orange' as const,
         currency: currentCurrency,
         paymentMethod: formaPago,
         email: clienteSeleccionado?.email,
@@ -113,30 +332,44 @@ const FormularioCotizacion = () => {
         observations: observaciones,
         internalNote: notaInterna,
         items: cartItems,
+        isDraft: false,
         ...optionalFields,
+        // Auditoría
+        editedDate: isEditMode ? new Date().toISOString() : undefined,
+        editedBy: isEditMode ? 'Javier Masías Loza' : undefined, // TODO: Usuario actual
+        createdDate: isEditMode && documentoToEdit.createdDate ? documentoToEdit.createdDate : new Date().toISOString(),
+        createdBy: isEditMode && documentoToEdit.createdBy ? documentoToEdit.createdBy : 'Javier Masías Loza',
+        // Mantener correlación si existe
+        relatedDocumentId: isEditMode && documentoToEdit.relatedDocumentId ? documentoToEdit.relatedDocumentId : undefined,
+        relatedDocumentType: isEditMode && documentoToEdit.relatedDocumentType ? documentoToEdit.relatedDocumentType : undefined,
+        convertedToInvoice: isEditMode && documentoToEdit.convertedToInvoice ? documentoToEdit.convertedToInvoice : undefined,
+        convertedDate: isEditMode && documentoToEdit.convertedDate ? documentoToEdit.convertedDate : undefined,
       };
 
-      // Guardar en contexto
-      addDocumento(nuevaCotizacion);
+      // Guardar o actualizar en contexto
+      if (isEditMode) {
+        updateDocumento(cotizacionData);
+        setToastMessage(`Cotización ${numeroDocumento} actualizada exitosamente`);
+      } else {
+        addDocumento(cotizacionData);
+        setToastMessage(`Cotización ${numeroDocumento} creada exitosamente`);
+      }
+      
+      setToastType('success');
+      setShowToast(true);
 
-      setLastCotizacion(nuevaCotizacion);
-      setShowSuccessModal(true);
+      // Volver al listado después de 1.5 segundos
+      setTimeout(() => {
+        navigate('/documentos-negociacion');
+      }, 1500);
     } catch (error) {
       console.error('Error al crear cotización:', error);
+      setToastMessage('Error al crear la cotización');
+      setToastType('error');
+      setShowToast(true);
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const resetForm = () => {
-    setClienteSeleccionado(null);
-    setFechaEmision(new Date().toISOString().split('T')[0]);
-    setFechaVencimiento('');
-    setObservaciones('');
-    setNotaInterna('');
-    setFormaPago('Efectivo');
-    setOptionalFields({});
-    clearCart();
   };
 
   const goBack = () => {
@@ -146,7 +379,7 @@ const FormularioCotizacion = () => {
   return (
     <ErrorBoundary>
       <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-        {/* Header */}
+        {/* Header Simplificado */}
         <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -164,7 +397,7 @@ const FormularioCotizacion = () => {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Nueva Cotización
+                    {isEditMode ? 'Editar Cotización' : 'Nueva Cotización'}
                   </h1>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Complete los datos del documento
@@ -173,29 +406,19 @@ const FormularioCotizacion = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowFieldsConfigModal(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-300 dark:border-gray-600"
-              >
-                <Settings className="w-4 h-4" />
-                Configuración Campos
-              </button>
-
-              <button
-                onClick={handleCrearCotizacion}
-                disabled={!canProcess || isProcessing}
-                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors shadow-sm hover:shadow-md"
-              >
-                <Check className="w-5 h-5" />
-                {isProcessing ? 'Creando...' : 'Crear Cotización'}
-              </button>
-            </div>
+            {/* Solo el icono de configuración */}
+            <button
+              onClick={() => setShowFieldsConfigModal(true)}
+              className="p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Configurar campos"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
         {/* Contenido Principal con Scroll */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-24">
           <div className="max-w-7xl mx-auto p-6 space-y-6">
             {/* Formulario de Información del Documento */}
             <CompactDocumentForm
@@ -203,7 +426,7 @@ const FormularioCotizacion = () => {
               onClienteChange={setClienteSeleccionado}
               serieSeleccionada={serieSeleccionada}
               setSerieSeleccionada={setSerieSeleccionada}
-              seriesFiltradas={seriesCotizacion.map(s => s.serie)}
+              seriesFiltradas={seriesCotizacion}
               moneda={currentCurrency}
               setMoneda={(currency) => changeCurrency(currency as 'PEN' | 'USD')}
               formaPago={formaPago}
@@ -247,60 +470,46 @@ const FormularioCotizacion = () => {
           />
         )}
 
-        {/* Modal de Éxito */}
-        {showSuccessModal && lastCotizacion && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-              {/* Icono de éxito */}
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  ¡Cotización Creada!
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Cotización{' '}
-                  <span className="font-semibold text-blue-600 dark:text-blue-400">
-                    {lastCotizacion.id}
-                  </span>{' '}
-                  creada exitosamente
-                </p>
-              </div>
+        {/* Footer con Botones de Acción */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 z-10">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              {cartItems.length > 0 && (
+                <span>
+                  <span className="font-medium text-gray-900 dark:text-white">{cartItems.length}</span> producto(s) • Total: <span className="font-semibold text-gray-900 dark:text-white">S/ {totals.total.toFixed(2)}</span>
+                </span>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleGuardarBorrador}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-300 dark:border-gray-600"
+              >
+                <Save className="w-4 h-4" />
+                Guardar Borrador
+              </button>
 
-              {/* Acciones rápidas */}
-              <div className="space-y-3 mb-6">
-                <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
-                  <span>📧</span>
-                  Enviar por Correo
-                </button>
-                <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors">
-                  <span>🖨️</span>
-                  Imprimir
-                </button>
-              </div>
-
-              {/* Botones de navegación */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowSuccessModal(false);
-                    resetForm();
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Nueva Cotización
-                </button>
-                <button
-                  onClick={goBack}
-                  className="flex-1 px-4 py-2 bg-gray-900 dark:bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors"
-                >
-                  Ver Lista
-                </button>
-              </div>
+              <button
+                onClick={handleCrearCotizacion}
+                disabled={!canProcess || isProcessing}
+                className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
+              >
+                <Check className="w-4 h-4" />
+                {isProcessing ? (isEditMode ? 'Actualizando...' : 'Creando...') : (isEditMode ? 'Actualizar Cotización' : 'Crear Cotización')}
+              </button>
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Toast de Notificaciones */}
+        <Toast
+          show={showToast}
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setShowToast(false)}
+          position="bottom-right"
+        />
       </div>
     </ErrorBoundary>
   );

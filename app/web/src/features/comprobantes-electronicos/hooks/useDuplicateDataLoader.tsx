@@ -41,31 +41,49 @@ export interface DuplicateDataHandlers {
 }
 
 /**
- * Hook que detecta y carga datos de duplicación desde location.state
+ * Hook que detecta y carga datos de duplicación O conversión desde location.state
  */
 export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
   const location = useLocation();
 
   useEffect(() => {
-    const duplicateData = (location.state as any)?.duplicate as DuplicateData | undefined;
+    const state = location.state as any;
+    
+    // Detectar si viene de duplicación o de conversión de cotización/nota de venta
+    const duplicateData = state?.duplicate as DuplicateData | undefined;
+    const conversionData = state?.conversionData as DuplicateData | undefined;
+    const isFromConversion = state?.fromConversion === true;
+    
+    const dataToLoad = isFromConversion ? conversionData : duplicateData;
 
-    if (!duplicateData) return;
+    if (!dataToLoad) return;
 
-    console.log('📋 Cargando datos de comprobante duplicado:', duplicateData);
+    if (isFromConversion) {
+      console.log('� Cargando datos desde conversión de documento:', dataToLoad);
+    } else {
+      console.log('�📋 Cargando datos de comprobante duplicado:', dataToLoad);
+    }
 
     // 1. Cargar cliente si existe
-    if (duplicateData.client) {
+    if (dataToLoad.client || (dataToLoad as any).cliente) {
+      const clienteData = (dataToLoad as any).cliente || {
+        nombre: dataToLoad.client,
+        dni: dataToLoad.clientDoc,
+        direccion: dataToLoad.address,
+        email: dataToLoad.email
+      };
+      
       handlers.setClienteSeleccionadoGlobal({
-        nombre: duplicateData.client,
-        dni: duplicateData.clientDoc || '',
-        direccion: duplicateData.address || '',
-        email: duplicateData.email
+        nombre: clienteData.nombre || dataToLoad.client || '',
+        dni: clienteData.dni || dataToLoad.clientDoc || '',
+        direccion: clienteData.direccion || dataToLoad.address || '',
+        email: clienteData.email || dataToLoad.email
       });
     }
 
     // 2. Cargar productos al carrito si existen
-    if (duplicateData.items && Array.isArray(duplicateData.items) && duplicateData.items.length > 0) {
-      const productsToAdd = duplicateData.items.map((item: any) => ({
+    if (dataToLoad.items && Array.isArray(dataToLoad.items) && dataToLoad.items.length > 0) {
+      const productsToAdd = dataToLoad.items.map((item: any) => ({
         product: item,
         quantity: item.quantity || 1
       }));
@@ -73,59 +91,68 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
     }
 
     // 3. Cargar observaciones y nota interna
-    if (duplicateData.observaciones) {
-      handlers.setObservaciones(duplicateData.observaciones);
+    if (dataToLoad.observaciones) {
+      handlers.setObservaciones(dataToLoad.observaciones);
     }
-    if (duplicateData.notaInterna) {
-      handlers.setNotaInterna(duplicateData.notaInterna);
+    if (dataToLoad.notaInterna) {
+      handlers.setNotaInterna(dataToLoad.notaInterna);
     }
 
     // 4. Cargar forma de pago
-    if (duplicateData.formaPago) {
-      handlers.setFormaPago(duplicateData.formaPago);
+    if (dataToLoad.formaPago) {
+      handlers.setFormaPago(dataToLoad.formaPago);
     }
 
     // 5. Cargar moneda
-    if (duplicateData.currency) {
-      handlers.changeCurrency(duplicateData.currency);
+    if (dataToLoad.currency || (dataToLoad as any).moneda) {
+      const currency = dataToLoad.currency || (dataToLoad as any).moneda;
+      handlers.changeCurrency(currency);
     }
 
     // 6. Cargar tipo de comprobante
-    if (duplicateData.tipo) {
-      const tipo = duplicateData.tipo.toLowerCase() === 'factura' ? 'factura' : 'boleta';
-      handlers.setTipoComprobante(tipo);
+    if (dataToLoad.tipo || (dataToLoad as any).tipoComprobante) {
+      const tipo = (dataToLoad.tipo || (dataToLoad as any).tipoComprobante || '').toLowerCase();
+      const tipoFinal = tipo === 'factura' ? 'factura' : 'boleta';
+      handlers.setTipoComprobante(tipoFinal);
     }
 
     // 7. Cargar campos opcionales
     const optionalFields: Record<string, any> = {};
 
-    if (duplicateData.fechaVencimiento) {
-      optionalFields.fechaVencimiento = duplicateData.fechaVencimiento;
+    if (dataToLoad.fechaVencimiento) {
+      optionalFields.fechaVencimiento = dataToLoad.fechaVencimiento;
     }
-    if (duplicateData.direccionEnvio || duplicateData.shippingAddress) {
-      optionalFields.direccionEnvio = duplicateData.direccionEnvio || duplicateData.shippingAddress;
+    if (dataToLoad.direccionEnvio || dataToLoad.shippingAddress) {
+      optionalFields.direccionEnvio = dataToLoad.direccionEnvio || dataToLoad.shippingAddress;
     }
-    if (duplicateData.ordenCompra || duplicateData.purchaseOrder) {
-      optionalFields.ordenCompra = duplicateData.ordenCompra || duplicateData.purchaseOrder;
+    if (dataToLoad.ordenCompra || dataToLoad.purchaseOrder) {
+      optionalFields.ordenCompra = dataToLoad.ordenCompra || dataToLoad.purchaseOrder;
     }
-    if (duplicateData.guiaRemision || duplicateData.waybill) {
-      optionalFields.guiaRemision = duplicateData.guiaRemision || duplicateData.waybill;
+    if (dataToLoad.guiaRemision || dataToLoad.waybill) {
+      optionalFields.guiaRemision = dataToLoad.guiaRemision || dataToLoad.waybill;
     }
-    if (duplicateData.centroCosto || duplicateData.costCenter) {
-      optionalFields.centroCosto = duplicateData.centroCosto || duplicateData.costCenter;
+    if (dataToLoad.centroCosto || dataToLoad.costCenter) {
+      optionalFields.centroCosto = dataToLoad.centroCosto || dataToLoad.costCenter;
     }
-    if (duplicateData.address) {
-      optionalFields.direccion = duplicateData.address;
+    if (dataToLoad.address) {
+      optionalFields.direccion = dataToLoad.address;
     }
-    if (duplicateData.email) {
-      optionalFields.correo = duplicateData.email;
+    if (dataToLoad.email) {
+      optionalFields.correo = dataToLoad.email;
     }
 
     if (Object.keys(optionalFields).length > 0) {
       handlers.setOptionalFields(optionalFields);
     }
 
-    // 8. Limpiar el state de navegación para que no se vuelva a cargar
+    // 8. Si es conversión, guardar el ID del documento origen para crear la relación
+    if (isFromConversion && (dataToLoad as any).sourceDocumentId) {
+      // Guardar en sessionStorage para usarlo al emitir el comprobante
+      sessionStorage.setItem('conversionSourceId', (dataToLoad as any).sourceDocumentId);
+      sessionStorage.setItem('conversionSourceType', (dataToLoad as any).sourceDocumentType || '');
+    }
+
+    // 9. Limpiar el state de navegación para que no se vuelva a cargar
     window.history.replaceState({}, document.title);
 
   }, [location.state]); // Dependencia: location.state para que se ejecute cuando cambie
