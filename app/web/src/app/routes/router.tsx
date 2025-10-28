@@ -1,5 +1,4 @@
 import { createBrowserRouter } from "react-router-dom";
-import { lazy, Suspense } from "react";
 import AppShell from "../layouts/AppShell";
 import { authRoutes } from "../../features/autenticacion/routes";
 
@@ -24,8 +23,6 @@ import { VoucherDesignConfigurationNew } from "../../features/configuracion-sist
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../../features/lista-precios/components/ListaPrecios";
 
-// Documentos Comerciales (carga diferida para aislar errores)
-const DocumentosPage = lazy(() => import("../../features/documentos-comerciales/pages/DocumentosPage").then(m => ({ default: m.DocumentosPage })));
 import RouteErrorBoundary from "./RouteErrorBoundary";
 
 // Documentos de Negociación
@@ -53,15 +50,7 @@ export const router = createBrowserRouter([
   { path: "/punto-venta/nueva-venta", element: <PuntoVenta /> },
       { path: "/catalogo", element: <CatalogoArticulosMain /> },
       { path: "/lista-precios", element: <ListaPrecios /> },
-      { 
-        path: "/documentos-comerciales", 
-        element: (
-          <Suspense fallback={<div className="p-6">Cargando Documentos…</div>}>
-            <DocumentosPage />
-          </Suspense>
-        ),
-        errorElement: <RouteErrorBoundary />
-      },
+      // Nota: ruta "/documentos-comerciales" eliminada porque el módulo fue removido
       { path: "/control-caja", element: <ControlCajaHome /> },
       
       // Documentos de Negociación

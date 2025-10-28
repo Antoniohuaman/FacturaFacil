@@ -33,12 +33,6 @@ const mainItems = [
     badge: "2",
     badgeColor: "blue"
   },
-  {
-    to: "/documentos-comerciales",
-    label: "Documentos",
-    description: "Cotizaciones y notas de venta",
-    icon: Receipt
-  },
   { 
     to: "/catalogo", 
     label: "Productos", 
