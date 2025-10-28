@@ -11,7 +11,7 @@ import { useDocumentType } from '../../shared/form-core/hooks/useDocumentType';
 import { useComprobanteState } from '../../hooks/useComprobanteState';
 import { useComprobanteActions } from '../../hooks/useComprobanteActions';
 import { useAvailableProducts } from '../../hooks/useAvailableProducts';
-import { useCurrentEstablishmentId, useCurrentCompanyId, useUserSession } from '../../../../contexts/UserSessionContext';
+import { useCurrentEstablishmentId, useCurrentCompanyId } from '../../../../contexts/UserSessionContext';
 
 // Importar componentes POS
 import { ProductGrid } from '../components/ProductGrid';
@@ -24,7 +24,7 @@ import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
 
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, LayoutGrid, MapPin } from 'lucide-react';
+import { ArrowLeft, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 
 const PuntoVenta = () => {
@@ -33,8 +33,6 @@ const PuntoVenta = () => {
   // Obtener establecimiento y empresa del usuario actual
   const currentEstablishmentId = useCurrentEstablishmentId();
   const currentCompanyId = useCurrentCompanyId();
-  const { session } = useUserSession();
-  const currentEstablishment = session?.currentEstablishment;
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItemPrice, clearCart } = useCart();
@@ -181,35 +179,8 @@ const PuntoVenta = () => {
 
               {/* Right side - Estado de caja mejorado */}
               <div className="flex items-center space-x-3">
-                {/* Establecimiento actual */}
-                {currentEstablishment && (
-                  <div className="hidden md:flex items-center space-x-2 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200">
-                    <MapPin className="w-4 h-4 text-blue-600" />
-                    <div className="text-sm">
-                      <span className="text-blue-900 font-medium">{currentEstablishment.code}</span>
-                      <span className="text-blue-600 mx-1">-</span>
-                      <span className="text-blue-700">{currentEstablishment.name}</span>
-                    </div>
-                  </div>
-                )}
-
                 {/* Status of cash box is now shown in the global Header; keep an accessible live region */}
                 <span className="sr-only" aria-live="polite">Caja {cajaStatus === 'abierta' ? 'abierta' : 'cerrada'}</span>
-
-                {/* Mini stats */}
-                <div className="hidden lg:flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
-                  <LayoutGrid className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">
-                    {availableProducts.length} productos
-                  </span>
-                </div>
-
-                <div className="hidden lg:flex items-center space-x-2 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200">
-                  <ShoppingCart className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm text-blue-700 font-medium">
-                    {cartItems.length} en carrito
-                  </span>
-                </div>
               </div>
             </div>
           </div>

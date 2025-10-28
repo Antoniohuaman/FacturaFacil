@@ -143,22 +143,13 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     // Guardar en el catálogo usando el store
     addProduct(productData);
     
-    // Convertir el producto del catálogo al formato POS y agregarlo al carrito
-    const posProduct: Product = {
-      id: Date.now().toString(), // Se generará el ID real en el store
-      code: productData.codigo,
-      name: productData.nombre,
-      price: productData.precio,
-      category: productData.categoria,
-      description: productData.descripcion || '',
-      stock: productData.cantidad
-    };
-    
-    // Agregar automáticamente al carrito
-    onAddToCart(posProduct);
-    
     // Cerrar modal
     setShowProductModal(false);
+    
+    // Nota: No es necesario agregar manualmente al carrito ni convertir.
+    // El hook useAvailableProducts en PuntoVenta ya está suscrito a allProducts del store,
+    // por lo que el nuevo producto aparecerá automáticamente en la lista.
+    // El usuario puede buscarlo o seleccionarlo normalmente desde el grid.
   };
 
   const handleCategorySelect = (category: string) => {
@@ -264,7 +255,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
           {/* Crear producto */}
           <button
             onClick={handleCreateProduct}
-            className="flex items-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors font-medium shadow-sm"
+            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white rounded-xl transition-all font-medium shadow-sm"
             title="Crear nuevo producto"
           >
             <Plus className="h-5 w-5" />

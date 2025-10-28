@@ -5,7 +5,6 @@
 
 import React, { useState } from 'react';
 import {
-  ShoppingCart,
   Plus,
   Minus,
   Trash2,
@@ -16,8 +15,7 @@ import {
   Edit,
   X,
   FileText,
-  Receipt,
-  Building2
+  Receipt
 } from 'lucide-react';
 import type { CartSidebarProps, Product } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
@@ -51,7 +49,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   onRemoveItem,
   onClearCart,
   onConfirmSale,
-  onViewFullForm,
   cashBoxStatus = 'unknown',
   isProcessing = false,
   currency = 'PEN',
@@ -68,6 +65,10 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const [editingCliente, setEditingCliente] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showTypeSelector, setShowTypeSelector] = useState(false);
+
+  // Estados para descuentos
+  const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount');
+  const [discountValue, setDiscountValue] = useState<string>('');
 
   // Estados del formulario de cliente
   const [clienteFormData, setClienteFormData] = useState({
@@ -129,6 +130,26 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   // Estado de la caja
   const isCashBoxClosed = cashBoxStatus === 'closed';
   const canProcessSale = !isProcessing && cartItems.length > 0 && !isCashBoxClosed;
+
+  // Calcular descuento aplicado
+  const calculateDiscount = () => {
+    const discountNum = parseFloat(discountValue) || 0;
+    if (discountNum <= 0) return 0;
+
+    if (discountType === 'percentage') {
+      // Descuento por porcentaje
+      const percentDiscount = (totals.total * discountNum) / 100;
+      // No permitir descuento mayor al 100%
+      return discountNum > 100 ? totals.total : percentDiscount;
+    } else {
+      // Descuento por importe
+      // No permitir descuento mayor al total
+      return discountNum > totals.total ? totals.total : discountNum;
+    }
+  };
+
+  const discountAmount = calculateDiscount();
+  const finalTotal = totals.total - discountAmount;
 
   // Filtrar clientes por búsqueda
   const clientesFiltrados = mockClientes.filter((c: ClientePOS) =>
@@ -269,32 +290,9 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
   return (
     <div className="w-[480px] bg-white border-l border-gray-200 flex flex-col h-full shadow-lg">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <ShoppingCart className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900">Carrito de Venta</h3>
-              <p className="text-xs text-gray-600">
-                {cartItems.length} {cartItems.length === 1 ? 'producto' : 'productos'}
-              </p>
-            </div>
-          </div>
-
-          {cartItems.length > 0 && (
-            <button
-              onClick={onClearCart}
-              className="px-3 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors"
-              disabled={isProcessing}
-              title="Vaciar carrito"
-            >
-              Limpiar
-            </button>
-          )}
-        </div>
+      {/* Header Simplificado - Sin información redundante */}
+      <div className="p-2.5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <h3 className="font-bold text-sm text-gray-900 text-center">Carrito de Venta</h3>
       </div>
 
       {/* Warning de caja cerrada */}
@@ -312,197 +310,179 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
       {/* Contenido scrollable */}
       <div className="flex-1 overflow-y-auto bg-gray-50">
-        {/* Header compacto: Tipo de Comprobante + Moneda */}
-        <div className="p-3 bg-white border-b border-gray-200">
-          <div className="grid grid-cols-2 gap-2">
+        {/* Configuración: Tipo Comprobante, Moneda e IGV - TODO EN UNA SECCIÓN COMPACTA */}
+        <div className="p-2.5 bg-white border-b border-gray-200">
+          <div className="grid grid-cols-3 gap-2 mb-2">
             {/* Tipo de Comprobante */}
-            <div>
-              <label className="flex items-center gap-1 text-xs font-bold text-gray-700 mb-1.5">
-                <FileText className="h-3 w-3 text-gray-600" />
-                Boleta
+            <div className="col-span-2">
+              <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 mb-1 uppercase tracking-wide">
+                <FileText className="h-2.5 w-2.5" />
+                Comprobante
               </label>
               <div className="relative">
                 <button
                   onClick={() => setShowTypeSelector(!showTypeSelector)}
-                  className="w-full px-2.5 py-2 bg-white border-2 border-gray-300 rounded-lg text-left flex items-center justify-between hover:border-blue-400 transition-all text-xs font-medium"
+                  className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-left flex items-center justify-between hover:border-blue-400 transition-all text-[11px] font-semibold"
                 >
                   <span className="text-gray-900 truncate">
                     {tipoComprobante === 'boleta' ? 'Boleta' : 'Factura'}
                   </span>
-                  <svg className={`w-3 h-3 text-gray-500 transition-transform flex-shrink-0 ml-1 ${showTypeSelector ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-2.5 h-2.5 text-gray-500 transition-transform flex-shrink-0 ml-1 ${showTypeSelector ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
 
-                {/* Dropdown de tipos */}
+                {/* Dropdown compacto */}
                 {showTypeSelector && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-gray-200 rounded-lg shadow-xl z-20 min-w-[240px]">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-20">
                     <button
                       onClick={() => handleTipoComprobanteChange('factura')}
-                      className="w-full px-3 py-2 text-left hover:bg-purple-50 transition-colors border-b border-gray-100 flex items-center gap-2"
+                      className="w-full px-2 py-1.5 text-left hover:bg-purple-50 transition-colors border-b border-gray-100 flex items-center gap-1.5"
                     >
-                      <FileText className="h-3 w-3 text-purple-600 flex-shrink-0" />
+                      <FileText className="h-2.5 w-2.5 text-purple-600 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-xs text-purple-900">Factura Electrónica</div>
-                        <div className="text-xs text-purple-600">Para empresas con RUC</div>
+                        <div className="font-bold text-[10px] text-purple-900">Factura</div>
+                        <div className="text-[9px] text-purple-600">Con RUC</div>
                       </div>
-                      <span className="text-xs font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded flex-shrink-0">F001</span>
                     </button>
                     <button
                       onClick={() => handleTipoComprobanteChange('boleta')}
-                      className="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 flex items-center gap-2"
+                      className="w-full px-2 py-1.5 text-left hover:bg-blue-50 transition-colors flex items-center gap-1.5"
                     >
-                      <Receipt className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                      <Receipt className="h-2.5 w-2.5 text-blue-600 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-xs text-blue-900">Boleta de Venta</div>
-                        <div className="text-xs text-blue-600">Para personas naturales</div>
+                        <div className="font-bold text-[10px] text-blue-900">Boleta</div>
+                        <div className="text-[9px] text-blue-600">Con DNI</div>
                       </div>
-                      <span className="text-xs font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded flex-shrink-0">B001</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowTypeSelector(false);
-                      }}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors flex items-center gap-2"
-                    >
-                      <Receipt className="h-3 w-3 text-gray-600 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-xs text-gray-900">Nota de Venta</div>
-                        <div className="text-xs text-gray-600">Comprobante interno</div>
-                      </div>
-                      <span className="text-xs font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded flex-shrink-0">NV01</span>
                     </button>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Moneda - Dropdown */}
+            {/* Moneda */}
             <div>
-              <label className="flex items-center gap-1 text-xs font-bold text-gray-700 mb-1.5">
-                <span className="text-gray-600">{currency === 'PEN' ? 'S/.' : '$'}</span>
+              <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 mb-1 uppercase tracking-wide">
                 Moneda
               </label>
               <select
                 value={currency}
                 onChange={(e) => handleCurrencyChange(e.target.value as 'PEN' | 'USD')}
-                className="w-full px-2.5 py-2 bg-white border-2 border-gray-300 rounded-lg text-xs font-medium text-gray-900 hover:border-blue-400 transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-1.5 py-1.5 bg-white border border-gray-300 rounded text-[11px] font-semibold text-gray-900 hover:border-blue-400 transition-all focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="PEN">Soles</option>
-                <option value="USD">Dólares</option>
+                <option value="PEN">S/.</option>
+                <option value="USD">$</option>
               </select>
             </div>
           </div>
 
-          {/* IGV */}
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <span className="text-gray-600 font-medium">IGV:</span>
-            <span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded">18%</span>
+          {/* IGV en línea separada pero compacta */}
+          <div className="flex items-center justify-between px-2 py-1 bg-gray-50 rounded border border-gray-200">
+            <span className="text-[10px] text-gray-600 font-semibold">IGV:</span>
+            <span className="text-[11px] font-bold text-gray-900">18%</span>
           </div>
         </div>
 
-        {/* Cliente - En una fila */}
-        <div className="p-3 bg-white border-b border-gray-200">
+        {/* Cliente - Optimizado y compacto */}
+        <div className="p-2.5 bg-white border-b border-gray-200">
           {!clienteSeleccionado ? (
             <div className="space-y-2">
-              {/* Labels */}
-              <div className="grid grid-cols-2 gap-2 mb-1">
-                <label className="flex items-center gap-1 text-xs font-bold text-gray-700">
-                  <User className="h-3 w-3 text-blue-600" />
-                  Número de D.N.I.
+              {/* Labels inline en la misma fila */}
+              <div className="grid grid-cols-[120px_1fr] gap-2">
+                <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide">
+                  <User className="h-2.5 w-2.5" />
+                  DNI / RUC
                 </label>
-                <label className="flex items-center gap-1 text-xs font-bold text-gray-700">
-                  <User className="h-3 w-3 text-blue-600" />
+                <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide">
+                  <User className="h-2.5 w-2.5" />
                   Nombre
                 </label>
               </div>
 
-              {/* Inputs en la misma fila */}
-              <div className="grid grid-cols-[140px_1fr_auto] gap-2">
-                <div className="relative">
-                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
-                    <User className="h-3.5 w-3.5 text-blue-600" />
-                  </div>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="08661829"
-                    className="w-full pl-8 pr-2 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                  />
-                </div>
+              {/* Inputs compactos en fila */}
+              <div className="grid grid-cols-[120px_1fr_auto] gap-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="08661829"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-[11px] font-medium"
+                />
                 <input
                   type="text"
                   value={clienteSeleccionado?.nombre || ''}
                   readOnly
-                  placeholder="CARMEN ROSA FLORES CANALI"
-                  className="px-2 py-2 border-2 border-gray-300 rounded-lg bg-gray-50 text-xs text-gray-700"
+                  placeholder="NOMBRE DEL CLIENTE"
+                  className="px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-[11px] text-gray-600 uppercase"
                 />
-                <button className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0">
-                  <Search className="h-4 w-4" />
+                <button 
+                  className="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0"
+                  title="Buscar cliente"
+                >
+                  <Search className="h-3.5 w-3.5" />
                 </button>
               </div>
 
+              {/* Resultados de búsqueda */}
               {searchQuery && (
-                <div className="border-2 border-blue-200 rounded-lg max-h-32 overflow-y-auto bg-white">
+                <div className="border border-blue-200 rounded max-h-28 overflow-y-auto bg-white">
                   {clientesFiltrados.length > 0 ? (
                     clientesFiltrados.map((cliente: ClientePOS) => (
                       <button
                         key={cliente.id}
                         onClick={() => handleSeleccionarCliente(cliente)}
-                        className="w-full text-left p-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                        className="w-full text-left p-1.5 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
                       >
-                        <div className="font-semibold text-xs text-gray-900">{cliente.nombre}</div>
-                        <div className="text-xs text-gray-600">
+                        <div className="font-semibold text-[10px] text-gray-900">{cliente.nombre}</div>
+                        <div className="text-[9px] text-gray-600">
                           {cliente.tipoDocumento}: {cliente.documento}
                         </div>
                       </button>
                     ))
                   ) : (
-                    <div className="p-3 text-center text-sm text-gray-500">Sin resultados</div>
+                    <div className="p-2 text-center text-[10px] text-gray-500">Sin resultados</div>
                   )}
                 </div>
               )}
 
               <button
                 onClick={handleNuevoCliente}
-                className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-bold shadow-md"
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded hover:from-teal-600 hover:to-cyan-700 transition-all text-[11px] font-bold shadow-sm"
               >
-                <Plus className="h-4 w-4" />
-                Nuevo Cliente
+                <Plus className="h-3 w-3" />
+                Nuevo
               </button>
             </div>
           ) : (
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-3 space-y-2">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="font-bold text-sm text-gray-900 mb-1">{clienteSeleccionado.nombre}</div>
-                  <div className="text-xs text-gray-700 font-medium">
-                    N° {clienteSeleccionado.documento}
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-300 rounded p-2 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[11px] text-gray-900 truncate">{clienteSeleccionado.nombre}</div>
+                  <div className="text-[10px] text-gray-700 font-medium">
+                    {clienteSeleccionado.tipoDocumento}: {clienteSeleccionado.documento}
                   </div>
-                  <div className="text-xs text-gray-600 mt-1">{clienteSeleccionado.tipoDocumento}</div>
                 </div>
                 <button
                   onClick={() => setClienteSeleccionado(null)}
-                  className="p-1 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
-                  title="Quitar cliente"
+                  className="p-0.5 text-red-500 hover:bg-red-100 rounded transition-colors flex-shrink-0"
+                  title="Quitar"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3 w-3" />
                 </button>
               </div>
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-1.5">
                 <button
                   onClick={handleEditarCliente}
-                  className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 text-xs font-bold text-blue-600 bg-white hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-bold text-blue-600 bg-white hover:bg-blue-50 rounded border border-blue-200 transition-colors"
                 >
-                  <Edit className="h-3 w-3" />
+                  <Edit className="h-2.5 w-2.5" />
                   Editar
                 </button>
                 <button
                   onClick={() => setClienteSeleccionado(null)}
-                  className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 text-xs font-bold text-gray-600 bg-white hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-bold text-gray-600 bg-white hover:bg-gray-100 rounded border border-gray-300 transition-colors"
                 >
-                  <Search className="h-3 w-3" />
+                  <Search className="h-2.5 w-2.5" />
                   Cambiar
                 </button>
               </div>
@@ -510,70 +490,126 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           )}
         </div>
 
-        {/* Lista de productos - Diseño compacto en fila */}
+        {/* Lista de productos - Diseño Compacto y Profesional */}
         <div className="p-3">
           {cartItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-gray-500">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2">
-                <Package className="h-6 w-6 text-gray-300" />
+            <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+              <div className="w-14 h-14 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-2 shadow-sm">
+                <Package className="h-7 w-7 text-gray-400" />
               </div>
               <p className="text-xs font-semibold text-gray-700 mb-1">{UI_MESSAGES.EMPTY_CART}</p>
-              <p className="text-xs text-center text-gray-500 px-4">
+              <p className="text-[11px] text-center text-gray-500 px-4 max-w-[180px]">
                 Busca y selecciona productos
               </p>
             </div>
           ) : (
             <div className="space-y-2">
               {cartItems.map((item, index) => (
-                <div key={item.id} className="bg-white rounded-lg border border-gray-200 hover:border-blue-300 transition-colors p-2.5">
-                  {/* TODO EN UNA FILA: Nombre / Controles / Precio */}
-                  <div className="flex items-center gap-2">
-                    {/* Nombre del producto */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
-                        <h4 className="font-semibold text-xs text-gray-900 truncate">{item.name}</h4>
+                <div 
+                  key={item.id} 
+                  className="group bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition-all duration-150 p-2.5 relative"
+                >
+                  {/* Indicador lateral sutil */}
+                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity rounded-l-lg" />
+                  
+                  {/* Header: Número y Nombre - MÁS COMPACTO */}
+                  <div className="flex items-center justify-between mb-2 gap-2 pl-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="flex-shrink-0 w-5 h-5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center">
+                        <span className="text-[9px] font-bold text-white">{index + 1}</span>
                       </div>
-                      <p className="text-xs text-gray-500">{formatPrice(item.price, currency)} x {(item as any).unit || 'Und.'}</p>
-                    </div>
-
-                    {/* Controles de cantidad */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, -1)}
-                        className="w-7 h-7 flex items-center justify-center bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                        disabled={item.quantity <= 1 || isProcessing}
-                      >
-                        <Minus className="h-3 w-3 text-gray-600" />
-                      </button>
-
-                      <span className="w-8 text-center text-sm font-bold text-gray-900">{item.quantity}</span>
-
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, 1)}
-                        className="w-7 h-7 flex items-center justify-center bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
-                        disabled={isProcessing}
-                      >
-                        <Plus className="h-3 w-3 text-gray-600" />
-                      </button>
-                    </div>
-
-                    {/* Precio total */}
-                    <div className="text-right min-w-[80px]">
-                      <div className="text-sm font-bold text-gray-900">
-                        {formatPrice(item.price * item.quantity, currency)}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-[11px] text-gray-900 truncate leading-tight">
+                          {item.name}
+                        </h4>
+                        <p className="text-[9px] text-gray-500">
+                          {(item as any).unit || 'Und.'}
+                        </p>
                       </div>
                     </div>
-
-                    {/* Botón eliminar */}
                     <button
                       onClick={() => onRemoveItem(item.id)}
-                      className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                      className="flex-shrink-0 p-1 text-red-400 hover:text-white hover:bg-red-500 rounded transition-all"
                       disabled={isProcessing}
                       title="Eliminar"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-3 w-3" />
                     </button>
+                  </div>
+
+                  {/* Grid Compacto de 3 Columnas */}
+                  <div className="grid grid-cols-3 gap-2 items-end">
+                    {/* CANTIDAD */}
+                    <div className="space-y-1">
+                      <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wide">
+                        Cant.
+                      </label>
+                      <div className="flex items-center bg-gray-50 rounded border border-gray-200 overflow-hidden h-7">
+                        <button
+                          onClick={() => onUpdateQuantity(item.id, -1)}
+                          className="flex-1 h-full flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-30 border-r border-gray-200"
+                          disabled={item.quantity <= 1 || isProcessing}
+                        >
+                          <Minus className="h-2.5 w-2.5 text-gray-600" />
+                        </button>
+                        
+                        <div className="flex-1 h-full flex items-center justify-center bg-white">
+                          <span className="text-xs font-bold text-gray-900">{item.quantity}</span>
+                        </div>
+                        
+                        <button
+                          onClick={() => onUpdateQuantity(item.id, 1)}
+                          className="flex-1 h-full flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors border-l border-gray-200"
+                          disabled={isProcessing}
+                        >
+                          <Plus className="h-2.5 w-2.5 text-gray-600" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* PRECIO */}
+                    <div className="space-y-1">
+                      <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wide">
+                        Precio
+                      </label>
+                      {onUpdatePrice ? (
+                        <div className="relative h-7">
+                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400 z-10">
+                            {currency === 'PEN' ? 'S/' : '$'}
+                          </span>
+                          <input
+                            type="number"
+                            value={item.price || ''}
+                            onChange={(e) => {
+                              const newPrice = parseFloat(e.target.value) || 0;
+                              onUpdatePrice(item.id, newPrice);
+                            }}
+                            onFocus={(e) => e.target.select()}
+                            step="0.01"
+                            min="0"
+                            className="w-full h-full pl-6 pr-1 text-[11px] font-semibold text-right bg-white border border-gray-200 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all"
+                            disabled={isProcessing}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-7 px-1.5 flex items-center justify-end bg-gray-50 border border-gray-200 rounded">
+                          <span className="text-[11px] font-bold text-gray-900">{formatPrice(item.price, currency)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* TOTAL */}
+                    <div className="space-y-1">
+                      <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wide">
+                        Total
+                      </label>
+                      <div className="h-7 px-1.5 flex items-center justify-end bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-300 rounded">
+                        <span className="text-[11px] font-bold text-blue-900">
+                          {formatPrice(item.price * item.quantity, currency)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -581,59 +617,141 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           )}
         </div>
 
-        {/* Descuento - Compacto */}
+        {/* Sección de Descuento - Compacta y Profesional */}
         {cartItems.length > 0 && (
-          <div className="px-3 pb-3">
-            <label className="block text-xs font-bold text-gray-700 mb-1.5">Descuento</label>
-            <div className="flex gap-1.5">
-              <button className="px-3 py-2 bg-blue-600 text-white rounded-lg font-bold text-xs">
-                S/.
-              </button>
-              <button className="px-3 py-2 bg-white border-2 border-gray-300 text-gray-700 rounded-lg font-bold text-xs hover:border-blue-400 transition-colors">
-                %
-              </button>
-              <input
-                type="number"
-                placeholder="S/. 0"
-                className="flex-1 px-2.5 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                step="0.01"
-                min="0"
-              />
+          <div className="px-3 pb-2">
+            <div className="bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200 p-2.5">
+              <label className="flex items-center gap-1.5 text-[9px] font-bold text-gray-600 mb-2 uppercase tracking-wide">
+                <div className="w-4 h-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded flex items-center justify-center">
+                  <span className="text-white text-[8px] font-bold">%</span>
+                </div>
+                Descuento
+              </label>
+              
+              <div className="flex gap-1.5">
+                {/* Botón Monto */}
+                <button 
+                  onClick={() => setDiscountType('amount')}
+                  className={`px-2.5 py-1.5 rounded font-bold text-[10px] transition-all ${
+                    discountType === 'amount' 
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm scale-105' 
+                      : 'bg-white border border-gray-300 text-gray-700 hover:border-blue-400'
+                  }`}
+                >
+                  S/.
+                </button>
+                
+                {/* Botón Porcentaje */}
+                <button 
+                  onClick={() => setDiscountType('percentage')}
+                  className={`px-2.5 py-1.5 rounded font-bold text-[10px] transition-all ${
+                    discountType === 'percentage' 
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm scale-105' 
+                      : 'bg-white border border-gray-300 text-gray-700 hover:border-blue-400'
+                  }`}
+                >
+                  %
+                </button>
+                
+                {/* Input de Descuento */}
+                <div className="flex-1 relative">
+                  <input
+                    type="number"
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full h-full px-2 pr-6 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-[11px] font-semibold text-right outline-none transition-all"
+                    step="0.01"
+                    min="0"
+                    max={discountType === 'percentage' ? '100' : undefined}
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 pointer-events-none">
+                    {discountType === 'percentage' ? '%' : currency === 'PEN' ? 'S/' : '$'}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Indicador Compacto de Descuento */}
+              {discountAmount > 0 && (
+                <div className="mt-2 flex items-center gap-1.5 p-1.5 bg-green-50 border border-green-200 rounded">
+                  <div className="w-3.5 h-3.5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-[10px] font-bold text-green-700 flex-1">
+                    -{formatPrice(discountAmount, currency)} 
+                    <span className="font-normal text-green-600 ml-1">
+                      ({discountType === 'percentage' ? `${discountValue}%` : 'Importe'})
+                    </span>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* Total Section */}
+      {/* Sección de Total - Compacta y Profesional */}
       {cartItems.length > 0 && (
-        <div className="border-t border-gray-200 bg-white">
-          <div className="p-4">
+        <div className="border-t border-gray-300 bg-gradient-to-b from-white to-gray-50">
+          <div className="p-3 space-y-2">
+            {/* Desglose Compacto si hay descuento */}
+            {discountAmount > 0 && (
+              <div className="space-y-1 pb-2 border-b border-dashed border-gray-300">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-medium text-gray-600">Subtotal:</span>
+                  <span className="font-semibold text-gray-900">{formatPrice(totals.total, currency)}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs bg-green-50 -mx-1 px-1 py-0.5 rounded">
+                  <span className="font-semibold text-green-700 text-[11px]">
+                    Desc. ({discountType === 'percentage' ? `${discountValue}%` : 'Imp.'}):
+                  </span>
+                  <span className="font-bold text-green-700">-{formatPrice(discountAmount, currency)}</span>
+                </div>
+              </div>
+            )}
+            
+            {/* Botón Principal Compacto */}
             <button
               onClick={handleProceedToPayment}
               disabled={!canProcessSale}
-              className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all ${
+              className={`w-full py-3 rounded-lg font-bold text-base shadow-md transition-all ${
                 canProcessSale
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.01]'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg transform hover:scale-[1.01] active:scale-[0.99]'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
               }`}
             >
               {isProcessing ? (
                 <span className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  {UI_MESSAGES.CART_LOADING}
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="text-sm">{UI_MESSAGES.CART_LOADING}</span>
                 </span>
               ) : (
-                `VENDER TOTAL: ${formatPrice(totals.total, currency)}`
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-xs font-semibold opacity-90">VENDER</span>
+                  <span className="text-lg font-black">
+                    {formatPrice(finalTotal, currency)}
+                  </span>
+                </div>
               )}
             </button>
-            <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
-              <span>{cartItems.length} Producto{cartItems.length !== 1 ? 's' : ''}</span>
+            
+            {/* Footer Compacto */}
+            <div className="flex items-center justify-between text-xs pt-1">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                <span className="font-semibold text-gray-700">
+                  {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
+                </span>
+              </div>
               <button
                 onClick={onClearCart}
-                className="text-blue-600 hover:text-blue-800 font-medium underline"
+                className="group flex items-center gap-1 px-2 py-1 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded font-semibold transition-all"
                 disabled={isProcessing}
               >
-                Eliminar Items
+                <Trash2 className="h-3 w-3" />
+                <span className="text-[10px]">Vaciar</span>
               </button>
             </div>
           </div>
