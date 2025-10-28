@@ -4,6 +4,7 @@ import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings
 import CompanySelector from "../../components/CompanySelector";
 import { useUserSession } from "../../contexts/UserSessionContext";
 import { useComprobanteContext } from "../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
+import { useDocumentoContext } from "../../features/Documentos-negociacion/contexts/DocumentosContext";
 
 interface SideNavProps {
   collapsed?: boolean;
@@ -21,8 +22,6 @@ const mainItems = [
     to: "/punto-venta",
     label: "Punto de Venta",
     description: "Ventas rápidas",
-    badge: "Rápido",
-    badgeColor: "emerald",
     icon: ShoppingCart
   },
   {
@@ -30,8 +29,7 @@ const mainItems = [
     label: "Documentos",
     description: "Cotizaciones y notas de venta",
     icon: Receipt,
-    badge: "2",
-    badgeColor: "blue"
+    useDynamicBadge: true
   },
   { 
     to: "/catalogo", 
@@ -49,8 +47,6 @@ const mainItems = [
     to: "/control-caja",
     label: "Caja",
     description: "Control de efectivo",
-    badge: "Activa",
-    badgeColor: "green",
     icon: Wallet
   },
   { 
@@ -86,6 +82,10 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const { state } = useComprobanteContext();
   const comprobantesCount = state.comprobantes.length;
 
+  // Obtener conteo de documentos (cotizaciones + notas de venta)
+  const { state: documentoState } = useDocumentoContext();
+  const documentosCount = documentoState.documentos.length;
+
   // Obtener iniciales de la empresa para el botón compacto
   const companyName = currentCompany?.tradeName || currentCompany?.businessName || 'Empresa';
   const companyInitials = companyName
@@ -97,11 +97,21 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
 
   // Crear items con badge dinámico
   const mainItemsWithBadges = mainItems.map(item => {
-    if (item.useDynamicBadge && item.to === '/comprobantes') {
-      return {
-        ...item,
-        badge: comprobantesCount > 0 ? String(comprobantesCount) : undefined
-      };
+    if (item.useDynamicBadge) {
+      if (item.to === '/comprobantes') {
+        return {
+          ...item,
+          badge: comprobantesCount > 0 ? String(comprobantesCount) : undefined,
+          badgeColor: 'blue' as const
+        };
+      }
+      if (item.to === '/documentos-negociacion') {
+        return {
+          ...item,
+          badge: documentosCount > 0 ? String(documentosCount) : undefined,
+          badgeColor: 'blue' as const
+        };
+      }
     }
     return item;
   });
@@ -195,13 +205,11 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
                     <>
                       <span className="ml-3 text-sm font-medium transition-colors duration-200">{item.label}</span>
                       
-                      {item.badge && (
+                      {'badge' in item && item.badge && (
                         <span className={`ml-auto px-2 py-1 text-xs font-medium rounded-full transition-colors duration-200 ${
-                          item.badgeColor === 'green'
-                            ? 'bg-green-100 text-green-700'
-                            : item.badgeColor === 'emerald'
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                            : 'bg-blue-100 text-blue-700'
+                          'badgeColor' in item && item.badgeColor === 'blue'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                         }`}>
                           {item.badge}
                         </span>
@@ -210,8 +218,8 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
                   )}
                 </div>
                 
-                {collapsed && item.badge && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
+                {collapsed && 'badge' in item && item.badge && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-800"></div>
                 )}
                 
                 {collapsed && (

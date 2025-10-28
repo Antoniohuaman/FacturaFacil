@@ -32,19 +32,21 @@ const CompanySelector = () => {
                    transition-all duration-150 flex items-center justify-between group backdrop-blur-sm
                    hover:shadow-md bg-white dark:bg-gray-800/70"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600
                           flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/30
                           group-hover:scale-105 transition-transform">
               <Building2 size={20} className="text-white" />
             </div>
-            <div className="text-left min-w-0">
-              <div className="font-bold text-gray-900 dark:text-gray-100 text-sm truncate">
+            <div className="text-left min-w-0 flex-1 overflow-hidden">
+              <div className="font-bold text-gray-900 dark:text-gray-100 text-sm truncate w-full" 
+                   title={selectedCompany.tradeName || selectedCompany.businessName}>
                 {selectedCompany.tradeName || selectedCompany.businessName}
               </div>
-              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                <MapPin size={11} />
-                {selectedEstablishment?.name || 'Sin establecimiento'}
+              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 min-w-0"
+                   title={selectedEstablishment?.name || 'Sin establecimiento'}>
+                <MapPin size={11} className="flex-shrink-0" />
+                <span className="truncate">{selectedEstablishment?.name || 'Sin establecimiento'}</span>
               </div>
             </div>
           </div>
@@ -59,7 +61,8 @@ const CompanySelector = () => {
         {showCompanyDropdown && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl z-50 border border-gray-200 dark:border-gray-600">
             <div className="p-2">
-              <div className="text-xs font-medium px-2 py-1.5 text-gray-500 dark:text-gray-400">
+              <div className="text-xs font-medium px-2 py-1.5 text-gray-500 dark:text-gray-400 truncate" 
+                   title={`Establecimientos de ${selectedCompany.tradeName || selectedCompany.businessName}`}>
                 Establecimientos de {selectedCompany.tradeName || selectedCompany.businessName}
               </div>
 
