@@ -27,7 +27,7 @@ const mainItems = [
   },
   {
     to: "/documentos-negociacion",
-    label: "Documentos Negociación",
+    label: "Documentos",
     description: "Cotizaciones y notas de venta",
     icon: Receipt,
     badge: "2",
