@@ -3,9 +3,12 @@ import type {
   CajaStatus,
   AperturaCaja,
   Movimiento,
-  ResumenCaja
+  ResumenCaja,
+  CierreCaja
 } from "../models";
 import type { ToastMessage, ToastType } from "../components/common/Toast";
+import { calcularResumenCaja } from "../utils/calculations";
+import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/errors";
 
 interface CajaContextValue {
   // Estado de caja
@@ -19,7 +22,7 @@ interface CajaContextValue {
 
   // Acciones de caja
   abrirCaja: (apertura: Omit<AperturaCaja, 'id'>) => Promise<void>;
-  cerrarCaja: (montoFinal: number, observaciones?: string) => Promise<void>;
+  cerrarCaja: (cierreCaja: Omit<CierreCaja, 'id' | 'aperturaId'>) => Promise<void>;
 
   // Movimientos
   agregarMovimiento: (movimiento: Omit<Movimiento, 'id' | 'fecha' | 'cajaId' | 'aperturaId'>) => Promise<void>;
@@ -103,36 +106,24 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     }
   }, [showToast]);
 
-  const cerrarCaja = useCallback(async (montoFinal: number, observaciones?: string) => {
+  const cerrarCaja = useCallback(async (cierreCaja: Omit<CierreCaja, 'id' | 'aperturaId'>) => {
     if (!aperturaActual) {
-      showToast("error", "Error", "No hay una caja abierta para cerrar.");
+      const error = new CajaCerradaError();
+      showToast("error", "Error", error.message);
       return;
     }
 
     setIsLoading(true);
     try {
-      // Simular llamada a API
-      // TODO: Enviar observaciones a la API cuando se implemente
-      if (observaciones) {
-        console.log('Observaciones de cierre:', observaciones);
-      }
+      // Simular llamada a API con el objeto completo de cierre
       await new Promise((resolve) => setTimeout(resolve, 800));
 
-      // Calcular resumen directamente
-      const ingresos = movimientos
-        .filter((m) => m.tipo === "Ingreso")
-        .reduce((sum, m) => sum + m.monto, 0);
-      const egresos = movimientos
-        .filter((m) => m.tipo === "Egreso")
-        .reduce((sum, m) => sum + m.monto, 0);
-      const saldoEsperado = aperturaActual.montoInicialTotal + ingresos - egresos;
-      const descuadre = montoFinal - saldoEsperado;
+      const resumen = calcularResumenCaja(aperturaActual, movimientos);
+      const descuadre = cierreCaja.montoFinalTotal - resumen.saldo;
 
       // Validar descuadre
       if (Math.abs(descuadre) > margenDescuadre) {
-        throw new Error(
-          `El descuadre de S/ ${descuadre.toFixed(2)} excede el margen permitido de S/ ${margenDescuadre.toFixed(2)}`
-        );
+        throw new DescuadreError(descuadre, margenDescuadre);
       }
 
       setStatus("cerrada");
@@ -146,11 +137,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
           : `Cierre realizado con un descuadre de S/ ${descuadre.toFixed(2)}`
       );
     } catch (error) {
-      showToast(
-        "error",
-        "Error al cerrar",
-        error instanceof Error ? error.message : "No se pudo cerrar la caja."
-      );
+      const errorMessage = handleCajaError(error);
+      showToast("error", "Error al cerrar", errorMessage);
       throw error;
     } finally {
       setIsLoading(false);
@@ -159,7 +147,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
 
   const agregarMovimiento = useCallback(async (movimiento: Omit<Movimiento, 'id' | 'fecha' | 'cajaId' | 'aperturaId'>) => {
     if (!aperturaActual) {
-      showToast("error", "Error", "Debe abrir la caja antes de registrar movimientos.");
+      const error = new CajaCerradaError();
+      showToast("error", "Error", error.message);
       return;
     }
 
@@ -184,11 +173,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
         `${movimiento.tipo} de S/ ${movimiento.monto.toFixed(2)} registrado correctamente.`
       );
     } catch (error) {
-      showToast(
-        "error",
-        "Error",
-        "No se pudo registrar el movimiento."
-      );
+      const errorMessage = handleCajaError(error);
+      showToast("error", "Error", errorMessage);
       throw error;
     } finally {
       setIsLoading(false);
@@ -196,55 +182,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   }, [aperturaActual, showToast]);
 
   const getResumen = useCallback((): ResumenCaja => {
-    if (!aperturaActual) {
-      return {
-        apertura: 0,
-        ingresos: 0,
-        egresos: 0,
-        saldo: 0,
-        totalEfectivo: 0,
-        totalTarjeta: 0,
-        totalYape: 0,
-        totalOtros: 0,
-        cantidadMovimientos: 0,
-      };
-    }
-
-    const ingresos = movimientos
-      .filter((m) => m.tipo === "Ingreso")
-      .reduce((sum, m) => sum + m.monto, 0);
-
-    const egresos = movimientos
-      .filter((m) => m.tipo === "Egreso")
-      .reduce((sum, m) => sum + m.monto, 0);
-
-    const totalEfectivo = movimientos
-      .filter((m) => m.medioPago === "Efectivo")
-      .reduce((sum, m) => (m.tipo === "Ingreso" ? sum + m.monto : sum - m.monto), aperturaActual.montoInicialEfectivo);
-
-    const totalTarjeta = movimientos
-      .filter((m) => m.medioPago === "Tarjeta")
-      .reduce((sum, m) => (m.tipo === "Ingreso" ? sum + m.monto : sum - m.monto), aperturaActual.montoInicialTarjeta);
-
-    const totalYape = movimientos
-      .filter((m) => m.medioPago === "Yape")
-      .reduce((sum, m) => (m.tipo === "Ingreso" ? sum + m.monto : sum - m.monto), aperturaActual.montoInicialYape);
-
-    const totalOtros = movimientos
-      .filter((m) => !["Efectivo", "Tarjeta", "Yape"].includes(m.medioPago))
-      .reduce((sum, m) => (m.tipo === "Ingreso" ? sum + m.monto : sum - m.monto), aperturaActual.montoInicialOtros);
-
-    return {
-      apertura: aperturaActual.montoInicialTotal,
-      ingresos,
-      egresos,
-      saldo: aperturaActual.montoInicialTotal + ingresos - egresos,
-      totalEfectivo,
-      totalTarjeta,
-      totalYape,
-      totalOtros,
-      cantidadMovimientos: movimientos.length,
-    };
+    return calcularResumenCaja(aperturaActual, movimientos);
   }, [aperturaActual, movimientos]);
 
   const value = useMemo(

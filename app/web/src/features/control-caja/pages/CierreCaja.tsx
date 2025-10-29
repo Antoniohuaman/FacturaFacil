@@ -2,19 +2,24 @@ import React, { useState } from 'react';
 import { useCaja } from '../context/CajaContext';
 import { Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
+import { calcularDescuadre, hasDescuadre } from '../utils';
 
 const CierreCaja: React.FC = () => {
   const [montoCierre, setMontoCierre] = useState('');
+  const [montoEfectivo, setMontoEfectivo] = useState('');
+  const [montoTarjeta, setMontoTarjeta] = useState('');
+  const [montoYape, setMontoYape] = useState('');
+  const [montoOtros, setMontoOtros] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showDescuadreWarning, setShowDescuadreWarning] = useState(false);
 
-  const { status, cerrarCaja, isLoading, getResumen, margenDescuadre } = useCaja();
+  const { status, cerrarCaja, isLoading, getResumen, margenDescuadre, aperturaActual } = useCaja();
 
   const resumen = getResumen();
   const montoIngresado = parseFloat(montoCierre) || 0;
-  const descuadre = montoIngresado - resumen.saldo;
-  const tieneDescuadre = Math.abs(descuadre) > 0.01;
+  const descuadre = calcularDescuadre(montoIngresado, resumen.saldo);
+  const tieneDescuadre = hasDescuadre(descuadre);
   const descuadreExcedido = Math.abs(descuadre) > margenDescuadre;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -30,9 +35,26 @@ const CierreCaja: React.FC = () => {
 
   const handleConfirmCierre = async () => {
     try {
-      await cerrarCaja(montoIngresado, observaciones || undefined);
+      const cierreCaja = {
+        usuarioId: aperturaActual?.usuarioId || 'default',
+        usuarioNombre: aperturaActual?.usuarioNombre || 'Usuario',
+        fechaHoraCierre: new Date(),
+        montoFinalEfectivo: parseFloat(montoEfectivo) || resumen.totalEfectivo,
+        montoFinalTarjeta: parseFloat(montoTarjeta) || resumen.totalTarjeta,
+        montoFinalYape: parseFloat(montoYape) || resumen.totalYape,
+        montoFinalOtros: parseFloat(montoOtros) || resumen.totalOtros,
+        montoFinalTotal: montoIngresado,
+        descuadre,
+        observaciones: observaciones || undefined,
+      };
+
+      await cerrarCaja(cierreCaja);
       setShowConfirmModal(false);
       setMontoCierre('');
+      setMontoEfectivo('');
+      setMontoTarjeta('');
+      setMontoYape('');
+      setMontoOtros('');
       setObservaciones('');
     } catch (error) {
       setShowConfirmModal(false);

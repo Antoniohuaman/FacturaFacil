@@ -6,6 +6,7 @@ import { PageHeader } from '../../../components/PageHeader';
 import AperturaCaja from './AperturaCaja';
 import CierreCaja from './CierreCaja';
 import MovimientosCaja from './MovimientosCaja';
+import RegistrarMovimiento from './RegistrarMovimiento';
 import DetalleMovimientoCaja from './DetalleMovimientoCaja';
 import ConfiguracionCaja from './ConfiguracionCaja';
 import ReportesCaja from './ReportesCaja';
@@ -13,6 +14,7 @@ import ReportesCaja from './ReportesCaja';
 const TABS = [
   { key: 'apertura', label: 'Apertura' },
   { key: 'cierre', label: 'Cierre' },
+  { key: 'registrar', label: 'Registrar' },
   { key: 'movimientos', label: 'Movimientos' },
   { key: 'detalle', label: 'Detalle' },
   { key: 'configuracion', label: 'Configuración' },
@@ -211,6 +213,7 @@ export default function ControlCajaHome() {
           <div>
             {activeTab === 'apertura' && <AperturaCaja />}
             {activeTab === 'cierre' && <CierreCaja />}
+            {activeTab === 'registrar' && <RegistrarMovimiento />}
             {activeTab === 'movimientos' && <MovimientosCaja />}
             {activeTab === 'detalle' && <DetalleMovimientoCaja />}
             {activeTab === 'configuracion' && <ConfiguracionCaja />}

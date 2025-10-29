@@ -1,29 +1,18 @@
 import React, { useState } from 'react';
 import { useCaja } from '../context/CajaContext';
-import { Settings2, User, CreditCard, Save, X, Plus, AlertCircle } from 'lucide-react';
+import { Settings2, CreditCard, Save, X, Plus, AlertCircle } from 'lucide-react';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 
-const mediosPagoDefault = [
-  'Efectivo',
-  'Tarjeta',
-  'Yape',
-  'Transferencia',
-  'Plin',
-  'Deposito'
-];
-
-const usuariosDefault = [
-  'Carlos Rueda',
-  'Ana García',
-  'Miguel López',
-  'Sofia Hernández'
-];
-
 const ConfiguracionCaja: React.FC = () => {
-  const [mediosPago, setMediosPago] = useState<string[]>(mediosPagoDefault);
+  const [mediosPago, setMediosPago] = useState<string[]>([
+    'Efectivo',
+    'Tarjeta',
+    'Yape',
+    'Transferencia',
+    'Plin',
+    'Deposito'
+  ]);
   const [nuevoMedio, setNuevoMedio] = useState('');
-  const [usuarios, setUsuarios] = useState<string[]>(usuariosDefault);
-  const [nuevoUsuario, setNuevoUsuario] = useState('');
   const [limiteCaja, setLimiteCaja] = useState(5000);
   const { margenDescuadre, setMargenDescuadre, showToast } = useCaja();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -49,29 +38,6 @@ const ConfiguracionCaja: React.FC = () => {
   const eliminarMedio = (medio: string) => {
     setMediosPago(mediosPago.filter(m => m !== medio));
     showToast('info', 'Medio eliminado', `${medio} fue eliminado de la lista.`);
-  };
-
-  const agregarUsuario = () => {
-    const usuarioTrimmed = nuevoUsuario.trim();
-
-    if (!usuarioTrimmed) {
-      showToast('warning', 'Campo vacío', 'Por favor, ingrese un nombre de usuario.');
-      return;
-    }
-
-    if (usuarios.includes(usuarioTrimmed)) {
-      showToast('warning', 'Duplicado', 'Este usuario ya existe en la lista.');
-      return;
-    }
-
-    setUsuarios([...usuarios, usuarioTrimmed]);
-    setNuevoUsuario('');
-    showToast('success', 'Usuario agregado', `${usuarioTrimmed} fue agregado exitosamente.`);
-  };
-
-  const eliminarUsuario = (usuario: string) => {
-    setUsuarios(usuarios.filter(u => u !== usuario));
-    showToast('info', 'Usuario eliminado', `${usuario} fue eliminado de la lista.`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -160,52 +126,6 @@ const ConfiguracionCaja: React.FC = () => {
               </div>
             </div>
 
-            {/* Usuarios autorizados */}
-            <div className="bg-gray-50 rounded-lg p-4 sm:p-6 border border-gray-200">
-              <div className="flex items-center gap-2 mb-4">
-                <User className="w-5 h-5 text-gray-700" />
-                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-                  Usuarios Autorizados
-                </h3>
-              </div>
-
-              <div className="flex gap-2 mb-4">
-                <input
-                  type="text"
-                  value={nuevoUsuario}
-                  onChange={e => setNuevoUsuario(e.target.value)}
-                  onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), agregarUsuario())}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nombre completo del usuario"
-                />
-                <button
-                  type="button"
-                  onClick={agregarUsuario}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> Agregar
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {usuarios.map((usuario, idx) => (
-                  <div
-                    key={idx}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-700"
-                  >
-                    {usuario}
-                    <button
-                      type="button"
-                      onClick={() => eliminarUsuario(usuario)}
-                      className="text-red-500 hover:text-red-700 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Límites y márgenes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
@@ -253,8 +173,8 @@ const ConfiguracionCaja: React.FC = () => {
               <div>
                 <h4 className="text-sm font-semibold text-blue-900">Importante</h4>
                 <p className="text-sm text-blue-700 mt-1">
-                  Los cambios en la configuración afectarán a todas las futuras operaciones de caja.
-                  Asegúrese de revisar cuidadosamente antes de guardar.
+                  Los medios de pago configurados estarán disponibles para su selección en las operaciones de caja.
+                  Los cambios afectarán a todas las futuras operaciones.
                 </p>
               </div>
             </div>

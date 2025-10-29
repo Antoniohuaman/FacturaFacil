@@ -1,40 +1,46 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCaja } from '../context/CajaContext';
+import { useUserSession } from '../../../contexts/UserSessionContext';
 import { DollarSign, Save, AlertCircle } from 'lucide-react';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
-
-const usuarios = ['Carlos Rueda', 'Ana García', 'Miguel López', 'Sofia Hernández'];
+import { calcularMontoInicialTotal } from '../utils';
 
 const AperturaCaja: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { session } = useUserSession();
   
-  // ✅ FIX: Input controlado por string (evita "primer dígito congelado")
-  const [montoEfectivoTxt, setMontoEfectivoTxt] = useState('');
-  const [montoTarjetaTxt, setMontoTarjetaTxt] = useState('');
-  const [montoYapeTxt, setMontoYapeTxt] = useState('');
+  // Valores numéricos para cálculos
   const [montoEfectivoNum, setMontoEfectivoNum] = useState(0);
   const [montoTarjetaNum, setMontoTarjetaNum] = useState(0);
   const [montoYapeNum, setMontoYapeNum] = useState(0);
   
+  // Valores de texto para inputs controlados
+  const [montoEfectivoTxt, setMontoEfectivoTxt] = useState('');
+  const [montoTarjetaTxt, setMontoTarjetaTxt] = useState('');
+  const [montoYapeTxt, setMontoYapeTxt] = useState('');
+  
   const [notas, setNotas] = useState('');
-  const [usuario, setUsuario] = useState(usuarios[0]);
   const [fechaApertura, setFechaApertura] = useState(new Date().toISOString().slice(0, 16));
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const { status, abrirCaja, isLoading } = useCaja();
 
+  // Obtener usuario desde el contexto de sesión
+  const usuarioActual = session?.userName || 'Usuario';
+  const usuarioId = session?.userId || 'default';
+
   // Obtener la URL de retorno de los parámetros o sessionStorage
   const returnTo = searchParams.get('returnTo') || sessionStorage.getItem('returnAfterCajaOpen');
 
-  const montoTotal = montoEfectivoNum + montoTarjetaNum + montoYapeNum;
+  const montoTotal = calcularMontoInicialTotal(montoEfectivoNum, montoTarjetaNum, montoYapeNum);
 
   const isFormValid = () => {
     return (
       montoEfectivoNum >= 0 &&
       fechaApertura &&
-      usuario &&
+      usuarioActual &&
       montoTotal > 0
     );
   };
@@ -48,8 +54,8 @@ const AperturaCaja: React.FC = () => {
   const handleConfirmApertura = async () => {
     const aperturaData = {
       cajaId: 'caja-1',
-      usuarioId: usuario,
-      usuarioNombre: usuario,
+      usuarioId: usuarioId,
+      usuarioNombre: usuarioActual,
       fechaHoraApertura: new Date(fechaApertura),
       montoInicialEfectivo: montoEfectivoNum,
       montoInicialTarjeta: montoTarjetaNum,
@@ -222,24 +228,19 @@ const AperturaCaja: React.FC = () => {
             )}
           </div>
 
-          {/* Usuario/Cajero */}
+          {/* Usuario/Cajero - Solo lectura */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Usuario/Cajero <span className="text-red-500">*</span>
             </label>
-            <select
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              required
-              disabled={status === 'abierta' || isLoading}
-            >
-              {usuarios.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
+            <input
+              type="text"
+              value={usuarioActual}
+              className="w-full px-3 py-2 border border-gray-300 bg-gray-50 rounded-md text-sm focus:outline-none cursor-not-allowed"
+              readOnly
+              disabled
+            />
+            <p className="mt-1 text-xs text-gray-500">Usuario actual de la sesión</p>
           </div>
 
           {/* Notas */}
