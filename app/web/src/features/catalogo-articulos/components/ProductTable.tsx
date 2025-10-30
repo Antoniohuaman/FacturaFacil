@@ -4,6 +4,13 @@ import type { Establishment } from '../../configuracion-sistema/models/Establish
 import React, { useState, useEffect, useMemo } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
+// Tenant helpers locales (namespacing por empresa)
+function getTenantEmpresaId(): string {
+  // TODO: Reemplazar por selector/hook real de tenant de la app
+  return 'DEFAULT_EMPRESA';
+}
+const lsKey = (base: string) => `${getTenantEmpresaId()}:${base}`;
+
 // ✅ Extended Product Row: (Product, Establecimiento) pair
 interface ProductEstablishmentRow extends Product {
   _establishmentId: string;
@@ -174,14 +181,14 @@ const ProductTable: React.FC<ProductTableProps> = ({
   // Estado para columnas visibles
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
     // Intentar cargar desde localStorage
-    const saved = localStorage.getItem('productTableColumns');
-    const savedVersion = localStorage.getItem('productTableColumnsVersion');
+    const saved = localStorage.getItem(lsKey('productTableColumns'));
+    const savedVersion = localStorage.getItem(lsKey('productTableColumnsVersion'));
 
     // Si la versión no coincide, resetear a defaults
     if (savedVersion !== COLUMN_CONFIG_VERSION) {
       const defaults = new Set(AVAILABLE_COLUMNS.filter(col => col.defaultVisible).map(col => col.key));
-      localStorage.setItem('productTableColumnsVersion', COLUMN_CONFIG_VERSION);
-      localStorage.setItem('productTableColumns', JSON.stringify([...defaults]));
+      localStorage.setItem(lsKey('productTableColumnsVersion'), COLUMN_CONFIG_VERSION);
+      localStorage.setItem(lsKey('productTableColumns'), JSON.stringify([...defaults]));
       return defaults;
     }
 
@@ -200,8 +207,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
   // Guardar preferencias en localStorage cuando cambien
   useEffect(() => {
-    localStorage.setItem('productTableColumns', JSON.stringify([...visibleColumns]));
-    localStorage.setItem('productTableColumnsVersion', COLUMN_CONFIG_VERSION);
+    localStorage.setItem(lsKey('productTableColumns'), JSON.stringify([...visibleColumns]));
+    localStorage.setItem(lsKey('productTableColumnsVersion'), COLUMN_CONFIG_VERSION);
   }, [visibleColumns]);
 
   const toggleColumn = (columnKey: ColumnKey) => {

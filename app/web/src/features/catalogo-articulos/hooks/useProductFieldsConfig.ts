@@ -42,12 +42,19 @@ const DEFAULT_FIELDS_CONFIG: ProductFieldConfig[] = [
 const STORAGE_KEY = 'productFieldsConfig';
 
 export const useProductFieldsConfig = () => {
+  // Tenant helpers locales (namespacing por empresa)
+  function getTenantEmpresaId(): string {
+    // TODO: Reemplazar por selector/hook real de tenant de la app
+    return 'DEFAULT_EMPRESA';
+  }
+  const lsKey = (base: string) => `${getTenantEmpresaId()}:${base}`;
+
   const [fieldsConfig, setFieldsConfig] = useState<ProductFieldConfig[]>(DEFAULT_FIELDS_CONFIG);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   // Cargar configuración guardada del localStorage
   useEffect(() => {
-    const savedConfig = localStorage.getItem(STORAGE_KEY);
+    const savedConfig = localStorage.getItem(lsKey(STORAGE_KEY));
     if (savedConfig) {
       try {
         const parsed = JSON.parse(savedConfig);
@@ -61,7 +68,7 @@ export const useProductFieldsConfig = () => {
   // Guardar configuración en localStorage
   const saveConfig = (config: ProductFieldConfig[]) => {
     setFieldsConfig(config);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    localStorage.setItem(lsKey(STORAGE_KEY), JSON.stringify(config));
   };
 
   // Toggle visibilidad de un campo

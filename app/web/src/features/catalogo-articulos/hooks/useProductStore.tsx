@@ -11,10 +11,20 @@ const mockProducts: Product[] = [];
 
 const mockCategories: Category[] = [];
 
-// Helpers para localStorage con manejo de fechas
+// ================================================================
+// TENANT/EMPRESA - Helpers locales para namespacing por empresa
+// NOTA: Reemplazar implementación de getTenantEmpresaId() por el hook real de auth/tenant de la app.
+function getTenantEmpresaId(): string {
+  // TODO: leer el empresaId desde el contexto de autenticación/tenant real de la app
+  // Por ahora, devolver un valor fijo para aislar el bucket de datos por empresa.
+  return 'DEFAULT_EMPRESA';
+}
+const lsKey = (base: string) => `${getTenantEmpresaId()}:${base}`;
+
+// Helpers para localStorage con manejo de fechas (namespaced por empresa)
 const saveToLocalStorage = (key: string, data: any) => {
   try {
-    localStorage.setItem(key, JSON.stringify(data));
+    localStorage.setItem(lsKey(key), JSON.stringify(data));
   } catch (error) {
     console.error(`Error saving ${key} to localStorage:`, error);
   }
@@ -22,7 +32,7 @@ const saveToLocalStorage = (key: string, data: any) => {
 
 const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
   try {
-    const stored = localStorage.getItem(key);
+    const stored = localStorage.getItem(lsKey(key));
     if (!stored) return defaultValue;
 
     const parsed = JSON.parse(stored);
