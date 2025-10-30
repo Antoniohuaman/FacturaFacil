@@ -34,8 +34,14 @@ const mainItems = [
   { 
     to: "/catalogo", 
     label: "Productos", 
-    description: "Gestionar inventario",
+    description: "Gestionar catálogo",
     icon: Package
+  },
+  { 
+    to: "/inventario", 
+    label: "Inventario", 
+    description: "Control de stock",
+    icon: Boxes
   },
   { 
     to: "/lista-precios", 
