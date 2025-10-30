@@ -13,6 +13,16 @@ import type { VoucherDesign } from '../models/VoucherDesign';
 import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesign';
 import { SUNAT_UNITS } from '../models/Unit';
 
+// Category interface - moved from catalogo-articulos
+export interface Category {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  color?: string;
+  productCount: number;
+  fechaCreacion: Date;
+}
+
 // Temporary interface for tax affectations until officially added to Tax model
 export interface TaxAffectations {
   igv: {
@@ -39,6 +49,7 @@ interface ConfigurationState {
   units: Unit[];
   taxes: Tax[];
   taxAffectations: TaxAffectations;
+  categories: Category[];
   voucherDesigns: VoucherDesign[];
   isLoading: boolean;
   error: string | null;
@@ -65,6 +76,7 @@ type ConfigurationAction =
   | { type: 'SET_UNITS'; payload: Unit[] }
   | { type: 'SET_TAXES'; payload: Tax[] }
   | { type: 'SET_TAX_AFFECTATIONS'; payload: TaxAffectations }
+  | { type: 'SET_CATEGORIES'; payload: Category[] }
   | { type: 'SET_VOUCHER_DESIGNS'; payload: VoucherDesign[] }
   | { type: 'UPDATE_VOUCHER_DESIGN'; payload: VoucherDesign };
 
@@ -77,6 +89,7 @@ const initialState: ConfigurationState = {
   currencies: [],
   units: [],
   taxes: [],
+  categories: [],
   voucherDesigns: [],
   taxAffectations: {
     igv: {
@@ -193,6 +206,9 @@ function configurationReducer(
 
     case 'SET_TAX_AFFECTATIONS':
       return { ...state, taxAffectations: action.payload };
+
+    case 'SET_CATEGORIES':
+      return { ...state, categories: action.payload };
 
     case 'SET_VOUCHER_DESIGNS':
       return { ...state, voucherDesigns: action.payload };

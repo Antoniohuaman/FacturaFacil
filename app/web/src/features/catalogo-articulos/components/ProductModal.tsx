@@ -2,8 +2,8 @@ import CategoryModal from './CategoryModal';
 import { FieldsConfigPanel } from './FieldsConfigPanel';
 import { useProductStore } from '../hooks/useProductStore';
 import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
-import type { Product, ProductFormData, Category } from '../models/types';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import type { Product, ProductFormData } from '../models/types';
+import { useConfigurationContext, type Category } from '../../configuracion-sistema/context/ConfigurationContext';
 // src/features/catalogo-articulos/components/ProductModal.tsx
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';

@@ -6,14 +6,13 @@ import { PageHeader } from '../../../components/PageHeader';
 import TabNavigation from '../components/TabNavigation';
 import ProductsPage from './ProductsPage';
 import PackagesPage from './PackagesPage';
-import CategoriesPage from './CategoriesPage';
 import ImportPage from './ImportPage';
 import ControlStockPage from './ControlStockPage';
 import { useProductStore } from '../hooks/useProductStore';
 
 const CatalogoArticulosMain: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('productos');
-  const { allProducts, categories } = useProductStore();
+  const { allProducts } = useProductStore();
 
   const tabs = [
     {
@@ -25,11 +24,6 @@ const CatalogoArticulosMain: React.FC = () => {
       key: 'paquetes' as TabKey,
       label: 'Paquetes',
       count: 0 // Se actualizará cuando implementes el estado de paquetes
-    },
-    {
-      key: 'categorias' as TabKey,
-      label: 'Categorías',
-      count: categories.length
     },
     {
       key: 'importar' as TabKey,
@@ -52,8 +46,6 @@ const CatalogoArticulosMain: React.FC = () => {
         return <ProductsPage />;
       case 'paquetes':
         return <PackagesPage />;
-      case 'categorias':
-        return <CategoriesPage />;
       case 'importar':
         return <ImportPage />;
       case 'control-stock':

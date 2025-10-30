@@ -38,14 +38,8 @@ export interface Product {
   fechaActualizacion: Date;
 }
 
-export interface Category {
-  id: string;
-  nombre: string;
-  descripcion?: string;
-  color?: string;
-  productCount: number;
-  fechaCreacion: Date;
-}
+// Category moved to ConfigurationContext
+// import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
 
 export interface Package {
   id: string;
@@ -123,7 +117,7 @@ export interface TableColumn {
   type: 'text' | 'number' | 'currency' | 'select' | 'date';
 }
 
-export type TabKey = 'productos' | 'paquetes' | 'categorias' | 'importar' | 'control-stock';
+export type TabKey = 'productos' | 'paquetes' | 'importar' | 'control-stock';
 
 export interface TabConfig {
   key: TabKey;

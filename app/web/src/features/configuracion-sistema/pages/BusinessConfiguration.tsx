@@ -7,7 +7,8 @@ import {
   DollarSign,
   Scale,
   Receipt,
-  Settings
+  Settings,
+  Tag
 } from 'lucide-react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { UnitsSection } from '../components/business/UnitsSection';
@@ -15,13 +16,14 @@ import { TaxesSection } from '../components/business/TaxesSection';
 import { PaymentMethodsSection } from '../components/business/PaymentMethodsSection';
 import { CurrenciesSection } from '../components/business/CurrenciesSection';
 import { SalesPreferencesSection } from '../components/business/SalesPreferencesSection';
+import { CategoriesSection } from '../components/business/CategoriesSection';
 
-type BusinessSection = 'payments' | 'currencies' | 'units' | 'taxes' | 'preferences';
+type BusinessSection = 'payments' | 'currencies' | 'units' | 'taxes' | 'categories' | 'preferences';
 
 export function BusinessConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { paymentMethods, currencies, units, taxes, taxAffectations } = state;
+  const { paymentMethods, currencies, units, taxes, taxAffectations, categories } = state;
 
   const [activeSection, setActiveSection] = useState<BusinessSection>('payments');
 
@@ -30,6 +32,7 @@ export function BusinessConfiguration() {
     { id: 'currencies' as BusinessSection, label: 'Monedas', icon: DollarSign },
     { id: 'units' as BusinessSection, label: 'Unidades', icon: Scale },
     { id: 'taxes' as BusinessSection, label: 'Impuestos', icon: Receipt },
+    { id: 'categories' as BusinessSection, label: 'Categorías', icon: Tag },
     { id: 'preferences' as BusinessSection, label: 'Preferencias', icon: Settings }
   ];
 
@@ -48,7 +51,7 @@ export function BusinessConfiguration() {
             Configuración de Negocio
           </h1>
           <p className="text-gray-600">
-            Configura formas de pago, monedas, unidades, impuestos y preferencias
+            Configura formas de pago, monedas, unidades, impuestos, categorías y preferencias
           </p>
         </div>
       </div>
@@ -131,6 +134,16 @@ export function BusinessConfiguration() {
                 }
                 // Update tax affectations
                 dispatch({ type: 'SET_TAX_AFFECTATIONS', payload: config.affectations });
+              }}
+            />
+          )}
+
+          {/* Categories Section */}
+          {activeSection === 'categories' && (
+            <CategoriesSection
+              categories={categories}
+              onUpdate={async (categories) => {
+                dispatch({ type: 'SET_CATEGORIES', payload: categories });
               }}
             />
           )}

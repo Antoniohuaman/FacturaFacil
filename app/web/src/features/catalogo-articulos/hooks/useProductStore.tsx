@@ -1,16 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tenantized store; tipos reales se migrarán luego */
-import type { Product, Category, Package, FilterOptions, PaginationConfig, MovimientoStock, MovimientoStockTipo, MovimientoStockMotivo } from '../models/types';
+import type { Product, Package, FilterOptions, PaginationConfig, MovimientoStock, MovimientoStockTipo, MovimientoStockMotivo } from '../models/types';
+import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
 // src/features/catalogo-articulos/hooks/useProductStore.tsx
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
 // ===================================================================
 // DATOS INICIALES - CATÁLOGO VACÍO
 // Los usuarios crearán sus propios productos desde el catálogo
 // ===================================================================
 const mockProducts: Product[] = [];
-
-const mockCategories: Category[] = [];
 
 // ================================================================
 // TENANT/EMPRESA - Helpers locales para namespacing por empresa
@@ -113,6 +113,10 @@ const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
 };
 
 export const useProductStore = () => {
+  // Usar categorías desde el ConfigurationContext
+  const { state: configState, dispatch: configDispatch } = useConfigurationContext();
+  const categories = configState.categories;
+
   // Cargar datos desde localStorage o usar mock data
   // Ejecutar migración one-shot antes de leer
   useEffect(() => {
@@ -122,13 +126,10 @@ export const useProductStore = () => {
   const [products, setProducts] = useState<Product[]>(() =>
     loadFromLocalStorage('catalog_products', mockProducts)
   );
-  const [categories, setCategories] = useState<Category[]>(() =>
-    loadFromLocalStorage('catalog_categories', mockCategories)
-  );
   const [packages, setPackages] = useState<Package[]>(() =>
     loadFromLocalStorage('catalog_packages', [])
   );
-  
+
   // Movimientos de stock
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>(() =>
     loadFromLocalStorage('catalog_movimientos', [])
@@ -138,11 +139,6 @@ export const useProductStore = () => {
   useEffect(() => {
     saveToLocalStorage('catalog_products', products);
   }, [products]);
-
-  // Persistir categorías en localStorage
-  useEffect(() => {
-    saveToLocalStorage('catalog_categories', categories);
-  }, [categories]);
 
   // Persistir paquetes en localStorage
   useEffect(() => {
@@ -183,12 +179,10 @@ export const useProductStore = () => {
       };
 
       const p = read<Product[]>('catalog_products', mockProducts);
-      const c = read<Category[]>('catalog_categories', mockCategories);
       const pk = read<Package[]>('catalog_packages', []);
       const mv = read<MovimientoStock[]>('catalog_movimientos', []);
 
       setProducts(p);
-      setCategories(c);
       setPackages(pk);
       setMovimientos(mv);
     } catch (e) {
@@ -304,16 +298,15 @@ export const useProductStore = () => {
     };
     
     setProducts(prev => [newProduct, ...prev]);
-    
-    // Actualizar contador de categoría
-    setCategories(prev => 
-      prev.map(cat => 
-        cat.nombre === productData.categoria
-          ? { ...cat, productCount: cat.productCount + 1 }
-          : cat
-      )
+
+    // Actualizar contador de categoría en ConfigurationContext
+    const updatedCategories = categories.map(cat =>
+      cat.nombre === productData.categoria
+        ? { ...cat, productCount: cat.productCount + 1 }
+        : cat
     );
-  }, []);
+    configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
+  }, [categories, configDispatch]);
 
   const updateProduct = useCallback((id: string, updates: Partial<Product>) => {
     setProducts(prev => 
@@ -329,55 +322,51 @@ export const useProductStore = () => {
     const product = products.find(p => p.id === id);
     if (product) {
       setProducts(prev => prev.filter(p => p.id !== id));
-      // Actualizar contador de categoría
-      setCategories(prev => 
-        prev.map(cat => 
-          cat.nombre === product.categoria
-            ? { ...cat, productCount: Math.max(0, cat.productCount - 1) }
-            : cat
-        )
+      // Actualizar contador de categoría en ConfigurationContext
+      const updatedCategories = categories.map(cat =>
+        cat.nombre === product.categoria
+          ? { ...cat, productCount: Math.max(0, cat.productCount - 1) }
+          : cat
       );
+      configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
     }
-  }, [products]);
+  }, [products, categories, configDispatch]);
 
   // Eliminar todos los productos y resetear contadores de categorías
   const deleteAllProducts = useCallback(() => {
     setProducts([]);
-    setCategories(prev =>
-      prev.map(cat => ({ ...cat, productCount: 0 }))
-    );
-  }, []);
+    const updatedCategories = categories.map(cat => ({ ...cat, productCount: 0 }));
+    configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
+  }, [categories, configDispatch]);
 
-  // CRUD Categorías
+  // CRUD Categorías - Ahora usan ConfigurationContext
   const addCategory = useCallback((nombre: string, descripcion?: string, color?: string) => {
-    setCategories(prev => {
-      // Evitar duplicados por nombre (case-insensitive)
-      if (prev.some(cat => cat.nombre.trim().toLowerCase() === nombre.trim().toLowerCase())) {
-        return prev;
-      }
-      const newCategory: Category = {
-        id: Date.now().toString(),
-        nombre,
-        descripcion,
-        color,
-        productCount: 0,
-        fechaCreacion: new Date()
-      };
-      return [...prev, newCategory];
-    });
-  }, []);
+    // Evitar duplicados por nombre (case-insensitive)
+    if (categories.some(cat => cat.nombre.trim().toLowerCase() === nombre.trim().toLowerCase())) {
+      return;
+    }
+    const newCategory: Category = {
+      id: Date.now().toString(),
+      nombre,
+      descripcion,
+      color,
+      productCount: 0,
+      fechaCreacion: new Date()
+    };
+    configDispatch({ type: 'SET_CATEGORIES', payload: [...categories, newCategory] });
+  }, [categories, configDispatch]);
 
   const updateCategory = useCallback((id: string, updates: Partial<Category>) => {
-    setCategories(prev => 
-      prev.map(category => 
-        category.id === id ? { ...category, ...updates } : category
-      )
+    const updatedCategories = categories.map(category =>
+      category.id === id ? { ...category, ...updates } : category
     );
-  }, []);
+    configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
+  }, [categories, configDispatch]);
 
   const deleteCategory = useCallback((id: string) => {
-    setCategories(prev => prev.filter(cat => cat.id !== id));
-  }, []);
+    const updatedCategories = categories.filter(cat => cat.id !== id);
+    configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
+  }, [categories, configDispatch]);
 
   // Filtros y paginación
   const updateFilters = useCallback((newFilters: Partial<FilterOptions>) => {
