@@ -1,20 +1,20 @@
-// src/features/catalogo-articulos/components/StockSummaryCards.tsx
+// src/features/inventario/components/panels/SummaryCards.tsx
 
 import React, { useMemo } from 'react';
-import type { Product } from '../models/types';
-import type { Establishment } from '../../configuracion-sistema/models/Establishment';
+import type { Product } from '../../../catalogo-articulos/models/types';
+import type { Establishment } from '../../../configuracion-sistema/models/Establishment';
 
-interface StockSummaryCardsProps {
+interface SummaryCardsProps {
   products: Product[];
   establecimientoFiltro?: string;
   establishments?: Establishment[];
 }
 
-const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
+const SummaryCards: React.FC<SummaryCardsProps> = ({
   products,
   establecimientoFiltro
 }) => {
-  // ✅ Calcular estadísticas basadas en el filtro de establecimiento
+  // Calcular estadísticas basadas en el filtro de establecimiento
   const stats = useMemo(() => {
     let totalProductos = 0;
     let totalStock = 0;
@@ -73,9 +73,9 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
         </svg>
       ),
       color: 'blue',
-      bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600',
-      iconBg: 'bg-blue-100'
+      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+      textColor: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-100 dark:bg-blue-900/30'
     },
     {
       title: 'Stock Total',
@@ -87,9 +87,9 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
         </svg>
       ),
       color: 'green',
-      bgColor: 'bg-green-50',
-      textColor: 'text-green-600',
-      iconBg: 'bg-green-100'
+      bgColor: 'bg-green-50 dark:bg-green-900/20',
+      textColor: 'text-green-600 dark:text-green-400',
+      iconBg: 'bg-green-100 dark:bg-green-900/30'
     },
     {
       title: 'Valor Total Stock',
@@ -100,9 +100,9 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
         </svg>
       ),
       color: 'purple',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600',
-      iconBg: 'bg-purple-100'
+      bgColor: 'bg-purple-50 dark:bg-purple-900/20',
+      textColor: 'text-purple-600 dark:text-purple-400',
+      iconBg: 'bg-purple-100 dark:bg-purple-900/30'
     },
     {
       title: 'Sin Stock',
@@ -114,9 +114,9 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
         </svg>
       ),
       color: 'red',
-      bgColor: 'bg-red-50',
-      textColor: 'text-red-600',
-      iconBg: 'bg-red-100'
+      bgColor: 'bg-red-50 dark:bg-red-900/20',
+      textColor: 'text-red-600 dark:text-red-400',
+      iconBg: 'bg-red-100 dark:bg-red-900/30'
     },
     {
       title: 'Stock Bajo',
@@ -128,9 +128,9 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
         </svg>
       ),
       color: 'yellow',
-      bgColor: 'bg-yellow-50',
-      textColor: 'text-yellow-600',
-      iconBg: 'bg-yellow-100'
+      bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+      textColor: 'text-yellow-600 dark:text-yellow-400',
+      iconBg: 'bg-yellow-100 dark:bg-yellow-900/30'
     }
   ];
 
@@ -139,7 +139,7 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
       {cards.map((card, index) => (
         <div
           key={index}
-          className={`${card.bgColor} rounded-lg p-6 border border-${card.color}-200 hover:shadow-md transition-shadow`}
+          className={`${card.bgColor} rounded-lg p-6 border border-${card.color}-200 dark:border-${card.color}-700 hover:shadow-md transition-shadow`}
         >
           <div className="flex items-center justify-between mb-4">
             <div className={`${card.iconBg} p-3 rounded-lg`}>
@@ -148,15 +148,15 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
               </div>
             </div>
           </div>
-          
+
           <div>
-            <p className="text-sm font-medium text-gray-600 mb-1">{card.title}</p>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{card.title}</p>
             <div className="flex items-baseline space-x-2">
               <p className={`text-2xl font-bold ${card.textColor}`}>
                 {card.value}
               </p>
               {card.subtitle && (
-                <span className="text-sm text-gray-500">{card.subtitle}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{card.subtitle}</span>
               )}
             </div>
           </div>
@@ -166,4 +166,4 @@ const StockSummaryCards: React.FC<StockSummaryCardsProps> = ({
   );
 };
 
-export default StockSummaryCards;
+export default SummaryCards;

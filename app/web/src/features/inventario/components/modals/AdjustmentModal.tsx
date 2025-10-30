@@ -1,11 +1,11 @@
-// src/features/catalogo-articulos/components/StockAdjustmentModal.tsx
+// src/features/inventario/components/modals/AdjustmentModal.tsx
 
 import React, { useState } from 'react';
-import type { MovimientoStockTipo, MovimientoStockMotivo } from '../models/types';
-import { useProductStore } from '../hooks/useProductStore';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import type { MovimientoTipo, MovimientoMotivo } from '../../models';
+import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 
-interface StockAdjustmentModalProps {
+interface AdjustmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdjust: (data: AdjustmentData) => void;
@@ -15,8 +15,8 @@ interface StockAdjustmentModalProps {
 
 interface AdjustmentData {
   productoId: string;
-  tipo: MovimientoStockTipo;
-  motivo: MovimientoStockMotivo;
+  tipo: MovimientoTipo;
+  motivo: MovimientoMotivo;
   cantidad: number;
   observaciones: string;
   documentoReferencia: string;
@@ -25,7 +25,7 @@ interface AdjustmentData {
   establecimientoNombre?: string;
 }
 
-const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
+const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   isOpen,
   onClose,
   onAdjust,
@@ -36,7 +36,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   const { state: configState } = useConfigurationContext();
   const establecimientos = configState.establishments.filter(e => e.isActive);
 
-  // ✅ PASO 1: Primero seleccionar establecimiento(s)
+  // PASO 1: Primero seleccionar establecimiento(s)
   const [selectedEstablecimientoId, setSelectedEstablecimientoId] = useState('');
 
   // PASO 2: Luego seleccionar producto
@@ -44,8 +44,8 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   const [selectedProductId, setSelectedProductId] = useState(preSelectedProductId || '');
 
   // PASO 3: Detalles del movimiento
-  const [tipo, setTipo] = useState<MovimientoStockTipo>('ENTRADA');
-  const [motivo, setMotivo] = useState<MovimientoStockMotivo>('COMPRA');
+  const [tipo, setTipo] = useState<MovimientoTipo>('ENTRADA');
+  const [motivo, setMotivo] = useState<MovimientoMotivo>('COMPRA');
   const [cantidad, setCantidad] = useState(preSelectedQuantity ? String(preSelectedQuantity) : '');
   const [observaciones, setObservaciones] = useState('');
   const [documentoReferencia, setDocumentoReferencia] = useState('');
@@ -67,7 +67,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
     p.codigo.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const motivosPorTipo: Record<MovimientoStockTipo, MovimientoStockMotivo[]> = {
+  const motivosPorTipo: Record<MovimientoTipo, MovimientoMotivo[]> = {
     ENTRADA: ['COMPRA', 'DEVOLUCION_CLIENTE', 'PRODUCCION', 'OTRO'],
     SALIDA: ['VENTA', 'PRODUCTO_DAÑADO', 'PRODUCTO_VENCIDO', 'ROBO_PERDIDA', 'OTRO'],
     AJUSTE_POSITIVO: ['AJUSTE_INVENTARIO', 'OTRO'],
@@ -77,7 +77,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
     TRANSFERENCIA: ['TRANSFERENCIA_ALMACEN', 'OTRO']
   };
 
-  const motivoLabels: Record<MovimientoStockMotivo, string> = {
+  const motivoLabels: Record<MovimientoMotivo, string> = {
     COMPRA: 'Compra a proveedor',
     VENTA: 'Venta a cliente',
     AJUSTE_INVENTARIO: 'Ajuste de inventario',
@@ -92,7 +92,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
     OTRO: 'Otro motivo'
   };
 
-  const handleTipoChange = (newTipo: MovimientoStockTipo) => {
+  const handleTipoChange = (newTipo: MovimientoTipo) => {
     setTipo(newTipo);
     const motivosDisponibles = motivosPorTipo[newTipo];
     if (motivosDisponibles.length > 0) {
@@ -138,7 +138,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
   if (!isOpen) return null;
 
-  // ✅ Obtener stock actual del establecimiento seleccionado (no global)
+  // Obtener stock actual del establecimiento seleccionado (no global)
   const stockActualEstablecimiento = selectedProduct && selectedEstablecimientoId
     ? (selectedProduct.stockPorEstablecimiento?.[selectedEstablecimientoId] ?? 0)
     : 0;
@@ -154,12 +154,12 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
       <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         {/* Backdrop */}
         <div
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75 transition-opacity"
           onClick={onClose}
         />
 
         {/* Modal */}
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
           {/* Header */}
           <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
             <div className="flex items-center justify-between">
@@ -191,13 +191,13 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
           {/* Body */}
           <div className="px-6 py-6 space-y-6">
-            {/* ✅ PASO 1: Establecimiento (PRIMERO) */}
-            <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+            {/* PASO 1: Establecimiento (PRIMERO) */}
+            <div className="bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-3">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-                <label className="text-sm font-semibold text-gray-900">
+                <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
                   1. Seleccionar Establecimiento <span className="text-red-500">*</span>
                 </label>
               </div>
@@ -209,7 +209,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                   setSelectedProductId('');
                   setSearchTerm('');
                 }}
-                className="w-full px-4 py-2.5 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                className="w-full px-4 py-2.5 border-2 border-purple-300 dark:border-purple-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 dark:text-white"
                 required
               >
                 <option value="">Seleccionar establecimiento...</option>
@@ -220,16 +220,16 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                 ))}
               </select>
               {selectedEstablecimientoId && (
-                <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-3 py-1.5 rounded">
+                <p className="mt-2 text-xs text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded">
                   ✓ Movimiento se aplicará en este establecimiento
                 </p>
               )}
             </div>
 
-            {/* ✅ PASO 2: Product Selection (SEGUNDO - solo si hay establecimiento) */}
+            {/* PASO 2: Product Selection (SEGUNDO - solo si hay establecimiento) */}
             {selectedEstablecimientoId && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   2. Buscar Producto <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -238,12 +238,12 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                     placeholder="Buscar producto por nombre o código..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
                   />
                   {searchTerm && filteredProducts.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
                       {filteredProducts.map((product) => {
-                        // ✅ Mostrar stock del establecimiento seleccionado
+                        // Mostrar stock del establecimiento seleccionado
                         const stockEnEst = product.stockPorEstablecimiento?.[selectedEstablecimientoId] ?? 0;
                         return (
                           <button
@@ -252,16 +252,16 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                               setSelectedProductId(product.id);
                               setSearchTerm(product.nombre);
                             }}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                           >
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="font-medium text-gray-900">{product.nombre}</p>
-                                <p className="text-sm text-gray-500 font-mono">{product.codigo}</p>
+                                <p className="font-medium text-gray-900 dark:text-gray-200">{product.nombre}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{product.codigo}</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-sm font-medium text-gray-900">Stock: {stockEnEst}</p>
-                                <p className="text-xs text-gray-500">{product.unidad}</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-200">Stock: {stockEnEst}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{product.unidad}</p>
                               </div>
                             </div>
                           </button>
@@ -271,15 +271,15 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                   )}
                 </div>
                 {selectedProduct && (
-                  <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-900">{selectedProduct.nombre}</p>
-                        <p className="text-sm text-gray-600 font-mono">{selectedProduct.codigo}</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-200">{selectedProduct.nombre}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">{selectedProduct.codigo}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-600">Stock en {establecimientos.find(e => e.id === selectedEstablecimientoId)?.code}</p>
-                        <p className="text-2xl font-bold text-blue-600">{stockActualEstablecimiento}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Stock en {establecimientos.find(e => e.id === selectedEstablecimientoId)?.code}</p>
+                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stockActualEstablecimiento}</p>
                       </div>
                     </div>
                   </div>
@@ -289,11 +289,11 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
             {/* Tipo de Movimiento */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Tipo de Movimiento *
               </label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {(['ENTRADA', 'SALIDA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO'] as MovimientoStockTipo[]).map((t) => (
+                {(['ENTRADA', 'SALIDA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO'] as MovimientoTipo[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => handleTipoChange(t)}
@@ -301,9 +301,9 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                       px-4 py-3 rounded-md text-sm font-medium transition-all border-2
                       ${tipo === t
                         ? t === 'ENTRADA' || t === 'AJUSTE_POSITIVO'
-                          ? 'bg-green-50 border-green-500 text-green-700'
-                          : 'bg-red-50 border-red-500 text-red-700'
-                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                          ? 'bg-green-50 dark:bg-green-900/30 border-green-500 text-green-700 dark:text-green-400'
+                          : 'bg-red-50 dark:bg-red-900/30 border-red-500 text-red-700 dark:text-red-400'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
                       }
                     `}
                   >
@@ -318,13 +318,13 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
             {/* Motivo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Motivo *
               </label>
               <select
                 value={motivo}
-                onChange={(e) => setMotivo(e.target.value as MovimientoStockMotivo)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                onChange={(e) => setMotivo(e.target.value as MovimientoMotivo)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
               >
                 {motivosPorTipo[tipo].map((m) => (
                   <option key={m} value={m}>
@@ -337,7 +337,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
             {/* Cantidad y Stock Resultante */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Cantidad *
                 </label>
                 <input
@@ -346,21 +346,21 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                   value={cantidad}
                   onChange={(e) => setCantidad(e.target.value)}
                   placeholder="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
               {selectedProduct && selectedEstablecimientoId && cantidad && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Nuevo Stock en {establecimientos.find(e => e.id === selectedEstablecimientoId)?.code}
                   </label>
                   <div className={`
                     w-full px-4 py-2 border-2 rounded-md font-bold text-lg
                     ${newStock < 0
-                      ? 'border-red-300 bg-red-50 text-red-600'
+                      ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                       : newStock > stockActualEstablecimiento
-                      ? 'border-green-300 bg-green-50 text-green-600'
-                      : 'border-blue-300 bg-blue-50 text-blue-600'
+                      ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                      : 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                     }
                   `}>
                     {stockActualEstablecimiento} → {newStock}
@@ -371,7 +371,7 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
             {/* Documento Referencia */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Documento de Referencia
               </label>
               <input
@@ -379,13 +379,13 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                 value={documentoReferencia}
                 onChange={(e) => setDocumentoReferencia(e.target.value)}
                 placeholder="Ej: FC-001-2024, GR-045, etc."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
 
             {/* Observaciones */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Observaciones
               </label>
               <textarea
@@ -393,16 +393,16 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
                 placeholder="Detalles adicionales sobre este movimiento..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Cancelar
             </button>
@@ -420,4 +420,4 @@ const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   );
 };
 
-export default StockAdjustmentModal;
+export default AdjustmentModal;

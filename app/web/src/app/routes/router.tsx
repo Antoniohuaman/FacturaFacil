@@ -22,6 +22,7 @@ import { BusinessConfiguration } from "../../features/configuracion-sistema/page
 import { VoucherDesignConfigurationNew } from "../../features/configuracion-sistema/pages/VoucherDesignConfigurationNew";
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../../features/lista-precios/components/ListaPrecios";
+import { InventoryPage } from "../../features/inventario/pages/InventoryPage";
 
 import RouteErrorBoundary from "./RouteErrorBoundary";
 
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
   { path: "/punto-venta/nueva-venta", element: <PuntoVenta /> },
       { path: "/catalogo", element: <CatalogoArticulosMain /> },
       { path: "/lista-precios", element: <ListaPrecios /> },
+      { path: "/inventario", element: <InventoryPage /> },
       // Nota: ruta "/documentos-comerciales" eliminada porque el módulo fue removido
       { path: "/control-caja", element: <ControlCajaHome /> },
       

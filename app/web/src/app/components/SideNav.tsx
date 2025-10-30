@@ -1,6 +1,6 @@
 
 import { NavLink } from "react-router-dom";
-import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings, Receipt, Wallet } from "lucide-react";
+import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Settings, Receipt, Wallet, Boxes } from "lucide-react";
 import CompanySelector from "../../components/CompanySelector";
 import { useUserSession } from "../../contexts/UserSessionContext";
 import { useComprobanteContext } from "../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
