@@ -117,7 +117,7 @@ export interface TableColumn {
   type: 'text' | 'number' | 'currency' | 'select' | 'date';
 }
 
-export type TabKey = 'productos' | 'paquetes' | 'importar' | 'control-stock';
+export type TabKey = 'productos' | 'importar' | 'control-stock';
 
 export interface TabConfig {
   key: TabKey;
