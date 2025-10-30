@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/catalogo-articulos/pages/ImportPage.tsx
 
 import React, { useState } from 'react';

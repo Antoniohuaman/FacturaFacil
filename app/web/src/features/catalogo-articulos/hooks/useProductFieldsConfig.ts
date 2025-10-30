@@ -47,28 +47,79 @@ export const useProductFieldsConfig = () => {
     // TODO: Reemplazar por selector/hook real de tenant de la app
     return 'DEFAULT_EMPRESA';
   }
-  const lsKey = (base: string) => `${getTenantEmpresaId()}:${base}`;
+  function ensureEmpresaId(): string {
+    const empresaId = getTenantEmpresaId();
+    if (!empresaId || typeof empresaId !== 'string' || empresaId.trim() === '') {
+      const msg = 'empresaId inválido. TODO: integrar hook real de tenant para obtener empresa actual.';
+      console.warn(msg);
+      throw new Error(msg);
+    }
+    return empresaId;
+  }
+  const lsKey = (base: string) => `${ensureEmpresaId()}:${base}`;
+
+  function migrateLegacyToNamespaced() {
+    try {
+      const empresaId = ensureEmpresaId();
+      const markerKey = `${empresaId}:catalog_migrated`;
+      const migrated = localStorage.getItem(markerKey);
+      if (migrated === 'v1') return;
+
+      const legacyKeys = [
+        'catalog_products',
+        'catalog_categories',
+        'catalog_packages',
+        'catalog_movimientos',
+        'productTableColumns',
+        'productTableColumnsVersion',
+        'productFieldsConfig'
+      ];
+
+      for (const key of legacyKeys) {
+        const namespaced = `${empresaId}:${key}`;
+        const hasNamespaced = localStorage.getItem(namespaced) !== null;
+        const legacyValue = localStorage.getItem(key);
+        if (!hasNamespaced && legacyValue !== null) {
+          localStorage.setItem(namespaced, legacyValue);
+          localStorage.removeItem(key);
+        }
+      }
+
+      localStorage.setItem(markerKey, 'v1');
+    } catch (err) {
+      console.warn('Migración legacy->namespaced (FieldsConfig) omitida por empresaId inválido o error:', err);
+    }
+  }
 
   const [fieldsConfig, setFieldsConfig] = useState<ProductFieldConfig[]>(DEFAULT_FIELDS_CONFIG);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   // Cargar configuración guardada del localStorage
   useEffect(() => {
-    const savedConfig = localStorage.getItem(lsKey(STORAGE_KEY));
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig);
-        setFieldsConfig(parsed);
-      } catch (error) {
-        console.error('Error al cargar configuración de campos:', error);
+    try {
+      migrateLegacyToNamespaced();
+      const savedConfig = localStorage.getItem(lsKey(STORAGE_KEY));
+      if (savedConfig) {
+        try {
+          const parsed = JSON.parse(savedConfig);
+          setFieldsConfig(parsed);
+        } catch (error) {
+          console.error('Error al cargar configuración de campos:', error);
+        }
       }
+    } catch (e) {
+      console.warn('No se pudo leer configuración de campos (empresaId inválido?):', e);
     }
   }, []);
 
   // Guardar configuración en localStorage
   const saveConfig = (config: ProductFieldConfig[]) => {
     setFieldsConfig(config);
-    localStorage.setItem(lsKey(STORAGE_KEY), JSON.stringify(config));
+    try {
+      localStorage.setItem(lsKey(STORAGE_KEY), JSON.stringify(config));
+    } catch (e) {
+      console.warn('No se pudo persistir configuración de campos (empresaId inválido?):', e);
+    }
   };
 
   // Toggle visibilidad de un campo

@@ -179,7 +179,7 @@ export function RegisterPage() {
         actividadEconomica: datosSunat.actividadEconomica,
       }));
 
-    } catch (err) {
+    } catch {
       setError('No se pudo consultar SUNAT. Intente nuevamente.');
     } finally {
       setIsConsultingSunat(false);

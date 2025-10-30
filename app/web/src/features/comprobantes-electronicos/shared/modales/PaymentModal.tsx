@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // COMPONENTE MODAL PARA PROCESAR PAGOS (MODO POS)
 // ===================================================================

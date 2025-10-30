@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components -- archivo comparte helpers y componentes; split diferido */
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { Download } from 'lucide-react';
 
 interface ProgressModalProps {

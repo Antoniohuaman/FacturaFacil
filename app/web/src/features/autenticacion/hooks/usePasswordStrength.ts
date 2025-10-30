@@ -30,7 +30,7 @@ export function usePasswordStrength(password: string, policy: PasswordPolicy = D
   return useMemo(() => {
     if (!password) {
       return {
-        score: 0 as 0,
+        score: 0 as const,
         feedback: [],
         isValid: false,
         requirements: [

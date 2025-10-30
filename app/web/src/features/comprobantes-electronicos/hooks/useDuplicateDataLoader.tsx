@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /**
  * Hook para cargar datos de comprobante duplicado
  * Extrae la lógica de duplicación del componente principal

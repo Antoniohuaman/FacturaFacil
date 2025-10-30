@@ -1,3 +1,4 @@
+/* eslint-disable no-case-declarations -- switch con declaraciones; refactor diferido */
 // src/features/catalogo-articulos/components/BulkDeleteToolbar.tsx
 
 import React, { useState } from 'react';

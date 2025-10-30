@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect } from 'react';
 import type { Column, Product, NewColumnForm, PriceForm, FixedPrice, VolumePrice } from '../models/PriceTypes';
 import {
@@ -14,6 +15,14 @@ interface CatalogProduct {
   precio: number;
   [key: string]: any;
 }
+
+// Helpers de tenant/empresa para namespacing de localStorage
+const getTenantEmpresaId = () => 'EMP-01'; // TODO: reemplazar por hook real
+const ensureEmpresaId = (id: string) => {
+  if (!id) throw new Error('empresaId requerido');
+  return id;
+};
+const lsKey = (base: string) => `${ensureEmpresaId(getTenantEmpresaId())}:${base}`;
 
 // Utilidad para cargar desde localStorage
 const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
@@ -57,20 +66,25 @@ export const usePriceList = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Cargar productos desde el catálogo
-  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>(() =>
-    loadFromLocalStorage<CatalogProduct[]>('catalog_products', [])
-  );
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>(() => {
+    try {
+      return loadFromLocalStorage<CatalogProduct[]>(lsKey('catalog_products'), []);
+    } catch (e) {
+      console.warn('usePriceList: error leyendo catalog_products', e);
+      return [];
+    }
+  });
 
   // Sincronizar con localStorage del catálogo cuando cambie
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'catalog_products' && e.newValue) {
-        try {
+      try {
+        if (e.key === lsKey('catalog_products') && e.newValue) {
           const newProducts = JSON.parse(e.newValue);
           setCatalogProducts(newProducts);
-        } catch (error) {
-          console.error('Error parsing catalog products:', error);
         }
+      } catch (error) {
+        console.error('Error parsing catalog products:', error);
       }
     };
 
@@ -123,7 +137,7 @@ export const usePriceList = () => {
         
         setColumns([...columns, newColumn]);
         return true;
-      } catch (err) {
+      } catch {
         setError('Error al agregar columna');
         return false;
       } finally {

@@ -48,7 +48,7 @@ export function UnitsSection({
 
   // Filtros y búsqueda
   const filteredUnits = useMemo(() => {
-    let filtered = units.filter(unit => {
+    const filtered = units.filter(unit => {
       // Filtro por búsqueda
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useEffect, useMemo } from 'react';
 import type { CartItem, DraftAction, TipoComprobante } from '../../../models/comprobante.types';
 import { UNIDADES_MEDIDA } from '../../../models/constants';

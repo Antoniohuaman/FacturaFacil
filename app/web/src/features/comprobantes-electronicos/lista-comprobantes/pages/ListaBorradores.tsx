@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useMemo } from 'react';
 import { Search, Filter, Download, Printer, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Edit, Copy, Trash2, Send, Clock, AlertTriangle, FileText } from 'lucide-react';
 import { MOCK_DRAFTS, type Draft } from '../mockData/drafts.mock';

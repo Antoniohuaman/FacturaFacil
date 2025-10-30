@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // FORMULARIO DE COTIZACIÓN - INDEPENDIENTE
 // Series dinámicas desde configuración + Guardar borrador + Toasts

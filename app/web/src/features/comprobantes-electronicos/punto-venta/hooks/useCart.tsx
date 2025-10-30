@@ -197,7 +197,7 @@ export const useCart = (): UseCartReturn => {
   const addProductsFromSelector = useCallback((products: { product: Product; quantity: number }[]) => {
     if (products.length > 0) {
       setCartItems(prev => {
-        let updated = [...prev];
+        const updated = [...prev];
         products.forEach(({ product, quantity }) => {
           const idx = updated.findIndex(item => item.id === product.id);
           if (idx !== -1) {

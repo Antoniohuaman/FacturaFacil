@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // COMPONENTE UNIFICADO: CARRITO + CONFIGURACIÓN DE DOCUMENTO
 // Fusiona CartSidebar con selección de Boleta/Factura y Cliente

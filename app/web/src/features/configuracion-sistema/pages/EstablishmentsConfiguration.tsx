@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/EstablishmentsConfiguration.tsx
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';

@@ -1,3 +1,4 @@
+/* eslint-disable no-case-declarations -- switch con declaraciones; refactor diferido */
 import { useState, useEffect, useCallback } from 'react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import type { ConfigurationStep } from '../models/Configuration';

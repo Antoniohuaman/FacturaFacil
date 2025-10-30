@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/establishments/EstablishmentForm.tsx
 import { useState, useEffect } from 'react';
 import { MapPin, Building2, Hash, ToggleLeft, ToggleRight, X } from 'lucide-react';

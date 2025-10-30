@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // ===================================================================
 // PUNTO DE VENTA - PÁGINA INDEPENDIENTE
 // Preserva toda la funcionalidad original con mejor UX

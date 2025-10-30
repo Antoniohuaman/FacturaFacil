@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- archivo mezcla context y utilidades; split diferido */
 // ===================================================================
 // CONTEXTO PARA CONFIGURACIÓN DE VISIBILIDAD DE CAMPOS
 // Permite que los cambios en la configuración se propaguen inmediatamente

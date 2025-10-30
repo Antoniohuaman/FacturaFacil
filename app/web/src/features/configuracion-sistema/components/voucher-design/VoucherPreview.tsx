@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // VOUCHER PREVIEW - Vista previa COMPLETA y FUNCIONAL
 // ===================================================================

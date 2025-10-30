@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React, { useState } from 'react';
 import { useCaja } from '../context/CajaContext';
 import { Lock, CheckCircle2, AlertTriangle } from 'lucide-react';

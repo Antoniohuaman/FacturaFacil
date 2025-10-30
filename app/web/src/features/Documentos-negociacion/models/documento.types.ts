@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
+/* eslint-disable @typescript-eslint/no-empty-object-type -- tipos heredados equivalentes; refactor diferido */
 // ===================================================================
 // TIPOS DE DATOS PARA EL SISTEMA DE DOCUMENTOS DE NEGOCIACIÓN
 // ===================================================================

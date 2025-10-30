@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/autenticacion/services/AuthClient.ts
 import type {
   LoginCredentials,

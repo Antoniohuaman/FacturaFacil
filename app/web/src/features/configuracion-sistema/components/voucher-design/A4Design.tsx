@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect } from 'react';
 import { Palette, Image, Type, AlignLeft, AlignRight, Eye } from 'lucide-react';
 

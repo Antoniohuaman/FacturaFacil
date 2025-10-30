@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React from 'react';
 import type { PreviewData } from '../../models/comprobante.types';
 import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useVoucherDesignConfig';

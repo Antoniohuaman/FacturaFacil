@@ -37,15 +37,7 @@ export const TableHeader: React.FC<TableHeaderProps> = ({
   onSelectAll
 }) => {
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
-  const [tempColumnFilters, setTempColumnFilters] = useState<Record<string, string>>({});
   const filterInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
-
-  // Sincronizar tempColumnFilters con columnFilters cuando cambia el filtro activo
-  useEffect(() => {
-    if (activeFilterColumn) {
-      setTempColumnFilters(columnFilters);
-    }
-  }, [activeFilterColumn, columnFilters]);
 
   // Auto-focus en input de filtro cuando se abre
   useEffect(() => {
@@ -89,7 +81,7 @@ export const TableHeader: React.FC<TableHeaderProps> = ({
               />
               <div className="absolute left-0 top-full mt-2 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-3 min-w-[250px]">
                 <input
-                  ref={(el) => (filterInputRefs.current[column.key] = el)}
+                  ref={(el) => { filterInputRefs.current[column.key] = el; }}
                   type="text"
                   placeholder={`Buscar ${column.label.toLowerCase()}...`}
                   defaultValue={columnFilters[column.key] || ''}

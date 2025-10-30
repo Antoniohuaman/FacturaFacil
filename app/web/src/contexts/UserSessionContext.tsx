@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- archivo comparte helpers/constantes; split diferido */
 // src/contexts/UserSessionContext.tsx
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';

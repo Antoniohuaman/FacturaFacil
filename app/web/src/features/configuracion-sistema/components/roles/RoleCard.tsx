@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { Shield, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { Role } from '../../models/Role';

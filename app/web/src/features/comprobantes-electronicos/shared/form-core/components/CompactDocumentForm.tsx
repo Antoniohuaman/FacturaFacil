@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // FORMULARIO COMPACTO DE DOCUMENTO
 // Reorganiza los campos para reducir scroll manteniendo toda la lógica

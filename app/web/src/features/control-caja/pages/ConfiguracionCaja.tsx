@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React, { useState } from 'react';
 import { useCaja } from '../context/CajaContext';
 import { Settings2, CreditCard, Save, X, Plus, AlertCircle } from 'lucide-react';

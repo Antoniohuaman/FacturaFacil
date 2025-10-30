@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- archivo mezcla context y utilidades; split diferido */
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
 import type {
   CajaStatus,

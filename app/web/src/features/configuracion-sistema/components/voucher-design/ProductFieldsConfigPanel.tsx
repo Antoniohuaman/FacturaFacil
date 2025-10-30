@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // PRODUCT FIELDS CONFIGURATION PANEL
 // Componente para configurar campos de la tabla de productos

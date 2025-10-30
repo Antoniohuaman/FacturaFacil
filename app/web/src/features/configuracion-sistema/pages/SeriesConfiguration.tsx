@@ -289,7 +289,7 @@ export function SeriesConfiguration() {
         return parseInt(numberPart) || 0;
       });
     
-    let nextNumber = Math.max(0, ...existingNumbers) + 1;
+    const nextNumber = Math.max(0, ...existingNumbers) + 1;
     
     // If it's the first series of this type, suggest nice default codes
     if (existingNumbers.length === 0) {

@@ -9,7 +9,50 @@ function getTenantEmpresaId(): string {
   // TODO: Reemplazar por selector/hook real de tenant de la app
   return 'DEFAULT_EMPRESA';
 }
-const lsKey = (base: string) => `${getTenantEmpresaId()}:${base}`;
+function ensureEmpresaId(): string {
+  const empresaId = getTenantEmpresaId();
+  if (!empresaId || typeof empresaId !== 'string' || empresaId.trim() === '') {
+    const msg = 'empresaId inválido. TODO: integrar hook real de tenant para obtener empresa actual.';
+    console.warn(msg);
+    throw new Error(msg);
+  }
+  return empresaId;
+}
+const lsKey = (base: string) => `${ensureEmpresaId()}:${base}`;
+
+// One-shot migration de llaves legacy -> namespaced por empresa (para columnas de tabla y otros)
+function migrateLegacyToNamespaced() {
+  try {
+    const empresaId = ensureEmpresaId();
+    const markerKey = `${empresaId}:catalog_migrated`;
+    const migrated = localStorage.getItem(markerKey);
+    if (migrated === 'v1') return;
+
+    const legacyKeys = [
+      'catalog_products',
+      'catalog_categories',
+      'catalog_packages',
+      'catalog_movimientos',
+      'productTableColumns',
+      'productTableColumnsVersion',
+      'productFieldsConfig'
+    ];
+
+    for (const key of legacyKeys) {
+      const namespaced = `${empresaId}:${key}`;
+      const hasNamespaced = localStorage.getItem(namespaced) !== null;
+      const legacyValue = localStorage.getItem(key);
+      if (!hasNamespaced && legacyValue !== null) {
+        localStorage.setItem(namespaced, legacyValue);
+        localStorage.removeItem(key);
+      }
+    }
+
+    localStorage.setItem(markerKey, 'v1');
+  } catch (err) {
+    console.warn('Migración legacy->namespaced (ProductTable) omitida por empresaId inválido o error:', err);
+  }
+}
 
 // ✅ Extended Product Row: (Product, Establecimiento) pair
 interface ProductEstablishmentRow extends Product {
@@ -181,14 +224,31 @@ const ProductTable: React.FC<ProductTableProps> = ({
   // Estado para columnas visibles
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
     // Intentar cargar desde localStorage
-    const saved = localStorage.getItem(lsKey('productTableColumns'));
-    const savedVersion = localStorage.getItem(lsKey('productTableColumnsVersion'));
+    try {
+      migrateLegacyToNamespaced();
+    } catch (e) {
+      console.warn('ProductTable: persist columns failed', e);
+    }
+    let saved: string | null = null;
+    let savedVersion: string | null = null;
+    try {
+      saved = localStorage.getItem(lsKey('productTableColumns'));
+      savedVersion = localStorage.getItem(lsKey('productTableColumnsVersion'));
+    } catch {
+      // Si falla empresaId inválido, usar defaults
+      const defaults = new Set(AVAILABLE_COLUMNS.filter(col => col.defaultVisible).map(col => col.key));
+      return defaults;
+    }
 
     // Si la versión no coincide, resetear a defaults
     if (savedVersion !== COLUMN_CONFIG_VERSION) {
       const defaults = new Set(AVAILABLE_COLUMNS.filter(col => col.defaultVisible).map(col => col.key));
-      localStorage.setItem(lsKey('productTableColumnsVersion'), COLUMN_CONFIG_VERSION);
-      localStorage.setItem(lsKey('productTableColumns'), JSON.stringify([...defaults]));
+      try {
+        localStorage.setItem(lsKey('productTableColumnsVersion'), COLUMN_CONFIG_VERSION);
+        localStorage.setItem(lsKey('productTableColumns'), JSON.stringify([...defaults]));
+      } catch {
+        // ignore si empresaId inválido
+      }
       return defaults;
     }
 
@@ -207,8 +267,12 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
   // Guardar preferencias en localStorage cuando cambien
   useEffect(() => {
-    localStorage.setItem(lsKey('productTableColumns'), JSON.stringify([...visibleColumns]));
-    localStorage.setItem(lsKey('productTableColumnsVersion'), COLUMN_CONFIG_VERSION);
+    try {
+      localStorage.setItem(lsKey('productTableColumns'), JSON.stringify([...visibleColumns]));
+      localStorage.setItem(lsKey('productTableColumnsVersion'), COLUMN_CONFIG_VERSION);
+    } catch (e) {
+      console.warn('No se pudo persistir preferencias de columnas (empresaId inválido?):', e);
+    }
   }, [visibleColumns]);
 
   const toggleColumn = (columnKey: ColumnKey) => {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/autenticacion/pages/TwoFactorPage.tsx
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';

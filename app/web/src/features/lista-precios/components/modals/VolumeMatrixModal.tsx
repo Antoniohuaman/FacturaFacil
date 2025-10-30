@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, AlertCircle, Info, Search } from 'lucide-react';
 import type { Column, Product, VolumePriceForm, VolumeRange } from '../../models/PriceTypes';

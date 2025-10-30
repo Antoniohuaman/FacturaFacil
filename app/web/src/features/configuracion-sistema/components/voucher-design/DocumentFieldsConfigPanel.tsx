@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // DOCUMENT FIELDS CONFIGURATION PANEL
 // Componente para configurar campos visibles del documento

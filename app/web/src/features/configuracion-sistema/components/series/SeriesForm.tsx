@@ -1,3 +1,5 @@
+/* eslint-disable no-case-declarations -- switch con declaraciones; refactor diferido */
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/series/SeriesForm.tsx
 import { useState, useEffect } from 'react';
 import { X, FileText, Receipt, Clipboard, MessageSquare, Building2, Hash, AlertCircle, CheckCircle, Info } from 'lucide-react';

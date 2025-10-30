@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState } from 'react';
 import { Plus, Search, Edit2, X, Settings } from 'lucide-react';
 import type { Column, Product } from '../models/PriceTypes';

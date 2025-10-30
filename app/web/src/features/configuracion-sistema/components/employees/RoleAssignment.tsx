@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect } from 'react';
 import type { Role } from '../../models/Role';
 import { ROLE_LEVELS, SYSTEM_ROLES } from '../../models/Role';

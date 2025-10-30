@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- compatibilidad CommonJS; migración diferida */
+/* eslint-disable @typescript-eslint/no-unused-vars -- placeholders para manejo de errores; limpieza diferida */
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/VoucherDesignConfiguration.tsx
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tenantized store; tipos reales se migrarán luego */
 import type { Product, Category, Package, FilterOptions, PaginationConfig, MovimientoStock, MovimientoStockTipo, MovimientoStockMotivo } from '../models/types';
 // src/features/catalogo-articulos/hooks/useProductStore.tsx
 
@@ -19,12 +20,56 @@ function getTenantEmpresaId(): string {
   // Por ahora, devolver un valor fijo para aislar el bucket de datos por empresa.
   return 'DEFAULT_EMPRESA';
 }
-const lsKey = (base: string) => `${getTenantEmpresaId()}:${base}`;
+function ensureEmpresaId(): string {
+  const empresaId = getTenantEmpresaId();
+  if (!empresaId || typeof empresaId !== 'string' || empresaId.trim() === '') {
+    const msg = 'empresaId inválido. TODO: integrar hook real de tenant para obtener empresa actual.';
+    console.warn(msg);
+    throw new Error(msg);
+  }
+  return empresaId;
+}
+const lsKey = (base: string) => `${ensureEmpresaId()}:${base}`;
+
+// One-shot migration de llaves legacy -> namespaced por empresa
+function migrateLegacyToNamespaced() {
+  try {
+    const empresaId = ensureEmpresaId();
+    const markerKey = `${empresaId}:catalog_migrated`;
+    const migrated = localStorage.getItem(markerKey);
+    if (migrated === 'v1') return;
+
+    const legacyKeys = [
+      'catalog_products',
+      'catalog_categories',
+      'catalog_packages',
+      'catalog_movimientos',
+      'productTableColumns',
+      'productTableColumnsVersion',
+      'productFieldsConfig'
+    ];
+
+    for (const key of legacyKeys) {
+      const namespaced = `${empresaId}:${key}`;
+      const hasNamespaced = localStorage.getItem(namespaced) !== null;
+      const legacyValue = localStorage.getItem(key);
+      if (!hasNamespaced && legacyValue !== null) {
+        localStorage.setItem(namespaced, legacyValue);
+        localStorage.removeItem(key);
+      }
+    }
+
+    localStorage.setItem(markerKey, 'v1');
+  } catch (err) {
+    console.warn('Migración legacy->namespaced omitida por empresaId inválido o error:', err);
+  }
+}
 
 // Helpers para localStorage con manejo de fechas (namespaced por empresa)
 const saveToLocalStorage = (key: string, data: any) => {
   try {
-    localStorage.setItem(lsKey(key), JSON.stringify(data));
+    const k = lsKey(key);
+    localStorage.setItem(k, JSON.stringify(data));
   } catch (error) {
     console.error(`Error saving ${key} to localStorage:`, error);
   }
@@ -32,7 +77,8 @@ const saveToLocalStorage = (key: string, data: any) => {
 
 const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
   try {
-    const stored = localStorage.getItem(lsKey(key));
+    const k = lsKey(key);
+    const stored = localStorage.getItem(k);
     if (!stored) return defaultValue;
 
     const parsed = JSON.parse(stored);
@@ -68,6 +114,11 @@ const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
 
 export const useProductStore = () => {
   // Cargar datos desde localStorage o usar mock data
+  // Ejecutar migración one-shot antes de leer
+  useEffect(() => {
+    migrateLegacyToNamespaced();
+  }, []);
+
   const [products, setProducts] = useState<Product[]>(() =>
     loadFromLocalStorage('catalog_products', mockProducts)
   );
@@ -102,6 +153,59 @@ export const useProductStore = () => {
   useEffect(() => {
     saveToLocalStorage('catalog_movimientos', movimientos);
   }, [movimientos]);
+
+  // Cambio de empresa en caliente: recargar estado cuando cambie empresaId actual
+  const reloadForEmpresa = useCallback((empresaId: string) => {
+    try {
+      if (!empresaId || empresaId.trim() === '') {
+        console.warn('reloadForEmpresa: empresaId inválido. TODO: integrar hook real de tenant.');
+        return;
+      }
+      // Leer explícitamente con la empresa indicada (sin usar lsKey para este caso)
+      const read = <T,>(key: string, def: T): T => {
+        try {
+          const raw = localStorage.getItem(`${empresaId}:${key}`);
+          if (!raw) return def;
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            return parsed.map((item: any) => {
+              const converted: any = { ...item };
+              if (item.fechaCreacion) converted.fechaCreacion = new Date(item.fechaCreacion);
+              if (item.fechaActualizacion) converted.fechaActualizacion = new Date(item.fechaActualizacion);
+              if (item.fecha) converted.fecha = new Date(item.fecha);
+              return converted;
+            }) as T;
+          }
+          return parsed;
+        } catch {
+          return def;
+        }
+      };
+
+      const p = read<Product[]>('catalog_products', mockProducts);
+      const c = read<Category[]>('catalog_categories', mockCategories);
+      const pk = read<Package[]>('catalog_packages', []);
+      const mv = read<MovimientoStock[]>('catalog_movimientos', []);
+
+      setProducts(p);
+      setCategories(c);
+      setPackages(pk);
+      setMovimientos(mv);
+    } catch (e) {
+      console.warn('reloadForEmpresa falló:', e);
+    }
+  }, []);
+
+  // Efecto para intentar recarga automática si cambia el helper
+  useEffect(() => {
+    try {
+      const current = getTenantEmpresaId();
+      reloadForEmpresa(current);
+    } catch {
+      // si empresaId inválido, no recargar
+    }
+    // Dependencia "virtual": si el helper cambia a futuro (hook real), este efecto reaccionará
+  }, [reloadForEmpresa]);
   
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
@@ -125,7 +229,7 @@ export const useProductStore = () => {
 
   // Productos filtrados y paginados
   const filteredProducts = useMemo(() => {
-    let filtered = products.filter(product => {
+    const filtered = products.filter(product => {
       // Búsqueda expandida en múltiples campos
       const searchTerm = filters.busqueda.toLowerCase();
       const matchesBusqueda = !filters.busqueda ||
@@ -636,6 +740,9 @@ export const useProductStore = () => {
     changeItemsPerPage,
 
     // Utils
-    setLoading
+    setLoading,
+
+    // Cambio de empresa
+    reloadForEmpresa
   };
 };

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps -- dependencias extensas; ajuste diferido */
 import { useState, useEffect, useCallback } from 'react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import type { 

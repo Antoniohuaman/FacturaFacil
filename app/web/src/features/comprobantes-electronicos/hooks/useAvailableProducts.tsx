@@ -35,7 +35,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
 
   const availableProducts = useMemo(() => {
     // Filtrar productos según las reglas de negocio
-    let filtered = allProducts.filter(product => {
+    const filtered = allProducts.filter(product => {
       // 1. Filtrar por establecimiento si se proporciona uno
       if (establecimientoId) {
         // Si el producto está disponible en todos los establecimientos, mostrarlo

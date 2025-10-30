@@ -56,7 +56,7 @@ export function TaxesSection({
   ) => {
     setIsUpdating(true);
     try {
-      let updatedAffectations = { ...taxConfiguration.affectations };
+      const updatedAffectations = { ...taxConfiguration.affectations };
       
       if (field === 'isDefault') {
         // Only one can be default at a time

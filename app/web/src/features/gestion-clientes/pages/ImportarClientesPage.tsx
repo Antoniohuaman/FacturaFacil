@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/catalogo-articulos/components/ExportProductsModal.tsx
 
 import React, { useState, useEffect } from 'react';

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- archivo de inicialización con helpers; split diferido */
 import { useEffect, useRef } from 'react';
 import { useUserSession } from './UserSessionContext';
 import { useConfigurationContext } from '../features/configuracion-sistema/context/ConfigurationContext';

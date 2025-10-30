@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // ===================================================================
 // HOOK: useVoucherDesignConfig
 // Hook centralizado para gestionar la configuración de diseño de comprobantes

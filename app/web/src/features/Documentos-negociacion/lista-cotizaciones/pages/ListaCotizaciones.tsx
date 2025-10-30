@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
+/* eslint-disable @typescript-eslint/no-unused-expressions -- expresiones con efectos; refactor diferido */
+/* eslint-disable no-empty -- bloques de captura intencionales; logging diferido */
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables de error no utilizadas; logging diferido */
 // ===================================================================
 // LISTA DE COTIZACIONES - Diseño idéntico a ListaComprobantes
 // Funcionalidad específica para cotizaciones

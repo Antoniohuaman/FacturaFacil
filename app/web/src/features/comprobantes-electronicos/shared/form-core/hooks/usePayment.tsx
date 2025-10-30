@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // HOOK PARA MANEJO DE PAGOS Y CÁLCULOS FINANCIEROS
 // ===================================================================

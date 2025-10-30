@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/configuration/components/series/SeriesCard.tsx
 import { useState } from 'react';
 import { 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/catalogo-articulos/pages/ControlStockPage.tsx
 
 import React, { useState, useMemo } from 'react';

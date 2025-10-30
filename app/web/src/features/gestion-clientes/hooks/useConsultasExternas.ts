@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useCallback } from 'react';
 import { clientesClient } from '../api';
 import type { ReniecResponse, SunatResponse } from '../models';

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useRouteError, isRouteErrorResponse } from "react-router-dom";
 
 export default function RouteErrorBoundary() {

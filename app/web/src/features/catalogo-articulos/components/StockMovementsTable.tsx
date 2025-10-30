@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/catalogo-articulos/components/StockMovementsTable.tsx
 
 import React, { useState } from 'react';

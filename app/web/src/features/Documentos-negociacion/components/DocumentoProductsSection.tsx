@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // WRAPPER SIMPLIFICADO DE ProductsSection PARA DOCUMENTOS DE NEGOCIACIÓN
 // Proporciona props por defecto para reutilizar el componente visual

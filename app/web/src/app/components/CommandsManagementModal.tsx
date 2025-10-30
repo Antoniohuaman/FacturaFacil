@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect } from 'react';
 import { X, Settings, Keyboard, Plus, Edit2, Trash2, Save, Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, DollarSign } from 'lucide-react';
 

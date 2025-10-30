@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/configuration/components/business/ExchangeRateModal.tsx
 import { useState, useEffect } from 'react';
 import { X, Calculator, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';

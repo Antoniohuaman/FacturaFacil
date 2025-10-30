@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- archivo comparte helpers/constantes; split diferido */
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 

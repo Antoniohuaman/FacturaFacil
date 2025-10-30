@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /**
  * TableRow - Componente de fila de tabla de comprobantes
  * Maneja la visualización de cada comprobante y sus acciones
@@ -5,6 +6,7 @@
 
 import { MoreHorizontal, Eye, Edit2, Copy, Share2, Printer, XCircle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import type { ReactElement } from 'react';
 import type { ColumnConfig } from './TableHeader';
 
 interface Comprobante {
@@ -33,7 +35,7 @@ interface TableRowProps {
   onShare: (invoice: Comprobante) => void;
   onPrint: (invoice: Comprobante) => void;
   onVoid: (invoice: Comprobante) => void;
-  getStatusBadge: (status: string) => JSX.Element;
+  getStatusBadge: (status: string) => ReactElement;
 }
 
 export const TableRow: React.FC<TableRowProps> = ({

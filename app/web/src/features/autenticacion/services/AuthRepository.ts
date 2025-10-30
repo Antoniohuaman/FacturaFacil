@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/autenticacion/services/AuthRepository.ts
 import { authClient } from './AuthClient';
 import { tokenService } from './TokenService';

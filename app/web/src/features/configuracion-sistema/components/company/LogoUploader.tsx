@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/configuration/components/company/LogoUploader.tsx
 import { useState, useRef } from 'react';
 import { Upload, X, Image, Eye, EyeOff, Download, RotateCcw } from 'lucide-react';

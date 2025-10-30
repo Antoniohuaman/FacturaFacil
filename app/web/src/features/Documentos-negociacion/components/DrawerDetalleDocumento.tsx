@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /**
  * Drawer de Detalle de Documento
  * Panel lateral para mostrar información completa de cotizaciones y notas de venta

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- archivo mezcla context y helpers; split diferido */
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { Documento } from '../models/documento.types';

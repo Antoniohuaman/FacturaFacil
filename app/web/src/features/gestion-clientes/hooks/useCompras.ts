@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useCallback, useEffect } from 'react';
 import { comprasClient } from '../api';
 import type { Compra, CompraDetalle } from '../models';

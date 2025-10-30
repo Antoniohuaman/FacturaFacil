@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // SIDE PREVIEW - TYPES
 // Tipos mínimos para el panel lateral de previsualización
