@@ -91,15 +91,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
     peso: 0,
     tipoExistencia: 'MERCADERIAS'
   }));
-
-  // ✅ Estado para stock inicial por establecimiento
-  const [stockPorEstablecimiento, setStockPorEstablecimiento] = useState<{ [establecimientoId: string]: number }>({});
   
   const [errors, setErrors] = useState<FormError>({});
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
-  // ✅ Estado para control de stock - POR DEFECTO: ACTIVO (true) porque inicia como BIEN/MERCADERIAS
-  const [trabajaConStock, setTrabajaConStock] = useState(true);
   // Estado para el input de precio (permite borrar y escribir libremente)
   const [precioInput, setPrecioInput] = useState<string>('0.00');
   // Estado para mostrar el modal de categoría
@@ -107,9 +102,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
   useEffect(() => {
     if (product) {
-      // ✅ Al editar: determinar si trabaja con stock según tipoExistencia
-      const tieneStock = product.tipoExistencia !== 'SERVICIOS';
-      setTrabajaConStock(tieneStock);
 
       setFormData({
         nombre: product.nombre,
@@ -117,7 +109,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
         precio: product.precio,
         unidad: product.unidad,
         categoria: product.categoria,
-        cantidad: product.cantidad,
         impuesto: product.impuesto || 'IGV (18.00%)',
         descripcion: product.descripcion || '',
         // Asignación de establecimientos
@@ -137,14 +128,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
         tipoExistencia: product.tipoExistencia || 'MERCADERIAS'
       });
 
-      // ✅ Cargar stock por establecimiento
-      setStockPorEstablecimiento(product.stockPorEstablecimiento || {});
-
       setPrecioInput(product.precio.toFixed(2));
       setImagePreview(product.imagen || '');
     } else {
-      // ✅ Al crear nuevo: BIEN por defecto (con stock)
-      setTrabajaConStock(true);
 
       setFormData({
         nombre: '',
@@ -152,7 +138,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
         precio: 0,
         unidad: getDefaultUnit() as Product['unidad'], // ✅ Usar unidad por defecto del sistema
         categoria: categories[0]?.nombre || '',
-        cantidad: 0,
         impuesto: 'IGV (18.00%)',
         descripcion: '',
         // Asignación de establecimientos
@@ -169,11 +154,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
         marca: '',
         modelo: '',
         peso: 0,
-        tipoExistencia: 'MERCADERIAS' // ✅ Por defecto BIEN/MERCADERIAS (con stock)
+        tipoExistencia: 'MERCADERIAS'
       });
-
-      // ✅ Limpiar stock por establecimiento
-      setStockPorEstablecimiento({});
 
       setPrecioInput('0.00');
       setImagePreview('');
@@ -285,8 +267,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
       onSave({
         ...formData,
-        imagen: imagePreview,
-        stockPorEstablecimiento // ✅ Incluir stock por establecimiento
+        imagen: imagePreview
       });
 
       onClose();
@@ -366,7 +347,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   type="button"
                   onClick={() => {
                     setFormData(prev => ({ ...prev, tipoExistencia: 'MERCADERIAS' }));
-                    setTrabajaConStock(true);
                   }}
                   className={`
                     relative flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all
@@ -397,17 +377,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (formData.cantidad > 0) {
-                      if (!confirm('⚠️ Los servicios no requieren inventario.\nSe perderá la cantidad ingresada. ¿Continuar?')) {
-                        return;
-                      }
-                    }
                     setFormData(prev => ({ 
                       ...prev, 
-                      tipoExistencia: 'SERVICIOS',
-                      cantidad: 0 
+                      tipoExistencia: 'SERVICIOS'
                     }));
-                    setTrabajaConStock(false);
                   }}
                   className={`
                     relative flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all
@@ -754,102 +727,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
               )}
             </div>
 
-            {/* ✅ Stock inicial por establecimiento - Solo si trabaja con stock Y tiene establecimientos asignados */}
-            {trabajaConStock && !formData.disponibleEnTodos && formData.establecimientoIds.length > 0 && (
-              <div className="border border-green-300 rounded-md bg-green-50/30 p-2.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                    </svg>
-                    <h4 className="text-xs font-semibold text-gray-900">
-                      Stock inicial
-                    </h4>
-                  </div>
-                  <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] rounded font-medium">
-                    {product ? 'Solo visual' : 'Solo al crear'}
-                  </span>
-                </div>
-
-                {!product && (
-                  <div className="bg-blue-50/50 border border-blue-200 rounded p-1.5">
-                    <p className="text-[10px] text-blue-800">
-                      Define el stock inicial. Actualizaciones futuras en "Control de Stock"
-                    </p>
-                  </div>
-                )}
-
-                {/* Lista de inputs por establecimiento compacta */}
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                  {establishments
-                    .filter(est => formData.establecimientoIds.includes(est.id))
-                    .map((est) => (
-                      <div
-                        key={est.id}
-                        className="flex items-center justify-between gap-2 px-2 py-1.5 bg-white border border-green-200 rounded hover:border-green-300 transition-colors"
-                      >
-                        <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                          <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 rounded">
-                            {est.code}
-                          </span>
-                          <p className="text-xs font-medium text-gray-900 truncate">
-                            {est.name}
-                          </p>
-                        </div>
-
-                        {/* Input de stock compacto */}
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={stockPorEstablecimiento[est.id] ?? 0}
-                          onChange={(e) => {
-                            const valor = parseInt(e.target.value) || 0;
-                            setStockPorEstablecimiento(prev => ({
-                              ...prev,
-                              [est.id]: Math.max(0, valor)
-                            }));
-                          }}
-                          disabled={!!product}
-                          className={`
-                            w-16 px-2 py-1 text-xs font-semibold text-center rounded border
-                            ${product
-                              ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed'
-                              : 'bg-white border-green-300 text-gray-900 focus:outline-none focus:ring-1 focus:ring-green-500'
-                            }
-                          `}
-                          placeholder="0"
-                        />
-                      </div>
-                    ))}
-                </div>
-
-                {/* Resumen total compacto */}
-                <div className="flex items-center justify-between pt-1.5 border-t border-green-200">
-                  <p className="text-[10px] font-medium text-gray-600">
-                    Total inicial
-                  </p>
-                  <p className="text-xs font-bold text-green-700">
-                    {Object.values(stockPorEstablecimiento).reduce((sum, val) => sum + (val || 0), 0)} unidades
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Mensaje informativo si está en "Todos los establecimientos" */}
-            {trabajaConStock && formData.disponibleEnTodos && (
-              <div className="border border-green-300 rounded-md bg-green-50/30 p-2">
-                <div className="flex items-start gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-[10px] text-gray-700">
-                    Stock inicial en 0 para todos. Gestiona en <strong>"Control de Stock"</strong>.
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* Imagen */}
             {isFieldVisible('imagen') && (
               <div>
@@ -1161,23 +1038,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                         onChange={(e) => {
                           const nuevoTipo = e.target.value as Product['tipoExistencia'];
                           setFormData(prev => ({ ...prev, tipoExistencia: nuevoTipo }));
-                          
-                          // ✅ Sincronizar con el toggle trabajaConStock
-                          if (nuevoTipo === 'SERVICIOS') {
-                            setTrabajaConStock(false);
-                            // Si hay stock, preguntar antes de resetear
-                            if (formData.cantidad > 0) {
-                              if (confirm('⚠️ Los servicios no requieren stock.\nSe perderá la cantidad ingresada. ¿Continuar?')) {
-                                setFormData(prev => ({ ...prev, cantidad: 0 }));
-                              } else {
-                                // Revertir cambio
-                                setFormData(prev => ({ ...prev, tipoExistencia: 'MERCADERIAS' }));
-                                return;
-                              }
-                            }
-                          } else {
-                            setTrabajaConStock(true);
-                          }
                         }}
                         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                       >
@@ -1192,12 +1052,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                         <option value="EMBALAJES">Embalajes</option>
                         <option value="OTROS">Otros</option>
                       </select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {formData.tipoExistencia === 'SERVICIOS' 
-                          ? '⚠️ Los servicios no requieren control de stock' 
-                          : 'Este tipo de producto puede tener control de stock'
-                        }
-                      </p>
                       {errors.tipoExistencia && <p className="text-red-600 text-xs mt-1">{errors.tipoExistencia}</p>}
                     </div>
                   )}

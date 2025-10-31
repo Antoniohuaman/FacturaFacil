@@ -13,7 +13,7 @@ import type {
   StockTransferData,
   MassStockUpdateData
 } from '../models';
-import { filterByPeriod, sortByDateDesc, sortAlertsByPriority } from '../utils/inventory.helpers';
+import { filterByPeriod, sortByDateDesc } from '../utils/inventory.helpers';
 
 /**
  * Hook personalizado para gestión de inventario
@@ -21,8 +21,11 @@ import { filterByPeriod, sortByDateDesc, sortAlertsByPriority } from '../utils/i
  */
 export const useInventory = () => {
   // Estado de la aplicación
-  const { allProducts, movimientos, addMovimiento, transferirStock } = useProductStore();
+  const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
+
+  // Estados locales para movimientos de stock (gestionados por el módulo inventario)
+  const [movimientos] = useState<MovimientoStock[]>([]);
 
   // Estados locales del módulo inventario
   const [selectedView, setSelectedView] = useState<InventoryView>('movimientos');
@@ -42,75 +45,13 @@ export const useInventory = () => {
 
   /**
    * Generar alertas de stock por producto y establecimiento
+   * NOTA: Esta funcionalidad requiere que los productos tengan campos de stock.
+   * Por ahora retorna array vacío hasta que se implemente la gestión de stock en inventario.
    */
   const stockAlerts = useMemo<StockAlert[]>(() => {
     const alerts: StockAlert[] = [];
-
-    allProducts.forEach(producto => {
-      // Si tiene stockPorEstablecimiento, generar alertas por cada establecimiento
-      if (producto.stockPorEstablecimiento) {
-        Object.entries(producto.stockPorEstablecimiento).forEach(([estId, stock]) => {
-          const establecimiento = establishments.find(e => e.id === estId);
-          if (!establecimiento) return;
-
-          // Obtener configuración de stock para este establecimiento (o usar defaults)
-          const config = producto.stockConfigPorEstablecimiento?.[estId];
-          const stockMinimo = config?.stockMinimo ?? 10;
-          const stockMaximo = config?.stockMaximo ?? 100;
-
-          // Determinar estado
-          let estado: StockAlert['estado'];
-          if (stock === 0) {
-            estado = 'CRITICO';
-          } else if (stock <= stockMinimo) {
-            estado = 'BAJO';
-          } else if (stock >= stockMaximo) {
-            estado = 'EXCESO';
-          } else {
-            return; // No generar alerta si está en rango normal
-          }
-
-          // Filtrar por establecimiento si hay uno seleccionado
-          if (establecimientoFiltro !== 'todos' && estId !== establecimientoFiltro) {
-            return;
-          }
-
-          alerts.push({
-            productoId: producto.id,
-            productoCodigo: producto.codigo,
-            productoNombre: producto.nombre,
-            cantidadActual: stock,
-            stockMinimo,
-            stockMaximo,
-            estado,
-            establecimientoId: estId,
-            establecimientoCodigo: establecimiento.code,
-            establecimientoNombre: establecimiento.name,
-            faltante: estado === 'CRITICO' || estado === 'BAJO' ? Math.max(0, stockMinimo - stock) : undefined,
-            excedente: estado === 'EXCESO' ? Math.max(0, stock - stockMaximo) : undefined
-          });
-        });
-      } else {
-        // Fallback: alertas basadas en stock global (retrocompatibilidad)
-        if (producto.cantidad <= 10) {
-          const stockMinimo = 10;
-          alerts.push({
-            productoId: producto.id,
-            productoCodigo: producto.codigo,
-            productoNombre: producto.nombre,
-            cantidadActual: producto.cantidad,
-            stockMinimo,
-            estado: producto.cantidad === 0 ? 'CRITICO' : 'BAJO',
-            establecimientoId: 'global',
-            establecimientoCodigo: 'GLOBAL',
-            establecimientoNombre: 'Stock Global',
-            faltante: Math.max(0, stockMinimo - producto.cantidad)
-          });
-        }
-      }
-    });
-
-    return sortAlertsByPriority(alerts);
+    // TODO: Implementar lógica de alertas cuando el inventario gestione su propio stock
+    return alerts;
   }, [allProducts, establishments, establecimientoFiltro]);
 
   /**
@@ -133,109 +74,46 @@ export const useInventory = () => {
 
   /**
    * Resumen del inventario
+   * NOTA: Por ahora retorna valores por defecto hasta que se implemente gestión de stock
    */
   const stockSummary = useMemo<StockSummary>(() => {
-    let totalStock = 0;
-    let valorTotalStock = 0;
-    let productosSinStock = 0;
-    let productosStockBajo = 0;
-    let productosStockCritico = 0;
-
-    allProducts.forEach(producto => {
-      if (producto.stockPorEstablecimiento) {
-        // Sumar stock de todos los establecimientos
-        Object.entries(producto.stockPorEstablecimiento).forEach(([estId, stock]) => {
-          if (establecimientoFiltro === 'todos' || estId === establecimientoFiltro) {
-            totalStock += stock;
-            valorTotalStock += stock * producto.precio;
-
-            const config = producto.stockConfigPorEstablecimiento?.[estId];
-            const stockMinimo = config?.stockMinimo ?? 10;
-
-            if (stock === 0) {
-              productosSinStock++;
-              productosStockCritico++;
-            } else if (stock <= stockMinimo) {
-              productosStockBajo++;
-            }
-          }
-        });
-      } else {
-        // Fallback para productos sin multi-establecimiento
-        totalStock += producto.cantidad;
-        valorTotalStock += producto.cantidad * producto.precio;
-
-        if (producto.cantidad === 0) {
-          productosSinStock++;
-          productosStockCritico++;
-        } else if (producto.cantidad <= 10) {
-          productosStockBajo++;
-        }
-      }
-    });
-
     return {
       totalProductos: allProducts.length,
-      totalStock,
-      valorTotalStock,
-      productosSinStock,
-      productosStockBajo,
-      productosStockCritico,
+      totalStock: 0,
+      valorTotalStock: 0,
+      productosSinStock: 0,
+      productosStockBajo: 0,
+      productosStockCritico: 0,
       ultimaActualizacion: new Date()
     };
   }, [allProducts, establecimientoFiltro]);
 
   /**
    * Maneja el ajuste de stock
+   * TODO: Implementar cuando se gestione stock en inventario
    */
-  const handleStockAdjustment = useCallback((data: StockAdjustmentData) => {
-    addMovimiento(
-      data.productoId,
-      data.tipo,
-      data.motivo,
-      data.cantidad,
-      data.observaciones,
-      data.documentoReferencia,
-      undefined, // ubicacion - deprecated
-      data.establecimientoId,
-      data.establecimientoCodigo,
-      data.establecimientoNombre
-    );
+  const handleStockAdjustment = useCallback((_data: StockAdjustmentData) => {
+    console.warn('handleStockAdjustment no implementado - requiere gestión de stock en inventario');
     setShowAdjustmentModal(false);
-  }, [addMovimiento]);
+  }, []);
 
   /**
    * Maneja la transferencia de stock
+   * TODO: Implementar cuando se gestione stock en inventario
    */
-  const handleStockTransfer = useCallback((data: StockTransferData) => {
-    transferirStock(
-      data.productoId,
-      data.establecimientoOrigenId,
-      data.establecimientoDestinoId,
-      data.cantidad,
-      data.observaciones,
-      data.documentoReferencia
-    );
+  const handleStockTransfer = useCallback((_data: StockTransferData) => {
+    console.warn('handleStockTransfer no implementado - requiere gestión de stock en inventario');
     setShowTransferModal(false);
-  }, [transferirStock]);
+  }, []);
 
   /**
    * Maneja actualización masiva de stock
+   * TODO: Implementar cuando se gestione stock en inventario
    */
-  const handleMassStockUpdate = useCallback((data: MassStockUpdateData) => {
-    data.updates.forEach(update => {
-      addMovimiento(
-        update.productoId,
-        data.tipo,
-        data.motivo,
-        update.cantidad,
-        data.observaciones,
-        undefined,
-        update.establecimientoId
-      );
-    });
+  const handleMassStockUpdate = useCallback((_data: MassStockUpdateData) => {
+    console.warn('handleMassStockUpdate no implementado - requiere gestión de stock en inventario');
     setShowMassUpdateModal(false);
-  }, [addMovimiento]);
+  }, []);
 
   /**
    * Abre modal de ajuste para un producto específico

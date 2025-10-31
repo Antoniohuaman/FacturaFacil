@@ -59,7 +59,6 @@ interface ProductEstablishmentRow extends Product {
   _establishmentId: string;
   _establishmentCode: string;
   _establishmentName: string;
-  _stockForEstablishment: number | null;
 }
 
 // Definir las columnas disponibles
@@ -67,7 +66,6 @@ type ColumnKey =
   | 'codigo'
   | 'nombre'
   | 'precio'
-  | 'stock'
   | 'establecimiento'
   | 'categoria'
   | 'imagen'
@@ -102,7 +100,6 @@ const AVAILABLE_COLUMNS: ColumnConfig[] = [
   { key: 'codigo' as ColumnKey, label: 'Código', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'nombre' as ColumnKey, label: 'Nombre', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'precio' as ColumnKey, label: 'Precio', defaultVisible: true, filterable: false, group: 'basicas' },
-  { key: 'stock' as ColumnKey, label: 'Stock', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'establecimiento' as ColumnKey, label: 'Establecimiento', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'categoria', label: 'Categoría', defaultVisible: true, filterable: true, group: 'basicas' },
   { key: 'unidad', label: 'Unidad', defaultVisible: true, filterable: true, group: 'basicas' },
@@ -191,21 +188,18 @@ const ProductTable: React.FC<ProductTableProps> = ({
           ...product,
           _establishmentId: 'UNASSIGNED',
           _establishmentCode: '—',
-          _establishmentName: 'Sin asignar',
-          _stockForEstablishment: null
+          _establishmentName: 'Sin asignar'
         });
         return;
       }
 
       // Crear una fila por cada establecimiento
       targetEstablishments.forEach(est => {
-        const stockForEst = product.stockPorEstablecimiento?.[est.id] ?? null;
         rows.push({
           ...product,
           _establishmentId: est.id,
           _establishmentCode: est.code,
-          _establishmentName: est.name,
-          _stockForEstablishment: stockForEst
+          _establishmentName: est.name
         });
       });
     });
@@ -355,28 +349,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
     );
   };
 
-  const getStockBadge = (cantidad: number) => {
-    if (cantidad > 0) {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          En stock ({cantidad})
-        </span>
-      );
-    } else if (cantidad === 0) {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-          Sin stock
-        </span>
-      );
-    } else {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-          Negativo ({cantidad})
-        </span>
-      );
-    }
-  };
-
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -508,7 +480,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </svg>
                 <div className="ml-3">
                   <p className="text-xs text-blue-700 dark:text-blue-300">
-                    Personaliza las columnas según tus necesidades. Por defecto se muestran: Código, Nombre, Precio, Stock, Establecimiento, Categoría y Unidad.
+                    Personaliza las columnas según tus necesidades. Por defecto se muestran: Código, Nombre, Precio, Establecimiento, Categoría y Unidad.
                     Tus preferencias se guardan automáticamente.
                   </p>
                 </div>
@@ -589,19 +561,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   <div className="flex items-center space-x-1">
                     <span>Precio</span>
                     {getSortIcon('precio')}
-                  </div>
-                </th>
-              )}
-
-              {visibleColumns.has('stock') && (
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                  onClick={() => handleSort('cantidad')}
-                >
-                  <div className="flex items-center space-x-1">
-                    <span>Stock</span>
-                    {getSortIcon('cantidad')}
                   </div>
                 </th>
               )}
@@ -758,21 +717,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       <div className="text-xs text-gray-500 dark:text-gray-400">
                         {row.impuesto}
                       </div>
-                    )}
-                  </td>
-                )}
-
-                {visibleColumns.has('stock') && (
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {row._stockForEstablishment !== null ? (
-                      getStockBadge(row._stockForEstablishment)
-                    ) : (
-                      <span
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 cursor-help"
-                        title="Sin stock registrado para este establecimiento"
-                      >
-                        — (No asignado)
-                      </span>
                     )}
                   </td>
                 )}

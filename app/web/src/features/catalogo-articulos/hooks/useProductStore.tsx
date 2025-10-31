@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tenantized store; tipos reales se migrarán luego */
-import type { Product, Package, FilterOptions, PaginationConfig, MovimientoStock, MovimientoStockTipo, MovimientoStockMotivo } from '../models/types';
+import type { Product, Package, FilterOptions, PaginationConfig } from '../models/types';
 import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
 // src/features/catalogo-articulos/hooks/useProductStore.tsx
 
@@ -130,11 +130,6 @@ export const useProductStore = () => {
     loadFromLocalStorage('catalog_packages', [])
   );
 
-  // Movimientos de stock
-  const [movimientos, setMovimientos] = useState<MovimientoStock[]>(() =>
-    loadFromLocalStorage('catalog_movimientos', [])
-  );
-
   // Persistir productos en localStorage
   useEffect(() => {
     saveToLocalStorage('catalog_products', products);
@@ -144,11 +139,6 @@ export const useProductStore = () => {
   useEffect(() => {
     saveToLocalStorage('catalog_packages', packages);
   }, [packages]);
-  
-  // Persistir movimientos en localStorage
-  useEffect(() => {
-    saveToLocalStorage('catalog_movimientos', movimientos);
-  }, [movimientos]);
 
   // Cambio de empresa en caliente: recargar estado cuando cambie empresaId actual
   const reloadForEmpresa = useCallback((empresaId: string) => {
@@ -180,11 +170,9 @@ export const useProductStore = () => {
 
       const p = read<Product[]>('catalog_products', mockProducts);
       const pk = read<Package[]>('catalog_packages', []);
-      const mv = read<MovimientoStock[]>('catalog_movimientos', []);
 
       setProducts(p);
       setPackages(pk);
-      setMovimientos(mv);
     } catch (e) {
       console.warn('reloadForEmpresa falló:', e);
     }
@@ -261,8 +249,6 @@ export const useProductStore = () => {
           return direction * a.nombre.localeCompare(b.nombre);
         case 'precio':
           return direction * (a.precio - b.precio);
-        case 'cantidad':
-          return direction * (a.cantidad - b.cantidad);
         case 'fechaCreacion':
           return direction * (a.fechaCreacion.getTime() - b.fechaCreacion.getTime());
         default:
@@ -426,278 +412,12 @@ export const useProductStore = () => {
     setPackages(prev => prev.filter(pkg => pkg.id !== id));
   }, []);
 
-  // CRUD Movimientos de Stock
-  const addMovimiento = useCallback((
-    productoId: string,
-    tipo: MovimientoStockTipo,
-    motivo: MovimientoStockMotivo,
-    cantidad: number,
-    observaciones?: string,
-    documentoReferencia?: string,
-    ubicacion?: string,
-    establecimientoId?: string,
-    establecimientoCodigo?: string,
-    establecimientoNombre?: string
-  ) => {
-    const producto = products.find(p => p.id === productoId);
-    if (!producto) return;
-
-    // Si no se especifica establecimiento, usar stock global (retrocompatibilidad)
-    if (!establecimientoId) {
-      const cantidadAnterior = producto.cantidad;
-      let cantidadNueva = cantidadAnterior;
-
-      // Calcular nueva cantidad según el tipo de movimiento
-      switch (tipo) {
-        case 'ENTRADA':
-        case 'AJUSTE_POSITIVO':
-        case 'DEVOLUCION':
-          cantidadNueva = cantidadAnterior + cantidad;
-          break;
-        case 'SALIDA':
-        case 'AJUSTE_NEGATIVO':
-        case 'MERMA':
-          cantidadNueva = cantidadAnterior - cantidad;
-          break;
-        case 'TRANSFERENCIA':
-          cantidadNueva = cantidadAnterior;
-          break;
-      }
-
-      // Crear el movimiento
-      const nuevoMovimiento: MovimientoStock = {
-        id: Date.now().toString(),
-        productoId,
-        productoCodigo: producto.codigo,
-        productoNombre: producto.nombre,
-        tipo,
-        motivo,
-        cantidad,
-        cantidadAnterior,
-        cantidadNueva,
-        usuario: 'Usuario Actual',
-        observaciones,
-        documentoReferencia,
-        fecha: new Date(),
-        ubicacion,
-        establecimientoId,
-        establecimientoCodigo,
-        establecimientoNombre
-      };
-
-      // Actualizar stock global
-      setProducts(prev =>
-        prev.map(p =>
-          p.id === productoId
-            ? { ...p, cantidad: cantidadNueva, fechaActualizacion: new Date() }
-            : p
-        )
-      );
-
-      setMovimientos(prev => [nuevoMovimiento, ...prev]);
-      return nuevoMovimiento;
-    }
-
-    // ✅ STOCK POR ESTABLECIMIENTO
-    const stockAnterior = producto.stockPorEstablecimiento?.[establecimientoId] ?? 0;
-    let stockNuevo = stockAnterior;
-
-    // Calcular nuevo stock según el tipo de movimiento
-    switch (tipo) {
-      case 'ENTRADA':
-      case 'AJUSTE_POSITIVO':
-      case 'DEVOLUCION':
-        stockNuevo = stockAnterior + cantidad;
-        break;
-      case 'SALIDA':
-      case 'AJUSTE_NEGATIVO':
-      case 'MERMA':
-        stockNuevo = Math.max(0, stockAnterior - cantidad);
-        break;
-      case 'TRANSFERENCIA':
-        stockNuevo = stockAnterior;
-        break;
-    }
-
-    // Crear el movimiento
-    const nuevoMovimiento: MovimientoStock = {
-      id: Date.now().toString(),
-      productoId,
-      productoCodigo: producto.codigo,
-      productoNombre: producto.nombre,
-      tipo,
-      motivo,
-      cantidad,
-      cantidadAnterior: stockAnterior,
-      cantidadNueva: stockNuevo,
-      usuario: 'Usuario Actual',
-      observaciones,
-      documentoReferencia,
-      fecha: new Date(),
-      ubicacion,
-      establecimientoId,
-      establecimientoCodigo,
-      establecimientoNombre
-    };
-
-    // Actualizar stock por establecimiento y recalcular total
-    setProducts(prev =>
-      prev.map(p => {
-        if (p.id === productoId) {
-          const nuevoStockPorEst = {
-            ...p.stockPorEstablecimiento,
-            [establecimientoId]: stockNuevo
-          };
-
-          // Recalcular stock total (suma de todos los establecimientos)
-          const stockTotal = Object.values(nuevoStockPorEst).reduce((sum, qty) => sum + (qty || 0), 0);
-
-          return {
-            ...p,
-            stockPorEstablecimiento: nuevoStockPorEst,
-            cantidad: stockTotal,
-            fechaActualizacion: new Date()
-          };
-        }
-        return p;
-      })
-    );
-
-    // Agregar movimiento al historial
-    setMovimientos(prev => [nuevoMovimiento, ...prev]);
-
-    return nuevoMovimiento;
-  }, [products]);
-
-  // Función especializada para transferencias entre establecimientos
-  const transferirStock = useCallback((
-    productoId: string,
-    establecimientoOrigenId: string,
-    establecimientoDestinoId: string,
-    cantidad: number,
-    documentoReferencia?: string,
-    observaciones?: string
-  ) => {
-    const producto = products.find(p => p.id === productoId);
-    if (!producto) {
-      console.error('Producto no encontrado');
-      return null;
-    }
-
-    // Validar que hay stock suficiente en origen
-    const stockOrigen = producto.stockPorEstablecimiento?.[establecimientoOrigenId] ?? 0;
-    if (stockOrigen < cantidad) {
-      console.error('Stock insuficiente en establecimiento origen');
-      return null;
-    }
-
-    // Generar ID único para vincular ambos movimientos
-    const transferenciaId = `TRANS-${Date.now()}`;
-    const timestamp = new Date();
-
-    // Calcular nuevos stocks
-    const nuevoStockOrigen = stockOrigen - cantidad;
-    const stockDestino = producto.stockPorEstablecimiento?.[establecimientoDestinoId] ?? 0;
-    const nuevoStockDestino = stockDestino + cantidad;
-
-    // Obtener nombres de establecimientos (puedes mejorar esto con un contexto)
-    const nombreOrigen = `Establecimiento ${establecimientoOrigenId}`;
-    const nombreDestino = `Establecimiento ${establecimientoDestinoId}`;
-
-    // Crear movimiento de SALIDA en origen
-    const movimientoSalida: MovimientoStock = {
-      id: `${transferenciaId}-SALIDA`,
-      productoId,
-      productoCodigo: producto.codigo,
-      productoNombre: producto.nombre,
-      tipo: 'SALIDA',
-      motivo: 'TRANSFERENCIA_ALMACEN',
-      cantidad,
-      cantidadAnterior: stockOrigen,
-      cantidadNueva: nuevoStockOrigen,
-      usuario: 'Usuario Actual',
-      observaciones: observaciones || `Transferencia a ${nombreDestino}`,
-      documentoReferencia,
-      fecha: timestamp,
-      establecimientoId: establecimientoOrigenId,
-      establecimientoNombre: nombreOrigen,
-      // Campos de transferencia
-      esTransferencia: true,
-      transferenciaId,
-      establecimientoOrigenId,
-      establecimientoOrigenNombre: nombreOrigen,
-      establecimientoDestinoId,
-      establecimientoDestinoNombre: nombreDestino,
-      movimientoRelacionadoId: `${transferenciaId}-ENTRADA`
-    };
-
-    // Crear movimiento de ENTRADA en destino
-    const movimientoEntrada: MovimientoStock = {
-      id: `${transferenciaId}-ENTRADA`,
-      productoId,
-      productoCodigo: producto.codigo,
-      productoNombre: producto.nombre,
-      tipo: 'ENTRADA',
-      motivo: 'TRANSFERENCIA_ALMACEN',
-      cantidad,
-      cantidadAnterior: stockDestino,
-      cantidadNueva: nuevoStockDestino,
-      usuario: 'Usuario Actual',
-      observaciones: observaciones || `Transferencia desde ${nombreOrigen}`,
-      documentoReferencia,
-      fecha: timestamp,
-      establecimientoId: establecimientoDestinoId,
-      establecimientoNombre: nombreDestino,
-      // Campos de transferencia
-      esTransferencia: true,
-      transferenciaId,
-      establecimientoOrigenId,
-      establecimientoOrigenNombre: nombreOrigen,
-      establecimientoDestinoId,
-      establecimientoDestinoNombre: nombreDestino,
-      movimientoRelacionadoId: `${transferenciaId}-SALIDA`
-    };
-
-    // Actualizar producto con nuevos stocks por establecimiento
-    setProducts(prev =>
-      prev.map(p =>
-        p.id === productoId
-          ? {
-              ...p,
-              stockPorEstablecimiento: {
-                ...p.stockPorEstablecimiento,
-                [establecimientoOrigenId]: nuevoStockOrigen,
-                [establecimientoDestinoId]: nuevoStockDestino
-              },
-              // Actualizar stock total (suma de todos los establecimientos)
-              cantidad: Object.values({
-                ...p.stockPorEstablecimiento,
-                [establecimientoOrigenId]: nuevoStockOrigen,
-                [establecimientoDestinoId]: nuevoStockDestino
-              }).reduce((sum, qty) => sum + qty, 0),
-              fechaActualizacion: new Date()
-            }
-          : p
-      )
-    );
-
-    // Agregar ambos movimientos al historial
-    setMovimientos(prev => [movimientoEntrada, movimientoSalida, ...prev]);
-
-    return {
-      transferenciaId,
-      movimientoSalida,
-      movimientoEntrada
-    };
-  }, [products]);
-
   return {
     // Estado
     products: filteredProducts,
     allProducts: products,
     categories,
     packages,
-    movimientos,
     loading,
     filters,
     pagination,
@@ -717,10 +437,6 @@ export const useProductStore = () => {
     addPackage,
     updatePackage,
     deletePackage,
-    
-    // Movimientos de Stock
-    addMovimiento,
-    transferirStock,
 
     // Filtros y paginación
     updateFilters,
