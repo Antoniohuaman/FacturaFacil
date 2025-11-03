@@ -15,14 +15,12 @@ interface AdjustmentModalProps {
 
 interface AdjustmentData {
   productoId: string;
+  warehouseId: string;
   tipo: MovimientoTipo;
   motivo: MovimientoMotivo;
   cantidad: number;
   observaciones: string;
   documentoReferencia: string;
-  establecimientoId?: string;
-  establecimientoCodigo?: string;
-  establecimientoNombre?: string;
 }
 
 const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
@@ -34,10 +32,10 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
 }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const establecimientos = configState.establishments.filter(e => e.isActive);
+  const warehouses = configState.warehouses.filter(w => w.isActive);
 
-  // PASO 1: Primero seleccionar establecimiento(s)
-  const [selectedEstablecimientoId, setSelectedEstablecimientoId] = useState('');
+  // PASO 1: Primero seleccionar almacén
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
 
   // PASO 2: Luego seleccionar producto
   const [searchTerm, setSearchTerm] = useState('');
@@ -106,23 +104,19 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
       return;
     }
 
-    if (!selectedEstablecimientoId) {
-      alert('Por favor selecciona un establecimiento');
+    if (!selectedWarehouseId) {
+      alert('Por favor selecciona un almacén');
       return;
     }
 
-    const establecimientoSeleccionado = establecimientos.find(e => e.id === selectedEstablecimientoId);
-
     onAdjust({
       productoId: selectedProductId,
+      warehouseId: selectedWarehouseId,
       tipo,
       motivo,
       cantidad: Number(cantidad),
       observaciones,
-      documentoReferencia,
-      establecimientoId: selectedEstablecimientoId,
-      establecimientoCodigo: establecimientoSeleccionado?.code,
-      establecimientoNombre: establecimientoSeleccionado?.name
+      documentoReferencia
     });
 
     // Reset form
@@ -132,20 +126,23 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
     setCantidad('');
     setObservaciones('');
     setDocumentoReferencia('');
-    setSelectedEstablecimientoId('');
+    setSelectedWarehouseId('');
     setSearchTerm('');
   };
 
   if (!isOpen) return null;
 
-  // Obtener stock actual del establecimiento seleccionado
-  // TODO: Implementar gestión de stock real cuando Product tenga stockPorEstablecimiento
-  const stockActualEstablecimiento = 0;
+  const selectedWarehouse = warehouses.find(w => w.id === selectedWarehouseId);
 
-  const newStock = selectedProduct && selectedEstablecimientoId
+  // Obtener stock actual del almacén seleccionado
+  const stockActualAlmacen = selectedProduct && selectedWarehouseId
+    ? (selectedProduct.stockPorAlmacen?.[selectedWarehouseId] || 0)
+    : 0;
+
+  const newStock = selectedProduct && selectedWarehouseId
     ? tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION'
-      ? stockActualEstablecimiento + Number(cantidad || 0)
-      : stockActualEstablecimiento - Number(cantidad || 0)
+      ? stockActualAlmacen + Number(cantidad || 0)
+      : stockActualAlmacen - Number(cantidad || 0)
     : 0;
 
   return (
@@ -190,43 +187,43 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
 
           {/* Body */}
           <div className="px-6 py-6 space-y-6">
-            {/* PASO 1: Establecimiento (PRIMERO) */}
+            {/* PASO 1: Almacén (PRIMERO) */}
             <div className="bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
                 <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
-                  1. Seleccionar Establecimiento <span className="text-red-500">*</span>
+                  1. Seleccionar Almacén <span className="text-red-500">*</span>
                 </label>
               </div>
               <select
-                value={selectedEstablecimientoId}
+                value={selectedWarehouseId}
                 onChange={(e) => {
-                  setSelectedEstablecimientoId(e.target.value);
-                  // Reset producto al cambiar establecimiento
+                  setSelectedWarehouseId(e.target.value);
+                  // Reset producto al cambiar almacén
                   setSelectedProductId('');
                   setSearchTerm('');
                 }}
                 className="w-full px-4 py-2.5 border-2 border-purple-300 dark:border-purple-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 dark:text-white"
                 required
               >
-                <option value="">Seleccionar establecimiento...</option>
-                {establecimientos.map(est => (
-                  <option key={est.id} value={est.id}>
-                    [{est.code}] {est.name} - {est.district}
+                <option value="">Seleccionar almacén...</option>
+                {warehouses.map(wh => (
+                  <option key={wh.id} value={wh.id}>
+                    [{wh.code}] {wh.name} - {wh.establishmentName}
                   </option>
                 ))}
               </select>
-              {selectedEstablecimientoId && (
+              {selectedWarehouseId && selectedWarehouse && (
                 <p className="mt-2 text-xs text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded">
-                  ✓ Movimiento se aplicará en este establecimiento
+                  ✓ Movimiento se aplicará en el almacén {selectedWarehouse.name} del establecimiento {selectedWarehouse.establishmentName}
                 </p>
               )}
             </div>
 
-            {/* PASO 2: Product Selection (SEGUNDO - solo si hay establecimiento) */}
-            {selectedEstablecimientoId && (
+            {/* PASO 2: Product Selection (SEGUNDO - solo si hay almacén) */}
+            {selectedWarehouseId && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   2. Buscar Producto <span className="text-red-500">*</span>
@@ -242,8 +239,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                   {searchTerm && filteredProducts.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
                       {filteredProducts.map((product) => {
-                        // TODO: Mostrar stock cuando Product tenga stockPorEstablecimiento
-                        const stockEnEst = 0;
+                        const stockEnAlmacen = product.stockPorAlmacen?.[selectedWarehouseId] || 0;
                         return (
                           <button
                             key={product.id}
@@ -259,7 +255,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                                 <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{product.codigo}</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-sm font-medium text-gray-900 dark:text-gray-200">Stock: {stockEnEst}</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-200">Stock: {stockEnAlmacen}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">{product.unidad}</p>
                               </div>
                             </div>
@@ -277,8 +273,8 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                         <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">{selectedProduct.codigo}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Stock en {establecimientos.find(e => e.id === selectedEstablecimientoId)?.code}</p>
-                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stockActualEstablecimiento}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Stock en {selectedWarehouse?.code}</p>
+                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stockActualAlmacen}</p>
                       </div>
                     </div>
                   </div>
@@ -348,21 +344,21 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
-              {selectedProduct && selectedEstablecimientoId && cantidad && (
+              {selectedProduct && selectedWarehouseId && cantidad && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nuevo Stock en {establecimientos.find(e => e.id === selectedEstablecimientoId)?.code}
+                    Nuevo Stock en {selectedWarehouse?.code}
                   </label>
                   <div className={`
                     w-full px-4 py-2 border-2 rounded-md font-bold text-lg
                     ${newStock < 0
                       ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                      : newStock > stockActualEstablecimiento
+                      : newStock > stockActualAlmacen
                       ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
                       : 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                     }
                   `}>
-                    {stockActualEstablecimiento} → {newStock}
+                    {stockActualAlmacen} → {newStock}
                   </div>
                 </div>
               )}

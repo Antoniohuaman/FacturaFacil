@@ -6,12 +6,12 @@ import type { MovimientoStock } from '../../models';
 
 interface MovementsTableProps {
   movimientos: MovimientoStock[];
-  establecimientoFiltro?: string; // Filtro externo por establecimiento
+  warehouseFiltro?: string; // Filtro externo por almacén
 }
 
 const MovementsTable: React.FC<MovementsTableProps> = ({
   movimientos,
-  establecimientoFiltro
+  warehouseFiltro
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('todos');
@@ -95,13 +95,13 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
 
     const matchesTipo = filterTipo === 'todos' || mov.tipo === filterTipo;
 
-    // Filtro por establecimiento
-    const matchesEstablecimiento =
-      !establecimientoFiltro ||
-      establecimientoFiltro === 'todos' ||
-      mov.establecimientoId === establecimientoFiltro;
+    // Filtro por almacén
+    const matchesWarehouse =
+      !warehouseFiltro ||
+      warehouseFiltro === 'todos' ||
+      mov.warehouseId === warehouseFiltro;
 
-    return matchesSearch && matchesTipo && matchesEstablecimiento;
+    return matchesSearch && matchesTipo && matchesWarehouse;
   });
 
   // Cálculos de paginación
@@ -177,7 +177,7 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                 Motivo
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Establecimiento
+                Almacén
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Cantidad
@@ -223,14 +223,21 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                     {getMotivoBadge(movimiento.motivo)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {movimiento.establecimientoCodigo ? (
-                      <div className="flex items-center space-x-2">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 font-mono">
-                          {movimiento.establecimientoCodigo}
-                        </span>
-                        {movimiento.establecimientoNombre && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400" title={movimiento.establecimientoNombre}>
-                            {movimiento.establecimientoNombre}
+                    {movimiento.warehouseCodigo ? (
+                      <div className="flex flex-col space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 font-mono">
+                            {movimiento.warehouseCodigo}
+                          </span>
+                          {movimiento.warehouseNombre && (
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300" title={movimiento.warehouseNombre}>
+                              {movimiento.warehouseNombre}
+                            </span>
+                          )}
+                        </div>
+                        {movimiento.establishmentNombre && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            Est: {movimiento.establishmentNombre}
                           </span>
                         )}
                       </div>
@@ -277,15 +284,15 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                             </svg>
                             <span className="font-medium text-indigo-900 dark:text-indigo-200">
-                              {movimiento.tipo === 'SALIDA' ? 'Desde:' : 'Hacia:'}{' '}
+                              {movimiento.tipo === 'SALIDA' ? 'Hacia almacén:' : 'Desde almacén:'}{' '}
                               {movimiento.tipo === 'SALIDA'
-                                ? movimiento.establecimientoDestinoNombre
-                                : movimiento.establecimientoOrigenNombre
+                                ? movimiento.warehouseDestinoNombre
+                                : movimiento.warehouseOrigenNombre
                               }
                             </span>
                           </div>
                           <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
-                            ID: {movimiento.transferenciaId}
+                            ID Transferencia: {movimiento.transferenciaId}
                           </div>
                         </div>
                       )}

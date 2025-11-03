@@ -2,20 +2,18 @@
 
 import React, { useMemo } from 'react';
 import type { Product } from '../../../catalogo-articulos/models/types';
-import type { Establishment } from '../../../configuracion-sistema/models/Establishment';
 
 interface SummaryCardsProps {
   products: Product[];
-  establecimientoFiltro?: string;
-  establishments?: Establishment[];
+  warehouseFiltro?: string;
 }
 
 const SummaryCards: React.FC<SummaryCardsProps> = ({
   products,
-  establecimientoFiltro
+  warehouseFiltro
 }) => {
-  // Calcular estadísticas basadas en el filtro de establecimiento
-  // TODO: Implementar correctamente cuando Product tenga gestión de stock por establecimiento
+  // Calcular estadísticas basadas en el filtro de almacén
+  // TODO: Implementar correctamente cuando Product tenga gestión de stock por almacén
   const stats = useMemo(() => {
     let totalProductos = 0;
     let totalStock = 0;
@@ -24,16 +22,13 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({
     let valorTotalStock = 0;
 
     // Por ahora solo contamos productos sin datos de stock reales
-    if (!establecimientoFiltro || establecimientoFiltro === 'todos') {
+    if (!warehouseFiltro || warehouseFiltro === 'todos') {
       // Sin filtro: contar todos los productos
       totalProductos = products.length;
     } else {
-      // Con filtro: contar productos asignados al establecimiento
-      products.forEach(producto => {
-        if (producto.establecimientoIds.includes(establecimientoFiltro) || producto.disponibleEnTodos) {
-          totalProductos++;
-        }
-      });
+      // Con filtro: contar productos con stock en el almacén específico
+      // TODO: Implementar cuando Product tenga stockPorAlmacen
+      totalProductos = products.length;
     }
 
     return {
@@ -43,7 +38,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({
       productosStockBajo,
       valorTotalStock
     };
-  }, [products, establecimientoFiltro]);
+  }, [products, warehouseFiltro]);
 
   const cards = [
     {

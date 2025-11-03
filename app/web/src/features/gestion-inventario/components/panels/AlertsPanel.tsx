@@ -417,8 +417,8 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                           ordenCompra += `   Stock Actual: ${a.cantidadActual}\n`;
                           ordenCompra += `   Stock Mínimo: ${a.stockMinimo}\n`;
                           ordenCompra += `   CANTIDAD A PEDIR: ${cantidadPedir}\n`;
-                          if (a.establecimientoCodigo) {
-                            ordenCompra += `   Establecimiento: ${a.establecimientoCodigo} - ${a.establecimientoNombre || ''}\n`;
+                          if (a.establishmentCodigo) {
+                            ordenCompra += `   Establecimiento: ${a.establishmentCodigo} - ${a.establishmentNombre || ''}\n`;
                           }
                           ordenCompra += `\n`;
                         });

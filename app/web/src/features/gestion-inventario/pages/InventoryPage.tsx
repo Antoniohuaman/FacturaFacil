@@ -20,13 +20,13 @@ export const InventoryPage: React.FC = () => {
     // Estados
     selectedView,
     filterPeriodo,
-    establecimientoFiltro,
+    warehouseFiltro,
     showAdjustmentModal,
     showMassUpdateModal,
     showTransferModal,
     selectedProductId,
     suggestedQuantity,
-    establishments,
+    warehouses,
     stockAlerts,
     filteredMovements,
     stockSummary,
@@ -35,7 +35,7 @@ export const InventoryPage: React.FC = () => {
     // Setters
     setSelectedView,
     setFilterPeriodo,
-    setEstablecimientoFiltro,
+    setWarehouseFiltro,
     setShowAdjustmentModal,
     setShowMassUpdateModal,
     setShowTransferModal,
@@ -61,7 +61,8 @@ export const InventoryPage: React.FC = () => {
       'Cantidad': mov.cantidad,
       'Stock Anterior': mov.cantidadAnterior,
       'Stock Nuevo': mov.cantidadNueva,
-      'Establecimiento': mov.establecimientoNombre || 'N/A',
+      'Almacén': mov.warehouseNombre || 'N/A',
+      'Establecimiento': mov.establishmentNombre || 'N/A',
       'Usuario': mov.usuario,
       'Observaciones': mov.observaciones || '',
       'Documento': mov.documentoReferencia || ''
@@ -109,7 +110,7 @@ export const InventoryPage: React.FC = () => {
       <div className="px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <SummaryCards
           products={allProducts}
-          establecimientoFiltro={establecimientoFiltro}
+          warehouseFiltro={warehouseFiltro}
         />
       </div>
 
@@ -171,16 +172,16 @@ export const InventoryPage: React.FC = () => {
             <option value="todo">Todos</option>
           </select>
 
-          {/* Filtro de establecimiento */}
+          {/* Filtro de almacén */}
           <select
-            value={establecimientoFiltro}
-            onChange={(e) => setEstablecimientoFiltro(e.target.value)}
+            value={warehouseFiltro}
+            onChange={(e) => setWarehouseFiltro(e.target.value)}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="todos">Todos los establecimientos</option>
-            {establishments.map(est => (
-              <option key={est.id} value={est.id}>
-                {est.name}
+            <option value="todos">Todos los almacenes</option>
+            {warehouses.map(wh => (
+              <option key={wh.id} value={wh.id}>
+                {wh.name} ({wh.establishmentName})
               </option>
             ))}
           </select>
@@ -224,7 +225,7 @@ export const InventoryPage: React.FC = () => {
         {selectedView === 'movimientos' && (
           <MovementsTable
             movimientos={filteredMovements}
-            establecimientoFiltro={establecimientoFiltro}
+            warehouseFiltro={warehouseFiltro}
           />
         )}
 

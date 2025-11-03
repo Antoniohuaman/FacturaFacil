@@ -47,17 +47,21 @@ export interface MovimientoStock {
   documentoReferencia?: string;
   fecha: Date;
   ubicacion?: string;
-  // Establecimiento donde se realizó el movimiento
-  establecimientoId?: string;
-  establecimientoCodigo?: string;
-  establecimientoNombre?: string;
-  // Campos para transferencias entre establecimientos
+  // Almacén donde se realizó el movimiento
+  warehouseId: string;
+  warehouseCodigo: string;
+  warehouseNombre: string;
+  // Datos del establecimiento (desnormalizados para referencia)
+  establishmentId: string;
+  establishmentCodigo: string;
+  establishmentNombre: string;
+  // Campos para transferencias entre almacenes
   esTransferencia?: boolean;
   transferenciaId?: string; // ID único que vincula origen y destino
-  establecimientoOrigenId?: string;
-  establecimientoOrigenNombre?: string;
-  establecimientoDestinoId?: string;
-  establecimientoDestinoNombre?: string;
+  warehouseOrigenId?: string;
+  warehouseOrigenNombre?: string;
+  warehouseDestinoId?: string;
+  warehouseDestinoNombre?: string;
   movimientoRelacionadoId?: string; // ID del movimiento complementario
 }
 
@@ -77,9 +81,13 @@ export interface StockAlert {
   stockMinimo: number;
   stockMaximo?: number;
   estado: EstadoAlerta;
-  establecimientoId: string;
-  establecimientoCodigo: string;
-  establecimientoNombre: string;
+  warehouseId: string;
+  warehouseCodigo: string;
+  warehouseNombre: string;
+  // Datos del establecimiento (desnormalizados para referencia)
+  establishmentId: string;
+  establishmentCodigo: string;
+  establishmentNombre: string;
   faltante?: number; // Cantidad que falta para llegar al mínimo
   excedente?: number; // Cantidad que sobra del máximo
 }
@@ -101,7 +109,7 @@ export interface StockSummary {
  * Filtros para movimientos de stock
  */
 export interface StockFilters {
-  establecimientoId?: string;
+  warehouseId?: string;
   fechaDesde?: Date;
   fechaHasta?: Date;
   tipoMovimiento?: MovimientoTipo | 'todos';
@@ -133,14 +141,12 @@ export type FilterPeriod = 'hoy' | 'semana' | 'mes' | 'todo';
  */
 export interface StockAdjustmentData {
   productoId: string;
+  warehouseId: string;
   tipo: MovimientoTipo;
   motivo: MovimientoMotivo;
   cantidad: number;
   observaciones: string;
   documentoReferencia: string;
-  establecimientoId?: string;
-  establecimientoCodigo?: string;
-  establecimientoNombre?: string;
 }
 
 /**
@@ -148,8 +154,8 @@ export interface StockAdjustmentData {
  */
 export interface StockTransferData {
   productoId: string;
-  establecimientoOrigenId: string;
-  establecimientoDestinoId: string;
+  warehouseOrigenId: string;
+  warehouseDestinoId: string;
   cantidad: number;
   observaciones?: string;
   documentoReferencia?: string;
@@ -161,7 +167,7 @@ export interface StockTransferData {
 export interface MassStockUpdateData {
   updates: Array<{
     productoId: string;
-    establecimientoId?: string;
+    warehouseId: string;
     cantidad: number;
   }>;
   tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO';
