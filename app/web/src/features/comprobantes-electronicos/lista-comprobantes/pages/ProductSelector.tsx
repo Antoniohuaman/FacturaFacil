@@ -59,7 +59,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       code: p.codigo,
       name: p.nombre,
       price: p.precio,
-      stock: p.cantidad,
+      stock: p.cantidad ?? 0,
       requiresStockControl: p.tipoExistencia !== 'SERVICIOS', // Servicios no requieren stock
       category: p.categoria || 'Sin categoría',
       // ✅ Mapear todos los campos adicionales del catálogo

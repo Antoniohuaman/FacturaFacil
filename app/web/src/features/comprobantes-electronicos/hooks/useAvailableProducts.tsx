@@ -57,8 +57,8 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
             return false;
           }
         } else {
-          // Stock general
-          if (product.cantidad <= 0) {
+          // Stock general (tratar undefined como 0)
+          if ((product.cantidad ?? 0) <= 0) {
             return false;
           }
         }
@@ -109,7 +109,7 @@ function getStockForEstablishment(
   }
 
   // Retornar stock general
-  return product.cantidad || 0;
+  return product.cantidad ?? 0;
 }
 
 /**

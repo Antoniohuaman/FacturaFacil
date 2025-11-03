@@ -4,7 +4,8 @@ import { useCallback } from 'react';
 import type { CartItem } from '../models/comprobante.types';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { MedioPago } from '../../control-caja/models/Caja';
-import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+// Reemplazamos el uso de addMovimiento desde el store del catálogo por la fachada de inventario
+import { useInventoryFacade } from '../../gestion-inventario/api/inventory.facade';
 import { useComprobanteContext } from '../lista-comprobantes/contexts/ComprobantesListContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useToast } from '../shared/ui/Toast/useToast';
@@ -40,7 +41,7 @@ interface ComprobanteData {
 export const useComprobanteActions = () => {
   const toast = useToast();
   const { agregarMovimiento, status: cajaStatus } = useCaja();
-  const { addMovimiento: addMovimientoStock } = useProductStore();
+  const { addMovimiento: addMovimientoStock } = useInventoryFacade();
   const { addComprobante } = useComprobanteContext();
   const { session } = useUserSession();
 
