@@ -12,6 +12,7 @@ import type { Tax } from '../models/Tax';
 import type { VoucherDesign } from '../models/VoucherDesign';
 import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesign';
 import { SUNAT_UNITS } from '../models/Unit';
+import type { Warehouse } from '../models/Warehouse';
 
 // Category interface - moved from catalogo-articulos
 export interface Category {
@@ -42,6 +43,7 @@ export interface TaxAffectations {
 interface ConfigurationState {
   company: Company | null;
   establishments: Establishment[];
+  warehouses: Warehouse[];
   employees: Employee[];
   series: Series[];
   paymentMethods: PaymentMethod[];
@@ -63,6 +65,10 @@ type ConfigurationAction =
   | { type: 'ADD_ESTABLISHMENT'; payload: Establishment }
   | { type: 'UPDATE_ESTABLISHMENT'; payload: Establishment }
   | { type: 'DELETE_ESTABLISHMENT'; payload: string }
+  | { type: 'SET_WAREHOUSES'; payload: Warehouse[] }
+  | { type: 'ADD_WAREHOUSE'; payload: Warehouse }
+  | { type: 'UPDATE_WAREHOUSE'; payload: Warehouse }
+  | { type: 'DELETE_WAREHOUSE'; payload: string }
   | { type: 'SET_EMPLOYEES'; payload: Employee[] }
   | { type: 'ADD_EMPLOYEE'; payload: Employee }
   | { type: 'UPDATE_EMPLOYEE'; payload: Employee }
@@ -83,6 +89,7 @@ type ConfigurationAction =
 const initialState: ConfigurationState = {
   company: null,
   establishments: [],
+  warehouses: [],
   employees: [],
   series: [],
   paymentMethods: [],
@@ -145,7 +152,30 @@ function configurationReducer(
         ...state,
         establishments: state.establishments.filter(est => est.id !== action.payload),
       };
-    
+
+    case 'SET_WAREHOUSES':
+      return { ...state, warehouses: action.payload };
+
+    case 'ADD_WAREHOUSE':
+      return {
+        ...state,
+        warehouses: [...state.warehouses, action.payload],
+      };
+
+    case 'UPDATE_WAREHOUSE':
+      return {
+        ...state,
+        warehouses: state.warehouses.map(wh =>
+          wh.id === action.payload.id ? action.payload : wh
+        ),
+      };
+
+    case 'DELETE_WAREHOUSE':
+      return {
+        ...state,
+        warehouses: state.warehouses.filter(wh => wh.id !== action.payload),
+      };
+
     case 'SET_EMPLOYEES':
       return { ...state, employees: action.payload };
     
@@ -673,6 +703,9 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
       type: 'SET_VOUCHER_DESIGNS',
       payload: [DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN]
     });
+
+    // No se inicializan warehouses por defecto
+    // Se crearán automáticamente cuando se cree el establecimiento por defecto
   }, []);
 
   return (

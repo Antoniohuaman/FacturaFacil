@@ -1,11 +1,12 @@
 // src/features/configuration/pages/ConfigurationDashboard.tsx
 import { Link } from 'react-router-dom';
-import { 
-  Building2, 
-  MapPin, 
-  ShoppingCart, 
-  FileText, 
-  Users, 
+import {
+  Building2,
+  MapPin,
+  Warehouse,
+  ShoppingCart,
+  FileText,
+  Users,
   Printer,
   ArrowRight,
   CheckCircle2,
@@ -46,6 +47,11 @@ export function ConfigurationDashboard() {
       completionPercentage: state.establishments.length > 0 ? 100 : 0,
       count: state.establishments.length
     },
+    warehouses: {
+      isConfigured: state.warehouses.length > 0,
+      completionPercentage: state.warehouses.length > 0 ? 100 : 0,
+      count: state.warehouses.length
+    },
     employees: {
       isConfigured: state.employees.length > 0,
       completionPercentage: state.employees.length > 0 ? 100 : 0
@@ -80,6 +86,17 @@ export function ConfigurationDashboard() {
       path: '/configuracion/establecimientos',
       status: status.establishments.isConfigured ? 'complete' : 'pending',
       completionPercentage: status.establishments.completionPercentage,
+      priority: 'high',
+      estimatedTime: '3 min'
+    },
+    {
+      id: 'warehouses',
+      title: 'Almacenes',
+      description: 'Gestiona los almacenes donde se controla el inventario',
+      icon: Warehouse,
+      path: '/configuracion/almacenes',
+      status: status.warehouses.isConfigured ? 'complete' : 'pending',
+      completionPercentage: status.warehouses.completionPercentage,
       priority: 'high',
       estimatedTime: '3 min'
     },

@@ -20,6 +20,7 @@ import { LogoUploader } from '../components/company/LogoUploader';
 import { parseUbigeoCode } from '../data/ubigeo';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
+import type { Warehouse } from '../models/Warehouse';
 import type { Series } from '../models/Series';
 import type { Currency } from '../models/Currency';
 import type { Tax } from '../models/Tax';
@@ -360,7 +361,29 @@ export function CompanyConfiguration() {
 
         dispatch({ type: 'ADD_ESTABLISHMENT', payload: defaultEstablishment });
 
-        // 2. CREAR SERIES POR DEFECTO (FACTURA Y BOLETA)
+        // 2. CREAR ALMACÉN POR DEFECTO
+        const defaultWarehouse: Warehouse = {
+          id: 'wh-main',
+          code: '0001',
+          name: 'Almacén',
+          establishmentId: 'est-main',
+          establishmentName: 'Establecimiento',
+          establishmentCode: '0001',
+          isActive: true,
+          isMainWarehouse: true,
+          inventorySettings: {
+            allowNegativeStock: false,
+            strictStockControl: false,
+            requireApproval: false,
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          hasMovements: false,
+        };
+
+        dispatch({ type: 'ADD_WAREHOUSE', payload: defaultWarehouse });
+
+        // 3. CREAR SERIES POR DEFECTO (FACTURA Y BOLETA)
         const now = new Date();
         
         // Serie de FACTURA (FE01)

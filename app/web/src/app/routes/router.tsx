@@ -16,6 +16,7 @@ import IndicadoresPage from "../../features/indicadores-negocio/pages/Indicadore
 import { ConfigurationDashboard } from "../../features/configuracion-sistema/pages/ConfigurationDashboard";
 import { CompanyConfiguration } from "../../features/configuracion-sistema/pages/CompanyConfiguration";
 import { EstablishmentsConfiguration } from "../../features/configuracion-sistema/pages/EstablishmentsConfiguration";
+import { WarehousesConfiguration } from "../../features/configuracion-sistema/pages/WarehousesConfiguration";
 import { EmployeesConfiguration } from "../../features/configuracion-sistema/pages/EmployeesConfiguration";
 import { SeriesConfiguration } from "../../features/configuracion-sistema/pages/SeriesConfiguration";
 import { BusinessConfiguration } from "../../features/configuracion-sistema/pages/BusinessConfiguration";
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
       { path: "/configuracion", element: <ConfigurationDashboard /> },
       { path: "/configuracion/empresa", element: <CompanyConfiguration /> },
       { path: "/configuracion/establecimientos", element: <EstablishmentsConfiguration /> },
+      { path: "/configuracion/almacenes", element: <WarehousesConfiguration /> },
       { path: "/configuracion/empleados", element: <EmployeesConfiguration /> },
       { path: "/configuracion/series", element: <SeriesConfiguration /> },
       { path: "/configuracion/negocio", element: <BusinessConfiguration /> },
