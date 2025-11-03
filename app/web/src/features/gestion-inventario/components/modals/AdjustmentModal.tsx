@@ -135,9 +135,8 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   const selectedWarehouse = warehouses.find(w => w.id === selectedWarehouseId);
 
   // Obtener stock actual del almacén seleccionado
-  const stockActualAlmacen = selectedProduct && selectedWarehouseId
-    ? (selectedProduct.stockPorAlmacen?.[selectedWarehouseId] || 0)
-    : 0;
+  // TODO: Implementar cuando el modelo de inventario gestione stock por almacén
+  const stockActualAlmacen = 0;
 
   const newStock = selectedProduct && selectedWarehouseId
     ? tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION'
@@ -239,7 +238,8 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                   {searchTerm && filteredProducts.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
                       {filteredProducts.map((product) => {
-                        const stockEnAlmacen = product.stockPorAlmacen?.[selectedWarehouseId] || 0;
+                        // TODO: Mostrar stock por almacén cuando el modelo lo provea
+                        const stockEnAlmacen = 0;
                         return (
                           <button
                             key={product.id}

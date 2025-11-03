@@ -57,14 +57,12 @@ const TransferModal: React.FC<TransferModalProps> = ({
   const warehouseDestino = warehouses.find(w => w.id === warehouseDestinoId);
 
   // Calcular stock disponible en origen
-  const stockDisponibleOrigen = selectedProduct && warehouseOrigenId
-    ? (selectedProduct.stockPorAlmacen?.[warehouseOrigenId] || 0)
-    : 0;
+  // TODO: Implementar cuando el modelo de inventario gestione stock por almacén
+  const stockDisponibleOrigen = 0;
 
   // Calcular stock actual en destino
-  const stockActualDestino = selectedProduct && warehouseDestinoId
-    ? (selectedProduct.stockPorAlmacen?.[warehouseDestinoId] || 0)
-    : 0;
+  // TODO: Implementar cuando el modelo de inventario gestione stock por almacén
+  const stockActualDestino = 0;
 
   const filteredProducts = allProducts.filter(p =>
     (p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||

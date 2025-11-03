@@ -21,14 +21,15 @@ export class InventoryService {
    * Obtener stock actual de un producto en un almacén específico
    */
   static getStock(product: Product, warehouseId: string): number {
-    return product.stockPorAlmacen[warehouseId] || 0;
+    return product.stockPorAlmacen?.[warehouseId] ?? 0;
   }
 
   /**
    * Obtener stock total de un producto en todos los almacenes
    */
   static getTotalStock(product: Product): number {
-    return Object.values(product.stockPorAlmacen).reduce((sum, qty) => sum + qty, 0);
+    const stockMap = product.stockPorAlmacen ?? {};
+    return Object.values(stockMap).reduce<number>((sum, qty) => sum + (qty || 0), 0);
   }
 
   /**
