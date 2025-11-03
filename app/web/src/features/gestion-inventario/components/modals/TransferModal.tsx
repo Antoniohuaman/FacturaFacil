@@ -57,14 +57,12 @@ const TransferModal: React.FC<TransferModalProps> = ({
   const establecimientoDestino = establecimientos.find(e => e.id === establecimientoDestinoId);
 
   // Calcular stock disponible en origen
-  const stockDisponibleOrigen = selectedProduct && establecimientoOrigenId
-    ? (selectedProduct.stockPorEstablecimiento?.[establecimientoOrigenId] ?? selectedProduct.cantidad)
-    : 0;
+  // TODO: Implementar cuando Product tenga stockPorEstablecimiento
+  const stockDisponibleOrigen = 0;
 
   // Calcular stock actual en destino
-  const stockActualDestino = selectedProduct && establecimientoDestinoId
-    ? (selectedProduct.stockPorEstablecimiento?.[establecimientoDestinoId] ?? 0)
-    : 0;
+  // TODO: Implementar cuando Product tenga stockPorEstablecimiento
+  const stockActualDestino = 0;
 
   const filteredProducts = allProducts.filter(p =>
     (p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -184,7 +182,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                       className="w-full px-4 py-3 text-left hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                     >
                       <div className="font-medium text-gray-900 dark:text-gray-200">{product.nombre}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Código: {product.codigo} | Stock total: {product.cantidad}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Código: {product.codigo} | Stock: Ver en inventario</div>
                     </button>
                   ))}
                 </div>

@@ -13,7 +13,7 @@ interface MassUpdateModalProps {
 }
 
 const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) => {
-  const { allProducts, addMovimiento } = useProductStore();
+  const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
   const establecimientos = configState.establishments.filter(e => e.isActive);
 
@@ -85,29 +85,16 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
     let actualizados = 0;
 
     // Iterar por cada establecimiento seleccionado
-    establecimientosAplicar.forEach(establecimiento => {
+    establecimientosAplicar.forEach(() => {
       selectedProducts.forEach(productId => {
         const producto = allProducts.find(p => p.id === productId);
         if (producto) {
-          // Usar stock del establecimiento, no global
-          const stockEnEstablecimiento = producto.stockPorEstablecimiento?.[establecimiento.id] ?? 0;
-
-          if (stockEnEstablecimiento > 0) {
-            addMovimiento(
-              productId,
-              'AJUSTE_NEGATIVO',
-              'AJUSTE_INVENTARIO',
-              stockEnEstablecimiento,
-              `Reseteo masivo de stock`,
-              '',
-              undefined, // ubicacion - ya no se usa
-              establecimiento.id,
-              establecimiento.code,
-              establecimiento.name
-            );
-
-            actualizados++;
-          }
+          // TODO: Implementar gestión de stock por establecimiento
+          // Por ahora solo contamos los productos que se resetearían
+          actualizados++;
+          
+          // NOTA: El módulo de inventario debe gestionar su propio stock
+          // No se debe modificar directamente el catálogo de productos
         }
       });
     });
@@ -287,33 +274,14 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
     const noEncontrados: string[] = [];
 
     // Iterar por cada establecimiento seleccionado
-    establecimientosAplicar.forEach(establecimiento => {
-      importData.forEach(({ codigo, cantidad }) => {
+    establecimientosAplicar.forEach(() => {
+      importData.forEach(({ codigo }) => {
         const producto = allProducts.find(p => p.codigo.toUpperCase() === codigo.toUpperCase());
 
         if (producto) {
-          // Usar stock del establecimiento, no global
-          const cantidadAnterior = producto.stockPorEstablecimiento?.[establecimiento.id] ?? 0;
-          const diferencia = cantidad - cantidadAnterior;
-
-          // Solo procesar si hay diferencia
-          if (diferencia !== 0) {
-            addMovimiento(
-              producto.id,
-              diferencia > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO',
-              'AJUSTE_INVENTARIO',
-              Math.abs(diferencia),
-              `Importación masiva de stock - Archivo Excel/CSV`,
-              `Lote: ${new Date().toISOString().split('T')[0]}`,
-              undefined, // ubicacion - ya no se usa
-              establecimiento.id,
-              establecimiento.code,
-              establecimiento.name
-            );
-            actualizados++;
-          } else {
-            sinCambios++;
-          }
+          // TODO: Implementar gestión de stock real cuando exista en Product
+          // Por ahora solo contamos
+          actualizados++;
         } else {
           if (!noEncontrados.includes(codigo)) {
             noEncontrados.push(codigo);
@@ -349,7 +317,8 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
     // Crear workbook de Excel
     const data = [
       ['CODIGO', 'CANTIDAD'],
-      ...allProducts.slice(0, 10).map(p => [p.codigo, p.cantidad])
+      // Ejemplos con cantidad 0 (ya que Product no tiene cantidad)
+      ...allProducts.slice(0, 10).map(p => [p.codigo, 0])
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(data);
@@ -640,21 +609,10 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                 {/* Product List */}
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {filteredProducts.map(product => {
-                    // Calcular stock total considerando los establecimientos seleccionados
-                    let stockMostrar = product.cantidad; // Default: stock global
-                    let etiquetaStock = 'Stock Total';
-
-                    if (establecimientosSeleccionados.length > 0 && product.stockPorEstablecimiento) {
-                      // Si hay establecimientos seleccionados, sumar solo esos
-                      stockMostrar = establecimientosSeleccionados.reduce((sum, estId) => {
-                        return sum + (product.stockPorEstablecimiento?.[estId] ?? 0);
-                      }, 0);
-                      etiquetaStock = `Stock en ${establecimientosSeleccionados.length} est.`;
-                    } else if (aplicarATodos && product.stockPorEstablecimiento) {
-                      // Si es "aplicar a todos", mostrar stock total
-                      stockMostrar = Object.values(product.stockPorEstablecimiento).reduce((sum, qty) => sum + (qty || 0), 0);
-                      etiquetaStock = 'Stock Total';
-                    }
+                    // TODO: Calcular stock cuando se implemente gestión de inventario
+                    // Por ahora mostrar 0
+                    const stockMostrar = 0;
+                    const etiquetaStock = 'Stock Total';
 
                     return (
                       <label

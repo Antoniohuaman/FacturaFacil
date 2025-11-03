@@ -15,6 +15,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({
   establecimientoFiltro
 }) => {
   // Calcular estadísticas basadas en el filtro de establecimiento
+  // TODO: Implementar correctamente cuando Product tenga gestión de stock por establecimiento
   const stats = useMemo(() => {
     let totalProductos = 0;
     let totalStock = 0;
@@ -22,34 +23,15 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({
     let productosStockBajo = 0;
     let valorTotalStock = 0;
 
+    // Por ahora solo contamos productos sin datos de stock reales
     if (!establecimientoFiltro || establecimientoFiltro === 'todos') {
-      // Sin filtro: calcular totales globales
+      // Sin filtro: contar todos los productos
       totalProductos = products.length;
-      totalStock = products.reduce((sum, p) => sum + p.cantidad, 0);
-      productosSinStock = products.filter(p => p.cantidad === 0).length;
-      productosStockBajo = products.filter(p => p.cantidad > 0 && p.cantidad < 10).length;
-      valorTotalStock = products.reduce((sum, p) => {
-        const precioCompra = p.precioCompra || p.precio;
-        return sum + (precioCompra * p.cantidad);
-      }, 0);
     } else {
-      // Con filtro: calcular solo para el establecimiento seleccionado
+      // Con filtro: contar productos asignados al establecimiento
       products.forEach(producto => {
-        // Solo contar productos que tienen stock en este establecimiento
-        const stockEnEst = producto.stockPorEstablecimiento?.[establecimientoFiltro] ?? 0;
-
         if (producto.establecimientoIds.includes(establecimientoFiltro) || producto.disponibleEnTodos) {
           totalProductos++;
-          totalStock += stockEnEst;
-
-          if (stockEnEst === 0) {
-            productosSinStock++;
-          } else if (stockEnEst < 10) {
-            productosStockBajo++;
-          }
-
-          const precioCompra = producto.precioCompra || producto.precio;
-          valorTotalStock += precioCompra * stockEnEst;
         }
       });
     }

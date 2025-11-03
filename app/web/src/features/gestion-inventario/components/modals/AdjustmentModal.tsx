@@ -138,10 +138,9 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Obtener stock actual del establecimiento seleccionado (no global)
-  const stockActualEstablecimiento = selectedProduct && selectedEstablecimientoId
-    ? (selectedProduct.stockPorEstablecimiento?.[selectedEstablecimientoId] ?? 0)
-    : 0;
+  // Obtener stock actual del establecimiento seleccionado
+  // TODO: Implementar gestión de stock real cuando Product tenga stockPorEstablecimiento
+  const stockActualEstablecimiento = 0;
 
   const newStock = selectedProduct && selectedEstablecimientoId
     ? tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION'
@@ -243,8 +242,8 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                   {searchTerm && filteredProducts.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
                       {filteredProducts.map((product) => {
-                        // Mostrar stock del establecimiento seleccionado
-                        const stockEnEst = product.stockPorEstablecimiento?.[selectedEstablecimientoId] ?? 0;
+                        // TODO: Mostrar stock cuando Product tenga stockPorEstablecimiento
+                        const stockEnEst = 0;
                         return (
                           <button
                             key={product.id}

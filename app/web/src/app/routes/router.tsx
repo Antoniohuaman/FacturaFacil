@@ -22,7 +22,7 @@ import { BusinessConfiguration } from "../../features/configuracion-sistema/page
 import { VoucherDesignConfigurationNew } from "../../features/configuracion-sistema/pages/VoucherDesignConfigurationNew";
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../../features/lista-precios/components/ListaPrecios";
-import { InventoryPage } from "../../features/inventario/pages/InventoryPage";
+import { InventoryPage } from "../../features/gestion-inventario/pages/InventoryPage";
 
 import RouteErrorBoundary from "./RouteErrorBoundary";
 
