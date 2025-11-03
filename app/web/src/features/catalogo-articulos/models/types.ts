@@ -67,7 +67,6 @@ export interface FilterOptions {
   // Nuevos filtros
   marca?: string;
   modelo?: string;
-  tipoExistencia?: string;
   impuesto?: string;
   ordenarPor: 'nombre' | 'precio' | 'fechaCreacion';
   direccion: 'asc' | 'desc';

@@ -38,7 +38,6 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
     { key: 'nombre', label: 'Nombre', type: 'text', required: true },
     { key: 'precio', label: 'Precio de Venta', type: 'currency' },
     { key: 'unidad', label: 'Unidad', type: 'text' },
-    { key: 'cantidad', label: 'Stock/Cantidad', type: 'number' },
     { key: 'categoria', label: 'Categoría', type: 'text' },
     { key: 'impuesto', label: 'Tipo de Impuesto', type: 'text' },
     { key: 'descripcion', label: 'Descripción', type: 'text' },
@@ -53,13 +52,12 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
     { key: 'marca', label: 'Marca', type: 'text' },
     { key: 'modelo', label: 'Modelo', type: 'text' },
     { key: 'peso', label: 'Peso (KG)', type: 'number' },
-    { key: 'tipoExistencia', label: 'Tipo de Existencia', type: 'text' },
     { key: 'fechaCreacion', label: 'Fecha de Creación', type: 'date' },
     { key: 'fechaActualizacion', label: 'Última Actualización', type: 'date' }
   ];
 
   // Columnas básicas (las más importantes)
-  const basicColumns = ['codigo', 'nombre', 'precio', 'unidad', 'cantidad', 'categoria'];
+  const basicColumns = ['codigo', 'nombre', 'precio', 'unidad', 'categoria'];
 
   useEffect(() => {
     if (columnSet === 'basic') {
@@ -238,7 +236,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
                   </label>
                   <div className="space-y-3">
                     {[
-                      { value: 'basic', label: 'Básicas', desc: 'Código, nombre, precio, unidad, stock, categoría' },
+                      { value: 'basic', label: 'Básicas', desc: 'Código, nombre, precio, unidad, categoría' },
                       { value: 'all', label: 'Todas', desc: 'Incluye todas las columnas disponibles' },
                       { value: 'custom', label: 'Personalizadas', desc: 'Selecciona las columnas que necesites' }
                     ].map((option) => (

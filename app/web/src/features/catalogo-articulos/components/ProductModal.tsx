@@ -66,13 +66,12 @@ const ProductModal: React.FC<ProductModalProps> = ({
     return availableUnits[0].code;
   }, [availableUnits]);
 
-  const [formData, setFormData] = useState<Omit<ProductFormData, 'unidad'> & { unidad: Product['unidad'] }>(() => ({
+  const [formData, setFormData] = useState<ProductFormData>(() => ({
     nombre: '',
     codigo: '',
     precio: 0,
     unidad: getDefaultUnit() as Product['unidad'],
     categoria: '',
-    cantidad: 0, // Campo deprecado - mantener por compatibilidad
     impuesto: 'IGV (18.00%)',
     descripcion: '',
     // Asignación de establecimientos
@@ -89,6 +88,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     marca: '',
     modelo: '',
     peso: 0,
+    // Mantener tipoExistencia para compatibilidad con otros módulos, sin mostrar UI
     tipoExistencia: 'MERCADERIAS'
   }));
   
@@ -335,94 +335,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           {/* Form */}
           <form onSubmit={handleSubmit} className="px-6 py-3 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
             
-            {/* ✅ Selección BIEN o SERVICIO - Versión compacta */}
-            <div className="border border-gray-200 rounded-lg bg-gray-50 p-3">
-              <label className="block text-xs font-semibold text-gray-700 mb-2">
-                Tipo de producto <span className="text-red-500">*</span>
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                {/* Opción: BIEN */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, tipoExistencia: 'MERCADERIAS' }));
-                  }}
-                  className={`
-                    relative flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all
-                    ${formData.tipoExistencia !== 'SERVICIOS'
-                      ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                      : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
-                    }
-                  `}
-                >
-                  <svg 
-                    className={`w-4 h-4 ${formData.tipoExistencia !== 'SERVICIOS' ? 'text-white' : 'text-blue-600'}`}
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                  <span className="text-sm font-semibold">BIEN</span>
-                  
-                  {formData.tipoExistencia !== 'SERVICIOS' && (
-                    <svg className="w-4 h-4 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
-
-                {/* Opción: SERVICIO */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      tipoExistencia: 'SERVICIOS'
-                    }));
-                  }}
-                  className={`
-                    relative flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all
-                    ${formData.tipoExistencia === 'SERVICIOS'
-                      ? 'bg-purple-600 border-purple-600 text-white shadow-md'
-                      : 'bg-white border-gray-300 text-gray-700 hover:border-purple-400'
-                    }
-                  `}
-                >
-                  <svg 
-                    className={`w-4 h-4 ${formData.tipoExistencia === 'SERVICIOS' ? 'text-white' : 'text-purple-600'}`}
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-sm font-semibold">SERVICIO</span>
-                  
-                  {formData.tipoExistencia === 'SERVICIOS' && (
-                    <svg className="w-4 h-4 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-
-              {/* Mensaje informativo compacto */}
-              <div className={`
-                mt-2 px-2 py-1.5 rounded text-xs
-                ${formData.tipoExistencia === 'SERVICIOS'
-                  ? 'bg-purple-50 text-purple-700'
-                  : 'bg-blue-50 text-blue-700'
-                }
-              `}>
-                {formData.tipoExistencia === 'SERVICIOS' ? (
-                  <span>No se requiere inventario. Ideal para: consultoría, mantenimiento, instalaciones.</span>
-                ) : (
-                  <span>Producto físico con control de inventario automático.</span>
-                )}
-              </div>
-            </div>
+            {/* Sección de tipo de producto eliminada para evitar referencias a inventario/stock */}
 
             {/* Nombre */}
             <div>
@@ -1025,36 +938,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     </div>
                   )}
 
-                  {/* Tipo de Existencia */}
-                  {isFieldVisible('tipoExistencia') && (
-                    <div>
-                      <label htmlFor="tipoExistencia" className="block text-sm font-medium text-gray-700 mb-1">
-                        Tipo de existencia
-                        {isFieldRequired('tipoExistencia') && <span className="text-red-500 ml-1">*</span>}
-                      </label>
-                      <select
-                        id="tipoExistencia"
-                        value={formData.tipoExistencia}
-                        onChange={(e) => {
-                          const nuevoTipo = e.target.value as Product['tipoExistencia'];
-                          setFormData(prev => ({ ...prev, tipoExistencia: nuevoTipo }));
-                        }}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                      >
-                        <option value="MERCADERIAS">Mercaderías</option>
-                        <option value="PRODUCTOS_TERMINADOS">Productos Terminados</option>
-                        <option value="SERVICIOS">Servicios</option>
-                        <option value="MATERIAS_PRIMAS">Materias Primas</option>
-                        <option value="ENVASES">Envases</option>
-                        <option value="MATERIALES_AUXILIARES">Materiales Auxiliares</option>
-                        <option value="SUMINISTROS">Suministros</option>
-                        <option value="REPUESTOS">Repuestos</option>
-                        <option value="EMBALAJES">Embalajes</option>
-                        <option value="OTROS">Otros</option>
-                      </select>
-                      {errors.tipoExistencia && <p className="text-red-600 text-xs mt-1">{errors.tipoExistencia}</p>}
-                    </div>
-                  )}
+                  
             </div>
           </form>
 

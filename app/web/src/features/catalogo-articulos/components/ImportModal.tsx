@@ -278,7 +278,6 @@ const ImportModal: React.FC<ImportModalProps> = ({
                     </div>
                     <div className="space-y-1">
                       <div>• Categoría</div>
-                      <div>• Cantidad</div>
                       {tipo === 'completa' && (
                         <>
                           <div>• Impuestos</div>
@@ -293,7 +292,6 @@ const ImportModal: React.FC<ImportModalProps> = ({
                           <div>• Marca</div>
                           <div>• Modelo</div>
                           <div>• Peso</div>
-                          <div>• Tipo Existencia</div>
                         </>
                       )}
                     </div>

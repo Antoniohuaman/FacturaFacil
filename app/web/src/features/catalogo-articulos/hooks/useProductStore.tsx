@@ -43,7 +43,7 @@ function migrateLegacyToNamespaced() {
       'catalog_products',
       'catalog_categories',
       'catalog_packages',
-      'catalog_movimientos',
+      // 'catalog_movimientos' removido: este módulo no gestiona stock
       'productTableColumns',
       'productTableColumnsVersion',
       'productFieldsConfig'
@@ -94,11 +94,6 @@ const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
         }
         if (item.fechaActualizacion) {
           converted.fechaActualizacion = new Date(item.fechaActualizacion);
-        }
-        
-        // Convertir fecha de movimientos de stock
-        if (item.fecha) {
-          converted.fecha = new Date(item.fecha);
         }
         
         return converted;
@@ -168,7 +163,7 @@ export const useProductStore = () => {
         }
       };
 
-      const p = read<Product[]>('catalog_products', mockProducts);
+  const p = read<Product[]>('catalog_products', mockProducts);
       const pk = read<Package[]>('catalog_packages', []);
 
       setProducts(p);
@@ -197,7 +192,6 @@ export const useProductStore = () => {
     rangoPrecios: { min: 0, max: 50000 },
     marca: '',
     modelo: '',
-    tipoExistencia: '',
     impuesto: '',
     ordenarPor: 'fechaCreacion',
     direccion: 'desc'
@@ -228,16 +222,15 @@ export const useProductStore = () => {
 
       const matchesCategoria = !filters.categoria || product.categoria === filters.categoria;
       const matchesUnidad = !filters.unidad || product.unidad === filters.unidad;
-      const matchesMarca = !filters.marca || product.marca === filters.marca;
-      const matchesModelo = !filters.modelo || product.modelo === filters.modelo;
-      const matchesTipoExistencia = !filters.tipoExistencia || product.tipoExistencia === filters.tipoExistencia;
+  const matchesMarca = !filters.marca || product.marca === filters.marca;
+  const matchesModelo = !filters.modelo || product.modelo === filters.modelo;
       const matchesImpuesto = !filters.impuesto || product.impuesto === filters.impuesto;
 
       const matchesPrecio = product.precio >= filters.rangoPrecios.min &&
         product.precio <= filters.rangoPrecios.max;
 
       return matchesBusqueda && matchesCategoria && matchesUnidad && matchesPrecio &&
-             matchesMarca && matchesModelo && matchesTipoExistencia && matchesImpuesto;
+        matchesMarca && matchesModelo && matchesImpuesto;
     });
 
     // Ordenar
@@ -368,7 +361,6 @@ export const useProductStore = () => {
       rangoPrecios: { min: 0, max: 50000 },
       marca: '',
       modelo: '',
-      tipoExistencia: '',
       impuesto: '',
       ordenarPor: 'fechaCreacion',
       direccion: 'desc'

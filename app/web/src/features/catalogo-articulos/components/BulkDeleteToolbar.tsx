@@ -134,7 +134,7 @@ const BulkDeleteToolbar: React.FC<BulkDeleteToolbarProps> = ({
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
                     ¿Estás seguro de que quieres eliminar {deleteAction.label}? 
-                    {deleteAction.type === 'all' ? ' Esta acción eliminará permanentemente todo tu inventario.' : ''}
+                    {deleteAction.type === 'all' ? ' Esta acción eliminará permanentemente todos tus productos.' : ''}
                     {' '}Esta acción no se puede deshacer.
                   </p>
                   

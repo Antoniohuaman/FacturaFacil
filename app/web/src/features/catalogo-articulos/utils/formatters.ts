@@ -31,15 +31,3 @@ export const formatearFechaHora = (fecha: Date): string => {
     minute: '2-digit'
   }).format(fecha);
 };
-
-export const obtenerColorStock = (stock: number, stockMinimo: number): string => {
-  if (stock <= 0) return 'text-red-600 bg-red-50';
-  if (stock <= stockMinimo) return 'text-amber-600 bg-amber-50';
-  return 'text-green-600 bg-green-50';
-};
-
-export const obtenerEstadoStock = (stock: number, stockMinimo: number): string => {
-  if (stock <= 0) return 'Agotado';
-  if (stock <= stockMinimo) return 'Stock Bajo';
-  return 'Disponible';
-};

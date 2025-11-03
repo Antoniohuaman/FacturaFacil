@@ -82,7 +82,7 @@ const ImportPage: React.FC = () => {
                     <svg className="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    Categoría y cantidad inicial
+                    Categoría
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <svg className="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

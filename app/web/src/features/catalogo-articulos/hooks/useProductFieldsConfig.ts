@@ -35,7 +35,6 @@ const DEFAULT_FIELDS_CONFIG: ProductFieldConfig[] = [
   { id: 'codigoFabrica', label: 'Código de fábrica', icon: '🏭', visible: false, required: false, isSystemRequired: false, category: 'codes' },
   { id: 'descuentoProducto', label: 'Descuento', icon: '💸', visible: false, required: false, isSystemRequired: false, category: 'pricing' },
   { id: 'alias', label: 'Nombre alternativo', icon: '📛', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
-  { id: 'tipoExistencia', label: 'Tipo de existencia', icon: '📦', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
 ];
 
 const STORAGE_KEY = 'productFieldsConfig';
@@ -68,7 +67,7 @@ export const useProductFieldsConfig = () => {
         'catalog_products',
         'catalog_categories',
         'catalog_packages',
-        'catalog_movimientos',
+        // 'catalog_movimientos' removido: este módulo no gestiona stock
         'productTableColumns',
         'productTableColumnsVersion',
         'productFieldsConfig'
@@ -102,7 +101,7 @@ export const useProductFieldsConfig = () => {
         try {
           const parsed = JSON.parse(savedConfig);
           // Filtrar cualquier campo de stock que pueda existir en la configuración guardada
-          const filteredConfig = parsed.filter((field: ProductFieldConfig) => field.id !== 'cantidad');
+          const filteredConfig = parsed.filter((field: ProductFieldConfig) => field.id !== 'cantidad' && field.id !== 'tipoExistencia');
           setFieldsConfig(filteredConfig);
         } catch (error) {
           console.error('Error al cargar configuración de campos:', error);
