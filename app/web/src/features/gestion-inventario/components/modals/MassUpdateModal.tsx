@@ -13,19 +13,19 @@ interface MassUpdateModalProps {
 }
 
 const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) => {
-  const { allProducts } = useProductStore();
+  const { allProducts, updateProduct } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const establecimientos = configState.establishments.filter(e => e.isActive);
+  const warehouses = configState.warehouses.filter(w => w.isActive);
 
   const [activeTab, setActiveTab] = useState<'reset' | 'import' | 'manual'>('reset');
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [importing, setImporting] = useState(false);
-  const [importData, setImportData] = useState<Array<{ codigo: string; cantidad: number; establecimiento?: string }>>([]);
+  const [importData, setImportData] = useState<Array<{ codigo: string; almacen?: string; cantidad: number }>>([]);
 
-  // Multi-establecimiento para operaciones masivas
+  // Multi-almacén para operaciones masivas
   const [aplicarATodos, setAplicarATodos] = useState(false);
-  const [establecimientosSeleccionados, setEstablecimientosSeleccionados] = useState<string[]>([]);
+  const [warehousesSeleccionados, setWarehousesSeleccionados] = useState<string[]>([]);
 
   if (!isOpen) return null;
 
@@ -58,25 +58,25 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
       return;
     }
 
-    // Validar selección de establecimientos
-    if (!aplicarATodos && establecimientosSeleccionados.length === 0) {
-      alert('⚠️ Selecciona al menos un establecimiento o activa "Aplicar a todos"');
+    // Validar selección de almacenes
+    if (!aplicarATodos && warehousesSeleccionados.length === 0) {
+      alert('⚠️ Selecciona al menos un almacén o activa "Aplicar a todos"');
       return;
     }
 
-    const establecimientosAplicar = aplicarATodos
-      ? establecimientos
-      : establecimientos.filter(e => establecimientosSeleccionados.includes(e.id));
+    const warehousesAplicar = aplicarATodos
+      ? warehouses
+      : warehouses.filter(w => warehousesSeleccionados.includes(w.id));
 
     const confirmacion = confirm(
       `🔄 RESETEAR STOCK A CERO\n\n` +
       `Productos seleccionados: ${selectedProducts.size}\n` +
-      `Establecimientos: ${aplicarATodos ? `TODOS (${establecimientosAplicar.length})` : `${establecimientosAplicar.length} seleccionados`}\n\n` +
+      `Almacenes: ${aplicarATodos ? `TODOS (${warehousesAplicar.length})` : `${warehousesAplicar.length} seleccionados`}\n\n` +
       `⚠️ Esta acción:\n` +
       `• Pondrá el stock en 0 para todos los productos seleccionados\n` +
-      `• Registrará movimientos de ajuste negativo en cada establecimiento\n` +
+      `• Registrará movimientos de ajuste negativo en cada almacén\n` +
       `• No se puede deshacer\n\n` +
-      `Total de movimientos a crear: ${selectedProducts.size * establecimientosAplicar.length}\n\n` +
+      `Total de movimientos a crear: ${selectedProducts.size * warehousesAplicar.length}\n\n` +
       `¿Deseas continuar?`
     );
 
@@ -84,17 +84,27 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
 
     let actualizados = 0;
 
-    // Iterar por cada establecimiento seleccionado
-    establecimientosAplicar.forEach(() => {
+    // Iterar por cada almacén seleccionado
+    warehousesAplicar.forEach((warehouse) => {
       selectedProducts.forEach(productId => {
         const producto = allProducts.find(p => p.id === productId);
         if (producto) {
-          // TODO: Implementar gestión de stock por establecimiento
-          // Por ahora solo contamos los productos que se resetearían
-          actualizados++;
-          
-          // NOTA: El módulo de inventario debe gestionar su propio stock
-          // No se debe modificar directamente el catálogo de productos
+          const stockActual = producto.stockPorAlmacen?.[warehouse.id] ?? 0;
+
+          if (stockActual > 0) {
+            // Actualizar el producto poniendo el stock en 0
+            const updatedProduct = {
+              ...producto,
+              stockPorAlmacen: {
+                ...producto.stockPorAlmacen,
+                [warehouse.id]: 0
+              },
+              fechaActualizacion: new Date()
+            };
+
+            updateProduct(producto.id, updatedProduct);
+            actualizados++;
+          }
         }
       });
     });
@@ -102,7 +112,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
     alert(
       `✅ Stock reseteado exitosamente\n\n` +
       `${actualizados} movimientos registrados\n` +
-      `${selectedProducts.size} productos × ${establecimientosAplicar.length} establecimiento(s)`
+      `${selectedProducts.size} productos × ${warehousesAplicar.length} almacén(es)`
     );
 
     setSelectedProducts(new Set());
@@ -143,23 +153,25 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
           // Validar header (primera fila)
           const header = jsonData[0].map((h: any) => String(h).toLowerCase());
           const codigoIndex = header.findIndex(h => h.includes('codigo') || h.includes('code'));
+          const almacenIndex = header.findIndex(h => h.includes('almacen') || h.includes('warehouse'));
           const cantidadIndex = header.findIndex(h => h.includes('cantidad') || h.includes('stock') || h.includes('qty'));
 
           if (codigoIndex === -1 || cantidadIndex === -1) {
-            alert('❌ Archivo inválido\n\nEl archivo Excel debe tener columnas:\n• CODIGO (o CODE)\n• CANTIDAD (o STOCK o QTY)');
+            alert('❌ Archivo inválido\n\nEl archivo Excel debe tener columnas:\n• CODIGO (o CODE)\n• CANTIDAD (o STOCK o QTY)\n• ALMACEN (opcional - warehouse code)');
             setImporting(false);
             return;
           }
 
           // Procesar datos
-          const processedData: Array<{ codigo: string; cantidad: number }> = [];
+          const processedData: Array<{ codigo: string; almacen?: string; cantidad: number }> = [];
           for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i];
             const codigo = String(row[codigoIndex] || '').trim();
+            const almacen = almacenIndex !== -1 ? String(row[almacenIndex] || '').trim() : undefined;
             const cantidad = parseFloat(row[cantidadIndex]);
 
             if (codigo && !isNaN(cantidad) && cantidad >= 0) {
-              processedData.push({ codigo, cantidad });
+              processedData.push({ codigo, almacen, cantidad });
             }
           }
 
@@ -197,22 +209,28 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
 
           // Validar header
           const header = lines[0].toLowerCase();
-          if (!header.includes('codigo') || !header.includes('cantidad')) {
-            alert('❌ Archivo CSV inválido\n\nEl archivo debe tener columnas: CODIGO, CANTIDAD');
+          const headerCols = header.split(/[,;\t]/).map(h => h.trim());
+          const codigoIdx = headerCols.findIndex(h => h.includes('codigo') || h.includes('code'));
+          const almacenIdx = headerCols.findIndex(h => h.includes('almacen') || h.includes('warehouse'));
+          const cantidadIdx = headerCols.findIndex(h => h.includes('cantidad') || h.includes('stock') || h.includes('qty'));
+
+          if (codigoIdx === -1 || cantidadIdx === -1) {
+            alert('❌ Archivo CSV inválido\n\nEl archivo debe tener columnas:\n• CODIGO (o CODE)\n• CANTIDAD (o STOCK o QTY)\n• ALMACEN (opcional)');
             setImporting(false);
             return;
           }
 
           // Procesar datos
-          const data: Array<{ codigo: string; cantidad: number }> = [];
+          const data: Array<{ codigo: string; almacen?: string; cantidad: number }> = [];
           for (let i = 1; i < lines.length; i++) {
             const columns = lines[i].split(/[,;\t]/).map(c => c.trim());
             if (columns.length >= 2) {
-              const codigo = columns[0];
-              const cantidad = parseFloat(columns[1]);
+              const codigo = columns[codigoIdx];
+              const almacen = almacenIdx !== -1 ? columns[almacenIdx] : undefined;
+              const cantidad = parseFloat(columns[cantidadIdx]);
 
               if (codigo && !isNaN(cantidad) && cantidad >= 0) {
-                data.push({ codigo, cantidad });
+                data.push({ codigo, almacen, cantidad });
               }
             }
           }
@@ -248,22 +266,22 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
       return;
     }
 
-    // Validar selección de establecimientos
-    if (!aplicarATodos && establecimientosSeleccionados.length === 0) {
-      alert('⚠️ Selecciona al menos un establecimiento o activa "Aplicar a todos"');
+    // Validar selección de almacenes
+    if (!aplicarATodos && warehousesSeleccionados.length === 0) {
+      alert('⚠️ Selecciona al menos un almacén o activa "Aplicar a todos"');
       return;
     }
 
-    const establecimientosAplicar = aplicarATodos
-      ? establecimientos
-      : establecimientos.filter(e => establecimientosSeleccionados.includes(e.id));
+    const warehousesAplicar = aplicarATodos
+      ? warehouses
+      : warehouses.filter(w => warehousesSeleccionados.includes(w.id));
 
     const confirmacion = confirm(
       `📦 IMPORTAR ACTUALIZACIÓN MASIVA\n\n` +
       `Registros a procesar: ${importData.length}\n` +
-      `Establecimientos: ${aplicarATodos ? `TODOS (${establecimientosAplicar.length})` : `${establecimientosAplicar.length} seleccionados`}\n\n` +
+      `Almacenes: ${aplicarATodos ? `TODOS (${warehousesAplicar.length})` : `${warehousesAplicar.length} seleccionados`}\n\n` +
       `⚠️ Esta acción actualizará el stock de los productos encontrados\n` +
-      `Total de movimientos potenciales: ${importData.length * establecimientosAplicar.length}\n\n` +
+      `Total de movimientos potenciales: ${importData.length * warehousesAplicar.length}\n\n` +
       `¿Continuar?`
     );
 
@@ -273,15 +291,35 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
     let sinCambios = 0;
     const noEncontrados: string[] = [];
 
-    // Iterar por cada establecimiento seleccionado
-    establecimientosAplicar.forEach(() => {
-      importData.forEach(({ codigo }) => {
+    // Iterar por cada almacén seleccionado
+    warehousesAplicar.forEach((warehouse) => {
+      importData.forEach(({ codigo, almacen, cantidad }) => {
+        // Si el archivo tiene columna ALMACEN, solo procesar si coincide con el warehouse actual
+        if (almacen && almacen.toUpperCase() !== warehouse.code.toUpperCase()) {
+          return; // Saltar este registro, no es para este almacén
+        }
+
         const producto = allProducts.find(p => p.codigo.toUpperCase() === codigo.toUpperCase());
 
         if (producto) {
-          // TODO: Implementar gestión de stock real cuando exista en Product
-          // Por ahora solo contamos
-          actualizados++;
+          const stockActual = producto.stockPorAlmacen?.[warehouse.id] ?? 0;
+
+          if (stockActual !== cantidad) {
+            // Actualizar el stock del producto
+            const updatedProduct = {
+              ...producto,
+              stockPorAlmacen: {
+                ...producto.stockPorAlmacen,
+                [warehouse.id]: cantidad
+              },
+              fechaActualizacion: new Date()
+            };
+
+            updateProduct(producto.id, updatedProduct);
+            actualizados++;
+          } else {
+            sinCambios++;
+          }
         } else {
           if (!noEncontrados.includes(codigo)) {
             noEncontrados.push(codigo);
@@ -293,7 +331,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
     let mensaje = `✅ IMPORTACIÓN COMPLETADA\n\n`;
     mensaje += `📊 Resumen:\n`;
     mensaje += `• Movimientos registrados: ${actualizados}\n`;
-    mensaje += `• Establecimientos procesados: ${establecimientosAplicar.length}\n`;
+    mensaje += `• Almacenes procesados: ${warehousesAplicar.length}\n`;
     if (sinCambios > 0) {
       mensaje += `• Sin cambios (mismo stock): ${sinCambios}\n`;
     }
@@ -314,14 +352,35 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
   };
 
   const downloadTemplate = () => {
-    // Crear workbook de Excel
-    const data = [
-      ['CODIGO', 'CANTIDAD'],
-      // Ejemplos con cantidad 0 (ya que Product no tiene cantidad)
-      ...allProducts.slice(0, 10).map(p => [p.codigo, 0])
+    // Crear workbook de Excel con columnas: CODIGO, ALMACEN, CANTIDAD
+    const data: (string | number)[][] = [
+      ['CODIGO', 'ALMACEN', 'CANTIDAD']
     ];
 
+    // Generar filas para cada combinación producto × almacén
+    // Tomar los primeros 10 productos y todos los almacenes activos
+    const productosMuestra = allProducts.slice(0, 10);
+
+    productosMuestra.forEach(producto => {
+      warehouses.forEach(warehouse => {
+        const stockActual = producto.stockPorAlmacen?.[warehouse.id] ?? 0;
+        data.push([
+          producto.codigo,
+          warehouse.code,
+          stockActual
+        ]);
+      });
+    });
+
     const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+    // Ajustar anchos de columna
+    worksheet['!cols'] = [
+      { wch: 15 },  // CODIGO
+      { wch: 12 },  // ALMACEN
+      { wch: 10 }   // CANTIDAD
+    ];
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock');
 
@@ -414,7 +473,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                   </div>
                 </div>
 
-                {/* Multi-selector de Establecimientos */}
+                {/* Multi-selector de Almacenes */}
                 <div className="border-2 border-blue-200 dark:border-blue-700 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
@@ -422,7 +481,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                       <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
-                        Aplicar a Establecimientos <span className="text-red-500">*</span>
+                        Aplicar a Almacenes <span className="text-red-500">*</span>
                       </label>
                     </div>
 
@@ -432,7 +491,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                       onClick={() => {
                         const newValue = !aplicarATodos;
                         setAplicarATodos(newValue);
-                        setEstablecimientosSeleccionados(newValue ? [] : establecimientosSeleccionados);
+                        setWarehousesSeleccionados(newValue ? [] : warehousesSeleccionados);
                       }}
                       className={`
                         relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
@@ -461,10 +520,10 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                         </svg>
                         <div className="flex-1">
                           <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                            Aplicar a todos los establecimientos
+                            Aplicar a todos los almacenes
                           </p>
                           <p className="text-xs text-blue-700 dark:text-blue-400">
-                            Se creará un movimiento en los {establecimientos.length} establecimiento(s) activo(s)
+                            Se creará un movimiento en los {warehouses.length} almacén(es) activo(s)
                           </p>
                         </div>
                       </>
@@ -478,26 +537,26 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                             Selección personalizada
                           </p>
                           <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Elige establecimientos específicos
+                            Elige almacenes específicos
                           </p>
                         </div>
                       </>
                     )}
                   </div>
 
-                  {/* Lista de establecimientos */}
+                  {/* Lista de almacenes */}
                   {!aplicarATodos && (
                     <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {establecimientos.length === 0 ? (
+                      {warehouses.length === 0 ? (
                         <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                          <p className="text-sm font-medium">No hay establecimientos activos</p>
+                          <p className="text-sm font-medium">No hay almacenes activos</p>
                         </div>
                       ) : (
-                        establecimientos.map((est) => {
-                          const isSelected = establecimientosSeleccionados.includes(est.id);
+                        warehouses.map((wh) => {
+                          const isSelected = warehousesSeleccionados.includes(wh.id);
                           return (
                             <label
-                              key={est.id}
+                              key={wh.id}
                               className={`
                                 flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all
                                 ${isSelected
@@ -511,23 +570,23 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                                 checked={isSelected}
                                 onChange={(e) => {
                                   const newIds = e.target.checked
-                                    ? [...establecimientosSeleccionados, est.id]
-                                    : establecimientosSeleccionados.filter(id => id !== est.id);
-                                  setEstablecimientosSeleccionados(newIds);
+                                    ? [...warehousesSeleccionados, wh.id]
+                                    : warehousesSeleccionados.filter(id => id !== wh.id);
+                                  setWarehousesSeleccionados(newIds);
                                 }}
                                 className="w-5 h-5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2">
                                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-200 truncate">
-                                    {est.name}
+                                    {wh.name}
                                   </p>
                                   <span className="px-2 py-0.5 text-xs font-medium bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full">
-                                    {est.code}
+                                    {wh.code}
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
-                                  {est.address} - {est.district}
+                                  {wh.establishmentName || 'Sin establecimiento'}
                                 </p>
                               </div>
                               {isSelected && (
@@ -543,27 +602,27 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                   )}
 
                   {/* Contador de selección */}
-                  {!aplicarATodos && establecimientos.length > 0 && (
+                  {!aplicarATodos && warehouses.length > 0 && (
                     <div className="flex items-center justify-between pt-2 border-t border-blue-200 dark:border-blue-700">
                       <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {establecimientosSeleccionados.length} de {establecimientos.length} establecimiento(s) seleccionado(s)
+                        {warehousesSeleccionados.length} de {warehouses.length} almacén(es) seleccionado(s)
                       </p>
-                      {establecimientosSeleccionados.length > 0 && establecimientosSeleccionados.length < establecimientos.length && (
+                      {warehousesSeleccionados.length > 0 && warehousesSeleccionados.length < warehouses.length && (
                         <button
                           type="button"
                           onClick={() => {
-                            setEstablecimientosSeleccionados(establecimientos.map(e => e.id));
+                            setWarehousesSeleccionados(warehouses.map(w => w.id));
                           }}
                           className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium underline"
                         >
                           Seleccionar todos
                         </button>
                       )}
-                      {establecimientosSeleccionados.length > 0 && (
+                      {warehousesSeleccionados.length > 0 && (
                         <button
                           type="button"
                           onClick={() => {
-                            setEstablecimientosSeleccionados([]);
+                            setWarehousesSeleccionados([]);
                           }}
                           className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium underline"
                         >
@@ -662,13 +721,13 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                         Sube archivos <strong>Excel (.xlsx, .xls)</strong> o <strong>CSV (.csv, .txt)</strong>
                       </p>
                       <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                        Columnas requeridas: <strong>CODIGO</strong> y <strong>CANTIDAD</strong> (también acepta STOCK, QTY, CODE)
+                        Columnas: <strong>CODIGO</strong>, <strong>ALMACEN</strong>, <strong>CANTIDAD</strong> (también acepta CODE, WAREHOUSE, STOCK, QTY)
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Multi-selector de Establecimientos - Same as reset tab */}
+                {/* Multi-selector de Almacenes - Same as reset tab */}
                 <div className="border-2 border-blue-200 dark:border-blue-700 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
@@ -676,7 +735,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                       <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
-                        Aplicar a Establecimientos <span className="text-red-500">*</span>
+                        Aplicar a Almacenes <span className="text-red-500">*</span>
                       </label>
                     </div>
 
@@ -686,7 +745,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                       onClick={() => {
                         const newValue = !aplicarATodos;
                         setAplicarATodos(newValue);
-                        setEstablecimientosSeleccionados(newValue ? [] : establecimientosSeleccionados);
+                        setWarehousesSeleccionados(newValue ? [] : warehousesSeleccionados);
                       }}
                       className={`
                         relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
@@ -715,10 +774,10 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                         </svg>
                         <div className="flex-1">
                           <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                            Aplicar a todos los establecimientos
+                            Aplicar a todos los almacenes
                           </p>
                           <p className="text-xs text-blue-700 dark:text-blue-400">
-                            Se importará el stock en los {establecimientos.length} establecimiento(s) activo(s)
+                            Se importará el stock en los {warehouses.length} almacén(es) activo(s)
                           </p>
                         </div>
                       </>
@@ -732,26 +791,26 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                             Selección personalizada
                           </p>
                           <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Elige establecimientos específicos para importar
+                            Elige almacenes específicos para importar
                           </p>
                         </div>
                       </>
                     )}
                   </div>
 
-                  {/* Lista de establecimientos */}
+                  {/* Lista de almacenes */}
                   {!aplicarATodos && (
                     <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {establecimientos.length === 0 ? (
+                      {warehouses.length === 0 ? (
                         <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                          <p className="text-sm font-medium">No hay establecimientos activos</p>
+                          <p className="text-sm font-medium">No hay almacenes activos</p>
                         </div>
                       ) : (
-                        establecimientos.map((est) => {
-                          const isSelected = establecimientosSeleccionados.includes(est.id);
+                        warehouses.map((wh) => {
+                          const isSelected = warehousesSeleccionados.includes(wh.id);
                           return (
                             <label
-                              key={est.id}
+                              key={wh.id}
                               className={`
                                 flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all
                                 ${isSelected
@@ -765,23 +824,23 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                                 checked={isSelected}
                                 onChange={(e) => {
                                   const newIds = e.target.checked
-                                    ? [...establecimientosSeleccionados, est.id]
-                                    : establecimientosSeleccionados.filter(id => id !== est.id);
-                                  setEstablecimientosSeleccionados(newIds);
+                                    ? [...warehousesSeleccionados, wh.id]
+                                    : warehousesSeleccionados.filter(id => id !== wh.id);
+                                  setWarehousesSeleccionados(newIds);
                                 }}
                                 className="w-5 h-5 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2">
                                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-200 truncate">
-                                    {est.name}
+                                    {wh.name}
                                   </p>
                                   <span className="px-2 py-0.5 text-xs font-medium bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full">
-                                    {est.code}
+                                    {wh.code}
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
-                                  {est.address} - {est.district}
+                                  {wh.establishmentName || 'Sin establecimiento'}
                                 </p>
                               </div>
                               {isSelected && (
@@ -797,27 +856,27 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                   )}
 
                   {/* Contador de selección */}
-                  {!aplicarATodos && establecimientos.length > 0 && (
+                  {!aplicarATodos && warehouses.length > 0 && (
                     <div className="flex items-center justify-between pt-2 border-t border-blue-200 dark:border-blue-700">
                       <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {establecimientosSeleccionados.length} de {establecimientos.length} establecimiento(s) seleccionado(s)
+                        {warehousesSeleccionados.length} de {warehouses.length} almacén(es) seleccionado(s)
                       </p>
-                      {establecimientosSeleccionados.length > 0 && establecimientosSeleccionados.length < establecimientos.length && (
+                      {warehousesSeleccionados.length > 0 && warehousesSeleccionados.length < warehouses.length && (
                         <button
                           type="button"
                           onClick={() => {
-                            setEstablecimientosSeleccionados(establecimientos.map(e => e.id));
+                            setWarehousesSeleccionados(warehouses.map(w => w.id));
                           }}
                           className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium underline"
                         >
                           Seleccionar todos
                         </button>
                       )}
-                      {establecimientosSeleccionados.length > 0 && (
+                      {warehousesSeleccionados.length > 0 && (
                         <button
                           type="button"
                           onClick={() => {
-                            setEstablecimientosSeleccionados([]);
+                            setWarehousesSeleccionados([]);
                           }}
                           className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium underline"
                         >

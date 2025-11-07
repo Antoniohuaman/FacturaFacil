@@ -13,7 +13,6 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({
   warehouseFiltro
 }) => {
   // Calcular estadísticas basadas en el filtro de almacén
-  // TODO: Implementar correctamente cuando Product tenga gestión de stock por almacén
   const stats = useMemo(() => {
     let totalProductos = 0;
     let totalStock = 0;
@@ -21,14 +20,50 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({
     let productosStockBajo = 0;
     let valorTotalStock = 0;
 
-    // Por ahora solo contamos productos sin datos de stock reales
     if (!warehouseFiltro || warehouseFiltro === 'todos') {
-      // Sin filtro: contar todos los productos
+      // Sin filtro: calcular estadísticas de todos los almacenes
       totalProductos = products.length;
+
+      products.forEach(product => {
+        // Sumar stock de todos los almacenes
+        const stockPorAlmacen = product.stockPorAlmacen || {};
+        const stockTotal = Object.values(stockPorAlmacen).reduce((sum, qty) => sum + (qty || 0), 0);
+
+        totalStock += stockTotal;
+        valorTotalStock += stockTotal * product.precio;
+
+        if (stockTotal === 0) {
+          productosSinStock++;
+        }
+
+        // Verificar stock bajo en al menos un almacén
+        const stockMinimos = product.stockMinimoPorAlmacen || {};
+        const tieneStockBajo = Object.entries(stockPorAlmacen).some(([whId, stock]) => {
+          const minimo = stockMinimos[whId] || 0;
+          return minimo > 0 && stock < minimo && stock > 0;
+        });
+
+        if (tieneStockBajo) {
+          productosStockBajo++;
+        }
+      });
     } else {
-      // Con filtro: contar productos con stock en el almacén específico
-      // TODO: Implementar cuando Product tenga stockPorAlmacen
+      // Con filtro: calcular estadísticas del almacén específico
       totalProductos = products.length;
+
+      products.forEach(product => {
+        const stockEnAlmacen = product.stockPorAlmacen?.[warehouseFiltro] ?? 0;
+        const stockMinimo = product.stockMinimoPorAlmacen?.[warehouseFiltro] ?? 0;
+
+        totalStock += stockEnAlmacen;
+        valorTotalStock += stockEnAlmacen * product.precio;
+
+        if (stockEnAlmacen === 0) {
+          productosSinStock++;
+        } else if (stockMinimo > 0 && stockEnAlmacen < stockMinimo) {
+          productosStockBajo++;
+        }
+      });
     }
 
     return {
