@@ -17,13 +17,13 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
     switch (estado) {
       case 'CRITICO':
         return (
-          <svg className="w-6 h-6 text-red-500 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+          <svg className="w-6 h-6 text-[#EF4444] dark:text-[#F87171]" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
         );
       case 'BAJO':
         return (
-          <svg className="w-6 h-6 text-yellow-500 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+          <svg className="w-6 h-6 text-[#D97706] dark:text-[#F59E0B]" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
         );
@@ -34,10 +34,10 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
 
   const getAlertBadge = (estado: StockAlert['estado']) => {
     const styles = {
-      CRITICO: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
-      BAJO: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700',
-      NORMAL: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700',
-      EXCESO: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'
+      CRITICO: 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/30 dark:bg-[#EF4444]/15 dark:text-[#F87171] dark:border-[#EF4444]/40',
+      BAJO: 'bg-[#D97706]/10 text-[#D97706] border-[#D97706]/30 dark:bg-[#D97706]/15 dark:text-[#F59E0B] dark:border-[#D97706]/40',
+      NORMAL: 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30 dark:bg-[#10B981]/15 dark:text-[#34D399] dark:border-[#10B981]/40',
+      EXCESO: 'bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/30 dark:bg-[#3B82F6]/15 dark:text-[#60A5FA] dark:border-[#3B82F6]/40'
     };
 
     const labels = {
@@ -48,7 +48,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
     };
 
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${styles[estado]}`}>
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[estado]}`}>
         {labels[estado]}
       </span>
     );
@@ -60,29 +60,29 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
   return (
     <div className="space-y-6">
       {/* Summary Banner */}
-      <div className="bg-gradient-to-r from-red-50 to-yellow-50 dark:from-red-900/20 dark:to-yellow-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6">
+      <div className="bg-gradient-to-r from-[#EF4444]/10 to-[#D97706]/10 dark:from-[#EF4444]/15 dark:to-[#D97706]/15 border border-[#EF4444]/30 dark:border-[#EF4444]/40 rounded-lg p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4">
             <div className="flex-shrink-0">
-              <svg className="w-12 h-12 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-10 h-10 text-[#EF4444] dark:text-[#F87171]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-200">
+              <h3 className="text-base font-semibold text-[#111827] dark:text-gray-100">
                 Alertas de Stock Activas
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm text-[#4B5563] dark:text-gray-400 mt-0.5">
                 {alertasCriticas.length} productos en estado crítico, {alertasBajas.length} con stock bajo
               </p>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => {
                 setShowOrdenCompraModal(true);
               }}
-              className="px-4 py-2 text-sm font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-md transition-colors"
+              className="h-9 px-4 py-2 text-sm font-medium text-[#EF4444] dark:text-[#F87171] bg-[#EF4444]/10 dark:bg-[#EF4444]/15 hover:bg-[#EF4444]/15 dark:hover:bg-[#EF4444]/20 border border-[#EF4444]/30 dark:border-[#EF4444]/40 rounded-lg transition-all duration-150"
             >
               Generar Orden de Compra
             </button>
@@ -117,7 +117,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
+              className="h-9 px-4 py-2 text-sm font-medium text-[#4B5563] dark:text-gray-300 bg-white dark:bg-gray-800 border border-[#E5E7EB] dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-all duration-150"
             >
               Exportar Reporte
             </button>
@@ -127,52 +127,52 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
 
       {/* Critical Alerts */}
       {alertasCriticas.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-red-200 dark:border-red-700">
-          <div className="px-6 py-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-700">
-            <h3 className="text-lg font-semibold text-red-900 dark:text-red-300 flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-[#EF4444]/30 dark:border-[#EF4444]/40">
+          <div className="px-4 py-2.5 bg-[#EF4444]/10 dark:bg-[#EF4444]/15 border-b border-[#EF4444]/30 dark:border-[#EF4444]/40">
+            <h3 className="text-sm font-semibold text-[#EF4444] dark:text-[#F87171] flex items-center">
+              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               Alertas Críticas ({alertasCriticas.length})
             </h3>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="divide-y divide-[#E5E7EB] dark:divide-gray-700">
             {alertasCriticas.map((alerta) => (
-              <div key={alerta.productoId} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <div key={alerta.productoId} className="p-4 hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors duration-150">
                 <div className="flex items-center justify-between">
                   <div className="flex items-start space-x-4 flex-1">
                     <div className="flex-shrink-0">
                       {getAlertIcon(alerta.estado)}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-200">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <h4 className="text-sm font-semibold text-[#111827] dark:text-gray-100">
                           {alerta.productoNombre}
                         </h4>
                         {getAlertBadge(alerta.estado)}
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 font-mono mb-3">
+                      <p className="text-xs text-[#4B5563] dark:text-gray-400 font-mono mb-2">
                         Código: {alerta.productoCodigo}
                       </p>
-                      <div className="flex items-center space-x-6 text-sm">
+                      <div className="flex items-center gap-6 text-sm">
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Stock Actual:</span>
-                          <span className="ml-2 font-semibold text-red-600 dark:text-red-400">{alerta.cantidadActual}</span>
+                          <span className="text-[#4B5563] dark:text-gray-400">Stock Actual:</span>
+                          <span className="ml-1.5 font-semibold text-[#EF4444] dark:text-[#F87171] tabular-nums">{alerta.cantidadActual}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Stock Mínimo:</span>
-                          <span className="ml-2 font-semibold text-gray-900 dark:text-gray-200">{alerta.stockMinimo}</span>
+                          <span className="text-[#4B5563] dark:text-gray-400">Stock Mínimo:</span>
+                          <span className="ml-1.5 font-semibold text-[#111827] dark:text-gray-100 tabular-nums">{alerta.stockMinimo}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Faltante:</span>
-                          <span className="ml-2 font-semibold text-red-600 dark:text-red-400">
+                          <span className="text-[#4B5563] dark:text-gray-400">Faltante:</span>
+                          <span className="ml-1.5 font-semibold text-[#EF4444] dark:text-[#F87171] tabular-nums">
                             {alerta.stockMinimo - alerta.cantidadActual}
                           </span>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2 ml-6">
+                  <div className="flex items-center gap-2 ml-6">
                     <button
                       onClick={() => {
                         const cantidadSugerida = alerta.stockMinimo - alerta.cantidadActual;
@@ -180,7 +180,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                           onReabastecerProducto(alerta.productoId, cantidadSugerida);
                         }
                       }}
-                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                      className="h-9 px-4 py-2 text-sm font-medium text-white bg-[#EF4444] hover:bg-[#dc2626] rounded-lg transition-all duration-150"
                       title={`Reabastecer ${alerta.productoNombre} (${alerta.stockMinimo - alerta.cantidadActual} unidades)`}
                     >
                       Reabastecer
@@ -195,52 +195,52 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
 
       {/* Low Stock Alerts */}
       {alertasBajas.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-yellow-200 dark:border-yellow-700">
-          <div className="px-6 py-4 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-700">
-            <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-300 flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-[#D97706]/30 dark:border-[#D97706]/40">
+          <div className="px-4 py-2.5 bg-[#D97706]/10 dark:bg-[#D97706]/15 border-b border-[#D97706]/30 dark:border-[#D97706]/40">
+            <h3 className="text-sm font-semibold text-[#D97706] dark:text-[#F59E0B] flex items-center">
+              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               Stock Bajo ({alertasBajas.length})
             </h3>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="divide-y divide-[#E5E7EB] dark:divide-gray-700">
             {alertasBajas.map((alerta) => (
-              <div key={alerta.productoId} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <div key={alerta.productoId} className="p-4 hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors duration-150">
                 <div className="flex items-center justify-between">
                   <div className="flex items-start space-x-4 flex-1">
                     <div className="flex-shrink-0">
                       {getAlertIcon(alerta.estado)}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-200">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <h4 className="text-sm font-semibold text-[#111827] dark:text-gray-100">
                           {alerta.productoNombre}
                         </h4>
                         {getAlertBadge(alerta.estado)}
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 font-mono mb-3">
+                      <p className="text-xs text-[#4B5563] dark:text-gray-400 font-mono mb-2">
                         Código: {alerta.productoCodigo}
                       </p>
-                      <div className="flex items-center space-x-6 text-sm">
+                      <div className="flex items-center gap-6 text-sm">
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Stock Actual:</span>
-                          <span className="ml-2 font-semibold text-yellow-600 dark:text-yellow-400">{alerta.cantidadActual}</span>
+                          <span className="text-[#4B5563] dark:text-gray-400">Stock Actual:</span>
+                          <span className="ml-1.5 font-semibold text-[#D97706] dark:text-[#F59E0B] tabular-nums">{alerta.cantidadActual}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Stock Mínimo:</span>
-                          <span className="ml-2 font-semibold text-gray-900 dark:text-gray-200">{alerta.stockMinimo}</span>
+                          <span className="text-[#4B5563] dark:text-gray-400">Stock Mínimo:</span>
+                          <span className="ml-1.5 font-semibold text-[#111827] dark:text-gray-100 tabular-nums">{alerta.stockMinimo}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Faltante:</span>
-                          <span className="ml-2 font-semibold text-yellow-600 dark:text-yellow-400">
+                          <span className="text-[#4B5563] dark:text-gray-400">Faltante:</span>
+                          <span className="ml-1.5 font-semibold text-[#D97706] dark:text-[#F59E0B] tabular-nums">
                             {alerta.stockMinimo - alerta.cantidadActual}
                           </span>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2 ml-6">
+                  <div className="flex items-center gap-2 ml-6">
                     <button
                       onClick={() => {
                         const cantidadSugerida = alerta.stockMinimo - alerta.cantidadActual;
@@ -248,7 +248,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                           onProgramarCompra(alerta.productoId, cantidadSugerida);
                         }
                       }}
-                      className="px-4 py-2 text-sm font-medium text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 rounded-md transition-colors"
+                      className="h-9 px-4 py-2 text-sm font-medium text-[#D97706] dark:text-[#F59E0B] bg-[#D97706]/10 dark:bg-[#D97706]/15 hover:bg-[#D97706]/15 dark:hover:bg-[#D97706]/20 border border-[#D97706]/30 dark:border-[#D97706]/40 rounded-lg transition-all duration-150"
                       title={`Programar compra de ${alerta.productoNombre} (${alerta.stockMinimo - alerta.cantidadActual} unidades)`}
                     >
                       Programar Compra
@@ -263,15 +263,15 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
 
       {/* Empty State */}
       {alertas.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-[#E5E7EB] dark:border-gray-700 p-12">
           <div className="text-center">
-            <svg className="mx-auto h-16 w-16 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="mx-auto h-16 w-16 text-[#10B981] dark:text-[#34D399]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-200 mb-2">
+            <h3 className="text-base font-semibold text-[#111827] dark:text-gray-100 mt-4 mb-2">
               ¡Excelente! No hay alertas de stock
             </h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-[#4B5563] dark:text-gray-400">
               Todos tus productos tienen niveles de stock adecuados
             </p>
           </div>

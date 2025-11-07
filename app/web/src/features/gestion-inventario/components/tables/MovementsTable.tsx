@@ -20,13 +20,13 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
 
   const getTipoBadge = (tipo: MovimientoStock['tipo']) => {
     const styles = {
-      ENTRADA: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      SALIDA: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-      AJUSTE_POSITIVO: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      AJUSTE_NEGATIVO: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-      DEVOLUCION: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-      MERMA: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-      TRANSFERENCIA: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'
+      ENTRADA: 'bg-[#10B981]/10 text-[#10B981] dark:bg-[#10B981]/15 dark:text-[#34D399] border border-[#10B981]/30',
+      SALIDA: 'bg-[#EF4444]/10 text-[#EF4444] dark:bg-[#EF4444]/15 dark:text-[#F87171] border border-[#EF4444]/30',
+      AJUSTE_POSITIVO: 'bg-[#3B82F6]/10 text-[#3B82F6] dark:bg-[#3B82F6]/15 dark:text-[#60A5FA] border border-[#3B82F6]/30',
+      AJUSTE_NEGATIVO: 'bg-[#D97706]/10 text-[#D97706] dark:bg-[#D97706]/15 dark:text-[#F59E0B] border border-[#D97706]/30',
+      DEVOLUCION: 'bg-[#6F36FF]/10 text-[#6F36FF] dark:bg-[#6F36FF]/15 dark:text-[#8B5CF6] border border-[#6F36FF]/30',
+      MERMA: 'bg-gray-100 text-[#4B5563] dark:bg-gray-700 dark:text-gray-300 border border-[#E5E7EB] dark:border-gray-600',
+      TRANSFERENCIA: 'bg-[#6F36FF]/10 text-[#6F36FF] dark:bg-[#6F36FF]/15 dark:text-[#8B5CF6] border border-[#6F36FF]/30'
     };
 
     const labels = {
@@ -121,14 +121,14 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-[#E5E7EB] dark:border-gray-700">
       {/* Filters */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center space-x-4">
+      <div className="p-4 border-b border-[#E5E7EB] dark:border-gray-700">
+        <div className="flex items-center gap-2.5">
           <div className="flex-1">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
@@ -137,7 +137,7 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                 placeholder="Buscar por producto, código o usuario..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
+                className="h-9 pl-10 pr-4 py-2 w-full text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] dark:bg-gray-700 dark:text-white transition-all duration-150"
               />
             </div>
           </div>
@@ -145,7 +145,7 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
           <select
             value={filterTipo}
             onChange={(e) => setFilterTipo(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
+            className="h-9 px-3 py-2 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] dark:bg-gray-700 dark:text-white transition-all duration-150"
           >
             <option value="todos">Todos los movimientos</option>
             <option value="ENTRADA">Entradas</option>
@@ -161,39 +161,39 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <table className="min-w-full divide-y divide-[#E5E7EB] dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-900">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#111827] dark:text-gray-300 uppercase tracking-wider">
                 Fecha y Hora
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#111827] dark:text-gray-300 uppercase tracking-wider">
                 Producto
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#111827] dark:text-gray-300 uppercase tracking-wider">
                 Tipo
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#111827] dark:text-gray-300 uppercase tracking-wider">
                 Motivo
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#111827] dark:text-gray-300 uppercase tracking-wider">
                 Almacén
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-[#111827] dark:text-gray-300 uppercase tracking-wider">
                 Cantidad
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Stock Anterior → Nuevo
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-[#111827] dark:text-gray-300 uppercase tracking-wider">
+                Stock Ant → Nuevo
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#111827] dark:text-gray-300 uppercase tracking-wider">
                 Usuario
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#111827] dark:text-gray-300 uppercase tracking-wider">
                 Detalles
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-[#E5E7EB] dark:divide-gray-700">
             {paginatedMovimientos.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-6 py-12 text-center">
@@ -208,35 +208,35 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
               </tr>
             ) : (
               paginatedMovimientos.map((movimiento) => (
-                <tr key={movimiento.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-gray-200">{formatDate(movimiento.fecha)}</div>
+                <tr key={movimiento.id} className="hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors duration-150">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    <div className="text-sm text-[#4B5563] dark:text-gray-400">{formatDate(movimiento.fecha)}</div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-200">{movimiento.productoNombre}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 font-mono">{movimiento.productoCodigo}</div>
+                  <td className="px-4 py-2.5">
+                    <div className="text-sm font-medium text-[#111827] dark:text-gray-100">{movimiento.productoNombre}</div>
+                    <div className="text-xs text-[#4B5563] dark:text-gray-400 font-mono">{movimiento.productoCodigo}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
                     {getTipoBadge(movimiento.tipo)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
                     {getMotivoBadge(movimiento.motivo)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
                     {movimiento.warehouseCodigo ? (
                       <div className="flex flex-col space-y-1">
                         <div className="flex items-center space-x-2">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 font-mono">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#6F36FF]/10 text-[#6F36FF] dark:bg-[#6F36FF]/15 dark:text-[#8B5CF6] border border-[#6F36FF]/30 font-mono">
                             {movimiento.warehouseCodigo}
                           </span>
                           {movimiento.warehouseNombre && (
-                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300" title={movimiento.warehouseNombre}>
+                            <span className="text-xs font-medium text-[#4B5563] dark:text-gray-400" title={movimiento.warehouseNombre}>
                               {movimiento.warehouseNombre}
                             </span>
                           )}
                         </div>
                         {movimiento.establishmentNombre && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className="text-xs text-[#4B5563] dark:text-gray-400">
                             Est: {movimiento.establishmentNombre}
                           </span>
                         )}
@@ -245,45 +245,45 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                       <span className="text-xs text-gray-400 italic">No especificado</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-semibold ${
+                  <td className="px-4 py-2.5 whitespace-nowrap text-right">
+                    <div className={`text-sm font-semibold tabular-nums ${
                       movimiento.tipo === 'ENTRADA' || movimiento.tipo === 'AJUSTE_POSITIVO' || movimiento.tipo === 'DEVOLUCION'
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
+                        ? 'text-[#10B981] dark:text-[#34D399]'
+                        : 'text-[#EF4444] dark:text-[#F87171]'
                     }`}>
                       {movimiento.tipo === 'ENTRADA' || movimiento.tipo === 'AJUSTE_POSITIVO' || movimiento.tipo === 'DEVOLUCION' ? '+' : '-'}
                       {movimiento.cantidad}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-gray-200">
+                  <td className="px-4 py-2.5 whitespace-nowrap text-right">
+                    <div className="text-sm text-[#4B5563] dark:text-gray-400 tabular-nums">
                       <span className="font-medium">{movimiento.cantidadAnterior}</span>
-                      <span className="mx-2 text-gray-400">→</span>
-                      <span className="font-medium text-blue-600 dark:text-blue-400">{movimiento.cantidadNueva}</span>
+                      <span className="mx-1.5 text-gray-400">→</span>
+                      <span className="font-medium text-[#3B82F6] dark:text-[#60A5FA]">{movimiento.cantidadNueva}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                      <div className="flex-shrink-0 h-7 w-7 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium text-[#4B5563] dark:text-gray-300">
                           {movimiento.usuario.split(' ').map(n => n[0]).join('').substring(0, 2)}
                         </span>
                       </div>
-                      <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-200">{movimiento.usuario}</div>
+                      <div className="ml-2">
+                        <div className="text-sm font-medium text-[#111827] dark:text-gray-100">{movimiento.usuario}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900 dark:text-gray-200">
+                  <td className="px-4 py-2.5">
+                    <div className="text-sm text-[#4B5563] dark:text-gray-400">
                       {/* Transferencia */}
                       {movimiento.esTransferencia && (
-                        <div className="mb-2 p-2 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-md">
+                        <div className="mb-2 p-2 bg-[#6F36FF]/10 dark:bg-[#6F36FF]/15 border border-[#6F36FF]/30 dark:border-[#6F36FF]/40 rounded-md">
                           <div className="flex items-center space-x-2 text-xs">
-                            <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-[#6F36FF] dark:text-[#8B5CF6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                             </svg>
-                            <span className="font-medium text-indigo-900 dark:text-indigo-200">
+                            <span className="font-medium text-[#6F36FF] dark:text-[#8B5CF6]">
                               {movimiento.tipo === 'SALIDA' ? 'Hacia almacén:' : 'Desde almacén:'}{' '}
                               {movimiento.tipo === 'SALIDA'
                                 ? movimiento.warehouseDestinoNombre
@@ -291,7 +291,7 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                               }
                             </span>
                           </div>
-                          <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+                          <div className="text-xs text-[#6F36FF] dark:text-[#8B5CF6] mt-1">
                             ID Transferencia: {movimiento.transferenciaId}
                           </div>
                         </div>
@@ -299,17 +299,17 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
 
                       {/* Observaciones */}
                       {movimiento.observaciones && (
-                        <p className="text-gray-700 dark:text-gray-300 mb-1">{movimiento.observaciones}</p>
+                        <p className="text-[#111827] dark:text-gray-300 mb-1">{movimiento.observaciones}</p>
                       )}
 
                       {/* Documento de referencia */}
                       {movimiento.documentoReferencia && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Doc: {movimiento.documentoReferencia}</p>
+                        <p className="text-xs text-[#4B5563] dark:text-gray-400">Doc: {movimiento.documentoReferencia}</p>
                       )}
 
                       {/* Ubicación (legacy) */}
                       {movimiento.ubicacion && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">📍 {movimiento.ubicacion}</p>
+                        <p className="text-xs text-[#4B5563] dark:text-gray-400">📍 {movimiento.ubicacion}</p>
                       )}
                     </div>
                   </td>
@@ -322,41 +322,49 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
 
       {/* Pagination */}
       {totalItems > 0 && (
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="px-4 py-2.5 border-t border-[#E5E7EB] dark:border-gray-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-700 dark:text-gray-300">
-                Mostrando <span className="font-medium">{startIndex + 1}</span> a{' '}
-                <span className="font-medium">{Math.min(endIndex, totalItems)}</span> de{' '}
-                <span className="font-medium">{totalItems}</span> movimientos
-              </div>
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-[#4B5563] dark:text-gray-300 tabular-nums">
+                <span className="font-medium text-[#111827] dark:text-gray-100">{startIndex + 1}–{Math.min(endIndex, totalItems)}</span>
+                {' '}de{' '}
+                <span className="font-medium text-[#111827] dark:text-gray-100">{totalItems}</span>
+              </p>
 
-              <select
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(parseInt(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value={5}>5 por página</option>
-                <option value={10}>10 por página</option>
-                <option value={25}>25 por página</option>
-                <option value={50}>50 por página</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-[#4B5563] dark:text-gray-300 whitespace-nowrap">
+                  Por página:
+                </label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(parseInt(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="h-9 px-2 py-1 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
             </div>
 
-            <nav className="flex items-center space-x-2">
+            <nav className="flex items-center gap-2">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:text-white"
+                className="p-2 text-[#4B5563] dark:text-gray-300 hover:text-[#6F36FF] hover:bg-[#6F36FF]/8 dark:hover:bg-[#6F36FF]/15 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"
+                title="Página anterior"
               >
-                Anterior
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
               </button>
 
               {/* Números de página */}
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum;
                   if (totalPages <= 5) {
@@ -373,10 +381,10 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                     <button
                       key={pageNum}
                       onClick={() => handlePageChange(pageNum)}
-                      className={`px-3 py-1 text-sm border rounded-md transition-colors ${
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-150 ${
                         currentPage === pageNum
-                          ? 'bg-red-50 dark:bg-red-900/30 border-red-500 text-red-600 dark:text-red-400 font-medium'
-                          : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white'
+                          ? 'bg-[#6F36FF] text-white hover:bg-[#5b2ee0]'
+                          : 'text-[#4B5563] dark:text-gray-300 hover:text-[#6F36FF] hover:bg-[#6F36FF]/8 dark:hover:bg-[#6F36FF]/15'
                       }`}
                     >
                       {pageNum}
@@ -388,9 +396,12 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:text-white"
+                className="p-2 text-[#4B5563] dark:text-gray-300 hover:text-[#6F36FF] hover:bg-[#6F36FF]/8 dark:hover:bg-[#6F36FF]/15 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"
+                title="Página siguiente"
               >
-                Siguiente
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </nav>
           </div>

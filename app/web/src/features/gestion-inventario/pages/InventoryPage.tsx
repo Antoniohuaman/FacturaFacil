@@ -31,7 +31,6 @@ export const InventoryPage: React.FC = () => {
     warehouses,
     stockAlerts,
     filteredMovements,
-    stockSummary,
     allProducts,
 
     // Setters
@@ -181,8 +180,8 @@ export const InventoryPage: React.FC = () => {
         }
       />
 
-      {/* Resumen de estadísticas - SOLO en otras vistas, NO en "Situación Actual" */}
-      {selectedView !== 'situacion' && (
+      {/* Resumen de estadísticas - SOLO en vista Resumen */}
+      {selectedView === 'resumen' && (
         <div className="px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <SummaryCards
             products={allProducts}
@@ -263,13 +262,13 @@ export const InventoryPage: React.FC = () => {
 
       {/* Barra de acciones - SOLO en otras vistas, NO en "Situación Actual" */}
       {selectedView !== 'situacion' && (
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+        <div className="bg-white dark:bg-gray-800 border-b border-[#E5E7EB] dark:border-gray-700 px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
             {/* Filtro de período */}
             <select
               value={filterPeriodo}
               onChange={(e) => setFilterPeriodo(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="h-9 px-3 py-2 border border-[#E5E7EB] dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-[#111827] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 dark:focus:ring-[#8B5CF6]/35 transition-all duration-150"
             >
               <option value="hoy">Hoy</option>
               <option value="semana">Última semana</option>
@@ -281,7 +280,7 @@ export const InventoryPage: React.FC = () => {
             <select
               value={warehouseFiltro}
               onChange={(e) => setWarehouseFiltro(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="h-9 px-3 py-2 border border-[#E5E7EB] dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-[#111827] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 dark:focus:ring-[#8B5CF6]/35 transition-all duration-150"
             >
               <option value="todos">Todos los almacenes</option>
               {warehouses.map(wh => (
@@ -293,10 +292,10 @@ export const InventoryPage: React.FC = () => {
 
             <div className="flex-1" />
 
-            {/* Botones de acción */}
+            {/* Botones de acción - todos usando color primario */}
             <button
               onClick={handleExportToExcel}
-              className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors shadow-sm"
+              className="inline-flex items-center h-9 px-4 py-2 bg-[#6F36FF] text-white text-sm font-medium rounded-lg hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
             >
               <Download className="w-4 h-4 mr-2" />
               Exportar Excel
@@ -304,21 +303,21 @@ export const InventoryPage: React.FC = () => {
 
             <button
               onClick={openMassUpdateModal}
-              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors shadow-sm"
+              className="inline-flex items-center h-9 px-4 py-2 text-[#6F36FF] dark:text-[#8B5CF6] bg-white dark:bg-gray-800 border border-[#6F36FF]/30 dark:border-[#8B5CF6]/30 hover:bg-[#6F36FF]/5 dark:hover:bg-[#8B5CF6]/10 text-sm font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
             >
               Actualización Masiva
             </button>
 
             <button
               onClick={openTransferModal}
-              className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-md hover:bg-cyan-700 transition-colors shadow-sm"
+              className="inline-flex items-center h-9 px-4 py-2 text-[#6F36FF] dark:text-[#8B5CF6] bg-white dark:bg-gray-800 border border-[#6F36FF]/30 dark:border-[#8B5CF6]/30 hover:bg-[#6F36FF]/5 dark:hover:bg-[#8B5CF6]/10 text-sm font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
             >
               Transferir Stock
             </button>
 
             <button
               onClick={() => openAdjustmentModal('', 0)}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+              className="inline-flex items-center h-9 px-4 py-2 text-[#6F36FF] dark:text-[#8B5CF6] bg-white dark:bg-gray-800 border border-[#6F36FF]/30 dark:border-[#8B5CF6]/30 hover:bg-[#6F36FF]/5 dark:hover:bg-[#8B5CF6]/10 text-sm font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
             >
               + Ajustar Stock
             </button>
@@ -354,55 +353,9 @@ export const InventoryPage: React.FC = () => {
         )}
 
         {selectedView === 'resumen' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Resumen del Inventario</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                <div className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Productos</div>
-                <div className="text-2xl font-bold text-blue-900 dark:text-blue-300 mt-1">
-                  {stockSummary.totalProductos}
-                </div>
-              </div>
-
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
-                <div className="text-sm font-medium text-green-600 dark:text-green-400">Stock Total</div>
-                <div className="text-2xl font-bold text-green-900 dark:text-green-300 mt-1">
-                  {stockSummary.totalStock.toLocaleString()} unidades
-                </div>
-              </div>
-
-              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800">
-                <div className="text-sm font-medium text-purple-600 dark:text-purple-400">Valor Total</div>
-                <div className="text-2xl font-bold text-purple-900 dark:text-purple-300 mt-1">
-                  S/ {stockSummary.valorTotalStock.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                </div>
-              </div>
-
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
-                <div className="text-sm font-medium text-red-600 dark:text-red-400">Sin Stock</div>
-                <div className="text-2xl font-bold text-red-900 dark:text-red-300 mt-1">
-                  {stockSummary.productosSinStock}
-                </div>
-              </div>
-
-              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-100 dark:border-yellow-800">
-                <div className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Stock Bajo</div>
-                <div className="text-2xl font-bold text-yellow-900 dark:text-yellow-300 mt-1">
-                  {stockSummary.productosStockBajo}
-                </div>
-              </div>
-
-              <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-800">
-                <div className="text-sm font-medium text-orange-600 dark:text-orange-400">Stock Crítico</div>
-                <div className="text-2xl font-bold text-orange-900 dark:text-orange-300 mt-1">
-                  {stockSummary.productosStockCritico}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 text-xs text-gray-500 dark:text-gray-400">
-              Última actualización: {stockSummary.ultimaActualizacion.toLocaleString('es-PE')}
-            </div>
+          <div className="flex items-center justify-center h-64 text-[#4B5563] dark:text-gray-400">
+            {/* Las SummaryCards ya se muestran arriba para todas las vistas */}
+            <p className="text-sm">Vista de resumen con estadísticas detalladas</p>
           </div>
         )}
       </div>
