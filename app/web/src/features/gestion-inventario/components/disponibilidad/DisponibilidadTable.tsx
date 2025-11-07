@@ -78,12 +78,12 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
       <th
         key={campo}
         scope="col"
-        className={`${cellClass} ${alignClass} ${stickyClasses} font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 sticky top-0 z-10`}
+        className={`${cellClass} ${alignClass} ${stickyClasses} font-semibold text-[#111827] dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border-b-2 border-[#E5E7EB] dark:border-gray-700 sticky top-0 z-10`}
       >
         {sortable ? (
           <button
             onClick={() => onOrdenamientoChange(campo)}
-            className="inline-flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="inline-flex items-center gap-1.5 hover:text-[#6F36FF] dark:hover:text-[#8B5CF6] transition-colors duration-150"
           >
             <span>{label}</span>
             {isOrdenado && (
@@ -134,8 +134,8 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   }
 
   return (
-    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+    <div className="overflow-x-auto border border-[#E5E7EB] dark:border-gray-700 rounded-lg shadow-sm">
+      <table className="min-w-full divide-y divide-[#E5E7EB] dark:divide-gray-700">
         <thead>
           <tr>
             {renderHeader('codigo', 'Código', 'left', true)}
@@ -151,7 +151,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
           {datos.map((item, index) => (
             <tr
               key={`${item.productoId}-${index}`}
-              className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors duration-150"
+              className="hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors duration-150"
             >
               {/* Código - STICKY */}
               {columnasVisibles.includes('codigo') && (
@@ -182,11 +182,11 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                 </td>
               )}
 
-              {/* Reservado */}
+              {/* Reservado - COLOR SEMÁNTICO #D97706 */}
               {columnasVisibles.includes('reservado') && (
-                <td className={`${cellClass} text-right text-gray-600 dark:text-gray-400`}>
+                <td className={`${cellClass} text-right text-[#4B5563] dark:text-gray-400`}>
                   {item.reservado > 0 ? (
-                    <span className="font-medium text-orange-600 dark:text-orange-400">
+                    <span className="font-medium text-[#D97706] dark:text-[#F59E0B] tabular-nums">
                       {item.reservado.toLocaleString()}
                     </span>
                   ) : (
@@ -195,16 +195,16 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                 </td>
               )}
 
-              {/* Disponible */}
+              {/* Disponible - COLORES SEMÁNTICOS: OK #10B981, Sin stock #EF4444 */}
               {columnasVisibles.includes('disponible') && (
                 <td className={`${cellClass} text-right`}>
                   <span
-                    className={`font-bold ${
+                    className={`font-bold tabular-nums ${
                       item.disponible === 0
-                        ? 'text-red-600 dark:text-red-400'
+                        ? 'text-[#EF4444] dark:text-[#F87171]'
                         : item.disponible < (item.stockMinimo || 0)
-                        ? 'text-yellow-600 dark:text-yellow-400'
-                        : 'text-green-600 dark:text-green-400'
+                        ? 'text-[#D97706] dark:text-[#F59E0B]'
+                        : 'text-[#10B981] dark:text-[#34D399]'
                     }`}
                   >
                     {item.disponible.toLocaleString()}
@@ -224,7 +224,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                 <td className={`${cellClass} text-center`}>
                   <button
                     onClick={() => onAjustarStock?.(item)}
-                    className="inline-flex items-center justify-center w-8 h-8 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    className="inline-flex items-center justify-center w-8 h-8 text-[#4B5563] dark:text-gray-400 hover:text-[#6F36FF] dark:hover:text-[#8B5CF6] hover:bg-[#6F36FF]/8 dark:hover:bg-[#6F36FF]/15 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 focus:ring-offset-1"
                     title="Ajustar stock (Alt+E)"
                     aria-label={`Ajustar stock de ${item.nombre}`}
                   >

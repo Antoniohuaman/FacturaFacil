@@ -86,17 +86,17 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
   const hayFiltrosActivos = filtros.establecimientoId || filtros.almacenId || filtros.filtroSku || filtros.soloConDisponible;
 
   return (
-    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 border-b border-[#E5E7EB] dark:border-gray-700 shadow-sm sticky top-0 z-30">
       {/* Fila principal */}
-      <div className="px-4 py-2.5">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Filtros principales */}
           <div className="flex items-center gap-2">
             <select
               id="establecimiento-filter"
               value={filtros.establecimientoId}
               onChange={(e) => handleEstablecimientoChange(e.target.value)}
-              className="h-9 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all min-w-[180px]"
+              className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150 min-w-[180px]"
               aria-label="Filtrar por establecimiento"
             >
               <option value="">Establecimiento</option>
@@ -116,7 +116,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
               value={filtros.almacenId}
               onChange={(e) => onFiltrosChange({ almacenId: e.target.value })}
               disabled={!filtros.establecimientoId || almacenesDisponibles.length === 0}
-              className="h-9 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px]"
+              className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px]"
               aria-label="Filtrar por almacén"
             >
               <option value="">Almacén</option>
@@ -150,7 +150,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
               placeholder="Buscar SKU o nombre..."
               value={filtros.filtroSku || ''}
               onChange={(e) => onFiltrosChange({ filtroSku: e.target.value })}
-              className="w-full h-9 pl-10 pr-9 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              className="w-full h-9 pl-10 pr-9 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 placeholder-[#4B5563] dark:placeholder-gray-500 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150"
               aria-label="Buscar producto por SKU o nombre"
             />
             {filtros.filtroSku && (
@@ -168,14 +168,14 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
           </div>
 
           {/* Toggle */}
-          <label className="inline-flex items-center cursor-pointer gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+          <label className="inline-flex items-center cursor-pointer gap-2 px-3 h-9 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">
             <input
               type="checkbox"
               checked={filtros.soloConDisponible}
               onChange={(e) => onFiltrosChange({ soloConDisponible: e.target.checked })}
-              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 transition-all"
+              className="w-4 h-4 text-[#6F36FF] bg-gray-100 border-[#E5E7EB] rounded focus:ring-[#6F36FF]/35 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 transition-all duration-150"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            <span className="text-sm text-[#111827] dark:text-gray-300 whitespace-nowrap">
               Solo disponible
             </span>
           </label>
@@ -192,7 +192,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
             <div className="relative" ref={actionsRef}>
               <button
                 onClick={() => setIsActionsOpen(!isActionsOpen)}
-                className="inline-flex items-center gap-1.5 h-9 px-3 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-blue-500 transition-all"
+                className="inline-flex items-center gap-1.5 h-9 px-3 text-sm font-medium border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-[#6F36FF]/35 transition-all duration-150"
                 aria-label="Menú de acciones"
                 aria-expanded={isActionsOpen}
                 title="Acciones (Alt+A)"
@@ -274,10 +274,45 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
               )}
             </div>
 
+            {/* Botón Pantalla Completa */}
+            <button
+              onClick={() => {
+                if (document.fullscreenElement) {
+                  document.exitFullscreen();
+                } else {
+                  document.documentElement.requestFullscreen();
+                }
+              }}
+              className="h-9 w-9 inline-flex items-center justify-center border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#4B5563] dark:text-gray-300 hover:text-[#6F36FF] hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-[#6F36FF]/35 transition-all duration-150"
+              title="Pantalla completa (Mayús+Z)"
+              aria-label="Activar pantalla completa"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+
+            {/* Botón Compartir */}
+            <button
+              onClick={() => {
+                const url = window.location.href;
+                navigator.clipboard.writeText(url).then(() => {
+                  alert('Enlace copiado al portapapeles');
+                });
+              }}
+              className="h-9 w-9 inline-flex items-center justify-center border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#4B5563] dark:text-gray-300 hover:text-[#6F36FF] hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-[#6F36FF]/35 transition-all duration-150"
+              title="Compartir enlace"
+              aria-label="Copiar enlace para compartir"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+            </button>
+
             {/* Botón Settings */}
             <button
               onClick={onOpenSettings}
-              className="h-9 w-9 inline-flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-blue-500 transition-all"
+              className="h-9 w-9 inline-flex items-center justify-center border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#4B5563] dark:text-gray-300 hover:text-[#6F36FF] hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-[#6F36FF]/35 transition-all duration-150"
               title="Configuración (Alt+C)"
               aria-label="Configuración de visualización"
             >
@@ -295,20 +330,20 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
         </div>
       </div>
 
-      {/* Fila de chips de filtros activos */}
+      {/* Fila de chips de filtros activos - REDISEÑADOS CON PRIMARIO */}
       {hayFiltrosActivos && filtros.almacenId && (
-        <div className="px-4 pb-2.5 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Filtros activos:</span>
+        <div className="px-4 pb-2 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-[#4B5563] dark:text-gray-400 font-medium">Filtros:</span>
 
           {establecimientoNombre && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-[#6F36FF]/8 dark:bg-[#6F36FF]/15 text-[#6F36FF] dark:text-[#8B5CF6] border border-[#6F36FF]/20 dark:border-[#6F36FF]/30 rounded-md">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
               {establecimientoNombre}
               <button
                 onClick={() => handleEstablecimientoChange('')}
-                className="hover:text-blue-900 dark:hover:text-blue-100 transition-colors"
+                className="hover:text-[#5b2ee0] dark:hover:text-[#A78BFA] transition-colors duration-150"
                 aria-label="Quitar filtro de establecimiento"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -319,14 +354,14 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
           )}
 
           {almacenNombre && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 rounded-md">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-[#6F36FF]/8 dark:bg-[#6F36FF]/15 text-[#6F36FF] dark:text-[#8B5CF6] border border-[#6F36FF]/20 dark:border-[#6F36FF]/30 rounded-md">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
               {almacenNombre}
               <button
                 onClick={() => onFiltrosChange({ almacenId: '' })}
-                className="hover:text-green-900 dark:hover:text-green-100 transition-colors"
+                className="hover:text-[#5b2ee0] dark:hover:text-[#A78BFA] transition-colors duration-150"
                 aria-label="Quitar filtro de almacén"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -337,14 +372,14 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
           )}
 
           {filtros.filtroSku && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-md">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-[#111827] dark:text-gray-300 border border-[#E5E7EB] dark:border-gray-600 rounded-md">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               "{filtros.filtroSku}"
               <button
                 onClick={() => onFiltrosChange({ filtroSku: '' })}
-                className="hover:text-purple-900 dark:hover:text-purple-100 transition-colors"
+                className="hover:text-[#4B5563] dark:hover:text-gray-100 transition-colors duration-150"
                 aria-label="Quitar búsqueda"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -355,14 +390,14 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
           )}
 
           {filtros.soloConDisponible && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-md">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-[#111827] dark:text-gray-300 border border-[#E5E7EB] dark:border-gray-600 rounded-md">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               Solo disponible
               <button
                 onClick={() => onFiltrosChange({ soloConDisponible: false })}
-                className="hover:text-amber-900 dark:hover:text-amber-100 transition-colors"
+                className="hover:text-[#4B5563] dark:hover:text-gray-100 transition-colors duration-150"
                 aria-label="Quitar filtro solo disponible"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
