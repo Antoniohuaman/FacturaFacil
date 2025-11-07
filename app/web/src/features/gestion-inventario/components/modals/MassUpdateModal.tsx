@@ -5,6 +5,8 @@
 import React, { useState } from 'react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { InventoryService } from '../../services/inventory.service';
+import type { MovimientoStock } from '../../models';
 import * as XLSX from 'xlsx';
 
 interface MassUpdateModalProps {
@@ -83,6 +85,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
     if (!confirmacion) return;
 
     let actualizados = 0;
+    const movimientos: MovimientoStock[] = [];
 
     // Iterar por cada almacén seleccionado
     warehousesAplicar.forEach((warehouse) => {
@@ -92,17 +95,25 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
           const stockActual = producto.stockPorAlmacen?.[warehouse.id] ?? 0;
 
           if (stockActual > 0) {
-            // Actualizar el producto poniendo el stock en 0
-            const updatedProduct = {
-              ...producto,
-              stockPorAlmacen: {
-                ...producto.stockPorAlmacen,
-                [warehouse.id]: 0
+            // Usar el servicio de inventario para registrar el ajuste
+            const result = InventoryService.registerAdjustment(
+              producto,
+              warehouse,
+              {
+                productoId: producto.id,
+                warehouseId: warehouse.id,
+                tipo: 'AJUSTE_NEGATIVO',
+                motivo: 'AJUSTE_INVENTARIO',
+                cantidad: stockActual, // Resetear a 0 significa restar todo el stock actual
+                observaciones: 'Reseteo masivo de stock a cero',
+                documentoReferencia: ''
               },
-              fechaActualizacion: new Date()
-            };
+              'Usuario Actual' // TODO: Obtener del contexto
+            );
 
-            updateProduct(producto.id, updatedProduct);
+            // Actualizar el producto en el store
+            updateProduct(producto.id, result.product);
+            movimientos.push(result.movement);
             actualizados++;
           }
         }
@@ -290,6 +301,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
     let actualizados = 0;
     let sinCambios = 0;
     const noEncontrados: string[] = [];
+    const movimientos: MovimientoStock[] = [];
 
     // Iterar por cada almacén seleccionado
     warehousesAplicar.forEach((warehouse) => {
@@ -305,17 +317,30 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
           const stockActual = producto.stockPorAlmacen?.[warehouse.id] ?? 0;
 
           if (stockActual !== cantidad) {
-            // Actualizar el stock del producto
-            const updatedProduct = {
-              ...producto,
-              stockPorAlmacen: {
-                ...producto.stockPorAlmacen,
-                [warehouse.id]: cantidad
-              },
-              fechaActualizacion: new Date()
-            };
+            // Determinar el tipo de movimiento basado en si aumenta o disminuye
+            const diferencia = cantidad - stockActual;
+            const tipo = diferencia > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
+            const cantidadMovimiento = Math.abs(diferencia);
 
-            updateProduct(producto.id, updatedProduct);
+            // Usar el servicio de inventario para registrar el ajuste
+            const result = InventoryService.registerAdjustment(
+              producto,
+              warehouse,
+              {
+                productoId: producto.id,
+                warehouseId: warehouse.id,
+                tipo,
+                motivo: 'AJUSTE_INVENTARIO',
+                cantidad: cantidadMovimiento,
+                observaciones: `Importación masiva: ${stockActual} → ${cantidad}`,
+                documentoReferencia: ''
+              },
+              'Usuario Actual' // TODO: Obtener del contexto
+            );
+
+            // Actualizar el producto en el store
+            updateProduct(producto.id, result.product);
+            movimientos.push(result.movement);
             actualizados++;
           } else {
             sinCambios++;
