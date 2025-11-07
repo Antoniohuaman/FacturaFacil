@@ -26,47 +26,31 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   onOrdenamientoChange,
   onAjustarStock
 }) => {
-  // Clases según densidad
+  // Clases según densidad - MÁS COMPACTO
   const densidadClasses = {
-    compacta: 'py-2 px-3 text-xs',
-    comoda: 'py-3 px-4 text-sm',
-    espaciosa: 'py-4 px-5 text-base'
+    compacta: 'py-1.5 px-2.5 text-xs',
+    comoda: 'py-2.5 px-3.5 text-sm',
+    espaciosa: 'py-3.5 px-4.5 text-base'
   };
 
   const cellClass = densidadClasses[densidad];
 
-  // Renderizar badge de situación
+  // Renderizar badge de situación - ESTILO NEUTRO TIPO JIRA
   const renderSituacionBadge = (situacion: SituacionStock) => {
-    const badges = {
-      'OK': {
-        bg: 'bg-green-100 dark:bg-green-900/30',
-        text: 'text-green-700 dark:text-green-400',
-        label: 'OK'
-      },
-      'Sin stock': {
-        bg: 'bg-red-100 dark:bg-red-900/30',
-        text: 'text-red-700 dark:text-red-400',
-        label: 'Sin stock'
-      },
-      'Bajo': {
-        bg: 'bg-yellow-100 dark:bg-yellow-900/30',
-        text: 'text-yellow-700 dark:text-yellow-400',
-        label: 'Bajo'
-      },
-      'Crítico': {
-        bg: 'bg-orange-100 dark:bg-orange-900/30',
-        text: 'text-orange-700 dark:text-orange-400',
-        label: 'Crítico'
-      }
-    };
+    // Badges neutros: solo OK (verde suave) y Sin stock (gris)
+    // Bajo y Crítico se ven en la columna "Disponible" con color
+    if (situacion === 'OK') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+          OK
+        </span>
+      );
+    }
 
-    const badge = badges[situacion];
-
+    // Sin stock
     return (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${badge.bg} ${badge.text}`}
-      >
-        {badge.label}
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-300 dark:border-gray-600">
+        Sin stock
       </span>
     );
   };
@@ -233,8 +217,9 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                 <td className={`${cellClass} text-center`}>
                   <button
                     onClick={() => onAjustarStock?.(item)}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                    className="inline-flex items-center justify-center w-7 h-7 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                     title="Ajustar stock"
+                    aria-label={`Ajustar stock de ${item.nombre}`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -244,7 +229,6 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                         d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                       />
                     </svg>
-                    <span>Ajustar</span>
                   </button>
                 </td>
               )}
