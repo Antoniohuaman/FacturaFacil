@@ -9,6 +9,7 @@ import MassUpdateModal from '../components/modals/MassUpdateModal';
 import TransferModal from '../components/modals/TransferModal';
 import SummaryCards from '../components/panels/SummaryCards';
 import AlertsPanel from '../components/panels/AlertsPanel';
+import InventarioSituacionPage from '../components/disponibilidad/InventarioSituacionPage';
 import * as XLSX from 'xlsx';
 
 /**
@@ -192,6 +193,16 @@ export const InventoryPage: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6">
         <div className="flex space-x-6">
           <button
+            onClick={() => setSelectedView('situacion')}
+            className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+              selectedView === 'situacion'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+            }`}
+          >
+            Situación Actual
+          </button>
+          <button
             onClick={() => setSelectedView('movimientos')}
             className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
               selectedView === 'movimientos'
@@ -296,6 +307,10 @@ export const InventoryPage: React.FC = () => {
 
       {/* Contenido principal */}
       <div className="flex-1 overflow-auto p-6">
+        {selectedView === 'situacion' && (
+          <InventarioSituacionPage />
+        )}
+
         {selectedView === 'movimientos' && (
           <MovementsTable
             movimientos={filteredMovements}

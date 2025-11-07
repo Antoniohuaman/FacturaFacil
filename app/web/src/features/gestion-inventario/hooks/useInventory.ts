@@ -30,7 +30,7 @@ export const useInventory = () => {
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([]);
 
   // Estados locales del módulo inventario
-  const [selectedView, setSelectedView] = useState<InventoryView>('movimientos');
+  const [selectedView, setSelectedView] = useState<InventoryView>('situacion');
   const [filterPeriodo, setFilterPeriodo] = useState<FilterPeriod>('semana');
   const [warehouseFiltro, setWarehouseFiltro] = useState<string>('todos');
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
