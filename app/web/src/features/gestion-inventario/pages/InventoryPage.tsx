@@ -10,6 +10,7 @@ import TransferModal from '../components/modals/TransferModal';
 import SummaryCards from '../components/panels/SummaryCards';
 import AlertsPanel from '../components/panels/AlertsPanel';
 import InventarioSituacionPage from '../components/disponibilidad/InventarioSituacionPage';
+import { PageHeader } from '../../../components/PageHeader';
 import * as XLSX from 'xlsx';
 
 /**
@@ -169,25 +170,26 @@ export const InventoryPage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Control de Inventario</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Gestiona el stock, movimientos y alertas de todos tus productos
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* Header con PageHeader para mantener consistencia */}
+      <PageHeader 
+        title="Control de Stock"
+        icon={
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        }
+      />
 
-      {/* Resumen de estadísticas */}
-      <div className="px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <SummaryCards
-          products={allProducts}
-          warehouseFiltro={warehouseFiltro}
-        />
-      </div>
+      {/* Resumen de estadísticas - SOLO en otras vistas, NO en "Situación Actual" */}
+      {selectedView !== 'situacion' && (
+        <div className="px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <SummaryCards
+            products={allProducts}
+            warehouseFiltro={warehouseFiltro}
+          />
+        </div>
+      )}
 
       {/* Tabs de navegación */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6">
@@ -242,71 +244,73 @@ export const InventoryPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Barra de acciones */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Filtro de período */}
-          <select
-            value={filterPeriodo}
-            onChange={(e) => setFilterPeriodo(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="hoy">Hoy</option>
-            <option value="semana">Última semana</option>
-            <option value="mes">Último mes</option>
-            <option value="todo">Todos</option>
-          </select>
+      {/* Barra de acciones - SOLO en otras vistas, NO en "Situación Actual" */}
+      {selectedView !== 'situacion' && (
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Filtro de período */}
+            <select
+              value={filterPeriodo}
+              onChange={(e) => setFilterPeriodo(e.target.value as any)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="hoy">Hoy</option>
+              <option value="semana">Última semana</option>
+              <option value="mes">Último mes</option>
+              <option value="todo">Todos</option>
+            </select>
 
-          {/* Filtro de almacén */}
-          <select
-            value={warehouseFiltro}
-            onChange={(e) => setWarehouseFiltro(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="todos">Todos los almacenes</option>
-            {warehouses.map(wh => (
-              <option key={wh.id} value={wh.id}>
-                {wh.name} ({wh.establishmentName})
-              </option>
-            ))}
-          </select>
+            {/* Filtro de almacén */}
+            <select
+              value={warehouseFiltro}
+              onChange={(e) => setWarehouseFiltro(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="todos">Todos los almacenes</option>
+              {warehouses.map(wh => (
+                <option key={wh.id} value={wh.id}>
+                  {wh.name} ({wh.establishmentName})
+                </option>
+              ))}
+            </select>
 
-          <div className="flex-1" />
+            <div className="flex-1" />
 
-          {/* Botones de acción */}
-          <button
-            onClick={handleExportToExcel}
-            className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors shadow-sm"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Exportar Excel
-          </button>
+            {/* Botones de acción */}
+            <button
+              onClick={handleExportToExcel}
+              className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors shadow-sm"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Exportar Excel
+            </button>
 
-          <button
-            onClick={openMassUpdateModal}
-            className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors shadow-sm"
-          >
-            Actualización Masiva
-          </button>
+            <button
+              onClick={openMassUpdateModal}
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors shadow-sm"
+            >
+              Actualización Masiva
+            </button>
 
-          <button
-            onClick={openTransferModal}
-            className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-md hover:bg-cyan-700 transition-colors shadow-sm"
-          >
-            Transferir Stock
-          </button>
+            <button
+              onClick={openTransferModal}
+              className="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-md hover:bg-cyan-700 transition-colors shadow-sm"
+            >
+              Transferir Stock
+            </button>
 
-          <button
-            onClick={() => openAdjustmentModal('', 0)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors shadow-sm"
-          >
-            + Ajustar Stock
-          </button>
+            <button
+              onClick={() => openAdjustmentModal('', 0)}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              + Ajustar Stock
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Contenido principal */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className={`flex-1 overflow-auto ${selectedView === 'situacion' ? '' : 'p-6'}`}>
         {selectedView === 'situacion' && (
           <InventarioSituacionPage
             onExportar={handleExportToExcel}
