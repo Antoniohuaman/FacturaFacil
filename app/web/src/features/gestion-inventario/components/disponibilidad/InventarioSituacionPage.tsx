@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { useInventarioDisponibilidad } from '../../hooks/useInventarioDisponibilidad';
 import { usePreferenciasDisponibilidad } from '../../stores/usePreferenciasDisponibilidad';
-import DisponibilidadToolbarCompact from './DisponibilidadToolbarCompact';
+import DisponibilidadToolbarEnhanced from './DisponibilidadToolbarEnhanced';
 import DisponibilidadKPIs from './DisponibilidadKPIs';
 import DisponibilidadTable from './DisponibilidadTable';
 import DisponibilidadPagination from './DisponibilidadPagination';
@@ -82,8 +82,8 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      {/* Toolbar compacto con filtros y acciones */}
-      <DisponibilidadToolbarCompact
+      {/* Toolbar mejorado con filtros y acciones */}
+      <DisponibilidadToolbarEnhanced
         filtros={filtros}
         onFiltrosChange={actualizarFiltros}
         almacenesDisponibles={almacenesDisponibles}

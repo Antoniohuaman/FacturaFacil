@@ -67,11 +67,18 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
     const isOrdenado = ordenamiento.campo === campo;
     const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 
+    // Sticky columns para Código y Producto
+    const stickyClasses = campo === 'codigo'
+      ? 'sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+      : campo === 'producto'
+      ? 'sticky left-[100px] z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+      : '';
+
     return (
       <th
         key={campo}
         scope="col"
-        className={`${cellClass} ${alignClass} font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 sticky top-0 z-10`}
+        className={`${cellClass} ${alignClass} ${stickyClasses} font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 sticky top-0 z-10`}
       >
         {sortable ? (
           <button
@@ -127,7 +134,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   }
 
   return (
-    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead>
           <tr>
@@ -140,22 +147,22 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             {renderHeader('acciones', 'Acciones', 'center', false)}
           </tr>
         </thead>
-        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
           {datos.map((item, index) => (
             <tr
               key={`${item.productoId}-${index}`}
-              className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors duration-150"
             >
-              {/* Código */}
+              {/* Código - STICKY */}
               {columnasVisibles.includes('codigo') && (
-                <td className={`${cellClass} font-mono text-gray-900 dark:text-gray-100`}>
+                <td className={`${cellClass} font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 sticky left-0 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]`}>
                   {item.sku}
                 </td>
               )}
 
-              {/* Producto */}
+              {/* Producto - STICKY */}
               {columnasVisibles.includes('producto') && (
-                <td className={`${cellClass} text-gray-900 dark:text-gray-100`}>
+                <td className={`${cellClass} text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 sticky left-[100px] z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]`}>
                   <div className="flex flex-col">
                     <span className="font-medium">{item.nombre}</span>
                     {item.stockMinimo !== undefined && (
@@ -217,8 +224,8 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                 <td className={`${cellClass} text-center`}>
                   <button
                     onClick={() => onAjustarStock?.(item)}
-                    className="inline-flex items-center justify-center w-7 h-7 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                    title="Ajustar stock"
+                    className="inline-flex items-center justify-center w-8 h-8 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    title="Ajustar stock (Alt+E)"
                     aria-label={`Ajustar stock de ${item.nombre}`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
