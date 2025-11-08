@@ -22,6 +22,7 @@ export interface Caja {
   dispositivos?: DispositivosCaja;
   observaciones?: string;
   tieneHistorial: boolean; // Indicates if this caja has been used in any session (prevents deletion)
+  tieneSesionAbierta: boolean; // Indicates if this caja has an active session (prevents editing/deletion)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,7 +41,9 @@ export interface CreateCajaInput {
 }
 
 export interface UpdateCajaInput extends Partial<CreateCajaInput> {
-  id: string;
+  id?: string; // Optional since id is passed as parameter to update method
+  tieneHistorial?: boolean; // Can be updated when operations occur
+  tieneSesionAbierta?: boolean; // Can be updated when sessions open/close
 }
 
 // Validation constraints

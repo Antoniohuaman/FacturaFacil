@@ -109,6 +109,7 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
       dispositivos: input.dispositivos,
       observaciones: input.observaciones,
       tieneHistorial: false, // New cajas start with no history
+      tieneSesionAbierta: false, // New cajas start with no active session
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -182,6 +183,10 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
 
     if (caja.tieneHistorial) {
       throw new Error('La caja ya tiene historial de uso.');
+    }
+
+    if (caja.tieneSesionAbierta) {
+      throw new Error('La caja tiene una sesión abierta. Cierra la sesión antes de eliminar.');
     }
     
     const filtered = cajas.filter(c => c.id !== id);

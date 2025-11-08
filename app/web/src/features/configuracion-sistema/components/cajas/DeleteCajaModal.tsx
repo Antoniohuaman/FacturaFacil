@@ -13,9 +13,10 @@ export function DeleteCajaModal({ isOpen, caja, onConfirm, onCancel }: DeleteCaj
   if (!isOpen || !caja) return null;
 
   // Validation checks
-  const canDelete = !caja.habilitada && !caja.tieneHistorial;
+  const canDelete = !caja.habilitada && !caja.tieneHistorial && !caja.tieneSesionAbierta;
   const isEnabled = caja.habilitada;
   const hasHistory = caja.tieneHistorial;
+  const hasOpenSession = caja.tieneSesionAbierta;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -70,6 +71,13 @@ export function DeleteCajaModal({ isOpen, caja, onConfirm, onCancel }: DeleteCaj
                 <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <span className="text-red-600 dark:text-red-400 text-sm font-medium">
                     ✕ La caja ya tiene historial de uso.
+                  </span>
+                </div>
+              )}
+              {hasOpenSession && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <span className="text-red-600 dark:text-red-400 text-sm font-medium">
+                    ✕ La caja tiene una sesión abierta. Cierra la sesión antes de eliminar.
                   </span>
                 </div>
               )}
