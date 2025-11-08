@@ -16,7 +16,6 @@ import { ConfigurationCard } from '../components/common/ConfigurationCard';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { RucValidator } from '../components/company/RucValidator';
-import { LogoUploader } from '../components/company/LogoUploader';
 import { parseUbigeoCode } from '../data/ubigeo';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
@@ -35,11 +34,7 @@ interface CompanyFormData {
   environment: 'TEST' | 'PRODUCTION';
   phones: string[];
   emails: string[];
-  footerText: string;
-  logo?: {
-    url: string;
-    showInPrint: boolean;
-  };
+  economicActivity: string;
 }
 
 export function CompanyConfiguration() {
@@ -57,8 +52,7 @@ export function CompanyConfiguration() {
     environment: 'TEST',
     phones: [''],
     emails: [''],
-    footerText: '',
-    logo: undefined
+    economicActivity: ''
   });
   
   const [rucValidation, setRucValidation] = useState<{
@@ -85,8 +79,7 @@ export function CompanyConfiguration() {
         environment: (company.sunatConfiguration.environment === 'TESTING' ? 'TEST' : 'PRODUCTION') as 'TEST' | 'PRODUCTION',
         phones: company.phones?.length > 0 ? company.phones : [''],
         emails: company.emails?.length > 0 ? company.emails : [''],
-        footerText: company.footerText || '',
-        logo: company.logo ? { url: company.logo, showInPrint: true } : undefined
+        economicActivity: company.economicActivity || ''
       };
       setFormData(loadedData);
       setOriginalData(loadedData);
@@ -172,10 +165,9 @@ export function CompanyConfiguration() {
       formData.ubigeo !== originalData.ubigeo ||
       formData.baseCurrency !== originalData.baseCurrency ||
       formData.environment !== originalData.environment ||
-      formData.footerText !== originalData.footerText ||
+      formData.economicActivity !== originalData.economicActivity ||
       JSON.stringify(formData.phones) !== JSON.stringify(originalData.phones) ||
-      JSON.stringify(formData.emails) !== JSON.stringify(originalData.emails) ||
-      JSON.stringify(formData.logo) !== JSON.stringify(originalData.logo);
+      JSON.stringify(formData.emails) !== JSON.stringify(originalData.emails);
 
     setHasChanges(hasFormChanges);
   }, [formData, originalData]);
@@ -260,9 +252,7 @@ export function CompanyConfiguration() {
         phones: cleanPhones.length > 0 ? cleanPhones : [],
         emails: cleanEmails.length > 0 ? cleanEmails : [],
         website: company?.website,
-        logo: formData.logo?.url || undefined,
-        footerText: formData.footerText || undefined,
-        economicActivity: company?.economicActivity || '',
+        economicActivity: formData.economicActivity,
         taxRegime: company?.taxRegime || 'GENERAL',
         baseCurrency: formData.baseCurrency,
         legalRepresentative: company?.legalRepresentative || {
@@ -717,6 +707,20 @@ export function CompanyConfiguration() {
                 )}
               </div>
             </div>
+
+            {/* Economic Activity */}
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Actividad Económica
+              </label>
+              <input
+                type="text"
+                value={formData.economicActivity}
+                onChange={(e) => setFormData(prev => ({ ...prev, economicActivity: e.target.value }))}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                placeholder="Ej: Comercio al por menor"
+              />
+            </div>
           </div>
         </ConfigurationCard>
 
@@ -896,43 +900,6 @@ export function CompanyConfiguration() {
                   + Agregar correo
                 </button>
               </div>
-            </div>
-          </div>
-        </ConfigurationCard>
-
-        {/* Personalization */}
-        <ConfigurationCard
-          title="Personalización"
-          description="Logo y textos personalizados para tus comprobantes"
-        >
-          <div className="space-y-6">
-            {/* Footer Text */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Pie de Página para Comprobantes
-              </label>
-              <textarea
-                value={formData.footerText}
-                onChange={(e) => setFormData(prev => ({ ...prev, footerText: e.target.value }))}
-                placeholder="Gracias por su preferencia"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                rows={3}
-                maxLength={200}
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Máximo 200 caracteres
-              </p>
-            </div>
-
-            {/* Logo */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Logo de la Empresa
-              </label>
-              <LogoUploader
-                logo={formData.logo}
-                onLogoChange={(logo) => setFormData(prev => ({ ...prev, logo }))}
-              />
             </div>
           </div>
         </ConfigurationCard>
