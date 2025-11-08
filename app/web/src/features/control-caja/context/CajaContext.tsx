@@ -85,6 +85,29 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const abrirCaja = useCallback(async (apertura: Omit<AperturaCaja, 'id'>) => {
     setIsLoading(true);
     try {
+      // Validar autorización del usuario para operar esta caja
+      if (empresaId && establecimientoId && apertura.cajaId && session?.userId) {
+        try {
+          const caja = await cajasDataSource.getById(empresaId, establecimientoId, apertura.cajaId);
+          
+          // Verificar si el usuario está autorizado
+          if (caja && caja.usuariosAutorizados && caja.usuariosAutorizados.length > 0) {
+            if (!caja.usuariosAutorizados.includes(session.userId)) {
+              showToast(
+                "error",
+                "No autorizado",
+                "No estás autorizado para operar esta caja."
+              );
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error validando autorización de caja:', error);
+          // Continuamos si no podemos verificar (para no bloquear en caso de error de sistema)
+        }
+      }
+
       // Simular llamada a API
       await new Promise((resolve) => setTimeout(resolve, 800));
 

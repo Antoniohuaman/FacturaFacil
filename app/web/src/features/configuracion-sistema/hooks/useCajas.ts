@@ -80,8 +80,8 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
       throw new Error('Empresa y establecimiento son requeridos');
     }
 
-    // Validate input
-    const validation = validateCreateCaja(input, cajas);
+    // Validate input with employees from context
+    const validation = validateCreateCaja(input, cajas, state.employees);
     if (!validation.isValid) {
       throw new Error(validation.errors.map(e => e.message).join(', '));
     }
@@ -110,8 +110,8 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
       throw new Error('Empresa y establecimiento son requeridos');
     }
 
-    // Validate input
-    const validation = validateUpdateCaja(input, cajas, id);
+    // Validate input with employees from context
+    const validation = validateUpdateCaja(input, cajas, id, state.employees);
     if (!validation.isValid) {
       throw new Error(validation.errors.map(e => e.message).join(', '));
     }
@@ -212,15 +212,15 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     cajaId?: string
   ): ValidationError[] => {
     if (cajaId) {
-      // Update validation
-      const validation = validateUpdateCaja(input as UpdateCajaInput, cajas, cajaId);
+      // Update validation with employees from context
+      const validation = validateUpdateCaja(input as UpdateCajaInput, cajas, cajaId, state.employees);
       return validation.errors;
     } else {
-      // Create validation
-      const validation = validateCreateCaja(input as CreateCajaInput, cajas);
+      // Create validation with employees from context
+      const validation = validateCreateCaja(input as CreateCajaInput, cajas, state.employees);
       return validation.errors;
     }
-  }, [cajas]);
+  }, [cajas, state.employees]);
 
   /**
    * Get statistics about cajas

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings2, AlertCircle, ExternalLink, Banknote } from 'lucide-react';
+import { Settings2, AlertCircle, ExternalLink, Banknote, Clock } from 'lucide-react';
 import { useCajas } from '../../configuracion-sistema/hooks/useCajas';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
@@ -28,6 +28,10 @@ const ConfiguracionCaja: React.FC = () => {
 
   const handleGoToConfiguration = () => {
     navigate('/configuracion/cajas');
+  };
+
+  const handleViewSessions = () => {
+    navigate(`/caja/sesiones?establecimientoId=${establecimientoId}`);
   };
 
   if (!establecimientoId) {
@@ -75,13 +79,22 @@ const ConfiguracionCaja: React.FC = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleGoToConfiguration}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-          >
-            Editar en Configuración
-            <ExternalLink className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleViewSessions}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+            >
+              <Clock className="w-4 h-4" />
+              Ver Sesiones
+            </button>
+            <button
+              onClick={handleGoToConfiguration}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Editar en Configuración
+              <ExternalLink className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Info Banner */}

@@ -2,6 +2,7 @@
 // Pure functions following Single Responsibility Principle
 
 import type { CreateCajaInput, UpdateCajaInput, Caja, MedioPago } from '../models/Caja';
+import type { Employee } from '../models/Employee';
 import { CAJA_CONSTRAINTS } from '../models/Caja';
 
 export interface ValidationError {
@@ -132,11 +133,49 @@ export function validateMargenDescuadre(margen: number): ValidationError | null 
 }
 
 /**
+ * Validates usuarios autorizados
+ * @param usuariosAutorizados - Array of employee IDs
+ * @param employees - All available employees
+ * @param habilitada - Whether the caja is enabled
+ */
+export function validateUsuariosAutorizados(
+  usuariosAutorizados: string[] | undefined,
+  employees: Employee[],
+  habilitada: boolean
+): ValidationError | null {
+  // If not provided, default to empty array
+  const usuarios = usuariosAutorizados || [];
+
+  // Validate that all IDs exist in employees
+  const invalidIds = usuarios.filter(id => 
+    !employees.some(emp => emp.id === id)
+  );
+
+  if (invalidIds.length > 0) {
+    return {
+      field: 'usuariosAutorizados',
+      message: `Los siguientes usuarios no existen: ${invalidIds.join(', ')}`
+    };
+  }
+
+  // If caja is enabled, at least one authorized user is required
+  if (habilitada && usuarios.length === 0) {
+    return {
+      field: 'usuariosAutorizados',
+      message: 'Debe autorizar al menos un usuario para operar esta caja'
+    };
+  }
+
+  return null;
+}
+
+/**
  * Validates complete caja creation input
  */
 export function validateCreateCaja(
   input: CreateCajaInput,
-  existingCajas: Caja[]
+  existingCajas: Caja[],
+  employees: Employee[] = []
 ): ValidationResult {
   const errors: ValidationError[] = [];
 
@@ -164,6 +203,14 @@ export function validateCreateCaja(
   const margenError = validateMargenDescuadre(input.margenDescuadre);
   if (margenError) errors.push(margenError);
 
+  // Validate usuarios autorizados
+  const usuariosError = validateUsuariosAutorizados(
+    input.usuariosAutorizados,
+    employees,
+    input.habilitada
+  );
+  if (usuariosError) errors.push(usuariosError);
+
   return {
     isValid: errors.length === 0,
     errors
@@ -176,7 +223,8 @@ export function validateCreateCaja(
 export function validateUpdateCaja(
   input: UpdateCajaInput,
   existingCajas: Caja[],
-  currentCajaId: string
+  currentCajaId: string,
+  employees: Employee[] = []
 ): ValidationResult {
   const errors: ValidationError[] = [];
 
@@ -215,6 +263,20 @@ export function validateUpdateCaja(
   if (input.margenDescuadre !== undefined) {
     const margenError = validateMargenDescuadre(input.margenDescuadre);
     if (margenError) errors.push(margenError);
+  }
+
+  // Validate usuarios autorizados if provided or if habilitada is changing
+  if (input.usuariosAutorizados !== undefined || input.habilitada !== undefined) {
+    const currentCaja = existingCajas.find(c => c.id === currentCajaId);
+    const habilitada = input.habilitada ?? currentCaja?.habilitada ?? false;
+    const usuariosAutorizados = input.usuariosAutorizados ?? currentCaja?.usuariosAutorizados ?? [];
+    
+    const usuariosError = validateUsuariosAutorizados(
+      usuariosAutorizados,
+      employees,
+      habilitada
+    );
+    if (usuariosError) errors.push(usuariosError);
   }
 
   return {

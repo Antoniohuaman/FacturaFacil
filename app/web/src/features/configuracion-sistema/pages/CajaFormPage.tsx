@@ -7,12 +7,15 @@ import { CajaForm } from '../components/cajas/CajaForm';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
+import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
+import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import type { CreateCajaInput, UpdateCajaInput } from '../models/Caja';
 
 export function CajaFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEditing = !!id;
+  const { toasts, success, error: showError, removeToast } = useToast();
 
   const { state } = useConfigurationContext();
   const { session } = useUserSession();
@@ -49,13 +52,17 @@ export function CajaFormPage() {
     try {
       if (isEditing && id) {
         await updateCaja(id, data as UpdateCajaInput);
+        success('Caja actualizada', 'La caja ha sido actualizada exitosamente.');
       } else {
         await createCaja(data as CreateCajaInput);
+        success('Caja creada', 'La caja ha sido creada exitosamente.');
       }
-      navigate('/configuracion/cajas');
+      // Small delay to show toast before navigating
+      setTimeout(() => navigate('/configuracion/cajas'), 1000);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al guardar la caja';
       setSubmitError(message);
+      showError('Error', message);
     }
   };
 
@@ -162,6 +169,9 @@ export function CajaFormPage() {
           />
         </div>
       </div>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

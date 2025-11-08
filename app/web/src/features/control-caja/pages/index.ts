@@ -7,3 +7,4 @@ export { default as MovimientosCaja } from './MovimientosCaja';
 export { default as DetalleMovimientoCaja } from './DetalleMovimientoCaja';
 export { default as ConfiguracionCaja } from './ConfiguracionCaja';
 export { default as ReportesCaja } from './ReportesCaja';
+export { SesionesCajaPage } from './SesionesCajaPage';

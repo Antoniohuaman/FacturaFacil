@@ -12,8 +12,11 @@ import {
   validateMediosPago,
   validateLimiteMaximo,
   validateMargenDescuadre,
+  validateUsuariosAutorizados,
   getFieldError
 } from '../../utils/cajasValidator';
+import { UsuariosAutorizadosSelector } from './UsuariosAutorizadosSelector';
+import { useConfigurationContext } from '../../context/ConfigurationContext';
 
 interface CajaFormProps {
   initialData?: UpdateCajaInput;
@@ -36,6 +39,8 @@ export function CajaForm({
   isEditing = false,
   existingNames = []
 }: CajaFormProps) {
+  const { state } = useConfigurationContext();
+  
   const [formData, setFormData] = useState<CreateCajaInput>({
     establecimientoId: initialData?.establecimientoId || defaultEstablishmentId,
     nombre: initialData?.nombre || '',
@@ -92,8 +97,17 @@ export function CajaForm({
       if (margenError) newErrors.push(margenError);
     }
 
+    if (touched.has('usuariosAutorizados') || touched.has('habilitada')) {
+      const usuariosError = validateUsuariosAutorizados(
+        formData.usuariosAutorizados,
+        state.employees,
+        formData.habilitada
+      );
+      if (usuariosError) newErrors.push(usuariosError);
+    }
+
     setErrors(newErrors);
-  }, [formData, touched, existingNames, isEditing]);
+  }, [formData, touched, existingNames, isEditing, state.employees]);
 
   const handleBlur = (field: string) => {
     setTouched(prev => new Set(prev).add(field));
@@ -411,6 +425,20 @@ export function CajaForm({
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           placeholder="Notas adicionales sobre esta caja..."
           aria-label="Observaciones"
+        />
+      </div>
+
+      {/* Usuarios Autorizados */}
+      <div>
+        <UsuariosAutorizadosSelector
+          value={formData.usuariosAutorizados || []}
+          onChange={(selectedIds) => {
+            setFormData(prev => ({ ...prev, usuariosAutorizados: selectedIds }));
+            setTouched(prev => new Set(prev).add('usuariosAutorizados'));
+          }}
+          filterByCashPermission={true}
+          disabled={isSubmitting}
+          error={getFieldError(errors, 'usuariosAutorizados')}
         />
       </div>
 

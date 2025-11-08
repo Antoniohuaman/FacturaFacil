@@ -8,6 +8,8 @@ import { DeleteCajaModal } from '../components/cajas/DeleteCajaModal';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
+import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
+import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import type { Caja } from '../models/Caja';
 
 type FilterStatus = 'all' | 'enabled' | 'disabled';
@@ -16,6 +18,7 @@ export function CajasConfiguration() {
   const navigate = useNavigate();
   const { state } = useConfigurationContext();
   const { session } = useUserSession();
+  const { toasts, success, error: showError, removeToast } = useToast();
   
   const empresaId = session?.currentCompanyId || '';
   const establecimientoId = session?.currentEstablishmentId || '';
@@ -73,8 +76,16 @@ export function CajasConfiguration() {
   const handleToggleEnabled = async (id: string) => {
     try {
       await toggleCajaEnabled(id);
+      const caja = cajas.find(c => c.id === id);
+      if (caja) {
+        success(
+          caja.habilitada ? 'Caja deshabilitada' : 'Caja habilitada',
+          `La caja "${caja.nombre}" ha sido ${caja.habilitada ? 'deshabilitada' : 'habilitada'} exitosamente.`
+        );
+      }
     } catch (err) {
-      console.error('Error toggling caja:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Error al cambiar estado de caja';
+      showError('Error', errorMsg);
     }
   };
 
@@ -99,11 +110,16 @@ export function CajasConfiguration() {
 
     try {
       await deleteCaja(cajaToDelete.id);
+      success(
+        'Caja eliminada',
+        `La caja "${cajaToDelete.nombre}" ha sido eliminada exitosamente.`
+      );
       setDeleteModalOpen(false);
       setCajaToDelete(null);
     } catch (err) {
-      console.error('Error deleting caja:', err);
-      // Error is already shown in the modal validation
+      const errorMsg = err instanceof Error ? err.message : 'Error al eliminar caja';
+      showError('Error al eliminar', errorMsg);
+      // Keep modal open to show error in UI
     }
   };
 
@@ -330,6 +346,9 @@ export function CajasConfiguration() {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
       />
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

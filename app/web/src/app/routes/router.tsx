@@ -11,6 +11,7 @@ import { PuntoVentaHome } from "../../features/comprobantes-electronicos/punto-v
 import ImportarClientesPage from "../../features/gestion-clientes/pages/ImportarClientesPage";
 import HistorialCompras from "../../features/gestion-clientes/pages/HistorialCompras";
 import ControlCajaHome from "../../features/control-caja/pages/Home";
+import { SesionesCajaPage } from "../../features/control-caja/pages/SesionesCajaPage";
 import ClientesPage from "../../features/gestion-clientes/pages/ClientesPage";
 import IndicadoresPage from "../../features/indicadores-negocio/pages/IndicadoresPage";
 import { ConfigurationDashboard } from "../../features/configuracion-sistema/pages/ConfigurationDashboard";
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
       { path: "/inventario", element: <InventoryPage /> },
       // Nota: ruta "/documentos-comerciales" eliminada porque el módulo fue removido
       { path: "/control-caja", element: <ControlCajaHome /> },
+      { path: "/caja/sesiones", element: <SesionesCajaPage /> },
       
       // Documentos de Negociación
       { path: "/documentos-negociacion", element: <DocumentosTabs /> },

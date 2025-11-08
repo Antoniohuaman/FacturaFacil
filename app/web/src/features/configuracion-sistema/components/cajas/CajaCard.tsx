@@ -100,10 +100,22 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: 
 
           <button
             onClick={handleDelete}
-            className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+            className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors group relative"
             title="Eliminar"
           >
             <Trash2 className="w-4 h-4" />
+            
+            {/* Tooltip */}
+            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-64 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg p-3 shadow-lg z-10">
+              <div className="font-semibold mb-1">Condiciones para eliminar:</div>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Caja inhabilitada</li>
+                <li>Sin historial de operaciones</li>
+                <li>Sin sesión abierta</li>
+              </ul>
+              {/* Arrow */}
+              <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+            </div>
           </button>
         </div>
       </div>
