@@ -1,0 +1,60 @@
+// Model for cash register (Caja) configuration within System Configuration
+// Scoped by empresaId and establecimientoId
+
+export type MedioPago = 'Efectivo' | 'Tarjeta' | 'Yape' | 'Plin' | 'Transferencia' | 'Deposito';
+
+export interface DispositivosCaja {
+  impresoraPorDefecto?: string;
+  pos?: string;
+}
+
+export interface Caja {
+  id: string;
+  empresaId: string;
+  establecimientoId: string;
+  nombre: string;
+  monedaId: string; // References Currency.id from the system's currency catalog
+  mediosPagoPermitidos: MedioPago[];
+  limiteMaximo: number; // Maximum cash limit (≥ 0)
+  margenDescuadre: number; // Allowed discrepancy margin (0-50)
+  habilitada: boolean;
+  usuariosAutorizados: string[]; // User/Role IDs authorized to operate this cash register
+  dispositivos?: DispositivosCaja;
+  observaciones?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateCajaInput {
+  nombre: string;
+  monedaId: string;
+  mediosPagoPermitidos: MedioPago[];
+  limiteMaximo: number;
+  margenDescuadre: number;
+  habilitada: boolean;
+  usuariosAutorizados?: string[];
+  dispositivos?: DispositivosCaja;
+  observaciones?: string;
+}
+
+export interface UpdateCajaInput extends Partial<CreateCajaInput> {
+  id: string;
+}
+
+// Validation constraints
+export const CAJA_CONSTRAINTS = {
+  NOMBRE_MAX_LENGTH: 60,
+  MARGEN_MIN: 0,
+  MARGEN_MAX: 50,
+  LIMITE_MIN: 0
+} as const;
+
+// Available payment methods for the system
+export const MEDIOS_PAGO_DISPONIBLES: MedioPago[] = [
+  'Efectivo',
+  'Tarjeta', 
+  'Yape',
+  'Plin',
+  'Transferencia',
+  'Deposito'
+] as const;

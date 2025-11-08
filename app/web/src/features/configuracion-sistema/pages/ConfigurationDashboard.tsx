@@ -14,7 +14,8 @@ import {
   Play,
   Settings,
   TrendingUp,
-  Shield
+  Shield,
+  Banknote
 } from 'lucide-react';
 import { PageHeader } from '../../../components/PageHeader';
 import { useConfigurationContext } from '../context/ConfigurationContext';
@@ -63,6 +64,10 @@ export function ConfigurationDashboard() {
     business: {
       isConfigured: state.paymentMethods.length > 0,
       completionPercentage: state.paymentMethods.length > 0 ? 100 : 0
+    },
+    cajas: {
+      isConfigured: state.cajas.length > 0,
+      completionPercentage: state.cajas.length > 0 ? 100 : 0
     }
   };
 
@@ -132,6 +137,17 @@ export function ConfigurationDashboard() {
       completionPercentage: status.employees.isConfigured ? 100 : 0,
       priority: 'medium',
       estimatedTime: '10 min'
+    },
+    {
+      id: 'cajas',
+      title: 'Cajas',
+      description: 'Gestiona las cajas registradoras por establecimiento',
+      icon: Banknote,
+      path: '/configuracion/cajas',
+      status: status.cajas.isConfigured ? 'complete' : 'pending',
+      completionPercentage: status.cajas.isConfigured ? 100 : 0,
+      priority: 'medium',
+      estimatedTime: '3 min'
     },
     {
       id: 'voucher-design',

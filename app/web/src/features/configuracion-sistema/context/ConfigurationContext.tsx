@@ -13,6 +13,7 @@ import type { VoucherDesign } from '../models/VoucherDesign';
 import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesign';
 import { SUNAT_UNITS } from '../models/Unit';
 import type { Warehouse } from '../models/Warehouse';
+import type { Caja } from '../models/Caja';
 
 // Category interface - moved from catalogo-articulos
 export interface Category {
@@ -53,6 +54,7 @@ interface ConfigurationState {
   taxAffectations: TaxAffectations;
   categories: Category[];
   voucherDesigns: VoucherDesign[];
+  cajas: Caja[];
   isLoading: boolean;
   error: string | null;
 }
@@ -84,7 +86,11 @@ type ConfigurationAction =
   | { type: 'SET_TAX_AFFECTATIONS'; payload: TaxAffectations }
   | { type: 'SET_CATEGORIES'; payload: Category[] }
   | { type: 'SET_VOUCHER_DESIGNS'; payload: VoucherDesign[] }
-  | { type: 'UPDATE_VOUCHER_DESIGN'; payload: VoucherDesign };
+  | { type: 'UPDATE_VOUCHER_DESIGN'; payload: VoucherDesign }
+  | { type: 'SET_CAJAS'; payload: Caja[] }
+  | { type: 'ADD_CAJA'; payload: Caja }
+  | { type: 'UPDATE_CAJA'; payload: Caja }
+  | { type: 'DELETE_CAJA'; payload: string };
 
 const initialState: ConfigurationState = {
   company: null,
@@ -98,6 +104,7 @@ const initialState: ConfigurationState = {
   taxes: [],
   categories: [],
   voucherDesigns: [],
+  cajas: [],
   taxAffectations: {
     igv: {
       isActive: true,
@@ -249,6 +256,29 @@ function configurationReducer(
         voucherDesigns: state.voucherDesigns.map(design =>
           design.id === action.payload.id ? action.payload : design
         )
+      };
+
+    case 'SET_CAJAS':
+      return { ...state, cajas: action.payload };
+
+    case 'ADD_CAJA':
+      return {
+        ...state,
+        cajas: [...state.cajas, action.payload]
+      };
+
+    case 'UPDATE_CAJA':
+      return {
+        ...state,
+        cajas: state.cajas.map(caja =>
+          caja.id === action.payload.id ? action.payload : caja
+        )
+      };
+
+    case 'DELETE_CAJA':
+      return {
+        ...state,
+        cajas: state.cajas.filter(caja => caja.id !== action.payload)
       };
 
     default:

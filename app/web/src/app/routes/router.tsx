@@ -21,6 +21,8 @@ import { EmployeesConfiguration } from "../../features/configuracion-sistema/pag
 import { SeriesConfiguration } from "../../features/configuracion-sistema/pages/SeriesConfiguration";
 import { BusinessConfiguration } from "../../features/configuracion-sistema/pages/BusinessConfiguration";
 import { VoucherDesignConfigurationNew } from "../../features/configuracion-sistema/pages/VoucherDesignConfigurationNew";
+import { CajasConfiguration } from "../../features/configuracion-sistema/pages/CajasConfiguration";
+import { CajaFormPage } from "../../features/configuracion-sistema/pages/CajaFormPage";
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../../features/lista-precios/components/ListaPrecios";
 import { InventoryPage } from "../../features/gestion-inventario/pages/InventoryPage";
@@ -75,6 +77,9 @@ export const router = createBrowserRouter([
       { path: "/configuracion/series", element: <SeriesConfiguration /> },
       { path: "/configuracion/negocio", element: <BusinessConfiguration /> },
       { path: "/configuracion/diseno", element: <VoucherDesignConfigurationNew /> },
+      { path: "/configuracion/cajas", element: <CajasConfiguration /> },
+      { path: "/configuracion/cajas/new", element: <CajaFormPage /> },
+      { path: "/configuracion/cajas/:id", element: <CajaFormPage /> },
     ],
   },
 ]);
