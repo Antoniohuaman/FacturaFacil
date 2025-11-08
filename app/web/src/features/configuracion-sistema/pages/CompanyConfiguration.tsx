@@ -37,6 +37,7 @@ interface CompanyFormData {
 }
 
 export function CompanyConfiguration() {
+  console.log('✅ CompanyConfiguration - VERSION SIN PERSONALIZACIÓN - Timestamp: ' + new Date().toISOString());
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
   const { company } = state;
