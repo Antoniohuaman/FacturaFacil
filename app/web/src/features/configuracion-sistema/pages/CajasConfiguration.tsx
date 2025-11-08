@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, AlertCircle, Banknote, ArrowLeft } from 'lucide-react';
 import { PageHeader } from '../../../components/PageHeader';
 import { CajaCard } from '../components/cajas/CajaCard';
+import { DeleteCajaModal } from '../components/cajas/DeleteCajaModal';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
+import type { Caja } from '../models/Caja';
 
 type FilterStatus = 'all' | 'enabled' | 'disabled';
 
@@ -23,12 +25,15 @@ export function CajasConfiguration() {
     cajas,
     loading,
     error,
-    toggleCajaEnabled
+    toggleCajaEnabled,
+    deleteCaja
   } = useCajas(empresaId, establecimientoId);
 
   const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterEstablishmentId, setFilterEstablishmentId] = useState<string>(establecimientoId);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [cajaToDelete, setCajaToDelete] = useState<Caja | null>(null);
 
   // Get all cajas for the company (not filtered by establishment yet)
   const allCajasForCompany = useMemo(() => {
@@ -79,6 +84,32 @@ export function CajasConfiguration() {
 
   const handleCreate = () => {
     navigate('/configuracion/cajas/new');
+  };
+
+  const handleDelete = (id: string) => {
+    const caja = cajas.find(c => c.id === id);
+    if (caja) {
+      setCajaToDelete(caja);
+      setDeleteModalOpen(true);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!cajaToDelete) return;
+
+    try {
+      await deleteCaja(cajaToDelete.id);
+      setDeleteModalOpen(false);
+      setCajaToDelete(null);
+    } catch (err) {
+      console.error('Error deleting caja:', err);
+      // Error is already shown in the modal validation
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModalOpen(false);
+    setCajaToDelete(null);
   };
 
   // Show banner if no establishment selected
@@ -284,12 +315,21 @@ export function CajasConfiguration() {
                   currency={currency}
                   onEdit={handleEdit}
                   onToggleEnabled={handleToggleEnabled}
+                  onDelete={handleDelete}
                 />
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Delete confirmation modal */}
+      <DeleteCajaModal
+        isOpen={deleteModalOpen}
+        caja={cajaToDelete}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 }

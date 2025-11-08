@@ -21,11 +21,13 @@ export interface Caja {
   usuariosAutorizados: string[]; // User/Role IDs authorized to operate this cash register
   dispositivos?: DispositivosCaja;
   observaciones?: string;
+  tieneHistorial: boolean; // Indicates if this caja has been used in any session (prevents deletion)
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface CreateCajaInput {
+  establecimientoId: string; // Required: establishment where this caja will be created
   nombre: string;
   monedaId: string;
   mediosPagoPermitidos: MedioPago[];

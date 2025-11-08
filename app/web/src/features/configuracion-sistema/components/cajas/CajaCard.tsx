@@ -1,5 +1,6 @@
 // CajaCard component - displays a cash register with actions
-import { Edit2, Power, PowerOff } from 'lucide-react';
+import { Edit2, Power, PowerOff, Trash2, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { Caja } from '../../models/Caja';
 import type { Currency } from '../../models/Currency';
 
@@ -8,9 +9,10 @@ interface CajaCardProps {
   currency?: Currency;
   onEdit: (id: string) => void;
   onToggleEnabled: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
-export function CajaCard({ caja, currency, onEdit, onToggleEnabled }: CajaCardProps) {
+export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: CajaCardProps) {
   const handleToggleEnabled = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggleEnabled(caja.id);
@@ -19,6 +21,11 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled }: CajaCardPr
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     onEdit(caja.id);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(caja.id);
   };
 
   const formatDate = (date: Date) => {
@@ -90,6 +97,14 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled }: CajaCardPr
           >
             {caja.habilitada ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
           </button>
+
+          <button
+            onClick={handleDelete}
+            className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+            title="Eliminar"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -137,6 +152,17 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled }: CajaCardPr
           </p>
         </div>
       )}
+
+      {/* Ver Turnos Link */}
+      <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+        <Link
+          to={`/caja/sesiones?cajaId=${caja.id}&establecimientoId=${caja.establecimientoId}`}
+          className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          <Clock className="w-4 h-4" />
+          Ver Turnos
+        </Link>
+      </div>
     </div>
   );
 }

@@ -3,10 +3,12 @@ import { useState, useEffect } from 'react';
 import type { CreateCajaInput, UpdateCajaInput, MedioPago } from '../../models/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../../models/Caja';
 import type { Currency } from '../../models/Currency';
+import type { Establishment } from '../../models/Establishment';
 import type { ValidationError } from '../../utils/cajasValidator';
 import { 
   validateNombre, 
   validateMoneda, 
+  validateEstablecimiento,
   validateMediosPago,
   validateLimiteMaximo,
   validateMargenDescuadre,
@@ -16,6 +18,8 @@ import {
 interface CajaFormProps {
   initialData?: UpdateCajaInput;
   currencies: Currency[];
+  establishments: Establishment[];
+  defaultEstablishmentId: string;
   onSubmit: (data: CreateCajaInput | UpdateCajaInput) => Promise<void>;
   onCancel: () => void;
   isEditing?: boolean;
@@ -25,12 +29,15 @@ interface CajaFormProps {
 export function CajaForm({
   initialData,
   currencies,
+  establishments,
+  defaultEstablishmentId,
   onSubmit,
   onCancel,
   isEditing = false,
   existingNames = []
 }: CajaFormProps) {
   const [formData, setFormData] = useState<CreateCajaInput>({
+    establecimientoId: initialData?.establecimientoId || defaultEstablishmentId,
     nombre: initialData?.nombre || '',
     monedaId: initialData?.monedaId || '',
     mediosPagoPermitidos: initialData?.mediosPagoPermitidos || [],
@@ -49,6 +56,11 @@ export function CajaForm({
   // Real-time validation
   useEffect(() => {
     const newErrors: ValidationError[] = [];
+
+    if (touched.has('establecimientoId')) {
+      const establecimientoError = validateEstablecimiento(formData.establecimientoId);
+      if (establecimientoError) newErrors.push(establecimientoError);
+    }
 
     if (touched.has('nombre')) {
       const nombreError = validateNombre(formData.nombre);
@@ -102,6 +114,7 @@ export function CajaForm({
 
     // Mark all fields as touched
     setTouched(new Set([
+      'establecimientoId',
       'nombre', 
       'monedaId', 
       'mediosPagoPermitidos', 
@@ -111,6 +124,9 @@ export function CajaForm({
 
     // Validate all fields
     const allErrors: ValidationError[] = [];
+    
+    const establecimientoError = validateEstablecimiento(formData.establecimientoId);
+    if (establecimientoError) allErrors.push(establecimientoError);
     
     const nombreError = validateNombre(formData.nombre);
     if (nombreError) allErrors.push(nombreError);
@@ -148,6 +164,47 @@ export function CajaForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Establecimiento */}
+      <div>
+        <label htmlFor="establecimiento" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Establecimiento <span className="text-red-500">*</span>
+        </label>
+        <select
+          id="establecimiento"
+          value={formData.establecimientoId}
+          onChange={(e) => setFormData(prev => ({ ...prev, establecimientoId: e.target.value }))}
+          onBlur={() => handleBlur('establecimientoId')}
+          disabled={isEditing} // Cannot change establishment when editing
+          className={`
+            w-full px-4 py-2 border rounded-lg
+            focus:outline-none focus:ring-2 focus:ring-blue-500
+            dark:bg-gray-800 dark:border-gray-600 dark:text-white
+            disabled:bg-gray-100 disabled:cursor-not-allowed dark:disabled:bg-gray-700
+            ${fieldError('establecimientoId') ? 'border-red-500' : 'border-gray-300'}
+          `}
+          aria-label="Establecimiento"
+          aria-describedby={fieldError('establecimientoId') ? 'establecimiento-error' : undefined}
+          aria-invalid={!!fieldError('establecimientoId')}
+        >
+          <option value="">Seleccionar establecimiento</option>
+          {establishments.map((est) => (
+            <option key={est.id} value={est.id}>
+              {est.name} - {est.code}
+            </option>
+          ))}
+        </select>
+        {fieldError('establecimientoId') && (
+          <span id="establecimiento-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
+            {fieldError('establecimientoId')}
+          </span>
+        )}
+        {isEditing && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            No se puede cambiar el establecimiento de una caja existente
+          </p>
+        )}
+      </div>
+
       {/* Nombre */}
       <div>
         <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

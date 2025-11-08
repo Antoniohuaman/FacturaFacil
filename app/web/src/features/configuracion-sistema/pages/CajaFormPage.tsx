@@ -141,6 +141,7 @@ export function CajaFormPage() {
           <CajaForm
             initialData={currentCaja ? {
               id: currentCaja.id,
+              establecimientoId: currentCaja.establecimientoId,
               nombre: currentCaja.nombre,
               monedaId: currentCaja.monedaId,
               mediosPagoPermitidos: currentCaja.mediosPagoPermitidos,
@@ -152,6 +153,8 @@ export function CajaFormPage() {
               observaciones: currentCaja.observaciones
             } : undefined}
             currencies={state.currencies}
+            establishments={state.establishments}
+            defaultEstablishmentId={establecimientoId}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isEditing={isEditing}

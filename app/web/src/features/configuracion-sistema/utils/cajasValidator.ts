@@ -68,6 +68,17 @@ export function validateMoneda(monedaId: string): ValidationError | null {
 }
 
 /**
+ * Validates establishment selection
+ */
+export function validateEstablecimiento(establecimientoId: string): ValidationError | null {
+  if (!establecimientoId || establecimientoId.trim().length === 0) {
+    return { field: 'establecimientoId', message: 'Debe seleccionar un establecimiento' };
+  }
+
+  return null;
+}
+
+/**
  * Validates payment methods
  */
 export function validateMediosPago(

@@ -34,9 +34,11 @@ export interface ICajasDataSource {
   toggleEnabled(empresaId: string, establecimientoId: string, id: string): Promise<Caja>;
 
   /**
-   * Delete a caja (optional - may not be used initially)
+   * Delete a caja
+   * Validation: Only allows deletion if habilitada === false AND tieneHistorial === false
+   * @throws Error if caja is enabled or has history
    */
-  delete?(empresaId: string, establecimientoId: string, id: string): Promise<void>;
+  delete(empresaId: string, establecimientoId: string, id: string): Promise<void>;
 }
 
 /**
@@ -86,23 +88,33 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
     return cajas.find(c => c.id === id) || null;
   }
 
-  async create(empresaId: string, establecimientoId: string, input: CreateCajaInput): Promise<Caja> {
+  async create(empresaId: string, _establecimientoId: string, input: CreateCajaInput): Promise<Caja> {
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    const cajas = this.loadData(empresaId, establecimientoId);
+    // Use establecimientoId from input (user can select different establishment)
+    const targetEstablishmentId = input.establecimientoId;
+    const cajas = this.loadData(empresaId, targetEstablishmentId);
     
     const newCaja: Caja = {
       id: crypto.randomUUID(),
       empresaId,
-      establecimientoId,
-      ...input,
+      establecimientoId: targetEstablishmentId,
+      nombre: input.nombre,
+      monedaId: input.monedaId,
+      mediosPagoPermitidos: input.mediosPagoPermitidos,
+      limiteMaximo: input.limiteMaximo,
+      margenDescuadre: input.margenDescuadre,
+      habilitada: input.habilitada,
       usuariosAutorizados: input.usuariosAutorizados || [],
+      dispositivos: input.dispositivos,
+      observaciones: input.observaciones,
+      tieneHistorial: false, // New cajas start with no history
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
     cajas.push(newCaja);
-    this.saveData(empresaId, establecimientoId, cajas);
+    this.saveData(empresaId, targetEstablishmentId, cajas);
     
     return newCaja;
   }
@@ -157,8 +169,22 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
     await new Promise(resolve => setTimeout(resolve, 100));
     
     const cajas = this.loadData(empresaId, establecimientoId);
-    const filtered = cajas.filter(c => c.id !== id);
+    const caja = cajas.find(c => c.id === id);
     
+    if (!caja) {
+      throw new Error(`Caja with id ${id} not found`);
+    }
+
+    // Validation rule: can only delete if disabled AND has no history
+    if (caja.habilitada) {
+      throw new Error('La caja está habilitada.');
+    }
+
+    if (caja.tieneHistorial) {
+      throw new Error('La caja ya tiene historial de uso.');
+    }
+    
+    const filtered = cajas.filter(c => c.id !== id);
     this.saveData(empresaId, establecimientoId, filtered);
   }
 }
