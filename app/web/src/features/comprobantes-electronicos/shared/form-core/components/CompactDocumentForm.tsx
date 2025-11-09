@@ -322,15 +322,15 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
           )
         }
       >
-        {/* ========== GRID 2 COLUMNAS: Campos compactos h-9 ========== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* ========== GRID 12 COLS: Layout compacto y profesional ========== */}
+        <div className="grid grid-cols-12 gap-x-4 gap-y-3 text-[13px]">
 
-          {/* COLUMNA IZQUIERDA */}
-          <div className="space-y-2">
+          {/* COLUMNA IZQUIERDA (L) */}
+          <div className="col-span-12 lg:col-span-6 space-y-3">
             {/* Cliente */}
             {!clienteSeleccionadoLocal ? (
               <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="cliente-buscar">
                   <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Cliente<span className="ml-0.5 text-red-500">*</span>
                 </label>
@@ -339,7 +339,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <input
                     type="text"
                     placeholder="Buscar por nombre o documento..."
-                    className="w-full h-9 pl-9 pr-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
+                    id="cliente-buscar"
+                    className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -370,7 +371,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                       ))
                     ) : (
                       <div className="px-3 py-3 text-center">
-                        <p className="text-xs text-gray-500">No se encontraron clientes</p>
+                        <p className="text-[12px] text-gray-500">No se encontraron clientes</p>
                       </div>
                     )}
                   </div>
@@ -378,7 +379,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
                 {/* Botón crear nuevo cliente */}
                 <button
-                  className="mt-1 flex items-center justify-center gap-1.5 text-violet-600 hover:text-violet-700 text-xs font-medium w-full h-8 border border-violet-200 rounded-lg hover:bg-violet-50 transition-all"
+                  className="mt-1 flex items-center justify-center gap-1.5 text-primary hover:text-primary/80 text-[12px] font-medium w-full h-8 border border-slate-300 rounded-xl hover:bg-slate-50 transition-all"
                   onClick={handleNuevoCliente}
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -387,12 +388,12 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               </div>
             ) : (
               <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1">
                   <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Cliente Seleccionado
                 </label>
                 <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg p-3 border border-violet-200 shadow-sm">
-                  <p className="text-sm font-semibold text-gray-900 mb-1.5">{clienteSeleccionadoLocal.nombre}</p>
+                  <p className="text-[13px] font-semibold text-gray-900 mb-1.5">{clienteSeleccionadoLocal.nombre}</p>
                   <div className="grid grid-cols-2 gap-1.5 text-[11px]">
                     <div className="bg-white rounded px-2 py-1 border border-violet-100">
                       <span className="font-medium text-gray-500 block">Doc:</span>
@@ -405,14 +406,14 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   </div>
                   <div className="flex gap-1.5 mt-2">
                     <button
-                      className="flex items-center justify-center gap-1 text-violet-600 text-[11px] font-medium px-2 py-1 border border-violet-200 rounded hover:bg-violet-50"
+                      className="flex items-center justify-center gap-1 text-primary text-[11px] font-medium px-2 py-1 border border-slate-300 rounded hover:bg-slate-50"
                       onClick={handleEditarCliente}
                     >
                       <Edit className="w-3 h-3" />
                       <span>Editar</span>
                     </button>
                     <button
-                      className="flex-1 text-gray-700 text-[11px] font-medium px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                      className="flex-1 text-gray-700 text-[11px] font-medium px-2 py-1 border border-slate-300 rounded hover:bg-gray-50"
                       onClick={() => {
                         setClienteSeleccionadoLocal(null);
                         setSearchQuery('');
@@ -428,7 +429,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {/* Dirección */}
             {config.optionalFields.direccion.visible && (
               <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="direccion">
                   <MapPin className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Dirección
                   {config.optionalFields.direccion.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -438,7 +439,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   required={config.optionalFields.direccion.required}
                   value={localDireccion}
                   onChange={(e) => { setLocalDireccion(e.target.value); onOptionalFieldsChange?.({ direccion: e.target.value }); }}
-                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
+                  id="direccion"
+                  className="h-9 w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
                   placeholder="Dirección del cliente"
                 />
               </div>
@@ -447,7 +449,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {/* Dirección de Envío */}
             {config.optionalFields.direccionEnvio.visible && (
               <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="direccion-envio">
                   <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Dirección de Envío
                   {config.optionalFields.direccionEnvio.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -457,56 +459,21 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   required={config.optionalFields.direccionEnvio.required}
                   value={localDireccionEnvio}
                   onChange={(e) => { setLocalDireccionEnvio(e.target.value); onOptionalFieldsChange?.({ direccionEnvio: e.target.value }); }}
-                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
+                  id="direccion-envio"
+                  className="h-9 w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
                   placeholder="Ej: Av. Principal 123, Lima"
                 />
               </div>
             )}
-
-            {/* Orden de Compra */}
-            {config.optionalFields.ordenCompra.visible && (
-              <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                  <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Orden de Compra
-                  {config.optionalFields.ordenCompra.required && <span className="ml-0.5 text-red-500">*</span>}
-                </label>
-                <input
-                  type="text"
-                  required={config.optionalFields.ordenCompra.required}
-                  value={localOrdenCompra}
-                  onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChange?.({ ordenCompra: e.target.value }); }}
-                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
-                  placeholder="Ej: OC01-0000236"
-                />
-              </div>
-            )}
-
-            {/* Correo Electrónico */}
-            {config.optionalFields.correo.visible && (
-              <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                  <Mail className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Email
-                  {config.optionalFields.correo.required && <span className="ml-0.5 text-red-500">*</span>}
-                </label>
-                <input
-                  type="email"
-                  required={config.optionalFields.correo.required}
-                  value={localCorreo}
-                  onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChange?.({ correo: e.target.value }); }}
-                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
-                  placeholder="cliente@empresa.com"
-                />
-              </div>
-            )}
+            {/* (Email y Orden de Compra se reubican a columna derecha como M) */}
           </div>
 
-          {/* COLUMNA DERECHA */}
-          <div className="space-y-2">
+          {/* COLUMNA DERECHA (S/M en filas) */}
+          <div className="col-span-12 lg:col-span-6">
+            <div className="grid grid-cols-12 gap-x-4 gap-y-3">
             {/* Serie */}
-            <div>
-              <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+            <div className="col-span-6 xl:col-span-3">
+              <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="serie">
                 <Hash className="w-3.5 h-3.5 mr-1 text-violet-600" />
                 Serie<span className="ml-0.5 text-red-500">*</span>
               </label>
@@ -514,7 +481,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 {seriesFiltradas.length > 0 ? (
                   <>
                     <select
-                      className="w-full h-9 px-3 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 bg-white appearance-none cursor-pointer shadow-sm"
+                      id="serie"
+                      className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white appearance-none cursor-pointer shadow-sm text-[13px]"
                       value={serieSeleccionada}
                       onChange={e => setSerieSeleccionada(e.target.value)}
                     >
@@ -525,7 +493,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
                   </>
                 ) : (
-                  <div className="w-full h-9 px-3 flex items-center border border-amber-300 rounded-lg bg-amber-50 text-xs font-medium text-amber-700">
+                  <div className="w-full h-9 px-3 flex items-center border border-amber-300 rounded-xl bg-amber-50 text-[12px] font-medium text-amber-700">
                     ⚠️ Sin series
                   </div>
                 )}
@@ -533,8 +501,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             </div>
 
             {/* Fecha Emisión */}
-            <div>
-              <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+            <div className="col-span-6 xl:col-span-3">
+              <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="fecha-emision">
                 <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
                 Fecha de Emisión<span className="ml-0.5 text-red-500">*</span>
               </label>
@@ -546,18 +514,20 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   onFechaEmisionChange?.(e.target.value);
                   onOptionalFieldsChange?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
                 }}
-                className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 shadow-sm"
+                id="fecha-emision"
+                className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
               />
             </div>
 
             {/* Moneda */}
-            <div>
-              <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+            <div className="col-span-6 xl:col-span-3">
+              <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="moneda">
                 <DollarSign className="w-3.5 h-3.5 mr-1 text-green-600" />
                 Moneda
               </label>
               <select
-                className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 bg-white shadow-sm"
+                id="moneda"
+                className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white shadow-sm text-[13px]"
                 value={moneda}
                 onChange={e => setMoneda?.(e.target.value)}
               >
@@ -567,13 +537,14 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             </div>
 
             {/* Forma de Pago */}
-            <div>
-              <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+            <div className="col-span-6 xl:col-span-3">
+              <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="forma-pago">
                 <CreditCard className="w-3.5 h-3.5 mr-1 text-purple-600" />
                 Forma de Pago
               </label>
               <select
-                className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 bg-white shadow-sm"
+                id="forma-pago"
+                className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white shadow-sm text-[13px]"
                 value={formaPago}
                 onChange={e => setFormaPago?.(e.target.value)}
               >
@@ -591,7 +562,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               {onNuevaFormaPago && (
                 <button
                   type="button"
-                  className="mt-1 text-violet-600 hover:text-violet-700 text-[11px] font-medium hover:underline"
+                  className="mt-1 text-[12px] text-slate-500 hover:text-slate-600 font-medium hover:underline"
                   onClick={onNuevaFormaPago}
                 >
                   + Nueva forma de pago
@@ -601,8 +572,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
             {/* Fecha de Vencimiento */}
             {config.optionalFields.fechaVencimiento.visible && (
-              <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+              <div className="col-span-6 xl:col-span-3">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="fecha-vencimiento">
                   <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Fecha de Vencimiento
                   {config.optionalFields.fechaVencimiento.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -612,32 +583,33 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   required={config.optionalFields.fechaVencimiento.required}
                   value={localFechaVencimiento}
                   onChange={(e) => { setLocalFechaVencimiento(e.target.value); onOptionalFieldsChange?.({ fechaVencimiento: e.target.value }); }}
-                  className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 shadow-sm"
+                  id="fecha-vencimiento"
+                  className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
                 />
               </div>
             )}
 
             {/* Vendedor */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+            <div className="col-span-6 xl:col-span-4">
+              <label className="block text-[12px] font-medium text-slate-600 mb-1">
                 <User className="w-3.5 h-3.5 inline mr-1 text-violet-600" />
                 Vendedor
               </label>
-              <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg px-3 py-2 border border-violet-200 shadow-sm">
+              <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl px-3 py-2 border border-violet-200 shadow-sm w-full max-w-[360px]">
                 <div className="w-7 h-7 bg-gradient-to-br from-violet-600 to-purple-600 rounded-full flex items-center justify-center shadow flex-shrink-0">
                   <User className="w-3.5 h-3.5 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-gray-900 truncate">Javier Masías Loza</p>
-                  <p className="text-[10px] text-gray-500">ID: 001</p>
+                  <p className="text-[12px] font-semibold text-gray-900 truncate">Javier Masías Loza</p>
+                  <p className="text-[11px] text-gray-500">ID: 001</p>
                 </div>
               </div>
             </div>
 
-            {/* Centro de Costo */}
+            {/* Centro de Costo (S) */}
             {config.optionalFields.centroCosto.visible && (
-              <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+              <div className="col-span-6 xl:col-span-3">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="centro-costo">
                   <Building2 className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Centro de Costo
                   {config.optionalFields.centroCosto.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -647,17 +619,17 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   required={config.optionalFields.centroCosto.required}
                   value={localCentroCosto}
                   onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChange?.({ centroCosto: e.target.value }); }}
-                  className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm shadow-sm"
+                  id="centro-costo"
+                  className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
                   placeholder="Ingrese centro de costos"
                 />
               </div>
             )}
 
-            {/* Guía de Remisión */}
-            {/* Guía de Remisión */}
+            {/* Guía de Remisión (S) */}
             {config.optionalFields.guiaRemision.visible && (
-              <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+              <div className="col-span-6 xl:col-span-3">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="guia-remision">
                   <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   N° de Guía de Remisión
                   {config.optionalFields.guiaRemision.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -667,11 +639,53 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   required={config.optionalFields.guiaRemision.required}
                   value={localGuiaRemision}
                   onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChange?.({ guiaRemision: e.target.value }); }}
-                  className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm shadow-sm"
+                  id="guia-remision"
+                  className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
                   placeholder="Ej: T001-00000256"
                 />
               </div>
             )}
+
+            {/* Orden de Compra (M) */}
+            {config.optionalFields.ordenCompra.visible && (
+              <div className="col-span-12 xl:col-span-5">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="orden-compra">
+                  <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                  Orden de Compra
+                  {config.optionalFields.ordenCompra.required && <span className="ml-0.5 text-red-500">*</span>}
+                </label>
+                <input
+                  type="text"
+                  required={config.optionalFields.ordenCompra.required}
+                  value={localOrdenCompra}
+                  onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChange?.({ ordenCompra: e.target.value }); }}
+                  id="orden-compra"
+                  className="h-9 w-full max-w-[360px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                  placeholder="Ej: OC01-0000236"
+                />
+              </div>
+            )}
+
+            {/* Email (M) */}
+            {config.optionalFields.correo.visible && (
+              <div className="col-span-12 xl:col-span-6">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="email">
+                  <Mail className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                  Email
+                  {config.optionalFields.correo.required && <span className="ml-0.5 text-red-500">*</span>}
+                </label>
+                <input
+                  type="email"
+                  required={config.optionalFields.correo.required}
+                  value={localCorreo}
+                  onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChange?.({ correo: e.target.value }); }}
+                  id="email"
+                  className="h-9 w-full max-w-[360px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                  placeholder="cliente@empresa.com"
+                />
+              </div>
+            )}
+            </div>
           </div>
         </div>
       </ConfigurationCard>
