@@ -17,9 +17,9 @@ export class StockRepository {
       const data = localStorage.getItem(STORAGE_KEY_MOVEMENTS);
       if (!data) return [];
 
-      const movements = JSON.parse(data);
-      // Convertir fechas de string a Date
-      return movements.map((mov: any) => ({
+      const movements: MovimientoStock[] = JSON.parse(data);
+      // Convertir fechas de string a Date sin utilizar any
+      return movements.map((mov) => ({
         ...mov,
         fecha: new Date(mov.fecha)
       }));
