@@ -10,8 +10,6 @@ import type {
 import type { ToastMessage, ToastType } from "../components/common/Toast";
 import { calcularResumenCaja } from "../utils/calculations";
 import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/errors";
-import { cajasDataSource } from "../../configuracion-sistema/api/cajasDataSource";
-import { useUserSession } from "../../../contexts/UserSessionContext";
 
 interface CajaContextValue {
   // Estado de caja
@@ -65,11 +63,6 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Obtener empresaId y establecimientoId del contexto de sesión
-  const { session } = useUserSession();
-  const empresaId = session?.currentCompanyId || '';
-  const establecimientoId = session?.currentEstablishmentId || '';
-
   // Funciones de toast
   const showToast = useCallback((type: ToastType, title: string, message: string, duration: number = 5000) => {
     const id = `toast-${Date.now()}-${Math.random()}`;
@@ -85,29 +78,9 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const abrirCaja = useCallback(async (apertura: Omit<AperturaCaja, 'id'>) => {
     setIsLoading(true);
     try {
-      // Validar autorización del usuario para operar esta caja
-      if (empresaId && establecimientoId && apertura.cajaId && session?.userId) {
-        try {
-          const caja = await cajasDataSource.getById(empresaId, establecimientoId, apertura.cajaId);
-          
-          // Verificar si el usuario está autorizado
-          if (caja && caja.usuariosAutorizados && caja.usuariosAutorizados.length > 0) {
-            if (!caja.usuariosAutorizados.includes(session.userId)) {
-              showToast(
-                "error",
-                "No autorizado",
-                "No estás autorizado para operar esta caja."
-              );
-              setIsLoading(false);
-              return;
-            }
-          }
-        } catch (error) {
-          console.error('Error validando autorización de caja:', error);
-          // Continuamos si no podemos verificar (para no bloquear en caso de error de sistema)
-        }
-      }
-
+      // TODO: Validación de autorización debe hacerse en la página que llama a abrirCaja
+      // (donde se tiene acceso a useUserSession)
+      
       // Simular llamada a API
       await new Promise((resolve) => setTimeout(resolve, 800));
 
@@ -120,23 +93,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       setStatus("abierta");
       setMovimientos([]);
 
-      // Actualizar flags en Configuración → Cajas
-      if (empresaId && establecimientoId && apertura.cajaId) {
-        try {
-          await cajasDataSource.update(empresaId, establecimientoId, apertura.cajaId, {
-            tieneHistorial: true,
-            tieneSesionAbierta: true
-          });
-        } catch (error) {
-          console.error('Error actualizando flags de caja:', error);
-          // No bloqueamos la apertura si falla la actualización de flags
-          showToast(
-            "warning",
-            "Advertencia",
-            "La caja se abrió pero no se pudieron actualizar todos los registros."
-          );
-        }
-      }
+      // TODO: Actualización de flags (tieneHistorial, tieneSesionAbierta) debe hacerse
+      // desde la página que tiene acceso a empresaId/establecimientoId
 
       showToast(
         "success",
@@ -153,7 +111,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [showToast, empresaId, establecimientoId]);
+  }, [showToast]);
 
   const cerrarCaja = useCallback(async (cierreCaja: Omit<CierreCaja, 'id' | 'aperturaId'>) => {
     if (!aperturaActual) {
@@ -178,17 +136,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       setStatus("cerrada");
       setAperturaActual(null);
 
-      // Actualizar flag de sesión en Configuración → Cajas
-      if (empresaId && establecimientoId && aperturaActual.cajaId) {
-        try {
-          await cajasDataSource.update(empresaId, establecimientoId, aperturaActual.cajaId, {
-            tieneSesionAbierta: false
-          });
-        } catch (error) {
-          console.error('Error actualizando flag de sesión:', error);
-          // No bloqueamos el cierre si falla la actualización del flag
-        }
-      }
+      // TODO: Actualización de flag tieneSesionAbierta debe hacerse desde la página
+      // que tiene acceso a empresaId/establecimientoId
 
       showToast(
         "success",
@@ -204,7 +153,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [aperturaActual, movimientos, margenDescuadre, showToast, empresaId, establecimientoId]);
+  }, [aperturaActual, movimientos, margenDescuadre, showToast]);
 
   const agregarMovimiento = useCallback(async (movimiento: Omit<Movimiento, 'id' | 'fecha' | 'cajaId' | 'aperturaId'>) => {
     if (!aperturaActual) {
