@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import type { CartItem, DraftAction, TipoComprobante } from '../../../models/comprobante.types';
 import { UNIDADES_MEDIDA } from '../../../models/constants';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
-import { Settings, CheckSquare, Square } from 'lucide-react';
+import { CheckSquare, Square, Sliders } from 'lucide-react';
 
 interface ProductsSectionProps {
   cartItems: CartItem[];
@@ -151,14 +151,6 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     [columnConfig]
   );
 
-  // ✅ Ancho dinámico de columnas según cantidad visible
-  const dynamicColumnWidths = useMemo(() => {
-    const optionalCount = visibleColumns.filter(c => !c.isFixed).length;
-    // Reducir ancho si hay muchas columnas opcionales
-    const scaleFactor = optionalCount > 8 ? 0.85 : optionalCount > 5 ? 0.9 : 1;
-    return scaleFactor;
-  }, [visibleColumns]);
-
   // ✅ Toggle columna
   const toggleColumn = (columnId: string) => {
     setColumnConfig(prev => prev.map(col =>
@@ -197,17 +189,17 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     switch (columnId) {
       case 'producto':
         return (
-          <td className="px-4 py-4 sticky left-0 bg-white">
+          <td className="px-3 py-2.5 sticky left-0 bg-white">
             <div>
-              <div className="font-medium text-gray-900 text-sm">{item.name}</div>
+              <div className="font-medium text-gray-900 text-xs">{item.name}</div>
             </div>
           </td>
         );
 
       case 'codigo':
         return (
-          <td className="px-4 py-4">
-            <div className="text-xs text-gray-600 font-mono">{item.code}</div>
+          <td className="px-3 py-2.5">
+            <div className="text-[11px] text-gray-600 font-mono">{item.code}</div>
           </td>
         );
 
@@ -359,10 +351,10 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
       case 'cantidad':
         return (
-          <td className="px-4 py-4">
-            <div className="flex items-center justify-center space-x-2">
+          <td className="px-3 py-2.5">
+            <div className="flex items-center justify-center gap-1.5">
               <button
-                className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold rounded hover:bg-gray-100"
+                className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-base font-bold rounded hover:bg-gray-100"
                 onClick={() => updateCartItem(item.id, {
                   quantity: Math.max(0.01, parseFloat((item.quantity - 1).toFixed(2)))
                 })}
@@ -375,14 +367,14 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                 min={0.01}
                 step={0.01}
                 value={item.quantity}
-                className="w-14 h-8 px-2 py-0 border border-gray-400 rounded text-center font-semibold text-sm focus:border-blue-500 focus:outline-none"
+                className="w-12 h-8 px-1.5 py-0 border border-gray-400 rounded text-center font-semibold text-xs focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
                 onChange={e => {
                   const newQty = parseFloat(e.target.value) || 0.01;
                   updateCartItem(item.id, { quantity: newQty });
                 }}
               />
               <button
-                className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-lg font-bold rounded hover:bg-gray-100"
+                className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-base font-bold rounded hover:bg-gray-100"
                 onClick={() => updateCartItem(item.id, {
                   quantity: parseFloat((item.quantity + 1).toFixed(2))
                 })}
@@ -512,30 +504,30 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-      {/* Header */}
-      <div className="mb-4 pb-4 border-b border-gray-200">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+      {/* Header compacto */}
+      <div className="mb-3 pb-3 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Productos del Comprobante</h3>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Agregue productos para la venta y configure las columnas visibles de su preferencia.
+            <h3 className="text-base font-semibold text-gray-900">Productos del Comprobante</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Agregue productos y personalice las columnas visibles.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Botón de configuración de columnas */}
+          <div className="flex items-center gap-2">
+            {/* Icono de sliders para configuración */}
             <button
               onClick={() => setShowColumnConfig(!showColumnConfig)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-              title="Configurar columnas visibles"
+              className="flex items-center justify-center w-9 h-9 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-violet-400 transition-all shadow-sm"
+              title="Personalizar columnas"
+              aria-label="Configurar columnas visibles"
             >
-              <Settings className="w-4 h-4" />
-              <span>Configurar columnas</span>
+              <Sliders className="w-4 h-4" />
             </button>
             {cartItems.length > 0 && (
-              <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-blue-700">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-violet-50 border border-violet-200 rounded-lg">
+                <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-pulse"></div>
+                <span className="text-xs font-medium text-violet-700">
                   {cartItems.length} {cartItems.length === 1 ? 'producto' : 'productos'}
                 </span>
               </div>
@@ -544,57 +536,58 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         </div>
       </div>
 
-      {/* ✅ Panel de configuración de columnas MEJORADO */}
+      {/* ✅ Panel de configuración de columnas COMPACTO */}
       {showColumnConfig && (
-        <div className="mb-4 p-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 shadow-sm">
+        <div className="mb-3 p-4 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-200 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h4 className="text-sm font-semibold text-gray-900">Personalizar columnas de la tabla</h4>
-              <p className="text-xs text-gray-600 mt-1">
-                Selecciona las columnas que deseas ver. Tu configuración se guarda automáticamente.
+              <h4 className="text-xs font-semibold text-gray-900">Personalizar columnas</h4>
+              <p className="text-[11px] text-gray-600 mt-0.5">
+                Selecciona las columnas visibles. Tu configuración se guarda automáticamente.
               </p>
             </div>
             <button
               onClick={() => setShowColumnConfig(false)}
-              className="text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-200 transition-colors"
+              className="text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-white/50 transition-colors"
+              aria-label="Cerrar panel"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          {/* ✅ Botones de acción */}
-          <div className="flex items-center gap-2 mb-4">
+          {/* ✅ Botones de acción compactos */}
+          <div className="flex items-center gap-1.5 mb-3">
             <button
               onClick={selectAllOptional}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-violet-700 bg-violet-100 border border-violet-300 rounded-lg hover:bg-violet-200 transition-colors"
             >
-              <CheckSquare className="w-4 h-4" />
-              Seleccionar todo
+              <CheckSquare className="w-3.5 h-3.5" />
+              Todo
             </button>
             <button
               onClick={clearAllOptional}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <Square className="w-4 h-4" />
-              Limpiar selección
+              <Square className="w-3.5 h-3.5" />
+              Limpiar
             </button>
-            <div className="ml-auto text-xs text-gray-500">
-              {columnConfig.filter(c => !c.isFixed && c.isVisible).length} de {columnConfig.filter(c => !c.isFixed).length} opcionales activas
+            <div className="ml-auto text-[11px] text-gray-500">
+              {columnConfig.filter(c => !c.isFixed && c.isVisible).length} de {columnConfig.filter(c => !c.isFixed).length} activas
             </div>
           </div>
 
-          {/* Grid de columnas */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {/* Grid de columnas compacto */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
             {columnConfig.map(col => (
               <label
                 key={col.id}
-                className={`flex items-center gap-2 px-3 py-2 rounded border transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded border transition-all text-[11px] ${
                   col.isFixed
                     ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-70'
                     : col.isVisible
-                    ? 'bg-blue-50 border-blue-300 cursor-pointer hover:bg-blue-100'
+                    ? 'bg-violet-100 border-violet-300 cursor-pointer hover:bg-violet-200'
                     : 'bg-white border-gray-200 cursor-pointer hover:bg-gray-50 hover:border-gray-300'
                 }`}
               >
@@ -603,11 +596,11 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                   checked={col.isVisible}
                   disabled={col.isFixed}
                   onChange={() => !col.isFixed && toggleColumn(col.id)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50 cursor-pointer"
+                  className="w-3.5 h-3.5 text-violet-600 rounded focus:ring-2 focus:ring-violet-500 disabled:opacity-50 cursor-pointer"
                 />
-                <span className={`text-sm ${col.isFixed ? 'text-gray-500 font-medium' : col.isVisible ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
+                <span className={`${col.isFixed ? 'text-gray-500 font-medium' : col.isVisible ? 'text-violet-900 font-medium' : 'text-gray-700'}`}>
                   {col.label}
-                  {col.isFixed && <span className="ml-1 text-xs text-gray-400">(fija)</span>}
+                  {col.isFixed && <span className="ml-0.5 text-[10px] text-gray-400">(fija)</span>}
                 </span>
               </label>
             ))}
@@ -615,8 +608,8 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         </div>
       )}
 
-      {/* Add Product Form */}
-      <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+      {/* Add Product Form compacto */}
+      <div className="mb-4 p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100">
         <ProductSelector
           key={`selector-${refreshKey}`}
           onAddProducts={addProductsFromSelector}
@@ -624,15 +617,15 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         />
       </div>
 
-      {/* ✅ Products Table con anchos dinámicos */}
+      {/* ✅ Products Table compacta con inputs h-8 */}
       <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full" style={{ fontSize: `${dynamicColumnWidths * 100}%` }}>
-          <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
+        <table className="w-full text-sm">
+          <thead className="bg-gradient-to-r from-violet-50 to-purple-50 border-b-2 border-violet-200">
             <tr>
               {visibleColumns.map(col => (
                 <th
                   key={col.id}
-                  className={`px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap ${
+                  className={`px-3 py-2.5 text-[11px] font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap ${
                     col.align === 'center' ? 'text-center' :
                     col.align === 'right' ? 'text-right' :
                     'text-left'
@@ -649,7 +642,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           </thead>
           <tbody>
             {cartItems.map(item => (
-              <tr key={item.id} className="border-b border-gray-100 hover:bg-blue-50/30 transition-colors duration-150">
+              <tr key={item.id} className="border-b border-gray-100 hover:bg-violet-50/30 transition-colors duration-150">
                 {visibleColumns.map(col => (
                   <React.Fragment key={`${item.id}-${col.id}`}>
                     {renderCell(col.id, item)}
@@ -661,42 +654,36 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         </table>
       </div>
 
-      {/* Totals Section */}
-      <div className="mt-6 border-t-2 border-gray-200 pt-6">
+      {/* Totales Section - Tarjeta compacta sticky */}
+      <div className="mt-4 border-t border-gray-200 pt-4">
         <div className="flex justify-end">
-          <div className="w-96 bg-gradient-to-br from-gray-50 to-white rounded-xl border-2 border-gray-200 p-5 shadow-sm">
-            <div className="space-y-3">
+          <div className="w-80 bg-white rounded-lg border border-gray-200 p-4 shadow-sm md:sticky md:top-4">
+            <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600 font-medium">Descuentos</span>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-700">S/</span>
-                  <input type="number" value="0.00" className="w-20 px-2 py-1 text-right text-sm border-2 border-gray-200 rounded-lg bg-gray-50" readOnly />
-                </div>
+                <span className="text-gray-600">Descuentos</span>
+                <span className="text-gray-700 font-medium">S/ 0.00</span>
               </div>
 
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600 font-medium">Subtotal</span>
+                <span className="text-gray-600">Subtotal</span>
                 <span className="text-gray-900 font-semibold">S/ {totals.subtotal.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600 font-medium">I.G.V. (18%)</span>
+                <span className="text-gray-600">I.G.V. (18%)</span>
                 <span className="text-gray-900 font-semibold">S/ {totals.igv.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600 font-medium">Redondeo</span>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-700">S/</span>
-                  <input type="number" value="0.00" className="w-20 px-2 py-1 text-right text-sm border-2 border-gray-200 rounded-lg bg-gray-50" readOnly />
-                </div>
+                <span className="text-gray-600">Redondeo</span>
+                <span className="text-gray-700 font-medium">S/ 0.00</span>
               </div>
 
-              <div className="pt-3 mt-3 border-t-2 border-dashed border-gray-300">
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-4 shadow-lg">
+              <div className="pt-2.5 mt-2.5 border-t-2 border-dashed border-gray-300">
+                <div className="bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg p-3 shadow-md">
                   <div className="flex justify-between items-center">
-                    <span className="text-blue-100 font-semibold text-base">TOTAL</span>
-                    <span className="text-white font-bold text-2xl">S/ {totals.total.toFixed(2)}</span>
+                    <span className="text-violet-100 font-semibold text-sm">TOTAL</span>
+                    <span className="text-white font-bold text-xl">S/ {totals.total.toFixed(2)}</span>
                   </div>
                 </div>
               </div>

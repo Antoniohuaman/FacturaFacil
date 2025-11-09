@@ -311,34 +311,35 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         actions={
           onOpenFieldsConfig && (
             <button
-              className="inline-flex items-center px-3 py-1.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md text-sm"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow text-xs"
               onClick={onOpenFieldsConfig}
               title="Configurar campos visibles y obligatorios"
+              aria-label="Configurar campos"
             >
-              <Settings className="w-4 h-4 mr-1.5" />
-              Configuración Campos
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Personalizar campos</span>
             </button>
           )
         }
       >
-        {/* ========== FILA 1: Cliente + Fecha/Moneda/Forma de Pago ========== */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* ========== GRID 2 COLUMNAS: Campos compactos h-9 ========== */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-          {/* IZQUIERDA: RUC/DNI + CLIENTE */}
-          <div className="space-y-4">
+          {/* COLUMNA IZQUIERDA */}
+          <div className="space-y-2">
+            {/* Cliente */}
             {!clienteSeleccionadoLocal ? (
-              <>
-                {/* Búsqueda de cliente */}
+              <div>
+                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                  <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                  Cliente<span className="ml-0.5 text-red-500">*</span>
+                </label>
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <User className="w-4 h-4 inline mr-1.5 text-blue-600" />
-                    Cliente
-                  </label>
-                  <Search className="absolute left-3 top-11 text-gray-400 w-5 h-5" />
+                  <Search className="absolute left-2.5 top-2.5 text-gray-400 w-4 h-4 pointer-events-none" />
                   <input
                     type="text"
-                    placeholder="Buscar cliente por nombre o documento..."
-                    className="w-full pl-11 pr-4 py-2.5 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="Buscar por nombre o documento..."
+                    className="w-full h-9 pl-9 pr-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -346,21 +347,21 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
                 {/* Resultados de búsqueda */}
                 {searchQuery && (
-                  <div className="max-h-48 overflow-y-auto border-2 border-gray-200 rounded-lg shadow-sm">
+                  <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg shadow-sm bg-white">
                     {clientesFiltrados.length > 0 ? (
                       clientesFiltrados.map((cliente: any) => (
                         <button
                           key={cliente.id}
                           onClick={() => handleSeleccionarCliente(cliente)}
-                          className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                          className="w-full text-left px-3 py-2 hover:bg-violet-50 border-b border-gray-100 last:border-b-0 transition-colors"
                         >
-                          <p className="text-sm font-semibold text-gray-900">
+                          <p className="text-xs font-semibold text-gray-900">
                             {cliente.tipoPersona === 'natural'
                               ? `${cliente.nombres} ${cliente.apellidos}`
                               : cliente.razonSocial}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            <span className="inline-flex px-1.5 py-0.5 bg-gray-100 rounded text-xs font-medium mr-1">
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            <span className="inline-flex px-1 py-0.5 bg-gray-100 rounded text-[10px] font-medium mr-1">
                               {cliente.tipoDocumento}
                             </span>
                             {cliente.numeroDocumento}
@@ -368,8 +369,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                         </button>
                       ))
                     ) : (
-                      <div className="px-3 py-4 text-center">
-                        <p className="text-sm text-gray-500">No se encontraron clientes</p>
+                      <div className="px-3 py-3 text-center">
+                        <p className="text-xs text-gray-500">No se encontraron clientes</p>
                       </div>
                     )}
                   </div>
@@ -377,41 +378,41 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
                 {/* Botón crear nuevo cliente */}
                 <button
-                  className="flex items-center justify-center space-x-2 text-blue-600 hover:text-blue-700 text-sm font-medium w-full py-2.5 border-2 border-blue-200 rounded-lg hover:bg-blue-50 transition-all"
+                  className="mt-1 flex items-center justify-center gap-1.5 text-violet-600 hover:text-violet-700 text-xs font-medium w-full h-8 border border-violet-200 rounded-lg hover:bg-violet-50 transition-all"
                   onClick={handleNuevoCliente}
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Crear Nuevo Cliente</span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nuevo Cliente</span>
                 </button>
-              </>
+              </div>
             ) : (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="w-4 h-4 inline mr-1.5 text-blue-600" />
+                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                  <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Cliente Seleccionado
                 </label>
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-200">
-                  <p className="text-base font-bold text-gray-900 mb-2">{clienteSeleccionadoLocal.nombre}</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-white rounded p-2 border border-blue-100">
+                <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg p-3 border border-violet-200 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-900 mb-1.5">{clienteSeleccionadoLocal.nombre}</p>
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <div className="bg-white rounded px-2 py-1 border border-violet-100">
                       <span className="font-medium text-gray-500 block">Doc:</span>
                       <p className="font-semibold text-gray-900">{clienteSeleccionadoLocal.dni}</p>
                     </div>
-                    <div className="bg-white rounded p-2 border border-blue-100">
+                    <div className="bg-white rounded px-2 py-1 border border-violet-100">
                       <span className="font-medium text-gray-500 block">Dir:</span>
                       <p className="font-medium text-gray-700 truncate">{clienteSeleccionadoLocal.direccion}</p>
                     </div>
                   </div>
-                  <div className="flex space-x-2 mt-3">
+                  <div className="flex gap-1.5 mt-2">
                     <button
-                      className="flex items-center justify-center space-x-1 text-blue-600 text-xs font-medium px-3 py-1.5 border border-blue-200 rounded hover:bg-blue-50"
+                      className="flex items-center justify-center gap-1 text-violet-600 text-[11px] font-medium px-2 py-1 border border-violet-200 rounded hover:bg-violet-50"
                       onClick={handleEditarCliente}
                     >
                       <Edit className="w-3 h-3" />
                       <span>Editar</span>
                     </button>
                     <button
-                      className="flex-1 text-gray-700 text-xs font-medium px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50"
+                      className="flex-1 text-gray-700 text-[11px] font-medium px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
                       onClick={() => {
                         setClienteSeleccionadoLocal(null);
                         setSearchQuery('');
@@ -423,83 +424,156 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 </div>
               </div>
             )}
-          </div>
 
-          {/* DERECHA: Fecha Emisión, Moneda, Forma de Pago, Fecha Vencimiento */}
-          <div className="space-y-3">
-            {/* Fila: Serie, Fecha Emisión, Moneda */}
-            <div className="grid grid-cols-3 gap-2">
-              {/* Serie */}
+            {/* Dirección */}
+            {config.optionalFields.direccion.visible && (
               <div>
                 <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                  <Hash className="w-3 h-3 mr-1 text-blue-600" />
-                  Serie<span className="ml-0.5 text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  {seriesFiltradas.length > 0 ? (
-                    <>
-                      <select
-                        className="w-full px-2 pr-7 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium text-gray-900 bg-white appearance-none cursor-pointer"
-                        value={serieSeleccionada}
-                        onChange={e => setSerieSeleccionada(e.target.value)}
-                      >
-                        {seriesFiltradas.map(serie => (
-                          <option key={serie} value={serie}>{serie}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-2.5 w-3 h-3 text-gray-400 pointer-events-none" />
-                    </>
-                  ) : (
-                    <div className="w-full px-2 py-2 border-2 border-amber-300 rounded-lg bg-amber-50 text-xs font-medium text-amber-700">
-                      ⚠️ Sin series
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Fecha Emisión */}
-              <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                  <Calendar className="w-3 h-3 mr-1 text-blue-600" />
-                  F. Emisión<span className="ml-0.5 text-red-500">*</span>
+                  <MapPin className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                  Dirección
+                  {config.optionalFields.direccion.required && <span className="ml-0.5 text-red-500">*</span>}
                 </label>
                 <input
-                  type="date"
-                  value={localFechaEmision}
-                  onChange={(e) => {
-                    setLocalFechaEmision(e.target.value);
-                    onFechaEmisionChange?.(e.target.value);
-                    onOptionalFieldsChange?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
-                  }}
-                  className="w-full px-2 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium text-gray-900"
+                  type="text"
+                  required={config.optionalFields.direccion.required}
+                  value={localDireccion}
+                  onChange={(e) => { setLocalDireccion(e.target.value); onOptionalFieldsChange?.({ direccion: e.target.value }); }}
+                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
+                  placeholder="Dirección del cliente"
                 />
               </div>
+            )}
 
-              {/* Moneda */}
+            {/* Dirección de Envío */}
+            {config.optionalFields.direccionEnvio.visible && (
               <div>
                 <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                  <DollarSign className="w-3 h-3 mr-1 text-green-600" />
-                  Moneda
+                  <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                  Dirección de Envío
+                  {config.optionalFields.direccionEnvio.required && <span className="ml-0.5 text-red-500">*</span>}
                 </label>
-                <select
-                  className="w-full px-2 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium text-gray-900 bg-white"
-                  value={moneda}
-                  onChange={e => setMoneda?.(e.target.value)}
-                >
-                  <option value="PEN">PEN</option>
-                  <option value="USD">USD</option>
-                </select>
+                <input
+                  type="text"
+                  required={config.optionalFields.direccionEnvio.required}
+                  value={localDireccionEnvio}
+                  onChange={(e) => { setLocalDireccionEnvio(e.target.value); onOptionalFieldsChange?.({ direccionEnvio: e.target.value }); }}
+                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
+                  placeholder="Ej: Av. Principal 123, Lima"
+                />
+              </div>
+            )}
+
+            {/* Orden de Compra */}
+            {config.optionalFields.ordenCompra.visible && (
+              <div>
+                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                  <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                  Orden de Compra
+                  {config.optionalFields.ordenCompra.required && <span className="ml-0.5 text-red-500">*</span>}
+                </label>
+                <input
+                  type="text"
+                  required={config.optionalFields.ordenCompra.required}
+                  value={localOrdenCompra}
+                  onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChange?.({ ordenCompra: e.target.value }); }}
+                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
+                  placeholder="Ej: OC01-0000236"
+                />
+              </div>
+            )}
+
+            {/* Correo Electrónico */}
+            {config.optionalFields.correo.visible && (
+              <div>
+                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                  <Mail className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                  Email
+                  {config.optionalFields.correo.required && <span className="ml-0.5 text-red-500">*</span>}
+                </label>
+                <input
+                  type="email"
+                  required={config.optionalFields.correo.required}
+                  value={localCorreo}
+                  onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChange?.({ correo: e.target.value }); }}
+                  className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-all shadow-sm"
+                  placeholder="cliente@empresa.com"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* COLUMNA DERECHA */}
+          <div className="space-y-2">
+            {/* Serie */}
+            <div>
+              <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                <Hash className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                Serie<span className="ml-0.5 text-red-500">*</span>
+              </label>
+              <div className="relative">
+                {seriesFiltradas.length > 0 ? (
+                  <>
+                    <select
+                      className="w-full h-9 px-3 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 bg-white appearance-none cursor-pointer shadow-sm"
+                      value={serieSeleccionada}
+                      onChange={e => setSerieSeleccionada(e.target.value)}
+                    >
+                      {seriesFiltradas.map(serie => (
+                        <option key={serie} value={serie}>{serie}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </>
+                ) : (
+                  <div className="w-full h-9 px-3 flex items-center border border-amber-300 rounded-lg bg-amber-50 text-xs font-medium text-amber-700">
+                    ⚠️ Sin series
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Fila: Forma de Pago */}
+            {/* Fecha Emisión */}
             <div>
               <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                <CreditCard className="w-3 h-3 mr-1 text-purple-600" />
+                <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                Fecha de Emisión<span className="ml-0.5 text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={localFechaEmision}
+                onChange={(e) => {
+                  setLocalFechaEmision(e.target.value);
+                  onFechaEmisionChange?.(e.target.value);
+                  onOptionalFieldsChange?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
+                }}
+                className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 shadow-sm"
+              />
+            </div>
+
+            {/* Moneda */}
+            <div>
+              <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                <DollarSign className="w-3.5 h-3.5 mr-1 text-green-600" />
+                Moneda
+              </label>
+              <select
+                className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 bg-white shadow-sm"
+                value={moneda}
+                onChange={e => setMoneda?.(e.target.value)}
+              >
+                <option value="PEN">PEN - Soles</option>
+                <option value="USD">USD - Dólares</option>
+              </select>
+            </div>
+
+            {/* Forma de Pago */}
+            <div>
+              <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                <CreditCard className="w-3.5 h-3.5 mr-1 text-purple-600" />
                 Forma de Pago
               </label>
               <select
-                className="w-full px-2 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium text-gray-900 bg-white"
+                className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 bg-white shadow-sm"
                 value={formaPago}
                 onChange={e => setFormaPago?.(e.target.value)}
               >
@@ -517,19 +591,19 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               {onNuevaFormaPago && (
                 <button
                   type="button"
-                  className="mt-1 text-blue-600 hover:text-blue-700 text-xs font-medium hover:underline"
+                  className="mt-1 text-violet-600 hover:text-violet-700 text-[11px] font-medium hover:underline"
                   onClick={onNuevaFormaPago}
                 >
-                  + Nueva Forma de Pago
+                  + Nueva forma de pago
                 </button>
               )}
             </div>
 
-            {/* Fecha de Vencimiento (si visible) */}
+            {/* Fecha de Vencimiento */}
             {config.optionalFields.fechaVencimiento.visible && (
               <div>
                 <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                  <Calendar className="w-3 h-3 mr-1 text-blue-600" />
+                  <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Fecha de Vencimiento
                   {config.optionalFields.fechaVencimiento.required && <span className="ml-0.5 text-red-500">*</span>}
                 </label>
@@ -538,72 +612,23 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   required={config.optionalFields.fechaVencimiento.required}
                   value={localFechaVencimiento}
                   onChange={(e) => { setLocalFechaVencimiento(e.target.value); onOptionalFieldsChange?.({ fechaVencimiento: e.target.value }); }}
-                  className="w-full px-2 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium text-gray-900"
-                />
-                
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ========== FILA 2: Dirección/Dirección Envío + Vendedor/Centro Costo ========== */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 pt-4 border-t border-gray-200">
-
-          {/* IZQUIERDA: Dirección y Dirección de Envío */}
-          <div className="space-y-3">
-            {/* Dirección */}
-            {config.optionalFields.direccion.visible && (
-              <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                  <MapPin className="w-3 h-3 mr-1 text-blue-600" />
-                  Dirección
-                  {config.optionalFields.direccion.required && <span className="ml-0.5 text-red-500">*</span>}
-                </label>
-                <input
-                  type="text"
-                  required={config.optionalFields.direccion.required}
-                  value={localDireccion}
-                  onChange={(e) => { setLocalDireccion(e.target.value); onOptionalFieldsChange?.({ direccion: e.target.value }); }}
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  placeholder="Dirección del cliente"
+                  className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm font-medium text-gray-900 shadow-sm"
                 />
               </div>
             )}
 
-            {/* Dirección de Envío */}
-            {config.optionalFields.direccionEnvio.visible && (
-              <div>
-                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                  <Truck className="w-3 h-3 mr-1 text-blue-600" />
-                  Dirección de Envío
-                  {config.optionalFields.direccionEnvio.required && <span className="ml-0.5 text-red-500">*</span>}
-                </label>
-                <input
-                  type="text"
-                  required={config.optionalFields.direccionEnvio.required}
-                  value={localDireccionEnvio}
-                  onChange={(e) => { setLocalDireccionEnvio(e.target.value); onOptionalFieldsChange?.({ direccionEnvio: e.target.value }); }}
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  placeholder="Ej: Av. Principal 123, Lima"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* DERECHA: Vendedor + Centro de Costo */}
-          <div className="space-y-3">
-            {/* Vendedor compacto */}
+            {/* Vendedor */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                <User className="w-3 h-3 inline mr-1 text-blue-600" />
+                <User className="w-3.5 h-3.5 inline mr-1 text-violet-600" />
                 Vendedor
               </label>
-              <div className="flex items-center space-x-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border-2 border-blue-200">
-                <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
-                  <User className="w-4 h-4 text-white" />
+              <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg px-3 py-2 border border-violet-200 shadow-sm">
+                <div className="w-7 h-7 bg-gradient-to-br from-violet-600 to-purple-600 rounded-full flex items-center justify-center shadow flex-shrink-0">
+                  <User className="w-3.5 h-3.5 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900 truncate">Javier Masías Loza</p>
+                  <p className="text-xs font-semibold text-gray-900 truncate">Javier Masías Loza</p>
                   <p className="text-[10px] text-gray-500">ID: 001</p>
                 </div>
               </div>
@@ -613,7 +638,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {config.optionalFields.centroCosto.visible && (
               <div>
                 <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                  <Building2 className="w-3 h-3 mr-1 text-blue-600" />
+                  <Building2 className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Centro de Costo
                   {config.optionalFields.centroCosto.required && <span className="ml-0.5 text-red-500">*</span>}
                 </label>
@@ -622,82 +647,33 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   required={config.optionalFields.centroCosto.required}
                   value={localCentroCosto}
                   onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChange?.({ centroCosto: e.target.value }); }}
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                  className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm shadow-sm"
                   placeholder="Ingrese centro de costos"
+                />
+              </div>
+            )}
+
+            {/* Guía de Remisión */}
+            {/* Guía de Remisión */}
+            {config.optionalFields.guiaRemision.visible && (
+              <div>
+                <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
+                  <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                  N° de Guía de Remisión
+                  {config.optionalFields.guiaRemision.required && <span className="ml-0.5 text-red-500">*</span>}
+                </label>
+                <input
+                  type="text"
+                  required={config.optionalFields.guiaRemision.required}
+                  value={localGuiaRemision}
+                  onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChange?.({ guiaRemision: e.target.value }); }}
+                  className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 text-sm shadow-sm"
+                  placeholder="Ej: T001-00000256"
                 />
               </div>
             )}
           </div>
         </div>
-
-        {/* ========== FILA 3: Referencias (Orden Compra, Correo, Guía) ========== */}
-        {(config.optionalFields.ordenCompra.visible || config.optionalFields.correo.visible || config.optionalFields.guiaRemision.visible) && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
-
-            {/* IZQUIERDA: Orden de Compra + Correo */}
-            <div className="space-y-3">
-              {/* Orden de Compra */}
-              {config.optionalFields.ordenCompra.visible && (
-                <div>
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <FileIcon className="w-3 h-3 mr-1 text-blue-600" />
-                    Orden de Compra
-                    {config.optionalFields.ordenCompra.required && <span className="ml-0.5 text-red-500">*</span>}
-                  </label>
-                  <input
-                    type="text"
-                    required={config.optionalFields.ordenCompra.required}
-                    value={localOrdenCompra}
-                    onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChange?.({ ordenCompra: e.target.value }); }}
-                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                    placeholder="Ej: OC01-0000236"
-                  />
-                </div>
-              )}
-
-              {/* Correo Electrónico */}
-              {config.optionalFields.correo.visible && (
-                <div>
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <Mail className="w-3 h-3 mr-1 text-blue-600" />
-                    Correo Electrónico
-                    {config.optionalFields.correo.required && <span className="ml-0.5 text-red-500">*</span>}
-                  </label>
-                  <input
-                    type="email"
-                    required={config.optionalFields.correo.required}
-                    value={localCorreo}
-                    onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChange?.({ correo: e.target.value }); }}
-                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                    placeholder="cliente@empresa.com"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-0.5">Para envío automático del PDF</p>
-                </div>
-              )}
-            </div>
-
-            {/* DERECHA: Guía de Remisión */}
-            <div>
-              {config.optionalFields.guiaRemision.visible && (
-                <div>
-                  <label className="flex items-center text-xs font-medium text-gray-700 mb-1">
-                    <Truck className="w-3 h-3 mr-1 text-blue-600" />
-                    N° de Guía de Remisión
-                    {config.optionalFields.guiaRemision.required && <span className="ml-0.5 text-red-500">*</span>}
-                  </label>
-                  <input
-                    type="text"
-                    required={config.optionalFields.guiaRemision.required}
-                    value={localGuiaRemision}
-                    onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChange?.({ guiaRemision: e.target.value }); }}
-                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                    placeholder="Ej: T001-00000256"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </ConfigurationCard>
 
       {/* Modal para crear/editar cliente */}
