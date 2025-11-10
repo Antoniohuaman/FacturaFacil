@@ -19,7 +19,7 @@ export interface Draft {
 }
 
 /**
- * Array vacío - Los borradores reales se gestionan en localStorage
+ * Array vacï¿½o - Los borradores reales se gestionan en localStorage
  * Clave: 'borradores' (ver SYSTEM_CONFIG.DRAFTS_STORAGE_KEY en constants.ts)
  */
 export const MOCK_DRAFTS: Draft[] = [];
