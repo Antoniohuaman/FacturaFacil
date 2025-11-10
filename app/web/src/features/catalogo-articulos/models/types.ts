@@ -4,7 +4,7 @@ export interface Product {
   id: string;
   codigo: string;
   nombre: string;
-  unidad: 'DOCENA' | 'UNIDAD' | 'KILOGRAMO' | 'LITRO' | 'METRO';
+  unidad: string;
   precio: number;
   categoria: string;
   imagen?: string;
@@ -82,7 +82,7 @@ export interface ProductFormData {
   nombre: string;
   codigo: string;
   precio: number;
-  unidad: 'DOCENA' | 'UNIDAD' | 'KILOGRAMO' | 'LITRO' | 'METRO';
+  unidad: string;
   categoria: string;
   impuesto?: string;
   descripcion?: string;
