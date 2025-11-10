@@ -14,7 +14,8 @@
       "Bash(npm run build:dev:*)",
       "Bash(xargs cat:*)",
       "Bash(cp:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

@@ -82,6 +82,7 @@ type ColumnKey =
   | 'marca'
   | 'modelo'
   | 'peso'
+  | 'tipoExistencia'
   | 'disponibleEnTodos'
   | 'fechaCreacion'
   | 'fechaActualizacion';
@@ -125,6 +126,7 @@ const AVAILABLE_COLUMNS: ColumnConfig[] = [
   { key: 'marca', label: 'Marca', defaultVisible: false, filterable: true, group: 'caracteristicas' },
   { key: 'modelo', label: 'Modelo', defaultVisible: false, filterable: true, group: 'caracteristicas' },
   { key: 'peso', label: 'Peso (kg)', defaultVisible: false, filterable: false, group: 'caracteristicas' },
+  { key: 'tipoExistencia', label: 'Tipo de Existencia', defaultVisible: false, filterable: true, group: 'caracteristicas' },
 
   // Sistema
   { key: 'disponibleEnTodos', label: 'Disp. en Todos', defaultVisible: false, filterable: false, group: 'sistema' },
@@ -655,8 +657,12 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </th>
               )}
 
-              
-              
+              {visibleColumns.has('tipoExistencia') && (
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tipo de Existencia
+                </th>
+              )}
+
               <th scope="col" className="relative px-6 py-3">
                 <span className="sr-only">Acciones</span>
               </th>
@@ -885,8 +891,18 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   </td>
                 )}
 
-                
-                
+                {visibleColumns.has('tipoExistencia') && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {row.tipoExistencia ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {row.tipoExistencia.replace(/_/g, ' ')}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
+                  </td>
+                )}
+
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center space-x-2">
                     <button

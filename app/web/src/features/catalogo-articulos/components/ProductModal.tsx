@@ -64,12 +64,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
   // ✅ Estado para tipo de producto (Bien/Servicio)
   const [productType, setProductType] = useState<ProductType>('BIEN');
-  const [lastValidUnit, setLastValidUnit] = useState<string>('NIU');
 
   // ✅ Determinar unidad por defecto según tipo de producto
   const getDefaultUnitForType = useCallback((type: ProductType): string => {
     if (availableUnits.length === 0) return type === 'BIEN' ? 'NIU' : 'ZZ';
-    
+
     if (type === 'BIEN') {
       const niuUnit = availableUnits.find(u => u.code === 'NIU');
       if (niuUnit) return 'NIU';
@@ -106,7 +105,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     peso: 0,
     tipoExistencia: 'MERCADERIAS'
   }));
-  
+
   const [errors, setErrors] = useState<FormError>({});
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -114,19 +113,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
-  // ✅ Efecto para cambiar unidad según tipo de producto
+  // ✅ Efecto para cambiar unidad según tipo de producto (sin dependencias circulares)
   useEffect(() => {
-    if (productType === 'BIEN') {
-      // Restaurar última unidad válida o usar NIU
-      const targetUnit = lastValidUnit || getDefaultUnitForType('BIEN');
-      setFormData(prev => ({ ...prev, unidad: targetUnit as Product['unidad'] }));
-    } else {
-      // Guardar unidad actual y cambiar a ZZ
-      setLastValidUnit(formData.unidad);
-      const serviceUnit = getDefaultUnitForType('SERVICIO');
-      setFormData(prev => ({ ...prev, unidad: serviceUnit as Product['unidad'] }));
-    }
-  }, [productType, getDefaultUnitForType, formData.unidad, lastValidUnit]);
+    const defaultUnit = getDefaultUnitForType(productType);
+    setFormData(prev => ({ ...prev, unidad: defaultUnit as Product['unidad'] }));
+  }, [productType, getDefaultUnitForType]);
 
   useEffect(() => {
     if (product) {
@@ -282,6 +273,16 @@ const ProductModal: React.FC<ProductModalProps> = ({
       newErrors.precioCompra = 'El precio de compra es requerido';
     }
 
+    // Alias (si está marcado como obligatorio)
+    if (isFieldVisible('alias') && isFieldRequired('alias') && !formData.alias?.trim()) {
+      newErrors.alias = 'El alias es requerido';
+    }
+
+    // Tipo de existencia (si está marcado como obligatorio)
+    if (isFieldVisible('tipoExistencia') && isFieldRequired('tipoExistencia') && !formData.tipoExistencia) {
+      newErrors.tipoExistencia = 'El tipo de existencia es requerido';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -428,22 +429,29 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
 
               {/* 2. Alias del producto */}
-              <div>
-                <label htmlFor="alias" className="block text-xs font-medium text-gray-700 mb-1">
-                  Alias del producto
-                </label>
-                <div className="relative">
-                  <Quote className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    id="alias"
-                    value={formData.alias}
-                    onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
-                    className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-                    placeholder="Nombre alternativo"
-                  />
+              {isFieldVisible('alias') && (
+                <div>
+                  <label htmlFor="alias" className="block text-xs font-medium text-gray-700 mb-1">
+                    Alias del producto
+                    {isFieldRequired('alias') && <span className="text-red-500 ml-1">*</span>}
+                  </label>
+                  <div className="relative">
+                    <Quote className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <input
+                      type="text"
+                      id="alias"
+                      value={formData.alias}
+                      onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
+                      className={`
+                        w-full h-10 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+                        ${errors.alias ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+                      `}
+                      placeholder="Nombre alternativo"
+                    />
+                  </div>
+                  {errors.alias && <p className="text-red-600 text-xs mt-1">{errors.alias}</p>}
                 </div>
-              </div>
+              )}
 
               {/* 3. Código */}
               <div>
@@ -469,8 +477,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     type="button"
                     className="px-3 h-8 bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors self-end"
                     onClick={() => {
-                      const randomSku = `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-                      setFormData(prev => ({ ...prev, codigo: randomSku }));
+                      const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+                      setFormData(prev => ({ ...prev, codigo: randomCode }));
                     }}
                   >
                     Generar
@@ -718,72 +726,55 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       <p className="text-xs font-medium">No hay establecimientos activos</p>
                     </div>
                   ) : (
-                    (() => {
-                      const establishmentsToShow = product
-                        ? establishments.filter(est => formData.establecimientoIds.includes(est.id))
-                        : establishments;
-
-                      if (product && establishmentsToShow.length === 0) {
-                        return (
-                          <div className="text-center py-4 text-yellow-600 bg-yellow-50 rounded border border-yellow-200">
-                            <p className="text-xs font-medium">No hay establecimientos asignados</p>
-                          </div>
-                        );
-                      }
-
-                      return establishmentsToShow.map((est) => {
-                        const isSelected = formData.establecimientoIds.includes(est.id);
-                        return (
-                          <label
-                            key={est.id}
-                            className={`
-                              flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer transition-all
-                              ${isSelected
-                                ? 'bg-purple-100 border-purple-300'
-                                : 'bg-white border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
-                              }
-                            `}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                const newIds = e.target.checked
-                                  ? [...formData.establecimientoIds, est.id]
-                                  : formData.establecimientoIds.filter(id => id !== est.id);
-                                setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
-                              }}
-                              className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-1"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-200 text-purple-800 rounded">
-                                  {est.code}
-                                </span>
-                                <p className="text-xs font-medium text-gray-900 truncate">
-                                  {est.name}
-                                </p>
-                              </div>
+                    establishments.map((est) => {
+                      const isSelected = formData.establecimientoIds.includes(est.id);
+                      return (
+                        <label
+                          key={est.id}
+                          className={`
+                            flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer transition-all
+                            ${isSelected
+                              ? 'bg-purple-100 border-purple-300'
+                              : 'bg-white border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
+                            }
+                          `}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const newIds = e.target.checked
+                                ? [...formData.establecimientoIds, est.id]
+                                : formData.establecimientoIds.filter(id => id !== est.id);
+                              setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
+                            }}
+                            className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-1"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-200 text-purple-800 rounded">
+                                {est.code}
+                              </span>
+                              <p className="text-xs font-medium text-gray-900 truncate">
+                                {est.name}
+                              </p>
                             </div>
-                            {isSelected && (
-                              <svg className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </label>
-                        );
-                      });
-                    })()
+                          </div>
+                          {isSelected && (
+                            <svg className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </label>
+                      );
+                    })
                   )}
                 </div>
 
                 {establishments.length > 0 && (
                   <div className="flex items-center justify-between pt-1.5 border-t border-purple-200">
                     <p className="text-[10px] text-gray-600">
-                      {product
-                        ? `${formData.establecimientoIds.length} asignado(s)`
-                        : `${formData.establecimientoIds.length} de ${establishments.length} seleccionado(s)`
-                      }
+                      {formData.establecimientoIds.length} de {establishments.length} seleccionado(s)
                     </p>
                   </div>
                 )}
@@ -1035,30 +1026,37 @@ const ProductModal: React.FC<ProductModalProps> = ({
               )}
 
               {/* 7. Tipo de existencia */}
-              <div>
-                <label htmlFor="tipoExistencia" className="block text-xs font-medium text-gray-700 mb-1">
-                  Tipo de existencia
-                </label>
-                <div className="relative">
-                  <Boxes className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  <select
-                    id="tipoExistencia"
-                    value={formData.tipoExistencia}
-                    onChange={(e) => setFormData(prev => ({ ...prev, tipoExistencia: e.target.value as ProductFormData['tipoExistencia'] }))}
-                    className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-                  >
-                    <option value="MERCADERIAS">Mercaderias</option>
-                    <option value="PRODUCTOS_TERMINADOS">ProductosTerminados</option>
-                    <option value="MATERIAS_PRIMAS">MateriasPrimas</option>
-                    <option value="ENVASES">Envases</option>
-                    <option value="MATERIALES_AUXILIARES">MaterialesAuxiliares</option>
-                    <option value="SUMINISTROS">Suministros</option>
-                    <option value="REPUESTOS">Repuestos</option>
-                    <option value="EMBALAJES">Embalajes</option>
-                    <option value="OTROS">Otros</option>
-                  </select>
+              {isFieldVisible('tipoExistencia') && (
+                <div>
+                  <label htmlFor="tipoExistencia" className="block text-xs font-medium text-gray-700 mb-1">
+                    Tipo de existencia
+                    {isFieldRequired('tipoExistencia') && <span className="text-red-500 ml-1">*</span>}
+                  </label>
+                  <div className="relative">
+                    <Boxes className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <select
+                      id="tipoExistencia"
+                      value={formData.tipoExistencia}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tipoExistencia: e.target.value as ProductFormData['tipoExistencia'] }))}
+                      className={`
+                        w-full h-10 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+                        ${errors.tipoExistencia ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+                      `}
+                    >
+                      <option value="MERCADERIAS">Mercaderías</option>
+                      <option value="PRODUCTOS_TERMINADOS">Productos Terminados</option>
+                      <option value="MATERIAS_PRIMAS">Materias Primas</option>
+                      <option value="ENVASES">Envases</option>
+                      <option value="MATERIALES_AUXILIARES">Materiales Auxiliares</option>
+                      <option value="SUMINISTROS">Suministros</option>
+                      <option value="REPUESTOS">Repuestos</option>
+                      <option value="EMBALAJES">Embalajes</option>
+                      <option value="OTROS">Otros</option>
+                    </select>
+                  </div>
+                  {errors.tipoExistencia && <p className="text-red-600 text-xs mt-1">{errors.tipoExistencia}</p>}
                 </div>
-              </div>
+              )}
 
             </div>
           </div>
