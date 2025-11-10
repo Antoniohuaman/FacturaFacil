@@ -23,6 +23,9 @@ const NotesSection: React.FC<NotesSectionProps> = ({
       title="Notas y Observaciones"
       icon={FileText}
       helpText="Las observaciones aparecen en el comprobante impreso"
+      collapsible
+      defaultExpanded={false}
+      contentClassName="p-4"
     >
       <div className="grid grid-cols-12 gap-4 text-[13px]">
         <div className="col-span-12 lg:col-span-6">

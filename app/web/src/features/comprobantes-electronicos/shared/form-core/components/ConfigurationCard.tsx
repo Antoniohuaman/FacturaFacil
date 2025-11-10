@@ -18,6 +18,7 @@ interface ConfigurationCardProps {
   icon?: React.ComponentType<{ className?: string }>;
   badge?: string | number;
   actions?: ReactNode;
+  contentClassName?: string; // permite ajustar padding interno por caso de uso
 }
 
 export function ConfigurationCard({
@@ -30,7 +31,8 @@ export function ConfigurationCard({
   defaultExpanded = true,
   icon: Icon,
   badge,
-  actions
+  actions,
+  contentClassName
 }: ConfigurationCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -111,7 +113,7 @@ export function ConfigurationCard({
 
       {/* Content */}
       {(!collapsible || isExpanded) && (
-        <div className="p-6 transition-all duration-200">
+        <div className={`${contentClassName ?? 'p-6'} transition-all duration-200`}>
           {children}
         </div>
       )}

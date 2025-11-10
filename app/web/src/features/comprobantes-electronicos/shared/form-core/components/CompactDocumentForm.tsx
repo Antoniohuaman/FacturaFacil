@@ -308,6 +308,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         description="Datos del documento, cliente y configuración"
         icon={FileText}
         helpText="Completa la información del comprobante electrónico siguiendo las normas de SUNAT"
+        contentClassName="p-4"
         actions={
           onOpenFieldsConfig && (
             <button
@@ -322,11 +323,11 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
           )
         }
       >
-        {/* ========== GRID 12 COLS: Layout compacto y profesional ========== */}
+        {/* ========== GRID 12 COLS: 3 columnas (A,B,C) ========== */}
         <div className="grid grid-cols-12 gap-x-4 gap-y-3 text-[13px]">
 
-          {/* COLUMNA IZQUIERDA (L) */}
-          <div className="col-span-12 lg:col-span-6 space-y-3">
+          {/* COL A (xl:col-span-4) Cliente/Direcciones */}
+          <div className="col-span-12 xl:col-span-4 space-y-3">
             {/* Cliente */}
             {!clienteSeleccionadoLocal ? (
               <div>
@@ -468,8 +469,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {/* (Email y Orden de Compra se reubican a columna derecha como M) */}
           </div>
 
-          {/* COLUMNA DERECHA (S/M en filas) */}
-          <div className="col-span-12 lg:col-span-6">
+          {/* COL B (xl:col-span-4) Serie/Fechas/Moneda/Forma Pago */}
+          <div className="col-span-12 xl:col-span-4">
             <div className="grid grid-cols-12 gap-x-4 gap-y-3">
             {/* Serie */}
             <div className="col-span-6 xl:col-span-3">
@@ -589,8 +590,15 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               </div>
             )}
 
+            {/* (Fin Col B) */}
+            </div>
+          </div>
+
+          {/* COL C (xl:col-span-4) Vendedor + Otros (con posible collapsible) */}
+          <div className="col-span-12 xl:col-span-4">
+            <div className="grid grid-cols-12 gap-x-4 gap-y-3">
             {/* Vendedor */}
-            <div className="col-span-6 xl:col-span-4">
+            <div className="col-span-12">
               <label className="block text-[12px] font-medium text-slate-600 mb-1">
                 <User className="w-3.5 h-3.5 inline mr-1 text-violet-600" />
                 Vendedor
@@ -606,9 +614,19 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               </div>
             </div>
 
-            {/* Centro de Costo (S) */}
+            {/* Contenedor colapsable para Centro de Costo / Guía (si espacio) */}
+            <details className="col-span-12 group rounded-xl border border-slate-200 bg-slate-50/50 open:bg-white open:border-slate-300 transition-colors" open={false}>
+              <summary className="cursor-pointer list-none px-3 py-2 flex items-center justify-between text-[12px] font-medium text-slate-600">
+                <span className="flex items-center gap-2">
+                  Más opciones
+                </span>
+                <span className="text-slate-500 group-open:hidden">Mostrar</span>
+                <span className="text-slate-500 hidden group-open:inline">Ocultar</span>
+              </summary>
+              <div className="px-3 pb-3 pt-1 grid grid-cols-12 gap-x-4 gap-y-3">
+                {/* Centro de Costo (S) */}
             {config.optionalFields.centroCosto.visible && (
-              <div className="col-span-6 xl:col-span-3">
+              <div className="col-span-6 xl:col-span-6">
                 <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="centro-costo">
                   <Building2 className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Centro de Costo
@@ -628,7 +646,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
             {/* Guía de Remisión (S) */}
             {config.optionalFields.guiaRemision.visible && (
-              <div className="col-span-6 xl:col-span-3">
+              <div className="col-span-6 xl:col-span-6">
                 <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="guia-remision">
                   <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   N° de Guía de Remisión
@@ -645,10 +663,12 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 />
               </div>
             )}
+              </div>
+            </details>
 
             {/* Orden de Compra (M) */}
             {config.optionalFields.ordenCompra.visible && (
-              <div className="col-span-12 xl:col-span-5">
+              <div className="col-span-12">
                 <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="orden-compra">
                   <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Orden de Compra
@@ -668,7 +688,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
             {/* Email (M) */}
             {config.optionalFields.correo.visible && (
-              <div className="col-span-12 xl:col-span-6">
+              <div className="col-span-12">
                 <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="email">
                   <Mail className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Email
