@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
+/* eslint-disable @typescript-eslint/no-unused-vars -- date setters pendientes integración DateRangePicker */
 import React, { useState, useMemo } from 'react';
 import { Search, Filter, Download, Printer, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Edit, Copy, Trash2, Send, Clock, AlertTriangle, FileText } from 'lucide-react';
 import type { Draft } from '../mockData/drafts.mock';
@@ -84,30 +85,38 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   };
 
   const getStatusBadge = (status: DraftStatus, color: StatusColor, daysLeft: number) => {
-    const colorClasses: Record<StatusColor, string> = {
-      green: 'bg-green-100 text-green-800 border-green-200',
-      orange: 'bg-orange-100 text-orange-800 border-orange-200',
-      red: 'bg-red-100 text-red-800 border-red-200'
-    };
-
     const getStatusText = (): string => {
       if (status === 'Vencido') return 'Vencido';
       if (status === 'Por vencer') return `Vence en ${daysLeft}d`;
       return `${daysLeft} días`;
     };
 
+    // Color configuration matching Comprobantes style
+    const statusConfig: Record<StatusColor, { bgColor: string; textColor: string; icon: React.ReactNode }> = {
+      green: {
+        bgColor: 'bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700',
+        textColor: 'text-green-800 dark:text-green-200',
+        icon: <Clock className="w-3.5 h-3.5" />
+      },
+      orange: {
+        bgColor: 'bg-orange-100 dark:bg-orange-900/40 border-orange-300 dark:border-orange-700',
+        textColor: 'text-orange-800 dark:text-orange-200',
+        icon: <Clock className="w-3.5 h-3.5" />
+      },
+      red: {
+        bgColor: 'bg-red-100 dark:bg-red-900/40 border-red-300 dark:border-red-700',
+        textColor: 'text-red-800 dark:text-red-200',
+        icon: <AlertTriangle className="w-3.5 h-3.5" />
+      }
+    };
+
+    const config = statusConfig[color];
+
     return (
-      <div className="flex items-center space-x-2">
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colorClasses[color]}`}>
-          {getStatusText()}
-        </span>
-        {status === 'Vencido' && (
-          <AlertTriangle className="w-4 h-4 text-red-500" />
-        )}
-        {status === 'Por vencer' && (
-          <Clock className="w-4 h-4 text-orange-500" />
-        )}
-      </div>
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.bgColor} ${config.textColor}`}>
+        {config.icon}
+        {getStatusText()}
+      </span>
     );
   };
 
@@ -183,46 +192,48 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
         {/* Header */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <ChevronLeft className="w-5 h-5 text-gray-400" />
-                  <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Borradores</h1>
-                </div>
-
-                {/* Date filters */}
-                <div className="flex items-center space-x-3 ml-8">
-                  <div className="relative">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="w-40 px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action icons */}
-                <div className="flex items-center space-x-2 ml-6">
-                  <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
-                    <Download className="w-5 h-5" />
-                  </button>
-                </div>
+            {/* Fila principal: Date Range → Filtros → Exportar */}
+            <div className="flex items-center gap-3">
+              {/* Date Range Picker (Single Input Style) */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    // TODO: Implementar DateRangePicker popover
+                    console.log('DateRangePicker: Implementación pendiente', { setDateFrom, setDateTo });
+                  }}
+                  className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Seleccionar rango de fechas"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="font-medium">
+                    {dateFrom && dateTo ? `${dateFrom} - ${dateTo}` : 'Seleccionar fechas'}
+                  </span>
+                  <ChevronDown className="w-4 h-4 ml-1" />
+                </button>
               </div>
+
+              {/* Filtros Button */}
+              <button
+                className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Abrir panel de filtros"
+              >
+                <Filter className="w-4 h-4" />
+                <span className="font-medium">Filtros</span>
+              </button>
+
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* Export Button */}
+              <button
+                className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Exportar"
+              >
+                <Download className="w-4 h-4" />
+                <span className="font-medium">Exportar</span>
+              </button>
             </div>
           </div>
 
@@ -273,53 +284,73 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
           )}
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - Compact Style */}
         <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900">
-          <div className="grid grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Vigentes */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Borradores Vigentes</p>
-                  <p className="text-2xl font-bold text-green-600">{vigenteDrafts}</p>
+                  <div className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
+                    {vigenteDrafts}
+                  </div>
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Vigentes
+                  </div>
                 </div>
-                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
-                  <Edit className="w-5 h-5 text-green-600" />
+                <div className="w-7 h-7 rounded-md bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <Edit className="w-4 h-4 text-green-600 dark:text-green-400" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            {/* Por Vencer */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Por Vencer (24h)</p>
-                  <p className="text-2xl font-bold text-orange-600">{porVencerDrafts}</p>
+                  <div className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
+                    {porVencerDrafts}
+                  </div>
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Por Vencer (24h)
+                  </div>
                 </div>
-                <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-orange-600" />
+                <div className="w-7 h-7 rounded-md bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            {/* Vencidos */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Vencidos</p>
-                  <p className="text-2xl font-bold text-red-600">{vencidoDrafts}</p>
+                  <div className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
+                    {vencidoDrafts}
+                  </div>
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Vencidos
+                  </div>
                 </div>
-                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                <div className="w-7 h-7 rounded-md bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            {/* Valor Total */}
+            <div className="bg-white dark:bg-gray-800 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Valor Total</p>
-                  <p className="text-2xl font-bold text-blue-600">S/ {totalValue.toFixed(2)}</p>
+                  <div className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                    S/ {totalValue.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Valor Total
+                  </div>
                 </div>
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-blue-600" />
+                <div className="w-7 h-7 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </div>
@@ -400,72 +431,78 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredDrafts.map((draft, index) => (
                     <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${selectedDrafts.includes(draft.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-3 whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={selectedDrafts.includes(draft.id)}
                           onChange={() => handleSelectDraft(draft.id)}
-                          className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-600 border-gray-300 dark:border-gray-500 rounded focus:ring-blue-500"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          aria-label={`Seleccionar ${draft.id}`}
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         {draft.id.startsWith('DRAFT-')
                           ? draft.id.replace(/^DRAFT-([A-Z0-9]+)-.*/, '$1')
                           : draft.id}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.type}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.clientDoc}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.client}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.createdDate}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.expiryDate}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {draft.vendor}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         S/ {draft.total.toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-3 whitespace-nowrap">
                         {getStatusBadge(draft.status, draft.statusColor, draft.daysLeft)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center justify-center gap-1">
                           <button
-                            className="p-1.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded transition-colors"
+                            className="p-1.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                             title="Editar"
+                            aria-label={`Editar borrador ${draft.id}`}
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            className="p-1.5 text-green-500 hover:text-green-700 dark:hover:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/20 rounded transition-colors"
+                            className="p-1.5 text-green-500 hover:text-green-700 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
                             title="Emitir"
+                            aria-label={`Emitir borrador ${draft.id}`}
                           >
                             <Send className="w-4 h-4" />
                           </button>
                           <button
-                            className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-100 rounded transition-colors"
+                            className="p-1.5 text-purple-500 hover:text-purple-700 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
                             title="Duplicar"
+                            aria-label={`Duplicar borrador ${draft.id}`}
                           >
                             <Copy className="w-4 h-4" />
                           </button>
                           <button
-                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors"
+                            className="p-1.5 text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                             title="Eliminar"
+                            aria-label={`Eliminar borrador ${draft.id}`}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                           <button
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
                             title="Más opciones"
+                            aria-label={`Más opciones para borrador ${draft.id}`}
                           >
                             <MoreHorizontal className="w-4 h-4" />
                           </button>
@@ -477,35 +514,37 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
               </table>
             </div>
 
-            {/* Footer */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            {/* Footer - Matching Comprobantes style */}
+            <div className="bg-gray-50 dark:bg-gray-700 px-6 py-3 border-t border-gray-200 dark:border-gray-600">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <button
                     onClick={() => setShowTotals(!showTotals)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                    className="h-10 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    Mostrar totales
+                    {showTotals ? 'Ocultar totales' : 'Mostrar totales'}
                   </button>
                 </div>
 
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-700">
+                <div className="flex items-center gap-6">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
                     {startRecord} – {endRecord} de {totalRecords}
                   </span>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                       disabled={currentPage === 1}
-                      className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                      aria-label="Página anterior"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setCurrentPage(Math.min(Math.ceil(totalRecords / recordsPerPage), currentPage + 1))}
                       disabled={currentPage >= Math.ceil(totalRecords / recordsPerPage)}
-                      className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                      aria-label="Página siguiente"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
