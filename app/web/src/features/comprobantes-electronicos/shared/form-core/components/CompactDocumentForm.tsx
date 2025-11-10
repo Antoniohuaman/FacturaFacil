@@ -13,7 +13,6 @@ import {
   DollarSign,
   CreditCard,
   User,
-  Settings,
   Search,
   Plus,
   Edit,
@@ -21,7 +20,8 @@ import {
   Truck,
   FileText as FileIcon,
   Mail,
-  Building2
+  Building2,
+  SlidersHorizontal
 } from 'lucide-react';
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
@@ -312,13 +312,12 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         actions={
           onOpenFieldsConfig && (
             <button
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow text-xs"
+              aria-label="Personalizar campos"
+              title="Personalizar campos"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/30"
               onClick={onOpenFieldsConfig}
-              title="Configurar campos visibles y obligatorios"
-              aria-label="Configurar campos"
             >
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Personalizar campos</span>
+              <SlidersHorizontal className="h-5 w-5 text-slate-600" />
             </button>
           )
         }
@@ -469,242 +468,218 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {/* (Email y Orden de Compra se reubican a columna derecha como M) */}
           </div>
 
-          {/* COL B (xl:col-span-4) Serie/Fechas/Moneda/Forma Pago */}
+          {/* COL B (xl:col-span-4) Serie / Emisión / Vencimiento (balance 2 filas) */}
           <div className="col-span-12 xl:col-span-4">
-            <div className="grid grid-cols-12 gap-x-4 gap-y-3">
-            {/* Serie */}
-            <div className="col-span-6 xl:col-span-3">
-              <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="serie">
-                <Hash className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                Serie<span className="ml-0.5 text-red-500">*</span>
-              </label>
-              <div className="relative">
-                {seriesFiltradas.length > 0 ? (
-                  <>
-                    <select
-                      id="serie"
-                      className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white appearance-none cursor-pointer shadow-sm text-[13px]"
-                      value={serieSeleccionada}
-                      onChange={e => setSerieSeleccionada(e.target.value)}
-                    >
-                      {seriesFiltradas.map(serie => (
-                        <option key={serie} value={serie}>{serie}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </>
-                ) : (
-                  <div className="w-full h-9 px-3 flex items-center border border-amber-300 rounded-xl bg-amber-50 text-[12px] font-medium text-amber-700">
-                    ⚠️ Sin series
-                  </div>
-                )}
+            <div className="grid grid-cols-12 gap-x-4 gap-y-3 items-end">
+              {/* Fila 1: Serie / Fecha Emisión */}
+              <div className="col-span-6">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="serie">
+                  <Hash className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                  Serie<span className="ml-0.5 text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  {seriesFiltradas.length > 0 ? (
+                    <>
+                      <select
+                        id="serie"
+                        className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white appearance-none cursor-pointer shadow-sm text-[13px]"
+                        value={serieSeleccionada}
+                        onChange={e => setSerieSeleccionada(e.target.value)}
+                      >
+                        {seriesFiltradas.map(serie => (
+                          <option key={serie} value={serie}>{serie}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </>
+                  ) : (
+                    <div className="w-full h-9 px-3 flex items-center border border-amber-300 rounded-xl bg-amber-50 text-[12px] font-medium text-amber-700">
+                      ⚠️ Sin series
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-
-            {/* Fecha Emisión */}
-            <div className="col-span-6 xl:col-span-3">
-              <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="fecha-emision">
-                <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                Fecha de Emisión<span className="ml-0.5 text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={localFechaEmision}
-                onChange={(e) => {
-                  setLocalFechaEmision(e.target.value);
-                  onFechaEmisionChange?.(e.target.value);
-                  onOptionalFieldsChange?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
-                }}
-                id="fecha-emision"
-                className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
-              />
-            </div>
-
-            {/* Moneda */}
-            <div className="col-span-6 xl:col-span-3">
-              <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="moneda">
-                <DollarSign className="w-3.5 h-3.5 mr-1 text-green-600" />
-                Moneda
-              </label>
-              <select
-                id="moneda"
-                className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white shadow-sm text-[13px]"
-                value={moneda}
-                onChange={e => setMoneda?.(e.target.value)}
-              >
-                <option value="PEN">PEN - Soles</option>
-                <option value="USD">USD - Dólares</option>
-              </select>
-            </div>
-
-            {/* Forma de Pago */}
-            <div className="col-span-6 xl:col-span-3">
-              <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="forma-pago">
-                <CreditCard className="w-3.5 h-3.5 mr-1 text-purple-600" />
-                Forma de Pago
-              </label>
-              <select
-                id="forma-pago"
-                className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white shadow-sm text-[13px]"
-                value={formaPago}
-                onChange={e => setFormaPago?.(e.target.value)}
-              >
-                {paymentMethods.length > 0 ? (
-                  paymentMethods
-                    .filter(pm => pm.isActive)
-                    .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
-                    .map(pm => (
-                      <option key={pm.id} value={pm.id}>{pm.name}</option>
-                    ))
-                ) : (
-                  <option value="contado">Contado (por defecto)</option>
-                )}
-              </select>
-              {onNuevaFormaPago && (
-                <button
-                  type="button"
-                  className="mt-1 text-[12px] text-slate-500 hover:text-slate-600 font-medium hover:underline"
-                  onClick={onNuevaFormaPago}
-                >
-                  + Nueva forma de pago
-                </button>
-              )}
-            </div>
-
-            {/* Fecha de Vencimiento */}
-            {config.optionalFields.fechaVencimiento.visible && (
-              <div className="col-span-6 xl:col-span-3">
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="fecha-vencimiento">
+              <div className="col-span-6 xl:border-s xl:border-slate-200 xl:ps-4">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="fecha-emision">
                   <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Fecha de Vencimiento
-                  {config.optionalFields.fechaVencimiento.required && <span className="ml-0.5 text-red-500">*</span>}
+                  Fecha de Emisión<span className="ml-0.5 text-red-500">*</span>
                 </label>
                 <input
                   type="date"
-                  required={config.optionalFields.fechaVencimiento.required}
-                  value={localFechaVencimiento}
-                  onChange={(e) => { setLocalFechaVencimiento(e.target.value); onOptionalFieldsChange?.({ fechaVencimiento: e.target.value }); }}
-                  id="fecha-vencimiento"
-                  className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
+                  value={localFechaEmision}
+                  onChange={(e) => {
+                    setLocalFechaEmision(e.target.value);
+                    onFechaEmisionChange?.(e.target.value);
+                    onOptionalFieldsChange?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
+                  }}
+                  id="fecha-emision"
+                  className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
                 />
               </div>
-            )}
-
-            {/* (Fin Col B) */}
+              {/* Fila 2: Fecha Vencimiento / Placeholder */}
+              {config.optionalFields.fechaVencimiento.visible && (
+                <div className="col-span-6">
+                  <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="fecha-vencimiento">
+                    <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                    Fecha de Vencimiento
+                    {config.optionalFields.fechaVencimiento.required && <span className="ml-0.5 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="date"
+                    required={config.optionalFields.fechaVencimiento.required}
+                    value={localFechaVencimiento}
+                    onChange={(e) => { setLocalFechaVencimiento(e.target.value); onOptionalFieldsChange?.({ fechaVencimiento: e.target.value }); }}
+                    id="fecha-vencimiento"
+                    className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
+                  />
+                </div>
+              )}
+              <div className="col-span-6 xl:border-s xl:border-slate-200 xl:ps-4" aria-hidden="true">
+                <div className="h-9"></div>
+              </div>
             </div>
           </div>
 
-          {/* COL C (xl:col-span-4) Vendedor + Otros (con posible collapsible) */}
+          {/* COL C (xl:col-span-4) Pago & Referencias */}
           <div className="col-span-12 xl:col-span-4">
-            <div className="grid grid-cols-12 gap-x-4 gap-y-3">
-            {/* Vendedor */}
-            <div className="col-span-12">
-              <label className="block text-[12px] font-medium text-slate-600 mb-1">
-                <User className="w-3.5 h-3.5 inline mr-1 text-violet-600" />
-                Vendedor
-              </label>
-              <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl px-3 py-2 border border-violet-200 shadow-sm w-full max-w-[360px]">
-                <div className="w-7 h-7 bg-gradient-to-br from-violet-600 to-purple-600 rounded-full flex items-center justify-center shadow flex-shrink-0">
-                  <User className="w-3.5 h-3.5 text-white" />
+            <div className="grid grid-cols-12 gap-x-4 gap-y-3 items-end">
+              {/* Fila 1: Moneda / Forma de pago */}
+              <div className="col-span-6">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="moneda">
+                  <DollarSign className="w-3.5 h-3.5 mr-1 text-green-600" />
+                  Moneda
+                </label>
+                <select
+                  id="moneda"
+                  className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white shadow-sm text-[13px]"
+                  value={moneda}
+                  onChange={e => setMoneda?.(e.target.value)}
+                >
+                  <option value="PEN">PEN - Soles</option>
+                  <option value="USD">USD - Dólares</option>
+                </select>
+              </div>
+              <div className="col-span-6 xl:border-s xl:border-slate-200 xl:ps-4">
+                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="forma-pago">
+                  <CreditCard className="w-3.5 h-3.5 mr-1 text-purple-600" />
+                  Forma de Pago
+                </label>
+                <select
+                  id="forma-pago"
+                  className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white shadow-sm text-[13px]"
+                  value={formaPago}
+                  onChange={e => setFormaPago?.(e.target.value)}
+                >
+                  {paymentMethods.length > 0 ? (
+                    paymentMethods
+                      .filter(pm => pm.isActive)
+                      .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
+                      .map(pm => (
+                        <option key={pm.id} value={pm.id}>{pm.name}</option>
+                      ))
+                  ) : (
+                    <option value="contado">Contado (por defecto)</option>
+                  )}
+                </select>
+                {onNuevaFormaPago && (
+                  <button
+                    type="button"
+                    className="mt-1 block text-[12px] text-slate-500 hover:text-slate-700"
+                    onClick={onNuevaFormaPago}
+                  >
+                    + Nueva forma de pago
+                  </button>
+                )}
+              </div>
+
+              {/* Fila 2: Vendedor (M) / Orden de compra (M) */}
+              <div className="col-span-12 xl:col-span-6">
+                <label className="block text-[12px] font-medium text-slate-600 mb-1" htmlFor="vendedor">
+                  <User className="w-3.5 h-3.5 inline mr-1 text-violet-600" />
+                  Vendedor
+                </label>
+                <select id="vendedor" className="h-9 w-full max-w-[360px] rounded-xl border border-slate-300 px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30">
+                  <option>Javier Masías Loza — ID: 001</option>
+                </select>
+              </div>
+              <div className="col-span-12 xl:col-span-6 xl:border-s xl:border-slate-200 xl:ps-4">
+                {config.optionalFields.ordenCompra.visible && (
+                  <div>
+                    <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="orden-compra">
+                      <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                      Orden de Compra
+                      {config.optionalFields.ordenCompra.required && <span className="ml-0.5 text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={config.optionalFields.ordenCompra.required}
+                      value={localOrdenCompra}
+                      onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChange?.({ ordenCompra: e.target.value }); }}
+                      id="orden-compra"
+                      className="h-9 w-full max-w-[360px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                      placeholder="Ej: OC01-0000236"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Debajo: Centro de costo (S) / Guía (S) */}
+              {config.optionalFields.centroCosto.visible && (
+                <div className="col-span-6">
+                  <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="centro-costo">
+                    <Building2 className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                    Centro de Costo
+                    {config.optionalFields.centroCosto.required && <span className="ml-0.5 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={config.optionalFields.centroCosto.required}
+                    value={localCentroCosto}
+                    onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChange?.({ centroCosto: e.target.value }); }}
+                    id="centro-costo"
+                    className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
+                    placeholder="Ingrese centro de costos"
+                  />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[12px] font-semibold text-gray-900 truncate">Javier Masías Loza</p>
-                  <p className="text-[11px] text-gray-500">ID: 001</p>
+              )}
+              {config.optionalFields.guiaRemision.visible && (
+                <div className="col-span-6 xl:border-s xl:border-slate-200 xl:ps-4">
+                  <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="guia-remision">
+                    <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                    N° de Guía de Remisión
+                    {config.optionalFields.guiaRemision.required && <span className="ml-0.5 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={config.optionalFields.guiaRemision.required}
+                    value={localGuiaRemision}
+                    onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChange?.({ guiaRemision: e.target.value }); }}
+                    id="guia-remision"
+                    className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
+                    placeholder="Ej: T001-00000256"
+                  />
                 </div>
-              </div>
-            </div>
+              )}
 
-            {/* Contenedor colapsable para Centro de Costo / Guía (si espacio) */}
-            <details className="col-span-12 group rounded-xl border border-slate-200 bg-slate-50/50 open:bg-white open:border-slate-300 transition-colors" open={false}>
-              <summary className="cursor-pointer list-none px-3 py-2 flex items-center justify-between text-[12px] font-medium text-slate-600">
-                <span className="flex items-center gap-2">
-                  Más opciones
-                </span>
-                <span className="text-slate-500 group-open:hidden">Mostrar</span>
-                <span className="text-slate-500 hidden group-open:inline">Ocultar</span>
-              </summary>
-              <div className="px-3 pb-3 pt-1 grid grid-cols-12 gap-x-4 gap-y-3">
-                {/* Centro de Costo (S) */}
-            {config.optionalFields.centroCosto.visible && (
-              <div className="col-span-6 xl:col-span-6">
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="centro-costo">
-                  <Building2 className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Centro de Costo
-                  {config.optionalFields.centroCosto.required && <span className="ml-0.5 text-red-500">*</span>}
-                </label>
-                <input
-                  type="text"
-                  required={config.optionalFields.centroCosto.required}
-                  value={localCentroCosto}
-                  onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChange?.({ centroCosto: e.target.value }); }}
-                  id="centro-costo"
-                  className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
-                  placeholder="Ingrese centro de costos"
-                />
-              </div>
-            )}
-
-            {/* Guía de Remisión (S) */}
-            {config.optionalFields.guiaRemision.visible && (
-              <div className="col-span-6 xl:col-span-6">
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="guia-remision">
-                  <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  N° de Guía de Remisión
-                  {config.optionalFields.guiaRemision.required && <span className="ml-0.5 text-red-500">*</span>}
-                </label>
-                <input
-                  type="text"
-                  required={config.optionalFields.guiaRemision.required}
-                  value={localGuiaRemision}
-                  onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChange?.({ guiaRemision: e.target.value }); }}
-                  id="guia-remision"
-                  className="h-9 w-full max-w-[240px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
-                  placeholder="Ej: T001-00000256"
-                />
-              </div>
-            )}
-              </div>
-            </details>
-
-            {/* Orden de Compra (M) */}
-            {config.optionalFields.ordenCompra.visible && (
-              <div className="col-span-12">
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="orden-compra">
-                  <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Orden de Compra
-                  {config.optionalFields.ordenCompra.required && <span className="ml-0.5 text-red-500">*</span>}
-                </label>
-                <input
-                  type="text"
-                  required={config.optionalFields.ordenCompra.required}
-                  value={localOrdenCompra}
-                  onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChange?.({ ordenCompra: e.target.value }); }}
-                  id="orden-compra"
-                  className="h-9 w-full max-w-[360px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
-                  placeholder="Ej: OC01-0000236"
-                />
-              </div>
-            )}
-
-            {/* Email (M) */}
-            {config.optionalFields.correo.visible && (
-              <div className="col-span-12">
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="email">
-                  <Mail className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Email
-                  {config.optionalFields.correo.required && <span className="ml-0.5 text-red-500">*</span>}
-                </label>
-                <input
-                  type="email"
-                  required={config.optionalFields.correo.required}
-                  value={localCorreo}
-                  onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChange?.({ correo: e.target.value }); }}
-                  id="email"
-                  className="h-9 w-full max-w-[360px] px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
-                  placeholder="cliente@empresa.com"
-                />
-              </div>
-            )}
+              {/* Email (M) */}
+              {config.optionalFields.correo.visible && (
+                <div className="col-span-12">
+                  <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="email">
+                    <Mail className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                    Email
+                    {config.optionalFields.correo.required && <span className="ml-0.5 text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="email"
+                    required={config.optionalFields.correo.required}
+                    value={localCorreo}
+                    onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChange?.({ correo: e.target.value }); }}
+                    id="email"
+                    className="h-9 w-full max-w-[360px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                    placeholder="cliente@empresa.com"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
