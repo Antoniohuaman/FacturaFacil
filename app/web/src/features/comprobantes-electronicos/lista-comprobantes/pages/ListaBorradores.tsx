@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useMemo } from 'react';
 import { Search, Filter, Download, Printer, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Edit, Copy, Trash2, Send, Clock, AlertTriangle, FileText } from 'lucide-react';
-import { MOCK_DRAFTS, type Draft } from '../mockData/drafts.mock';
+import type { Draft } from '../mockData/drafts.mock';
 import { filterByDateRange } from '../../utils/dateUtils';
 import { validateDraftsForBulkEmit, calculateDraftStatus } from '../../utils/draftValidation';
 import { PAGINATION_CONFIG } from '../../models/constants';
@@ -62,8 +62,8 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
     }
   }
 
-  // Unir mockDrafts y localDrafts
-  const drafts: Draft[] = useMemo(() => [...MOCK_DRAFTS, ...localDrafts], [localDraftsRaw]);
+  // Usar solo borradores de localStorage (sin datos hardcodeados)
+  const drafts: Draft[] = useMemo(() => localDrafts, [localDraftsRaw]);
 
   // Aplicar filtros de fecha usando la utilidad
   const filteredDrafts = useMemo(() => {
