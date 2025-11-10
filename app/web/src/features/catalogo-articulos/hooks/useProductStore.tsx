@@ -318,6 +318,67 @@ export const useProductStore = () => {
     configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
   }, [categories, configDispatch]);
 
+  // Importación masiva con upsert (clave = código)
+  const importProducts = useCallback((productsData: Array<Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>>) => {
+    const now = new Date();
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    setProducts(prev => {
+      const newProducts = [...prev];
+      const categoryCounts = new Map<string, number>();
+
+      // Contar productos por categoría existentes
+      prev.forEach(p => {
+        categoryCounts.set(p.categoria, (categoryCounts.get(p.categoria) || 0) + 1);
+      });
+
+      productsData.forEach(productData => {
+        const existingIndex = newProducts.findIndex(p => p.codigo === productData.codigo);
+
+        if (existingIndex >= 0) {
+          // Actualizar producto existente
+          const oldCategory = newProducts[existingIndex].categoria;
+          newProducts[existingIndex] = {
+            ...newProducts[existingIndex],
+            ...productData,
+            fechaActualizacion: now
+          };
+
+          // Actualizar contador si cambió de categoría
+          if (oldCategory !== productData.categoria) {
+            categoryCounts.set(oldCategory, Math.max(0, (categoryCounts.get(oldCategory) || 0) - 1));
+            categoryCounts.set(productData.categoria, (categoryCounts.get(productData.categoria) || 0) + 1);
+          }
+
+          updatedCount++;
+        } else {
+          // Crear nuevo producto
+          const newProduct: Product = {
+            ...productData,
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+            fechaCreacion: now,
+            fechaActualizacion: now
+          };
+          newProducts.push(newProduct);
+          categoryCounts.set(productData.categoria, (categoryCounts.get(productData.categoria) || 0) + 1);
+          createdCount++;
+        }
+      });
+
+      // Actualizar contadores de categorías
+      const updatedCategories = categories.map(cat => ({
+        ...cat,
+        productCount: categoryCounts.get(cat.nombre) || 0
+      }));
+      configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
+
+      return newProducts;
+    });
+
+    return { createdCount, updatedCount };
+  }, [categories, configDispatch]);
+
   // CRUD Categorías - Ahora usan ConfigurationContext
   const addCategory = useCallback((nombre: string, descripcion?: string, color?: string) => {
     // Evitar duplicados por nombre (case-insensitive)
@@ -419,6 +480,7 @@ export const useProductStore = () => {
     updateProduct,
     deleteProduct,
     deleteAllProducts,
+    importProducts,
 
     // Categorías
     addCategory,

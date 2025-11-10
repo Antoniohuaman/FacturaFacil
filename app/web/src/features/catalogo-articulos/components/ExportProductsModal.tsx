@@ -52,6 +52,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
     { key: 'marca', label: 'Marca', type: 'text' },
     { key: 'modelo', label: 'Modelo', type: 'text' },
     { key: 'peso', label: 'Peso (KG)', type: 'number' },
+    { key: 'tipoExistencia', label: 'Tipo de Existencia', type: 'text' },
     { key: 'fechaCreacion', label: 'Fecha de Creación', type: 'date' },
     { key: 'fechaActualizacion', label: 'Última Actualización', type: 'date' }
   ];
@@ -132,22 +133,27 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
   };
 
   const handleExport = async () => {
+    if (products.length === 0) {
+      alert('No hay productos para exportar');
+      return;
+    }
+
     setIsExporting(true);
 
     try {
-      // Simular procesamiento
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const { headers, rows } = generateExportData();
-      
+      const { columns } = generateExportData();
+
       if (selectedFormat === 'excel') {
-        // Aquí iría la lógica real de generación de Excel
-        // Por ahora simulamos la descarga
+        // Importar helper dinámicamente
+        const { exportProductsToExcel } = await import('../utils/excelHelpers');
+        exportProductsToExcel(products, selectedColumns, columns);
+      } else if (selectedFormat === 'csv') {
+        const { headers, rows } = generateExportData();
         const csvContent = [
           headers.join(','),
-          ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+          ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
         ].join('\n');
-        
+
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
@@ -157,11 +163,14 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+      } else {
+        alert('Exportación a PDF no implementada aún');
       }
-      
+
       onClose();
     } catch (error) {
       console.error('Error exporting products:', error);
+      alert('Error al exportar productos. Por favor intenta de nuevo.');
     } finally {
       setIsExporting(false);
     }
