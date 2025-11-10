@@ -143,7 +143,7 @@ export const InventoryPage: React.FC = () => {
             {/* Acción */}
             <div className="flex flex-col sm:flex-row gap-4 w-full">
               <a
-                href="/configuracion-sistema"
+                href="/configuracion/almacenes"
                 className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center space-x-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

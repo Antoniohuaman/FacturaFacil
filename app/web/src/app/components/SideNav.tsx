@@ -39,7 +39,7 @@ const mainItems = [
   },
   { 
     to: "/inventario", 
-    label: "Inventario", 
+    label: "Control Stock", 
     description: "Control de stock",
     icon: Boxes
   },
