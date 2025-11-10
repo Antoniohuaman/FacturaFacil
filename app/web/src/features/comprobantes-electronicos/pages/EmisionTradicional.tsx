@@ -263,7 +263,7 @@ const EmisionTradicional = () => {
                 </div>
               </div>
 
-              {/* Right side - Tipo de Comprobante */}
+              {/* Right side - Vista Previa */}
               <div className="flex items-center space-x-3">
                 {/* ✅ Botón Vista Previa (solo si flag habilitado) */}
                 {ENABLE_SIDE_PREVIEW_EMISION && sidePreview && (
@@ -280,62 +280,6 @@ const EmisionTradicional = () => {
                     Vista previa
                   </button>
                 )}
-
-                {/* ✅ Selector de Tipo de Comprobante - Botones Premium */}
-                <div className="flex items-center space-x-2">
-                  <button
-                    className={`relative group px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                      tipoComprobante === 'boleta'
-                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/50 border-2 border-blue-500'
-                        : 'text-gray-700 border-2 border-gray-300 hover:border-blue-300 hover:bg-blue-50/50 bg-white'
-                    }`}
-                    onClick={() => setTipoComprobante('boleta')}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        tipoComprobante === 'boleta' ? 'bg-white/20' : 'bg-blue-100'
-                      }`}>
-                        <span className={`text-xs font-bold ${
-                          tipoComprobante === 'boleta' ? 'text-white' : 'text-blue-600'
-                        }`}>B</span>
-                      </div>
-                      <span>Boleta</span>
-                    </div>
-                    {tipoComprobante === 'boleta' && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                  <button
-                    className={`relative group px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                      tipoComprobante === 'factura'
-                        ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/50 border-2 border-indigo-500'
-                        : 'text-gray-700 border-2 border-gray-300 hover:border-indigo-300 hover:bg-indigo-50/50 bg-white'
-                    }`}
-                    onClick={() => setTipoComprobante('factura')}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        tipoComprobante === 'factura' ? 'bg-white/20' : 'bg-indigo-100'
-                      }`}>
-                        <span className={`text-xs font-bold ${
-                          tipoComprobante === 'factura' ? 'text-white' : 'text-indigo-600'
-                        }`}>F</span>
-                      </div>
-                      <span>Factura</span>
-                    </div>
-                    {tipoComprobante === 'factura' && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -359,6 +303,8 @@ const EmisionTradicional = () => {
 
             {/* ✅ Formulario Compacto - Todos los campos organizados */}
             <CompactDocumentForm
+              tipoComprobante={tipoComprobante}
+              setTipoComprobante={setTipoComprobante}
               serieSeleccionada={serieSeleccionada}
               setSerieSeleccionada={setSerieSeleccionada}
               seriesFiltradas={seriesFiltradas}
