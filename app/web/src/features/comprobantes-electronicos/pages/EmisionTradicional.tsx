@@ -38,7 +38,7 @@ import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../shared/modales/SuccessModal';
 
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Eye } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
@@ -262,25 +262,6 @@ const EmisionTradicional = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Right side - Vista Previa */}
-              <div className="flex items-center space-x-3">
-                {/* ✅ Botón Vista Previa (solo si flag habilitado) */}
-                {ENABLE_SIDE_PREVIEW_EMISION && sidePreview && (
-                  <button
-                    onClick={sidePreview.togglePane}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      sidePreview.isOpen
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                    }`}
-                    title="Mostrar/ocultar vista previa lateral"
-                  >
-                    <Eye className="w-4 h-4" />
-                    Vista previa
-                  </button>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -314,6 +295,7 @@ const EmisionTradicional = () => {
               setFormaPago={setFormaPago}
               onNuevaFormaPago={handleNuevaFormaPago}
               onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
+              onVistaPrevia={sidePreview?.togglePane}
               onClienteChange={setClienteSeleccionadoGlobal}
               fechaEmision={fechaEmision}
               onFechaEmisionChange={setFechaEmision}
