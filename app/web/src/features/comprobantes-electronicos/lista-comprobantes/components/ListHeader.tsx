@@ -49,6 +49,9 @@ interface ListHeaderProps {
 
   // Export
   onExport: () => Promise<void>;
+
+  // Optional: Hide action buttons (for Borradores)
+  hideActionButtons?: boolean;
 }
 
 const DATE_PRESETS: DatePreset[] = [
@@ -81,7 +84,8 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
   onToggleColumnManager,
   onToggleColumn,
   onDensityChange,
-  onExport
+  onExport,
+  hideActionButtons = false
 }) => {
   const navigate = useNavigate();
 
@@ -317,31 +321,35 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
           {/* Separador */}
           <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 ml-auto"></div>
 
-          {/* Botones de Acción Perfectos */}
-          <button
-            onClick={() => navigate('/comprobantes/emision?tipo=factura')}
-            className="h-[44px] px-5 border-2 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 rounded-[12px] font-semibold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            aria-label="Crear nueva factura"
-          >
-            Nueva factura
-          </button>
+          {/* Botones de Acción - Solo en Lista Comprobantes */}
+          {!hideActionButtons && (
+            <>
+              <button
+                onClick={() => navigate('/comprobantes/emision?tipo=factura')}
+                className="h-[44px] px-5 border-2 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 rounded-[12px] font-semibold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                aria-label="Crear nueva factura"
+              >
+                Nueva factura
+              </button>
 
-          <button
-            onClick={() => navigate('/comprobantes/emision?tipo=boleta')}
-            className="h-[44px] px-5 bg-blue-600 dark:bg-blue-600 text-white rounded-[12px] font-semibold text-sm hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm"
-            aria-label="Crear nueva boleta"
-          >
-            Nueva boleta
-          </button>
+              <button
+                onClick={() => navigate('/comprobantes/emision?tipo=boleta')}
+                className="h-[44px] px-5 bg-blue-600 dark:bg-blue-600 text-white rounded-[12px] font-semibold text-sm hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm"
+                aria-label="Crear nueva boleta"
+              >
+                Nueva boleta
+              </button>
 
-          <button
-            title="Más tipos de comprobantes"
-            aria-label="Más opciones de comprobantes"
-            className="h-[44px] w-[44px] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-[12px] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onClick={() => {/* TODO: Implementar menú de más tipos */}}
-          >
-            <Plus className="w-5 h-5" />
-          </button>
+              <button
+                title="Más tipos de comprobantes"
+                aria-label="Más opciones de comprobantes"
+                className="h-[44px] w-[44px] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-[12px] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onClick={() => {/* TODO: Implementar menú de más tipos */}}
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-/* eslint-disable @typescript-eslint/no-unused-vars -- date setters pendientes integración DateRangePicker */
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Download, Printer, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Edit, Copy, Trash2, Send, Clock, AlertTriangle, FileText } from 'lucide-react';
+import { MoreHorizontal, Edit, Copy, Trash2, Send, Clock, AlertTriangle, FileText, ChevronLeft, Printer, Search, Filter, ChevronDown, ChevronRight } from 'lucide-react';
 import type { Draft } from '../mockData/drafts.mock';
-import { filterByDateRange } from '../../utils/dateUtils';
-import { validateDraftsForBulkEmit, calculateDraftStatus } from '../../utils/draftValidation';
+import { filterByDateRange, getTodayISO, formatDateShortSpanish, DATE_PRESETS } from '../../utils/dateUtils';
+import { validateDraftsForBulkEmit } from '../../utils/draftValidation';
 import { PAGINATION_CONFIG } from '../../models/constants';
+import { ListHeader } from '../components/ListHeader';
+import { useUserSession } from '../../../../contexts/UserSessionContext';
 
 type DraftStatus = 'Vigente' | 'Por vencer' | 'Vencido';
 type StatusColor = 'green' | 'orange' | 'red';
@@ -15,15 +16,142 @@ interface DraftInvoicesModuleProps {
 }
 
 const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }) => {
+  // Obtener usuario actual del contexto de sesión
+  const { session } = useUserSession();
+  const currentUserName = session?.userName || 'Usuario';
+
   const [showEmitPopup, setShowEmitPopup] = useState<boolean>(false);
   const [invalidDrafts, setInvalidDrafts] = useState<Draft[]>([]);
   const [validDrafts, setValidDrafts] = useState<Draft[]>([]);
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<string>(getTodayISO());
+  const [dateTo, setDateTo] = useState<string>(getTodayISO());
+  const [tempDateFrom, setTempDateFrom] = useState<string>(getTodayISO());
+  const [tempDateTo, setTempDateTo] = useState<string>(getTodayISO());
+  const [showDateRangePicker, setShowDateRangePicker] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [showTotals, setShowTotals] = useState<boolean>(false);
   const [selectedDrafts, setSelectedDrafts] = useState<string[]>([]);
   const [showPrintPopup, setShowPrintPopup] = useState<boolean>(false);
+  const [density] = useState<'comfortable' | 'intermediate' | 'compact'>('comfortable');
+
+  // ========================================
+  // EXTRACTORES ROBUSTOS DE DATOS DE BORRADOR
+  // ========================================
+  // Función helper para seleccionar primer valor no vacío
+  const pick = (...vals: any[]) => vals.find(v => v !== undefined && v !== null && v !== '') ?? '';
+
+  // Extractor de documento de cliente
+  const getClientDoc = (d: any): string => 
+    pick(
+      d.clienteDoc,
+      d.clienteDocumento,
+      d.clientDocument,
+      d.numeroDocumentoCliente,
+      d.cliente?.documento,
+      d.cliente?.numeroDocumento,
+      d.cliente?.doc,
+      d.cliente?.ruc,
+      d.cliente?.dni
+    );
+
+  // Extractor de nombre de cliente
+  const getClientName = (d: any): string =>
+    pick(
+      d.cliente,
+      d.clienteNombre,
+      d.clientName,
+      d.razonSocial,
+      d.cliente?.razonSocial,
+      d.cliente?.nombres,
+      d.cliente?.nombre,
+      d.cliente?.name
+    );
+
+  // Extractor de fecha de creación
+  const getCreatedAt = (d: any): string =>
+    pick(
+      d.fechaEmision,
+      d.creado,
+      d.fechaCreacion,
+      d.createdAt,
+      d.fechaRegistro,
+      d.created_at
+    );
+
+  // Extractor de fecha de vencimiento
+  const getDueAt = (d: any): string =>
+    pick(
+      d.fechaVencimiento,
+      d.vence,
+      d.dueAt,
+      d.dueDate,
+      d.due_at
+    );
+
+  // Extractor de total
+  const getTotal = (d: any): number => {
+    const totalDirecto = pick(d.total, d.importeTotal, d.montoTotal, d.amount);
+    if (totalDirecto !== '') return Number(totalDirecto) || 0;
+    
+    // Calcular desde productos si existe
+    if (d.productos && Array.isArray(d.productos)) {
+      return d.productos.reduce((sum: number, p: any) => {
+        const price = Number(p.price || p.precio || p.precioUnitario || 0);
+        const quantity = Number(p.quantity || p.cantidad || 1);
+        return sum + (price * quantity);
+      }, 0);
+    }
+    
+    return 0;
+  };
+
+  // Extractor de vendedor con fallback a usuario actual
+  const getVendor = (d: any): string =>
+    pick(
+      d.vendedor,
+      d.vendedorNombre,
+      d.vendor,
+      d.salesPerson,
+      currentUserName
+    );
+
+  // ========================================
+  // CÁLCULO DE ESTADO DESDE FECHA DE VENCIMIENTO
+  // ========================================
+  const calculateDraftStatusFromDueDate = (venceIso?: string): {
+    status: DraftStatus;
+    statusColor: StatusColor;
+    daysLeft: number;
+  } => {
+    if (!venceIso) {
+      return { status: 'Vigente', statusColor: 'green', daysLeft: 999 };
+    }
+
+    const now = new Date();
+    const vence = new Date(venceIso);
+    const diffMs = vence.getTime() - now.getTime();
+    const hours = diffMs / (1000 * 60 * 60);
+    const days = Math.ceil(hours / 24);
+
+    if (hours <= 0) {
+      return { status: 'Vencido', statusColor: 'red', daysLeft: 0 };
+    }
+    
+    if (hours <= 24) {
+      return { status: 'Por vencer', statusColor: 'orange', daysLeft: 1 };
+    }
+    
+    return { status: 'Vigente', statusColor: 'green', daysLeft: days };
+  };
+
+  // Log de campos usados para debugging
+  console.info('[ListaBorradores] Extractores configurados:', {
+    clientDoc: 'clienteDoc | clienteDocumento | cliente.documento',
+    clientName: 'cliente | clienteNombre | cliente.razonSocial',
+    createdAt: 'fechaEmision | creado | fechaCreacion',
+    dueAt: 'fechaVencimiento | vence | dueAt',
+    vendor: 'vendedor | vendedorNombre | currentUserName'
+  });
 
   // Leer borradores guardados en localStorage y mapearlos a Draft
   const localDraftsRaw = localStorage.getItem('borradores');
@@ -33,29 +161,57 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
     try {
       const parsed = JSON.parse(localDraftsRaw);
       localDrafts = parsed.map((d: any) => {
-        // Calcular estado usando la utilidad
-        const { status, statusColor, daysLeft } = calculateDraftStatus(
-          d.fechaEmision || new Date().toISOString(),
-          d.fechaVencimiento || '',
-          d.tipo === 'factura' ? 'Factura' : 'Boleta de venta'
-        );
+        // Extraer datos usando los extractores robustos
+        const clientDoc = getClientDoc(d);
+        const clientName = getClientName(d);
+        const createdAt = getCreatedAt(d);
+        const dueAt = getDueAt(d);
+        const total = getTotal(d);
+        const vendor = getVendor(d);
 
-        const today = new Date();
-        const createdDateFormatted = `${today.getDate()} ${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'][today.getMonth()]}. ${today.getFullYear()} ${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+        // Calcular estado desde fecha de vencimiento
+        const { status, statusColor, daysLeft } = calculateDraftStatusFromDueDate(dueAt);
+
+        // Formatear fechas
+        const createdDateFormatted = createdAt 
+          ? new Date(createdAt).toLocaleDateString('es-PE', { 
+              day: '2-digit', 
+              month: 'short', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : '';
+
+        const expiryDateFormatted = dueAt
+          ? new Date(dueAt).toLocaleDateString('es-PE', { 
+              day: '2-digit', 
+              month: 'short', 
+              year: 'numeric' 
+            })
+          : '';
 
         return {
           id: d.id,
           type: d.tipo === 'factura' ? 'Factura' : 'Boleta de venta',
-          clientDoc: d.clienteDoc || '',
-          client: d.cliente || '',
+          clientDoc,
+          client: clientName,
           createdDate: createdDateFormatted,
-          expiryDate: d.fechaVencimiento ? new Date(d.fechaVencimiento).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) : '',
-          vendor: d.vendedor || 'Sin asignar',
-          total: d.productos?.reduce?.((sum: number, p: any) => sum + (p.price * (p.quantity || 1)), 0) || 0,
+          expiryDate: expiryDateFormatted,
+          vendor,
+          total,
           status,
           daysLeft,
           statusColor
         };
+      });
+
+      // Log de conteo para verificación
+      console.info('[ListaBorradores] Borradores cargados:', {
+        total: localDrafts.length,
+        conCliente: localDrafts.filter(d => d.client).length,
+        conDocumento: localDrafts.filter(d => d.clientDoc).length,
+        conVendedor: localDrafts.filter(d => d.vendor).length
       });
     } catch (e) {
       console.error('Error parsing drafts from localStorage:', e);
@@ -82,6 +238,113 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
     setValidDrafts(valid);
     setInvalidDrafts(invalid);
     setShowEmitPopup(true);
+  };
+
+  // ========================================
+  // HANDLERS FUNCIONALES DE ACCIONES
+  // ========================================
+  
+  // Editar borrador
+  const editarBorrador = (id: string) => {
+    console.info('[ListaBorradores] Editando borrador:', id);
+    // TODO: Navegar a /punto-venta con el borrador cargado
+    // navigate(`/punto-venta?draft=${id}`);
+  };
+
+  // Emitir desde borrador
+  const emitirDesdeBorrador = (id: string) => {
+    console.info('[ListaBorradores] Emitiendo borrador:', id);
+    const draft = drafts.find(d => d.id === id);
+    if (!draft) return;
+
+    // TODO: Navegar a flujo de emisión con datos del borrador
+    // navigate(`/punto-venta?emit=${id}`);
+  };
+
+  // Duplicar borrador
+  const duplicarBorrador = (id: string) => {
+    console.info('[ListaBorradores] Duplicando borrador:', id);
+    
+    const localDrafts = localStorage.getItem('borradores');
+    if (!localDrafts) return;
+
+    try {
+      const parsed = JSON.parse(localDrafts);
+      const original = parsed.find((d: any) => d.id === id);
+      
+      if (!original) {
+        console.warn('[ListaBorradores] Borrador no encontrado para duplicar:', id);
+        return;
+      }
+
+      // Crear copia con nuevo ID
+      const duplicado = {
+        ...original,
+        id: `draft-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        fechaEmision: new Date().toISOString(),
+        creado: new Date().toISOString()
+      };
+
+      const updated = [...parsed, duplicado];
+      localStorage.setItem('borradores', JSON.stringify(updated));
+      
+      // Recargar página para reflejar cambios
+      window.location.reload();
+    } catch (e) {
+      console.error('[ListaBorradores] Error duplicando borrador:', e);
+    }
+  };
+
+  // Compartir borrador
+  const compartirBorrador = (id: string) => {
+    console.info('[ListaBorradores] Compartiendo borrador:', id);
+    // TODO: Implementar compartir (copiar link, descargar PDF, enviar por email)
+    // Por ahora, copiar ID al portapapeles
+    navigator.clipboard.writeText(id).then(() => {
+      console.info('[ListaBorradores] ID copiado al portapapeles:', id);
+    });
+  };
+
+  // Eliminar borrador
+  const eliminarBorrador = (id: string) => {
+    const confirmacion = window.confirm('¿Está seguro de que desea eliminar este borrador?');
+    if (!confirmacion) return;
+
+    console.info('[ListaBorradores] Eliminando borrador:', id);
+    
+    const localDrafts = localStorage.getItem('borradores');
+    if (!localDrafts) return;
+
+    try {
+      const parsed = JSON.parse(localDrafts);
+      const updated = parsed.filter((d: any) => d.id !== id);
+      localStorage.setItem('borradores', JSON.stringify(updated));
+      
+      // Recargar página para reflejar cambios
+      window.location.reload();
+    } catch (e) {
+      console.error('[ListaBorradores] Error eliminando borrador:', e);
+    }
+  };
+
+  // Exportar borradores
+  const handleExport = async () => {
+    console.info('[ListaBorradores] Exportando borradores:', {
+      total: filteredDrafts.length,
+      filtros: { desde: dateFrom, hasta: dateTo }
+    });
+    
+    // TODO: Si existe backend, llamar servicio de exportación
+    // await exportService.exportDrafts(filteredDrafts, { dateFrom, dateTo });
+    
+    // Por ahora, log de datos a exportar
+    console.table(filteredDrafts.map(d => ({
+      id: d.id,
+      tipo: d.type,
+      cliente: d.client,
+      total: d.total,
+      estado: d.status
+    })));
   };
 
   const getStatusBadge = (status: DraftStatus, color: StatusColor, daysLeft: number) => {
@@ -136,16 +399,49 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
     }
   };
 
-  const totalRecords = filteredDrafts.length;
+  // Handlers para date range picker
+  const applyDatePreset = (preset: string) => {
+    const presetKey = preset as keyof typeof DATE_PRESETS;
+    if (DATE_PRESETS[presetKey]) {
+      const { from, to } = DATE_PRESETS[presetKey]();
+      setTempDateFrom(from);
+      setTempDateTo(to);
+    }
+  };
+
+  const applyDateRange = () => {
+    setDateFrom(tempDateFrom);
+    setDateTo(tempDateTo);
+    setShowDateRangePicker(false);
+    setCurrentPage(1);
+  };
+
   const recordsPerPage = PAGINATION_CONFIG.DRAFTS_PER_PAGE;
+  const totalRecords = filteredDrafts.length;
   const startRecord = (currentPage - 1) * recordsPerPage + 1;
   const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
+
+  // Log de paginación y filtros activos
+  console.info('[ListaBorradores] Paginación:', {
+    página: currentPage,
+    rango: `${startRecord} – ${endRecord} de ${totalRecords}`,
+    porPágina: recordsPerPage,
+    filtros: { desde: dateFrom, hasta: dateTo }
+  });
 
   // Calculate summary stats using filtered drafts
   const vigenteDrafts = filteredDrafts.filter(d => d.status === 'Vigente').length;
   const porVencerDrafts = filteredDrafts.filter(d => d.status === 'Por vencer').length;
   const vencidoDrafts = filteredDrafts.filter(d => d.status === 'Vencido').length;
   const totalValue = filteredDrafts.reduce((sum, draft) => sum + draft.total, 0);
+
+  // Log de estadísticas calculadas
+  console.info('[ListaBorradores] Estadísticas:', {
+    vigentes: vigenteDrafts,
+    porVencer: porVencerDrafts,
+    vencidos: vencidoDrafts,
+    valorTotal: `S/ ${totalValue.toFixed(2)}`
+  });
 
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 ${hideSidebar ? '' : 'flex'}`}>
@@ -189,53 +485,35 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="px-6 py-4">
-            {/* Fila principal: Date Range → Filtros → Exportar */}
-            <div className="flex items-center gap-3">
-              {/* Date Range Picker (Single Input Style) */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    // TODO: Implementar DateRangePicker popover
-                    console.log('DateRangePicker: Implementación pendiente', { setDateFrom, setDateTo });
-                  }}
-                  className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  aria-label="Seleccionar rango de fechas"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="font-medium">
-                    {dateFrom && dateTo ? `${dateFrom} - ${dateTo}` : 'Seleccionar fechas'}
-                  </span>
-                  <ChevronDown className="w-4 h-4 ml-1" />
-                </button>
-              </div>
-
-              {/* Filtros Button */}
-              <button
-                className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-label="Abrir panel de filtros"
-              >
-                <Filter className="w-4 h-4" />
-                <span className="font-medium">Filtros</span>
-              </button>
-
-              {/* Spacer */}
-              <div className="flex-1" />
-
-              {/* Export Button */}
-              <button
-                className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-label="Exportar"
-              >
-                <Download className="w-4 h-4" />
-                <span className="font-medium">Exportar</span>
-              </button>
-            </div>
-          </div>
+        {/* Header usando componente de Comprobantes */}
+        <ListHeader
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          tempDateFrom={tempDateFrom}
+          tempDateTo={tempDateTo}
+          showDateRangePicker={showDateRangePicker}
+          formatDateShort={formatDateShortSpanish}
+          onTempDateFromChange={setTempDateFrom}
+          onTempDateToChange={setTempDateTo}
+          onToggleDatePicker={() => setShowDateRangePicker(!showDateRangePicker)}
+          onApplyDatePreset={applyDatePreset}
+          onApplyDateRange={applyDateRange}
+          onCancelDatePicker={() => {
+            setTempDateFrom(dateFrom);
+            setTempDateTo(dateTo);
+            setShowDateRangePicker(false);
+          }}
+          activeFiltersCount={0}
+          onOpenFilters={() => console.log('Abrir filtros')}
+          showColumnManager={false}
+          columnsConfig={[]}
+          density={density}
+          onToggleColumnManager={() => {}}
+          onToggleColumn={() => {}}
+          onDensityChange={() => {}}
+          onExport={handleExport}
+          hideActionButtons={true}
+        />
 
           {/* Bulk Actions Bar */}
           {selectedDrafts.length > 0 && (
@@ -282,7 +560,6 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
               </div>
             </div>
           )}
-        </div>
 
         {/* Stats Cards - Compact Style */}
         <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900">
@@ -472,6 +749,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
                         <div className="flex items-center justify-center gap-1">
                           <button
+                            onClick={() => editarBorrador(draft.id)}
                             className="p-1.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                             title="Editar"
                             aria-label={`Editar borrador ${draft.id}`}
@@ -479,6 +757,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => emitirDesdeBorrador(draft.id)}
                             className="p-1.5 text-green-500 hover:text-green-700 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
                             title="Emitir"
                             aria-label={`Emitir borrador ${draft.id}`}
@@ -486,6 +765,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                             <Send className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => duplicarBorrador(draft.id)}
                             className="p-1.5 text-purple-500 hover:text-purple-700 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
                             title="Duplicar"
                             aria-label={`Duplicar borrador ${draft.id}`}
@@ -493,6 +773,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                             <Copy className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => eliminarBorrador(draft.id)}
                             className="p-1.5 text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                             title="Eliminar"
                             aria-label={`Eliminar borrador ${draft.id}`}
@@ -500,6 +781,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
                             <Trash2 className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => compartirBorrador(draft.id)}
                             className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
                             title="Más opciones"
                             aria-label={`Más opciones para borrador ${draft.id}`}
