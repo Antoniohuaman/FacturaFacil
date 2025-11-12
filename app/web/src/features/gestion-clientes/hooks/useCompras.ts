@@ -16,14 +16,17 @@ export const useCompras = (clienteId?: number | string) => {
   const fetchCompras = useCallback(async (id: number | string) => {
     setLoading(true);
     setError(null);
+    const ctrl = new AbortController();
 
     try {
-      const response = await comprasClient.getComprasByCliente(id);
+      const response = await comprasClient.getComprasByCliente(id, { signal: ctrl.signal });
       setCompras(response.data);
     } catch (err: any) {
-      const errorMessage = err.message || 'Error al cargar historial de compras';
-      setError(errorMessage);
-      showToast('error', 'Error', errorMessage);
+      if (err?.name !== 'AbortError') {
+        const errorMessage = err.message || 'Error al cargar historial de compras';
+        setError(errorMessage);
+        showToast('error', 'Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -38,14 +41,17 @@ export const useCompras = (clienteId?: number | string) => {
   ): Promise<CompraDetalle | null> => {
     setLoading(true);
     setError(null);
+    const ctrl = new AbortController();
 
     try {
-      const detalle = await comprasClient.getCompraDetalle(clienteIdParam, compraId);
+      const detalle = await comprasClient.getCompraDetalle(clienteIdParam, compraId, { signal: ctrl.signal });
       return detalle;
     } catch (err: any) {
-      const errorMessage = err.message || 'Error al cargar detalle de compra';
-      setError(errorMessage);
-      showToast('error', 'Error', errorMessage);
+      if (err?.name !== 'AbortError') {
+        const errorMessage = err.message || 'Error al cargar detalle de compra';
+        setError(errorMessage);
+        showToast('error', 'Error', errorMessage);
+      }
       return null;
     } finally {
       setLoading(false);
@@ -54,10 +60,24 @@ export const useCompras = (clienteId?: number | string) => {
 
   // Cargar compras al montar si se proporciona clienteId
   useEffect(() => {
+    const ctrl = new AbortController();
     if (clienteId) {
-      fetchCompras(clienteId);
+      setLoading(true);
+      setError(null);
+      comprasClient
+        .getComprasByCliente(clienteId, { signal: ctrl.signal })
+        .then((response) => setCompras(response.data))
+        .catch((err: any) => {
+          if (err?.name !== 'AbortError') {
+            const errorMessage = err.message || 'Error al cargar historial de compras';
+            setError(errorMessage);
+            showToast('error', 'Error', errorMessage);
+          }
+        })
+        .finally(() => setLoading(false));
     }
-  }, [clienteId, fetchCompras]);
+    return () => ctrl.abort();
+  }, [clienteId, showToast]);
 
   return {
     compras,

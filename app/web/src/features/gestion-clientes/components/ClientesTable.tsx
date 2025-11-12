@@ -1,4 +1,4 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Cliente } from '../models';
 
@@ -6,6 +6,7 @@ export type ClientesTableProps = {
   clients: Cliente[];
   onEditClient?: (client: Cliente) => void;
   onDeleteClient?: (client: Cliente) => void;
+  onFiltersActiveChange?: (active: boolean) => void;
 };
 
 export interface ClientesTableRef {
@@ -13,7 +14,7 @@ export interface ClientesTableRef {
   hasActiveFilters: () => boolean;
 }
 
-const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ clients, onEditClient, onDeleteClient }, ref) => {
+const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ clients, onEditClient, onDeleteClient, onFiltersActiveChange }, ref) => {
   const navigate = useNavigate();
   const [menuOpenId, setMenuOpenId] = useState<number | string | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>(clients);
@@ -27,6 +28,13 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
     phone: ''
   });
 
+  // Debounce de filtros para mejorar rendimiento
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedFilters(filters), 300);
+    return () => clearTimeout(t);
+  }, [filters]);
+
   // Estados para controlar qué filtros están visibles
   const [activeFilters, setActiveFilters] = useState({
     name: false,
@@ -36,8 +44,12 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
     phone: false
   });
 
-  // Lista de tipos únicos para el dropdown
-  const uniqueTypes = Array.from(new Set(clients.map(client => client.type)));
+  // Lista de tipos únicos para el dropdown (memoizado)
+  const uniqueTypes = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of clients) set.add(c.type);
+    return Array.from(set);
+  }, [clients]);
 
   // Función para activar/desactivar filtros - activa todos a la vez
   const toggleFilter = () => {
@@ -64,20 +76,19 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
     }
   };
 
-  // Sincronizar el estado local con las props cuando cambien
+  // Sincronizar el estado local con las props cuando cambien, aplicando debounce
   useEffect(() => {
+    const f = debouncedFilters;
     const filteredClients = clients.filter(client => {
-      const matchesName = !filters.name || client.name.toLowerCase().includes(filters.name.toLowerCase());
-      const matchesDocument = !filters.document || client.document.toLowerCase().includes(filters.document.toLowerCase());
-      const matchesType = !filters.type || client.type === filters.type;
-      const matchesAddress = !filters.address || client.address.toLowerCase().includes(filters.address.toLowerCase());
-      const matchesPhone = !filters.phone || client.phone.includes(filters.phone);
-      
+      const matchesName = !f.name || client.name.toLowerCase().includes(f.name.toLowerCase());
+      const matchesDocument = !f.document || client.document.toLowerCase().includes(f.document.toLowerCase());
+      const matchesType = !f.type || client.type === f.type;
+      const matchesAddress = !f.address || client.address.toLowerCase().includes(f.address.toLowerCase());
+      const matchesPhone = !f.phone || client.phone.includes(f.phone);
       return matchesName && matchesDocument && matchesType && matchesAddress && matchesPhone;
     });
-    
     setClientes(filteredClients);
-  }, [clients, filters]);
+  }, [clients, debouncedFilters]);
 
   // Función para manejar cambios en los filtros
   const handleFilterChange = (field: string, value: string) => {
@@ -109,6 +120,11 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
   const hasInternalActiveFilters = Object.values(activeFilters).some(active => active === true) || 
     Object.values(filters).some(value => value.trim() !== '');
 
+  // Notificar cambios de estado de filtros activos al padre
+  useEffect(() => {
+    onFiltersActiveChange?.(hasInternalActiveFilters);
+  }, [hasInternalActiveFilters, onFiltersActiveChange]);
+
   // Exponer funciones al componente padre via ref
   useImperativeHandle(ref, () => ({
     clearAllFilters,
@@ -121,11 +137,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
   };
 
   const handleEdit = (client: Cliente) => {
-    if (onEditClient) {
-      onEditClient(client);
-    } else {
-      alert(`Editar cliente: ${client.name}`);
-    }
+    onEditClient?.(client);
     setMenuOpenId(null);
   };
 
@@ -398,6 +410,13 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
                   key={client.id} 
                   className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer${!client.enabled ? ' row-disabled' : ''}`}
                   onClick={(e) => handleRowClick(client, e)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleRowClick(client, e as any);
+                    }
+                  }}
                 >
                   <td className="px-4 py-2 text-sm text-gray-900 dark:text-white font-medium break-words whitespace-normal" style={{ width: '25%' }}>{client.name}</td>
                   <td className="px-4 py-2 text-sm text-gray-900 dark:text-white break-words whitespace-normal" style={{ width: '15%' }}>

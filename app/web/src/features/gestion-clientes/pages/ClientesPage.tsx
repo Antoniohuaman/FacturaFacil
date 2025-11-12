@@ -33,7 +33,7 @@ const clientTypes = [
 function ClientesPage() {
 	const navigate = useNavigate();
 	const { showToast } = useCaja();
-	const { clientes, loading, createCliente, updateCliente, deleteCliente } = useClientes();
+	const { clientes, loading, createCliente, updateCliente, deleteCliente, pagination, fetchClientes } = useClientes();
 
 	const [showClientModal, setShowClientModal] = useState(false);
 	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
@@ -53,14 +53,8 @@ function ClientesPage() {
 	const [documentType, setDocumentType] = useState('RUC');
 	const [clientType, setClientType] = useState('Cliente');
 
-	// Estados para paginación
-	const [currentPage, setCurrentPage] = useState(1);
-	const [itemsPerPage] = useState(10);
-
-	// Lógica de paginación
-	const totalPages = Math.ceil(clientes.length / itemsPerPage);
-	const startIndex = (currentPage - 1) * itemsPerPage;
-	const paginatedClients = clientes.slice(startIndex, startIndex + itemsPerPage);
+		// Indicador de filtros activos (sin polling)
+		const [filtersActive, setFiltersActive] = useState(false);
 
 	const handleExportClients = async () => {
 		try {
@@ -340,10 +334,10 @@ function ClientesPage() {
 
 			{/* Contenido */}
 			<div className="px-6 pt-6 pb-6">
-				<ClientesFilters
-					tableRef={clientesTableRef}
-					onClearFilters={() => clientesTableRef.current?.clearAllFilters()}
-				/>
+						<ClientesFilters
+							active={filtersActive}
+							onClearFilters={() => clientesTableRef.current?.clearAllFilters()}
+						/>
 				{loading ? (
 					<div className="flex items-center justify-center py-12">
 						<div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -365,37 +359,42 @@ function ClientesPage() {
 						</button>
 					</div>
 				) : (
-					<ClientesTable
-						ref={clientesTableRef}
-						clients={paginatedClients}
-						onEditClient={handleEditClient}
-						onDeleteClient={handleDeleteClient}
-					/>
+								<ClientesTable
+									ref={clientesTableRef}
+									clients={clientes}
+									onEditClient={handleEditClient}
+									onDeleteClient={handleDeleteClient}
+									onFiltersActiveChange={setFiltersActive}
+								/>
 				)}
 			</div>
 
-			{/* Paginación */}
-			{totalPages > 1 && (
+					{/* Paginación basada en API/hook */}
+					{pagination.totalPages > 1 && (
 				<div className="px-6 py-4 border-t border-gray-200 dark:border-gray-600">
 					<div className="flex items-center justify-between">
-						<div className="text-sm text-gray-500 dark:text-gray-400">
-							Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, clientes.length)} de {clientes.length} resultados
-						</div>
+								<div className="text-sm text-gray-500 dark:text-gray-400">
+									{(() => {
+										const start = (pagination.page - 1) * pagination.limit + 1;
+										const end = Math.min(pagination.page * pagination.limit, pagination.total);
+										return `Mostrando ${start}-${end} de ${pagination.total} resultados`;
+									})()}
+								</div>
 						<div className="flex items-center gap-2">
 							<button
-								onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-								disabled={currentPage === 1}
+										onClick={() => pagination.page > 1 && fetchClientes({ page: pagination.page - 1, limit: pagination.limit })}
+										disabled={pagination.page === 1}
 								className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
 							>
 								Anterior
 							</button>
 
 							<div className="flex items-center gap-1">
-								{Array.from({ length: totalPages }, (_, i) => i + 1)
+										{Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
 									.filter(page =>
-										page === 1 ||
-										page === totalPages ||
-										Math.abs(page - currentPage) <= 1
+												page === 1 ||
+												page === pagination.totalPages ||
+												Math.abs(page - pagination.page) <= 1
 									)
 									.map((page, index, array) => (
 										<React.Fragment key={page}>
@@ -403,13 +402,13 @@ function ClientesPage() {
 												<span className="px-2 text-gray-400">...</span>
 											)}
 											<button
-												onClick={() => setCurrentPage(page)}
+														onClick={() => fetchClientes({ page, limit: pagination.limit })}
 												className={`px-3 py-1 text-sm rounded-lg ${
-													page === currentPage
+															page === pagination.page
 														? 'text-white'
 														: 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
 												}`}
-												style={page === currentPage ? { backgroundColor: PRIMARY_COLOR } : {}}
+														style={page === pagination.page ? { backgroundColor: PRIMARY_COLOR } : {}}
 											>
 												{page}
 											</button>
@@ -419,8 +418,8 @@ function ClientesPage() {
 							</div>
 
 							<button
-								onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-								disabled={currentPage === totalPages}
+										onClick={() => pagination.page < pagination.totalPages && fetchClientes({ page: pagination.page + 1, limit: pagination.limit })}
+										disabled={pagination.page === pagination.totalPages}
 								className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
 							>
 								Siguiente

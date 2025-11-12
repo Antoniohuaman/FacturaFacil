@@ -289,7 +289,10 @@ class ClientesClient {
   /**
    * Obtener lista de clientes con paginación
    */
-  async getClientes(filters?: ClienteFilters): Promise<PaginatedResponse<Cliente>> {
+  async getClientes(
+    filters?: ClienteFilters,
+    options: { signal?: AbortSignal; empresaId?: string; establecimientoId?: string } = {}
+  ): Promise<PaginatedResponse<Cliente>> {
     const params = new URLSearchParams();
 
     if (filters?.search) params.append('search', filters.search);
@@ -303,44 +306,49 @@ class ClientesClient {
 
     return this.request<PaginatedResponse<Cliente>>(endpoint, {
       method: 'GET',
+      signal: options.signal,
     });
   }
 
   /**
    * Obtener cliente por ID
    */
-  async getClienteById(id: number | string): Promise<Cliente> {
+  async getClienteById(id: number | string, options: { signal?: AbortSignal } = {}): Promise<Cliente> {
     return this.request<Cliente>(`/clientes/${id}`, {
       method: 'GET',
+      signal: options.signal,
     });
   }
 
   /**
    * Crear nuevo cliente
    */
-  async createCliente(data: CreateClienteDTO): Promise<Cliente> {
+  async createCliente(data: CreateClienteDTO, options: { signal?: AbortSignal } = {}): Promise<Cliente> {
     return this.request<Cliente>('/clientes', {
       method: 'POST',
       body: JSON.stringify(data),
+      signal: options.signal,
     });
   }
 
   /**
    * Actualizar cliente
    */
-  async updateCliente(id: number | string, data: UpdateClienteDTO): Promise<Cliente> {
+  async updateCliente(id: number | string, data: UpdateClienteDTO, options: { signal?: AbortSignal } = {}): Promise<Cliente> {
     return this.request<Cliente>(`/clientes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+      signal: options.signal,
     });
   }
 
   /**
    * Eliminar cliente
    */
-  async deleteCliente(id: number | string): Promise<{ success: boolean }> {
+  async deleteCliente(id: number | string, options: { signal?: AbortSignal } = {}): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/clientes/${id}`, {
       method: 'DELETE',
+      signal: options.signal,
     });
   }
 
@@ -349,18 +357,20 @@ class ClientesClient {
   /**
    * Consultar RENIEC por DNI
    */
-  async consultarReniec(dni: string): Promise<ReniecResponse> {
+  async consultarReniec(dni: string, options: { signal?: AbortSignal } = {}): Promise<ReniecResponse> {
     return this.request<ReniecResponse>(`/clientes/consultar-reniec/${dni}`, {
       method: 'GET',
+      signal: options.signal,
     });
   }
 
   /**
    * Consultar SUNAT por RUC
    */
-  async consultarSunat(ruc: string): Promise<SunatResponse> {
+  async consultarSunat(ruc: string, options: { signal?: AbortSignal } = {}): Promise<SunatResponse> {
     return this.request<SunatResponse>(`/clientes/consultar-sunat/${ruc}`, {
       method: 'GET',
+      signal: options.signal,
     });
   }
 

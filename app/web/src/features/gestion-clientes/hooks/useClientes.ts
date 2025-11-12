@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-/* eslint-disable react-hooks/exhaustive-deps -- dependencias extensas; ajuste diferido */
 import { useState, useCallback, useEffect } from 'react';
 import { clientesClient } from '../api';
 import type { Cliente, ClienteFilters, PaginatedResponse, CreateClienteDTO, UpdateClienteDTO } from '../models';
@@ -24,8 +23,10 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     setLoading(true);
     setError(null);
 
+    const ctrl = new AbortController();
+
     try {
-      const response: PaginatedResponse<Cliente> = await clientesClient.getClientes(filters);
+      const response: PaginatedResponse<Cliente> = await clientesClient.getClientes(filters, { signal: ctrl.signal });
 
       setClientes(response.data);
       setPagination({
@@ -35,9 +36,11 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
         totalPages: response.totalPages,
       });
     } catch (err: any) {
-      const errorMessage = err.message || 'Error al cargar clientes';
-      setError(errorMessage);
-      showToast('error', 'Error', errorMessage);
+      if (err?.name !== 'AbortError') {
+        const errorMessage = err.message || 'Error al cargar clientes';
+        setError(errorMessage);
+        showToast('error', 'Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -160,8 +163,30 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
 
   // Cargar clientes al montar
   useEffect(() => {
-    fetchClientes(initialFilters);
-  }, []);
+    const ctrl = new AbortController();
+    setLoading(true);
+    setError(null);
+    clientesClient
+      .getClientes(initialFilters, { signal: ctrl.signal })
+      .then((response: PaginatedResponse<Cliente>) => {
+        setClientes(response.data);
+        setPagination({
+          total: response.total,
+          page: response.page,
+          limit: response.limit,
+          totalPages: response.totalPages,
+        });
+      })
+      .catch((err: any) => {
+        if (err?.name !== 'AbortError') {
+          const errorMessage = err.message || 'Error al cargar clientes';
+          setError(errorMessage);
+          showToast('error', 'Error', errorMessage);
+        }
+      })
+      .finally(() => setLoading(false));
+    return () => ctrl.abort();
+  }, [initialFilters, showToast]);
 
   return {
     clientes,

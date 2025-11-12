@@ -1,31 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
 export type ClientesFiltersProps = {
-  tableRef: React.RefObject<{ hasActiveFilters: () => boolean } | null>;
+  active: boolean;
   onClearFilters: () => void;
 };
 
-const ClientesFilters: React.FC<ClientesFiltersProps> = ({ tableRef, onClearFilters }) => {
-  const [hasActiveFilters, setHasActiveFilters] = useState(false);
-
-  // Verificar filtros activos cada 100ms
-  useEffect(() => {
-    const checkFilters = () => {
-      if (tableRef.current) {
-        setHasActiveFilters(tableRef.current.hasActiveFilters());
-      }
-    };
-
-    checkFilters();
-    const interval = setInterval(checkFilters, 100);
-
-    return () => clearInterval(interval);
-  }, [tableRef]);
-
-  if (!hasActiveFilters) {
-    return null;
-  }
+const ClientesFilters: React.FC<ClientesFiltersProps> = ({ active, onClearFilters }) => {
+  if (!active) return null;
 
   return (
     <div className="mb-4">

@@ -78,9 +78,10 @@ class ComprasClient {
   /**
    * Obtener compras de un cliente
    */
-  async getComprasByCliente(clienteId: number | string): Promise<{ data: Compra[] }> {
+  async getComprasByCliente(clienteId: number | string, options: { signal?: AbortSignal } = {}): Promise<{ data: Compra[] }> {
     return this.request<{ data: Compra[] }>(`/clientes/${clienteId}/compras`, {
       method: 'GET',
+      signal: options.signal,
     });
   }
 
@@ -89,10 +90,12 @@ class ComprasClient {
    */
   async getCompraDetalle(
     clienteId: number | string,
-    compraId: number | string
+    compraId: number | string,
+    options: { signal?: AbortSignal } = {}
   ): Promise<CompraDetalle> {
     return this.request<CompraDetalle>(`/clientes/${clienteId}/compras/${compraId}`, {
       method: 'GET',
+      signal: options.signal,
     });
   }
 }

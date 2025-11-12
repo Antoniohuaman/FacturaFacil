@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, FileText, User, Calendar, CreditCard, Package } from 'lucide-react';
 import type { CompraDetalle } from '../models';
 
@@ -9,6 +9,15 @@ interface DetalleCompraModalProps {
 }
 
 const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, compra }) => {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open || !compra) return null;
 
   const formatDate = (dateStr: string) => {
@@ -42,14 +51,14 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" aria-hidden={false}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="detalle-compra-title">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3">
             <FileText className="w-6 h-6 text-blue-600" />
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Detalle de Compra</h2>
+              <h2 id="detalle-compra-title" className="text-xl font-bold text-gray-900">Detalle de Compra</h2>
               <p className="text-sm text-gray-600">Comprobante: {compra.comprobante}</p>
             </div>
           </div>
@@ -189,8 +198,10 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
         <div className="border-t border-gray-200 p-6 bg-gray-50 flex-shrink-0">
           <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
             <button
-              onClick={() => alert('Descargar PDF - Función por implementar')}
-              className="px-6 py-2 text-white rounded-lg hover:opacity-90 transition-colors font-medium"
+              aria-disabled="true"
+              disabled
+              title="Próximamente"
+              className="px-6 py-2 text-white rounded-lg opacity-60 cursor-not-allowed font-medium"
               style={{ backgroundColor: '#1478D4' }}
             >
               📄 Descargar PDF

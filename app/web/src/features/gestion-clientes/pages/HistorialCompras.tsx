@@ -9,7 +9,7 @@ const HistorialCompras: React.FC = () => {
   const navigate = useNavigate();
   const { clienteId, clienteName } = useParams();
 
-  const { compras, loading } = useCompras(clienteId);
+  const { compras, loading, getCompraDetalle } = useCompras(clienteId);
   const [modalOpen, setModalOpen] = useState(false);
   const [compraSeleccionada, setCompraSeleccionada] = useState<CompraDetalle | null>(null);
 
@@ -44,11 +44,11 @@ const HistorialCompras: React.FC = () => {
   const comprasPagadas = compras.filter(c => c.estado === 'Pagado').length;
   const ultimaCompra = compras.length > 0 ? compras[0].fecha : null;
 
-  const verDetalles = async () => {
-    // En este caso, como no hay backend, se mostraría un modal indicando que no hay datos
-    // o se podría implementar lógica para mostrar información básica
-    setCompraSeleccionada(null);
+  const verDetalles = async (compraId: number | string) => {
     setModalOpen(true);
+    if (!clienteId) return;
+    const detalle = await getCompraDetalle(clienteId, compraId);
+    setCompraSeleccionada(detalle);
   };
 
   return (
@@ -188,7 +188,7 @@ const HistorialCompras: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button
                         className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3"
-                        onClick={() => verDetalles()}
+                        onClick={() => verDetalles(compra.id)}
                       >
                         Ver detalles
                       </button>
