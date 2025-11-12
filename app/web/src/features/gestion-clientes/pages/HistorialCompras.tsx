@@ -12,6 +12,8 @@ const HistorialCompras: React.FC = () => {
   const { compras, loading, getCompraDetalle } = useCompras(clienteId);
   const [modalOpen, setModalOpen] = useState(false);
   const [compraSeleccionada, setCompraSeleccionada] = useState<CompraDetalle | null>(null);
+  const [detalleLoading, setDetalleLoading] = useState(false);
+  const [backendPendiente, setBackendPendiente] = useState(false);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -47,8 +49,16 @@ const HistorialCompras: React.FC = () => {
   const verDetalles = async (compraId: number | string) => {
     setModalOpen(true);
     if (!clienteId) return;
+    if (!import.meta.env.VITE_API_URL) {
+      setBackendPendiente(true);
+      setCompraSeleccionada(null);
+      return;
+    }
+    setBackendPendiente(false);
+    setDetalleLoading(true);
     const detalle = await getCompraDetalle(clienteId, compraId);
     setCompraSeleccionada(detalle);
+    setDetalleLoading(false);
   };
 
   return (
@@ -206,6 +216,8 @@ const HistorialCompras: React.FC = () => {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         compra={compraSeleccionada}
+        loading={detalleLoading}
+        backendPendiente={backendPendiente}
       />
     </div>
   );

@@ -6,9 +6,11 @@ interface DetalleCompraModalProps {
   open: boolean;
   onClose: () => void;
   compra: CompraDetalle | null;
+  loading?: boolean;
+  backendPendiente?: boolean;
 }
 
-const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, compra }) => {
+const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, compra, loading = false, backendPendiente = false }) => {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -18,7 +20,7 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open || !compra) return null;
+  if (!open) return null;
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -50,6 +52,8 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
       : 'bg-purple-100 text-purple-800 border-purple-200';
   };
 
+  const c = compra;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" aria-hidden={false}>
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="detalle-compra-title">
@@ -59,7 +63,9 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
             <FileText className="w-6 h-6 text-blue-600" />
             <div>
               <h2 id="detalle-compra-title" className="text-xl font-bold text-gray-900">Detalle de Compra</h2>
-              <p className="text-sm text-gray-600">Comprobante: {compra.comprobante}</p>
+              {c ? (
+                <p className="text-sm text-gray-600">Comprobante: {c.comprobante}</p>
+              ) : null}
             </div>
           </div>
           <button
@@ -72,125 +78,137 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Info General */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Información del Cliente
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div><span className="font-medium">Nombre:</span> {compra.cliente.nombre}</div>
-                <div><span className="font-medium">Documento:</span> {compra.cliente.documento}</div>
-              </div>
+          {backendPendiente ? (
+            <div className="py-10 text-center text-gray-700">
+              Detalle no disponible (backend pendiente)
             </div>
-
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Información del Comprobante
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div><span className="font-medium">Fecha:</span> {formatDate(compra.fecha)}</div>
-                <div><span className="font-medium">Vendedor:</span> {compra.vendedor}</div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Tipo:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getTipoComprobanteColor(compra.tipoComprobante)}`}>
-                    {compra.tipoComprobante}
-                  </span>
+          ) : loading ? (
+            <div className="py-10 text-center text-gray-700">Cargando…</div>
+          ) : !c ? (
+            <div className="py-10 text-center text-gray-700">No se pudo cargar el detalle.</div>
+          ) : (
+            <>
+              {/* Info General */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Información del Cliente
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div><span className="font-medium">Nombre:</span> {c.cliente.nombre}</div>
+                    <div><span className="font-medium">Documento:</span> {c.cliente.documento}</div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Estado:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getEstadoColor(compra.estado)}`}>
-                    {compra.estado}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Método de Pago */}
-          <div className="bg-blue-50 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <CreditCard className="w-4 h-4" />
-              Método de Pago
-            </h3>
-            <p className="text-sm text-gray-700">{compra.metodoPago}</p>
-          </div>
-
-          {/* Productos */}
-          <div className="mb-6">
-            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Productos Comprados
-            </h3>
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Producto
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cantidad
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Precio Unit.
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Subtotal
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {compra.productos.map((producto) => (
-                    <tr key={producto.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        {producto.nombre}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 text-center">
-                        {producto.cantidad}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                        S/ {producto.precioUnitario.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
-                        S/ {producto.subtotal.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Totales */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Resumen de Totales</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
-                <span>S/ {compra.subtotal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>IGV (18%):</span>
-                <span>S/ {compra.igv.toLocaleString()}</span>
-              </div>
-              <div className="border-t pt-2 mt-2">
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total:</span>
-                  <span className="text-blue-600">S/ {compra.total.toLocaleString()}</span>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Información del Comprobante
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div><span className="font-medium">Fecha:</span> {formatDate(c.fecha)}</div>
+                    <div><span className="font-medium">Vendedor:</span> {c.vendedor}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Tipo:</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getTipoComprobanteColor(c.tipoComprobante)}`}>
+                        {c.tipoComprobante}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Estado:</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getEstadoColor(c.estado)}`}>
+                        {c.estado}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Observaciones */}
-          {compra.observaciones && (
-            <div className="mt-4 bg-yellow-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Observaciones</h3>
-              <p className="text-sm text-gray-700">{compra.observaciones}</p>
-            </div>
+              {/* Método de Pago */}
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Método de Pago
+                </h3>
+                <p className="text-sm text-gray-700">{c.metodoPago}</p>
+              </div>
+
+              {/* Productos */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Productos Comprados
+                </h3>
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Producto
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Cantidad
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Precio Unit.
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Subtotal
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {c.productos.map((producto) => (
+                        <tr key={producto.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {producto.nombre}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 text-center">
+                            {producto.cantidad}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 text-right">
+                            S/ {producto.precioUnitario.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
+                            S/ {producto.subtotal.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Totales */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Resumen de Totales</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal:</span>
+                    <span>S/ {c.subtotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>IGV (18%):</span>
+                    <span>S/ {c.igv.toLocaleString()}</span>
+                  </div>
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between font-bold text-lg">
+                      <span>Total:</span>
+                      <span className="text-blue-600">S/ {c.total.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Observaciones */}
+              {c.observaciones && (
+                <div className="mt-4 bg-yellow-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-2">Observaciones</h3>
+                  <p className="text-sm text-gray-700">{c.observaciones}</p>
+                </div>
+              )}
+            </>
           )}
         </div>
 

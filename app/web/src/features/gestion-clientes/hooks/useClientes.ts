@@ -7,6 +7,7 @@ import { useCaja } from '../../control-caja/context/CajaContext';
 export const useClientes = (initialFilters?: ClienteFilters) => {
   const { showToast } = useCaja();
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [transientClientes, setTransientClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
@@ -188,8 +189,33 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     return () => ctrl.abort();
   }, [initialFilters, showToast]);
 
+  /**
+   * Inyecta clientes transitorios (no persistidos) en memoria
+   */
+  const applyTransientClientes = useCallback((items: Cliente[]) => {
+    const stamped = items.map((c, idx) => ({
+      ...c,
+      id: c.id ?? `t-${Date.now()}-${idx}`,
+      transient: true as const,
+    }));
+    setTransientClientes(stamped);
+    const count = stamped.length;
+    showToast('success', 'Importación aplicada', `${count} cliente${count === 1 ? '' : 's'} transitorio${count === 1 ? '' : 's'} agregado${count === 1 ? '' : 's'} al listado`);
+  }, [showToast]);
+
+  /**
+   * Limpia los clientes transitorios
+   */
+  const clearTransientClientes = useCallback(() => {
+    setTransientClientes([]);
+    showToast('info', 'Importación revertida', 'Se quitaron los registros transitorios del listado');
+  }, [showToast]);
+
+  const transientCount = transientClientes.length;
+
   return {
     clientes,
+    transientClientes,
     loading,
     error,
     pagination,
@@ -198,5 +224,8 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     updateCliente,
     deleteCliente,
     getClienteById,
+    applyTransientClientes,
+    clearTransientClientes,
+    transientCount,
   };
 };

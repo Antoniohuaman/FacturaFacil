@@ -13,6 +13,10 @@ export const useConsultasExternas = () => {
    * Consultar DNI en RENIEC
    */
   const consultarReniec = useCallback(async (dni: string): Promise<ReniecResponse | null> => {
+    if (!import.meta.env.VITE_API_URL) {
+      showToast('info', 'Consulta no disponible: backend pendiente', 'RENIEC no está disponible aún');
+      return null;
+    }
     if (!dni || dni.length !== 8) {
       showToast('warning', 'DNI inválido', 'Ingrese un DNI válido de 8 dígitos');
       return null;
@@ -45,6 +49,10 @@ export const useConsultasExternas = () => {
    * Consultar RUC en SUNAT
    */
   const consultarSunat = useCallback(async (ruc: string): Promise<SunatResponse | null> => {
+    if (!import.meta.env.VITE_API_URL) {
+      showToast('info', 'Consulta no disponible: backend pendiente', 'SUNAT no está disponible aún');
+      return null;
+    }
     if (!ruc || ruc.length !== 11) {
       showToast('warning', 'RUC inválido', 'Ingrese un RUC válido de 11 dígitos');
       return null;

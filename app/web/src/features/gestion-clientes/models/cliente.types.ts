@@ -25,6 +25,8 @@ export interface Cliente {
   enabled: boolean;
   createdAt?: string;
   updatedAt?: string;
+  /** Marcador de registro no persistido (solo en memoria) */
+  transient?: boolean;
 }
 
 export interface ClienteFormData {

@@ -141,17 +141,16 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
     setMenuOpenId(null);
   };
 
-  const handleRowClick = (client: Cliente, event: React.MouseEvent) => {
-    // Evitar edición si se hace clic en botones o elementos interactivos
-    const target = event.target as HTMLElement;
-    if (target.closest('button') || target.closest('svg')) {
-      return;
+  const handleRowClick = (client: Cliente, event: React.MouseEvent | React.KeyboardEvent) => {
+    if ('target' in event) {
+      // Evitar edición si se hace clic en botones o elementos interactivos
+      const target = event.target as HTMLElement | null;
+      if (target && (target.closest('button') || target.closest('svg'))) {
+        return;
+      }
     }
-    
     // Ejecutar la misma acción que el botón "Editar"
-    if (onEditClient) {
-      onEditClient(client);
-    }
+    onEditClient?.(client);
   };
 
   const renderDocument = (document: string) => {
@@ -414,11 +413,20 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(({ client
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      handleRowClick(client, e as any);
+                      handleRowClick(client, e);
                     }
                   }}
                 >
-                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white font-medium break-words whitespace-normal" style={{ width: '25%' }}>{client.name}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white font-medium break-words whitespace-normal" style={{ width: '25%' }}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span>{client.name}</span>
+                      {client.transient ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300" aria-label="Transitorio">
+                          Transitorio
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="px-4 py-2 text-sm text-gray-900 dark:text-white break-words whitespace-normal" style={{ width: '15%' }}>
                     {renderDocument(client.document)}
                   </td>

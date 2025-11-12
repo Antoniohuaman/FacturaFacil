@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
-import React, { useState, useRef } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as ExcelJS from 'exceljs';
 import ClienteForm from '../components/ClienteForm';
@@ -33,7 +33,8 @@ const clientTypes = [
 function ClientesPage() {
 	const navigate = useNavigate();
 	const { showToast } = useCaja();
-	const { clientes, loading, createCliente, updateCliente, deleteCliente, pagination, fetchClientes } = useClientes();
+			const { clientes, transientClientes, transientCount, clearTransientClientes, createCliente, updateCliente, deleteCliente, loading, pagination, fetchClientes } = useClientes();
+			const combinedClients = useMemo(() => [...clientes, ...transientClientes], [clientes, transientClientes]);
 
 	const [showClientModal, setShowClientModal] = useState(false);
 	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
@@ -190,7 +191,11 @@ function ClientesPage() {
 		setEditingClient(null);
 	};
 
-	const handleEditClient = (client: Cliente) => {
+		const handleEditClient = (client: Cliente) => {
+			if (client.transient) {
+				showToast('info', 'Operación no disponible: backend pendiente', 'No es posible editar un cliente transitorio');
+				return;
+			}
 		let docType = 'SIN_DOCUMENTO';
 		let docNumber = '';
 
@@ -221,7 +226,11 @@ function ClientesPage() {
 		setShowClientModal(true);
 	};
 
-	const handleDeleteClient = (client: Cliente) => {
+		const handleDeleteClient = (client: Cliente) => {
+			if (client.transient) {
+				showToast('info', 'Operación no disponible: backend pendiente', 'No es posible eliminar un cliente transitorio');
+				return;
+			}
 		setClientToDelete(client);
 		setShowDeleteModal(true);
 	};
@@ -302,7 +311,16 @@ function ClientesPage() {
 						<p className="text-sm text-gray-500 dark:text-gray-400">Administra y consulta la información de tus clientes en un solo lugar.</p>
 					</div>
 				</div>
-				<div className="flex items-center gap-2">
+							<div className="flex items-center gap-2">
+						{transientCount > 0 && (
+							<button
+								onClick={() => clearTransientClientes()}
+								className="px-3 py-2 text-yellow-800 bg-yellow-100 border border-yellow-300 dark:text-yellow-300 dark:bg-yellow-900/30 dark:border-yellow-700 text-sm font-medium rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-800/40 transition-colors"
+								title={`Deshacer importación (${transientCount})`}
+							>
+								Deshacer importación ({transientCount})
+							</button>
+						)}
 					<button
 						onClick={() => setShowClientModal(true)}
 						style={{ backgroundColor: PRIMARY_COLOR }}
@@ -361,7 +379,7 @@ function ClientesPage() {
 				) : (
 								<ClientesTable
 									ref={clientesTableRef}
-									clients={clientes}
+									clients={combinedClients}
 									onEditClient={handleEditClient}
 									onDeleteClient={handleDeleteClient}
 									onFiltersActiveChange={setFiltersActive}
@@ -377,7 +395,8 @@ function ClientesPage() {
 									{(() => {
 										const start = (pagination.page - 1) * pagination.limit + 1;
 										const end = Math.min(pagination.page * pagination.limit, pagination.total);
-										return `Mostrando ${start}-${end} de ${pagination.total} resultados`;
+										const base = `Mostrando ${start}-${end} de ${pagination.total} resultados`;
+										return transientCount > 0 ? `${base} +${transientCount} transitorios` : base;
 									})()}
 								</div>
 						<div className="flex items-center gap-2">
