@@ -26,7 +26,7 @@ import {
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
-import ClienteForm from '../../../../gestion-clientes/components/ClienteForm';
+import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
 import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
 
 interface CompactDocumentFormProps {

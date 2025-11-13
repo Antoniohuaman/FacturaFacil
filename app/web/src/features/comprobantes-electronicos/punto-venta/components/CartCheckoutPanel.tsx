@@ -21,7 +21,7 @@ import {
 import type { CartSidebarProps, Product } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { UI_MESSAGES } from '../../models/constants';
-import ClienteForm from '../../../gestion-clientes/components/ClienteForm';
+import ClienteForm from '../../../gestion-clientes/components/ClienteForm.tsx';
 
 interface CartCheckoutPanelProps extends CartSidebarProps {
   onAddProduct?: (product: Product) => void;

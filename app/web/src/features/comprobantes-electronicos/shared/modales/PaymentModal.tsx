@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { X, CreditCard, FileText, User, Calculator, Search, Plus, Edit, Building2, Smartphone, Banknote, DollarSign, Trash2 } from 'lucide-react';
 import type { PaymentModalProps } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
-import ClienteForm from '../../../gestion-clientes/components/ClienteForm';
+import ClienteForm from '../../../gestion-clientes/components/ClienteForm.tsx';
 
 // Interfaz para cliente en formato POS
 interface ClientePOS {

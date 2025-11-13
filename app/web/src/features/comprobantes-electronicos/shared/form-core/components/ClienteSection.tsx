@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState } from 'react';
 import { Search, Plus, Edit, User } from 'lucide-react';
-import ClienteForm from '../../../../gestion-clientes/components/ClienteForm';
+import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
 import { ConfigurationCard } from './ConfigurationCard';
 
 interface ClienteTradicional {

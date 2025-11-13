@@ -6,6 +6,7 @@ import EmailsInput from './EmailsInput';
 import ActividadesEconomicasInput from './ActividadesEconomicasInput';
 import AdjuntosInput from './AdjuntosInput';
 import ImagenesInput from './ImagenesInput';
+import ClienteAvatar from './ClienteAvatar';
 
 type ClienteFormProps = {
   formData: ClienteFormData;
@@ -226,36 +227,51 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
         </div>
 
         {/* LAYOUT DE DOS COLUMNAS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-3">
           {/* COLUMNA IZQUIERDA */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Razón Social (solo RUC) */}
             {esRUC && (
               <div>
                 <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
                   🏢 Datos de la Empresa
                 </h3>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Razón social <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.razonSocial}
-                    onChange={(e) => onInputChange('razonSocial', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Nombre comercial
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.nombreComercial}
-                    onChange={(e) => onInputChange('nombreComercial', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
+                
+                {/* Grid con avatar y campos */}
+                <div className="grid grid-cols-[auto,1fr] gap-4 mb-3">
+                  {/* Avatar del cliente */}
+                  <div className="pt-1">
+                    <ClienteAvatar
+                      imagenes={formData.imagenes || []}
+                      onChange={(imagenes) => onInputChange('imagenes', imagenes)}
+                    />
+                  </div>
+
+                  {/* Campos de empresa */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Razón social <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.razonSocial}
+                        onChange={(e) => onInputChange('razonSocial', e.target.value)}
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Nombre comercial
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.nombreComercial}
+                        onChange={(e) => onInputChange('nombreComercial', e.target.value)}
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -266,53 +282,71 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
                   👤 Datos Personales
                 </h3>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Primer nombre <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.primerNombre}
-                      onChange={(e) => onInputChange('primerNombre', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                
+                {/* Grid con avatar y campos */}
+                <div className="grid grid-cols-[auto,1fr] gap-4 mb-3">
+                  {/* Avatar del cliente */}
+                  <div className="pt-1">
+                    <ClienteAvatar
+                      imagenes={formData.imagenes || []}
+                      onChange={(imagenes) => onInputChange('imagenes', imagenes)}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Segundo nombre
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.segundoNombre}
-                      onChange={(e) => onInputChange('segundoNombre', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Apellido paterno <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.apellidoPaterno}
-                      onChange={(e) => onInputChange('apellidoPaterno', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Apellido materno <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.apellidoMaterno}
-                      onChange={(e) => onInputChange('apellidoMaterno', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+
+                  {/* Campos de persona */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Primer nombre <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.primerNombre}
+                          onChange={(e) => onInputChange('primerNombre', e.target.value)}
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Segundo nombre
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.segundoNombre}
+                          onChange={(e) => onInputChange('segundoNombre', e.target.value)}
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Apellido paterno <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.apellidoPaterno}
+                          onChange={(e) => onInputChange('apellidoPaterno', e.target.value)}
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Apellido materno <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.apellidoMaterno}
+                          onChange={(e) => onInputChange('apellidoMaterno', e.target.value)}
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="mb-4">
+                
+                <div className="mb-3">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Nombre completo
                   </label>
@@ -331,7 +365,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
                 📞 Contacto
               </h3>
-              <div className="mb-4">
+              <div className="mb-3">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Correos electrónicos (hasta 3)
                 </label>
@@ -340,7 +374,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   onChange={(emails) => onInputChange('emails', emails)}
                 />
               </div>
-              <div className="mb-4">
+              <div className="mb-3">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Teléfonos (hasta 3)
                 </label>
@@ -349,7 +383,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   onChange={(telefonos) => onInputChange('telefonos', telefonos)}
                 />
               </div>
-              <div className="mb-4">
+              <div className="mb-3">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Página web
                 </label>
@@ -368,7 +402,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
                 📍 Ubicación
               </h3>
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-2 gap-2 mb-3">
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     País
@@ -430,7 +464,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   />
                 </div>
               </div>
-              <div className="mb-4">
+              <div className="mb-3">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Dirección
                 </label>
@@ -441,7 +475,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
-              <div className="mb-4">
+              <div className="mb-3">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Referencia
                 </label>
@@ -457,13 +491,13 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           </div>
 
           {/* COLUMNA DERECHA */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Tipo y Estado */}
             <div>
               <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
                 ⚙️ Configuración
               </h3>
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-2 gap-2 mb-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Tipo de cliente
