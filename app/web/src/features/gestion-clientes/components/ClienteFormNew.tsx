@@ -105,11 +105,43 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     const response = await consultarSunat(formData.numeroDocumento);
 
     if (response?.success && response.data) {
+      // Datos básicos
       onInputChange('razonSocial', response.data.razonSocial || '');
       onInputChange('nombreComercial', response.data.nombreComercial || '');
       onInputChange('direccion', response.data.direccion || '');
+      
+      // Datos SUNAT (readonly)
+      onInputChange('tipoContribuyente', response.data.tipo || '');
       onInputChange('estadoContribuyente', response.data.estado || '');
       onInputChange('condicionDomicilio', response.data.condicion || '');
+      onInputChange('fechaInscripcion', response.data.fechaInscripcion || '');
+      onInputChange('sistemaEmision', response.data.sistEmsion || response.data.sistemaEmision || '');
+      
+      // Flags SUNAT (readonly)
+      onInputChange('esAgenteRetencion', response.data.esAgenteRetencion || false);
+      onInputChange('esAgentePercepcion', response.data.esAgentePercepcion || false);
+      onInputChange('esBuenContribuyente', response.data.esBuenContribuyente || false);
+      onInputChange('esEmisorElectronico', response.data.esEmisorElectronico || false);
+      onInputChange('exceptuadaPercepcion', response.data.exceptuadaPercepcion || false);
+      
+      // Actividades económicas (readonly)
+      if (response.data.actEconomicas && Array.isArray(response.data.actEconomicas)) {
+        const actividades = response.data.actEconomicas.map((act: string) => {
+          // Formato: "Principal - 6920 - ACTIVIDADES DE CONTABILIDAD"
+          const partes = act.split(' - ');
+          return {
+            codigo: partes[1] || '',
+            descripcion: partes[2] || act,
+            esPrincipal: act.toLowerCase().includes('principal')
+          };
+        });
+        onInputChange('actividadesEconomicas', actividades);
+      }
+      
+      // Ubicación geográfica
+      if (response.data.departamento) onInputChange('departamento', response.data.departamento);
+      if (response.data.provincia) onInputChange('provincia', response.data.provincia);
+      if (response.data.distrito) onInputChange('distrito', response.data.distrito);
     }
   };
 
@@ -662,7 +694,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   </div>
                 </div>
 
-                {/* Actividades económicas */}
+                {/* Actividades económicas - READONLY (datos de SUNAT) */}
                 <div className="mb-2">
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Actividades económicas
@@ -670,33 +702,27 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   <ActividadesEconomicasInput
                     actividades={formData.actividadesEconomicas || []}
                     onChange={(actividades) => onInputChange('actividadesEconomicas', actividades)}
+                    readonly={true}
                   />
                 </div>
 
-                {/* Sistema de emisión y emisor electrónico */}
+                {/* Sistema de emisión y emisor electrónico - READONLY (datos de SUNAT) */}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Sistema de emisión
                     </label>
-                    <select
-                      value={formData.sistemaEmision}
-                      onChange={(e) => onInputChange('sistemaEmision', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="">Seleccionar</option>
-                      <option value="Manual">Manual</option>
-                      <option value="Computarizado">Computarizado</option>
-                      <option value="Mixto">Mixto</option>
-                    </select>
+                    <div className="w-full border border-gray-200 dark:border-gray-700 rounded-md px-3 h-9 text-sm bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 flex items-center">
+                      {formData.sistemaEmision || '-'}
+                    </div>
                   </div>
                   <div className="flex items-end">
-                    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 h-9">
+                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 h-9 cursor-not-allowed">
                       <input
                         type="checkbox"
                         checked={formData.esEmisorElectronico}
-                        onChange={(e) => onInputChange('esEmisorElectronico', e.target.checked)}
-                        className="rounded border-gray-300 dark:border-gray-600"
+                        disabled
+                        className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
                       />
                       Emisor electrónico
                     </label>
@@ -716,32 +742,32 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   </div>
                 )}
 
-                {/* Checkboxes de condiciones especiales */}
+                {/* Checkboxes de condiciones especiales - READONLY (datos de SUNAT) */}
                 <div className="space-y-1.5 mb-3">
-                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-not-allowed">
                     <input
                       type="checkbox"
                       checked={formData.esAgenteRetencion}
-                      onChange={(e) => onInputChange('esAgenteRetencion', e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-600"
+                      disabled
+                      className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
                     />
                     Agente de retención
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-not-allowed">
                     <input
                       type="checkbox"
                       checked={formData.esAgentePercepcion}
-                      onChange={(e) => onInputChange('esAgentePercepcion', e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-600"
+                      disabled
+                      className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
                     />
                     Agente de percepción
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-not-allowed">
                     <input
                       type="checkbox"
                       checked={formData.esBuenContribuyente}
-                      onChange={(e) => onInputChange('esBuenContribuyente', e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-600"
+                      disabled
+                      className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
                     />
                     Buen contribuyente
                   </label>
@@ -818,14 +844,14 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   />
                   Cliente por defecto
                 </label>
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-not-allowed">
                   <input
                     type="checkbox"
                     checked={formData.exceptuadaPercepcion}
-                    onChange={(e) => onInputChange('exceptuadaPercepcion', e.target.checked)}
-                    className="rounded border-gray-300 dark:border-gray-600"
+                    disabled
+                    className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
                   />
-                  Exceptuada de percepción
+                  Exceptuada de percepción (SUNAT)
                 </label>
               </div>
             </div>
