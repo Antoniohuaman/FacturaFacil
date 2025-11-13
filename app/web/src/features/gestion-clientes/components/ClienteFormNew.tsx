@@ -4,8 +4,8 @@ import type { ClienteFormData } from '../models';
 import TelefonosInput from './TelefonosInput';
 import EmailsInput from './EmailsInput';
 import ActividadesEconomicasInput from './ActividadesEconomicasInput';
-import AdjuntosInput from './AdjuntosInput';
-import ImagenesInput from './ImagenesInput';
+import CPEHabilitadoInput from './CPEHabilitadoInput';
+import ArchivosInput from './ArchivosInput';
 import ClienteAvatar from './ClienteAvatar';
 
 type ClienteFormProps = {
@@ -243,7 +243,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   <div className="pt-1">
                     <ClienteAvatar
                       imagenes={formData.imagenes || []}
-                      onChange={(imagenes) => onInputChange('imagenes', imagenes)}
+                      onChange={(imagenes: File[]) => onInputChange('imagenes', imagenes)}
                     />
                   </div>
 
@@ -289,7 +289,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   <div className="pt-1">
                     <ClienteAvatar
                       imagenes={formData.imagenes || []}
-                      onChange={(imagenes) => onInputChange('imagenes', imagenes)}
+                      onChange={(imagenes: File[]) => onInputChange('imagenes', imagenes)}
                     />
                   </div>
 
@@ -606,6 +606,16 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   />
                 </div>
 
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    CPE Habilitados
+                  </label>
+                  <CPEHabilitadoInput
+                    cpeHabilitados={formData.cpeHabilitado || []}
+                    onChange={(cpeHabilitado) => onInputChange('cpeHabilitado', cpeHabilitado)}
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -757,22 +767,33 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Documentos del cliente
+                  Archivos del cliente
                 </label>
-                <AdjuntosInput
-                  adjuntos={formData.adjuntos || []}
-                  onChange={(adjuntos) => onInputChange('adjuntos', adjuntos)}
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Imágenes del cliente
-                </label>
-                <ImagenesInput
-                  imagenes={formData.imagenes || []}
-                  onChange={(imagenes) => onInputChange('imagenes', imagenes)}
-                  maxImagenes={5}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  Sube documentos, imágenes u otros archivos relacionados
+                </p>
+                <ArchivosInput
+                  archivos={[...(formData.adjuntos || []), ...(formData.imagenes?.slice(1) || [])]}
+                  onChange={(archivos) => {
+                    // Separar imágenes y documentos
+                    const imagenes: File[] = [];
+                    const documentos: File[] = [];
+                    
+                    archivos.forEach(file => {
+                      const ext = file.name.split('.').pop()?.toLowerCase();
+                      if (ext && ['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+                        imagenes.push(file);
+                      } else {
+                        documentos.push(file);
+                      }
+                    });
+                    
+                    // Mantener la primera imagen si existe
+                    const primeraImagen = formData.imagenes?.[0];
+                    onInputChange('imagenes', primeraImagen ? [primeraImagen, ...imagenes] : imagenes);
+                    onInputChange('adjuntos', documentos);
+                  }}
+                  maxArchivos={15}
                 />
               </div>
 

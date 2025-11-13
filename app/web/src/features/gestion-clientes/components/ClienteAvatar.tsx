@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Upload, User } from 'lucide-react';
+import { Upload, Image as ImageIcon } from 'lucide-react';
 
 type ClienteAvatarProps = {
   imagenes: File[];
@@ -45,30 +45,17 @@ const ClienteAvatar: React.FC<ClienteAvatarProps> = ({ imagenes, onChange }) => 
   };
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      {/* Avatar */}
-      <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+    <div className="flex flex-col gap-2">
+      {/* Imagen principal - cuadrada/rectangular */}
+      <div className="relative w-24 h-28 rounded-lg overflow-hidden border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
         {preview ? (
-          <img 
-            src={preview} 
-            alt="Avatar del cliente" 
-            className="w-full h-full object-cover"
-          />
+          <img src={preview} alt="Cliente" className="w-full h-full object-cover" />
         ) : (
-          <User className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+          <ImageIcon className="w-10 h-10 text-gray-400 dark:text-gray-500" />
         )}
       </div>
 
-      {/* Botón de cambiar/subir imagen */}
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-      >
-        <Upload className="w-3.5 h-3.5" />
-        {preview ? 'Cambiar imagen' : 'Subir imagen'}
-      </button>
-
+      {/* Botón de carga */}
       <input
         ref={fileInputRef}
         type="file"
@@ -76,10 +63,18 @@ const ClienteAvatar: React.FC<ClienteAvatarProps> = ({ imagenes, onChange }) => 
         onChange={handleFileSelect}
         className="hidden"
       />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+      >
+        <Upload className="w-3 h-3" />
+        {preview ? 'Cambiar' : 'Subir'}
+      </button>
 
-      {preview && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-          {imagenes[0]?.name}
+      {preview && imagenes[0] && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[96px]" title={imagenes[0].name}>
+          {imagenes[0].name}
         </p>
       )}
     </div>
