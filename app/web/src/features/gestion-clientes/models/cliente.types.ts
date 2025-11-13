@@ -10,7 +10,42 @@ export type DocumentType =
   | 'TAM_TARJETA_ANDINA'
   | 'CARNET_PERMISO_TEMP_PERMANENCIA';
 
-export type ClientType = 'Cliente' | 'Proveedor';
+export type ClientType = 'Cliente' | 'Proveedor' | 'Cliente-Proveedor';
+
+export type TipoPersona = 'Natural' | 'Juridica';
+
+export type EstadoCliente = 'Habilitado' | 'Deshabilitado';
+
+export type CondicionDomicilio = 'Habido' | 'NoHabido';
+
+export type SistemaEmision = 'Manual' | 'Computarizado' | 'Mixto';
+
+export type FormaPago = 'Contado' | 'Credito';
+
+export type Moneda = 'PEN' | 'USD' | 'EUR';
+
+export interface Telefono {
+  numero: string;
+  tipo: string; // Móvil, Fijo, Trabajo, etc.
+}
+
+export interface ActividadEconomica {
+  codigo: string;
+  descripcion: string;
+  esPrincipal: boolean;
+}
+
+export interface CPEHabilitado {
+  tipoCPE: string;
+  fechaInicio: string;
+}
+
+export interface Ubigeo {
+  codigo: string;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+}
 
 export interface Cliente {
   id: number | string;
@@ -30,6 +65,76 @@ export interface Cliente {
 }
 
 export interface ClienteFormData {
+  // Identificación
+  tipoDocumento: string;
+  numeroDocumento: string;
+  
+  // Razón Social (Jurídica)
+  razonSocial: string;
+  nombreComercial: string;
+  
+  // Nombres (Natural)
+  primerNombre: string;
+  segundoNombre: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  nombreCompleto: string; // readonly concatenado
+  
+  // Contacto
+  emails: string[]; // Hasta 3
+  telefonos: Telefono[]; // Hasta 3
+  paginaWeb: string;
+  
+  // Ubicación
+  pais: string;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+  ubigeo: string;
+  direccion: string;
+  referenciaDireccion: string;
+  
+  // Tipo y Estado
+  tipoCliente: TipoPersona;
+  tipoCuenta: ClientType;
+  estadoCliente: EstadoCliente;
+  motivoDeshabilitacion: string;
+  
+  // Datos SUNAT
+  estadoContribuyente: string;
+  condicionDomicilio: CondicionDomicilio | '';
+  fechaInscripcion: string;
+  actividadesEconomicas: ActividadEconomica[];
+  sistemaEmision: SistemaEmision | '';
+  cpeHabilitado: CPEHabilitado[];
+  esAgenteRetencion: boolean;
+  esAgentePercepcion: boolean;
+  esBuenContribuyente: boolean;
+  
+  // Comercial
+  formaPago: FormaPago;
+  monedaPreferida: Moneda;
+  listaPrecio: string;
+  usuarioAsignado: string;
+  clientePorDefecto: boolean;
+  exceptuadaPercepcion: boolean;
+  
+  // Adicionales
+  observaciones: string;
+  adjuntos: File[];
+  imagenes: File[];
+  
+  // Metadatos
+  fechaRegistro: string;
+  fechaUltimaModificacion: string;
+  
+  // Legacy
+  gender: string;
+  additionalData: string;
+}
+
+// Tipo legacy para compatibilidad con código existente
+export interface ClienteFormDataLegacy {
   documentNumber: string;
   legalName: string;
   address: string;

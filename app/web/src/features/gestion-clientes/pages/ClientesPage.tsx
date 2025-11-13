@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as ExcelJS from 'exceljs';
-import ClienteForm from '../components/ClienteForm';
+import ClienteFormNew from '../components/ClienteFormNew';
 import ClientesTable, { type ClientesTableRef } from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
 import ConfirmationModal from '../../../../../shared/src/components/ConfirmationModal';
@@ -11,24 +11,6 @@ import { useCaja } from '../../control-caja/context/CajaContext';
 import type { Cliente, ClienteFormData, DocumentType, ClientType } from '../models';
 
 const PRIMARY_COLOR = '#1478D4';
-
-const documentTypes = [
-	{ value: 'RUC', label: 'RUC' },
-	{ value: 'DNI', label: 'DNI' },
-	{ value: 'SIN_DOCUMENTO', label: 'SIN DOCUMENTO' },
-	{ value: 'NO_DOMICILIADO', label: 'NO DOMICILIADO' },
-	{ value: 'PASAPORTE', label: 'PASAPORTE' },
-	{ value: 'CARNET_EXTRANJERIA', label: 'CARNET EXTRANJERÍA' },
-	{ value: 'CARNET_IDENTIDAD', label: 'CARNET DE IDENTIDAD' },
-	{ value: 'DOC_IDENTIF_PERS_NAT_NO_DOM', label: 'DOC.IDENTIF.PERS.NAT.NO DOM.' },
-	{ value: 'TAM_TARJETA_ANDINA', label: 'TAM - TARJETA ANDINA DE MIGRACIÓN' },
-	{ value: 'CARNET_PERMISO_TEMP_PERMANENCIA', label: 'CARNET PERMISO TEMP.PERMANENCIA' },
-];
-
-const clientTypes = [
-	{ value: 'Cliente', label: 'Cliente' },
-	{ value: 'Proveedor', label: 'Proveedor' },
-];
 
 function ClientesPage() {
 	const navigate = useNavigate();
@@ -42,17 +24,76 @@ function ClientesPage() {
 	const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null);
 	const clientesTableRef = useRef<ClientesTableRef>(null);
 
-	const [formData, setFormData] = useState<ClienteFormData>({
-		documentNumber: '',
-		legalName: '',
-		address: '',
+	const getInitialFormData = (): ClienteFormData => ({
+		// Identificación
+		tipoDocumento: '6',
+		numeroDocumento: '',
+		
+		// Razón Social (Jurídica)
+		razonSocial: '',
+		nombreComercial: '',
+		
+		// Nombres (Natural)
+		primerNombre: '',
+		segundoNombre: '',
+		apellidoPaterno: '',
+		apellidoMaterno: '',
+		nombreCompleto: '',
+		
+		// Contacto
+		emails: [],
+		telefonos: [],
+		paginaWeb: '',
+		
+		// Ubicación
+		pais: 'PE',
+		departamento: '',
+		provincia: '',
+		distrito: '',
+		ubigeo: '',
+		direccion: '',
+		referenciaDireccion: '',
+		
+		// Tipo y Estado
+		tipoCliente: 'Natural',
+		tipoCuenta: 'Cliente',
+		estadoCliente: 'Habilitado',
+		motivoDeshabilitacion: '',
+		
+		// Datos SUNAT
+		estadoContribuyente: '',
+		condicionDomicilio: '',
+		fechaInscripcion: '',
+		actividadesEconomicas: [],
+		sistemaEmision: '',
+		cpeHabilitado: [],
+		esAgenteRetencion: false,
+		esAgentePercepcion: false,
+		esBuenContribuyente: false,
+		
+		// Comercial
+		formaPago: 'Contado',
+		monedaPreferida: 'PEN',
+		listaPrecio: '',
+		usuarioAsignado: '',
+		clientePorDefecto: false,
+		exceptuadaPercepcion: false,
+		
+		// Adicionales
+		observaciones: '',
+		adjuntos: [],
+		imagenes: [],
+		
+		// Metadatos
+		fechaRegistro: new Date().toISOString(),
+		fechaUltimaModificacion: new Date().toISOString(),
+		
+		// Legacy
 		gender: '',
-		phone: '',
-		email: '',
 		additionalData: '',
 	});
-	const [documentType, setDocumentType] = useState('RUC');
-	const [clientType, setClientType] = useState('Cliente');
+
+	const [formData, setFormData] = useState<ClienteFormData>(getInitialFormData());
 
 		// Indicador de filtros activos (sin polling)
 		const [filtersActive, setFiltersActive] = useState(false);
@@ -111,46 +152,67 @@ function ClientesPage() {
 	};
 
 	const handleCreateClient = async () => {
-		if (!formData.legalName.trim()) {
-			showToast('warning', 'Campo requerido', 'El nombre/razón social es obligatorio');
+		// Validación de nombre según tipo de documento
+		const esRUC = formData.tipoDocumento === '6';
+		const esDNI = formData.tipoDocumento === '1';
+		
+		if (esRUC && !formData.razonSocial.trim()) {
+			showToast('warning', 'Campo requerido', 'La razón social es obligatoria para RUC');
 			return;
 		}
 
-		if (documentType !== 'SIN_DOCUMENTO' && !formData.documentNumber.trim()) {
+		if (!esRUC && !formData.primerNombre.trim()) {
+			showToast('warning', 'Campo requerido', 'El primer nombre es obligatorio');
+			return;
+		}
+
+		if (!esRUC && !formData.apellidoPaterno.trim()) {
+			showToast('warning', 'Campo requerido', 'El apellido paterno es obligatorio');
+			return;
+		}
+
+		if (!formData.numeroDocumento.trim()) {
 			showToast('warning', 'Campo requerido', 'El número de documento es obligatorio');
 			return;
 		}
 
-		if (documentType === 'RUC' && formData.documentNumber.length !== 11) {
+		if (esRUC && formData.numeroDocumento.length !== 11) {
 			showToast('warning', 'RUC inválido', 'El RUC debe tener exactamente 11 dígitos');
 			return;
 		}
 
-		if (documentType === 'DNI' && formData.documentNumber.length !== 8) {
+		if (esDNI && formData.numeroDocumento.length !== 8) {
 			showToast('warning', 'DNI inválido', 'El DNI debe tener exactamente 8 dígitos');
 			return;
 		}
 
-		if (documentType === 'PASAPORTE' && formData.documentNumber.length < 6) {
-			showToast('warning', 'Pasaporte inválido', 'El Pasaporte debe tener al menos 6 caracteres');
+		if (formData.estadoCliente === 'Deshabilitado' && !formData.motivoDeshabilitacion.trim()) {
+			showToast('warning', 'Campo requerido', 'Debe especificar el motivo de deshabilitación');
 			return;
 		}
 
-		if (documentType === 'CARNET_EXTRANJERIA' && formData.documentNumber.length < 9) {
-			showToast('warning', 'Carnet inválido', 'El Carnet de Extranjería debe tener al menos 9 caracteres');
-			return;
-		}
+		// Determinar el nombre para enviar al backend
+		const nombreCliente = esRUC ? formData.razonSocial.trim() : formData.nombreCompleto.trim();
+		
+		// Mapeo de tipo de documento nuevo a antiguo
+		const docTypeMap: Record<string, DocumentType> = {
+			'0': 'NO_DOMICILIADO',
+			'1': 'DNI',
+			'4': 'CARNET_EXTRANJERIA',
+			'6': 'RUC',
+			'7': 'PASAPORTE',
+		};
 
 		const result = await createCliente({
-			documentType: documentType as DocumentType,
-			documentNumber: formData.documentNumber.trim(),
-			name: formData.legalName.trim(),
-			type: clientType as ClientType,
-			address: formData.address.trim() || undefined,
-			phone: formData.phone.trim() || undefined,
-			email: formData.email.trim() || undefined,
+			documentType: (docTypeMap[formData.tipoDocumento] || 'SIN_DOCUMENTO') as DocumentType,
+			documentNumber: formData.numeroDocumento.trim(),
+			name: nombreCliente,
+			type: formData.tipoCuenta as ClientType,
+			address: formData.direccion.trim() || undefined,
+			phone: formData.telefonos[0]?.numero || undefined,
+			email: formData.emails[0] || undefined,
 			gender: formData.gender || undefined,
-			additionalData: formData.additionalData.trim() || undefined,
+			additionalData: formData.observaciones.trim() || undefined,
 		});
 
 		if (result) {
@@ -164,65 +226,77 @@ function ClientesPage() {
 		setShowClientModal(false);
 	};
 
-	const handleInputChange = (field: keyof ClienteFormData, value: string) => {
+	const handleInputChange = (field: keyof ClienteFormData, value: any) => {
 		setFormData(prev => ({ ...prev, [field]: value }));
 	};
 
-	const handleDocumentTypeChange = (type: string) => {
-		setDocumentType(type);
-	};
-
-	const handleClientTypeChange = (type: string) => {
-		setClientType(type);
-	};
-
 	const resetForm = () => {
-		setFormData({
-			documentNumber: '',
-			legalName: '',
-			address: '',
-			gender: '',
-			phone: '',
-			email: '',
-			additionalData: '',
-		});
-		setDocumentType('RUC');
-		setClientType('Cliente');
+		setFormData(getInitialFormData());
 		setEditingClient(null);
 	};
 
-		const handleEditClient = (client: Cliente) => {
-			if (client.transient) {
-				showToast('info', 'Operación no disponible: backend pendiente', 'No es posible editar un cliente transitorio');
-				return;
-			}
-		let docType = 'SIN_DOCUMENTO';
+	const handleEditClient = (client: Cliente) => {
+		if (client.transient) {
+			showToast('info', 'Operación no disponible: backend pendiente', 'No es posible editar un cliente transitorio');
+			return;
+		}
+		
+		let docType = '6'; // Default RUC
 		let docNumber = '';
 
-		if (client.document === 'Sin documento') {
-			docType = 'SIN_DOCUMENTO';
-			docNumber = '';
-		} else if (client.document && !client.document.includes(' ')) {
+		if (client.document && client.document.includes(' ')) {
+			const parts = client.document.split(' ');
+			const typeStr = parts[0];
+			docNumber = parts.slice(1).join(' ');
+			
+			// Mapeo inverso de tipo de documento
+			const typeMap: Record<string, string> = {
+				'NO_DOMICILIADO': '0',
+				'DNI': '1',
+				'CARNET_EXTRANJERIA': '4',
+				'RUC': '6',
+				'PASAPORTE': '7',
+			};
+			docType = typeMap[typeStr] || '6';
+		} else if (client.document && client.document !== 'Sin documento') {
 			docNumber = client.document;
-			docType = 'SIN_DOCUMENTO';
-		} else if (client.document && client.document.includes(' ')) {
-			const documentParts = client.document.split(' ');
-			docType = documentParts[0];
-			docNumber = documentParts.slice(1).join(' ');
 		}
 
 		setEditingClient(client);
+		
+		// Parsear nombre según tipo
+		const esRUC = docType === '6';
+		const nombreParts = client.name.split(' ');
+		
 		setFormData({
-			documentNumber: docNumber || '',
-			legalName: client.name,
-			address: client.address === 'Sin dirección' ? '' : client.address,
+			...getInitialFormData(),
+			tipoDocumento: docType,
+			numeroDocumento: docNumber,
+			
+			// Razón Social o Nombres
+			razonSocial: esRUC ? client.name : '',
+			primerNombre: !esRUC && nombreParts.length > 0 ? nombreParts[0] : '',
+			apellidoPaterno: !esRUC && nombreParts.length > 1 ? nombreParts[1] : '',
+			apellidoMaterno: !esRUC && nombreParts.length > 2 ? nombreParts[2] : '',
+			nombreCompleto: !esRUC ? client.name : '',
+			
+			// Contacto
+			emails: client.email ? [client.email] : [],
+			telefonos: client.phone ? [{ numero: client.phone, tipo: 'Móvil' }] : [],
+			
+			// Ubicación
+			direccion: client.address === 'Sin dirección' ? '' : client.address,
+			
+			// Tipo
+			tipoCuenta: client.type,
+			estadoCliente: client.enabled ? 'Habilitado' : 'Deshabilitado',
+			
+			// Legacy
 			gender: client.gender || '',
-			phone: client.phone || '',
-			email: client.email || '',
 			additionalData: client.additionalData || '',
+			observaciones: client.additionalData || '',
 		});
-		setDocumentType(docType);
-		setClientType(client.type);
+		
 		setShowClientModal(true);
 	};
 
@@ -251,48 +325,68 @@ function ClientesPage() {
 	};
 
 	const handleUpdateClient = async () => {
-		if (!formData.legalName.trim()) {
-			showToast('warning', 'Campo requerido', 'El nombre/razón social es obligatorio');
+		// Validaciones similares a handleCreateClient
+		const esRUC = formData.tipoDocumento === '6';
+		const esDNI = formData.tipoDocumento === '1';
+		
+		if (esRUC && !formData.razonSocial.trim()) {
+			showToast('warning', 'Campo requerido', 'La razón social es obligatoria para RUC');
 			return;
 		}
 
-		if (documentType !== 'SIN_DOCUMENTO' && !formData.documentNumber.trim()) {
+		if (!esRUC && !formData.primerNombre.trim()) {
+			showToast('warning', 'Campo requerido', 'El primer nombre es obligatorio');
+			return;
+		}
+
+		if (!esRUC && !formData.apellidoPaterno.trim()) {
+			showToast('warning', 'Campo requerido', 'El apellido paterno es obligatorio');
+			return;
+		}
+
+		if (!formData.numeroDocumento.trim()) {
 			showToast('warning', 'Campo requerido', 'El número de documento es obligatorio');
 			return;
 		}
 
-		if (documentType === 'RUC' && formData.documentNumber.length !== 11) {
+		if (esRUC && formData.numeroDocumento.length !== 11) {
 			showToast('warning', 'RUC inválido', 'El RUC debe tener exactamente 11 dígitos');
 			return;
 		}
 
-		if (documentType === 'DNI' && formData.documentNumber.length !== 8) {
+		if (esDNI && formData.numeroDocumento.length !== 8) {
 			showToast('warning', 'DNI inválido', 'El DNI debe tener exactamente 8 dígitos');
 			return;
 		}
 
-		if (documentType === 'PASAPORTE' && formData.documentNumber.length < 6) {
-			showToast('warning', 'Pasaporte inválido', 'El Pasaporte debe tener al menos 6 caracteres');
-			return;
-		}
-
-		if (documentType === 'CARNET_EXTRANJERIA' && formData.documentNumber.length < 9) {
-			showToast('warning', 'Carnet inválido', 'El Carnet de Extranjería debe tener al menos 9 caracteres');
+		if (formData.estadoCliente === 'Deshabilitado' && !formData.motivoDeshabilitacion.trim()) {
+			showToast('warning', 'Campo requerido', 'Debe especificar el motivo de deshabilitación');
 			return;
 		}
 
 		if (!editingClient) return;
 
+		const nombreCliente = esRUC ? formData.razonSocial.trim() : formData.nombreCompleto.trim();
+		
+		const docTypeMap: Record<string, DocumentType> = {
+			'0': 'NO_DOMICILIADO',
+			'1': 'DNI',
+			'4': 'CARNET_EXTRANJERIA',
+			'6': 'RUC',
+			'7': 'PASAPORTE',
+		};
+
 		const result = await updateCliente(editingClient.id, {
-			documentType: documentType as DocumentType,
-			documentNumber: formData.documentNumber.trim(),
-			name: formData.legalName.trim(),
-			type: clientType as ClientType,
-			address: formData.address.trim() || undefined,
-			phone: formData.phone.trim() || undefined,
-			email: formData.email.trim() || undefined,
+			documentType: (docTypeMap[formData.tipoDocumento] || 'SIN_DOCUMENTO') as DocumentType,
+			documentNumber: formData.numeroDocumento.trim(),
+			name: nombreCliente,
+			type: formData.tipoCuenta as ClientType,
+			address: formData.direccion.trim() || undefined,
+			phone: formData.telefonos[0]?.numero || undefined,
+			email: formData.emails[0] || undefined,
 			gender: formData.gender || undefined,
-			additionalData: formData.additionalData.trim() || undefined,
+			additionalData: formData.observaciones.trim() || undefined,
+			enabled: formData.estadoCliente === 'Habilitado',
 		});
 
 		if (result) {
@@ -451,15 +545,9 @@ function ClientesPage() {
 			{/* Modal de creación/edición */}
 			{showClientModal && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-					<ClienteForm
+					<ClienteFormNew
 						formData={formData}
-						documentType={documentType}
-						clientType={clientType}
-						documentTypes={documentTypes}
-						clientTypes={clientTypes}
 						onInputChange={handleInputChange}
-						onDocumentTypeChange={handleDocumentTypeChange}
-						onClientTypeChange={handleClientTypeChange}
 						onCancel={handleCancelClient}
 						onSave={editingClient ? handleUpdateClient : handleCreateClient}
 						isEditing={!!editingClient}
