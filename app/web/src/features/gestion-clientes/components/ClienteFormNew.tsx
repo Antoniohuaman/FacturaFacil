@@ -119,10 +119,27 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-[1100px] max-h-[85vh] overflow-hidden flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-          {isEditing ? 'Editar cliente' : 'Nuevo cliente'}
-        </h2>
+      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="flex-1">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {isEditing ? 'Editar Cliente' : 'Nuevo Cliente'}
+          </h2>
+          {/* Fechas de auditoría (solo en modo edición) */}
+          {isEditing && (formData.fechaRegistro || formData.fechaUltimaModificacion) && (
+            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">
+              {formData.fechaRegistro && (
+                <span>
+                  <strong className="font-medium">Creado:</strong> {new Date(formData.fechaRegistro).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              )}
+              {formData.fechaUltimaModificacion && (
+                <span>
+                  <strong className="font-medium">Modificado:</strong> {new Date(formData.fechaUltimaModificacion).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
         <button
           onClick={onCancel}
           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
@@ -134,26 +151,26 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       {/* Body con scroll */}
       <div className="px-6 py-3 overflow-y-auto flex-1">
         {/* SECCIÓN: IDENTIFICACIÓN */}
-        <div className="mb-5">
-          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
             📋 Identificación y Tipo de Cuenta
           </h3>
 
           {/* Tipo de Documento - Pills: RUC | DNI | OTROS */}
-          <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <div className="mb-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               Tipo de documento <span className="text-red-500">*</span>
             </label>
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-1.5 mb-2">
               <button
                 type="button"
                 onClick={() => {
                   onInputChange('tipoDocumento', '6');
                   setShowOtrosDocTypes(false);
                 }}
-                className={`px-5 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                className={`px-4 py-1.5 rounded-md border text-sm font-medium transition-colors ${
                   formData.tipoDocumento === '6'
-                    ? 'bg-blue-500 border-blue-500 text-white'
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                     : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
@@ -165,9 +182,9 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   onInputChange('tipoDocumento', '1');
                   setShowOtrosDocTypes(false);
                 }}
-                className={`px-5 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                className={`px-4 py-1.5 rounded-md border text-sm font-medium transition-colors ${
                   formData.tipoDocumento === '1'
-                    ? 'bg-blue-500 border-blue-500 text-white'
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                     : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
@@ -176,25 +193,25 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               <button
                 type="button"
                 onClick={() => setShowOtrosDocTypes(!showOtrosDocTypes)}
-                className={`px-5 py-2 rounded-lg border text-sm font-semibold transition-colors flex items-center gap-1 ${
+                className={`px-4 py-1.5 rounded-md border text-sm font-medium transition-colors flex items-center gap-1 ${
                   formData.tipoDocumento !== '6' && formData.tipoDocumento !== '1'
-                    ? 'bg-blue-500 border-blue-500 text-white'
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                     : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
                 OTROS
-                <span>{showOtrosDocTypes ? '▴' : '▾'}</span>
+                <span className="text-xs">{showOtrosDocTypes ? '▴' : '▾'}</span>
               </button>
             </div>
             
             {/* Dropdown de otros documentos */}
             {showOtrosDocTypes && (
-              <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
                 {tiposDocumento.filter(t => t.value !== '6' && t.value !== '1').map((type) => (
                   <button
                     key={type.value}
                     type="button"
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
+                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
                       formData.tipoDocumento === type.value
                         ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium'
                         : 'text-gray-700 dark:text-gray-300'
@@ -204,8 +221,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       setShowOtrosDocTypes(false);
                     }}
                   >
-                    <span className="font-mono text-xs mr-2">{type.value}</span>
-                    {type.label}
+                    <span className="font-mono text-[10px] mr-2 text-gray-500 dark:text-gray-400">{type.value}</span>
+                    <span className="text-xs">{type.label}</span>
                   </button>
                 ))}
               </div>
@@ -213,9 +230,9 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           </div>
 
           {/* Número de Documento + Botón RENIEC/SUNAT */}
-          <div className="grid grid-cols-[1fr,auto] gap-2 mb-3">
+          <div className="grid grid-cols-[1fr,auto] gap-2 mb-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Número de documento <span className="text-red-500">*</span>
               </label>
               <input
@@ -223,14 +240,14 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 value={formData.numeroDocumento}
                 onChange={(e) => onInputChange('numeroDocumento', e.target.value)}
                 maxLength={esDNI ? 8 : esRUC ? 11 : 20}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder={esDNI ? '8 dígitos' : esRUC ? '11 dígitos' : 'Número de documento'}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder={esDNI ? '8 dígitos' : esRUC ? '11 dígitos' : 'Documento'}
               />
             </div>
             {(esRUC || esDNI) && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 opacity-0">
-                  Acción
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 opacity-0">
+                  .
                 </label>
                 <button
                   type="button"
@@ -241,13 +258,13 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     (esDNI && formData.numeroDocumento.length !== 8) ||
                     (esRUC && formData.numeroDocumento.length !== 11)
                   }
-                  className={`px-4 h-9 rounded-lg font-bold text-xs uppercase transition-colors ${
+                  className={`px-3 h-9 rounded-md font-semibold text-xs uppercase transition-colors ${
                     isConsulting ||
                     !formData.numeroDocumento ||
                     (esDNI && formData.numeroDocumento.length !== 8) ||
                     (esRUC && formData.numeroDocumento.length !== 11)
                       ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
                   {isConsulting ? (
@@ -263,21 +280,23 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             )}
           </div>
 
-          {/* Tipo de Cuenta */}
-          <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          {/* Tipo de Cuenta - Segmented Control */}
+          <div className="mb-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               Tipo de cuenta <span className="text-red-500">*</span>
             </label>
-            <div className="flex gap-2">
-              {['Cliente', 'Proveedor', 'Cliente-Proveedor'].map((tipo) => (
+            <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden">
+              {['Cliente', 'Proveedor', 'Cliente-Proveedor'].map((tipo, idx) => (
                 <button
                   key={tipo}
                   type="button"
                   onClick={() => onInputChange('tipoCuenta', tipo)}
-                  className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  className={`px-4 py-1.5 text-xs font-medium transition-colors ${
+                    idx > 0 ? 'border-l border-gray-300 dark:border-gray-600' : ''
+                  } ${
                     formData.tipoCuenta === tipo
-                      ? 'bg-blue-500 border-blue-500 text-white'
-                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                 >
                   {tipo}
@@ -286,48 +305,50 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             </div>
           </div>
 
-          {/* Tipo de Persona (informativo, auto-ajustado) */}
-          <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          {/* Tipo de Persona - Segmented Control */}
+          <div className="mb-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               Tipo de persona
             </label>
-            <div className="flex gap-2">
-              {['Natural', 'Juridica'].map((tipo) => (
+            <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden">
+              {['Natural', 'Juridica'].map((tipo, idx) => (
                 <button
                   key={tipo}
                   type="button"
                   onClick={() => onInputChange('tipoPersona', tipo)}
-                  className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  className={`px-6 py-1.5 text-xs font-medium transition-colors ${
+                    idx > 0 ? 'border-l border-gray-300 dark:border-gray-600' : ''
+                  } ${
                     formData.tipoPersona === tipo
-                      ? 'bg-gray-200 dark:bg-gray-600 border-gray-400 dark:border-gray-500 text-gray-800 dark:text-white'
-                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                      ? 'bg-gray-600 dark:bg-gray-500 text-white'
+                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                 >
                   {tipo === 'Juridica' ? 'Jurídica' : tipo}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
               Se ajusta automáticamente según el tipo de documento
             </p>
           </div>
         </div>
 
         {/* LAYOUT DE DOS COLUMNAS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 gap-y-3">
           {/* COLUMNA IZQUIERDA */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             {/* Razón Social (solo RUC) */}
             {esRUC && (
               <div>
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
                   🏢 Datos de la Empresa
                 </h3>
                 
                 {/* Grid con avatar y campos */}
-                <div className="grid grid-cols-[auto,1fr] gap-4 mb-3">
+                <div className="grid grid-cols-[auto,1fr] gap-3 mb-2">
                   {/* Avatar del cliente */}
-                  <div className="pt-1">
+                  <div className="pt-0.5">
                     <ClienteAvatar
                       imagenes={formData.imagenes || []}
                       onChange={(imagenes: File[]) => onInputChange('imagenes', imagenes)}
@@ -335,27 +356,27 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   </div>
 
                   {/* Campos de empresa */}
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Razón social <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={formData.razonSocial}
                         onChange={(e) => onInputChange('razonSocial', e.target.value)}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Nombre comercial
                       </label>
                       <input
                         type="text"
                         value={formData.nombreComercial}
                         onChange={(e) => onInputChange('nombreComercial', e.target.value)}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                   </div>
@@ -366,14 +387,14 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             {/* Nombres (solo Persona Natural) */}
             {!esRUC && (
               <div>
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
                   👤 Datos Personales
                 </h3>
                 
                 {/* Grid con avatar y campos */}
-                <div className="grid grid-cols-[auto,1fr] gap-4 mb-3">
+                <div className="grid grid-cols-[auto,1fr] gap-3 mb-2">
                   {/* Avatar del cliente */}
-                  <div className="pt-1">
+                  <div className="pt-0.5">
                     <ClienteAvatar
                       imagenes={formData.imagenes || []}
                       onChange={(imagenes: File[]) => onInputChange('imagenes', imagenes)}
@@ -381,60 +402,60 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   </div>
 
                   {/* Campos de persona */}
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Primer nombre <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.primerNombre}
                           onChange={(e) => onInputChange('primerNombre', e.target.value)}
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Segundo nombre
                         </label>
                         <input
                           type="text"
                           value={formData.segundoNombre}
                           onChange={(e) => onInputChange('segundoNombre', e.target.value)}
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Apellido paterno <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.apellidoPaterno}
                           onChange={(e) => onInputChange('apellidoPaterno', e.target.value)}
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Apellido materno <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.apellidoMaterno}
                           onChange={(e) => onInputChange('apellidoMaterno', e.target.value)}
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="mb-3">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <div className="mb-2">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Nombre completo
                   </label>
                   <input
@@ -449,11 +470,11 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
             {/* Contacto */}
             <div>
-              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
                 📞 Contacto
               </h3>
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="mb-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Correos electrónicos (hasta 3)
                 </label>
                 <EmailsInput
@@ -461,8 +482,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   onChange={(emails) => onInputChange('emails', emails)}
                 />
               </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="mb-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Teléfonos (hasta 3)
                 </label>
                 <TelefonosInput
@@ -470,15 +491,15 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   onChange={(telefonos) => onInputChange('telefonos', telefonos)}
                 />
               </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="mb-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Página web
                 </label>
                 <input
                   type="url"
                   value={formData.paginaWeb}
                   onChange={(e) => onInputChange('paginaWeb', e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="https://ejemplo.com"
                 />
               </div>
@@ -486,18 +507,18 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
             {/* Ubicación */}
             <div>
-              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
                 📍 Ubicación
               </h3>
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     País
                   </label>
                   <select
                     value={formData.pais}
                     onChange={(e) => onInputChange('pais', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="PE">Perú</option>
                     <option value="US">Estados Unidos</option>
@@ -505,40 +526,40 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Departamento
                   </label>
                   <input
                     type="text"
                     value={formData.departamento}
                     onChange={(e) => onInputChange('departamento', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Provincia
                   </label>
                   <input
                     type="text"
                     value={formData.provincia}
                     onChange={(e) => onInputChange('provincia', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Distrito
                   </label>
                   <input
                     type="text"
                     value={formData.distrito}
                     onChange={(e) => onInputChange('distrito', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Ubigeo
                   </label>
                   <input
@@ -546,31 +567,31 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     value={formData.ubigeo}
                     onChange={(e) => onInputChange('ubigeo', e.target.value)}
                     maxLength={6}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="6 dígitos"
                   />
                 </div>
               </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="mb-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Dirección
                 </label>
                 <input
                   type="text"
                   value={formData.direccion}
                   onChange={(e) => onInputChange('direccion', e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="mb-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Referencia
                 </label>
                 <input
                   type="text"
                   value={formData.referenciaDireccion}
                   onChange={(e) => onInputChange('referenciaDireccion', e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Ej: Al costado del mercado"
                 />
               </div>
@@ -578,28 +599,28 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           </div>
 
           {/* COLUMNA DERECHA */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Estado y Configuración */}
             <div>
-              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
                 ⚙️ Estado y Configuración
               </h3>
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="mb-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Estado de la cuenta
                 </label>
                 <select
                   value={formData.estadoCliente}
                   onChange={(e) => onInputChange('estadoCliente', e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="Habilitado">Habilitado</option>
                   <option value="Deshabilitado">Deshabilitado</option>
                 </select>
               </div>
               {formData.estadoCliente === 'Deshabilitado' && (
-                <div className="mb-3">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <div className="mb-2">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Motivo deshabilitación <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -615,7 +636,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             {/* Datos SUNAT (solo RUC) */}
             {esRUC && (
               <div>
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
                   🏛️ Información SUNAT
                 </h3>
                 
@@ -642,8 +663,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 </div>
 
                 {/* Actividades económicas */}
-                <div className="mb-3">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <div className="mb-2">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Actividades económicas
                   </label>
                   <ActividadesEconomicasInput
@@ -655,13 +676,13 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 {/* Sistema de emisión y emisor electrónico */}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Sistema de emisión
                     </label>
                     <select
                       value={formData.sistemaEmision}
                       onChange={(e) => onInputChange('sistemaEmision', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       <option value="">Seleccionar</option>
                       <option value="Manual">Manual</option>
@@ -684,8 +705,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
                 {/* CPE Habilitados - solo si es emisor electrónico */}
                 {formData.esEmisorElectronico && (
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       CPE Habilitados
                     </label>
                     <CPEHabilitadoInput
@@ -730,31 +751,31 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
             {/* Configuración Comercial */}
             <div>
-              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
                 💼 Configuración Comercial
               </h3>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Forma de pago
                   </label>
                   <select
                     value={formData.formaPago}
                     onChange={(e) => onInputChange('formaPago', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="Contado">Contado</option>
                     <option value="Credito">Crédito</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Moneda preferida
                   </label>
                   <select
                     value={formData.monedaPreferida}
                     onChange={(e) => onInputChange('monedaPreferida', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="PEN">Soles (PEN)</option>
                     <option value="USD">Dólares (USD)</option>
@@ -762,26 +783,26 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Lista de precios
                   </label>
                   <input
                     type="text"
                     value={formData.listaPrecio}
                     onChange={(e) => onInputChange('listaPrecio', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Seleccionar lista"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Usuario asignado
                   </label>
                   <input
                     type="text"
                     value={formData.usuarioAsignado}
                     onChange={(e) => onInputChange('usuarioAsignado', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Buscar usuario"
                   />
                 </div>
@@ -811,11 +832,11 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
             {/* Observaciones */}
             <div>
-              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
                 📝 Información Adicional
               </h3>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Observaciones
                 </label>
                 <textarea
@@ -828,7 +849,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Archivos del cliente
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
@@ -858,24 +879,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   maxArchivos={15}
                 />
               </div>
-
-              {/* Campos de auditoría (solo al editar) - Diseño sutil */}
-              {isEditing && (formData.fechaRegistro || formData.fechaUltimaModificacion) && (
-                <div className="mt-5 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    {formData.fechaRegistro && (
-                      <span>
-                        <strong className="font-medium">Registro:</strong> {new Date(formData.fechaRegistro).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
-                      </span>
-                    )}
-                    {formData.fechaUltimaModificacion && (
-                      <span>
-                        <strong className="font-medium">Modificado:</strong> {new Date(formData.fechaUltimaModificacion).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
