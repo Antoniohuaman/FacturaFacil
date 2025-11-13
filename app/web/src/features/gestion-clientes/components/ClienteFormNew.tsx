@@ -19,19 +19,19 @@ type ClienteFormProps = {
 const PRIMARY_COLOR = '#1478D4';
 
 const tiposDocumento = [
-  { value: '0', label: '0 DOC.TRIB.NO.DOM.SIN.RUC' },
-  { value: '1', label: '1 DNI' },
-  { value: '4', label: '4 CE' },
-  { value: '6', label: '6 RUC' },
-  { value: '7', label: '7 Pasaporte' },
-  { value: 'A', label: 'A Cédula Diplomática' },
-  { value: 'B', label: 'B Doc.Pais.Residencia' },
-  { value: 'C', label: 'C TIN' },
-  { value: 'D', label: 'D IN' },
-  { value: 'E', label: 'E TAM' },
-  { value: 'F', label: 'F PTP' },
-  { value: 'G', label: 'G Salvoconducto' },
-  { value: 'H', label: 'H CPP' },
+  { value: '0', label: 'DOC.TRIB.NO.DOM.SIN.RUC' },
+  { value: '1', label: 'Documento Nacional de Identidad' },
+  { value: '4', label: 'Carnet de extranjería' },
+  { value: '6', label: 'Registro Único de Contribuyentes' },
+  { value: '7', label: 'Pasaporte' },
+  { value: 'A', label: 'Cédula Diplomática de identidad' },
+  { value: 'B', label: 'DOC.IDENT.PAIS.RESIDENCIA-NO.D' },
+  { value: 'C', label: 'Tax Identification Number - TIN - Doc Trib PP.NN' },
+  { value: 'D', label: 'Identification Number - IN - Doc Trib PP.JJ' },
+  { value: 'E', label: 'TAM - Tarjeta Andina de Migración' },
+  { value: 'F', label: 'Permiso Temporal de Permanencia - PTP' },
+  { value: 'G', label: 'Salvoconducto' },
+  { value: 'H', label: 'Carné Permiso Temp.Perman. - CPP' },
 ];
 
 const ClienteFormNew: React.FC<ClienteFormProps> = ({
@@ -42,7 +42,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   isEditing = false,
 }) => {
   const { consultingReniec, consultingSunat, consultarReniec, consultarSunat } = useConsultasExternas();
-  const [showMoreDocTypes, setShowMoreDocTypes] = useState(false);
+  const [showOtrosDocTypes, setShowOtrosDocTypes] = useState(false);
   
   const isConsulting = consultingReniec || consultingSunat;
 
@@ -59,8 +59,28 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       if (nombreCompleto !== formData.nombreCompleto) {
         onInputChange('nombreCompleto', nombreCompleto);
       }
+    } else {
+      // Para RUC, nombreCompleto = razonSocial
+      if (formData.razonSocial && formData.razonSocial !== formData.nombreCompleto) {
+        onInputChange('nombreCompleto', formData.razonSocial);
+      }
     }
-  }, [formData.primerNombre, formData.segundoNombre, formData.apellidoPaterno, formData.apellidoMaterno, formData.tipoDocumento]);
+  }, [formData.primerNombre, formData.segundoNombre, formData.apellidoPaterno, formData.apellidoMaterno, formData.razonSocial, formData.tipoDocumento]);
+
+  // Auto-ajustar tipoPersona según tipoDocumento
+  useEffect(() => {
+    if (formData.tipoDocumento === '6') {
+      // RUC -> Persona Jurídica
+      if (formData.tipoPersona !== 'Juridica') {
+        onInputChange('tipoPersona', 'Juridica');
+      }
+    } else {
+      // Otros -> Persona Natural
+      if (formData.tipoPersona !== 'Natural') {
+        onInputChange('tipoPersona', 'Natural');
+      }
+    }
+  }, [formData.tipoDocumento]);
 
   const handleConsultarReniec = async () => {
     if (!formData.numeroDocumento || formData.numeroDocumento.length !== 8) {
@@ -93,7 +113,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     }
   };
 
-  const mainDocTypes = tiposDocumento.slice(0, 3);
   const esRUC = formData.tipoDocumento === '6';
   const esDNI = formData.tipoDocumento === '1';
 
@@ -115,59 +134,77 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       {/* Body con scroll */}
       <div className="px-6 py-3 overflow-y-auto flex-1">
         {/* SECCIÓN: IDENTIFICACIÓN */}
-        <div className="mb-6">
+        <div className="mb-5">
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
-            📋 Identificación
+            📋 Identificación y Tipo de Cuenta
           </h3>
 
-          {/* Tipo de Documento - Selector visual */}
-          <div className="mb-4">
+          {/* Tipo de Documento - Pills: RUC | DNI | OTROS */}
+          <div className="mb-3">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Tipo de documento <span className="text-red-500">*</span>
             </label>
-            <div className="flex flex-wrap gap-2">
-              {mainDocTypes.map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => onInputChange('tipoDocumento', type.value)}
-                  className={`px-4 py-2 rounded-lg border text-sm font-medium ${
-                    formData.tipoDocumento === type.value
-                      ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-300'
-                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {type.label}
-                </button>
-              ))}
+            <div className="flex gap-2 mb-2">
               <button
                 type="button"
-                className={`px-4 py-2 rounded-lg border text-sm font-medium flex items-center ${
-                  !mainDocTypes.some(t => t.value === formData.tipoDocumento) && tiposDocumento.some(t => t.value === formData.tipoDocumento)
-                    ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-300'
+                onClick={() => {
+                  onInputChange('tipoDocumento', '6');
+                  setShowOtrosDocTypes(false);
+                }}
+                className={`px-5 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                  formData.tipoDocumento === '6'
+                    ? 'bg-blue-500 border-blue-500 text-white'
                     : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
-                onClick={() => setShowMoreDocTypes(!showMoreDocTypes)}
               >
-                {!mainDocTypes.some(t => t.value === formData.tipoDocumento) && tiposDocumento.some(t => t.value === formData.tipoDocumento)
-                  ? tiposDocumento.find(t => t.value === formData.tipoDocumento)?.label
-                  : 'MÁS OPCIONES'}
-                <span className="ml-2">{showMoreDocTypes ? '▴' : '▾'}</span>
+                RUC
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onInputChange('tipoDocumento', '1');
+                  setShowOtrosDocTypes(false);
+                }}
+                className={`px-5 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                  formData.tipoDocumento === '1'
+                    ? 'bg-blue-500 border-blue-500 text-white'
+                    : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                DNI
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowOtrosDocTypes(!showOtrosDocTypes)}
+                className={`px-5 py-2 rounded-lg border text-sm font-semibold transition-colors flex items-center gap-1 ${
+                  formData.tipoDocumento !== '6' && formData.tipoDocumento !== '1'
+                    ? 'bg-blue-500 border-blue-500 text-white'
+                    : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                OTROS
+                <span>{showOtrosDocTypes ? '▴' : '▾'}</span>
               </button>
             </div>
             
-            {showMoreDocTypes && (
-              <div className="mt-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                {tiposDocumento.slice(3).map((type) => (
+            {/* Dropdown de otros documentos */}
+            {showOtrosDocTypes && (
+              <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {tiposDocumento.filter(t => t.value !== '6' && t.value !== '1').map((type) => (
                   <button
                     key={type.value}
                     type="button"
-                    className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors text-gray-700 dark:text-gray-300"
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
+                      formData.tipoDocumento === type.value
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium'
+                        : 'text-gray-700 dark:text-gray-300'
+                    }`}
                     onClick={() => {
                       onInputChange('tipoDocumento', type.value);
-                      setShowMoreDocTypes(false);
+                      setShowOtrosDocTypes(false);
                     }}
                   >
+                    <span className="font-mono text-xs mr-2">{type.value}</span>
                     {type.label}
                   </button>
                 ))}
@@ -175,21 +212,26 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             )}
           </div>
 
-          {/* Número de Documento */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Número de documento <span className="text-red-500">*</span>
-            </label>
-            <div className="flex items-center gap-2">
+          {/* Número de Documento + Botón RENIEC/SUNAT */}
+          <div className="grid grid-cols-[1fr,auto] gap-2 mb-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Número de documento <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 value={formData.numeroDocumento}
                 onChange={(e) => onInputChange('numeroDocumento', e.target.value)}
                 maxLength={esDNI ? 8 : esRUC ? 11 : 20}
-                className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                placeholder={esDNI ? 'Ingresa 8 dígitos' : esRUC ? 'Ingresa 11 dígitos' : 'Ingresa el número'}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder={esDNI ? '8 dígitos' : esRUC ? '11 dígitos' : 'Número de documento'}
               />
-              {(esRUC || esDNI) && (
+            </div>
+            {(esRUC || esDNI) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 opacity-0">
+                  Acción
+                </label>
                 <button
                   type="button"
                   onClick={esRUC ? handleConsultarSunat : handleConsultarReniec}
@@ -199,30 +241,75 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     (esDNI && formData.numeroDocumento.length !== 8) ||
                     (esRUC && formData.numeroDocumento.length !== 11)
                   }
-                  className={`px-6 h-9 min-w-[100px] rounded-lg font-semibold text-sm shadow transition-colors flex items-center justify-center ${
+                  className={`px-4 h-9 rounded-lg font-bold text-xs uppercase transition-colors ${
                     isConsulting ||
                     !formData.numeroDocumento ||
                     (esDNI && formData.numeroDocumento.length !== 8) ||
                     (esRUC && formData.numeroDocumento.length !== 11)
-                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      : 'text-white hover:opacity-90'
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow'
                   }`}
-                  style={!(isConsulting || !formData.numeroDocumento ||
-                    (esDNI && formData.numeroDocumento.length !== 8) ||
-                    (esRUC && formData.numeroDocumento.length !== 11))
-                    ? { backgroundColor: PRIMARY_COLOR } : {}}
                 >
                   {isConsulting ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Consultando...
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-[10px]">...</span>
                     </div>
                   ) : (
-                    esRUC ? 'Sunat' : 'Reniec'
+                    esRUC ? 'SUNAT' : 'RENIEC'
                   )}
                 </button>
-              )}
+              </div>
+            )}
+          </div>
+
+          {/* Tipo de Cuenta */}
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Tipo de cuenta <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-2">
+              {['Cliente', 'Proveedor', 'Cliente-Proveedor'].map((tipo) => (
+                <button
+                  key={tipo}
+                  type="button"
+                  onClick={() => onInputChange('tipoCuenta', tipo)}
+                  className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    formData.tipoCuenta === tipo
+                      ? 'bg-blue-500 border-blue-500 text-white'
+                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {tipo}
+                </button>
+              ))}
             </div>
+          </div>
+
+          {/* Tipo de Persona (informativo, auto-ajustado) */}
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Tipo de persona
+            </label>
+            <div className="flex gap-2">
+              {['Natural', 'Juridica'].map((tipo) => (
+                <button
+                  key={tipo}
+                  type="button"
+                  onClick={() => onInputChange('tipoPersona', tipo)}
+                  className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    formData.tipoPersona === tipo
+                      ? 'bg-gray-200 dark:bg-gray-600 border-gray-400 dark:border-gray-500 text-gray-800 dark:text-white'
+                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {tipo === 'Juridica' ? 'Jurídica' : tipo}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Se ajusta automáticamente según el tipo de documento
+            </p>
           </div>
         </div>
 
@@ -492,111 +579,70 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
           {/* COLUMNA DERECHA */}
           <div className="space-y-4">
-            {/* Tipo y Estado */}
+            {/* Estado y Configuración */}
             <div>
               <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
-                ⚙️ Configuración
+                ⚙️ Estado y Configuración
               </h3>
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Tipo de cliente
-                  </label>
-                  <select
-                    value={formData.tipoCliente}
-                    onChange={(e) => onInputChange('tipoCliente', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="Natural">Natural</option>
-                    <option value="Juridica">Jurídica</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Tipo de cuenta
-                  </label>
-                  <select
-                    value={formData.tipoCuenta}
-                    onChange={(e) => onInputChange('tipoCuenta', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="Cliente">Cliente</option>
-                    <option value="Proveedor">Proveedor</option>
-                    <option value="Cliente-Proveedor">Cliente-Proveedor</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Estado
-                  </label>
-                  <select
-                    value={formData.estadoCliente}
-                    onChange={(e) => onInputChange('estadoCliente', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="Habilitado">Habilitado</option>
-                    <option value="Deshabilitado">Deshabilitado</option>
-                  </select>
-                </div>
-                {formData.estadoCliente === 'Deshabilitado' && (
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Motivo deshabilitación <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      value={formData.motivoDeshabilitacion}
-                      onChange={(e) => onInputChange('motivoDeshabilitacion', e.target.value)}
-                      rows={2}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                    />
-                  </div>
-                )}
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Estado de la cuenta
+                </label>
+                <select
+                  value={formData.estadoCliente}
+                  onChange={(e) => onInputChange('estadoCliente', e.target.value)}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="Habilitado">Habilitado</option>
+                  <option value="Deshabilitado">Deshabilitado</option>
+                </select>
               </div>
+              {formData.estadoCliente === 'Deshabilitado' && (
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Motivo deshabilitación <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={formData.motivoDeshabilitacion}
+                    onChange={(e) => onInputChange('motivoDeshabilitacion', e.target.value)}
+                    rows={2}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Datos SUNAT (solo RUC) */}
             {esRUC && (
               <div>
                 <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
-                  🏛️ Datos SUNAT
+                  🏛️ Información SUNAT
                 </h3>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Estado contribuyente
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.estadoContribuyente}
-                      readOnly
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Condición domicilio
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.condicionDomicilio}
-                      readOnly
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Fecha de inscripción
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.fechaInscripcion}
-                      onChange={(e) => onInputChange('fechaInscripcion', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                
+                {/* Readonly Info Card - Datos verificados de SUNAT */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Tipo:</span>
+                      <div className="text-gray-800 dark:text-gray-200 font-semibold">{formData.tipoContribuyente || '-'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Estado:</span>
+                      <div className="text-gray-800 dark:text-gray-200 font-semibold">{formData.estadoContribuyente || '-'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Condición domicilio:</span>
+                      <div className="text-gray-800 dark:text-gray-200 font-semibold">{formData.condicionDomicilio || '-'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Fecha inscripción:</span>
+                      <div className="text-gray-800 dark:text-gray-200 font-semibold">{formData.fechaInscripcion || '-'}</div>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="mb-4">
+
+                {/* Actividades económicas */}
+                <div className="mb-3">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Actividades económicas
                   </label>
@@ -606,17 +652,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   />
                 </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    CPE Habilitados
-                  </label>
-                  <CPEHabilitadoInput
-                    cpeHabilitados={formData.cpeHabilitado || []}
-                    onChange={(cpeHabilitado) => onInputChange('cpeHabilitado', cpeHabilitado)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                {/* Sistema de emisión y emisor electrónico */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Sistema de emisión
@@ -632,9 +669,34 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       <option value="Mixto">Mixto</option>
                     </select>
                   </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 h-9">
+                      <input
+                        type="checkbox"
+                        checked={formData.esEmisorElectronico}
+                        onChange={(e) => onInputChange('esEmisorElectronico', e.target.checked)}
+                        className="rounded border-gray-300 dark:border-gray-600"
+                      />
+                      Emisor electrónico
+                    </label>
+                  </div>
                 </div>
 
-                <div className="space-y-2 mb-4">
+                {/* CPE Habilitados - solo si es emisor electrónico */}
+                {formData.esEmisorElectronico && (
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      CPE Habilitados
+                    </label>
+                    <CPEHabilitadoInput
+                      cpeHabilitados={formData.cpeHabilitado || []}
+                      onChange={(cpeHabilitado) => onInputChange('cpeHabilitado', cpeHabilitado)}
+                    />
+                  </div>
+                )}
+
+                {/* Checkboxes de condiciones especiales */}
+                <div className="space-y-1.5 mb-3">
                   <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                     <input
                       type="checkbox"
@@ -797,35 +859,21 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 />
               </div>
 
-              {/* Campos de auditoría (solo al editar) */}
+              {/* Campos de auditoría (solo al editar) - Diseño sutil */}
               {isEditing && (formData.fechaRegistro || formData.fechaUltimaModificacion) && (
-                <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                  {formData.fechaRegistro && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Fecha de registro
-                      </label>
-                      <input
-                        type="text"
-                        value={new Date(formData.fechaRegistro).toLocaleString('es-PE')}
-                        readOnly
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-xs bg-gray-50 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
-                      />
-                    </div>
-                  )}
-                  {formData.fechaUltimaModificacion && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Última modificación
-                      </label>
-                      <input
-                        type="text"
-                        value={new Date(formData.fechaUltimaModificacion).toLocaleString('es-PE')}
-                        readOnly
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-xs bg-gray-50 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
-                      />
-                    </div>
-                  )}
+                <div className="mt-5 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                    {formData.fechaRegistro && (
+                      <span>
+                        <strong className="font-medium">Registro:</strong> {new Date(formData.fechaRegistro).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    )}
+                    {formData.fechaUltimaModificacion && (
+                      <span>
+                        <strong className="font-medium">Modificado:</strong> {new Date(formData.fechaUltimaModificacion).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -32,6 +32,8 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
     // Identificación
     tipoDocumento: props.documentType || '6',
     numeroDocumento: props.formData.documentNumber || '',
+    tipoPersona: (props.documentType === '6') ? 'Juridica' : 'Natural',
+    tipoCuenta: (props.clientType as any) || 'Cliente',
     
     // Razón Social (Jurídica)
     razonSocial: props.formData.legalName || '',
@@ -58,18 +60,19 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
     direccion: props.formData.address || '',
     referenciaDireccion: '',
     
-    // Tipo y Estado
+    // Estado
     tipoCliente: 'Natural',
-    tipoCuenta: (props.clientType as any) || 'Cliente',
     estadoCliente: 'Habilitado',
     motivoDeshabilitacion: '',
     
     // Datos SUNAT
+    tipoContribuyente: '',
     estadoContribuyente: '',
     condicionDomicilio: '',
     fechaInscripcion: '',
     actividadesEconomicas: [],
     sistemaEmision: '',
+    esEmisorElectronico: false,
     cpeHabilitado: [],
     esAgenteRetencion: false,
     esAgentePercepcion: false,

@@ -28,6 +28,8 @@ function ClientesPage() {
 		// Identificación
 		tipoDocumento: '6',
 		numeroDocumento: '',
+		tipoPersona: 'Juridica', // Default para RUC
+		tipoCuenta: 'Cliente',
 		
 		// Razón Social (Jurídica)
 		razonSocial: '',
@@ -54,18 +56,19 @@ function ClientesPage() {
 		direccion: '',
 		referenciaDireccion: '',
 		
-		// Tipo y Estado
+		// Estado
 		tipoCliente: 'Natural',
-		tipoCuenta: 'Cliente',
 		estadoCliente: 'Habilitado',
 		motivoDeshabilitacion: '',
 		
 		// Datos SUNAT
+		tipoContribuyente: '',
 		estadoContribuyente: '',
 		condicionDomicilio: '',
 		fechaInscripcion: '',
 		actividadesEconomicas: [],
 		sistemaEmision: '',
+		esEmisorElectronico: false,
 		cpeHabilitado: [],
 		esAgenteRetencion: false,
 		esAgentePercepcion: false,

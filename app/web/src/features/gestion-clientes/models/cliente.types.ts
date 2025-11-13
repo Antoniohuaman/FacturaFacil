@@ -69,6 +69,10 @@ export interface ClienteFormData {
   tipoDocumento: string;
   numeroDocumento: string;
   
+  // Tipo de cuenta/persona
+  tipoCuenta: ClientType;
+  tipoPersona: TipoPersona;
+  
   // Razón Social (Jurídica)
   razonSocial: string;
   nombreComercial: string;
@@ -96,17 +100,18 @@ export interface ClienteFormData {
   
   // Tipo y Estado
   tipoCliente: TipoPersona;
-  tipoCuenta: ClientType;
   estadoCliente: EstadoCliente;
   motivoDeshabilitacion: string;
   
   // Datos SUNAT
+  tipoContribuyente: string;
   estadoContribuyente: string;
   condicionDomicilio: CondicionDomicilio | '';
   fechaInscripcion: string;
   actividadesEconomicas: ActividadEconomica[];
   sistemaEmision: SistemaEmision | '';
   cpeHabilitado: CPEHabilitado[];
+  esEmisorElectronico: boolean;
   esAgenteRetencion: boolean;
   esAgentePercepcion: boolean;
   esBuenContribuyente: boolean;
