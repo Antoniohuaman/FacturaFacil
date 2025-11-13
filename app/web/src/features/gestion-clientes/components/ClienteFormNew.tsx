@@ -4,6 +4,8 @@ import type { ClienteFormData } from '../models';
 import TelefonosInput from './TelefonosInput';
 import EmailsInput from './EmailsInput';
 import ActividadesEconomicasInput from './ActividadesEconomicasInput';
+import AdjuntosInput from './AdjuntosInput';
+import ImagenesInput from './ImagenesInput';
 
 type ClienteFormProps = {
   formData: ClienteFormData;
@@ -97,7 +99,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-[1100px] max-h-[85vh] overflow-hidden flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 pb-3 border-b border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           {isEditing ? 'Editar cliente' : 'Nuevo cliente'}
         </h2>
@@ -110,7 +112,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       </div>
 
       {/* Body con scroll */}
-      <div className="px-6 pt-4 pb-4 overflow-y-auto flex-1">
+      <div className="px-6 py-3 overflow-y-auto flex-1">
         {/* SECCIÓN: IDENTIFICACIÓN */}
         <div className="mb-6">
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 border-b pb-2">
@@ -183,7 +185,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 value={formData.numeroDocumento}
                 onChange={(e) => onInputChange('numeroDocumento', e.target.value)}
                 maxLength={esDNI ? 8 : esRUC ? 11 : 20}
-                className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder={esDNI ? 'Ingresa 8 dígitos' : esRUC ? 'Ingresa 11 dígitos' : 'Ingresa el número'}
               />
               {(esRUC || esDNI) && (
@@ -196,7 +198,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     (esDNI && formData.numeroDocumento.length !== 8) ||
                     (esRUC && formData.numeroDocumento.length !== 11)
                   }
-                  className={`px-6 py-2 min-w-[100px] rounded-lg font-semibold text-sm shadow transition-colors ${
+                  className={`px-6 h-9 min-w-[100px] rounded-lg font-semibold text-sm shadow transition-colors flex items-center justify-center ${
                     isConsulting ||
                     !formData.numeroDocumento ||
                     (esDNI && formData.numeroDocumento.length !== 8) ||
@@ -241,7 +243,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     type="text"
                     value={formData.razonSocial}
                     onChange={(e) => onInputChange('razonSocial', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div className="mb-4">
@@ -252,7 +254,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     type="text"
                     value={formData.nombreComercial}
                     onChange={(e) => onInputChange('nombreComercial', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -273,7 +275,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       type="text"
                       value={formData.primerNombre}
                       onChange={(e) => onInputChange('primerNombre', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
@@ -284,7 +286,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       type="text"
                       value={formData.segundoNombre}
                       onChange={(e) => onInputChange('segundoNombre', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
@@ -295,7 +297,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       type="text"
                       value={formData.apellidoPaterno}
                       onChange={(e) => onInputChange('apellidoPaterno', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
@@ -306,7 +308,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       type="text"
                       value={formData.apellidoMaterno}
                       onChange={(e) => onInputChange('apellidoMaterno', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -318,7 +320,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     type="text"
                     value={formData.nombreCompleto}
                     readOnly
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -355,7 +357,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   type="url"
                   value={formData.paginaWeb}
                   onChange={(e) => onInputChange('paginaWeb', e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="https://ejemplo.com"
                 />
               </div>
@@ -374,7 +376,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   <select
                     value={formData.pais}
                     onChange={(e) => onInputChange('pais', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="PE">Perú</option>
                     <option value="US">Estados Unidos</option>
@@ -389,7 +391,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     type="text"
                     value={formData.departamento}
                     onChange={(e) => onInputChange('departamento', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
@@ -400,7 +402,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     type="text"
                     value={formData.provincia}
                     onChange={(e) => onInputChange('provincia', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
@@ -411,7 +413,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     type="text"
                     value={formData.distrito}
                     onChange={(e) => onInputChange('distrito', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
@@ -423,7 +425,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     value={formData.ubigeo}
                     onChange={(e) => onInputChange('ubigeo', e.target.value)}
                     maxLength={6}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="6 dígitos"
                   />
                 </div>
@@ -436,7 +438,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   type="text"
                   value={formData.direccion}
                   onChange={(e) => onInputChange('direccion', e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
               <div className="mb-4">
@@ -447,7 +449,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   type="text"
                   value={formData.referenciaDireccion}
                   onChange={(e) => onInputChange('referenciaDireccion', e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Ej: Al costado del mercado"
                 />
               </div>
@@ -469,7 +471,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   <select
                     value={formData.tipoCliente}
                     onChange={(e) => onInputChange('tipoCliente', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="Natural">Natural</option>
                     <option value="Juridica">Jurídica</option>
@@ -482,7 +484,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   <select
                     value={formData.tipoCuenta}
                     onChange={(e) => onInputChange('tipoCuenta', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="Cliente">Cliente</option>
                     <option value="Proveedor">Proveedor</option>
@@ -496,7 +498,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   <select
                     value={formData.estadoCliente}
                     onChange={(e) => onInputChange('estadoCliente', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="Habilitado">Habilitado</option>
                     <option value="Deshabilitado">Deshabilitado</option>
@@ -511,7 +513,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       value={formData.motivoDeshabilitacion}
                       onChange={(e) => onInputChange('motivoDeshabilitacion', e.target.value)}
                       rows={2}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                     />
                   </div>
                 )}
@@ -533,7 +535,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       type="text"
                       value={formData.estadoContribuyente}
                       readOnly
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -544,7 +546,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       type="text"
                       value={formData.condicionDomicilio}
                       readOnly
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
                     />
                   </div>
                   <div className="col-span-2">
@@ -555,7 +557,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       type="date"
                       value={formData.fechaInscripcion}
                       onChange={(e) => onInputChange('fechaInscripcion', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -578,7 +580,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     <select
                       value={formData.sistemaEmision}
                       onChange={(e) => onInputChange('sistemaEmision', e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       <option value="">Seleccionar</option>
                       <option value="Manual">Manual</option>
@@ -633,7 +635,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   <select
                     value={formData.formaPago}
                     onChange={(e) => onInputChange('formaPago', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="Contado">Contado</option>
                     <option value="Credito">Crédito</option>
@@ -646,7 +648,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   <select
                     value={formData.monedaPreferida}
                     onChange={(e) => onInputChange('monedaPreferida', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="PEN">Soles (PEN)</option>
                     <option value="USD">Dólares (USD)</option>
@@ -661,7 +663,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     type="text"
                     value={formData.listaPrecio}
                     onChange={(e) => onInputChange('listaPrecio', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Seleccionar lista"
                   />
                 </div>
@@ -673,7 +675,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     type="text"
                     value={formData.usuarioAsignado}
                     onChange={(e) => onInputChange('usuarioAsignado', e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Buscar usuario"
                   />
                 </div>
@@ -713,18 +715,71 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 <textarea
                   value={formData.observaciones}
                   onChange={(e) => onInputChange('observaciones', e.target.value)}
-                  rows={4}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  rows={3}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Notas adicionales sobre el cliente"
                 />
               </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Documentos del cliente
+                </label>
+                <AdjuntosInput
+                  adjuntos={formData.adjuntos || []}
+                  onChange={(adjuntos) => onInputChange('adjuntos', adjuntos)}
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Imágenes del cliente
+                </label>
+                <ImagenesInput
+                  imagenes={formData.imagenes || []}
+                  onChange={(imagenes) => onInputChange('imagenes', imagenes)}
+                  maxImagenes={5}
+                />
+              </div>
+
+              {/* Campos de auditoría (solo al editar) */}
+              {isEditing && (formData.fechaRegistro || formData.fechaUltimaModificacion) && (
+                <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                  {formData.fechaRegistro && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        Fecha de registro
+                      </label>
+                      <input
+                        type="text"
+                        value={new Date(formData.fechaRegistro).toLocaleString('es-PE')}
+                        readOnly
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-xs bg-gray-50 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
+                      />
+                    </div>
+                  )}
+                  {formData.fechaUltimaModificacion && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        Última modificación
+                      </label>
+                      <input
+                        type="text"
+                        value={new Date(formData.fechaUltimaModificacion).toLocaleString('es-PE')}
+                        readOnly
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-xs bg-gray-50 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
+      <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
         <button
           onClick={onCancel}
           className="px-6 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors"
