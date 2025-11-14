@@ -95,7 +95,7 @@ export interface Cliente {
   actividadesEconomicas?: ActividadEconomica[];
   sistemaEmision?: string;
   esEmisorElectronico?: boolean;
-  cpeHabilitado?: Array<{ tipo: string; fecha: string }>;
+  cpeHabilitado?: CPEHabilitado[];
   esAgenteRetencion?: boolean;
   esAgentePercepcion?: boolean;
   esBuenContribuyente?: boolean;
@@ -198,6 +198,7 @@ export interface ClienteFormDataLegacy {
 }
 
 export interface CreateClienteDTO {
+  // Campos legacy básicos (retrocompatibilidad)
   documentType: DocumentType;
   documentNumber: string;
   name: string;
@@ -207,6 +208,52 @@ export interface CreateClienteDTO {
   email?: string;
   gender?: string;
   additionalData?: string;
+  
+  // Campos extendidos
+  tipoDocumento?: string;
+  numeroDocumento?: string;
+  tipoPersona?: TipoPersona;
+  tipoCuenta?: ClientType;
+  razonSocial?: string;
+  nombreComercial?: string;
+  primerNombre?: string;
+  segundoNombre?: string;
+  apellidoPaterno?: string;
+  apellidoMaterno?: string;
+  nombreCompleto?: string;
+  emails?: string[];
+  telefonos?: Array<{ numero: string; tipo: string }>;
+  paginaWeb?: string;
+  pais?: string;
+  departamento?: string;
+  provincia?: string;
+  distrito?: string;
+  ubigeo?: string;
+  direccion?: string;
+  referenciaDireccion?: string;
+  tipoCliente?: string;
+  estadoCliente?: string;
+  motivoDeshabilitacion?: string;
+  tipoContribuyente?: string;
+  estadoContribuyente?: string;
+  condicionDomicilio?: string;
+  fechaInscripcion?: string;
+  actividadesEconomicas?: ActividadEconomica[];
+  sistemaEmision?: string;
+  esEmisorElectronico?: boolean;
+  cpeHabilitado?: CPEHabilitado[];
+  esAgenteRetencion?: boolean;
+  esAgentePercepcion?: boolean;
+  esBuenContribuyente?: boolean;
+  formaPago?: string;
+  monedaPreferida?: string;
+  listaPrecio?: string;
+  usuarioAsignado?: string;
+  clientePorDefecto?: boolean;
+  exceptuadaPercepcion?: boolean;
+  observaciones?: string;
+  adjuntos?: File[];
+  imagenes?: File[];
 }
 
 export interface UpdateClienteDTO extends Partial<CreateClienteDTO> {

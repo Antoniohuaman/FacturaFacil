@@ -140,6 +140,7 @@ class ClientesClient {
 
       const newCliente: Cliente = {
         id: Date.now(),
+        // Campos legacy
         name: body.name,
         document: body.documentType !== 'SIN_DOCUMENTO'
           ? `${body.documentType} ${body.documentNumber}`
@@ -152,6 +153,55 @@ class ClientesClient {
         additionalData: body.additionalData || '',
         enabled: true,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        
+        // Campos extendidos (TODOS los del formulario)
+        tipoDocumento: body.tipoDocumento,
+        numeroDocumento: body.numeroDocumento,
+        tipoPersona: body.tipoPersona,
+        tipoCuenta: body.tipoCuenta,
+        razonSocial: body.razonSocial,
+        nombreComercial: body.nombreComercial,
+        primerNombre: body.primerNombre,
+        segundoNombre: body.segundoNombre,
+        apellidoPaterno: body.apellidoPaterno,
+        apellidoMaterno: body.apellidoMaterno,
+        nombreCompleto: body.nombreCompleto,
+        emails: body.emails,
+        telefonos: body.telefonos,
+        paginaWeb: body.paginaWeb,
+        pais: body.pais,
+        departamento: body.departamento,
+        provincia: body.provincia,
+        distrito: body.distrito,
+        ubigeo: body.ubigeo,
+        direccion: body.direccion,
+        referenciaDireccion: body.referenciaDireccion,
+        tipoCliente: body.tipoCliente,
+        estadoCliente: body.estadoCliente,
+        motivoDeshabilitacion: body.motivoDeshabilitacion,
+        tipoContribuyente: body.tipoContribuyente,
+        estadoContribuyente: body.estadoContribuyente,
+        condicionDomicilio: body.condicionDomicilio,
+        fechaInscripcion: body.fechaInscripcion,
+        actividadesEconomicas: body.actividadesEconomicas,
+        sistemaEmision: body.sistemaEmision,
+        esEmisorElectronico: body.esEmisorElectronico,
+        cpeHabilitado: body.cpeHabilitado,
+        esAgenteRetencion: body.esAgenteRetencion,
+        esAgentePercepcion: body.esAgentePercepcion,
+        esBuenContribuyente: body.esBuenContribuyente,
+        formaPago: body.formaPago,
+        monedaPreferida: body.monedaPreferida,
+        listaPrecio: body.listaPrecio,
+        usuarioAsignado: body.usuarioAsignado,
+        clientePorDefecto: body.clientePorDefecto,
+        exceptuadaPercepcion: body.exceptuadaPercepcion,
+        observaciones: body.observaciones,
+        adjuntos: body.adjuntos,
+        imagenes: body.imagenes,
+        fechaRegistro: new Date().toISOString(),
+        fechaUltimaModificacion: new Date().toISOString(),
       };
 
       clientes.unshift(newCliente);

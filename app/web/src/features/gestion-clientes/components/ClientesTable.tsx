@@ -280,8 +280,12 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                       <td className="font-medium" title={client.name}>{client.name}</td>
                       <td title={direccion}>{direccion}</td>
                       <td>{client.type}</td>
-                      <td>{renderText(client.phone)}</td>
-                      <td title={client.email}>{renderText(client.email)}</td>
+                      <td title={client.telefonos?.map(t => `${t.tipo}: ${t.numero}`).join(', ') || client.phone}>
+                        {client.telefonos?.length ? client.telefonos.map(t => t.numero).join(', ') : renderText(client.phone)}
+                      </td>
+                      <td title={client.emails?.join(', ') || client.email}>
+                        {client.emails?.length ? client.emails.join(', ') : renderText(client.email)}
+                      </td>
 
                       {/* Campos extendidos (opcionales del backend) */}
                       <td>{renderText(client.tipoPersona)}</td>
