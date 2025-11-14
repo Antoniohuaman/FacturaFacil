@@ -95,17 +95,70 @@ const BooleanBadge: React.FC<{ value?: boolean | null }> = ({ value }) => {
 };
 
 /**
- * Badge de estado (Activo/Inactivo)
+ * Badge de estado del cliente (Habilitado/Deshabilitado según estadoCliente)
  */
-const StatusBadge: React.FC<{ enabled: boolean }> = ({ enabled }) => (
-  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-    enabled 
-      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-  }`}>
-    {enabled ? 'Activo' : 'Inactivo'}
-  </span>
-);
+const EstadoClienteBadge: React.FC<{ estadoCliente?: string; enabled: boolean }> = ({ estadoCliente, enabled }) => {
+  // Priorizar estadoCliente si existe, sino usar enabled
+  const estado = estadoCliente || (enabled ? 'Habilitado' : 'Deshabilitado');
+  const isHabilitado = estado === 'Habilitado' || enabled;
+  
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+      isHabilitado
+        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+    }`}>
+      {estado}
+    </span>
+  );
+};
+
+/**
+ * Badge de estado de SUNAT (Activo/Inactivo/etc)
+ */
+const EstadoSunatBadge: React.FC<{ estado?: string }> = ({ estado }) => {
+  if (!estado) return <span className="text-gray-400 dark:text-gray-500 text-xs">-</span>;
+  
+  const esActivo = estado.toUpperCase() === 'ACTIVO';
+  
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+      esActivo
+        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+        : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
+    }`}>
+      {estado}
+    </span>
+  );
+};
+
+/**
+ * Avatar circular con iniciales del cliente
+ */
+const ClienteAvatar: React.FC<{ name: string; imageUrl?: string }> = ({ name, imageUrl }) => {
+  const initials = name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+  
+  if (imageUrl) {
+    return (
+      <img 
+        src={imageUrl} 
+        alt={name} 
+        className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+      />
+    );
+  }
+  
+  return (
+    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+      <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{initials}</span>
+    </div>
+  );
+};
 
 // ============================================================================
 // COMPONENTE PRINCIPAL
@@ -199,13 +252,26 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
           .dark .compact-table tbody tr:hover {
             background: #4b5563 !important;
           }
+          .menu-dropdown {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            z-index: 9999 !important;
+            min-width: 144px;
+          }
+          .actions-cell {
+            position: relative;
+          }
         `}</style>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full compact-table" style={{ minWidth: '3500px' }}>
+            <table className="w-full compact-table" style={{ minWidth: '3700px' }}>
               <thead>
                 <tr>
+                  {/* Avatar */}
+                  <th style={{ width: '60px' }}>Avatar</th>
+                  
                   {/* Columnas prioritarias - Datos que SÍ vienen del backend */}
                   <th style={{ width: '80px' }}>Tipo doc.</th>
                   <th style={{ width: '120px' }}>N° documento</th>
@@ -215,7 +281,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                   <th style={{ width: '110px' }}>Teléfono</th>
                   <th style={{ width: '180px' }}>Correo</th>
 
-                  {/* Columnas extendidas - Actualmente NO vienen del backend (mostrarán "-") */}
+                  {/* Columnas extendidas */}
                   <th style={{ width: '90px' }}>Tipo persona</th>
                   <th style={{ width: '150px' }}>Nombre comercial</th>
                   <th style={{ width: '140px' }}>Página web</th>
@@ -235,7 +301,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
 
                   {/* Información SUNAT - Solo lectura */}
                   <th style={{ width: '180px' }}>Tipo contribuyente</th>
-                  <th style={{ width: '100px' }}>Estado contrib.</th>
+                  <th style={{ width: '120px' }}>Estado SUNAT</th>
                   <th style={{ width: '110px' }}>Condición dom.</th>
                   <th style={{ width: '100px' }}>Fecha insc.</th>
                   <th style={{ width: '120px' }}>Sistema emisión</th>
@@ -249,7 +315,8 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                   {/* Adicionales */}
                   <th style={{ width: '200px' }}>Observaciones</th>
                   <th style={{ width: '90px' }}>Adjuntos</th>
-                  <th style={{ width: '100px' }}>Estado</th>
+                  <th style={{ width: '90px' }}>Imágenes</th>
+                  <th style={{ width: '120px' }}>Estado cliente</th>
                   <th style={{ width: '110px' }}>Fecha registro</th>
                   <th style={{ width: '110px' }}>Últ. modif.</th>
 
@@ -274,6 +341,13 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                       className={!client.enabled ? 'row-disabled' : ''}
                       onClick={() => handleEdit(client)}
                     >
+                      {/* Avatar */}
+                      <td>
+                        <div className="flex justify-center">
+                          <ClienteAvatar name={client.name} imageUrl={undefined} />
+                        </div>
+                      </td>
+                      
                       {/* Datos reales del backend */}
                       <td>{tipoDoc}</td>
                       <td>{numeroDoc}</td>
@@ -287,7 +361,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                         {client.emails?.length ? client.emails.join(', ') : renderText(client.email)}
                       </td>
 
-                      {/* Campos extendidos (opcionales del backend) */}
+                      {/* Campos extendidos */}
                       <td>{renderText(client.tipoPersona)}</td>
                       <td>{renderText(client.nombreComercial)}</td>
                       <td title={client.paginaWeb}>{renderText(client.paginaWeb)}</td>
@@ -307,7 +381,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
 
                       {/* SUNAT - Solo lectura */}
                       <td title={client.tipoContribuyente}>{renderText(client.tipoContribuyente)}</td>
-                      <td>{renderText(client.estadoContribuyente)}</td>
+                      <td><EstadoSunatBadge estado={client.estadoContribuyente} /></td>
                       <td>{renderText(client.condicionDomicilio)}</td>
                       <td>{formatDate(client.fechaInscripcion)}</td>
                       <td>{renderText(client.sistemaEmision)}</td>
@@ -329,12 +403,15 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                       <td>
                         {client.adjuntos?.length ? `${client.adjuntos.length} archivo(s)` : '-'}
                       </td>
-                      <td><StatusBadge enabled={client.enabled} /></td>
+                      <td>
+                        {client.imagenes?.length ? `${client.imagenes.length} imagen(es)` : '-'}
+                      </td>
+                      <td><EstadoClienteBadge estadoCliente={client.estadoCliente} enabled={client.enabled} /></td>
                       <td>{formatDate(client.createdAt)}</td>
                       <td>{formatDate(client.updatedAt)}</td>
 
                       {/* Acciones */}
-                      <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="text-right actions-cell" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button
                             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
@@ -350,7 +427,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                             </svg>
                           </button>
                           
-                          <div className="relative">
+                          <div className="relative inline-block">
                             <button
                               className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                               onClick={(e) => handleOptionsClick(client.id, e)}
@@ -364,9 +441,9 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                             </button>
                             
                             {menuOpenId === client.id && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 z-20">
+                              <div className="menu-dropdown bg-white dark:bg-gray-800 rounded-md shadow-xl border border-gray-200 dark:border-gray-600">
                                 <button
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                  className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors rounded-t-md"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleToggleEnabled(client);
@@ -384,7 +461,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                                   Editar
                                 </button>
                                 <button
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-red-100 text-red-600 transition-colors rounded-b-md"
+                                  className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors rounded-b-md"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleDelete(client);
