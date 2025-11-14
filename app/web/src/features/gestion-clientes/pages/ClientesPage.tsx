@@ -9,6 +9,7 @@ import ConfirmationModal from '../../../../../shared/src/components/Confirmation
 import { useClientes } from '../hooks';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { Cliente, ClienteFormData, DocumentType, ClientType } from '../models';
+import { serializeFiles, deserializeFiles } from '../utils/fileSerialization';
 
 const PRIMARY_COLOR = '#1478D4';
 
@@ -203,6 +204,20 @@ function ClientesPage() {
 			'7': 'PASAPORTE',
 		};
 
+		const sanitizedEmails = formData.emails.filter(email => email.trim() !== '');
+		const sanitizedTelefonos = formData.telefonos
+			.filter(t => t.numero.trim() !== '')
+			.map(t => ({
+				numero: t.numero.trim(),
+				tipo: t.tipo || 'Móvil',
+			}));
+		const primaryPhone = sanitizedTelefonos[0]?.numero;
+
+		const [serializedAdjuntos, serializedImagenes] = await Promise.all([
+			serializeFiles(formData.adjuntos),
+			serializeFiles(formData.imagenes),
+		]);
+
 		const result = await createCliente({
 			// Campos legacy (retrocompatibilidad)
 			documentType: (docTypeMap[formData.tipoDocumento] || 'SIN_DOCUMENTO') as DocumentType,
@@ -210,8 +225,8 @@ function ClientesPage() {
 			name: nombreCliente,
 			type: formData.tipoCuenta as ClientType,
 			address: formData.direccion.trim() || undefined,
-			phone: formData.telefonos[0]?.numero || undefined,
-			email: formData.emails[0] || undefined,
+			phone: primaryPhone || undefined,
+			email: sanitizedEmails[0] || undefined,
 			gender: formData.gender || undefined,
 			additionalData: formData.observaciones.trim() || undefined,
 			
@@ -227,8 +242,8 @@ function ClientesPage() {
 			apellidoPaterno: formData.apellidoPaterno.trim() || undefined,
 			apellidoMaterno: formData.apellidoMaterno.trim() || undefined,
 			nombreCompleto: formData.nombreCompleto.trim(),
-			emails: formData.emails.filter(e => e.trim() !== ''),
-			telefonos: formData.telefonos.filter(t => t.numero.trim() !== ''),
+			emails: sanitizedEmails,
+			telefonos: sanitizedTelefonos,
 			paginaWeb: formData.paginaWeb.trim() || undefined,
 			pais: formData.pais || undefined,
 			departamento: formData.departamento.trim() || undefined,
@@ -258,8 +273,8 @@ function ClientesPage() {
 			clientePorDefecto: formData.clientePorDefecto,
 			exceptuadaPercepcion: formData.exceptuadaPercepcion,
 			observaciones: formData.observaciones.trim() || undefined,
-			adjuntos: formData.adjuntos,
-			imagenes: formData.imagenes,
+			adjuntos: serializedAdjuntos,
+			imagenes: serializedImagenes,
 		});
 
 		if (result) {
@@ -282,69 +297,163 @@ function ClientesPage() {
 		setEditingClient(null);
 	};
 
-	const handleEditClient = (client: Cliente) => {
+	const handleEditClient = async (client: Cliente) => {
 		if (client.transient) {
 			showToast('info', 'Operación no disponible: backend pendiente', 'No es posible editar un cliente transitorio');
 			return;
 		}
-		
-		let docType = '6'; // Default RUC
-		let docNumber = '';
 
-		if (client.document && client.document.includes(' ')) {
-			const parts = client.document.split(' ');
-			const typeStr = parts[0];
-			docNumber = parts.slice(1).join(' ');
-			
-			// Mapeo inverso de tipo de documento
-			const typeMap: Record<string, string> = {
+		try {
+			setEditingClient(client);
+
+			const legacyToNuevoMap: Record<string, string> = {
 				'NO_DOMICILIADO': '0',
 				'DNI': '1',
 				'CARNET_EXTRANJERIA': '4',
 				'RUC': '6',
 				'PASAPORTE': '7',
 			};
-			docType = typeMap[typeStr] || '6';
-		} else if (client.document && client.document !== 'Sin documento') {
-			docNumber = client.document;
-		}
 
-		setEditingClient(client);
-		
-		// Parsear nombre según tipo
-		const esRUC = docType === '6';
-		const nombreParts = client.name.split(' ');
-		
-		setFormData({
-			...getInitialFormData(),
-			tipoDocumento: docType,
-			numeroDocumento: docNumber,
-			
-			// Razón Social o Nombres
-			razonSocial: esRUC ? client.name : '',
-			primerNombre: !esRUC && nombreParts.length > 0 ? nombreParts[0] : '',
-			apellidoPaterno: !esRUC && nombreParts.length > 1 ? nombreParts[1] : '',
-			apellidoMaterno: !esRUC && nombreParts.length > 2 ? nombreParts[2] : '',
-			nombreCompleto: !esRUC ? client.name : '',
-			
-			// Contacto
-			emails: client.email ? [client.email] : [],
-			telefonos: client.phone ? [{ numero: client.phone, tipo: 'Móvil' }] : [],
-			
-			// Ubicación
-			direccion: client.address === 'Sin dirección' ? '' : client.address,
-			
-			// Tipo
-			tipoCuenta: client.type,
-			estadoCliente: client.enabled ? 'Habilitado' : 'Deshabilitado',
-			
-			// Legacy
-			gender: client.gender || '',
-			additionalData: client.additionalData || '',
-			observaciones: client.additionalData || '',
-		});
-		
-		setShowClientModal(true);
+			let docType = client.tipoDocumento || '6';
+			let docNumber = client.numeroDocumento || '';
+
+			if (client.tipoDocumento && client.tipoDocumento.length > 1 && client.tipoDocumento.length <= 12) {
+				docType = legacyToNuevoMap[client.tipoDocumento] || client.tipoDocumento;
+			}
+
+			if ((!client.tipoDocumento || !client.numeroDocumento) && client.document) {
+				if (client.document.includes(' ')) {
+					const parts = client.document.split(' ');
+					const legacyType = parts[0];
+					const legacyNumber = parts.slice(1).join(' ');
+					if (!client.tipoDocumento) {
+						docType = legacyToNuevoMap[legacyType] || docType;
+					}
+					if (!docNumber) {
+						docNumber = legacyNumber;
+					}
+				} else if (client.document !== 'Sin documento' && !docNumber) {
+					docNumber = client.document;
+				}
+			}
+
+			const esRUC = docType === '6';
+			const nombreBase = client.nombreCompleto || client.name || '';
+			const nombreParts = nombreBase.split(' ').filter(Boolean);
+
+			let fallbackSegundoNombre = '';
+			let fallbackApellidoPaterno = '';
+			let fallbackApellidoMaterno = '';
+
+			if (nombreParts.length >= 4) {
+				fallbackSegundoNombre = nombreParts.slice(1, nombreParts.length - 2).join(' ');
+				fallbackApellidoPaterno = nombreParts[nombreParts.length - 2] || '';
+				fallbackApellidoMaterno = nombreParts[nombreParts.length - 1] || '';
+			} else if (nombreParts.length === 3) {
+				fallbackSegundoNombre = '';
+				fallbackApellidoPaterno = nombreParts[1] || '';
+				fallbackApellidoMaterno = nombreParts[2] || '';
+			} else if (nombreParts.length === 2) {
+				fallbackSegundoNombre = '';
+				fallbackApellidoPaterno = nombreParts[1] || '';
+				fallbackApellidoMaterno = '';
+			}
+
+			const primerNombre = client.primerNombre ?? (!esRUC ? nombreParts[0] || '' : '');
+			const segundoNombre = client.segundoNombre ?? (!esRUC ? fallbackSegundoNombre : '');
+			const apellidoPaterno = client.apellidoPaterno ?? (!esRUC ? fallbackApellidoPaterno : '');
+			const apellidoMaterno = client.apellidoMaterno ?? (!esRUC ? fallbackApellidoMaterno : '');
+
+			const emails = client.emails?.length
+				? client.emails
+				: client.email
+					? client.email.split(',').map(email => email.trim()).filter(Boolean)
+					: [];
+
+			const telefonosRaw = client.telefonos?.length
+				? client.telefonos
+				: client.phone
+					? client.phone.split(',').map((numero, index) => ({
+							numero: numero.trim(),
+							tipo: index === 0 ? 'Móvil' : 'Otro',
+						})).filter(t => t.numero !== '')
+					: [];
+
+			const telefonos = telefonosRaw.map(t => ({
+				numero: t.numero,
+				tipo: t.tipo || 'Móvil',
+			}));
+
+			const [adjuntos, imagenes] = await Promise.all([
+				deserializeFiles(client.adjuntos),
+				deserializeFiles(client.imagenes),
+			]);
+
+			const fechaRegistro = client.fechaRegistro || client.createdAt || new Date().toISOString();
+			const fechaUltimaModificacion = client.fechaUltimaModificacion || client.updatedAt || fechaRegistro;
+			const direccion = client.direccion ?? (client.address === 'Sin dirección' ? '' : client.address ?? '');
+			const tipoPersona = client.tipoPersona || (esRUC ? 'Juridica' : 'Natural');
+			const tipoCliente = client.tipoCliente === 'Juridica' || client.tipoCliente === 'Natural'
+				? client.tipoCliente
+				: tipoPersona;
+
+			setFormData({
+				...getInitialFormData(),
+				tipoDocumento: docType,
+				numeroDocumento: docNumber,
+				tipoPersona,
+				tipoCuenta: client.tipoCuenta || client.type,
+				razonSocial: client.razonSocial || (esRUC ? nombreBase : ''),
+				nombreComercial: client.nombreComercial || '',
+				primerNombre,
+				segundoNombre,
+				apellidoPaterno,
+				apellidoMaterno,
+				nombreCompleto: esRUC ? (client.razonSocial || nombreBase) : (client.nombreCompleto || nombreBase),
+				emails: emails.slice(0, 3),
+				telefonos: telefonos.slice(0, 3),
+				paginaWeb: client.paginaWeb || '',
+				pais: client.pais || 'PE',
+				departamento: client.departamento || '',
+				provincia: client.provincia || '',
+				distrito: client.distrito || '',
+				ubigeo: client.ubigeo || '',
+				direccion,
+				referenciaDireccion: client.referenciaDireccion || '',
+				tipoCliente: tipoCliente,
+				estadoCliente: client.estadoCliente || (client.enabled ? 'Habilitado' : 'Deshabilitado'),
+				motivoDeshabilitacion: client.motivoDeshabilitacion || '',
+				tipoContribuyente: client.tipoContribuyente || '',
+				estadoContribuyente: client.estadoContribuyente || '',
+				condicionDomicilio: client.condicionDomicilio || '',
+				fechaInscripcion: client.fechaInscripcion || '',
+				actividadesEconomicas: client.actividadesEconomicas || [],
+				sistemaEmision: client.sistemaEmision || '',
+				esEmisorElectronico: Boolean(client.esEmisorElectronico),
+				cpeHabilitado: client.cpeHabilitado || [],
+				esAgenteRetencion: Boolean(client.esAgenteRetencion),
+				esAgentePercepcion: Boolean(client.esAgentePercepcion),
+				esBuenContribuyente: Boolean(client.esBuenContribuyente),
+				formaPago: (client.formaPago as ClienteFormData['formaPago']) || 'Contado',
+				monedaPreferida: (client.monedaPreferida as ClienteFormData['monedaPreferida']) || 'PEN',
+				listaPrecio: client.listaPrecio || '',
+				usuarioAsignado: client.usuarioAsignado || '',
+				clientePorDefecto: Boolean(client.clientePorDefecto),
+				exceptuadaPercepcion: Boolean(client.exceptuadaPercepcion),
+				observaciones: client.observaciones || client.additionalData || '',
+				adjuntos,
+				imagenes,
+				fechaRegistro,
+				fechaUltimaModificacion,
+				gender: client.gender || '',
+				additionalData: client.additionalData || '',
+			});
+
+			setShowClientModal(true);
+		} catch (error) {
+			console.error('[Clientes] Error al preparar edición', error);
+			showToast('error', 'Error', 'No se pudo cargar la información completa del cliente');
+		}
 	};
 
 		const handleDeleteClient = (client: Cliente) => {
@@ -423,6 +532,20 @@ function ClientesPage() {
 			'7': 'PASAPORTE',
 		};
 
+		const sanitizedEmails = formData.emails.filter(email => email.trim() !== '');
+		const sanitizedTelefonos = formData.telefonos
+			.filter(t => t.numero.trim() !== '')
+			.map(t => ({
+				numero: t.numero.trim(),
+				tipo: t.tipo || 'Móvil',
+			}));
+		const primaryPhone = sanitizedTelefonos[0]?.numero;
+
+		const [serializedAdjuntos, serializedImagenes] = await Promise.all([
+			serializeFiles(formData.adjuntos),
+			serializeFiles(formData.imagenes),
+		]);
+
 		const result = await updateCliente(editingClient.id, {
 			// Campos legacy (retrocompatibilidad)
 			documentType: (docTypeMap[formData.tipoDocumento] || 'SIN_DOCUMENTO') as DocumentType,
@@ -430,8 +553,8 @@ function ClientesPage() {
 			name: nombreCliente,
 			type: formData.tipoCuenta as ClientType,
 			address: formData.direccion.trim() || undefined,
-			phone: formData.telefonos[0]?.numero || undefined,
-			email: formData.emails[0] || undefined,
+			phone: primaryPhone || undefined,
+			email: sanitizedEmails[0] || undefined,
 			gender: formData.gender || undefined,
 			additionalData: formData.observaciones.trim() || undefined,
 			enabled: formData.estadoCliente === 'Habilitado',
@@ -448,8 +571,8 @@ function ClientesPage() {
 			apellidoPaterno: formData.apellidoPaterno.trim() || undefined,
 			apellidoMaterno: formData.apellidoMaterno.trim() || undefined,
 			nombreCompleto: formData.nombreCompleto.trim(),
-			emails: formData.emails.filter(e => e.trim() !== ''),
-			telefonos: formData.telefonos.filter(t => t.numero.trim() !== ''),
+			emails: sanitizedEmails,
+			telefonos: sanitizedTelefonos,
 			paginaWeb: formData.paginaWeb.trim() || undefined,
 			pais: formData.pais || undefined,
 			departamento: formData.departamento.trim() || undefined,
@@ -479,8 +602,8 @@ function ClientesPage() {
 			clientePorDefecto: formData.clientePorDefecto,
 			exceptuadaPercepcion: formData.exceptuadaPercepcion,
 			observaciones: formData.observaciones.trim() || undefined,
-			adjuntos: formData.adjuntos,
-			imagenes: formData.imagenes,
+			adjuntos: serializedAdjuntos,
+			imagenes: serializedImagenes,
 		});
 
 		if (result) {

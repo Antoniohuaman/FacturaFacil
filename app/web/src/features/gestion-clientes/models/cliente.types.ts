@@ -35,6 +35,17 @@ export interface ActividadEconomica {
   esPrincipal: boolean;
 }
 
+export interface PersistedFile {
+  name: string;
+  size: number;
+  type: string;
+  lastModified: number;
+  /** Data URL (base64) utilizado para reconstruir el archivo en modo DEV */
+  dataUrl: string;
+}
+
+export type ClienteArchivo = File | PersistedFile;
+
 export interface CPEHabilitado {
   tipoCPE: string;
   fechaInicio: string;
@@ -106,8 +117,8 @@ export interface Cliente {
   clientePorDefecto?: boolean;
   exceptuadaPercepcion?: boolean;
   observaciones?: string;
-  adjuntos?: File[];
-  imagenes?: File[];
+  adjuntos?: ClienteArchivo[];
+  imagenes?: ClienteArchivo[];
   fechaRegistro?: string;
   fechaUltimaModificacion?: string;
 }
@@ -252,8 +263,8 @@ export interface CreateClienteDTO {
   clientePorDefecto?: boolean;
   exceptuadaPercepcion?: boolean;
   observaciones?: string;
-  adjuntos?: File[];
-  imagenes?: File[];
+  adjuntos?: ClienteArchivo[];
+  imagenes?: ClienteArchivo[];
 }
 
 export interface UpdateClienteDTO extends Partial<CreateClienteDTO> {

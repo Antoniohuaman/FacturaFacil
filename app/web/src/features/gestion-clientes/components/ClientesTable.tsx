@@ -1,6 +1,6 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Cliente } from '../models';
+import type { Cliente, ClienteArchivo, PersistedFile } from '../models';
 
 export type ClientesTableProps = {
   clients: Cliente[];
@@ -72,6 +72,16 @@ const formatDate = (date?: string | null): string => {
  */
 const renderText = (value?: string | null): string => {
   return value && value.trim() !== '' ? value : '-';
+};
+
+const isPersistedFile = (file: ClienteArchivo | null | undefined): file is PersistedFile => {
+  return Boolean(file && typeof (file as PersistedFile).dataUrl === 'string');
+};
+
+const getClienteAvatarUrl = (imagenes?: ClienteArchivo[] | null): string | undefined => {
+  if (!imagenes || imagenes.length === 0) return undefined;
+  const persisted = imagenes.find(isPersistedFile);
+  return persisted?.dataUrl;
 };
 
 /**
@@ -330,6 +340,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                   const tipoDoc = extractDocumentType(client.document);
                   const numeroDoc = extractDocumentNumber(client.document);
                   const direccion = client.address === 'Sin dirección' ? '-' : client.address;
+                  const avatarUrl = getClienteAvatarUrl(client.imagenes);
                   
                   // Actividad económica principal (si existe)
                   const actividadPrincipal = client.actividadesEconomicas?.find(a => a.esPrincipal) 
@@ -344,7 +355,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                       {/* Avatar */}
                       <td>
                         <div className="flex justify-center">
-                          <ClienteAvatar name={client.name} imageUrl={undefined} />
+                          <ClienteAvatar name={client.name} imageUrl={avatarUrl} />
                         </div>
                       </td>
                       
