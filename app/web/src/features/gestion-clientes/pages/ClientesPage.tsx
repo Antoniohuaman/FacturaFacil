@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as ExcelJS from 'exceljs';
+import { Download, ChevronDown, FileSpreadsheet, Layers } from 'lucide-react';
 import ClienteFormNew from '../components/ClienteFormNew';
 import ClientesTable, { type ClientesTableRef } from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
@@ -12,6 +13,272 @@ import type { Cliente, ClienteFormData, DocumentType, ClientType } from '../mode
 import { serializeFiles, deserializeFiles } from '../utils/fileSerialization';
 
 const PRIMARY_COLOR = '#1478D4';
+
+const LEGACY_TO_NEW_DOCUMENT_CODE: Record<string, string> = {
+	RUC: '6',
+	DNI: '1',
+	PASAPORTE: '7',
+	CARNET_EXTRANJERIA: '4',
+	NO_DOMICILIADO: '0',
+	DOC_IDENTIF_PERS_NAT_NO_DOM: '0',
+	SIN_DOCUMENTO: '0',
+};
+
+const formatDateTimeForExport = (value?: string | null): string => {
+	if (!value) return '';
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) {
+		return value;
+	}
+	return date.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+};
+
+const booleanToLabel = (value?: boolean | null): string => {
+	if (value === undefined || value === null) return '';
+	return value ? 'Sí' : 'No';
+};
+
+const resolveDocumentCode = (client: Cliente): string => {
+	if (client.tipoDocumento) {
+		return client.tipoDocumento.trim();
+	}
+	if (client.document) {
+		const [legacyCode] = client.document.split(' ');
+		return LEGACY_TO_NEW_DOCUMENT_CODE[legacyCode as keyof typeof LEGACY_TO_NEW_DOCUMENT_CODE] ?? '';
+	}
+	return '';
+};
+
+const resolveDocumentNumber = (client: Cliente): string => {
+	if (client.numeroDocumento) {
+		return client.numeroDocumento.trim();
+	}
+	if (client.document) {
+		const parts = client.document.split(' ');
+		if (parts.length > 1) {
+			return parts.slice(1).join(' ').trim();
+		}
+		if (!client.document.toLowerCase().includes('sin documento')) {
+			return client.document.trim();
+		}
+	}
+	return '';
+};
+
+const resolveTipoCuenta = (client: Cliente): string => client.tipoCuenta ?? client.type ?? '';
+
+const resolveTipoPersona = (client: Cliente, documentCode: string): string => {
+	if (client.tipoPersona) return client.tipoPersona;
+	if (client.tipoCliente && (client.tipoCliente === 'Natural' || client.tipoCliente === 'Juridica')) {
+		return client.tipoCliente;
+	}
+	return documentCode === '6' ? 'Juridica' : 'Natural';
+};
+
+const resolveNameParts = (client: Cliente): {
+	primerNombre: string;
+	segundoNombre: string;
+	apellidoPaterno: string;
+	apellidoMaterno: string;
+} => {
+	const primerNombre = client.primerNombre?.trim() ?? '';
+	const segundoNombre = client.segundoNombre?.trim() ?? '';
+	const apellidoPaterno = client.apellidoPaterno?.trim() ?? '';
+	const apellidoMaterno = client.apellidoMaterno?.trim() ?? '';
+
+	if (primerNombre || segundoNombre || apellidoPaterno || apellidoMaterno) {
+		return { primerNombre, segundoNombre, apellidoPaterno, apellidoMaterno };
+	}
+
+	const source = (client.nombreCompleto ?? client.name ?? '').trim();
+	if (!source) {
+		return { primerNombre: '', segundoNombre: '', apellidoPaterno: '', apellidoMaterno: '' };
+	}
+
+	const parts = source.split(' ').filter(Boolean);
+	if (parts.length === 1) {
+		return { primerNombre: parts[0], segundoNombre: '', apellidoPaterno: '', apellidoMaterno: '' };
+	}
+	if (parts.length === 2) {
+		return { primerNombre: parts[0], segundoNombre: '', apellidoPaterno: parts[1], apellidoMaterno: '' };
+	}
+	if (parts.length === 3) {
+		return { primerNombre: parts[0], segundoNombre: parts[1], apellidoPaterno: parts[2], apellidoMaterno: '' };
+	}
+
+	return {
+		primerNombre: parts[0],
+		segundoNombre: parts.slice(1, parts.length - 2).join(' '),
+		apellidoPaterno: parts[parts.length - 2] ?? '',
+		apellidoMaterno: parts[parts.length - 1] ?? '',
+	};
+};
+
+const resolveEmails = (client: Cliente): string[] => {
+	if (client.emails?.length) {
+		return client.emails.map((email) => email.trim()).filter(Boolean);
+	}
+	if (client.email) {
+		return client.email
+			.split(',')
+			.map((email) => email.trim())
+			.filter(Boolean);
+	}
+	return [];
+};
+
+const resolvePhones = (client: Cliente): Array<{ numero: string; tipo: string }> => {
+	if (client.telefonos?.length) {
+		return client.telefonos
+			.map((telefono) => ({ numero: telefono.numero.trim(), tipo: telefono.tipo?.trim() ?? 'Móvil' }))
+			.filter((telefono) => telefono.numero !== '');
+	}
+	if (client.phone) {
+		return client.phone
+			.split(',')
+			.map((numero, index) => ({ numero: numero.trim(), tipo: index === 0 ? 'Móvil' : 'Alterno' }))
+			.filter((telefono) => telefono.numero !== '');
+	}
+	return [];
+};
+
+const resolveEstadoCliente = (client: Cliente): string => {
+	if (client.estadoCliente) return client.estadoCliente;
+	return client.enabled ? 'Habilitado' : 'Deshabilitado';
+};
+
+const resolveDireccion = (client: Cliente): string => {
+	if (client.direccion && client.direccion !== 'Sin dirección') {
+		return client.direccion;
+	}
+	if (client.address && client.address !== 'Sin dirección') {
+		return client.address;
+	}
+	return '';
+};
+
+const resolvePais = (client: Cliente): string => {
+	if (client.pais) return client.pais;
+	if (client.departamento || client.provincia || client.distrito) {
+		return 'PE';
+	}
+	return '';
+};
+
+const resolveActividadesEconomicas = (client: Cliente): string => {
+	if (!client.actividadesEconomicas || client.actividadesEconomicas.length === 0) return '';
+	return client.actividadesEconomicas
+		.map((actividad) => {
+			const principal = actividad.esPrincipal ? ' (Principal)' : '';
+			return `${actividad.codigo} - ${actividad.descripcion}${principal}`;
+		})
+		.join(' | ');
+};
+
+const resolveCpeHabilitado = (client: Cliente): string => {
+	if (!client.cpeHabilitado || client.cpeHabilitado.length === 0) return '';
+	return client.cpeHabilitado
+		.map((cpe) => (cpe.fechaInicio ? `${cpe.tipoCPE} (${cpe.fechaInicio})` : cpe.tipoCPE))
+		.join(' | ');
+};
+
+const mapClientToBasicRow = (client: Cliente): Record<string, string> => {
+	const documentCode = resolveDocumentCode(client);
+	const documentNumber = resolveDocumentNumber(client);
+	const tipoPersona = resolveTipoPersona(client, documentCode);
+	const isRUC = documentCode === '6' || tipoPersona === 'Juridica';
+	const names = resolveNameParts(client);
+	const emails = resolveEmails(client);
+	const phones = resolvePhones(client);
+
+	return {
+		tipoCuenta: resolveTipoCuenta(client),
+		codigoTipoDocumento: documentCode,
+		numeroDocumento: documentNumber,
+		razonSocial: isRUC ? (client.razonSocial?.trim() || client.name || '') : '',
+		apellidoPaterno: isRUC ? '' : names.apellidoPaterno,
+		apellidoMaterno: isRUC ? '' : names.apellidoMaterno,
+		nombre1: isRUC ? '' : names.primerNombre,
+		nombre2: isRUC ? '' : names.segundoNombre,
+		telefono: phones[0]?.numero ?? '',
+		correo: emails[0] ?? '',
+		direccion: resolveDireccion(client),
+		departamento: client.departamento?.trim() ?? '',
+		provincia: client.provincia?.trim() ?? '',
+		distrito: client.distrito?.trim() ?? '',
+	};
+};
+
+const mapClientToCompleteRow = (client: Cliente): Record<string, string> => {
+	const documentCode = resolveDocumentCode(client);
+	const documentNumber = resolveDocumentNumber(client);
+	const tipoPersona = resolveTipoPersona(client, documentCode);
+	const names = resolveNameParts(client);
+	const emails = resolveEmails(client);
+	const phones = resolvePhones(client);
+
+	return {
+		id: `${client.id ?? ''}`,
+		nombreBase: client.name ?? '',
+		documentoLegacy: client.document ?? '',
+		tipoCuenta: resolveTipoCuenta(client),
+		codigoTipoDocumento: documentCode,
+		numeroDocumento: documentNumber,
+		tipoPersona,
+		razonSocial: client.razonSocial?.trim() ?? '',
+		nombreComercial: client.nombreComercial?.trim() ?? '',
+		apellidoPaterno: names.apellidoPaterno,
+		apellidoMaterno: names.apellidoMaterno,
+		nombre1: names.primerNombre,
+		nombre2: names.segundoNombre,
+		nombreCompleto: client.nombreCompleto?.trim() ?? client.name ?? '',
+		correo1: emails[0] ?? '',
+		correo2: emails[1] ?? '',
+		correo3: emails[2] ?? '',
+		telefono1: phones[0]?.numero ?? '',
+		telefono1Tipo: phones[0]?.tipo ?? '',
+		telefono2: phones[1]?.numero ?? '',
+		telefono2Tipo: phones[1]?.tipo ?? '',
+		telefono3: phones[2]?.numero ?? '',
+		telefono3Tipo: phones[2]?.tipo ?? '',
+		paginaWeb: client.paginaWeb?.trim() ?? '',
+		pais: resolvePais(client),
+		departamento: client.departamento?.trim() ?? '',
+		provincia: client.provincia?.trim() ?? '',
+		distrito: client.distrito?.trim() ?? '',
+		ubigeo: client.ubigeo?.trim() ?? '',
+		direccion: resolveDireccion(client),
+		referenciaDireccion: client.referenciaDireccion?.trim() ?? '',
+		tipoCliente: client.tipoCliente ?? '',
+		estadoCliente: resolveEstadoCliente(client),
+		motivoDeshabilitacion: client.motivoDeshabilitacion?.trim() ?? '',
+		formaPago: client.formaPago ?? '',
+		monedaPreferida: client.monedaPreferida ?? '',
+		listaPrecio: client.listaPrecio ?? '',
+		usuarioAsignado: client.usuarioAsignado ?? '',
+		clientePorDefecto: booleanToLabel(client.clientePorDefecto),
+		exceptuadaPercepcion: booleanToLabel(client.exceptuadaPercepcion),
+		esEmisorElectronico: booleanToLabel(client.esEmisorElectronico),
+		esAgenteRetencion: booleanToLabel(client.esAgenteRetencion),
+		esAgentePercepcion: booleanToLabel(client.esAgentePercepcion),
+		esBuenContribuyente: booleanToLabel(client.esBuenContribuyente),
+		observaciones: client.observaciones?.trim() ?? '',
+		additionalData: client.additionalData?.trim() ?? '',
+		genero: client.gender?.trim() ?? '',
+		tipoContribuyente: client.tipoContribuyente ?? '',
+		estadoContribuyente: client.estadoContribuyente ?? '',
+		condicionDomicilio: client.condicionDomicilio ?? '',
+		fechaInscripcion: client.fechaInscripcion ?? '',
+		actividadesEconomicas: resolveActividadesEconomicas(client),
+		sistemaEmision: client.sistemaEmision ?? '',
+		cpeHabilitado: resolveCpeHabilitado(client),
+		fechaRegistro: client.fechaRegistro ? formatDateTimeForExport(client.fechaRegistro) : '',
+		fechaUltimaModificacion: client.fechaUltimaModificacion ? formatDateTimeForExport(client.fechaUltimaModificacion) : '',
+		createdAt: client.createdAt ? formatDateTimeForExport(client.createdAt) : '',
+		updatedAt: client.updatedAt ? formatDateTimeForExport(client.updatedAt) : '',
+		transitorio: booleanToLabel(client.transient ?? false),
+	};
+};
 
 function ClientesPage() {
 	const navigate = useNavigate();
@@ -99,58 +366,233 @@ function ClientesPage() {
 
 	const [formData, setFormData] = useState<ClienteFormData>(getInitialFormData());
 
-	const handleExportClients = async () => {
+	const exportButtonRef = useRef<HTMLButtonElement>(null);
+	const exportMenuRef = useRef<HTMLDivElement>(null);
+	const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+	type BasicExportRow = ReturnType<typeof mapClientToBasicRow>;
+	type CompleteExportRow = ReturnType<typeof mapClientToCompleteRow>;
+
+	const basicExportColumns = useMemo<Array<{ header: string; key: keyof BasicExportRow; width?: number }>>(
+		() => [
+			{ header: 'TIPO DE CUENTA', key: 'tipoCuenta', width: 20 },
+			{ header: 'CODIGO TIPO DE DOCUMENTO', key: 'codigoTipoDocumento', width: 26 },
+			{ header: 'NUM. DOCUMENTO', key: 'numeroDocumento', width: 22 },
+			{ header: 'RAZON SOCIAL', key: 'razonSocial', width: 32 },
+			{ header: 'APELLIDO PATERNO', key: 'apellidoPaterno', width: 24 },
+			{ header: 'APELLIDO MATERNO', key: 'apellidoMaterno', width: 24 },
+			{ header: 'NOMBRE 1', key: 'nombre1', width: 22 },
+			{ header: 'NOMBRE 2', key: 'nombre2', width: 22 },
+			{ header: 'TELEFONO', key: 'telefono', width: 20 },
+			{ header: 'CORREO', key: 'correo', width: 32 },
+			{ header: 'DIRECCION', key: 'direccion', width: 36 },
+			{ header: 'DEPARTAMENTO', key: 'departamento', width: 24 },
+			{ header: 'PROVINCIA', key: 'provincia', width: 24 },
+			{ header: 'DISTRITO', key: 'distrito', width: 24 },
+		],
+		[]
+	);
+
+	const completeExportColumns = useMemo<Array<{ header: string; key: keyof CompleteExportRow; width?: number }>>(
+		() => [
+			{ header: 'ID', key: 'id', width: 18 },
+			{ header: 'NOMBRE BASE', key: 'nombreBase', width: 32 },
+			{ header: 'DOCUMENTO LEGACY', key: 'documentoLegacy', width: 28 },
+			{ header: 'TIPO DE CUENTA', key: 'tipoCuenta', width: 20 },
+			{ header: 'CODIGO TIPO DE DOCUMENTO', key: 'codigoTipoDocumento', width: 26 },
+			{ header: 'NUM. DOCUMENTO', key: 'numeroDocumento', width: 22 },
+			{ header: 'TIPO PERSONA', key: 'tipoPersona', width: 18 },
+			{ header: 'RAZON SOCIAL', key: 'razonSocial', width: 32 },
+			{ header: 'NOMBRE COMERCIAL', key: 'nombreComercial', width: 28 },
+			{ header: 'APELLIDO PATERNO', key: 'apellidoPaterno', width: 24 },
+			{ header: 'APELLIDO MATERNO', key: 'apellidoMaterno', width: 24 },
+			{ header: 'NOMBRE 1', key: 'nombre1', width: 22 },
+			{ header: 'NOMBRE 2', key: 'nombre2', width: 22 },
+			{ header: 'NOMBRE COMPLETO', key: 'nombreCompleto', width: 36 },
+			{ header: 'CORREO 1', key: 'correo1', width: 28 },
+			{ header: 'CORREO 2', key: 'correo2', width: 28 },
+			{ header: 'CORREO 3', key: 'correo3', width: 28 },
+			{ header: 'TELEFONO 1', key: 'telefono1', width: 18 },
+			{ header: 'TELEFONO 1 TIPO', key: 'telefono1Tipo', width: 20 },
+			{ header: 'TELEFONO 2', key: 'telefono2', width: 18 },
+			{ header: 'TELEFONO 2 TIPO', key: 'telefono2Tipo', width: 20 },
+			{ header: 'TELEFONO 3', key: 'telefono3', width: 18 },
+			{ header: 'TELEFONO 3 TIPO', key: 'telefono3Tipo', width: 20 },
+			{ header: 'PAGINA WEB', key: 'paginaWeb', width: 28 },
+			{ header: 'PAIS', key: 'pais', width: 14 },
+			{ header: 'DEPARTAMENTO', key: 'departamento', width: 22 },
+			{ header: 'PROVINCIA', key: 'provincia', width: 22 },
+			{ header: 'DISTRITO', key: 'distrito', width: 22 },
+			{ header: 'UBIGEO', key: 'ubigeo', width: 16 },
+			{ header: 'DIRECCION', key: 'direccion', width: 32 },
+			{ header: 'REFERENCIA DIRECCION', key: 'referenciaDireccion', width: 32 },
+			{ header: 'TIPO CLIENTE', key: 'tipoCliente', width: 18 },
+			{ header: 'ESTADO CLIENTE', key: 'estadoCliente', width: 18 },
+			{ header: 'MOTIVO DESHABILITACION', key: 'motivoDeshabilitacion', width: 32 },
+			{ header: 'FORMA PAGO', key: 'formaPago', width: 18 },
+			{ header: 'MONEDA PREFERIDA', key: 'monedaPreferida', width: 20 },
+			{ header: 'LISTA PRECIO', key: 'listaPrecio', width: 20 },
+			{ header: 'USUARIO ASIGNADO', key: 'usuarioAsignado', width: 24 },
+			{ header: 'CLIENTE POR DEFECTO', key: 'clientePorDefecto', width: 24 },
+			{ header: 'EXCEPTUADA PERCEPCION', key: 'exceptuadaPercepcion', width: 26 },
+			{ header: 'ES EMISOR ELECTRONICO', key: 'esEmisorElectronico', width: 26 },
+			{ header: 'ES AGENTE RETENCION', key: 'esAgenteRetencion', width: 24 },
+			{ header: 'ES AGENTE PERCEPCION', key: 'esAgentePercepcion', width: 24 },
+			{ header: 'ES BUEN CONTRIBUYENTE', key: 'esBuenContribuyente', width: 26 },
+			{ header: 'OBSERVACIONES', key: 'observaciones', width: 36 },
+			{ header: 'ADICIONAL', key: 'additionalData', width: 28 },
+			{ header: 'GENERO', key: 'genero', width: 16 },
+			{ header: 'TIPO CONTRIBUYENTE', key: 'tipoContribuyente', width: 24 },
+			{ header: 'ESTADO CONTRIBUYENTE', key: 'estadoContribuyente', width: 26 },
+			{ header: 'CONDICION DOMICILIO', key: 'condicionDomicilio', width: 24 },
+			{ header: 'FECHA INSCRIPCION', key: 'fechaInscripcion', width: 24 },
+			{ header: 'ACTIVIDADES ECONOMICAS', key: 'actividadesEconomicas', width: 40 },
+			{ header: 'SISTEMA EMISION', key: 'sistemaEmision', width: 22 },
+			{ header: 'CPE HABILITADO', key: 'cpeHabilitado', width: 32 },
+			{ header: 'FECHA REGISTRO', key: 'fechaRegistro', width: 26 },
+			{ header: 'FECHA ULTIMA MODIFICACION', key: 'fechaUltimaModificacion', width: 30 },
+			{ header: 'CREATED AT', key: 'createdAt', width: 26 },
+			{ header: 'UPDATED AT', key: 'updatedAt', width: 26 },
+			{ header: 'TRANSITORIO', key: 'transitorio', width: 18 },
+		],
+		[]
+	);
+
+	const basicExportRows = useMemo(() => combinedClients.map(mapClientToBasicRow), [combinedClients]);
+	const completeExportRows = useMemo(() => combinedClients.map(mapClientToCompleteRow), [combinedClients]);
+
+	const exportClientes = async (
+		variant: 'BASICO' | 'COMPLETO',
+		columns: Array<{ header: string; key: string; width?: number }>,
+		rows: Array<Record<string, string>>,
+		textColumnKeys: string[]
+	) => {
+		if (!rows.length) {
+			showToast('info', 'Sin clientes', 'No hay clientes para exportar en este momento');
+			return;
+		}
+
 		try {
 			const workbook = new ExcelJS.Workbook();
-			const worksheet = workbook.addWorksheet('Clientes');
+			const worksheet = workbook.addWorksheet(variant === 'BASICO' ? 'Clientes básico' : 'Clientes completo');
 
-			worksheet.columns = [
-				{ header: 'Nombre/Razón Social', key: 'name', width: 40 },
-				{ header: 'Documento', key: 'document', width: 20 },
-				{ header: 'Tipo', key: 'type', width: 10 },
-				{ header: 'Dirección', key: 'address', width: 50 },
-				{ header: 'Teléfono', key: 'phone', width: 15 },
-				{ header: 'Estado', key: 'status', width: 10 }
-			];
+			worksheet.columns = columns;
+			rows.forEach((row) => {
+				const excelRow: Record<string, string> = {};
+				columns.forEach(({ key }) => {
+					excelRow[key] = row[key] ?? '';
+				});
+				worksheet.addRow(excelRow);
+			});
 
-			clientes.forEach((client: Cliente) => {
-				worksheet.addRow({
-					name: client.name,
-					document: client.document,
-					type: client.type,
-					address: client.address,
-					phone: client.phone,
-					status: client.enabled ? 'Activo' : 'Inactivo'
+			worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+			const headerRow = worksheet.getRow(1);
+			headerRow.eachCell((cell) => {
+				cell.font = { bold: true, color: { argb: 'FF0F172A' } };
+				cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+				cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+				cell.border = {
+					top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+					bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+				};
+			});
+
+			worksheet.columns?.forEach((column) => {
+				column.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+			});
+
+			textColumnKeys.forEach((key) => {
+				const column = worksheet.getColumn(key);
+				column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+					if (rowNumber === 1) return;
+					if (cell.value === null || cell.value === undefined) {
+						cell.value = '';
+					} else if (typeof cell.value === 'number') {
+						cell.value = cell.value.toString();
+					} else if (typeof cell.value !== 'string') {
+						cell.value = `${cell.value}`;
+					}
+					cell.numFmt = '@';
 				});
 			});
 
-			worksheet.getRow(1).font = { bold: true };
-			worksheet.getRow(1).fill = {
-				type: 'pattern',
-				pattern: 'solid',
-				fgColor: { argb: 'FFE6F3FF' }
-			};
-
-			const today = new Date();
-			const dateString = today.toISOString().split('T')[0];
-			const fileName = `clientes_${dateString}.xlsx`;
-
+			const dateStamp = new Date().toISOString().split('T')[0];
+			const fileName = variant === 'BASICO' ? `Clientes_Basico_${dateStamp}.xlsx` : `Clientes_Completo_${dateStamp}.xlsx`;
 			const buffer = await workbook.xlsx.writeBuffer();
 			const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 			const url = URL.createObjectURL(blob);
-
 			const link = document.createElement('a');
 			link.href = url;
 			link.download = fileName;
 			link.click();
-
 			URL.revokeObjectURL(url);
 
-			showToast('success', '¡Exportación exitosa!', `Se exportaron ${clientes.length} clientes a Excel`);
+			showToast('success', 'Exportación lista', `Se generó el archivo ${variant === 'BASICO' ? 'básico' : 'completo'} con ${rows.length} clientes.`);
 		} catch (error) {
-			showToast('error', 'Error al exportar', 'No se pudo exportar la lista de clientes');
+			console.error('[Clientes] Error al exportar', error);
+			showToast('error', 'No se pudo exportar', 'Inténtalo nuevamente en unos segundos.');
 		}
 	};
+
+	const basicTextColumns = useMemo(() => ['tipoCuenta', 'codigoTipoDocumento', 'numeroDocumento', 'telefono'], []);
+	const completeTextColumns = useMemo(
+		() => [
+			'id',
+			'tipoCuenta',
+			'codigoTipoDocumento',
+			'numeroDocumento',
+			'telefono1',
+			'telefono1Tipo',
+			'telefono2',
+			'telefono2Tipo',
+			'telefono3',
+			'telefono3Tipo',
+			'ubigeo',
+		],
+		[]
+	);
+
+	const handleExportClientesBasico = async () => {
+		setExportMenuOpen(false);
+		await exportClientes('BASICO', basicExportColumns, basicExportRows, basicTextColumns);
+	};
+
+	const handleExportClientesCompleto = async () => {
+		setExportMenuOpen(false);
+		await exportClientes('COMPLETO', completeExportColumns, completeExportRows, completeTextColumns);
+	};
+
+	const hasClients = combinedClients.length > 0;
+
+	useEffect(() => {
+		if (!exportMenuOpen) return;
+		const handleClickOutside = (event: MouseEvent) => {
+			if (exportButtonRef.current?.contains(event.target as Node)) {
+				return;
+			}
+			if (exportMenuRef.current?.contains(event.target as Node)) {
+				return;
+			}
+			setExportMenuOpen(false);
+		};
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') {
+				setExportMenuOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handleClickOutside);
+		document.addEventListener('keydown', handleKeyDown);
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+			document.removeEventListener('keydown', handleKeyDown);
+		};
+	}, [exportMenuOpen]);
+
+	useEffect(() => {
+		if (!hasClients) {
+			setExportMenuOpen(false);
+		}
+	}, [hasClients]);
 
 	const handleCreateClient = async () => {
 		// Validación de nombre según tipo de documento
@@ -421,14 +863,14 @@ function ClientesPage() {
 				direccion,
 				referenciaDireccion: client.referenciaDireccion || '',
 				tipoCliente: tipoCliente,
-				estadoCliente: client.estadoCliente || (client.enabled ? 'Habilitado' : 'Deshabilitado'),
+				estadoCliente: (client.estadoCliente as ClienteFormData['estadoCliente']) || (client.enabled ? 'Habilitado' : 'Deshabilitado'),
 				motivoDeshabilitacion: client.motivoDeshabilitacion || '',
 				tipoContribuyente: client.tipoContribuyente || '',
 				estadoContribuyente: client.estadoContribuyente || '',
-				condicionDomicilio: client.condicionDomicilio || '',
+				condicionDomicilio: (client.condicionDomicilio as ClienteFormData['condicionDomicilio']) || '',
 				fechaInscripcion: client.fechaInscripcion || '',
 				actividadesEconomicas: client.actividadesEconomicas || [],
-				sistemaEmision: client.sistemaEmision || '',
+				sistemaEmision: (client.sistemaEmision as ClienteFormData['sistemaEmision']) || '',
 				esEmisorElectronico: Boolean(client.esEmisorElectronico),
 				cpeHabilitado: client.cpeHabilitado || [],
 				esAgenteRetencion: Boolean(client.esAgenteRetencion),
@@ -645,19 +1087,56 @@ function ClientesPage() {
 					>
 						Importar clientes
 					</button>
-					<button
-						title="Exporta lista de clientes"
-						onClick={handleExportClients}
-						disabled={loading || clientes.length === 0}
-						className="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-						style={{ minWidth: 40, minHeight: 40 }}
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-							<path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-							<path strokeLinecap="round" strokeLinejoin="round" d="M7 10l5 5 5-5" />
-							<path strokeLinecap="round" strokeLinejoin="round" d="M12 15V3" />
-						</svg>
-					</button>
+					<div className="relative">
+						<button
+							ref={exportButtonRef}
+							title="Exportar listado de clientes"
+							onClick={() => {
+								if (loading || !hasClients) return;
+								setExportMenuOpen((prev) => !prev);
+							}}
+							disabled={loading || !hasClients}
+							aria-haspopup="menu"
+							aria-expanded={exportMenuOpen}
+							className={`h-10 px-4 flex items-center gap-2 text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+								exportMenuOpen ? 'ring-2 ring-blue-200 dark:ring-blue-500/40' : 'hover:bg-gray-100 dark:hover:bg-gray-600'
+							}`}
+						>
+							<Download className="w-4 h-4" />
+							<span>Exportar</span>
+							<ChevronDown className={`w-4 h-4 transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
+						</button>
+						{exportMenuOpen && (
+							<div
+								ref={exportMenuRef}
+								className="absolute right-0 mt-2 w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl py-2 z-20"
+								role="menu"
+							>
+								<button
+									onClick={handleExportClientesBasico}
+									className="w-full px-4 py-2.5 flex items-start gap-3 text-left text-sm text-gray-700 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+									role="menuitem"
+								>
+									<FileSpreadsheet className="w-4 h-4 mt-[3px] text-blue-600 dark:text-blue-400" />
+									<div className="flex flex-col">
+										<span className="font-medium leading-5">Exportar básico</span>
+										<span className="text-xs text-gray-500 dark:text-gray-400">Columnas esenciales: identificación, contacto y ubicación.</span>
+									</div>
+								</button>
+								<button
+									onClick={handleExportClientesCompleto}
+									className="w-full px-4 py-2.5 flex items-start gap-3 text-left text-sm text-gray-700 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+									role="menuitem"
+								>
+									<Layers className="w-4 h-4 mt-[3px] text-indigo-600 dark:text-indigo-400" />
+									<div className="flex flex-col">
+										<span className="font-medium leading-5">Exportar completo</span>
+										<span className="text-xs text-gray-500 dark:text-gray-400">Todos los campos disponibles para auditorías y migraciones.</span>
+									</div>
+								</button>
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
 
