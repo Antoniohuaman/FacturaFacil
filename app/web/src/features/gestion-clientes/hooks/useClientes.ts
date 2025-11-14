@@ -1,7 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useCallback, useEffect } from 'react';
 import { clientesClient } from '../api';
-import type { Cliente, ClienteFilters, PaginatedResponse, CreateClienteDTO, UpdateClienteDTO } from '../models';
+import type {
+  Cliente,
+  ClienteFilters,
+  PaginatedResponse,
+  CreateClienteDTO,
+  UpdateClienteDTO,
+  BulkImportRequest,
+  BulkImportResponse,
+} from '../models';
 import { useCaja } from '../../control-caja/context/CajaContext';
 
 export const useClientes = (initialFilters?: ClienteFilters) => {
@@ -211,6 +219,37 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     showToast('info', 'Importación revertida', 'Se quitaron los registros transitorios del listado');
   }, [showToast]);
 
+  const bulkImportClientes = useCallback(async (
+    payload: BulkImportRequest
+  ): Promise<BulkImportResponse | null> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await clientesClient.bulkImportClientes(payload);
+      await fetchClientes(initialFilters);
+
+      const { summary } = result;
+      const createdLabel = summary.created === 1 ? '1 cliente creado' : `${summary.created} clientes creados`;
+      const updatedLabel = summary.updated === 1 ? '1 cliente actualizado' : `${summary.updated} clientes actualizados`;
+
+      showToast(
+        'success',
+        'Importación completada',
+        `${createdLabel} · ${updatedLabel}`
+      );
+
+      return result;
+    } catch (err: any) {
+      const errorMessage = err.message || 'Error al importar clientes';
+      setError(errorMessage);
+      showToast('error', 'No se pudo completar la importación', errorMessage);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchClientes, initialFilters, showToast]);
+
   const transientCount = transientClientes.length;
 
   return {
@@ -227,5 +266,6 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     applyTransientClientes,
     clearTransientClientes,
     transientCount,
+    bulkImportClientes,
   };
 };

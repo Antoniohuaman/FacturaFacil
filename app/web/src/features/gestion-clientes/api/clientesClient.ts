@@ -7,6 +7,9 @@ import type {
   ClienteFilters,
   ReniecResponse,
   SunatResponse,
+  BulkImportRequest,
+  BulkImportResponse,
+  BulkImportSummary,
 } from '../models';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -25,6 +28,133 @@ class ClientesClient {
    */
   private async simulateNetworkDelay(ms = 800): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private generateUniqueId(): number {
+    return Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
+  }
+
+  private extractDocumentParts(document?: string): { tipo?: string; numero?: string } {
+    if (!document || document === 'Sin documento') {
+      return {};
+    }
+
+    const parts = document.trim().split(' ');
+    if (parts.length > 1) {
+      return { tipo: parts[0], numero: parts.slice(1).join(' ').trim() };
+    }
+
+    return { numero: parts[0] };
+  }
+
+  private buildClienteFromPayload(
+    input: CreateClienteDTO | UpdateClienteDTO,
+    base?: Cliente
+  ): Cliente {
+    const now = new Date().toISOString();
+
+    const legacyParts = this.extractDocumentParts(base?.document);
+    const legacyType = input.documentType || legacyParts.tipo || 'SIN_DOCUMENTO';
+    const numeroDocumento = (input.numeroDocumento || input.documentNumber || base?.numeroDocumento || legacyParts.numero || '').toString().trim();
+
+    const document = legacyType === 'SIN_DOCUMENTO' || numeroDocumento === ''
+      ? 'Sin documento'
+      : `${legacyType} ${numeroDocumento}`.trim();
+
+    const emails = (input.emails ?? base?.emails ?? [])
+      .filter((email): email is string => Boolean(email && email.trim()))
+      .map((email) => email.trim());
+
+    const telefonos = (input.telefonos ?? base?.telefonos ?? [])
+      .filter((telefono) => telefono && telefono.numero && telefono.numero.trim() !== '')
+      .map((telefono) => ({
+        numero: telefono.numero.trim(),
+        tipo: telefono.tipo || 'Móvil',
+      }));
+
+    const estadoCliente = input.estadoCliente ?? base?.estadoCliente;
+    const enabledFromPayload = 'enabled' in input && typeof input.enabled === 'boolean'
+      ? input.enabled
+      : undefined;
+    const enabled = enabledFromPayload !== undefined
+      ? enabledFromPayload
+      : estadoCliente
+        ? estadoCliente === 'Habilitado'
+        : base?.enabled ?? true;
+
+    const nombreDesdePayload = input.name || input.razonSocial || input.nombreCompleto;
+    const nombreNormalizado = nombreDesdePayload && nombreDesdePayload.trim() !== ''
+      ? nombreDesdePayload.trim()
+      : base?.name || 'Cliente sin nombre';
+
+    const direccionNormalizada = input.direccion?.trim() || input.address?.trim() || base?.direccion || base?.address || 'Sin dirección';
+
+    const fechaRegistro = base?.fechaRegistro || base?.createdAt || now;
+
+    const cliente: Cliente = {
+      id: base?.id ?? this.generateUniqueId(),
+      name: nombreNormalizado,
+      document,
+      type: (input.type ?? base?.type ?? 'Cliente'),
+      address: direccionNormalizada,
+      phone: input.phone ?? telefonos[0]?.numero ?? base?.phone ?? '',
+      email: input.email ?? emails[0] ?? base?.email,
+      gender: input.gender ?? base?.gender,
+      additionalData: input.additionalData ?? input.observaciones ?? base?.additionalData,
+      enabled,
+      createdAt: base?.createdAt ?? fechaRegistro,
+      updatedAt: now,
+      transient: base?.transient,
+
+      tipoDocumento: input.tipoDocumento ?? base?.tipoDocumento,
+      numeroDocumento: numeroDocumento || undefined,
+      tipoPersona: input.tipoPersona ?? base?.tipoPersona,
+      tipoCuenta: input.tipoCuenta ?? base?.tipoCuenta ?? (base?.type as any),
+      razonSocial: input.razonSocial ?? base?.razonSocial,
+      nombreComercial: input.nombreComercial ?? base?.nombreComercial,
+      primerNombre: input.primerNombre ?? base?.primerNombre,
+      segundoNombre: input.segundoNombre ?? base?.segundoNombre,
+      apellidoPaterno: input.apellidoPaterno ?? base?.apellidoPaterno,
+      apellidoMaterno: input.apellidoMaterno ?? base?.apellidoMaterno,
+      nombreCompleto: input.nombreCompleto ?? base?.nombreCompleto ?? nombreNormalizado,
+      emails,
+      telefonos,
+      paginaWeb: input.paginaWeb ?? base?.paginaWeb,
+      pais: input.pais ?? base?.pais,
+      departamento: input.departamento ?? base?.departamento,
+      provincia: input.provincia ?? base?.provincia,
+      distrito: input.distrito ?? base?.distrito,
+      ubigeo: input.ubigeo ?? base?.ubigeo,
+      direccion: input.direccion ?? base?.direccion,
+      referenciaDireccion: input.referenciaDireccion ?? base?.referenciaDireccion,
+      tipoCliente: input.tipoCliente ?? base?.tipoCliente,
+      estadoCliente: estadoCliente ?? (enabled ? 'Habilitado' : 'Deshabilitado'),
+      motivoDeshabilitacion: input.motivoDeshabilitacion ?? base?.motivoDeshabilitacion,
+      tipoContribuyente: input.tipoContribuyente ?? base?.tipoContribuyente,
+      estadoContribuyente: input.estadoContribuyente ?? base?.estadoContribuyente,
+      condicionDomicilio: input.condicionDomicilio ?? base?.condicionDomicilio,
+      fechaInscripcion: input.fechaInscripcion ?? base?.fechaInscripcion,
+      actividadesEconomicas: input.actividadesEconomicas ?? base?.actividadesEconomicas,
+      sistemaEmision: input.sistemaEmision ?? base?.sistemaEmision,
+      esEmisorElectronico: input.esEmisorElectronico ?? base?.esEmisorElectronico,
+      cpeHabilitado: input.cpeHabilitado ?? base?.cpeHabilitado,
+      esAgenteRetencion: input.esAgenteRetencion ?? base?.esAgenteRetencion,
+      esAgentePercepcion: input.esAgentePercepcion ?? base?.esAgentePercepcion,
+      esBuenContribuyente: input.esBuenContribuyente ?? base?.esBuenContribuyente,
+      formaPago: input.formaPago ?? base?.formaPago,
+      monedaPreferida: input.monedaPreferida ?? base?.monedaPreferida,
+      listaPrecio: input.listaPrecio ?? base?.listaPrecio,
+      usuarioAsignado: input.usuarioAsignado ?? base?.usuarioAsignado,
+      clientePorDefecto: input.clientePorDefecto ?? base?.clientePorDefecto,
+      exceptuadaPercepcion: input.exceptuadaPercepcion ?? base?.exceptuadaPercepcion,
+      observaciones: input.observaciones ?? base?.observaciones ?? input.additionalData ?? base?.additionalData,
+      adjuntos: input.adjuntos ?? base?.adjuntos,
+      imagenes: input.imagenes ?? base?.imagenes,
+      fechaRegistro,
+      fechaUltimaModificacion: now,
+    };
+
+    return cliente;
   }
 
   /**
@@ -127,9 +257,18 @@ class ClientesClient {
     if (endpoint === '/clientes' && options.method === 'POST') {
       const clientes = this.getDevClientes();
 
-      const existingClient = clientes.find(c =>
-        c.document.includes(body.documentNumber) && body.documentNumber.trim() !== ''
-      );
+      const payload = body as CreateClienteDTO;
+      const docNumber = (payload.numeroDocumento || payload.documentNumber || '').trim();
+      const docType = payload.documentType || 'SIN_DOCUMENTO';
+
+      const existingClient = docNumber
+        ? clientes.find((clienteActual) => {
+            const parts = this.extractDocumentParts(clienteActual.document);
+            const storedNumber = clienteActual.numeroDocumento || parts.numero || '';
+            const storedType = parts.tipo || (clienteActual.document === 'Sin documento' ? 'SIN_DOCUMENTO' : parts.tipo) || 'SIN_DOCUMENTO';
+            return storedNumber === docNumber && storedType === docType;
+          })
+        : undefined;
 
       if (existingClient) {
         throw {
@@ -138,71 +277,7 @@ class ClientesClient {
         };
       }
 
-      const newCliente: Cliente = {
-        id: Date.now(),
-        // Campos legacy
-        name: body.name,
-        document: body.documentType !== 'SIN_DOCUMENTO'
-          ? `${body.documentType} ${body.documentNumber}`
-          : 'Sin documento',
-        type: body.type,
-        address: body.address || 'Sin dirección',
-        phone: body.phone || '',
-        email: body.email || '',
-        gender: body.gender || '',
-        additionalData: body.additionalData || '',
-        enabled: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        
-        // Campos extendidos (TODOS los del formulario)
-        tipoDocumento: body.tipoDocumento,
-        numeroDocumento: body.numeroDocumento,
-        tipoPersona: body.tipoPersona,
-        tipoCuenta: body.tipoCuenta,
-        razonSocial: body.razonSocial,
-        nombreComercial: body.nombreComercial,
-        primerNombre: body.primerNombre,
-        segundoNombre: body.segundoNombre,
-        apellidoPaterno: body.apellidoPaterno,
-        apellidoMaterno: body.apellidoMaterno,
-        nombreCompleto: body.nombreCompleto,
-        emails: body.emails,
-        telefonos: body.telefonos,
-        paginaWeb: body.paginaWeb,
-        pais: body.pais,
-        departamento: body.departamento,
-        provincia: body.provincia,
-        distrito: body.distrito,
-        ubigeo: body.ubigeo,
-        direccion: body.direccion,
-        referenciaDireccion: body.referenciaDireccion,
-        tipoCliente: body.tipoCliente,
-        estadoCliente: body.estadoCliente,
-        motivoDeshabilitacion: body.motivoDeshabilitacion,
-        tipoContribuyente: body.tipoContribuyente,
-        estadoContribuyente: body.estadoContribuyente,
-        condicionDomicilio: body.condicionDomicilio,
-        fechaInscripcion: body.fechaInscripcion,
-        actividadesEconomicas: body.actividadesEconomicas,
-        sistemaEmision: body.sistemaEmision,
-        esEmisorElectronico: body.esEmisorElectronico,
-        cpeHabilitado: body.cpeHabilitado,
-        esAgenteRetencion: body.esAgenteRetencion,
-        esAgentePercepcion: body.esAgentePercepcion,
-        esBuenContribuyente: body.esBuenContribuyente,
-        formaPago: body.formaPago,
-        monedaPreferida: body.monedaPreferida,
-        listaPrecio: body.listaPrecio,
-        usuarioAsignado: body.usuarioAsignado,
-        clientePorDefecto: body.clientePorDefecto,
-        exceptuadaPercepcion: body.exceptuadaPercepcion,
-        observaciones: body.observaciones,
-        adjuntos: body.adjuntos,
-        imagenes: body.imagenes,
-        fechaRegistro: new Date().toISOString(),
-        fechaUltimaModificacion: new Date().toISOString(),
-      };
+      const newCliente = this.buildClienteFromPayload(payload);
 
       clientes.unshift(newCliente);
       this.saveDevClientes(clientes);
@@ -223,21 +298,90 @@ class ClientesClient {
         };
       }
 
-      const updatedCliente: Cliente = {
-        ...clientes[index],
-        ...body,
-        document: body.documentType && body.documentType !== 'SIN_DOCUMENTO'
-          ? `${body.documentType} ${body.documentNumber}`
-          : body.documentType === 'SIN_DOCUMENTO'
-            ? 'Sin documento'
-            : clientes[index].document,
-        updatedAt: new Date().toISOString(),
-      };
+      const payload = body as UpdateClienteDTO;
+      const updatedCliente = this.buildClienteFromPayload(payload, clientes[index]);
 
       clientes[index] = updatedCliente;
       this.saveDevClientes(clientes);
 
       return updatedCliente as T;
+    }
+
+    // POST /clientes/import
+    if (endpoint === '/clientes/import' && options.method === 'POST') {
+      const request = body as BulkImportRequest;
+
+      if (!request || !Array.isArray(request.registros)) {
+        throw {
+          code: 'INVALID_PAYLOAD',
+          message: 'El formato de importación es inválido',
+        };
+      }
+
+      const clientes = this.getDevClientes();
+      const updatedClientes = [...clientes];
+
+      const summary: BulkImportSummary = {
+        processed: request.registros.length,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errors: [],
+      };
+
+      request.registros.forEach((registro, index) => {
+        const docNumber = (registro.numeroDocumento || registro.documentNumber || '').trim();
+        const docType = registro.documentType || 'SIN_DOCUMENTO';
+        const reference = docType === 'SIN_DOCUMENTO'
+          ? 'SIN_DOCUMENTO'
+          : `${docType} ${docNumber || '-'}`;
+
+        if (!registro.name || registro.name.trim() === '') {
+          summary.skipped += 1;
+          summary.errors.push({
+            rowNumber: index + 2,
+            documentReference: reference,
+            reason: 'Nombre o razón social es requerido',
+          });
+          return;
+        }
+
+        if (!docNumber && docType !== 'SIN_DOCUMENTO') {
+          summary.skipped += 1;
+          summary.errors.push({
+            rowNumber: index + 2,
+            documentReference: reference,
+            reason: 'El número de documento es requerido',
+          });
+          return;
+        }
+
+        const matchIndex = docNumber
+          ? updatedClientes.findIndex((clienteActual) => {
+              const parts = this.extractDocumentParts(clienteActual.document);
+              const storedNumber = clienteActual.numeroDocumento || parts.numero || '';
+              const storedType = parts.tipo || (clienteActual.document === 'Sin documento' ? 'SIN_DOCUMENTO' : parts.tipo) || 'SIN_DOCUMENTO';
+              return storedNumber === docNumber && storedType === docType;
+            })
+          : -1;
+
+        if (matchIndex >= 0) {
+          const actualizado = this.buildClienteFromPayload(registro, updatedClientes[matchIndex]);
+          updatedClientes[matchIndex] = actualizado;
+          summary.updated += 1;
+        } else {
+          const nuevo = this.buildClienteFromPayload(registro);
+          updatedClientes.push(nuevo);
+          summary.created += 1;
+        }
+      });
+
+      this.saveDevClientes(updatedClientes);
+
+      return {
+        summary,
+        clientes: updatedClientes,
+      } as T;
     }
 
     // DELETE /clientes/:id
@@ -398,6 +542,17 @@ class ClientesClient {
   async deleteCliente(id: number | string, options: { signal?: AbortSignal } = {}): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/clientes/${id}`, {
       method: 'DELETE',
+      signal: options.signal,
+    });
+  }
+
+  async bulkImportClientes(
+    payload: BulkImportRequest,
+    options: { signal?: AbortSignal } = {}
+  ): Promise<BulkImportResponse> {
+    return this.request<BulkImportResponse>('/clientes/import', {
+      method: 'POST',
+      body: JSON.stringify(payload),
       signal: options.signal,
     });
   }

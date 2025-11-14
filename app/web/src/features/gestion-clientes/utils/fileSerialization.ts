@@ -37,9 +37,9 @@ const dataUrlToFile = (persisted: PersistedFile): File => {
 
   const payload = dataUrl.slice(base64Index + 'base64,'.length);
   const bytes = decodeBase64(payload);
-  const arrayBuffer = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(arrayBuffer).set(bytes);
-  const blob = new Blob([arrayBuffer], { type: type || 'application/octet-stream' });
+  const copy = new Uint8Array(bytes.length);
+  copy.set(bytes);
+  const blob = new Blob([copy], { type: type || 'application/octet-stream' });
   return new File([blob], name, { type: type || 'application/octet-stream', lastModified });
 };
 

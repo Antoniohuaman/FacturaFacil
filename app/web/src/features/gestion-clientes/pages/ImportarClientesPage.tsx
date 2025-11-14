@@ -1,524 +1,1216 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
-import { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Upload,
-  Download,
   ArrowLeft,
-  FileSpreadsheet,
+  Download,
+  Upload,
+  Info,
   AlertCircle,
-  X,
-  FileText,
-  Users,
-  Info
+  FileSpreadsheet,
+  RefreshCcw,
+  XCircle,
+  CheckCircle2,
 } from 'lucide-react';
-import { useCaja } from '../../control-caja/context/CajaContext';
 import * as XLSX from 'xlsx';
+import { useCaja } from '../../control-caja/context/CajaContext';
 import { useClientes } from '../hooks';
-import type { Cliente } from '../models';
+import type {
+  ImportMode,
+  CreateClienteDTO,
+  BulkImportSummary,
+  DocumentType,
+  ClientType,
+  TipoPersona,
+} from '../models';
 
-const ImportarClientesPage = () => {
+type ValidationError = {
+  rowNumber: number;
+  documentReference: string;
+  messages: string[];
+};
+
+type ParseResult = {
+  dtos: CreateClienteDTO[];
+  errors: ValidationError[];
+  totalRows: number;
+  validRows: number;
+};
+
+type ImportReport = {
+  mode: ImportMode;
+  fileName: string;
+  totalRows: number;
+  validRows: number;
+  parseErrors: ValidationError[];
+  backendSummary?: BulkImportSummary;
+  backendErrors?: BulkImportSummary['errors'];
+  executedAt: Date;
+};
+
+type DocumentDefinition = {
+  tokens: string[];
+  legacy: DocumentType;
+  nuevo: string;
+  requiredDigits?: number;
+};
+
+const DOCUMENT_DEFINITIONS: DocumentDefinition[] = [
+  { tokens: ['ruc', '6'], legacy: 'RUC', nuevo: '6', requiredDigits: 11 },
+  { tokens: ['dni', '1'], legacy: 'DNI', nuevo: '1', requiredDigits: 8 },
+  { tokens: ['pasaporte', 'pas', 'passport', '7'], legacy: 'PASAPORTE', nuevo: '7' },
+  { tokens: ['carnetextranjeria', 'ce', 'carnetextranjero', '4'], legacy: 'CARNET_EXTRANJERIA', nuevo: '4' },
+  { tokens: ['nodomiciliado', '0'], legacy: 'NO_DOMICILIADO', nuevo: '0' },
+  { tokens: ['sindocumento', 'sd', ''], legacy: 'SIN_DOCUMENTO', nuevo: '0' },
+];
+
+const TRUE_VALUES = new Set(['si', 'sí', 'true', '1', 'x', 'yes', 'activo', 'habilitado', 'default']);
+const FALSE_VALUES = new Set(['no', 'false', '0', 'inactive', 'inactivo', 'deshabilitado']);
+
+const CLIENT_TYPE_MAP: Record<string, ClientType> = {
+  cliente: 'Cliente',
+  proveedor: 'Proveedor',
+  clienteproveedor: 'Cliente-Proveedor',
+  'cliente-proveedor': 'Cliente-Proveedor',
+};
+
+const PERSONA_MAP: Record<string, TipoPersona> = {
+  natural: 'Natural',
+  juridica: 'Juridica',
+  jurídica: 'Juridica',
+};
+
+const ESTADO_MAP: Record<string, 'Habilitado' | 'Deshabilitado'> = {
+  habilitado: 'Habilitado',
+  activo: 'Habilitado',
+  deshabilitado: 'Deshabilitado',
+  inactivo: 'Deshabilitado',
+};
+
+const FORMA_PAGO_MAP: Record<string, 'Contado' | 'Credito'> = {
+  contado: 'Contado',
+  cash: 'Contado',
+  credito: 'Credito',
+  crédito: 'Credito',
+};
+
+const MONEDA_MAP: Record<string, 'PEN' | 'USD' | 'EUR'> = {
+  pen: 'PEN',
+  soles: 'PEN',
+  sol: 'PEN',
+  usd: 'USD',
+  dolares: 'USD',
+  dólares: 'USD',
+  eur: 'EUR',
+  euro: 'EUR',
+};
+
+const normalizeKey = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '')
+    .toLowerCase();
+
+const onlyDigits = (value: string): string => value.replace(/\D+/g, '');
+
+const isValidEmail = (value: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const resolveDocument = (value: string): DocumentDefinition | null => {
+  const normalized = normalizeKey(value);
+  return DOCUMENT_DEFINITIONS.find((definition) =>
+    definition.tokens.some((token) => token === normalized)
+  ) ?? null;
+};
+
+const resolveClientType = (value?: string): ClientType => {
+  if (!value) return 'Cliente';
+  const mapped = CLIENT_TYPE_MAP[normalizeKey(value)];
+  return mapped ?? 'Cliente';
+};
+
+const resolvePersona = (value: string | undefined, docLegacy: DocumentType): TipoPersona => {
+  if (value) {
+    const mapped = PERSONA_MAP[normalizeKey(value)];
+    if (mapped) {
+      return docLegacy === 'RUC' ? 'Juridica' : mapped;
+    }
+  }
+  return docLegacy === 'RUC' ? 'Juridica' : 'Natural';
+};
+
+const resolveEstado = (value?: string): 'Habilitado' | 'Deshabilitado' => {
+  if (!value) return 'Habilitado';
+  return ESTADO_MAP[normalizeKey(value)] ?? 'Habilitado';
+};
+
+const resolveFormaPago = (value?: string): 'Contado' | 'Credito' | undefined => {
+  if (!value) return undefined;
+  return FORMA_PAGO_MAP[normalizeKey(value)];
+};
+
+const resolveMoneda = (value?: string): 'PEN' | 'USD' | 'EUR' | undefined => {
+  if (!value) return undefined;
+  return MONEDA_MAP[normalizeKey(value)];
+};
+
+const resolveBoolean = (value?: string): boolean | undefined => {
+  if (!value || value.trim() === '') return undefined;
+  const normalized = normalizeKey(value);
+  if (TRUE_VALUES.has(normalized)) return true;
+  if (FALSE_VALUES.has(normalized)) return false;
+  return undefined;
+};
+
+const buildDocumentReference = (row: Record<string, string>): string => {
+  const rawType = row['tipodocumento'] || row['documentotype'] || '';
+  const docDef = resolveDocument(rawType);
+  if (!docDef) {
+    return rawType || '-';
+  }
+
+  const rawNumber = row['numerodocumento'] || row['documento'] || '';
+  const documentNumber = docDef.requiredDigits ? onlyDigits(rawNumber) : rawNumber.trim();
+  return docDef.legacy === 'SIN_DOCUMENTO'
+    ? 'SIN_DOCUMENTO'
+    : `${docDef.legacy} ${documentNumber || '-'}`;
+};
+
+const collectEmails = (
+  row: Record<string, string>,
+  keys: string[],
+  errors: string[],
+  max = 3
+): string[] => {
+  const seen = new Set<string>();
+  const emails: string[] = [];
+
+  for (const key of keys) {
+    const value = row[key];
+    if (!value) continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    if (!isValidEmail(trimmed)) {
+      errors.push(`Correo inválido (${trimmed})`);
+      continue;
+    }
+    if (seen.has(trimmed.toLowerCase())) continue;
+    seen.add(trimmed.toLowerCase());
+    emails.push(trimmed);
+    if (emails.length === max) break;
+  }
+
+  return emails;
+};
+
+const collectPhones = (
+  row: Record<string, string>,
+  keys: Array<{ number: string; type?: string }>,
+  errors: string[],
+): Array<{ numero: string; tipo: string }> => {
+  const phones: Array<{ numero: string; tipo: string }> = [];
+
+  keys.forEach(({ number, type }) => {
+    const raw = row[number];
+    if (!raw) return;
+    const digits = onlyDigits(raw);
+    if (!digits) {
+      errors.push(`El teléfono "${raw}" es inválido`);
+      return;
+    }
+    if (digits.length < 6 || digits.length > 15) {
+      errors.push(`El teléfono ${digits} debe tener entre 6 y 15 dígitos`);
+      return;
+    }
+    const tipoColumn = type ? row[type] : undefined;
+    const tipoNormalizado = tipoColumn && tipoColumn.trim() !== '' ? tipoColumn.trim() : 'Móvil';
+    phones.push({ numero: digits, tipo: tipoNormalizado });
+  });
+
+  return phones;
+};
+
+const buildNombreNatural = (nombreCompleto: string): {
+  primerNombre?: string;
+  segundoNombre?: string;
+  apellidoPaterno?: string;
+  apellidoMaterno?: string;
+} => {
+  const partes = nombreCompleto
+    .split(' ')
+    .map((parte) => parte.trim())
+    .filter(Boolean);
+
+  if (partes.length === 0) {
+    return {};
+  }
+
+  if (partes.length === 1) {
+    return { primerNombre: partes[0] };
+  }
+
+  if (partes.length === 2) {
+    return {
+      primerNombre: partes[0],
+      apellidoPaterno: partes[1],
+    };
+  }
+
+  if (partes.length === 3) {
+    return {
+      primerNombre: partes[0],
+      apellidoPaterno: partes[1],
+      apellidoMaterno: partes[2],
+    };
+  }
+
+  return {
+    primerNombre: partes[0],
+    segundoNombre: partes.slice(1, partes.length - 2).join(' ') || undefined,
+    apellidoPaterno: partes[partes.length - 2],
+    apellidoMaterno: partes[partes.length - 1],
+  };
+};
+
+const buildDtoFromBasicRow = (
+  row: Record<string, string>,
+  _rowNumber: number,
+  errors: string[]
+): CreateClienteDTO | null => {
+  const docDef = resolveDocument(row['tipodocumento'] || row['documentotype'] || '');
+  if (!docDef) {
+    errors.push('TipoDocumento inválido');
+    return null;
+  }
+
+  let documentNumber = row['numerodocumento'] || row['documento'] || '';
+  documentNumber = docDef.requiredDigits ? onlyDigits(documentNumber) : documentNumber.trim();
+
+  if (docDef.requiredDigits && documentNumber.length !== docDef.requiredDigits) {
+    errors.push(`El ${docDef.legacy} debe tener ${docDef.requiredDigits} dígitos`);
+  }
+
+  if (!documentNumber && docDef.legacy !== 'SIN_DOCUMENTO' && docDef.legacy !== 'NO_DOMICILIADO') {
+    errors.push('Número de documento requerido');
+  }
+
+  if (documentNumber && docDef.legacy === 'SIN_DOCUMENTO') {
+    errors.push('SIN_DOCUMENTO no debe tener número');
+  }
+
+  const nombre = row['razonsocialnombre'] || row['razonsocial'] || row['nombre'] || '';
+  const nombreLimpiado = nombre.trim();
+
+  if (!nombreLimpiado) {
+    errors.push('Nombre o razón social requerido');
+  }
+
+  const emails = collectEmails(row, ['correo', 'correo1', 'correo2', 'email', 'email1', 'email2'], errors, 2);
+  const telefonos = collectPhones(
+    row,
+    [
+      { number: 'telefono', type: 'tipotelefono' },
+      { number: 'telefono1', type: 'telefono1tipo' },
+      { number: 'telefono2', type: 'telefono2tipo' },
+    ],
+    errors
+  );
+
+  const estadoCliente = resolveEstado(row['estado']);
+
+  const tipoPersona = resolvePersona(row['tipopersona'], docDef.legacy);
+  const clientType = resolveClientType(row['tipocuenta']);
+
+  const nombreNatural = docDef.legacy === 'RUC' ? {} : buildNombreNatural(nombreLimpiado);
+
+  return {
+    documentType: docDef.legacy,
+    documentNumber: documentNumber || '',
+    name: docDef.legacy === 'RUC' ? nombreLimpiado : nombreLimpiado,
+    type: clientType,
+    address: row['direccion']?.trim() || undefined,
+    phone: telefonos[0]?.numero,
+    email: emails[0],
+    additionalData: undefined,
+    tipoDocumento: docDef.nuevo,
+    numeroDocumento: documentNumber || undefined,
+    tipoPersona,
+    tipoCuenta: clientType,
+    razonSocial: docDef.legacy === 'RUC' ? nombreLimpiado : undefined,
+    nombreComercial: undefined,
+    primerNombre: nombreNatural.primerNombre,
+    segundoNombre: nombreNatural.segundoNombre,
+    apellidoPaterno: nombreNatural.apellidoPaterno,
+    apellidoMaterno: nombreNatural.apellidoMaterno,
+    nombreCompleto: docDef.legacy === 'RUC' ? nombreLimpiado : nombreLimpiado,
+    emails,
+    telefonos,
+    paginaWeb: undefined,
+    pais: 'PE',
+    departamento: undefined,
+    provincia: undefined,
+    distrito: undefined,
+    ubigeo: undefined,
+    direccion: row['direccion']?.trim() || undefined,
+    referenciaDireccion: undefined,
+    tipoCliente: tipoPersona,
+    estadoCliente,
+    motivoDeshabilitacion: estadoCliente === 'Deshabilitado' ? 'Importado como deshabilitado' : undefined,
+    tipoContribuyente: undefined,
+    estadoContribuyente: undefined,
+    condicionDomicilio: undefined,
+    fechaInscripcion: undefined,
+    actividadesEconomicas: undefined,
+    sistemaEmision: undefined,
+    esEmisorElectronico: undefined,
+    cpeHabilitado: undefined,
+    esAgenteRetencion: undefined,
+    esAgentePercepcion: undefined,
+    esBuenContribuyente: undefined,
+    formaPago: 'Contado',
+    monedaPreferida: 'PEN',
+    listaPrecio: undefined,
+    usuarioAsignado: undefined,
+    clientePorDefecto: false,
+    exceptuadaPercepcion: false,
+    observaciones: undefined,
+    adjuntos: [],
+    imagenes: [],
+  };
+};
+
+const buildDtoFromFullRow = (
+  row: Record<string, string>,
+  _rowNumber: number,
+  errors: string[]
+): CreateClienteDTO | null => {
+  const docDef = resolveDocument(row['tipodocumento'] || row['documentotype'] || '');
+  if (!docDef) {
+    errors.push('TipoDocumento inválido');
+    return null;
+  }
+
+  let documentNumber = row['numerodocumento'] || row['documento'] || '';
+  documentNumber = docDef.requiredDigits ? onlyDigits(documentNumber) : documentNumber.trim();
+
+  if (docDef.requiredDigits && documentNumber.length !== docDef.requiredDigits) {
+    errors.push(`El ${docDef.legacy} debe tener ${docDef.requiredDigits} dígitos`);
+  }
+
+  if (!documentNumber && docDef.legacy !== 'SIN_DOCUMENTO' && docDef.legacy !== 'NO_DOMICILIADO') {
+    errors.push('Número de documento requerido');
+  }
+
+  if (documentNumber && docDef.legacy === 'SIN_DOCUMENTO') {
+    errors.push('SIN_DOCUMENTO no debe tener número');
+  }
+
+  const razonSocial = row['razonsocial']?.trim();
+  const nombreCompletoRaw = row['nombrecompleto']?.trim();
+  const nombreDesdePartes = [
+    row['primernombre'],
+    row['segundonombre'],
+    row['apellidopaterno'],
+    row['apellidomaterno'],
+  ]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(' ');
+
+  const nombreFallback = row['razonsocialnombre']?.trim() || row['nombre']?.trim() || '';
+  const nombreFuente = nombreCompletoRaw || nombreDesdePartes || nombreFallback;
+  const nombrePrincipal = docDef.legacy === 'RUC'
+    ? razonSocial || nombreFallback
+    : nombreFuente || razonSocial || nombreFallback;
+
+  const nombreNatural =
+    docDef.legacy === 'RUC'
+      ? undefined
+      : buildNombreNatural(nombreFuente || razonSocial || nombreFallback);
+
+  if (!nombrePrincipal.trim()) {
+    errors.push('Nombre o razón social requerido');
+  }
+
+  const emails = collectEmails(
+    row,
+    ['correo', 'correo1', 'correo2', 'correo3', 'email', 'email1', 'email2', 'email3'],
+    errors
+  );
+
+  const telefonos = collectPhones(
+    row,
+    [
+      { number: 'telefono1', type: 'telefono1tipo' },
+      { number: 'telefono2', type: 'telefono2tipo' },
+      { number: 'telefono3', type: 'telefono3tipo' },
+    ],
+    errors
+  );
+
+  const estadoCliente = resolveEstado(row['estadocliente'] || row['estado']);
+  const tipoPersona = resolvePersona(row['tipopersona'], docDef.legacy);
+  const tipoCliente = row['tipocliente'] ? resolvePersona(row['tipocliente'], docDef.legacy) : tipoPersona;
+  const clientType = resolveClientType(row['tipocuenta']);
+
+  const formaPago = resolveFormaPago(row['formapago']);
+  if (row['formapago'] && !formaPago) {
+    errors.push('Forma de pago inválida');
+  }
+
+  const monedaPreferida = resolveMoneda(row['monedapreferida'] || row['moneda']);
+  if (row['monedapreferida'] && !monedaPreferida) {
+    errors.push('Moneda preferida inválida');
+  }
+
+  const clientePorDefecto = resolveBoolean(row['clientepordefecto']);
+  const exceptuadaPercepcion = resolveBoolean(row['exceptuadapercepcion']);
+
+  const motivoDeshabilitacion = row['motivodeshabilitacion']?.trim();
+  if (estadoCliente === 'Deshabilitado' && !motivoDeshabilitacion) {
+    errors.push('Debe registrar un motivo de deshabilitación');
+  }
+
+  return {
+    documentType: docDef.legacy,
+    documentNumber: documentNumber || '',
+    name: nombrePrincipal.trim(),
+    type: clientType,
+    address: row['direccion']?.trim() || undefined,
+    phone: telefonos[0]?.numero,
+    email: emails[0],
+    additionalData: row['observaciones']?.trim() || undefined,
+    tipoDocumento: docDef.nuevo,
+    numeroDocumento: documentNumber || undefined,
+    tipoPersona,
+    tipoCuenta: clientType,
+    razonSocial: docDef.legacy === 'RUC' ? nombrePrincipal.trim() : razonSocial || undefined,
+    nombreComercial: row['nombrecomercial']?.trim() || undefined,
+    primerNombre: docDef.legacy === 'RUC' ? undefined : nombreNatural?.primerNombre,
+    segundoNombre: docDef.legacy === 'RUC' ? undefined : nombreNatural?.segundoNombre,
+    apellidoPaterno: docDef.legacy === 'RUC' ? undefined : nombreNatural?.apellidoPaterno,
+    apellidoMaterno: docDef.legacy === 'RUC' ? undefined : nombreNatural?.apellidoMaterno,
+    nombreCompleto: nombrePrincipal.trim(),
+    emails,
+    telefonos,
+    paginaWeb: row['paginaweb']?.trim() || undefined,
+    pais: row['pais']?.trim().toUpperCase() || 'PE',
+    departamento: row['departamento']?.trim() || undefined,
+    provincia: row['provincia']?.trim() || undefined,
+    distrito: row['distrito']?.trim() || undefined,
+    ubigeo: row['ubigeo']?.trim() || undefined,
+    direccion: row['direccion']?.trim() || undefined,
+    referenciaDireccion: row['referenciadireccion']?.trim() || undefined,
+    tipoCliente,
+    estadoCliente,
+    motivoDeshabilitacion: estadoCliente === 'Deshabilitado' ? motivoDeshabilitacion || 'Importado como deshabilitado' : undefined,
+    tipoContribuyente: undefined,
+    estadoContribuyente: undefined,
+    condicionDomicilio: undefined,
+    fechaInscripcion: undefined,
+    actividadesEconomicas: undefined,
+    sistemaEmision: undefined,
+    esEmisorElectronico: resolveBoolean(row['esemisorelectronico']),
+    cpeHabilitado: undefined,
+    esAgenteRetencion: resolveBoolean(row['esagenteretencion']),
+    esAgentePercepcion: resolveBoolean(row['esagentepercepcion']),
+    esBuenContribuyente: resolveBoolean(row['esbuencontribuyente']),
+    formaPago: formaPago ?? 'Contado',
+    monedaPreferida: monedaPreferida ?? 'PEN',
+    listaPrecio: row['listaprecio']?.trim() || undefined,
+    usuarioAsignado: row['usuarioasignado']?.trim() || undefined,
+    clientePorDefecto: clientePorDefecto ?? false,
+    exceptuadaPercepcion: exceptuadaPercepcion ?? false,
+    observaciones: row['observaciones']?.trim() || undefined,
+    adjuntos: [],
+    imagenes: [],
+  };
+};
+
+const parseFile = async (file: File, mode: ImportMode): Promise<ParseResult> => {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+
+  if (!sheet) {
+    throw new Error('El archivo no contiene hojas válidas');
+  }
+
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as Array<Array<string | number>>;
+
+  if (!rows.length) {
+    return {
+      dtos: [],
+      errors: [],
+      totalRows: 0,
+      validRows: 0,
+    };
+  }
+
+  let headerRowIndex = 0;
+  const firstCell = rows[0]?.[0]?.toString().toLowerCase() ?? '';
+  if (firstCell.includes('instruccion')) {
+    headerRowIndex = 1;
+  }
+
+  const headerRow = (rows[headerRowIndex] || []).map((cell) => (cell ?? '').toString());
+  const normalizedHeaders = headerRow.map(normalizeKey);
+  const dataRows = rows.slice(headerRowIndex + 1);
+
+  const dtos: CreateClienteDTO[] = [];
+  const errors: ValidationError[] = [];
+  let totalRows = 0;
+
+  dataRows.forEach((cells, index) => {
+    const values = (cells as Array<string | number>).map((cell) => (cell ?? '').toString().trim());
+    if (values.every((value) => value === '')) {
+      return;
+    }
+
+    totalRows += 1;
+    const rowNumber = headerRowIndex + index + 2;
+    const rowMap: Record<string, string> = {};
+
+    normalizedHeaders.forEach((key, columnIndex) => {
+      if (!key) return;
+      rowMap[key] = values[columnIndex] ?? '';
+    });
+
+    const rowErrors: string[] = [];
+    const dto = mode === 'BASICO'
+      ? buildDtoFromBasicRow(rowMap, rowNumber, rowErrors)
+      : buildDtoFromFullRow(rowMap, rowNumber, rowErrors);
+
+    if (!dto || rowErrors.length > 0) {
+      errors.push({
+        rowNumber,
+        documentReference: buildDocumentReference(rowMap),
+        messages: rowErrors.length > 0 ? rowErrors : ['No se pudo transformar el registro'],
+      });
+      return;
+    }
+
+    dtos.push(dto);
+  });
+
+  return {
+    dtos,
+    errors,
+    totalRows,
+    validRows: dtos.length,
+  };
+};
+
+type ModeMeta = {
+  label: string;
+  description: string;
+  instructions: string;
+  requiredColumns: string[];
+  optionalColumns: string[];
+  templateHeaders: string[];
+  templateExample: string[];
+};
+
+const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
+  BASICO: {
+    label: 'Importación básica',
+    description: 'Carga masiva con los campos mínimos para dar de alta o actualizar clientes rápidamente.',
+    instructions: 'Complete los campos obligatorios (TipoDocumento, NumeroDocumento, RazonSocialNombre y Estado). No elimine ni reordene las columnas.',
+    requiredColumns: ['TipoDocumento', 'NumeroDocumento', 'RazonSocialNombre', 'Estado'],
+    optionalColumns: ['TipoCuenta', 'Correo1', 'Correo2', 'Telefono1', 'Telefono2', 'Direccion'],
+    templateHeaders: [
+      'TipoDocumento',
+      'NumeroDocumento',
+      'RazonSocialNombre',
+      'TipoCuenta',
+      'Correo1',
+      'Correo2',
+      'Telefono1',
+      'Telefono2',
+      'Estado',
+      'Direccion',
+    ],
+    templateExample: [
+      'RUC',
+      '20123456789',
+      'EMPRESA DEMO SAC',
+      'Cliente',
+      'contacto@demo.com',
+      '',
+      '012345678',
+      '',
+      'Habilitado',
+      'Av. Principal 123 Lima',
+    ],
+  },
+  COMPLETO: {
+    label: 'Importación completa',
+    description: 'Incluye todo el catálogo de campos (excepto los datos que provienen de SUNAT) para crear o actualizar clientes detalladamente.',
+    instructions: 'Respete los encabezados y utilice “Sí/No” para banderas booleanas. Si un cliente se importa varias veces, se actualizará usando el número de documento.',
+    requiredColumns: ['TipoDocumento', 'NumeroDocumento', 'NombreCompleto/RazonSocial', 'EstadoCliente'],
+    optionalColumns: [
+      'TipoCuenta', 'TipoPersona', 'NombreComercial', 'PrimerNombre', 'SegundoNombre', 'ApellidoPaterno', 'ApellidoMaterno',
+      'Correo1', 'Correo2', 'Correo3', 'Telefono1', 'Telefono1Tipo', 'Telefono2', 'Telefono2Tipo', 'Telefono3', 'Telefono3Tipo',
+      'Direccion', 'ReferenciaDireccion', 'Pais', 'Departamento', 'Provincia', 'Distrito', 'Ubigeo',
+      'FormaPago', 'MonedaPreferida', 'ListaPrecio', 'UsuarioAsignado', 'ClientePorDefecto', 'ExceptuadaPercepcion', 'Observaciones'
+    ],
+    templateHeaders: [
+      'TipoDocumento',
+      'NumeroDocumento',
+      'TipoCuenta',
+      'TipoPersona',
+      'RazonSocial',
+      'NombreComercial',
+      'PrimerNombre',
+      'SegundoNombre',
+      'ApellidoPaterno',
+      'ApellidoMaterno',
+      'NombreCompleto',
+      'Correo1',
+      'Correo2',
+      'Correo3',
+      'Telefono1',
+      'Telefono1Tipo',
+      'Telefono2',
+      'Telefono2Tipo',
+      'Telefono3',
+      'Telefono3Tipo',
+      'PaginaWeb',
+      'Pais',
+      'Departamento',
+      'Provincia',
+      'Distrito',
+      'Ubigeo',
+      'Direccion',
+      'ReferenciaDireccion',
+      'TipoCliente',
+      'EstadoCliente',
+      'MotivoDeshabilitacion',
+      'FormaPago',
+      'MonedaPreferida',
+      'ListaPrecio',
+      'UsuarioAsignado',
+      'ClientePorDefecto',
+      'ExceptuadaPercepcion',
+      'Observaciones',
+    ],
+    templateExample: [
+      'DNI',
+      '45678912',
+      'Cliente',
+      'Natural',
+      '',
+      '',
+      'María',
+      'Fernanda',
+      'Lopez',
+      'Quispe',
+      'María Fernanda Lopez Quispe',
+      'maria@demo.com',
+      '',
+      '',
+      '987654321',
+      'Móvil',
+      '',
+      '',
+      '',
+      '',
+      'https://demo.com',
+      'PE',
+      'Lima',
+      'Lima',
+      'Miraflores',
+      '150122',
+      'Av. Demo 456',
+      'Edificio B',
+      'Natural',
+      'Habilitado',
+      '',
+      'Contado',
+      'PEN',
+      '',
+      '',
+      'No',
+      'No',
+      'Cliente importado desde plantilla',
+    ],
+  },
+};
+
+const formatNumber = (value: number): string => new Intl.NumberFormat('es-PE').format(value);
+
+const formatDateTime = (date: Date): string =>
+  date.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+
+const ImportarClientesPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useCaja();
-  const { applyTransientClientes, clearTransientClientes, transientCount } = useClientes();
+  const { bulkImportClientes, loading } = useClientes();
+
+  const [mode, setMode] = useState<ImportMode>('BASICO');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [report, setReport] = useState<ImportReport | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  type ImportError = { fila: number; motivo: string };
-  const [reporte, setReporte] = useState<{
-    totalFilas: number;
-    importadasOk: number;
-    conErrores: number;
-    errores: ImportError[];
-    candidatos: Cliente[];
-  }>({ totalFilas: 0, importadasOk: 0, conErrores: 0, errores: [], candidatos: [] });
+  const modeMeta = useMemo(() => IMPORT_MODE_CONFIG[mode], [mode]);
+  const isBusy = processing || loading;
 
-  const PRIMARY_COLOR = '#1478D4';
+  const handleModeChange = (nextMode: ImportMode) => {
+    setMode(nextMode);
+    setReport(null);
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
-  const cardClass = "bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700";
-  const buttonPrimaryClass = "px-6 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-md";
-  const buttonSecondaryClass = "px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-lg transition-all duration-200";
-  const buttonOutlineClass = "px-4 py-2 border-2 rounded-lg font-medium transition-all duration-200";
-  const iconButtonClass = "p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200";
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+  const handleDrag = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.type === 'dragenter' || event.type === 'dragover') {
       setDragActive(true);
-    } else if (e.type === "dragleave") {
+    } else if (event.type === 'dragleave') {
       setDragActive(false);
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-          file.type === "application/vnd.ms-excel") {
-        setSelectedFile(file);
-        showToast('success', '¡Archivo seleccionado!', `${file.name} está listo para importar`);
-      } else {
-        showToast('error', 'Tipo de archivo inválido', 'Por favor selecciona un archivo Excel (.xlsx o .xls)');
-      }
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      showToast('success', '¡Archivo seleccionado!', `${file.name} está listo para importar`);
-    }
-  };
-
-  const handleImport = async () => {
-    if (!selectedFile) {
-      showToast('warning', 'Sin archivo', 'Por favor selecciona un archivo Excel para importar');
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      showToast('error', 'Formato no compatible', 'Solo se aceptan archivos Excel (.xlsx o .xls)');
       return;
     }
-    setImporting(true);
 
-    try {
-      const data = await selectedFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      if (!sheet) {
-        showToast('error', 'Archivo inválido', 'No se encontró hoja en el archivo');
-        setImporting(false);
-        return;
-      }
+    setSelectedFile(file);
+    setReport(null);
+    showToast('success', 'Archivo listo', `${file.name} está listo para validar`);
+  };
 
-      const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      showToast('error', 'Formato no compatible', 'Solo se aceptan archivos Excel (.xlsx o .xls)');
+      return;
+    }
 
-      const errores: ImportError[] = [];
-      const candidatos: Cliente[] = [];
+    setSelectedFile(file);
+    setReport(null);
+    showToast('success', 'Archivo listo', `${file.name} está listo para validar`);
+  };
 
-      const normalizeKey = (k: string) => k.replace(/\s+/g, '').replace(/_/g, '').toLowerCase();
-
-      const getVal = (row: Record<string, unknown>, keys: string[]): string => {
-        const normRow: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(row)) {
-          normRow[normalizeKey(k)] = v;
-        }
-        for (const key of keys) {
-          const found = normRow[normalizeKey(key)];
-          if (found !== undefined && found !== null) return String(found).trim();
-        }
-        return '';
-      };
-
-  const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
-      const digits = (s: string) => s.replace(/\D/g, '');
-
-      const allowedDoc = new Set(['RUC', 'DNI', 'PASAPORTE', 'CARNET_EXTRANJERIA', 'SIN_DOCUMENTO']);
-
-      rows.forEach((row, idx) => {
-        const fila = idx + 2; // considerando encabezado en fila 1
-        const tipoDocumento = getVal(row, ['TipoDocumento']).toUpperCase();
-        const numeroDocumento = getVal(row, ['NumeroDocumento']);
-        const nombre = getVal(row, ['RazonSocial/Nombre', 'RazonSocial', 'Nombre']);
-        const email = getVal(row, ['Email']);
-        const telefonoRaw = getVal(row, ['Telefono']);
-        const estadoRaw = getVal(row, ['Estado']);
-
-        const errs: string[] = [];
-
-        if (!allowedDoc.has(tipoDocumento)) {
-          errs.push('TipoDocumento inválido');
-        }
-
-        const telDigits = digits(telefonoRaw);
-
-        // NumeroDocumento rules
-        if (tipoDocumento === 'RUC' && digits(numeroDocumento).length !== 11) errs.push('RUC debe tener 11 dígitos');
-        if (tipoDocumento === 'DNI' && digits(numeroDocumento).length !== 8) errs.push('DNI debe tener 8 dígitos');
-        if ((tipoDocumento === 'PASAPORTE' || tipoDocumento === 'CARNET_EXTRANJERIA') && numeroDocumento.trim().length < 6) errs.push('Nro documento debe tener al menos 6 caracteres');
-        if (tipoDocumento === 'SIN_DOCUMENTO' && numeroDocumento.trim().length > 0) errs.push('SIN_DOCUMENTO no debe tener número');
-
-        if (!nombre) errs.push('RazonSocial/Nombre requerido');
-        if (email && !isValidEmail(email)) errs.push('Email inválido');
-        if (telDigits && (telDigits.length < 7 || telDigits.length > 15)) errs.push('Teléfono debe tener 7 a 15 dígitos');
-
-        const estadoNorm = estadoRaw.toLowerCase();
-        let enabled: boolean | null = null;
-        if (['activo', '1', 'true'].includes(estadoNorm)) enabled = true;
-        else if (['inactivo', '0', 'false'].includes(estadoNorm)) enabled = false;
-        else errs.push('Estado inválido');
-
-  // Email y Teléfono son opcionales; si se incluyen, se validan por formato.
-
-        if (errs.length > 0) {
-          errores.push({ fila, motivo: errs.join('; ') });
-          return;
-        }
-
-        const docString = tipoDocumento === 'SIN_DOCUMENTO' ? 'Sin documento' : `${tipoDocumento} ${digits(numeroDocumento)}`;
-
-        const candidato: Cliente = {
-          id: `t-${Date.now()}-${idx}`,
-          name: nombre,
-          document: docString,
-          type: 'Cliente',
-          address: 'Sin dirección',
-          phone: telDigits,
-          email: email || undefined,
-          enabled: enabled ?? true,
-          transient: true,
-        };
-        candidatos.push(candidato);
-      });
-
-      const importadasOk = candidatos.length;
-      const conErrores = errores.length;
-      const totalFilas = rows.length;
-      setReporte({ totalFilas, importadasOk, conErrores, errores, candidatos });
-      if (importadasOk > 0) {
-        showToast('success', 'Archivo procesado', `Se validaron ${totalFilas} filas. Listas para aplicar: ${importadasOk}`);
-      }
-      if (conErrores > 0) {
-        showToast('warning', 'Validación con observaciones', `${conErrores} fila${conErrores === 1 ? '' : 's'} con errores`);
-      }
-    } catch (error) {
-      showToast('error', 'Error al importar', 'Ocurrió un error al procesar el archivo');
-    } finally {
-      setImporting(false);
+  const handleReset = () => {
+    setSelectedFile(null);
+    setReport(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   const handleDownloadTemplate = () => {
+    const meta = IMPORT_MODE_CONFIG[mode];
+    const headers = meta.templateHeaders;
+    const instructionRow = [meta.instructions, ...Array(Math.max(headers.length - 1, 0)).fill('')];
+    const data = [instructionRow, headers, meta.templateExample];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    worksheet['!cols'] = headers.map(() => ({ wch: 18 }));
+    worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(headers.length - 1, 0) } }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
+
+    const now = new Date();
+    const dateStamp = now.toISOString().split('T')[0];
+    const fileName = `Plantilla_${mode === 'BASICO' ? 'Basica' : 'Completa'}_${dateStamp}.xlsx`;
+
+    XLSX.writeFile(workbook, fileName);
+    showToast('success', 'Plantilla generada', 'Descargaste la plantilla más reciente');
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) {
+      showToast('warning', 'Selecciona un archivo', 'Debes adjuntar un Excel antes de importar');
+      return;
+    }
+
     try {
-      const headers = [
-        'TipoDocumento',
-        'NumeroDocumento',
-        'RazonSocial/Nombre',
-        'Email',
-        'Telefono',
-        'Estado'
-      ];
+      setProcessing(true);
 
-      const data = [
-        headers,
-        ['DNI', '12345678', 'Juan Pérez', 'juan.perez@correo.com', '987654321', 'Activo'],
-        ['RUC', '20123456789', 'Empresa SAC', '', '012345678', 'Inactivo'],
-        ['SIN_DOCUMENTO', '', 'Consumidor Final', '', '', 'Activo']
-      ];
+      const parseResult = await parseFile(selectedFile, mode);
 
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      // Anchos de columnas para mejor lectura
-      ws['!cols'] = [
-        { wch: 18 }, // TipoDocumento
-        { wch: 16 }, // NumeroDocumento
-        { wch: 32 }, // RazonSocial/Nombre
-        { wch: 28 }, // Email
-        { wch: 14 }, // Telefono
-        { wch: 12 }  // Estado
-      ];
+      const baseReport: ImportReport = {
+        mode,
+        fileName: selectedFile.name,
+        totalRows: parseResult.totalRows,
+        validRows: parseResult.validRows,
+        parseErrors: parseResult.errors,
+        executedAt: new Date(),
+      };
 
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+      if (parseResult.totalRows === 0) {
+        setReport(baseReport);
+        showToast('warning', 'Archivo vacío', 'La plantilla no contiene registros para procesar');
+        return;
+      }
 
-      const now = new Date();
-      const yyyy = now.getFullYear();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const dd = String(now.getDate()).padStart(2, '0');
-      const fileName = `Plantilla_Clientes_${yyyy}-${mm}-${dd}.xlsx`;
+      if (parseResult.validRows === 0) {
+        setReport(baseReport);
+        showToast('error', 'Sin registros válidos', 'Revisa las observaciones y corrige tu archivo');
+        return;
+      }
 
-      XLSX.writeFile(wb, fileName);
-      showToast('success', 'Plantilla lista', 'Se descargó la plantilla de clientes');
-    } catch {
-      showToast('error', 'No se pudo generar la plantilla', 'Intenta nuevamente');
+      const response = await bulkImportClientes({ modo: mode, registros: parseResult.dtos });
+
+      if (!response) {
+        setReport(baseReport);
+        return;
+      }
+
+      setReport({
+        ...baseReport,
+        backendSummary: response.summary,
+        backendErrors: response.summary.errors,
+        executedAt: new Date(),
+      });
+    } catch (error) {
+      console.error('[ImportarClientes] Error durante la importación', error);
+      showToast('error', 'Error inesperado', 'Ocurrió un problema al procesar el archivo');
+    } finally {
+      setProcessing(false);
     }
   };
 
-  return (
-    <div className="flex-1 bg-gray-50 dark:bg-gray-900 min-h-screen p-8">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={() => navigate('/clientes')}
-          className={iconButtonClass}
-          title="Volver a Clientes"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Importar Clientes</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Importa múltiples clientes desde un archivo Excel
-          </p>
-        </div>
+    const renderStat = (label: string, value: number | string, tone: 'primary' | 'success' | 'warning' | 'neutral') => {
+      const palette: Record<'primary' | 'success' | 'warning' | 'neutral', string> = {
+      primary: 'text-blue-700 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300',
+      success: 'text-green-700 bg-green-50 dark:bg-green-900/30 dark:text-green-300',
+      warning: 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-300',
+      neutral: 'text-gray-700 bg-gray-50 dark:bg-gray-700/40 dark:text-gray-200',
+    };
+
+    return (
+      <div className={`rounded-lg px-3 py-2 text-center ${palette[tone]}`}>
+        <div className="text-xs font-medium uppercase tracking-wide opacity-80">{label}</div>
+        <div className="text-lg font-semibold">{typeof value === 'number' ? formatNumber(value) : value}</div>
       </div>
+    );
+  };
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Zona de carga */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className={cardClass}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Archivo de Clientes</h2>
-                <button
-                  onClick={handleDownloadTemplate}
-                  className={buttonOutlineClass}
-                  style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR }}
-                >
-                  <Download className="w-4 h-4 inline mr-2" />
-                  Descargar Plantilla
-                </button>
-              </div>
+  const renderErrorList = (title: string, errorsList: ValidationError[]) => (
+    <div className="space-y-2">
+      <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <AlertCircle className="w-4 h-4 text-amber-500" />
+        {title}
+      </h4>
+      <div className="max-h-48 overflow-y-auto rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/10 px-3 py-2">
+        <ul className="space-y-1 text-xs text-amber-900 dark:text-amber-200">
+          {errorsList.map((item, index) => (
+            <li key={`${item.rowNumber}-${index}`}>
+              <span className="font-semibold">Fila {item.rowNumber}</span>
+              {item.documentReference ? ` · ${item.documentReference}` : ''}
+              {': '}
+              {item.messages.join('; ')}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
 
-              {/* Drop Zone */}
-              <div
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`
-                  relative border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all duration-200
-                  ${dragActive
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'
-                  }
-                `}
+  return (
+    <div className="flex-1 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <div className="px-6 py-6 lg:px-12 lg:py-10">
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => navigate('/clientes')}
+            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            title="Volver al listado"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Importación de clientes</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Importa registros nuevos o actualiza clientes existentes usando el número de documento como identificador.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-6">
+          {(Object.keys(IMPORT_MODE_CONFIG) as ImportMode[]).map((modeKey) => {
+            const meta = IMPORT_MODE_CONFIG[modeKey];
+            const isActive = modeKey === mode;
+            return (
+              <button
+                key={modeKey}
+                onClick={() => handleModeChange(modeKey)}
+                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                  isActive
+                    ? 'border-blue-600 bg-blue-600 text-white shadow'
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200'
+                }`}
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
+                {meta.label}
+              </button>
+            );
+          })}
+        </div>
 
-                {selectedFile ? (
-                  <div className="flex flex-col items-center">
-                    <FileSpreadsheet className="w-16 h-16 text-green-500 mb-4" />
-                    <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      {selectedFile.name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      {(selectedFile.size / 1024).toFixed(2)} KB
-                    </p>
+        <div className="grid gap-6 lg:grid-cols-[1.7fr,1fr]">
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+              <div className="p-6 space-y-5">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Archivo de importación</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Descarga la plantilla correspondiente, complétala y súbela sin modificar los encabezados.</p>
+                  </div>
+                  <div className="flex gap-2">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedFile(null);
-                      }}
-                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
+                      onClick={handleDownloadTemplate}
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:border-blue-500 dark:hover:bg-blue-900/30"
                     >
-                      <X className="w-4 h-4 inline mr-1" />
-                      Eliminar archivo
+                      <Download className="w-4 h-4" />
+                      Descargar plantilla
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (selectedFile) {
+                          handleReset();
+                        }
+                        fileInputRef.current?.click();
+                      }}
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
+                    >
+                      <RefreshCcw className="w-4 h-4" />
+                      {selectedFile ? 'Cambiar archivo' : 'Buscar archivo'}
                     </button>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <Upload className="w-16 h-16 text-gray-400 dark:text-gray-500 mb-4" />
-                    <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      Arrastra y suelta tu archivo aquí
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      o haz clic para seleccionar
-                    </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
-                      Formatos soportados: .xlsx, .xls
-                    </p>
+                </div>
+
+                <div
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                  className={`rounded-2xl border-2 border-dashed transition-colors p-8 text-center cursor-pointer ${
+                    dragActive
+                      ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
+                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-400/80'
+                  }`}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+
+                  {selectedFile ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <FileSpreadsheet className="w-12 h-12 text-green-500" />
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedFile.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleReset();
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400"
+                      >
+                        <XCircle className="w-3 h-3" />
+                        Quitar archivo
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                      <Upload className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+                      <span className="font-medium">Arrastra y suelta tu archivo aquí</span>
+                      <span className="text-xs">o haz clic para seleccionar desde tu equipo</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">Formatos aceptados: .xlsx, .xls</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
+                  <button
+                    onClick={() => navigate('/clientes')}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
+                    disabled={isBusy}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleReset}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
+                    disabled={!selectedFile || isBusy}
+                  >
+                    Limpiar
+                  </button>
+                  <button
+                    onClick={handleImport}
+                    disabled={!selectedFile || isBusy}
+                    className={`inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg text-white transition ${
+                      !selectedFile || isBusy
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
+                  >
+                    {isBusy ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Importar ahora
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+              <div className="p-6 space-y-6">
+                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <div>
+                    <h3 className="text-lg font-semibold">Resultados de la importación</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Se actualiza automáticamente después de cada carga.</p>
                   </div>
+                </div>
+
+                {report ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {renderStat('Filas procesadas', report.totalRows, 'primary')}
+                      {renderStat('Registros válidos', report.validRows, 'success')}
+                      {renderStat('Errores de archivo', report.parseErrors.length, 'warning')}
+                      {renderStat('Última ejecución', formatDateTime(report.executedAt), 'neutral')}
+                    </div>
+
+                    {report.backendSummary && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {renderStat('Creados', report.backendSummary.created, 'success')}
+                        {renderStat('Actualizados', report.backendSummary.updated, 'primary')}
+                        {renderStat('Omitidos', report.backendSummary.skipped, 'warning')}
+                      </div>
+                    )}
+
+                    {report.parseErrors.length > 0 && renderErrorList('Observaciones detectadas en el archivo', report.parseErrors)}
+
+                    {report.backendErrors && report.backendErrors.length > 0 && (
+                      renderErrorList(
+                        'Observaciones durante la importación',
+                        report.backendErrors.map((item) => ({
+                          rowNumber: item.rowNumber,
+                          documentReference: item.documentReference,
+                          messages: [item.reason],
+                        }))
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Aún no se ha realizado ninguna importación en esta sesión. Carga un archivo para ver el resumen aquí.
+                  </p>
                 )}
               </div>
-
-              {/* Botones de importar/aplicar */}
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={() => navigate('/clientes')}
-                  className={buttonSecondaryClass}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleImport}
-                  disabled={!selectedFile || importing}
-                  className={buttonPrimaryClass}
-                  style={{
-                    backgroundColor: (!selectedFile || importing) ? '#9CA3AF' : PRIMARY_COLOR,
-                    cursor: (!selectedFile || importing) ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {importing ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline mr-2"></div>
-                      Importando...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 inline mr-2" />
-                      Importar Clientes
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    if (reporte.candidatos.length === 0) return;
-                    applyTransientClientes(reporte.candidatos);
-                  }}
-                  disabled={reporte.candidatos.length === 0 || reporte.conErrores > 0}
-                  className={buttonOutlineClass}
-                  style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR, opacity: (reporte.candidatos.length === 0 || reporte.conErrores > 0) ? 0.6 : 1 }}
-                >
-                  Aplicar al listado
-                </button>
-                <button
-                  onClick={() => clearTransientClientes()}
-                  disabled={transientCount === 0}
-                  className={buttonOutlineClass}
-                  style={{ borderColor: '#D97706', color: '#D97706', opacity: transientCount === 0 ? 0.6 : 1 }}
-                >
-                  Deshacer importación
-                </button>
-              </div>
             </div>
           </div>
 
-          {/* Reporte de validación */}
-          <div className={cardClass}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Reporte de validación</h2>
-              </div>
-              {reporte.totalFilas === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Aún no se ha procesado ningún archivo.</p>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Filas</div>
-                      <div className="text-xl font-bold text-gray-900 dark:text-white">{reporte.totalFilas}</div>
-                    </div>
-                    <div className="bg-green-50 dark:bg-green-900/30 rounded-lg p-3 text-center">
-                      <div className="text-xs text-green-700 dark:text-green-300">Importadas</div>
-                      <div className="text-xl font-bold text-green-700 dark:text-green-300">{reporte.importadasOk}</div>
-                    </div>
-                    <div className="bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-3 text-center">
-                      <div className="text-xs text-yellow-700 dark:text-yellow-300">Errores</div>
-                      <div className="text-xl font-bold text-yellow-700 dark:text-yellow-300">{reporte.conErrores}</div>
-                    </div>
-                    <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-3 text-center">
-                      <div className="text-xs text-blue-700 dark:text-blue-300">Transitorios</div>
-                      <div className="text-xl font-bold text-blue-700 dark:text-blue-300">{transientCount}</div>
-                    </div>
-                  </div>
-                  {reporte.errores.length > 0 && (
-                    <div className="mt-4">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Errores</h3>
-                      <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc pl-5">
-                        {reporte.errores.map((e, i) => (
-                          <li key={`${e.fila}-${i}`}>Fila {e.fila}: {e.motivo}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Panel de instrucciones */}
-        <div className="space-y-6">
-          <div className={cardClass}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                  <Info className="w-5 h-5 mr-2" style={{ color: PRIMARY_COLOR }} />
-                  Instrucciones
-                </h3>
-              </div>
-
-              <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs"
-                    style={{ backgroundColor: PRIMARY_COLOR }}>
-                    1
-                  </div>
-                  <p>Descarga la plantilla de Excel con el formato correcto</p>
-                </div>
-
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs"
-                    style={{ backgroundColor: PRIMARY_COLOR }}>
-                    2
-                  </div>
-                  <p>Completa los datos de tus clientes en el archivo</p>
-                </div>
-
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs"
-                    style={{ backgroundColor: PRIMARY_COLOR }}>
-                    3
-                  </div>
-                  <p>Arrastra el archivo o haz clic para seleccionarlo</p>
-                </div>
-
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs"
-                    style={{ backgroundColor: PRIMARY_COLOR }}>
-                    4
-                  </div>
-                  <p>Haz clic en "Importar Clientes" para procesar el archivo</p>
-                </div>
-              </div>
-
-              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div className="flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+          <aside className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100">
+                  <Info className="w-5 h-5 text-blue-500" />
                   <div>
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">
-                      Campos requeridos
-                    </p>
-                    <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-                      <li>• Nombre/Razón Social</li>
-                      <li>• Tipo de Documento</li>
-                      <li>• Número de Documento</li>
-                      <li>• Estado (Activo/Inactivo)</li>
+                    <h3 className="text-lg font-semibold">Guía rápida</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{modeMeta.description}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                  <div className="flex gap-3">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">1</div>
+                    <span>Descarga la plantilla y revisa las instrucciones de la fila 1.</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">2</div>
+                    <span>Completa la información respetando los encabezados y formatos.</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">3</div>
+                    <span>Importa el archivo; los clientes existentes se actualizarán usando el número de documento.</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <p className="uppercase text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Campos obligatorios</p>
+                    <ul className="space-y-1 text-gray-700 dark:text-gray-300 list-disc list-inside">
+                      {modeMeta.requiredColumns.map((column) => (
+                        <li key={column}>{column}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="uppercase text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Campos opcionales</p>
+                    <ul className="space-y-1 text-gray-600 dark:text-gray-400 list-disc list-inside">
+                      {modeMeta.optionalColumns.map((column) => (
+                        <li key={column}>{column}</li>
+                      ))}
                     </ul>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Estadísticas rápidas */}
-          <div className={cardClass}>
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Información
-              </h3>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Formato</span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">.xlsx, .xls</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Users className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Límite</span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Sin límite</span>
+                <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 text-xs text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Recomendaciones</p>
+                  <ul className="space-y-1 list-disc list-inside">
+                    <li>No incluyas fórmulas ni celdas combinadas.</li>
+                    <li>Para booleans usa “Sí” o “No”.</li>
+                    <li>Los teléfonos deben contener entre 6 y 15 dígitos.</li>
+                    <li>Los correos deben tener un formato válido.</li>
+                  </ul>
                 </div>
               </div>
             </div>
-          </div>
+
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+              <div className="p-6 space-y-4 text-sm text-gray-600 dark:text-gray-300">
+                <h4 className="text-base font-semibold text-gray-900 dark:text-white">Detalles de la sesión</h4>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Modo seleccionado</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{modeMeta.label}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Archivo adjunto</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {selectedFile ? selectedFile.name : 'Sin archivo'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Estado actual</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{isBusy ? 'Procesando...' : 'En espera'}</span>
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
     </div>

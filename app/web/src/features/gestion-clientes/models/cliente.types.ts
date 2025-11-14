@@ -271,6 +271,32 @@ export interface UpdateClienteDTO extends Partial<CreateClienteDTO> {
   enabled?: boolean;
 }
 
+export type ImportMode = 'BASICO' | 'COMPLETO';
+
+export interface BulkImportRequest {
+  modo: ImportMode;
+  registros: CreateClienteDTO[];
+}
+
+export interface BulkImportError {
+  rowNumber: number;
+  documentReference: string;
+  reason: string;
+}
+
+export interface BulkImportSummary {
+  processed: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: BulkImportError[];
+}
+
+export interface BulkImportResponse {
+  summary: BulkImportSummary;
+  clientes: Cliente[];
+}
+
 export interface ReniecResponse {
   success: boolean;
   data?: {
