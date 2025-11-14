@@ -278,6 +278,60 @@ const normalizeKey = (value: string): string =>
 
 const onlyDigits = (value: string): string => value.replace(/\D+/g, '');
 
+const UBIGEO_EXPECTED_DIGITS = 6;
+
+const normalizeDocumentNumber = (
+  rawCode: string,
+  rawValue: string,
+  errors?: string[]
+): string => {
+  const code = (rawCode ?? '').trim().toUpperCase();
+  const trimmed = (rawValue ?? '').trim();
+
+  if (!code) {
+    return trimmed;
+  }
+
+  const requiredDigits = DOCUMENT_REQUIRED_DIGITS[code];
+  if (!requiredDigits) {
+    return trimmed;
+  }
+
+  const digits = onlyDigits(trimmed);
+  if (!digits) {
+    if (trimmed) {
+      errors?.push(`El número de documento para el código ${code} solo puede contener dígitos.`);
+    }
+    return '';
+  }
+
+  if (digits.length > requiredDigits) {
+    errors?.push(`El número de documento excede los ${requiredDigits} dígitos permitidos (${digits.length}).`);
+    return digits;
+  }
+
+  return digits.padStart(requiredDigits, '0');
+};
+
+const normalizeUbigeoCode = (rawValue: string, errors?: string[]): string => {
+  const trimmed = (rawValue ?? '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const digits = onlyDigits(trimmed);
+  if (!digits) {
+    errors?.push('El UBIGEO solo puede contener dígitos.');
+    return '';
+  }
+
+  if (digits.length < UBIGEO_EXPECTED_DIGITS) {
+    return digits.padStart(UBIGEO_EXPECTED_DIGITS, '0');
+  }
+
+  return digits;
+};
+
 const isValidEmail = (value: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -436,10 +490,6 @@ const buildDtoFromBasicRecord = (
     missingColumns.push('CODIGO TIPO DE DOCUMENTO');
   }
 
-  if (!row.numeroDocumento) {
-    missingColumns.push('NUM. DOCUMENTO');
-  }
-
   const codigo = row.codigoDocumento.toUpperCase();
   const documentType = codigo ? DOCUMENT_CODE_TO_TYPE[codigo] : undefined;
 
@@ -447,15 +497,15 @@ const buildDtoFromBasicRecord = (
     errors.push(`Código de tipo de documento inválido (${row.codigoDocumento || 'vacío'})`);
   }
 
-  const requiredDigits = codigo ? DOCUMENT_REQUIRED_DIGITS[codigo] : undefined;
-  const documentNumber = requiredDigits ? onlyDigits(row.numeroDocumento) : row.numeroDocumento.trim();
+  const documentNumber = normalizeDocumentNumber(codigo, row.numeroDocumento, errors);
 
-  if (requiredDigits && documentNumber.length !== requiredDigits) {
-    errors.push(`El número de documento debe tener ${requiredDigits} dígitos para el código ${codigo}`);
-  }
+  const requiresDocumentNumber = documentType
+    ? !['SIN_DOCUMENTO', 'NO_DOMICILIADO', 'DOC_IDENTIF_PERS_NAT_NO_DOM'].includes(documentType)
+    : false;
 
-  if (!documentNumber) {
+  if (requiresDocumentNumber && !documentNumber) {
     missingColumns.push('NUM. DOCUMENTO');
+    errors.push('Número de documento requerido');
   }
 
   if (documentType === 'RUC') {
@@ -498,7 +548,7 @@ const buildDtoFromBasicRecord = (
     errors.push(`El teléfono debe tener entre 6 y 15 dígitos (${telefonoDigits})`);
   }
 
-  if (!documentType || !clientType || !documentNumber || errors.length > 0) {
+  if (!documentType || !clientType || (requiresDocumentNumber && !documentNumber) || errors.length > 0) {
     return null;
   }
 
@@ -584,24 +634,20 @@ const buildDtoFromCompleteRecord = (
   const codigo = row.codigoDocumento.toUpperCase();
   const docDefinition = row.codigoDocumento ? resolveDocument(row.codigoDocumento) : null;
 
+  const normalizeCode = docDefinition?.nuevo ?? codigo;
+  const documentNumber = normalizeDocumentNumber(normalizeCode, row.numeroDocumento, errors);
+
   if (!docDefinition) {
     errors.push(`Código de tipo de documento inválido (${row.codigoDocumento || 'vacío'})`);
   }
 
-  const requiredDigits = docDefinition?.requiredDigits;
-  const documentNumber = requiredDigits ? onlyDigits(row.numeroDocumento) : row.numeroDocumento.trim();
+  const requiresDocumentNumber = docDefinition
+    ? !['SIN_DOCUMENTO', 'NO_DOMICILIADO'].includes(docDefinition.legacy)
+    : codigo !== '0';
 
-  if (docDefinition && docDefinition.legacy !== 'SIN_DOCUMENTO' && docDefinition.legacy !== 'NO_DOMICILIADO') {
-    if (!row.numeroDocumento) {
-      missingColumns.push('NUM. DOCUMENTO');
-    }
-    if (!documentNumber) {
-      errors.push('Número de documento requerido');
-    }
-  }
-
-  if (requiredDigits && documentNumber.length !== requiredDigits) {
-    errors.push(`El número de documento debe tener ${requiredDigits} dígitos para el código ${codigo}`);
+  if (requiresDocumentNumber && !documentNumber) {
+    missingColumns.push('NUM. DOCUMENTO');
+    errors.push('Número de documento requerido');
   }
 
   const clientTypeKey = normalizeKey(row.tipoCuenta);
@@ -693,6 +739,8 @@ const buildDtoFromCompleteRecord = (
     return null;
   }
 
+  const ubigeo = normalizeUbigeoCode(row.ubigeo, errors);
+
   const payload: CreateClienteDTO = {
     documentType: docDefinition.legacy,
     documentNumber: documentNumber || '',
@@ -714,11 +762,11 @@ const buildDtoFromCompleteRecord = (
     nombreCompleto: nombrePrincipal,
     emails: emails.length > 0 ? emails : undefined,
     telefonos: telefonos.length > 0 ? telefonos : undefined,
-    pais: row.departamento || row.provincia || row.distrito || row.ubigeo ? 'PE' : undefined,
+    pais: row.departamento || row.provincia || row.distrito || ubigeo ? 'PE' : undefined,
     departamento: row.departamento || undefined,
     provincia: row.provincia || undefined,
     distrito: row.distrito || undefined,
-    ubigeo: row.ubigeo || undefined,
+    ubigeo: ubigeo || undefined,
     direccion: row.direccion || undefined,
     referenciaDireccion: row.referencia || undefined,
     estadoCliente,
@@ -773,10 +821,8 @@ const parseBasicSheet = (rows: Array<Array<string | number>>): ParseResult => {
     const rowErrors: string[] = [];
 
     const docCode = basicRow.codigoDocumento.toUpperCase();
-    const docNumberForReference = docCode && DOCUMENT_REQUIRED_DIGITS[docCode]
-      ? onlyDigits(basicRow.numeroDocumento)
-      : basicRow.numeroDocumento.trim();
-    const documentReference = buildDocumentReferenceFromBasic(docCode, docNumberForReference || basicRow.numeroDocumento);
+    const normalizedReferenceNumber = normalizeDocumentNumber(docCode, basicRow.numeroDocumento);
+    const documentReference = buildDocumentReferenceFromBasic(docCode, normalizedReferenceNumber || basicRow.numeroDocumento);
 
     const dto = buildDtoFromBasicRecord(basicRow, rowErrors);
 
@@ -830,9 +876,7 @@ const parseCompleteSheet = (rows: Array<Array<string | number>>): ParseResult =>
     const rowErrors: string[] = [];
 
     const codigo = completeRow.codigoDocumento.toUpperCase();
-    const numeroReferencia = codigo && DOCUMENT_REQUIRED_DIGITS[codigo]
-      ? onlyDigits(completeRow.numeroDocumento)
-      : completeRow.numeroDocumento.trim();
+    const numeroReferencia = normalizeDocumentNumber(codigo, completeRow.numeroDocumento);
     const documentReference = buildDocumentReferenceFromBasic(codigo, numeroReferencia || completeRow.numeroDocumento);
 
     const dto = buildDtoFromCompleteRecord(completeRow, rowErrors);
