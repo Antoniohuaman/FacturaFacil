@@ -98,9 +98,6 @@ function ClientesPage() {
 
 	const [formData, setFormData] = useState<ClienteFormData>(getInitialFormData());
 
-		// Indicador de filtros activos (sin polling)
-		const [filtersActive, setFiltersActive] = useState(false);
-
 	const handleExportClients = async () => {
 		try {
 			const workbook = new ExcelJS.Workbook();
@@ -450,7 +447,7 @@ function ClientesPage() {
 			{/* Contenido */}
 			<div className="px-6 pt-6 pb-6">
 						<ClientesFilters
-							active={filtersActive}
+							active={clientesTableRef.current?.hasActiveFilters() || false}
 							onClearFilters={() => clientesTableRef.current?.clearAllFilters()}
 						/>
 				{loading ? (
@@ -479,7 +476,6 @@ function ClientesPage() {
 									clients={combinedClients}
 									onEditClient={handleEditClient}
 									onDeleteClient={handleDeleteClient}
-									onFiltersActiveChange={setFiltersActive}
 								/>
 				)}
 			</div>
