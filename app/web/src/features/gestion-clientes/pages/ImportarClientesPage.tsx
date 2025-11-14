@@ -47,6 +47,86 @@ type ImportReport = {
   executedAt: Date;
 };
 
+const BASIC_TEMPLATE_PATH = '/plantillas/Plantilla_ImportacionClientes_basico.xlsx';
+
+const BASIC_TEMPLATE_HEADERS = [
+  'TIPO DE CUENTA',
+  'CODIGO TIPO DE DOCUMENTO',
+  'NUM. DOCUMENTO',
+  'RAZON SOCIAL ',
+  'APELLIDO PATERNO',
+  'APELLIDO MATERNO',
+  'NOMBRE 1',
+  'NOMBRE 2',
+  'TELEFONO',
+  'CORREO',
+  'DIRECCION',
+  'DEPARTAMENTO',
+  'PROVINCIA',
+  'DISTRITO',
+] as const;
+
+type BasicTemplateHeader = typeof BASIC_TEMPLATE_HEADERS[number];
+
+const normalizeTemplateHeader = (header: string): string => header.trim().replace(/\s+/g, ' ').toUpperCase();
+
+const BASIC_HEADER_NORMALIZED_TO_CANONICAL: Record<string, BasicTemplateHeader> = {
+  'TIPO DE CUENTA': 'TIPO DE CUENTA',
+  'CODIGO TIPO DE DOCUMENTO': 'CODIGO TIPO DE DOCUMENTO',
+  'NUM. DOCUMENTO': 'NUM. DOCUMENTO',
+  'RAZON SOCIAL': 'RAZON SOCIAL ',
+  'APELLIDO PATERNO': 'APELLIDO PATERNO',
+  'APELLIDO MATERNO': 'APELLIDO MATERNO',
+  'NOMBRE 1': 'NOMBRE 1',
+  'NOMBRE 2': 'NOMBRE 2',
+  'TELEFONO': 'TELEFONO',
+  'TELÉFONO': 'TELEFONO',
+  'CORREO': 'CORREO',
+  'DIRECCION': 'DIRECCION',
+  'DIRECCIÓN': 'DIRECCION',
+  'DEPARTAMENTO': 'DEPARTAMENTO',
+  'PROVINCIA': 'PROVINCIA',
+  'DISTRITO': 'DISTRITO',
+};
+
+type BasicRowNormalized = {
+  tipoCuenta: string;
+  codigoDocumento: string;
+  numeroDocumento: string;
+  razonSocial: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  nombre1: string;
+  nombre2: string;
+  telefono: string;
+  correo: string;
+  direccion: string;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+};
+
+const DOCUMENT_CODE_TO_TYPE: Record<string, DocumentType> = {
+  '0': 'DOC_IDENTIF_PERS_NAT_NO_DOM',
+  '1': 'DNI',
+  '4': 'CARNET_EXTRANJERIA',
+  '6': 'RUC',
+  '7': 'PASAPORTE',
+  'A': 'CARNET_IDENTIDAD',
+  'B': 'DOC_IDENTIF_PERS_NAT_NO_DOM',
+  'C': 'DOC_IDENTIF_PERS_NAT_NO_DOM',
+  'D': 'DOC_IDENTIF_PERS_NAT_NO_DOM',
+  'E': 'TAM_TARJETA_ANDINA',
+  'F': 'CARNET_PERMISO_TEMP_PERMANENCIA',
+  'G': 'CARNET_IDENTIDAD',
+  'H': 'CARNET_PERMISO_TEMP_PERMANENCIA',
+};
+
+const DOCUMENT_REQUIRED_DIGITS: Record<string, number> = {
+  '1': 8,
+  '6': 11,
+};
+
 type DocumentDefinition = {
   tokens: string[];
   legacy: DocumentType;
@@ -230,6 +310,257 @@ const collectPhones = (
   return phones;
 };
 
+const buildDocumentReferenceFromBasic = (codigo: string, numero: string): string => {
+  const cleanCode = codigo.trim().toUpperCase();
+  const cleanedNumber = numero.trim();
+  if (!cleanCode && !cleanedNumber) {
+    return '-';
+  }
+  if (!cleanCode) {
+    return cleanedNumber || '-';
+  }
+  return `${cleanCode} ${cleanedNumber || '-'}`;
+};
+
+const buildBasicRow = (
+  values: string[],
+  indexMap: Record<BasicTemplateHeader, number>
+): BasicRowNormalized => {
+  const read = (header: BasicTemplateHeader): string => {
+    const idx = indexMap[header];
+    if (idx === undefined) {
+      return '';
+    }
+    return values[idx] ?? '';
+  };
+
+  return {
+    tipoCuenta: read('TIPO DE CUENTA').trim(),
+    codigoDocumento: read('CODIGO TIPO DE DOCUMENTO').trim(),
+    numeroDocumento: read('NUM. DOCUMENTO').trim(),
+    razonSocial: read('RAZON SOCIAL ').trim(),
+    apellidoPaterno: read('APELLIDO PATERNO').trim(),
+    apellidoMaterno: read('APELLIDO MATERNO').trim(),
+    nombre1: read('NOMBRE 1').trim(),
+    nombre2: read('NOMBRE 2').trim(),
+    telefono: read('TELEFONO').trim(),
+    correo: read('CORREO').trim(),
+    direccion: read('DIRECCION').trim(),
+    departamento: read('DEPARTAMENTO').trim(),
+    provincia: read('PROVINCIA').trim(),
+    distrito: read('DISTRITO').trim(),
+  };
+};
+
+const buildDtoFromBasicRecord = (
+  row: BasicRowNormalized,
+  errors: string[]
+): CreateClienteDTO | null => {
+  const missingColumns: string[] = [];
+
+  if (!row.tipoCuenta) {
+    missingColumns.push('TIPO DE CUENTA');
+  }
+
+  if (!row.codigoDocumento) {
+    missingColumns.push('CODIGO TIPO DE DOCUMENTO');
+  }
+
+  if (!row.numeroDocumento) {
+    missingColumns.push('NUM. DOCUMENTO');
+  }
+
+  const codigo = row.codigoDocumento.toUpperCase();
+  const documentType = codigo ? DOCUMENT_CODE_TO_TYPE[codigo] : undefined;
+
+  if (!documentType) {
+    errors.push(`Código de tipo de documento inválido (${row.codigoDocumento || 'vacío'})`);
+  }
+
+  const requiredDigits = codigo ? DOCUMENT_REQUIRED_DIGITS[codigo] : undefined;
+  const documentNumber = requiredDigits ? onlyDigits(row.numeroDocumento) : row.numeroDocumento.trim();
+
+  if (requiredDigits && documentNumber.length !== requiredDigits) {
+    errors.push(`El número de documento debe tener ${requiredDigits} dígitos para el código ${codigo}`);
+  }
+
+  if (!documentNumber) {
+    missingColumns.push('NUM. DOCUMENTO');
+  }
+
+  if (documentType === 'RUC') {
+    if (!row.razonSocial) {
+      missingColumns.push('RAZON SOCIAL');
+    }
+  } else {
+    if (!row.apellidoPaterno) {
+      missingColumns.push('APELLIDO PATERNO');
+    }
+    if (!row.apellidoMaterno) {
+      missingColumns.push('APELLIDO MATERNO');
+    }
+    if (!row.nombre1) {
+      missingColumns.push('NOMBRE 1');
+    }
+  }
+
+  if (missingColumns.length > 0) {
+    errors.push(`Faltan datos obligatorios: ${[...new Set(missingColumns)].join(', ')}`);
+  }
+
+  const tipoCuentaNormalized = normalizeKey(row.tipoCuenta);
+  const clientType = CLIENT_TYPE_MAP[tipoCuentaNormalized];
+
+  if (!clientType) {
+    errors.push(`Tipo de cuenta inválido (${row.tipoCuenta || 'vacío'})`);
+  }
+
+  const correo = row.correo ? row.correo.trim() : '';
+  if (correo && !isValidEmail(correo)) {
+    errors.push(`Correo inválido (${correo})`);
+  }
+
+  const telefonoDigits = row.telefono ? onlyDigits(row.telefono) : '';
+  if (row.telefono && !telefonoDigits) {
+    errors.push(`Teléfono inválido (${row.telefono})`);
+  }
+  if (telefonoDigits && (telefonoDigits.length < 6 || telefonoDigits.length > 15)) {
+    errors.push(`El teléfono debe tener entre 6 y 15 dígitos (${telefonoDigits})`);
+  }
+
+  if (!documentType || !clientType || !documentNumber || errors.length > 0) {
+    return null;
+  }
+
+  const tipoPersona: TipoPersona = documentType === 'RUC' ? 'Juridica' : 'Natural';
+  const nombreCompleto = documentType === 'RUC'
+    ? row.razonSocial.trim()
+    : [row.nombre1, row.nombre2, row.apellidoPaterno, row.apellidoMaterno]
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .join(' ');
+
+  const payload: CreateClienteDTO = {
+    documentType,
+    documentNumber,
+    name: nombreCompleto,
+    type: clientType,
+    tipoDocumento: codigo,
+    numeroDocumento: documentNumber,
+    tipoPersona,
+    tipoCuenta: clientType,
+    nombreCompleto,
+  };
+
+  if (documentType === 'RUC') {
+    payload.razonSocial = row.razonSocial.trim();
+  } else {
+    payload.primerNombre = row.nombre1.trim();
+    if (row.nombre2.trim()) {
+      payload.segundoNombre = row.nombre2.trim();
+    }
+    payload.apellidoPaterno = row.apellidoPaterno.trim();
+    payload.apellidoMaterno = row.apellidoMaterno.trim();
+  }
+
+  if (correo) {
+    payload.email = correo;
+    payload.emails = [correo];
+  }
+
+  if (telefonoDigits) {
+    payload.phone = telefonoDigits;
+    payload.telefonos = [{ numero: telefonoDigits, tipo: 'Móvil' }];
+  }
+
+  if (row.direccion) {
+    payload.address = row.direccion;
+    payload.direccion = row.direccion;
+  }
+
+  if (row.departamento) {
+    payload.departamento = row.departamento;
+  }
+
+  if (row.provincia) {
+    payload.provincia = row.provincia;
+  }
+
+  if (row.distrito) {
+    payload.distrito = row.distrito;
+  }
+
+  if (row.departamento || row.provincia || row.distrito) {
+    payload.pais = 'PE';
+  }
+
+  return payload;
+};
+
+const parseBasicSheet = (rows: Array<Array<string | number>>): ParseResult => {
+  if (!rows.length) {
+    return { dtos: [], errors: [], totalRows: 0, validRows: 0 };
+  }
+
+  const headerRow = (rows[0] || []).map((cell) => (cell ?? '').toString());
+  const headerIndexMap: Partial<Record<BasicTemplateHeader, number>> = {};
+
+  headerRow.forEach((cell, index) => {
+    const canonical = BASIC_HEADER_NORMALIZED_TO_CANONICAL[normalizeTemplateHeader(cell ?? '')];
+    if (canonical) {
+      headerIndexMap[canonical] = index;
+    }
+  });
+
+  const missingHeaders = BASIC_TEMPLATE_HEADERS.filter((header) => headerIndexMap[header] === undefined);
+  if (missingHeaders.length > 0) {
+    throw new Error('La plantilla no coincide con los encabezados oficiales. Descarga nuevamente el archivo desde el botón "Descargar plantilla".');
+  }
+
+  const dtos: CreateClienteDTO[] = [];
+  const errors: ValidationError[] = [];
+  let totalRows = 0;
+
+  for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
+    const rawRow = rows[rowIndex] ?? [];
+    const values = rawRow.map((cell) => (cell ?? '').toString());
+    if (values.every((value) => value.trim() === '')) {
+      continue;
+    }
+
+    totalRows += 1;
+    const trimmedValues = values.map((value) => value.trim());
+    const basicRow = buildBasicRow(trimmedValues, headerIndexMap as Record<BasicTemplateHeader, number>);
+    const rowErrors: string[] = [];
+
+    const docCode = basicRow.codigoDocumento.toUpperCase();
+    const docNumberForReference = docCode && DOCUMENT_REQUIRED_DIGITS[docCode]
+      ? onlyDigits(basicRow.numeroDocumento)
+      : basicRow.numeroDocumento.trim();
+    const documentReference = buildDocumentReferenceFromBasic(docCode, docNumberForReference || basicRow.numeroDocumento);
+
+    const dto = buildDtoFromBasicRecord(basicRow, rowErrors);
+
+    if (!dto || rowErrors.length > 0) {
+      errors.push({
+        rowNumber: rowIndex + 1,
+        documentReference,
+        messages: rowErrors.length > 0 ? rowErrors : ['No se pudo transformar el registro'],
+      });
+      continue;
+    }
+
+    dtos.push(dto);
+  }
+
+  return {
+    dtos,
+    errors,
+    totalRows,
+    validRows: dtos.length,
+  };
+};
+
 const buildNombreNatural = (nombreCompleto: string): {
   primerNombre?: string;
   segundoNombre?: string;
@@ -269,113 +600,6 @@ const buildNombreNatural = (nombreCompleto: string): {
     segundoNombre: partes.slice(1, partes.length - 2).join(' ') || undefined,
     apellidoPaterno: partes[partes.length - 2],
     apellidoMaterno: partes[partes.length - 1],
-  };
-};
-
-const buildDtoFromBasicRow = (
-  row: Record<string, string>,
-  _rowNumber: number,
-  errors: string[]
-): CreateClienteDTO | null => {
-  const docDef = resolveDocument(row['tipodocumento'] || row['documentotype'] || '');
-  if (!docDef) {
-    errors.push('TipoDocumento inválido');
-    return null;
-  }
-
-  let documentNumber = row['numerodocumento'] || row['documento'] || '';
-  documentNumber = docDef.requiredDigits ? onlyDigits(documentNumber) : documentNumber.trim();
-
-  if (docDef.requiredDigits && documentNumber.length !== docDef.requiredDigits) {
-    errors.push(`El ${docDef.legacy} debe tener ${docDef.requiredDigits} dígitos`);
-  }
-
-  if (!documentNumber && docDef.legacy !== 'SIN_DOCUMENTO' && docDef.legacy !== 'NO_DOMICILIADO') {
-    errors.push('Número de documento requerido');
-  }
-
-  if (documentNumber && docDef.legacy === 'SIN_DOCUMENTO') {
-    errors.push('SIN_DOCUMENTO no debe tener número');
-  }
-
-  const nombre = row['razonsocialnombre'] || row['razonsocial'] || row['nombre'] || '';
-  const nombreLimpiado = nombre.trim();
-
-  if (!nombreLimpiado) {
-    errors.push('Nombre o razón social requerido');
-  }
-
-  const emails = collectEmails(row, ['correo', 'correo1', 'correo2', 'email', 'email1', 'email2'], errors, 2);
-  const telefonos = collectPhones(
-    row,
-    [
-      { number: 'telefono', type: 'tipotelefono' },
-      { number: 'telefono1', type: 'telefono1tipo' },
-      { number: 'telefono2', type: 'telefono2tipo' },
-    ],
-    errors
-  );
-
-  const estadoCliente = resolveEstado(row['estado']);
-
-  const tipoPersona = resolvePersona(row['tipopersona'], docDef.legacy);
-  const clientType = resolveClientType(row['tipocuenta']);
-
-  const nombreNatural = docDef.legacy === 'RUC' ? {} : buildNombreNatural(nombreLimpiado);
-
-  return {
-    documentType: docDef.legacy,
-    documentNumber: documentNumber || '',
-    name: docDef.legacy === 'RUC' ? nombreLimpiado : nombreLimpiado,
-    type: clientType,
-    address: row['direccion']?.trim() || undefined,
-    phone: telefonos[0]?.numero,
-    email: emails[0],
-    additionalData: undefined,
-    tipoDocumento: docDef.nuevo,
-    numeroDocumento: documentNumber || undefined,
-    tipoPersona,
-    tipoCuenta: clientType,
-    razonSocial: docDef.legacy === 'RUC' ? nombreLimpiado : undefined,
-    nombreComercial: undefined,
-    primerNombre: nombreNatural.primerNombre,
-    segundoNombre: nombreNatural.segundoNombre,
-    apellidoPaterno: nombreNatural.apellidoPaterno,
-    apellidoMaterno: nombreNatural.apellidoMaterno,
-    nombreCompleto: docDef.legacy === 'RUC' ? nombreLimpiado : nombreLimpiado,
-    emails,
-    telefonos,
-    paginaWeb: undefined,
-    pais: 'PE',
-    departamento: undefined,
-    provincia: undefined,
-    distrito: undefined,
-    ubigeo: undefined,
-    direccion: row['direccion']?.trim() || undefined,
-    referenciaDireccion: undefined,
-    tipoCliente: tipoPersona,
-    estadoCliente,
-    motivoDeshabilitacion: estadoCliente === 'Deshabilitado' ? 'Importado como deshabilitado' : undefined,
-    tipoContribuyente: undefined,
-    estadoContribuyente: undefined,
-    condicionDomicilio: undefined,
-    fechaInscripcion: undefined,
-    actividadesEconomicas: undefined,
-    sistemaEmision: undefined,
-    esEmisorElectronico: undefined,
-    cpeHabilitado: undefined,
-    esAgenteRetencion: undefined,
-    esAgentePercepcion: undefined,
-    esBuenContribuyente: undefined,
-    formaPago: 'Contado',
-    monedaPreferida: 'PEN',
-    listaPrecio: undefined,
-    usuarioAsignado: undefined,
-    clientePorDefecto: false,
-    exceptuadaPercepcion: false,
-    observaciones: undefined,
-    adjuntos: [],
-    imagenes: [],
   };
 };
 
@@ -549,6 +773,10 @@ const parseFile = async (file: File, mode: ImportMode): Promise<ParseResult> => 
     };
   }
 
+  if (mode === 'BASICO') {
+    return parseBasicSheet(rows);
+  }
+
   let headerRowIndex = 0;
   const firstCell = rows[0]?.[0]?.toString().toLowerCase() ?? '';
   if (firstCell.includes('instruccion')) {
@@ -579,9 +807,7 @@ const parseFile = async (file: File, mode: ImportMode): Promise<ParseResult> => 
     });
 
     const rowErrors: string[] = [];
-    const dto = mode === 'BASICO'
-      ? buildDtoFromBasicRow(rowMap, rowNumber, rowErrors)
-      : buildDtoFromFullRow(rowMap, rowNumber, rowErrors);
+    const dto = buildDtoFromFullRow(rowMap, rowNumber, rowErrors);
 
     if (!dto || rowErrors.length > 0) {
       errors.push({
@@ -616,33 +842,55 @@ type ModeMeta = {
 const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
   BASICO: {
     label: 'Importación básica',
-    description: 'Carga masiva con los campos mínimos para dar de alta o actualizar clientes rápidamente.',
-    instructions: 'Complete los campos obligatorios (TipoDocumento, NumeroDocumento, RazonSocialNombre y Estado). No elimine ni reordene las columnas.',
-    requiredColumns: ['TipoDocumento', 'NumeroDocumento', 'RazonSocialNombre', 'Estado'],
-    optionalColumns: ['TipoCuenta', 'Correo1', 'Correo2', 'Telefono1', 'Telefono2', 'Direccion'],
+    description: 'Usa la plantilla oficial para crear o actualizar clientes desde Excel respetando los encabezados originales.',
+    instructions: 'Descarga la plantilla desde el botón, completa los campos obligatorios y no agregues ni reordenes columnas.',
+    requiredColumns: [
+      'TIPO DE CUENTA',
+      'CODIGO TIPO DE DOCUMENTO',
+      'NUM. DOCUMENTO',
+      'RAZON SOCIAL (si el código es 6)',
+      'APELLIDOS Y NOMBRES (si el código es distinto de 6)',
+    ],
+    optionalColumns: [
+      'NOMBRE 2',
+      'TELEFONO',
+      'CORREO',
+      'DIRECCION',
+      'DEPARTAMENTO',
+      'PROVINCIA',
+      'DISTRITO',
+    ],
     templateHeaders: [
-      'TipoDocumento',
-      'NumeroDocumento',
-      'RazonSocialNombre',
-      'TipoCuenta',
-      'Correo1',
-      'Correo2',
-      'Telefono1',
-      'Telefono2',
-      'Estado',
-      'Direccion',
+      'TIPO DE CUENTA',
+      'CODIGO TIPO DE DOCUMENTO',
+      'NUM. DOCUMENTO',
+      'RAZON SOCIAL ',
+      'APELLIDO PATERNO',
+      'APELLIDO MATERNO',
+      'NOMBRE 1',
+      'NOMBRE 2',
+      'TELEFONO',
+      'CORREO',
+      'DIRECCION',
+      'DEPARTAMENTO',
+      'PROVINCIA',
+      'DISTRITO',
     ],
     templateExample: [
-      'RUC',
-      '20123456789',
-      'EMPRESA DEMO SAC',
-      'Cliente',
-      'contacto@demo.com',
+      'CLIENTE',
+      '6',
+      '23656985698',
+      'EJEMPLO EMPRESA SAC',
       '',
-      '012345678',
       '',
-      'Habilitado',
-      'Av. Principal 123 Lima',
+      '',
+      '',
+      '',
+      '',
+      'CALLE. EJEMPLO 4589 - LIMA - LIMA -SURCO',
+      'LIMA',
+      'LIMA',
+      'SURCO',
     ],
   },
   COMPLETO: {
@@ -818,6 +1066,11 @@ const ImportarClientesPage: React.FC = () => {
   };
 
   const handleDownloadTemplate = () => {
+    if (mode === 'BASICO') {
+      window.open(BASIC_TEMPLATE_PATH, '_blank');
+      return;
+    }
+
     const meta = IMPORT_MODE_CONFIG[mode];
     const headers = meta.templateHeaders;
     const instructionRow = [meta.instructions, ...Array(Math.max(headers.length - 1, 0)).fill('')];
@@ -832,7 +1085,7 @@ const ImportarClientesPage: React.FC = () => {
 
     const now = new Date();
     const dateStamp = now.toISOString().split('T')[0];
-    const fileName = `Plantilla_${mode === 'BASICO' ? 'Basica' : 'Completa'}_${dateStamp}.xlsx`;
+    const fileName = `Plantilla_Completa_${dateStamp}.xlsx`;
 
     XLSX.writeFile(workbook, fileName);
     showToast('success', 'Plantilla generada', 'Descargaste la plantilla más reciente');
@@ -885,14 +1138,15 @@ const ImportarClientesPage: React.FC = () => {
       });
     } catch (error) {
       console.error('[ImportarClientes] Error durante la importación', error);
-      showToast('error', 'Error inesperado', 'Ocurrió un problema al procesar el archivo');
+      const message = error instanceof Error ? error.message : 'Ocurrió un problema al procesar el archivo';
+      showToast('error', 'No se pudo procesar el archivo', message);
     } finally {
       setProcessing(false);
     }
   };
 
-    const renderStat = (label: string, value: number | string, tone: 'primary' | 'success' | 'warning' | 'neutral') => {
-      const palette: Record<'primary' | 'success' | 'warning' | 'neutral', string> = {
+  const renderStat = (label: string, value: number | string, tone: 'primary' | 'success' | 'warning' | 'neutral') => {
+    const palette: Record<'primary' | 'success' | 'warning' | 'neutral', string> = {
       primary: 'text-blue-700 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300',
       success: 'text-green-700 bg-green-50 dark:bg-green-900/30 dark:text-green-300',
       warning: 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-300',
@@ -977,13 +1231,24 @@ const ImportarClientesPage: React.FC = () => {
                     <p className="text-sm text-gray-500 dark:text-gray-400">Descarga la plantilla correspondiente, complétala y súbela sin modificar los encabezados.</p>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={handleDownloadTemplate}
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:border-blue-500 dark:hover:bg-blue-900/30"
-                    >
-                      <Download className="w-4 h-4" />
-                      Descargar plantilla
-                    </button>
+                    {mode === 'BASICO' ? (
+                      <a
+                        href={BASIC_TEMPLATE_PATH}
+                        download
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:border-blue-500 dark:hover:bg-blue-900/30"
+                      >
+                        <Download className="w-4 h-4" />
+                        Descargar plantilla
+                      </a>
+                    ) : (
+                      <button
+                        onClick={handleDownloadTemplate}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:border-blue-500 dark:hover:bg-blue-900/30"
+                      >
+                        <Download className="w-4 h-4" />
+                        Descargar plantilla
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         if (selectedFile) {
@@ -1148,15 +1413,15 @@ const ImportarClientesPage: React.FC = () => {
                 <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
                   <div className="flex gap-3">
                     <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">1</div>
-                    <span>Descarga la plantilla y revisa las instrucciones de la fila 1.</span>
+                    <span>Descarga la plantilla oficial desde el botón y evita modificar los encabezados.</span>
                   </div>
                   <div className="flex gap-3">
                     <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">2</div>
-                    <span>Completa la información respetando los encabezados y formatos.</span>
+                    <span>Llena los campos obligatorios usando los códigos SUNAT (0, 1, 4, 6, 7, A, B, etc.) para el tipo de documento.</span>
                   </div>
                   <div className="flex gap-3">
                     <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">3</div>
-                    <span>Importa el archivo; los clientes existentes se actualizarán usando el número de documento.</span>
+                    <span>Importa el archivo: si el número de documento ya existe, se actualiza; si no existe, se crea un nuevo cliente.</span>
                   </div>
                 </div>
 
@@ -1182,10 +1447,10 @@ const ImportarClientesPage: React.FC = () => {
                 <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 text-xs text-blue-800 dark:text-blue-200">
                   <p className="font-semibold mb-1">Recomendaciones</p>
                   <ul className="space-y-1 list-disc list-inside">
-                    <li>No incluyas fórmulas ni celdas combinadas.</li>
-                    <li>Para booleans usa “Sí” o “No”.</li>
-                    <li>Los teléfonos deben contener entre 6 y 15 dígitos.</li>
-                    <li>Los correos deben tener un formato válido.</li>
+                    <li>No insertes columnas ni cambies su orden.</li>
+                    <li>Usa textos simples (sin fórmulas) y elimina celdas combinadas.</li>
+                    <li>Verifica que el correo tenga formato válido y que el teléfono tenga entre 6 y 15 dígitos.</li>
+                    <li>Razón social es obligatoria para RUC; apellidos y nombres lo son para los demás códigos.</li>
                   </ul>
                 </div>
               </div>
