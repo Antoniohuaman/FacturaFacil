@@ -62,6 +62,54 @@ export interface Cliente {
   updatedAt?: string;
   /** Marcador de registro no persistido (solo en memoria) */
   transient?: boolean;
+  
+  // Campos extendidos del formulario (opcionales para retrocompatibilidad)
+  tipoDocumento?: string;
+  numeroDocumento?: string;
+  tipoPersona?: TipoPersona;
+  tipoCuenta?: ClientType;
+  razonSocial?: string;
+  nombreComercial?: string;
+  primerNombre?: string;
+  segundoNombre?: string;
+  apellidoPaterno?: string;
+  apellidoMaterno?: string;
+  nombreCompleto?: string;
+  emails?: string[];
+  telefonos?: Array<{ numero: string; tipo: string }>;
+  paginaWeb?: string;
+  pais?: string;
+  departamento?: string;
+  provincia?: string;
+  distrito?: string;
+  ubigeo?: string;
+  direccion?: string;
+  referenciaDireccion?: string;
+  tipoCliente?: string;
+  estadoCliente?: string;
+  motivoDeshabilitacion?: string;
+  tipoContribuyente?: string;
+  estadoContribuyente?: string;
+  condicionDomicilio?: string;
+  fechaInscripcion?: string;
+  actividadesEconomicas?: ActividadEconomica[];
+  sistemaEmision?: string;
+  esEmisorElectronico?: boolean;
+  cpeHabilitado?: Array<{ tipo: string; fecha: string }>;
+  esAgenteRetencion?: boolean;
+  esAgentePercepcion?: boolean;
+  esBuenContribuyente?: boolean;
+  formaPago?: string;
+  monedaPreferida?: string;
+  listaPrecio?: string;
+  usuarioAsignado?: string;
+  clientePorDefecto?: boolean;
+  exceptuadaPercepcion?: boolean;
+  observaciones?: string;
+  adjuntos?: File[];
+  imagenes?: File[];
+  fechaRegistro?: string;
+  fechaUltimaModificacion?: string;
 }
 
 export interface ClienteFormData {
