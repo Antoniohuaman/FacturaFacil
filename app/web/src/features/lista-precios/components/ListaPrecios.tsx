@@ -11,7 +11,8 @@ import { findBaseColumn } from '../utils/priceHelpers';
 type TabType = 'columns' | 'products' | 'packages';
 
 export const ListaPrecios: React.FC = () => {
-  const [localActiveTab, setLocalActiveTab] = useState<TabType>('columns');
+  // Estado local solo para el tab de Paquetes (que no está en el hook)
+  const [packagesTabActive, setPackagesTabActive] = useState(false);
 
   const {
     // State
@@ -20,6 +21,7 @@ export const ListaPrecios: React.FC = () => {
     filteredProducts,
     loading,
     error,
+    activeTab,
     showColumnModal,
     showProductPriceModal,
     editingColumn,
@@ -41,6 +43,18 @@ export const ListaPrecios: React.FC = () => {
   } = usePriceList();
 
   const baseColumn = findBaseColumn(columns);
+
+  // Determinar tab activo (preferencia al tab del hook para columns/products)
+  const currentTab: TabType = packagesTabActive ? 'packages' : activeTab;
+
+  const handleTabChange = (tab: TabType) => {
+    if (tab === 'packages') {
+      setPackagesTabActive(true);
+    } else {
+      setPackagesTabActive(false);
+      setActiveTab(tab);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -65,12 +79,12 @@ export const ListaPrecios: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6" role="tablist">
         <div className="flex space-x-8">
           <button
-            onClick={() => { setActiveTab('columns'); setLocalActiveTab('columns'); }}
+            onClick={() => handleTabChange('columns')}
             role="tab"
-            aria-selected={localActiveTab === 'columns'}
+            aria-selected={currentTab === 'columns'}
             aria-controls="columns-panel"
             className={`py-4 border-b-2 font-medium text-sm transition-colors ${
-              localActiveTab === 'columns'
+              currentTab === 'columns'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
@@ -78,12 +92,12 @@ export const ListaPrecios: React.FC = () => {
             Plantilla de columnas
           </button>
           <button
-            onClick={() => { setActiveTab('products'); setLocalActiveTab('products'); }}
+            onClick={() => handleTabChange('products')}
             role="tab"
-            aria-selected={localActiveTab === 'products'}
+            aria-selected={currentTab === 'products'}
             aria-controls="products-panel"
             className={`py-4 border-b-2 font-medium text-sm transition-colors ${
-              localActiveTab === 'products'
+              currentTab === 'products'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
@@ -91,12 +105,12 @@ export const ListaPrecios: React.FC = () => {
             Precios por producto
           </button>
           <button
-            onClick={() => setLocalActiveTab('packages')}
+            onClick={() => handleTabChange('packages')}
             role="tab"
-            aria-selected={localActiveTab === 'packages'}
+            aria-selected={currentTab === 'packages'}
             aria-controls="packages-panel"
             className={`py-4 border-b-2 font-medium text-sm transition-colors ${
-              localActiveTab === 'packages'
+              currentTab === 'packages'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
@@ -125,7 +139,7 @@ export const ListaPrecios: React.FC = () => {
               <p className="text-gray-600 dark:text-gray-400">{error}</p>
             </div>
           </div>
-        ) : localActiveTab === 'columns' ? (
+        ) : currentTab === 'columns' ? (
           <ColumnManagement
             columns={columns}
             onAddColumn={() => openColumnModal()}
@@ -134,7 +148,7 @@ export const ListaPrecios: React.FC = () => {
             onToggleVisibility={toggleColumnVisibility}
             onSetBaseColumn={setBaseColumn}
           />
-        ) : localActiveTab === 'products' ? (
+        ) : currentTab === 'products' ? (
           <ProductPricing
             columns={columns}
             products={products}

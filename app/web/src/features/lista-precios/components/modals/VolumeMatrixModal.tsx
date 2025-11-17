@@ -1,21 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, AlertCircle, Info, Search } from 'lucide-react';
-import type { Column, Product, VolumePriceForm, VolumeRange } from '../../models/PriceTypes';
+import type { Column, Product, VolumePriceForm, VolumeRange, CatalogProduct } from '../../models/PriceTypes';
 import { generateDefaultVolumeRanges, validateVolumeRanges } from '../../utils/priceHelpers';
-
-interface CatalogProduct {
-  id: string;
-  codigo: string;
-  nombre: string;
-  precio: number;
-  [key: string]: any;
-}
 
 interface VolumeMatrixModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (priceData: VolumePriceForm) => boolean;
+  onSave: (priceData: VolumePriceForm) => Promise<boolean> | boolean;
   column: Column;
   selectedProduct?: Product | null;
   catalogProducts?: CatalogProduct[];
@@ -187,11 +178,11 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
     return validation.isValid && formData.sku.trim() !== '';
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (validateForm()) {
-      const success = onSave(formData);
+      const success = await Promise.resolve(onSave(formData));
       if (success) {
         handleClose();
       }

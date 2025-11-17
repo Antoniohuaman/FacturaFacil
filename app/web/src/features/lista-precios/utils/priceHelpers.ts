@@ -5,6 +5,7 @@ export const generateColumnId = (columns: Column[]): string => {
 };
 
 export const getNextOrder = (columns: Column[]): number => {
+  if (columns.length === 0) return 1;
   return Math.max(...columns.map(c => c.order)) + 1;
 };
 

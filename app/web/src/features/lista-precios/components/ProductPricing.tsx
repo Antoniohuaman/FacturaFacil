@@ -1,18 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, Search, Edit2, X, Settings } from 'lucide-react';
-import type { Column, Product } from '../models/PriceTypes';
+import type { Column, Product, CatalogProduct, PriceForm } from '../models/PriceTypes';
 import { filterVisibleColumns, formatPrice, formatDate, getVolumePreview, getVolumeTooltip, getPriceRange } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
-
-interface CatalogProduct {
-  id: string;
-  codigo: string;
-  nombre: string;
-  precio: number;
-  [key: string]: any;
-}
 
 interface ProductPricingProps {
   columns: Column[];
@@ -20,7 +11,7 @@ interface ProductPricingProps {
   filteredProducts: Product[];
   searchSKU: string;
   onSearchChange: (value: string) => void;
-  onSavePrice: (priceData: any) => boolean;
+  onSavePrice: (priceData: PriceForm) => Promise<boolean> | boolean;
   catalogProducts?: CatalogProduct[];
 }
 
@@ -34,11 +25,11 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   catalogProducts = []
 }) => {
   const visibleColumns = filterVisibleColumns(columns);
-  
+
   // Estados para modales
   const [priceModalOpen, setPriceModalOpen] = useState(false);
   const [volumeModalOpen, setVolumeModalOpen] = useState(false);
-  
+
   // Estados para datos seleccionados
   const [selectedPriceColumn, setSelectedPriceColumn] = useState<Column | null>(null);
   const [selectedProductForPriceModal, setSelectedProductForPriceModal] = useState<Product | null>(null);
@@ -46,6 +37,24 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     product: Product;
     column: Column;
   } | null>(null);
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  // Calcular productos paginados
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [filteredProducts, currentPage]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+  // Resetear página cuando cambia el filtro
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchSKU]);
 
   // Manejador para asignar precio - detecta el tipo según la columna
   const handleAssignPrice = (column?: Column) => {
@@ -112,8 +121,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   };
 
   // Manejadores de guardado
-  const handleSavePriceModal = (priceData: any) => {
-    const success = onSavePrice(priceData);
+  const handleSavePriceModal = async (priceData: PriceForm): Promise<boolean> => {
+    const success = await Promise.resolve(onSavePrice(priceData));
     if (success) {
       setPriceModalOpen(false);
       setSelectedPriceColumn(null);
@@ -122,8 +131,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     return success;
   };
 
-  const handleSaveVolumeMatrix = (volumeData: any) => {
-    const success = onSavePrice(volumeData);
+  const handleSaveVolumeMatrix = async (volumeData: PriceForm): Promise<boolean> => {
+    const success = await Promise.resolve(onSavePrice(volumeData));
     if (success) {
       setVolumeModalOpen(false);
       setSelectedVolumePrice(null);
@@ -280,7 +289,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((product) => (
+                  {paginatedProducts.map((product) => (
                     <tr key={product.sku} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-4 font-medium text-gray-900">
                         <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
@@ -349,7 +358,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
             <div className="mt-6 pt-4 border-t border-gray-200">
               <div className="flex items-center justify-between text-sm text-gray-600">
                 <div>
-                  <span className="font-medium">{products.length}</span> producto{products.length !== 1 ? 's' : ''} 
+                  <span className="font-medium">{products.length}</span> producto{products.length !== 1 ? 's' : ''}
                   {searchSKU && (
                     <span> · <span className="font-medium">{filteredProducts.length}</span> mostrado{filteredProducts.length !== 1 ? 's' : ''}</span>
                   )}
@@ -358,6 +367,48 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                   <span className="font-medium">{visibleColumns.length}</span> columna{visibleColumns.length !== 1 ? 's' : ''} visible{visibleColumns.length !== 1 ? 's' : ''}
                 </div>
               </div>
+
+              {/* Paginación */}
+              {totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} de {filteredProducts.length}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Primera
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Anterior
+                    </button>
+                    <span className="px-4 py-1 text-sm">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Siguiente
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Última
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

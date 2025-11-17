@@ -1,4 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
+import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
+import type { LucideIcon } from 'lucide-react';
+
+// Re-exportar Product del catálogo para uso en otros módulos
+export type { CatalogProduct };
+
 export interface Column {
   id: string;
   name: string;
@@ -81,12 +86,12 @@ export interface Company {
 
 export interface Module {
   name: string;
-  icon: any;
+  icon: LucideIcon;
 }
 
 export interface UserMenuOption {
   name: string;
-  icon: any;
+  icon: LucideIcon;
 }
 
 // Helper para calcular precio según cantidad

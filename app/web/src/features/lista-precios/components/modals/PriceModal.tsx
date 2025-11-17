@@ -1,20 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Search } from 'lucide-react';
-import type { Column, Product, PriceForm } from '../../models/PriceTypes';
-
-interface CatalogProduct {
-  id: string;
-  codigo: string;
-  nombre: string;
-  precio: number;
-  [key: string]: any;
-}
+import type { Column, Product, PriceForm, CatalogProduct } from '../../models/PriceTypes';
 
 interface PriceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (priceData: PriceForm) => boolean;
+  onSave: (priceData: PriceForm) => Promise<boolean> | boolean;
   columns: Column[];
   selectedProduct?: Product | null;
   selectedColumn?: Column | null;
@@ -146,9 +137,9 @@ export const PriceModal: React.FC<PriceModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = onSave(formData);
+    const success = await Promise.resolve(onSave(formData));
     if (success) {
       handleClose();
     }
