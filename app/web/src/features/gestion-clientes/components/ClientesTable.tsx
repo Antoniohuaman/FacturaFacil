@@ -1,9 +1,12 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import type { Cliente, ClienteArchivo, PersistedFile } from '../models';
+import { CLIENTE_COLUMN_DEFINITIONS, type ClienteColumnId } from '../hooks/useClientesColumns';
 
 export type ClientesTableProps = {
   clients: Cliente[];
+  visibleColumnIds: ClienteColumnId[];
   onEditClient?: (client: Cliente) => void;
   onDeleteClient?: (client: Cliente) => void;
 };
@@ -83,6 +86,12 @@ const getClienteAvatarUrl = (imagenes?: ClienteArchivo[] | null): string | undef
   const persisted = imagenes.find(isPersistedFile);
   return persisted?.dataUrl;
 };
+
+const COLUMN_DEFINITION_MAP = new Map(
+  CLIENTE_COLUMN_DEFINITIONS.map((column) => [column.id, column])
+);
+
+const MENU_WIDTH = 208;
 
 /**
  * Componente Badge para valores booleanos
@@ -175,10 +184,25 @@ const ClienteAvatar: React.FC<{ name: string; imageUrl?: string }> = ({ name, im
 // ============================================================================
 
 const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
-  ({ clients, onEditClient, onDeleteClient }, ref) => {
+  ({ clients, visibleColumnIds, onEditClient, onDeleteClient }, ref) => {
     const navigate = useNavigate();
     const [menuOpenId, setMenuOpenId] = useState<number | string | null>(null);
+    const [menuCoords, setMenuCoords] = useState<{ top: number; left: number } | null>(null);
+    const menuRef = useRef<HTMLDivElement | null>(null);
     const [clientes, setClientes] = useState<Cliente[]>(clients);
+    const visibilitySet = useMemo(() => new Set<ClienteColumnId>(visibleColumnIds), [visibleColumnIds]);
+    const isColumnVisible = (columnId: ClienteColumnId): boolean => {
+      const definition = COLUMN_DEFINITION_MAP.get(columnId);
+      if (definition?.fixed) {
+        return true;
+      }
+      return visibilitySet.has(columnId);
+    };
+    const activeClient = useMemo(() => clientes.find((client) => client.id === menuOpenId) ?? null, [clientes, menuOpenId]);
+    const closeMenu = useCallback(() => {
+      setMenuOpenId(null);
+      setMenuCoords(null);
+    }, []);
 
     // Sincronizar con props
     useEffect(() => {
@@ -200,32 +224,115 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
       setClientes(prev => 
         prev.map(c => c.id === client.id ? { ...c, enabled: !c.enabled } : c)
       );
-      setMenuOpenId(null);
+      closeMenu();
     };
 
     const handleEdit = (client: Cliente) => {
       onEditClient?.(client);
-      setMenuOpenId(null);
+      closeMenu();
     };
 
     const handleDelete = (client: Cliente) => {
       onDeleteClient?.(client);
-      setMenuOpenId(null);
+      closeMenu();
     };
 
-    const handleOptionsClick = (id: number | string, e: React.MouseEvent) => {
+    const handleOptionsClick = (id: number | string, e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
-      setMenuOpenId(menuOpenId === id ? null : id);
+
+      if (menuOpenId === id) {
+        closeMenu();
+        return;
+      }
+
+      if (typeof window === 'undefined') {
+        setMenuOpenId(id);
+        return;
+      }
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const margin = 16;
+      const scrollX = window.scrollX ?? window.pageXOffset;
+      const scrollY = window.scrollY ?? window.pageYOffset;
+      const minLeft = scrollX + margin;
+      const maxLeft = Math.max(minLeft, scrollX + window.innerWidth - MENU_WIDTH - margin);
+      const desiredLeft = scrollX + rect.right - MENU_WIDTH;
+      const left = Math.min(Math.max(desiredLeft, minLeft), maxLeft);
+      const top = scrollY + rect.bottom + 6;
+
+      setMenuCoords({ top, left });
+      setMenuOpenId(id);
     };
 
     // Cerrar menú al hacer click fuera
     useEffect(() => {
-      const handleClickOutside = () => setMenuOpenId(null);
-      if (menuOpenId !== null) {
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
+      if (menuOpenId === null) {
+        return undefined;
       }
-    }, [menuOpenId]);
+
+      const handleClickOutside = (event: MouseEvent) => {
+        if (menuRef.current && menuRef.current.contains(event.target as Node)) {
+          return;
+        }
+        closeMenu();
+      };
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [menuOpenId, closeMenu]);
+
+    useEffect(() => {
+      if (menuOpenId === null || typeof window === 'undefined') {
+        return undefined;
+      }
+
+      const handleScroll = () => closeMenu();
+      window.addEventListener('scroll', handleScroll, true);
+      return () => window.removeEventListener('scroll', handleScroll, true);
+    }, [menuOpenId, closeMenu]);
+
+    const portalTarget = typeof window === 'undefined' ? null : document.body;
+    const menuPortal =
+      portalTarget && menuOpenId !== null && menuCoords && activeClient
+        ? createPortal(
+            <div className="pointer-events-none fixed inset-0 z-40">
+              <div
+                ref={menuRef}
+                className="pointer-events-auto rounded-lg border border-gray-200 bg-white py-1 shadow-2xl dark:border-gray-600 dark:bg-gray-800"
+                style={{ position: 'absolute', top: menuCoords.top, left: menuCoords.left, width: MENU_WIDTH }}
+              >
+                <button
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleToggleEnabled(activeClient);
+                  }}
+                >
+                  {activeClient.enabled ? 'Deshabilitar' : 'Habilitar'}
+                </button>
+                <button
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleEdit(activeClient);
+                  }}
+                >
+                  Editar
+                </button>
+                <button
+                  className="w-full px-3 py-2 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleDelete(activeClient);
+                  }}
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>,
+            portalTarget
+          )
+        : null;
 
     return (
       <>
@@ -262,76 +369,62 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
           .dark .compact-table tbody tr:hover {
             background: #4b5563 !important;
           }
-          .menu-dropdown {
-            position: absolute;
-            right: 0;
-            top: 100%;
-            z-index: 9999 !important;
-            min-width: 144px;
-          }
-          .actions-cell {
-            position: relative;
-          }
         `}</style>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full compact-table" style={{ minWidth: '3700px' }}>
+            <table className="w-full compact-table" style={{ minWidth: '1200px' }}>
               <thead>
                 <tr>
-                  {/* Avatar */}
-                  <th style={{ width: '60px' }}>Avatar</th>
-                  
-                  {/* Columnas prioritarias - Datos que SÍ vienen del backend */}
-                  <th style={{ width: '80px' }}>Tipo doc.</th>
-                  <th style={{ width: '120px' }}>N° documento</th>
-                  <th style={{ width: '220px' }}>Nombre / Razón social</th>
-                  <th style={{ width: '200px' }}>Dirección</th>
-                  <th style={{ width: '100px' }}>Tipo cuenta</th>
-                  <th style={{ width: '110px' }}>Teléfono</th>
-                  <th style={{ width: '180px' }}>Correo</th>
+                  {isColumnVisible('avatar') && <th style={{ width: '60px' }}>Avatar</th>}
+                  {isColumnVisible('tipoDocumento') && <th style={{ width: '80px' }}>Tipo doc.</th>}
+                  {isColumnVisible('numeroDocumento') && <th style={{ width: '120px' }}>N° documento</th>}
+                  {isColumnVisible('nombreRazonSocial') && <th style={{ width: '220px' }}>Nombre / Razón social</th>}
+                  {isColumnVisible('direccion') && <th style={{ width: '200px' }}>Dirección</th>}
+                  {isColumnVisible('tipoCuenta') && <th style={{ width: '100px' }}>Tipo cuenta</th>}
+                  {isColumnVisible('telefono') && <th style={{ width: '110px' }}>Teléfono</th>}
+                  {isColumnVisible('correo') && <th style={{ width: '180px' }}>Correo</th>}
 
-                  {/* Columnas extendidas */}
-                  <th style={{ width: '90px' }}>Tipo persona</th>
-                  <th style={{ width: '150px' }}>Nombre comercial</th>
-                  <th style={{ width: '140px' }}>Página web</th>
-                  <th style={{ width: '80px' }}>País</th>
-                  <th style={{ width: '120px' }}>Departamento</th>
-                  <th style={{ width: '120px' }}>Provincia</th>
-                  <th style={{ width: '120px' }}>Distrito</th>
-                  <th style={{ width: '80px' }}>Ubigeo</th>
-                  <th style={{ width: '150px' }}>Referencia</th>
+                  {isColumnVisible('tipoPersona') && <th style={{ width: '90px' }}>Tipo persona</th>}
+                  {isColumnVisible('nombreComercial') && <th style={{ width: '150px' }}>Nombre comercial</th>}
+                  {isColumnVisible('paginaWeb') && <th style={{ width: '140px' }}>Página web</th>}
+                  {isColumnVisible('pais') && <th style={{ width: '80px' }}>País</th>}
+                  {isColumnVisible('departamento') && <th style={{ width: '120px' }}>Departamento</th>}
+                  {isColumnVisible('provincia') && <th style={{ width: '120px' }}>Provincia</th>}
+                  {isColumnVisible('distrito') && <th style={{ width: '120px' }}>Distrito</th>}
+                  {isColumnVisible('ubigeo') && <th style={{ width: '80px' }}>Ubigeo</th>}
+                  {isColumnVisible('referenciaDireccion') && <th style={{ width: '150px' }}>Referencia</th>}
 
-                  {/* Configuración comercial */}
-                  <th style={{ width: '100px' }}>Forma pago</th>
-                  <th style={{ width: '90px' }}>Moneda</th>
-                  <th style={{ width: '140px' }}>Lista precios</th>
-                  <th style={{ width: '140px' }}>Usuario asignado</th>
-                  <th style={{ width: '110px' }}>Cliente default</th>
+                  {isColumnVisible('formaPago') && <th style={{ width: '100px' }}>Forma pago</th>}
+                  {isColumnVisible('monedaPreferida') && <th style={{ width: '90px' }}>Moneda</th>}
+                  {isColumnVisible('listaPrecio') && <th style={{ width: '140px' }}>Lista precios</th>}
+                  {isColumnVisible('usuarioAsignado') && <th style={{ width: '140px' }}>Usuario asignado</th>}
+                  {isColumnVisible('clientePorDefecto') && <th style={{ width: '110px' }}>Cliente default</th>}
 
-                  {/* Información SUNAT - Solo lectura */}
-                  <th style={{ width: '180px' }}>Tipo contribuyente</th>
-                  <th style={{ width: '120px' }}>Estado SUNAT</th>
-                  <th style={{ width: '110px' }}>Condición dom.</th>
-                  <th style={{ width: '100px' }}>Fecha insc.</th>
-                  <th style={{ width: '120px' }}>Sistema emisión</th>
-                  <th style={{ width: '110px' }}>Emisor electr.</th>
-                  <th style={{ width: '110px' }}>Agente reten.</th>
-                  <th style={{ width: '110px' }}>Agente percep.</th>
-                  <th style={{ width: '120px' }}>Buen contrib.</th>
-                  <th style={{ width: '130px' }}>Except. percep.</th>
-                  <th style={{ width: '250px' }}>Actividades econ.</th>
+                  {isColumnVisible('tipoContribuyente') && <th style={{ width: '180px' }}>Tipo contribuyente</th>}
+                  {isColumnVisible('estadoSunat') && <th style={{ width: '120px' }}>Estado SUNAT</th>}
+                  {isColumnVisible('condicionDomicilio') && <th style={{ width: '110px' }}>Condición dom.</th>}
+                  {isColumnVisible('fechaInscripcion') && <th style={{ width: '100px' }}>Fecha insc.</th>}
+                  {isColumnVisible('sistemaEmision') && <th style={{ width: '120px' }}>Sistema emisión</th>}
+                  {isColumnVisible('esEmisorElectronico') && <th style={{ width: '110px' }}>Emisor electr.</th>}
+                  {isColumnVisible('esAgenteRetencion') && <th style={{ width: '110px' }}>Agente reten.</th>}
+                  {isColumnVisible('esAgentePercepcion') && <th style={{ width: '110px' }}>Agente percep.</th>}
+                  {isColumnVisible('esBuenContribuyente') && <th style={{ width: '120px' }}>Buen contrib.</th>}
+                  {isColumnVisible('exceptuadaPercepcion') && <th style={{ width: '130px' }}>Except. percep.</th>}
+                  {isColumnVisible('actividadesEconomicas') && <th style={{ width: '250px' }}>Actividades econ.</th>}
 
-                  {/* Adicionales */}
-                  <th style={{ width: '200px' }}>Observaciones</th>
-                  <th style={{ width: '90px' }}>Adjuntos</th>
-                  <th style={{ width: '90px' }}>Imágenes</th>
-                  <th style={{ width: '120px' }}>Estado cliente</th>
-                  <th style={{ width: '110px' }}>Fecha registro</th>
-                  <th style={{ width: '110px' }}>Últ. modif.</th>
+                  {isColumnVisible('observaciones') && <th style={{ width: '200px' }}>Observaciones</th>}
+                  {isColumnVisible('adjuntos') && <th style={{ width: '90px' }}>Adjuntos</th>}
+                  {isColumnVisible('imagenes') && <th style={{ width: '90px' }}>Imágenes</th>}
+                  {isColumnVisible('estadoCliente') && <th style={{ width: '120px' }}>Estado cliente</th>}
+                  {isColumnVisible('fechaRegistro') && <th style={{ width: '110px' }}>Fecha registro</th>}
+                  {isColumnVisible('fechaUltimaModificacion') && <th style={{ width: '110px' }}>Últ. modif.</th>}
 
-                  {/* Acciones */}
-                  <th style={{ width: '100px' }} className="text-right">Acciones</th>
+                  {isColumnVisible('acciones') && (
+                    <th style={{ width: '100px' }} className="text-right">
+                      Acciones
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
@@ -352,139 +445,153 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                       className={!client.enabled ? 'row-disabled' : ''}
                       onClick={() => handleEdit(client)}
                     >
-                      {/* Avatar */}
-                      <td>
-                        <div className="flex justify-center">
-                          <ClienteAvatar name={client.name} imageUrl={avatarUrl} />
-                        </div>
-                      </td>
-                      
-                      {/* Datos reales del backend */}
-                      <td>{tipoDoc}</td>
-                      <td>{numeroDoc}</td>
-                      <td className="font-medium" title={client.name}>{client.name}</td>
-                      <td title={direccion}>{direccion}</td>
-                      <td>{client.type}</td>
-                      <td title={client.telefonos?.map(t => `${t.tipo}: ${t.numero}`).join(', ') || client.phone}>
-                        {client.telefonos?.length ? client.telefonos.map(t => t.numero).join(', ') : renderText(client.phone)}
-                      </td>
-                      <td title={client.emails?.join(', ') || client.email}>
-                        {client.emails?.length ? client.emails.join(', ') : renderText(client.email)}
-                      </td>
+                      {isColumnVisible('avatar') && (
+                        <td>
+                          <div className="flex justify-center">
+                            <ClienteAvatar name={client.name} imageUrl={avatarUrl} />
+                          </div>
+                        </td>
+                      )}
 
-                      {/* Campos extendidos */}
-                      <td>{renderText(client.tipoPersona)}</td>
-                      <td>{renderText(client.nombreComercial)}</td>
-                      <td title={client.paginaWeb}>{renderText(client.paginaWeb)}</td>
-                      <td>{renderText(client.pais)}</td>
-                      <td>{renderText(client.departamento)}</td>
-                      <td>{renderText(client.provincia)}</td>
-                      <td>{renderText(client.distrito)}</td>
-                      <td>{renderText(client.ubigeo)}</td>
-                      <td title={client.referenciaDireccion}>{renderText(client.referenciaDireccion)}</td>
+                      {isColumnVisible('tipoDocumento') && <td>{tipoDoc}</td>}
+                      {isColumnVisible('numeroDocumento') && <td>{numeroDoc}</td>}
+                      {isColumnVisible('nombreRazonSocial') && (
+                        <td className="font-medium" title={client.name}>
+                          {client.name}
+                        </td>
+                      )}
+                      {isColumnVisible('direccion') && <td title={direccion}>{direccion}</td>}
+                      {isColumnVisible('tipoCuenta') && <td>{client.type}</td>}
+                      {isColumnVisible('telefono') && (
+                        <td title={client.telefonos?.map(t => `${t.tipo}: ${t.numero}`).join(', ') || client.phone}>
+                          {client.telefonos?.length ? client.telefonos.map(t => t.numero).join(', ') : renderText(client.phone)}
+                        </td>
+                      )}
+                      {isColumnVisible('correo') && (
+                        <td title={client.emails?.join(', ') || client.email}>
+                          {client.emails?.length ? client.emails.join(', ') : renderText(client.email)}
+                        </td>
+                      )}
 
-                      {/* Configuración comercial */}
-                      <td>{renderText(client.formaPago)}</td>
-                      <td>{renderText(client.monedaPreferida)}</td>
-                      <td>{renderText(client.listaPrecio)}</td>
-                      <td>{renderText(client.usuarioAsignado)}</td>
-                      <td><BooleanBadge value={client.clientePorDefecto} /></td>
+                      {isColumnVisible('tipoPersona') && <td>{renderText(client.tipoPersona)}</td>}
+                      {isColumnVisible('nombreComercial') && <td>{renderText(client.nombreComercial)}</td>}
+                      {isColumnVisible('paginaWeb') && <td title={client.paginaWeb}>{renderText(client.paginaWeb)}</td>}
+                      {isColumnVisible('pais') && <td>{renderText(client.pais)}</td>}
+                      {isColumnVisible('departamento') && <td>{renderText(client.departamento)}</td>}
+                      {isColumnVisible('provincia') && <td>{renderText(client.provincia)}</td>}
+                      {isColumnVisible('distrito') && <td>{renderText(client.distrito)}</td>}
+                      {isColumnVisible('ubigeo') && <td>{renderText(client.ubigeo)}</td>}
+                      {isColumnVisible('referenciaDireccion') && (
+                        <td title={client.referenciaDireccion}>{renderText(client.referenciaDireccion)}</td>
+                      )}
 
-                      {/* SUNAT - Solo lectura */}
-                      <td title={client.tipoContribuyente}>{renderText(client.tipoContribuyente)}</td>
-                      <td><EstadoSunatBadge estado={client.estadoContribuyente} /></td>
-                      <td>{renderText(client.condicionDomicilio)}</td>
-                      <td>{formatDate(client.fechaInscripcion)}</td>
-                      <td>{renderText(client.sistemaEmision)}</td>
-                      <td><BooleanBadge value={client.esEmisorElectronico} /></td>
-                      <td><BooleanBadge value={client.esAgenteRetencion} /></td>
-                      <td><BooleanBadge value={client.esAgentePercepcion} /></td>
-                      <td><BooleanBadge value={client.esBuenContribuyente} /></td>
-                      <td><BooleanBadge value={client.exceptuadaPercepcion} /></td>
-                      <td title={actividadPrincipal ? `${actividadPrincipal.codigo} - ${actividadPrincipal.descripcion}` : '-'}>
-                        {actividadPrincipal 
-                          ? `${actividadPrincipal.codigo} - ${actividadPrincipal.descripcion}` 
-                          : '-'}
-                      </td>
+                      {isColumnVisible('formaPago') && <td>{renderText(client.formaPago)}</td>}
+                      {isColumnVisible('monedaPreferida') && <td>{renderText(client.monedaPreferida)}</td>}
+                      {isColumnVisible('listaPrecio') && <td>{renderText(client.listaPrecio)}</td>}
+                      {isColumnVisible('usuarioAsignado') && <td>{renderText(client.usuarioAsignado)}</td>}
+                      {isColumnVisible('clientePorDefecto') && (
+                        <td>
+                          <BooleanBadge value={client.clientePorDefecto} />
+                        </td>
+                      )}
 
-                      {/* Adicionales */}
-                      <td title={client.observaciones || client.additionalData}>
-                        {renderText(client.observaciones || client.additionalData)}
-                      </td>
-                      <td>
-                        {client.adjuntos?.length ? `${client.adjuntos.length} archivo(s)` : '-'}
-                      </td>
-                      <td>
-                        {client.imagenes?.length ? `${client.imagenes.length} imagen(es)` : '-'}
-                      </td>
-                      <td><EstadoClienteBadge estadoCliente={client.estadoCliente} enabled={client.enabled} /></td>
-                      <td>{formatDate(client.createdAt)}</td>
-                      <td>{formatDate(client.updatedAt)}</td>
+                      {isColumnVisible('tipoContribuyente') && (
+                        <td title={client.tipoContribuyente}>{renderText(client.tipoContribuyente)}</td>
+                      )}
+                      {isColumnVisible('estadoSunat') && (
+                        <td>
+                          <EstadoSunatBadge estado={client.estadoContribuyente} />
+                        </td>
+                      )}
+                      {isColumnVisible('condicionDomicilio') && <td>{renderText(client.condicionDomicilio)}</td>}
+                      {isColumnVisible('fechaInscripcion') && <td>{formatDate(client.fechaInscripcion)}</td>}
+                      {isColumnVisible('sistemaEmision') && <td>{renderText(client.sistemaEmision)}</td>}
+                      {isColumnVisible('esEmisorElectronico') && (
+                        <td>
+                          <BooleanBadge value={client.esEmisorElectronico} />
+                        </td>
+                      )}
+                      {isColumnVisible('esAgenteRetencion') && (
+                        <td>
+                          <BooleanBadge value={client.esAgenteRetencion} />
+                        </td>
+                      )}
+                      {isColumnVisible('esAgentePercepcion') && (
+                        <td>
+                          <BooleanBadge value={client.esAgentePercepcion} />
+                        </td>
+                      )}
+                      {isColumnVisible('esBuenContribuyente') && (
+                        <td>
+                          <BooleanBadge value={client.esBuenContribuyente} />
+                        </td>
+                      )}
+                      {isColumnVisible('exceptuadaPercepcion') && (
+                        <td>
+                          <BooleanBadge value={client.exceptuadaPercepcion} />
+                        </td>
+                      )}
+                      {isColumnVisible('actividadesEconomicas') && (
+                        <td title={actividadPrincipal ? `${actividadPrincipal.codigo} - ${actividadPrincipal.descripcion}` : '-'}>
+                          {actividadPrincipal
+                            ? `${actividadPrincipal.codigo} - ${actividadPrincipal.descripcion}`
+                            : '-'}
+                        </td>
+                      )}
 
-                      {/* Acciones */}
-                      <td className="text-right actions-cell" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                            title="Ver historial"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/clientes/${client.id}/${encodeURIComponent(client.name)}/historial`);
-                            }}
-                          >
-                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
-                              <circle cx="12" cy="12" r="10" />
-                            </svg>
-                          </button>
-                          
-                          <div className="relative inline-block">
+                      {isColumnVisible('observaciones') && (
+                        <td title={client.observaciones || client.additionalData}>
+                          {renderText(client.observaciones || client.additionalData)}
+                        </td>
+                      )}
+                      {isColumnVisible('adjuntos') && (
+                        <td>{client.adjuntos?.length ? `${client.adjuntos.length} archivo(s)` : '-'}</td>
+                      )}
+                      {isColumnVisible('imagenes') && (
+                        <td>{client.imagenes?.length ? `${client.imagenes.length} imagen(es)` : '-'}</td>
+                      )}
+                      {isColumnVisible('estadoCliente') && (
+                        <td>
+                          <EstadoClienteBadge estadoCliente={client.estadoCliente} enabled={client.enabled} />
+                        </td>
+                      )}
+                      {isColumnVisible('fechaRegistro') && <td>{formatDate(client.createdAt)}</td>}
+                      {isColumnVisible('fechaUltimaModificacion') && <td>{formatDate(client.updatedAt)}</td>}
+
+                      {isColumnVisible('acciones') && (
+                        <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2">
                             <button
                               className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                              onClick={(e) => handleOptionsClick(client.id, e)}
-                              title="Más opciones"
+                              title="Ver historial"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/clientes/${client.id}/${encodeURIComponent(client.name)}/historial`);
+                              }}
                             >
-                              <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                                <circle cx="5" cy="12" r="2" />
-                                <circle cx="12" cy="12" r="2" />
-                                <circle cx="19" cy="12" r="2" />
+                              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
+                                <circle cx="12" cy="12" r="10" />
                               </svg>
                             </button>
-                            
-                            {menuOpenId === client.id && (
-                              <div className="menu-dropdown bg-white dark:bg-gray-800 rounded-md shadow-xl border border-gray-200 dark:border-gray-600">
-                                <button
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors rounded-t-md"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleEnabled(client);
-                                  }}
-                                >
-                                  {client.enabled ? 'Deshabilitar' : 'Habilitar'}
-                                </button>
-                                <button
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEdit(client);
-                                  }}
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors rounded-b-md"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(client);
-                                  }}
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
-                            )}
+
+                            <div className="relative inline-block">
+                              <button
+                                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                                onClick={(e) => handleOptionsClick(client.id, e)}
+                                title="Más opciones"
+                              >
+                                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                  <circle cx="5" cy="12" r="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <circle cx="19" cy="12" r="2" />
+                                </svg>
+                              </button>
+
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -498,6 +605,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
             </div>
           )}
         </div>
+        {menuPortal}
       </>
     );
   }

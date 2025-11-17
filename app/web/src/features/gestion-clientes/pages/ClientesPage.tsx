@@ -1,12 +1,15 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as ExcelJS from 'exceljs';
 import { Download, ChevronDown, FileSpreadsheet, Layers } from 'lucide-react';
 import ClienteFormNew from '../components/ClienteFormNew';
-import ClientesTable, { type ClientesTableRef } from '../components/ClientesTable';
+import ClientesTable from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
+import { CLIENTES_FILTERS_INITIAL_STATE, type ClientesFilterValues } from '../components/clientesFiltersConfig';
+import ColumnSelector from '../components/ColumnSelector';
 import ConfirmationModal from '../../../../../shared/src/components/ConfirmationModal';
 import { useClientes } from '../hooks';
+import { useClientesColumns } from '../hooks/useClientesColumns';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { Cliente, ClienteFormData, DocumentType, ClientType } from '../models';
 import { serializeFiles, deserializeFiles } from '../utils/fileSerialization';
@@ -292,17 +295,73 @@ const mapClientToCompleteRow = (client: Cliente): Record<string, string> => {
 	};
 };
 
+const filterClientesList = (clients: Cliente[], filters: ClientesFilterValues): Cliente[] => {
+	const searchTerm = filters.search.trim().toLowerCase();
+
+	return clients.filter((client) => {
+		if (searchTerm) {
+			const documentCode = resolveDocumentCode(client);
+			const documentNumber = resolveDocumentNumber(client, documentCode);
+			const hayCoincidencia = [
+				client.razonSocial,
+				client.nombreCompleto,
+				client.nombreComercial,
+				client.name,
+				client.numeroDocumento,
+				client.document,
+				documentNumber,
+			]
+				.filter((value): value is string => Boolean(value && value.trim()))
+				.some((value) => value.toLowerCase().includes(searchTerm));
+			if (!hayCoincidencia) {
+				return false;
+			}
+		}
+
+		if (filters.tipoCuenta) {
+			const tipoCuenta = resolveTipoCuenta(client);
+			if (tipoCuenta !== filters.tipoCuenta) {
+				return false;
+			}
+		}
+
+		if (filters.estadoCliente) {
+			const estado = resolveEstadoCliente(client);
+			if (estado !== filters.estadoCliente) {
+				return false;
+			}
+		}
+
+		return true;
+	});
+};
+
 function ClientesPage() {
 	const navigate = useNavigate();
 	const { showToast } = useCaja();
 			const { clientes, transientClientes, transientCount, clearTransientClientes, createCliente, updateCliente, deleteCliente, loading, pagination, fetchClientes } = useClientes();
 			const combinedClients = useMemo(() => [...clientes, ...transientClientes], [clientes, transientClientes]);
+	const { columnDefinitions, visibleColumnIds, toggleColumn, resetColumns, selectAllColumns } = useClientesColumns();
+	const [filters, setFilters] = useState<ClientesFilterValues>(() => ({ ...CLIENTES_FILTERS_INITIAL_STATE }));
+	const hasActiveFilters = useMemo(
+		() => Boolean(filters.search || filters.tipoCuenta || filters.estadoCliente),
+		[filters]
+	);
+	const filteredClients = useMemo(
+		() => filterClientesList(combinedClients, filters),
+		[combinedClients, filters]
+	);
+	const handleApplyFilters = useCallback((nextFilters: ClientesFilterValues) => {
+		setFilters(nextFilters);
+	}, []);
+	const handleClearFilters = useCallback(() => {
+		setFilters({ ...CLIENTES_FILTERS_INITIAL_STATE });
+	}, []);
 
 	const [showClientModal, setShowClientModal] = useState(false);
 	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null);
-	const clientesTableRef = useRef<ClientesTableRef>(null);
 
 	const getInitialFormData = (): ClienteFormData => ({
 		// Identificación
@@ -575,6 +634,7 @@ function ClientesPage() {
 	};
 
 	const hasClients = combinedClients.length > 0;
+	const hasVisibleClients = filteredClients.length > 0;
 
 	useEffect(() => {
 		if (!exportMenuOpen) return;
@@ -1077,6 +1137,19 @@ function ClientesPage() {
 					</div>
 				</div>
 							<div className="flex items-center gap-2">
+								<ClientesFilters
+									filters={filters}
+									isActive={hasActiveFilters}
+									onApply={handleApplyFilters}
+									onClear={handleClearFilters}
+								/>
+								<ColumnSelector
+									columns={columnDefinitions}
+									visibleColumnIds={visibleColumnIds}
+									onToggleColumn={toggleColumn}
+									onReset={resetColumns}
+									onSelectAll={selectAllColumns}
+								/>
 						{transientCount > 0 && (
 							<button
 								onClick={() => clearTransientClientes()}
@@ -1154,16 +1227,12 @@ function ClientesPage() {
 
 			{/* Contenido */}
 			<div className="px-6 pt-6 pb-6">
-						<ClientesFilters
-							active={clientesTableRef.current?.hasActiveFilters() || false}
-							onClearFilters={() => clientesTableRef.current?.clearAllFilters()}
-						/>
 				{loading ? (
 					<div className="flex items-center justify-center py-12">
 						<div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
 						<span className="ml-3 text-gray-600 dark:text-gray-400">Cargando clientes...</span>
 					</div>
-				) : clientes.length === 0 ? (
+				) : combinedClients.length === 0 ? (
 					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
 						<svg xmlns="http://www.w3.org/2000/svg" className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -1178,10 +1247,21 @@ function ClientesPage() {
 							Agregar cliente
 						</button>
 					</div>
+				) : !hasVisibleClients ? (
+					<div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-900">
+						<h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Sin coincidencias</h3>
+						<p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No encontramos clientes con los filtros aplicados.</p>
+						<button
+							onClick={handleClearFilters}
+							className="mt-4 inline-flex items-center gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-blue-600 transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
+						>
+							Limpiar filtros
+						</button>
+					</div>
 				) : (
 								<ClientesTable
-									ref={clientesTableRef}
-									clients={combinedClients}
+									clients={filteredClients}
+									visibleColumnIds={visibleColumnIds}
 									onEditClient={handleEditClient}
 									onDeleteClient={handleDeleteClient}
 								/>
