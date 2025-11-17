@@ -1,5 +1,5 @@
 import type { Telefono } from '../models';
-import { onlyDigits } from './documents';
+import { onlyDigits } from './documents.ts';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
