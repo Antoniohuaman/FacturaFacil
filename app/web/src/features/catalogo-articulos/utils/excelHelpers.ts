@@ -195,7 +195,6 @@ export function parseExcelFile(
         const result = validateAndParseRows(
           jsonData,
           tipo,
-          existingProducts,
           availableUnits,
           availableEstablishments,
           availableCategories
@@ -222,8 +221,7 @@ export function parseExcelFile(
 function validateAndParseRows(
   rows: Array<Record<string, unknown>>,
   tipo: 'basica' | 'completa',
-  existingProducts: Product[],
-  availableUnits: Array<{ code: string; name: string }>,
+  availableUnits: Array<{ code: string; name: string }> ,
   availableEstablishments: Establishment[],
   availableCategories: Array<{ nombre: string }>
 ): ImportResult {

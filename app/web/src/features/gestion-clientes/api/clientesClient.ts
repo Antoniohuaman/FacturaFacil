@@ -10,7 +10,10 @@ import type {
   BulkImportRequest,
   BulkImportResponse,
   BulkImportSummary,
+  DocumentType,
 } from '../models';
+import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
+import { documentCodeFromType, normalizeDocumentNumber, parseLegacyDocumentString } from '../utils/documents';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true' || !import.meta.env.VITE_API_URL;
@@ -34,17 +37,9 @@ class ClientesClient {
     return Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`);
   }
 
-  private extractDocumentParts(document?: string): { tipo?: string; numero?: string } {
-    if (!document || document === 'Sin documento') {
-      return {};
-    }
-
-    const parts = document.trim().split(' ');
-    if (parts.length > 1) {
-      return { tipo: parts[0], numero: parts.slice(1).join(' ').trim() };
-    }
-
-    return { numero: parts[0] };
+  private extractDocumentParts(document?: string): { tipo?: DocumentType; numero?: string } {
+    const parsed = parseLegacyDocumentString(document);
+    return { tipo: parsed.type, numero: parsed.number };
   }
 
   private buildClienteFromPayload(
@@ -54,23 +49,33 @@ class ClientesClient {
     const now = new Date().toISOString();
 
     const legacyParts = this.extractDocumentParts(base?.document);
-    const legacyType = input.documentType || legacyParts.tipo || 'SIN_DOCUMENTO';
-    const numeroDocumento = (input.numeroDocumento || input.documentNumber || base?.numeroDocumento || legacyParts.numero || '').toString().trim();
+    const legacyType = (input.documentType || legacyParts.tipo || 'SIN_DOCUMENTO') as DocumentType;
+    const documentCode = documentCodeFromType(legacyType);
+    const rawNumeroDocumento = (input.numeroDocumento || input.documentNumber || base?.numeroDocumento || legacyParts.numero || '').toString().trim();
+    const numeroDocumento = documentCode ? normalizeDocumentNumber(documentCode, rawNumeroDocumento) : rawNumeroDocumento;
 
     const document = legacyType === 'SIN_DOCUMENTO' || numeroDocumento === ''
       ? 'Sin documento'
       : `${legacyType} ${numeroDocumento}`.trim();
 
-    const emails = (input.emails ?? base?.emails ?? [])
-      .filter((email): email is string => Boolean(email && email.trim()))
-      .map((email) => email.trim());
+    const preferredEmails = input.emails?.length
+      ? input.emails
+      : base?.emails?.length
+        ? base.emails
+        : undefined;
+    const fallbackEmails = preferredEmails ?? [
+      ...splitEmails(input.email),
+      ...(preferredEmails ? [] : splitEmails(base?.email)),
+    ];
+    const emails = mergeEmails(preferredEmails ?? fallbackEmails);
 
-    const telefonos = (input.telefonos ?? base?.telefonos ?? [])
-      .filter((telefono) => telefono && telefono.numero && telefono.numero.trim() !== '')
-      .map((telefono) => ({
-        numero: telefono.numero.trim(),
-        tipo: telefono.tipo || 'Móvil',
-      }));
+    const preferredPhones = input.telefonos?.length
+      ? input.telefonos
+      : base?.telefonos?.length
+        ? base.telefonos
+        : undefined;
+    const telefonoSeed = preferredPhones ?? splitPhones(input.phone ?? base?.phone);
+    const telefonos = sanitizePhones(telefonoSeed);
 
     const estadoCliente = input.estadoCliente ?? base?.estadoCliente;
     const enabledFromPayload = 'enabled' in input && typeof input.enabled === 'boolean'
@@ -97,7 +102,7 @@ class ClientesClient {
       document,
       type: (input.type ?? base?.type ?? 'Cliente'),
       address: direccionNormalizada,
-      phone: input.phone ?? telefonos[0]?.numero ?? base?.phone ?? '',
+      phone: telefonos[0]?.numero ?? input.phone?.trim() ?? base?.phone ?? '',
       email: input.email ?? emails[0] ?? base?.email,
       gender: input.gender ?? base?.gender,
       additionalData: input.additionalData ?? input.observaciones ?? base?.additionalData,
@@ -258,8 +263,10 @@ class ClientesClient {
       const clientes = this.getDevClientes();
 
       const payload = body as CreateClienteDTO;
-      const docNumber = (payload.numeroDocumento || payload.documentNumber || '').trim();
-      const docType = payload.documentType || 'SIN_DOCUMENTO';
+      const docType = (payload.documentType || 'SIN_DOCUMENTO') as DocumentType;
+      const docCode = documentCodeFromType(docType);
+      const rawDocNumber = (payload.numeroDocumento || payload.documentNumber || '').trim();
+      const docNumber = docCode ? normalizeDocumentNumber(docCode, rawDocNumber) : rawDocNumber;
 
       const existingClient = docNumber
         ? clientes.find((clienteActual) => {
@@ -330,8 +337,10 @@ class ClientesClient {
       };
 
       request.registros.forEach((registro, index) => {
-        const docNumber = (registro.numeroDocumento || registro.documentNumber || '').trim();
-        const docType = registro.documentType || 'SIN_DOCUMENTO';
+        const docType = (registro.documentType || 'SIN_DOCUMENTO') as DocumentType;
+        const docCode = documentCodeFromType(docType);
+        const rawDocNumber = (registro.numeroDocumento || registro.documentNumber || '').trim();
+        const docNumber = docCode ? normalizeDocumentNumber(docCode, rawDocNumber) : rawDocNumber;
         const reference = docType === 'SIN_DOCUMENTO'
           ? 'SIN_DOCUMENTO'
           : `${docType} ${docNumber || '-'}`;

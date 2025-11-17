@@ -3,6 +3,8 @@ import React, { useMemo } from 'react';
 import ClienteFormNew from './ClienteFormNew';
 import type { ClienteFormData } from '../models';
 
+type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
+
 // Props legacy que esperan los módulos de comprobantes
 interface ClienteFormLegacyProps {
   formData: {
@@ -18,7 +20,7 @@ interface ClienteFormLegacyProps {
   clientType?: string;
   documentTypes?: Array<{ value: string; label: string }>;
   clientTypes?: Array<{ value: string; label: string }>;
-  onInputChange: (field: string, value: any) => void;
+  onInputChange: (field: string, value: string) => void;
   onDocumentTypeChange?: (value: string) => void;
   onClientTypeChange?: (value: string) => void;
   onSave: () => void;
@@ -33,7 +35,7 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
     tipoDocumento: props.documentType || '6',
     numeroDocumento: props.formData.documentNumber || '',
     tipoPersona: (props.documentType === '6') ? 'Juridica' : 'Natural',
-    tipoCuenta: (props.clientType as any) || 'Cliente',
+    tipoCuenta: (props.clientType as ClienteFormData['tipoCuenta']) || 'Cliente',
     
     // Razón Social (Jurídica)
     razonSocial: props.formData.legalName || '',
@@ -101,7 +103,7 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
   }), [props.formData, props.documentType, props.clientType]);
 
   // Adaptador para el onChange
-  const handleInputChange = (field: keyof ClienteFormData, value: any) => {
+  const handleInputChange = (field: keyof ClienteFormData, value: ClienteFormValue) => {
     // Mapear los campos del nuevo formato al legacy
     const legacyFieldMap: Record<string, string> = {
       numeroDocumento: 'documentNumber',
@@ -115,15 +117,29 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
     const legacyField = legacyFieldMap[field] || field;
     
     // Manejar campos especiales
-    if (field === 'tipoDocumento' && props.onDocumentTypeChange) {
+    if (field === 'tipoDocumento' && props.onDocumentTypeChange && typeof value === 'string') {
       props.onDocumentTypeChange(value);
-    } else if (field === 'tipoCuenta' && props.onClientTypeChange) {
+      return;
+    }
+
+    if (field === 'tipoCuenta' && props.onClientTypeChange && typeof value === 'string') {
       props.onClientTypeChange(value);
-    } else if (field === 'emails' && Array.isArray(value) && value.length > 0) {
-      props.onInputChange('email', value[0]);
-    } else if (field === 'telefonos' && Array.isArray(value) && value.length > 0) {
-      props.onInputChange('phone', value[0]?.numero || '');
-    } else if (legacyFieldMap[field]) {
+      return;
+    }
+
+    if (field === 'emails' && Array.isArray(value) && value.length > 0) {
+      const [firstEmail] = value as ClienteFormData['emails'];
+      props.onInputChange('email', firstEmail);
+      return;
+    }
+
+    if (field === 'telefonos' && Array.isArray(value) && value.length > 0) {
+      const [firstPhone] = value as ClienteFormData['telefonos'];
+      props.onInputChange('phone', firstPhone?.numero || '');
+      return;
+    }
+
+    if (legacyFieldMap[field] && typeof value === 'string') {
       props.onInputChange(legacyField, value);
     }
   };

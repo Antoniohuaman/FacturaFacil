@@ -18,9 +18,19 @@ import type {
   ImportMode,
   CreateClienteDTO,
   BulkImportSummary,
-  DocumentType,
   ClientType,
 } from '../models';
+import type { DocumentCode, DocumentDefinition } from '../utils/documents';
+import {
+  DOCUMENT_DEFINITIONS,
+  buildDocumentReference,
+  documentTypeFromCode,
+  findDocumentDefinition,
+  normalizeDocumentNumber,
+  normalizeKey,
+  onlyDigits,
+} from '../utils/documents';
+import { isValidEmail, mergeEmails, sanitizePhones } from '../utils/contact';
 
 type ValidationError = {
   rowNumber: number;
@@ -218,43 +228,6 @@ type CompleteRowNormalized = {
   ubigeo: string;
 };
 
-const DOCUMENT_CODE_TO_TYPE: Record<string, DocumentType> = {
-  '0': 'DOC_IDENTIF_PERS_NAT_NO_DOM',
-  '1': 'DNI',
-  '4': 'CARNET_EXTRANJERIA',
-  '6': 'RUC',
-  '7': 'PASAPORTE',
-  'A': 'CARNET_IDENTIDAD',
-  'B': 'DOC_IDENTIF_PERS_NAT_NO_DOM',
-  'C': 'DOC_IDENTIF_PERS_NAT_NO_DOM',
-  'D': 'DOC_IDENTIF_PERS_NAT_NO_DOM',
-  'E': 'TAM_TARJETA_ANDINA',
-  'F': 'CARNET_PERMISO_TEMP_PERMANENCIA',
-  'G': 'CARNET_IDENTIDAD',
-  'H': 'CARNET_PERMISO_TEMP_PERMANENCIA',
-};
-
-const DOCUMENT_REQUIRED_DIGITS: Record<string, number> = {
-  '1': 8,
-  '6': 11,
-};
-
-type DocumentDefinition = {
-  tokens: string[];
-  legacy: DocumentType;
-  nuevo: string;
-  requiredDigits?: number;
-};
-
-const DOCUMENT_DEFINITIONS: DocumentDefinition[] = [
-  { tokens: ['ruc', '6'], legacy: 'RUC', nuevo: '6', requiredDigits: 11 },
-  { tokens: ['dni', '1'], legacy: 'DNI', nuevo: '1', requiredDigits: 8 },
-  { tokens: ['pasaporte', 'pas', 'passport', '7'], legacy: 'PASAPORTE', nuevo: '7' },
-  { tokens: ['carnetextranjeria', 'ce', 'carnetextranjero', '4'], legacy: 'CARNET_EXTRANJERIA', nuevo: '4' },
-  { tokens: ['nodomiciliado', '0'], legacy: 'NO_DOMICILIADO', nuevo: '0' },
-  { tokens: ['sindocumento', 'sd', ''], legacy: 'SIN_DOCUMENTO', nuevo: '0' },
-];
-
 const CLIENT_TYPE_MAP: Record<string, ClientType> = {
   cliente: 'Cliente',
   proveedor: 'Proveedor',
@@ -269,49 +242,16 @@ const ESTADO_MAP: Record<string, 'Habilitado' | 'Deshabilitado'> = {
   inactivo: 'Deshabilitado',
 };
 
-const normalizeKey = (value: string): string =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '')
-    .toLowerCase();
-
-const onlyDigits = (value: string): string => value.replace(/\D+/g, '');
-
 const UBIGEO_EXPECTED_DIGITS = 6;
 
-const normalizeDocumentNumber = (
-  rawCode: string,
-  rawValue: string,
-  errors?: string[]
-): string => {
-  const code = (rawCode ?? '').trim().toUpperCase();
-  const trimmed = (rawValue ?? '').trim();
-
-  if (!code) {
-    return trimmed;
-  }
-
-  const requiredDigits = DOCUMENT_REQUIRED_DIGITS[code];
-  if (!requiredDigits) {
-    return trimmed;
-  }
-
-  const digits = onlyDigits(trimmed);
-  if (!digits) {
-    if (trimmed) {
-      errors?.push(`El número de documento para el código ${code} solo puede contener dígitos.`);
-    }
-    return '';
-  }
-
-  if (digits.length > requiredDigits) {
-    errors?.push(`El número de documento excede los ${requiredDigits} dígitos permitidos (${digits.length}).`);
-    return digits;
-  }
-
-  return digits.padStart(requiredDigits, '0');
+const getDefinitionByCode = (code?: string): DocumentDefinition | undefined => {
+  if (!code) return undefined;
+  const normalized = code.trim().toUpperCase();
+  return DOCUMENT_DEFINITIONS.find((definition) => definition.code === normalized as DocumentCode);
 };
+
+const resolveDocumentDefinition = (value: string): DocumentDefinition | undefined =>
+  getDefinitionByCode(value) ?? findDocumentDefinition(value);
 
 const normalizeUbigeoCode = (rawValue: string, errors?: string[]): string => {
   const trimmed = (rawValue ?? '').trim();
@@ -332,15 +272,7 @@ const normalizeUbigeoCode = (rawValue: string, errors?: string[]): string => {
   return digits;
 };
 
-const isValidEmail = (value: string): boolean =>
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-
-const resolveDocument = (value: string): DocumentDefinition | null => {
-  const normalized = normalizeKey(value);
-  return DOCUMENT_DEFINITIONS.find((definition) =>
-    definition.tokens.some((token) => token === normalized)
-  ) ?? null;
-};
+const resolveDocument = (value: string): DocumentDefinition | undefined => resolveDocumentDefinition(value);
 
 const collectEmails = (
   row: Record<string, string>,
@@ -348,9 +280,7 @@ const collectEmails = (
   errors: string[],
   max = 3
 ): string[] => {
-  const seen = new Set<string>();
-  const emails: string[] = [];
-
+  const rawEmails: string[] = [];
   for (const key of keys) {
     const value = row[key];
     if (!value) continue;
@@ -360,13 +290,9 @@ const collectEmails = (
       errors.push(`Correo inválido (${trimmed})`);
       continue;
     }
-    if (seen.has(trimmed.toLowerCase())) continue;
-    seen.add(trimmed.toLowerCase());
-    emails.push(trimmed);
-    if (emails.length === max) break;
+    rawEmails.push(trimmed);
   }
-
-  return emails;
+  return mergeEmails(rawEmails).slice(0, max);
 };
 
 const collectPhones = (
@@ -374,38 +300,26 @@ const collectPhones = (
   keys: Array<{ number: string; type?: string }>,
   errors: string[],
 ): Array<{ numero: string; tipo: string }> => {
-  const phones: Array<{ numero: string; tipo: string }> = [];
+  const phones = keys
+    .map(({ number, type }) => {
+      const raw = row[number];
+      if (!raw) return null;
+      const digits = onlyDigits(raw);
+      if (!digits) {
+        errors.push(`El teléfono "${raw}" es inválido`);
+        return null;
+      }
+      if (digits.length < 6 || digits.length > 15) {
+        errors.push(`El teléfono ${digits} debe tener entre 6 y 15 dígitos`);
+        return null;
+      }
+      const tipoColumn = type ? row[type] : undefined;
+      const tipoNormalizado = tipoColumn && tipoColumn.trim() !== '' ? tipoColumn.trim() : 'Móvil';
+      return { numero: digits, tipo: tipoNormalizado };
+    })
+    .filter((telefono): telefono is { numero: string; tipo: string } => Boolean(telefono));
 
-  keys.forEach(({ number, type }) => {
-    const raw = row[number];
-    if (!raw) return;
-    const digits = onlyDigits(raw);
-    if (!digits) {
-      errors.push(`El teléfono "${raw}" es inválido`);
-      return;
-    }
-    if (digits.length < 6 || digits.length > 15) {
-      errors.push(`El teléfono ${digits} debe tener entre 6 y 15 dígitos`);
-      return;
-    }
-    const tipoColumn = type ? row[type] : undefined;
-    const tipoNormalizado = tipoColumn && tipoColumn.trim() !== '' ? tipoColumn.trim() : 'Móvil';
-    phones.push({ numero: digits, tipo: tipoNormalizado });
-  });
-
-  return phones;
-};
-
-const buildDocumentReferenceFromBasic = (codigo: string, numero: string): string => {
-  const cleanCode = codigo.trim().toUpperCase();
-  const cleanedNumber = numero.trim();
-  if (!cleanCode && !cleanedNumber) {
-    return '-';
-  }
-  if (!cleanCode) {
-    return cleanedNumber || '-';
-  }
-  return `${cleanCode} ${cleanedNumber || '-'}`;
+  return sanitizePhones(phones);
 };
 
 const buildBasicRow = (
@@ -491,13 +405,14 @@ const buildDtoFromBasicRecord = (
   }
 
   const codigo = row.codigoDocumento.toUpperCase();
-  const documentType = codigo ? DOCUMENT_CODE_TO_TYPE[codigo] : undefined;
+  const documentType = documentTypeFromCode(codigo);
+  const normalizedCode = documentType ? (codigo as DocumentCode) : undefined;
 
   if (!documentType) {
     errors.push(`Código de tipo de documento inválido (${row.codigoDocumento || 'vacío'})`);
   }
 
-  const documentNumber = normalizeDocumentNumber(codigo, row.numeroDocumento, errors);
+  const documentNumber = normalizeDocumentNumber(normalizedCode, row.numeroDocumento, errors);
 
   const requiresDocumentNumber = documentType
     ? !['SIN_DOCUMENTO', 'NO_DOMICILIADO', 'DOC_IDENTIF_PERS_NAT_NO_DOM'].includes(documentType)
@@ -535,17 +450,19 @@ const buildDtoFromBasicRecord = (
     errors.push(`Tipo de cuenta inválido (${row.tipoCuenta || 'vacío'})`);
   }
 
-  const correo = row.correo ? row.correo.trim() : '';
-  if (correo && !isValidEmail(correo)) {
-    errors.push(`Correo inválido (${correo})`);
+  const emails = mergeEmails(row.correo ? [row.correo] : []);
+  if (row.correo && emails.length === 0) {
+    errors.push(`Correo inválido (${row.correo})`);
   }
 
+  let telefonos: Array<{ numero: string; tipo: string }> = [];
   const telefonoDigits = row.telefono ? onlyDigits(row.telefono) : '';
   if (row.telefono && !telefonoDigits) {
     errors.push(`Teléfono inválido (${row.telefono})`);
-  }
-  if (telefonoDigits && (telefonoDigits.length < 6 || telefonoDigits.length > 15)) {
+  } else if (telefonoDigits && (telefonoDigits.length < 6 || telefonoDigits.length > 15)) {
     errors.push(`El teléfono debe tener entre 6 y 15 dígitos (${telefonoDigits})`);
+  } else if (telefonoDigits) {
+    telefonos = sanitizePhones([{ numero: telefonoDigits, tipo: 'Móvil' }]);
   }
 
   if (!documentType || !clientType || (requiresDocumentNumber && !documentNumber) || errors.length > 0) {
@@ -583,14 +500,14 @@ const buildDtoFromBasicRecord = (
     payload.apellidoMaterno = row.apellidoMaterno.trim();
   }
 
-  if (correo) {
-    payload.email = correo;
-    payload.emails = [correo];
+  if (emails.length > 0) {
+    payload.email = emails[0];
+    payload.emails = emails;
   }
 
-  if (telefonoDigits) {
-    payload.phone = telefonoDigits;
-    payload.telefonos = [{ numero: telefonoDigits, tipo: 'Móvil' }];
+  if (telefonos.length > 0) {
+    payload.phone = telefonos[0].numero;
+    payload.telefonos = telefonos;
   }
 
   if (row.direccion) {
@@ -634,7 +551,7 @@ const buildDtoFromCompleteRecord = (
   const codigo = row.codigoDocumento.toUpperCase();
   const docDefinition = row.codigoDocumento ? resolveDocument(row.codigoDocumento) : null;
 
-  const normalizeCode = docDefinition?.nuevo ?? codigo;
+  const normalizeCode = docDefinition?.nuevo;
   const documentNumber = normalizeDocumentNumber(normalizeCode, row.numeroDocumento, errors);
 
   if (!docDefinition) {
@@ -821,8 +738,10 @@ const parseBasicSheet = (rows: Array<Array<string | number>>): ParseResult => {
     const rowErrors: string[] = [];
 
     const docCode = basicRow.codigoDocumento.toUpperCase();
-    const normalizedReferenceNumber = normalizeDocumentNumber(docCode, basicRow.numeroDocumento);
-    const documentReference = buildDocumentReferenceFromBasic(docCode, normalizedReferenceNumber || basicRow.numeroDocumento);
+    const docDefinition = basicRow.codigoDocumento ? resolveDocument(basicRow.codigoDocumento) : undefined;
+    const normalizedDocCode = docDefinition?.nuevo;
+    const normalizedReferenceNumber = normalizeDocumentNumber(normalizedDocCode, basicRow.numeroDocumento);
+    const documentReference = buildDocumentReference(docCode, normalizedReferenceNumber || basicRow.numeroDocumento);
 
     const dto = buildDtoFromBasicRecord(basicRow, rowErrors);
 
@@ -876,8 +795,10 @@ const parseCompleteSheet = (rows: Array<Array<string | number>>): ParseResult =>
     const rowErrors: string[] = [];
 
     const codigo = completeRow.codigoDocumento.toUpperCase();
-    const numeroReferencia = normalizeDocumentNumber(codigo, completeRow.numeroDocumento);
-    const documentReference = buildDocumentReferenceFromBasic(codigo, numeroReferencia || completeRow.numeroDocumento);
+    const docDefinition = completeRow.codigoDocumento ? resolveDocument(completeRow.codigoDocumento) : undefined;
+    const normalizedCode = docDefinition?.nuevo;
+    const numeroReferencia = normalizeDocumentNumber(normalizedCode, completeRow.numeroDocumento);
+    const documentReference = buildDocumentReference(codigo, numeroReferencia || completeRow.numeroDocumento);
 
     const dto = buildDtoFromCompleteRecord(completeRow, rowErrors);
 

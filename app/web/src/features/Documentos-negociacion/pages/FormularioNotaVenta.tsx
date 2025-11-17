@@ -75,6 +75,7 @@ const FormularioNotaVenta = () => {
   const [notaInterna, setNotaInterna] = useState<string>('');
   const [formaPago, setFormaPago] = useState<string>('Efectivo');
   const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
+  const [tipoComprobante, setTipoComprobante] = useState<'factura' | 'boleta'>('boleta');
 
   // ===================================================================
   // SERIES DINÁMICAS DESDE CONFIGURACIÓN
@@ -427,6 +428,8 @@ const FormularioNotaVenta = () => {
           <div className="max-w-7xl mx-auto p-6 space-y-6">
             {/* Formulario de Información del Documento */}
             <CompactDocumentForm
+              tipoComprobante={tipoComprobante}
+              setTipoComprobante={setTipoComprobante}
               clienteSeleccionado={clienteSeleccionado || undefined}
               onClienteChange={setClienteSeleccionado}
               serieSeleccionada={serieSeleccionada}

@@ -75,6 +75,7 @@ const ImportPage: React.FC = () => {
       try {
         exportImportErrors(importResult.filasInvalidas);
       } catch (error) {
+        console.error('Error al exportar errores', error);
         alert('Error al exportar errores');
       }
     }

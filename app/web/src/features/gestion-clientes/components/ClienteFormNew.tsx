@@ -10,7 +10,7 @@ import ClienteAvatar from './ClienteAvatar';
 
 type ClienteFormProps = {
   formData: ClienteFormData;
-  onInputChange: (field: keyof ClienteFormData, value: any) => void;
+  onInputChange: (field: keyof ClienteFormData, value: ClienteFormData[keyof ClienteFormData]) => void;
   onCancel: () => void;
   onSave: () => void;
   isEditing?: boolean;

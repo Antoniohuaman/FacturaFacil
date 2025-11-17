@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as ExcelJS from 'exceljs';
@@ -11,18 +10,18 @@ import { useClientes } from '../hooks';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { Cliente, ClienteFormData, DocumentType, ClientType } from '../models';
 import { serializeFiles, deserializeFiles } from '../utils/fileSerialization';
+import type { DocumentCode } from '../utils/documents';
+import {
+	documentCodeFromType,
+	documentTypeFromCode,
+	normalizeDocumentNumber,
+	parseLegacyDocumentString,
+} from '../utils/documents';
+import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
+
+type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
 
 const PRIMARY_COLOR = '#1478D4';
-
-const LEGACY_TO_NEW_DOCUMENT_CODE: Record<string, string> = {
-	RUC: '6',
-	DNI: '1',
-	PASAPORTE: '7',
-	CARNET_EXTRANJERIA: '4',
-	NO_DOMICILIADO: '0',
-	DOC_IDENTIF_PERS_NAT_NO_DOM: '0',
-	SIN_DOCUMENTO: '0',
-};
 
 const formatDateTimeForExport = (value?: string | null): string => {
 	if (!value) return '';
@@ -38,31 +37,46 @@ const booleanToLabel = (value?: boolean | null): string => {
 	return value ? 'Sí' : 'No';
 };
 
+const normalizeDocumentCodeValue = (value?: string | null): DocumentCode | '' => {
+	if (!value) return '';
+	const trimmed = value.trim();
+	if (!trimmed) return '';
+	const normalized = trimmed.toUpperCase();
+	if (documentTypeFromCode(normalized as DocumentCode)) {
+		return normalized as DocumentCode;
+	}
+	const fromType = documentCodeFromType(trimmed as DocumentType);
+	return fromType ?? '';
+};
+
 const resolveDocumentCode = (client: Cliente): string => {
-	if (client.tipoDocumento) {
-		return client.tipoDocumento.trim();
+	const fromTipo = normalizeDocumentCodeValue(client.tipoDocumento);
+	if (fromTipo) {
+		return fromTipo;
 	}
-	if (client.document) {
-		const [legacyCode] = client.document.split(' ');
-		return LEGACY_TO_NEW_DOCUMENT_CODE[legacyCode as keyof typeof LEGACY_TO_NEW_DOCUMENT_CODE] ?? '';
+
+	const parsed = parseLegacyDocumentString(client.document);
+	if (parsed.code) {
+		return parsed.code;
 	}
+	if (parsed.type) {
+		const fromParsedType = documentCodeFromType(parsed.type);
+		if (fromParsedType) {
+			return fromParsedType;
+		}
+	}
+
 	return '';
 };
 
-const resolveDocumentNumber = (client: Cliente): string => {
-	if (client.numeroDocumento) {
-		return client.numeroDocumento.trim();
+const resolveDocumentNumber = (client: Cliente, documentCode?: string): string => {
+	const parsed = parseLegacyDocumentString(client.document);
+	const baseNumber = (client.numeroDocumento ?? parsed.number ?? '').trim();
+	const normalizedCode = documentCode?.trim().toUpperCase() as DocumentCode | undefined;
+	if (!normalizedCode || !documentTypeFromCode(normalizedCode)) {
+		return baseNumber;
 	}
-	if (client.document) {
-		const parts = client.document.split(' ');
-		if (parts.length > 1) {
-			return parts.slice(1).join(' ').trim();
-		}
-		if (!client.document.toLowerCase().includes('sin documento')) {
-			return client.document.trim();
-		}
-	}
-	return '';
+	return normalizeDocumentNumber(normalizedCode, baseNumber);
 };
 
 const resolveTipoCuenta = (client: Cliente): string => client.tipoCuenta ?? client.type ?? '';
@@ -72,7 +86,13 @@ const resolveTipoPersona = (client: Cliente, documentCode: string): string => {
 	if (client.tipoCliente && (client.tipoCliente === 'Natural' || client.tipoCliente === 'Juridica')) {
 		return client.tipoCliente;
 	}
-	return documentCode === '6' ? 'Juridica' : 'Natural';
+
+	const inferredDocumentType =
+		documentTypeFromCode(documentCode as DocumentCode) ??
+		parseLegacyDocumentString(client.document).type ??
+		'DNI';
+
+	return inferredDocumentType === 'RUC' ? 'Juridica' : 'Natural';
 };
 
 const resolveNameParts = (client: Cliente): {
@@ -116,28 +136,20 @@ const resolveNameParts = (client: Cliente): {
 
 const resolveEmails = (client: Cliente): string[] => {
 	if (client.emails?.length) {
-		return client.emails.map((email) => email.trim()).filter(Boolean);
+		return mergeEmails(client.emails);
 	}
 	if (client.email) {
-		return client.email
-			.split(',')
-			.map((email) => email.trim())
-			.filter(Boolean);
+		return mergeEmails(splitEmails(client.email));
 	}
 	return [];
 };
 
 const resolvePhones = (client: Cliente): Array<{ numero: string; tipo: string }> => {
 	if (client.telefonos?.length) {
-		return client.telefonos
-			.map((telefono) => ({ numero: telefono.numero.trim(), tipo: telefono.tipo?.trim() ?? 'Móvil' }))
-			.filter((telefono) => telefono.numero !== '');
+		return sanitizePhones(client.telefonos);
 	}
 	if (client.phone) {
-		return client.phone
-			.split(',')
-			.map((numero, index) => ({ numero: numero.trim(), tipo: index === 0 ? 'Móvil' : 'Alterno' }))
-			.filter((telefono) => telefono.numero !== '');
+		return sanitizePhones(splitPhones(client.phone));
 	}
 	return [];
 };
@@ -184,7 +196,7 @@ const resolveCpeHabilitado = (client: Cliente): string => {
 
 const mapClientToBasicRow = (client: Cliente): Record<string, string> => {
 	const documentCode = resolveDocumentCode(client);
-	const documentNumber = resolveDocumentNumber(client);
+	const documentNumber = resolveDocumentNumber(client, documentCode);
 	const tipoPersona = resolveTipoPersona(client, documentCode);
 	const isRUC = documentCode === '6' || tipoPersona === 'Juridica';
 	const names = resolveNameParts(client);
@@ -211,7 +223,7 @@ const mapClientToBasicRow = (client: Cliente): Record<string, string> => {
 
 const mapClientToCompleteRow = (client: Cliente): Record<string, string> => {
 	const documentCode = resolveDocumentCode(client);
-	const documentNumber = resolveDocumentNumber(client);
+	const documentNumber = resolveDocumentNumber(client, documentCode);
 	const tipoPersona = resolveTipoPersona(client, documentCode);
 	const names = resolveNameParts(client);
 	const emails = resolveEmails(client);
@@ -730,7 +742,7 @@ function ClientesPage() {
 		setShowClientModal(false);
 	};
 
-	const handleInputChange = (field: keyof ClienteFormData, value: any) => {
+	const handleInputChange = (field: keyof ClienteFormData, value: ClienteFormValue) => {
 		setFormData(prev => ({ ...prev, [field]: value }));
 	};
 
