@@ -164,6 +164,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
       };
     });
     setAdditionalUnitErrors(sanitizedUnits.map(() => ({}))); // reset row errors
+    setErrors(prev => ({
+      ...prev,
+      unidad: undefined,
+      tipoUnidadMedida: undefined
+    }));
   };
 
   const addAdditionalUnit = () => {
@@ -447,7 +452,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       }
 
       if (!unit.factorConversion || unit.factorConversion <= 0) {
-        rowErrors.factor = 'Factor debe ser mayor a 0';
+        rowErrors.factor = 'El campo "Contiene" debe ser mayor a 0';
       }
 
       newAdditionalUnitErrors[index] = rowErrors;
@@ -824,11 +829,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
               {/* Tipo de unidad */}
               <div>
-                <label className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-1">
-                  Familia de unidades
-                  <span className="text-gray-400 text-[11px] font-normal">(agrupa conversiones compatibles)</span>
-                </label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <div className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-1">
+                  <span>Familia de unidades</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
                   {UNIT_MEASURE_TYPE_OPTIONS.map(option => {
                     const isActive = formData.tipoUnidadMedida === option.value;
                     return (
@@ -836,18 +840,21 @@ const ProductModal: React.FC<ProductModalProps> = ({
                         type="button"
                         key={option.value}
                         onClick={() => handleMeasureTypeChange(option.value)}
-                        className={`rounded-md border px-3 py-2 text-left text-[11px] transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/30 ${
+                        aria-pressed={isActive}
+                        className={`px-3 py-1.5 rounded-full border text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 ${
                           isActive
                             ? 'border-violet-500 bg-violet-50 text-violet-900'
-                            : 'border-gray-200 hover:border-violet-300 hover:bg-violet-50/50 text-gray-700'
+                            : 'border-gray-200 text-gray-700 hover:border-violet-300 hover:text-violet-700'
                         }`}
                       >
-                        <span className="block text-[12px] font-semibold tracking-tight">{option.label}</span>
-                        {option.helper && <span className="text-[11px] text-gray-500">{option.helper}</span>}
+                        {option.label}
                       </button>
                     );
                   })}
                 </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  La familia define qué unidades son compatibles para este producto.
+                </p>
                 {isUsingFallbackUnits && (
                   <p className="text-[11px] text-amber-600 mt-1">
                     No hay unidades activas para esta familia. Mostramos todas las disponibles hasta que configures más.
@@ -861,7 +868,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               {/* 10. Unidad - Siempre visible */}
               <div>
                 <label htmlFor="unidad" className="block text-xs font-medium text-gray-700 mb-1">
-                  Unidad <span className="text-red-500">*</span>
+                  Unidad mínima <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -906,6 +913,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     )}
                   </select>
                 </div>
+                <p className="text-[11px] text-gray-500 mt-1">Es la unidad con la que se controla el stock interno (1, 2, 3...).</p>
                 <p className="text-xs text-gray-500 mt-1">
                   {availableUnits.length > 0
                     ? `${availableUnits.length} unidad${availableUnits.length !== 1 ? 'es' : ''} disponible${availableUnits.length !== 1 ? 's' : ''}`
@@ -914,39 +922,40 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 </p>
               </div>
 
-              {/* Unidades adicionales */}
-              <div className="mt-3 border border-dashed border-gray-200 rounded-md bg-gray-50/50 p-3">
+              {/* Presentaciones comerciales */}
+              <div className="mt-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                  <div className="flex items-center gap-2 text-xs font-medium text-gray-800">
                     <Layers className="w-3.5 h-3.5 text-violet-600" />
-                    <span>Unidades de medida adicionales (opcional)</span>
+                    <span>Presentaciones comerciales (opcional)</span>
                   </div>
                   <button
                     type="button"
                     onClick={addAdditionalUnit}
                     disabled={remainingUnitsForAdditional.length === 0}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-700 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-700 disabled:text-gray-400 disabled:cursor-not-allowed"
                   >
-                    <Plus className="w-3 h-3" /> Agregar unidad
+                    <Plus className="w-3 h-3" /> Agregar presentación
                   </button>
                 </div>
+                <p className="text-[11px] text-gray-500">
+                  Define cómo también vendes este producto: cajas, bolsas, kilos, sacos, etc. El stock se calcula a partir de la unidad mínima.
+                </p>
 
                 {formData.unidadesMedidaAdicionales.length === 0 ? (
-                  <p className="text-xs text-gray-500 mt-2">
-                    Define equivalencias como cajas, paquetes o kilos respecto a la unidad base seleccionada.
-                  </p>
+                  <p className="text-[11px] text-gray-500">Aún no registras presentaciones comerciales.</p>
                 ) : (
-                  <div className="mt-3 space-y-2">
+                  <div className="divide-y divide-gray-100 border border-gray-100 rounded-md">
                     {formData.unidadesMedidaAdicionales.map((unit, index) => {
                       const options = getAdditionalUnitOptions(index);
                       return (
-                        <div key={`extra-unit-${index}`} className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] gap-2 items-start text-xs">
+                        <div key={`extra-unit-${index}`} className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] gap-2 items-start p-2 text-xs">
                           <div>
                             <label className="text-[11px] font-medium text-gray-600 mb-1 block">Unidad</label>
                             <select
                               value={unit.unidadCodigo}
                               onChange={(e) => updateAdditionalUnit(index, 'unidadCodigo', e.target.value)}
-                              className={`w-full h-9 rounded-md border text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${additionalUnitErrors[index]?.unidad ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                              className={`w-full h-8 rounded-md border text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${additionalUnitErrors[index]?.unidad ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
                             >
                               <option value="">Seleccionar</option>
                               {options.map(option => (
@@ -960,16 +969,19 @@ const ProductModal: React.FC<ProductModalProps> = ({
                             )}
                           </div>
                           <div>
-                            <label className="text-[11px] font-medium text-gray-600 mb-1 block">Factor</label>
-                            <input
-                              type="number"
-                              min="0.0001"
-                              step="0.0001"
-                              value={unit.factorConversion ?? ''}
-                              onChange={(e) => updateAdditionalUnit(index, 'factorConversion', e.target.value)}
-                              className={`w-full h-9 rounded-md border text-xs pl-3 pr-2 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${additionalUnitErrors[index]?.factor ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
-                              placeholder="0.00"
-                            />
+                            <label className="text-[11px] font-medium text-gray-600 mb-1 block">Contiene</label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min="0.0001"
+                                step="0.0001"
+                                value={unit.factorConversion ?? ''}
+                                onChange={(e) => updateAdditionalUnit(index, 'factorConversion', e.target.value)}
+                                className={`w-full h-8 rounded-md border text-xs pl-3 pr-2 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${additionalUnitErrors[index]?.factor ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                                placeholder="0"
+                              />
+                              <span className="absolute inset-y-0 right-2 flex items-center text-[10px] text-gray-500">{formData.unidad || '—'}</span>
+                            </div>
                             {additionalUnitErrors[index]?.factor && (
                               <p className="text-red-600 text-[11px] mt-1">{additionalUnitErrors[index]?.factor}</p>
                             )}
@@ -977,8 +989,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                           <button
                             type="button"
                             onClick={() => removeAdditionalUnit(index)}
-                            className="mt-5 inline-flex items-center text-gray-400 hover:text-red-500"
-                            title="Eliminar unidad"
+                            className="mt-6 inline-flex items-center text-gray-400 hover:text-red-500"
+                            title="Eliminar presentación"
                           >
                             <MinusCircle className="w-4 h-4" />
                           </button>
@@ -989,7 +1001,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 )}
 
                 {remainingUnitsForAdditional.length === 0 && formData.unidadesMedidaAdicionales.length > 0 && (
-                  <p className="text-[11px] text-gray-500 mt-2">Ya agregaste todas las unidades disponibles.</p>
+                  <p className="text-[11px] text-gray-500">Ya agregaste todas las unidades disponibles para esta familia.</p>
                 )}
               </div>
 
