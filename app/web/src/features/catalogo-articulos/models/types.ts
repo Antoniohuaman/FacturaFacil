@@ -1,5 +1,10 @@
 // src/features/catalogo-articulos/models/types.ts
 
+export interface AdditionalUnitMeasure {
+  unidadCodigo: string;
+  factorConversion: number;
+}
+
 export interface Product {
   id: string;
   codigo: string;
@@ -10,6 +15,7 @@ export interface Product {
   imagen?: string;
   impuesto?: string;
   descripcion?: string;
+  unidadesMedidaAdicionales?: AdditionalUnitMeasure[];
   // Asignación de establecimientos
   establecimientoIds: string[]; // Array de IDs de establecimientos
   disponibleEnTodos: boolean; // Si está disponible en todos los establecimientos
@@ -83,6 +89,7 @@ export interface ProductFormData {
   codigo: string;
   precio: number;
   unidad: string;
+  unidadesMedidaAdicionales: AdditionalUnitMeasure[];
   categoria: string;
   impuesto?: string;
   descripcion?: string;

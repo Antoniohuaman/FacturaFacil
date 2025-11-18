@@ -399,6 +399,7 @@ function parseRow(
     codigo: codigo,
     precio: parseNumber(row['Precio de venta'], 0),
     unidad: unidad?.code || 'NIU',
+    unidadesMedidaAdicionales: [],
     categoria: categoriaValue || '',
     impuesto: impuestoValue,
     descripcion: String(row['Descripción'] || '').trim(),

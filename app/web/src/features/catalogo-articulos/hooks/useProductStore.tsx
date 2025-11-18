@@ -95,6 +95,9 @@ const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
         if (item.fechaActualizacion) {
           converted.fechaActualizacion = new Date(item.fechaActualizacion);
         }
+        if (item.unidadesMedidaAdicionales === undefined) {
+          converted.unidadesMedidaAdicionales = [];
+        }
         
         return converted;
       }) as T;
@@ -153,6 +156,7 @@ export const useProductStore = () => {
               const converted: any = { ...item };
               if (item.fechaCreacion) converted.fechaCreacion = new Date(item.fechaCreacion);
               if (item.fechaActualizacion) converted.fechaActualizacion = new Date(item.fechaActualizacion);
+              if (item.unidadesMedidaAdicionales === undefined) converted.unidadesMedidaAdicionales = [];
               if (item.fecha) converted.fecha = new Date(item.fecha);
               return converted;
             }) as T;
@@ -271,6 +275,7 @@ export const useProductStore = () => {
   const addProduct = useCallback((productData: Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => {
     const newProduct: Product = {
       ...productData,
+      unidadesMedidaAdicionales: productData.unidadesMedidaAdicionales || [],
       id: Date.now().toString(),
       fechaCreacion: new Date(),
       fechaActualizacion: new Date()
@@ -291,7 +296,12 @@ export const useProductStore = () => {
     setProducts(prev => 
       prev.map(product => 
         product.id === id
-          ? { ...product, ...updates, fechaActualizacion: new Date() }
+          ? {
+              ...product,
+              ...updates,
+              unidadesMedidaAdicionales: updates.unidadesMedidaAdicionales ?? product.unidadesMedidaAdicionales ?? [],
+              fechaActualizacion: new Date()
+            }
           : product
       )
     );
@@ -342,6 +352,7 @@ export const useProductStore = () => {
           newProducts[existingIndex] = {
             ...newProducts[existingIndex],
             ...productData,
+            unidadesMedidaAdicionales: productData.unidadesMedidaAdicionales || [],
             fechaActualizacion: now
           };
 
@@ -356,6 +367,7 @@ export const useProductStore = () => {
           // Crear nuevo producto
           const newProduct: Product = {
             ...productData,
+            unidadesMedidaAdicionales: productData.unidadesMedidaAdicionales || [],
             id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
             fechaCreacion: now,
             fechaActualizacion: now
