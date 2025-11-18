@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, Search } from 'lucide-react';
-import type { Column, Product, PriceForm, CatalogProduct } from '../../models/PriceTypes';
+import type { Column, Product, PriceForm, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 
 interface PriceModalProps {
   isOpen: boolean;
@@ -9,8 +10,10 @@ interface PriceModalProps {
   columns: Column[];
   selectedProduct?: Product | null;
   selectedColumn?: Column | null;
-  onSwitchToVolumeModal?: (columnId: string) => void;
+  onSwitchToVolumeModal?: (payload: { columnId: string; unitCode?: string; sku?: string; productName?: string }) => void;
   catalogProducts?: CatalogProduct[];
+  unitOptions?: ProductUnitOption[];
+  initialUnitCode?: string;
 }
 
 export const PriceModal: React.FC<PriceModalProps> = ({
@@ -21,12 +24,15 @@ export const PriceModal: React.FC<PriceModalProps> = ({
   selectedProduct,
   selectedColumn,
   onSwitchToVolumeModal,
-  catalogProducts = []
+  catalogProducts = [],
+  unitOptions,
+  initialUnitCode
 }) => {
   const [formData, setFormData] = useState<PriceForm>({
     type: 'fixed',
     sku: '',
     columnId: '',
+    unitCode: '',
     value: '',
     validFrom: '',
     validUntil: ''
@@ -36,11 +42,80 @@ export const PriceModal: React.FC<PriceModalProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedProductName, setSelectedProductName] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const { state: configState } = useConfigurationContext();
+  const unitsByCode = useMemo(() => new Map(configState.units.map(unit => [unit.code, unit] as const)), [configState.units]);
+
+  const formatUnitLabel = useCallback((code: string) => {
+    const unit = unitsByCode.get(code);
+    if (!unit) return code;
+    const symbol = unit.symbol || unit.code;
+    const name = unit.name || '';
+    return `${symbol} ${name}`.trim();
+  }, [unitsByCode]);
+
+  const deriveDefaultUnit = useCallback((sku: string) => {
+    if (!sku) return initialUnitCode || '';
+    const catalogProduct = catalogProducts.find(product => product.codigo === sku);
+    return catalogProduct?.unidad || initialUnitCode || '';
+  }, [catalogProducts, initialUnitCode]);
+
+  const catalogUnitOptions = useMemo(() => {
+    const sku = formData.sku.trim();
+    if (!sku) return [] as ProductUnitOption[];
+    const catalogProduct = catalogProducts.find(product => product.codigo === sku);
+    if (!catalogProduct) return [] as ProductUnitOption[];
+
+    const seen = new Set<string>();
+    const options: ProductUnitOption[] = [];
+
+    const addOption = (code?: string, isBase = false, factor?: number) => {
+      if (!code || seen.has(code)) return;
+      seen.add(code);
+      options.push({
+        code,
+        label: formatUnitLabel(code),
+        isBase,
+        factor
+      });
+    };
+
+    addOption(catalogProduct.unidad, true);
+    catalogProduct.unidadesMedidaAdicionales?.forEach(unit => addOption(unit.unidadCodigo, false, unit.factorConversion));
+
+    return options;
+  }, [catalogProducts, formData.sku, formatUnitLabel]);
+
+  const availableUnitOptions = useMemo(() => {
+    if (unitOptions && unitOptions.length > 0) {
+      return unitOptions.map(option => ({
+        ...option,
+        label: option.label || formatUnitLabel(option.code)
+      }));
+    }
+    if (catalogUnitOptions.length > 0) {
+      return catalogUnitOptions;
+    }
+    const fallbackUnit = deriveDefaultUnit(formData.sku);
+    if (!fallbackUnit) return [] as ProductUnitOption[];
+    return [{
+      code: fallbackUnit,
+      label: formatUnitLabel(fallbackUnit),
+      isBase: true
+    }];
+  }, [unitOptions, catalogUnitOptions, deriveDefaultUnit, formData.sku, formatUnitLabel]);
+
+  useEffect(() => {
+    if (!formData.sku || availableUnitOptions.length === 0) return;
+    if (!formData.unitCode || !availableUnitOptions.some(option => option.code === formData.unitCode)) {
+      setFormData(prev => ({ ...prev, unitCode: availableUnitOptions[0].code }));
+    }
+  }, [availableUnitOptions, formData.sku, formData.unitCode]);
 
   useEffect(() => {
     if (selectedProduct && selectedColumn) {
-      // Cargar datos existentes para edición
-      const existingPrice = selectedProduct.prices[selectedColumn.id];
+      const preferredUnit = initialUnitCode || selectedProduct.activeUnitCode || deriveDefaultUnit(selectedProduct.sku);
+      const unitPrices = selectedProduct.prices[selectedColumn.id];
+      const existingPrice = preferredUnit ? unitPrices?.[preferredUnit] : undefined;
 
       setSkuSearch(selectedProduct.sku);
       setSelectedProductName(selectedProduct.name);
@@ -50,12 +125,12 @@ export const PriceModal: React.FC<PriceModalProps> = ({
           type: 'fixed',
           sku: selectedProduct.sku,
           columnId: selectedColumn.id,
+          unitCode: preferredUnit || '',
           value: existingPrice.value.toString(),
           validFrom: existingPrice.validFrom,
           validUntil: existingPrice.validUntil
         });
       } else {
-        // Si no tiene precio en esa columna, usar valores por defecto pero con SKU y columna
         const today = new Date().toISOString().split('T')[0];
         const nextYear = new Date();
         nextYear.setFullYear(nextYear.getFullYear() + 1);
@@ -65,33 +140,35 @@ export const PriceModal: React.FC<PriceModalProps> = ({
           type: 'fixed',
           sku: selectedProduct.sku,
           columnId: selectedColumn.id,
+          unitCode: preferredUnit || '',
           value: '',
           validFrom: today,
           validUntil: nextYearStr
         });
       }
     } else if (selectedProduct) {
-      // Solo producto seleccionado, sin columna específica
+      const preferredUnit = initialUnitCode || selectedProduct.activeUnitCode || deriveDefaultUnit(selectedProduct.sku);
       setSkuSearch(selectedProduct.sku);
       setSelectedProductName(selectedProduct.name);
       setFormData(prev => ({
         ...prev,
-        sku: selectedProduct.sku
+        sku: selectedProduct.sku,
+        unitCode: preferredUnit || prev.unitCode
       }));
     } else {
-      // Producto nuevo
       setSkuSearch('');
       setSelectedProductName('');
       setFormData({
         type: 'fixed',
         sku: '',
         columnId: '',
+        unitCode: '',
         value: '',
         validFrom: '',
         validUntil: ''
       });
     }
-  }, [selectedProduct, selectedColumn, isOpen]);
+  }, [selectedProduct, selectedColumn, isOpen, initialUnitCode, deriveDefaultUnit]);
 
   // Filtrar productos del catálogo según búsqueda
   const filteredCatalogProducts = catalogProducts.filter(product =>
@@ -103,14 +180,22 @@ export const PriceModal: React.FC<PriceModalProps> = ({
   const handleSelectProduct = (product: CatalogProduct) => {
     setSkuSearch(product.codigo);
     setSelectedProductName(product.nombre);
-    setFormData({ ...formData, sku: product.codigo });
+    setFormData(prev => ({
+      ...prev,
+      sku: product.codigo,
+      unitCode: product.unidad || prev.unitCode
+    }));
     setShowSuggestions(false);
   };
 
   // Manejar cambio en el campo de búsqueda de SKU
   const handleSkuSearchChange = (value: string) => {
     setSkuSearch(value);
-    setFormData({ ...formData, sku: value });
+    setFormData(prev => ({
+      ...prev,
+      sku: value,
+      unitCode: (catalogProducts.find(p => p.codigo === value)?.unidad) || ''
+    }));
     setShowSuggestions(value.length > 0);
 
     // Buscar producto para mostrar nombre
@@ -123,22 +208,39 @@ export const PriceModal: React.FC<PriceModalProps> = ({
   };
 
   const handleColumnChange = (columnId: string) => {
-    const selectedColumn = columns.find(col => col.id === columnId);
-    
-    if (selectedColumn && selectedColumn.mode === 'volume' && onSwitchToVolumeModal) {
-      // Si la columna seleccionada es de tipo volume, cambiar al modal de volumen
-      onSwitchToVolumeModal(columnId);
+    const targetColumn = columns.find(col => col.id === columnId);
+
+    if (targetColumn?.mode === 'volume') {
+      if (!formData.sku.trim()) {
+        alert('Selecciona un SKU antes de configurar precios por cantidad.');
+        return;
+      }
+
+      if (!formData.unitCode) {
+        alert('Selecciona una unidad de medida antes de configurar precios por cantidad.');
+        return;
+      }
+
+      onSwitchToVolumeModal?.({
+        columnId,
+        unitCode: formData.unitCode,
+        sku: formData.sku,
+        productName: selectedProductName || selectedProduct?.name
+      });
       return;
     }
-    
-    // Si es fixed, actualizar el formulario normalmente
+
     if (formData.type === 'fixed') {
-      setFormData({ ...formData, columnId });
+      setFormData(prev => ({ ...prev, columnId }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.unitCode) {
+      alert('Selecciona una unidad de medida');
+      return;
+    }
     const success = await Promise.resolve(onSave(formData));
     if (success) {
       handleClose();
@@ -150,6 +252,7 @@ export const PriceModal: React.FC<PriceModalProps> = ({
       type: 'fixed',
       sku: '',
       columnId: '',
+      unitCode: '',
       value: '',
       validFrom: '',
       validUntil: ''
@@ -247,6 +350,27 @@ export const PriceModal: React.FC<PriceModalProps> = ({
                   No se encontraron productos que coincidan con "{skuSearch}"
                 </div>
               </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Unidad de medida</label>
+            <select
+              value={formData.unitCode}
+              onChange={(e) => setFormData(prev => ({ ...prev, unitCode: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={!formData.sku}
+              required
+            >
+              <option value="">Seleccionar unidad</option>
+              {availableUnitOptions.map(option => (
+                <option key={option.code} value={option.code}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {!formData.sku && (
+              <p className="text-xs text-gray-500 mt-1">Selecciona un SKU para ver sus unidades configuradas.</p>
             )}
           </div>
 

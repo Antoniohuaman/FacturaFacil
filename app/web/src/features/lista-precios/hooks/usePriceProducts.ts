@@ -1,6 +1,6 @@
 // src/features/lista-precios/hooks/usePriceProducts.ts
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct } from '../models/PriceTypes';
+import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, ProductUnitPrices, Price } from '../models/PriceTypes';
 import { lsKey } from '../utils/tenantHelpers';
 
 /**
@@ -67,13 +67,72 @@ const validateFixedPrice = (value: string): string | null => {
   return null;
 };
 
+type StoredProduct = Omit<Product, 'prices'> & {
+  prices: Record<string, Price | ProductUnitPrices>;
+};
+
+const DEFAULT_UNIT_CODE = 'NIU';
+
+const isPriceObject = (value: unknown): value is Price => {
+  if (!value || typeof value !== 'object') return false;
+  const maybePrice = value as Partial<Price> & { type?: string };
+  return maybePrice.type === 'fixed' || maybePrice.type === 'volume';
+};
+
+const isUnitPriceMap = (value: unknown): value is ProductUnitPrices => {
+  if (!value || typeof value !== 'object') return false;
+  const entries = Object.values(value as Record<string, unknown>);
+  return entries.every(entry => isPriceObject(entry));
+};
+
+const getBaseUnitForProduct = (catalogProduct?: CatalogProduct, fallback?: string): string => {
+  return catalogProduct?.unidad || fallback || DEFAULT_UNIT_CODE;
+};
+
+const normalizeStoredProduct = (
+  product: StoredProduct,
+  catalogProduct?: CatalogProduct
+): Product => {
+  const baseUnit = getBaseUnitForProduct(catalogProduct, product.activeUnitCode);
+  const normalizedPrices: Record<string, ProductUnitPrices> = {};
+
+  Object.entries(product.prices || {}).forEach(([columnId, rawValue]) => {
+    if (!rawValue) return;
+    if (isPriceObject(rawValue)) {
+      normalizedPrices[columnId] = { [baseUnit]: rawValue };
+    } else if (isUnitPriceMap(rawValue)) {
+      normalizedPrices[columnId] = rawValue;
+    } else {
+      normalizedPrices[columnId] = {};
+    }
+  });
+
+  return {
+    sku: product.sku,
+    name: product.name,
+    prices: normalizedPrices,
+    activeUnitCode: product.activeUnitCode || baseUnit
+  };
+};
+
+const normalizeStoredProducts = (
+  storedProducts: StoredProduct[],
+  catalogProducts: CatalogProduct[]
+): Product[] => {
+  const catalogMap = new Map(catalogProducts.map(product => [product.codigo, product] as const));
+  return storedProducts.map(product =>
+    normalizeStoredProduct(product, catalogMap.get(product.sku))
+  );
+};
+
 /**
  * Hook para gestión de productos con precios
  */
 export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
-  const [products, setProducts] = useState<Product[]>(() =>
-    loadFromLocalStorage<Product[]>(lsKey('price_list_products'), [])
-  );
+  const [products, setProducts] = useState<Product[]>(() => {
+    const stored = loadFromLocalStorage<StoredProduct[]>(lsKey('price_list_products'), []);
+    return normalizeStoredProducts(stored, catalogProducts);
+  });
   const [searchSKU, setSearchSKU] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,8 +147,8 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === lsKey('price_list_products') && e.newValue) {
         try {
-          const newProducts = JSON.parse(e.newValue);
-          setProducts(newProducts);
+          const newProducts = JSON.parse(e.newValue) as StoredProduct[];
+          setProducts(normalizeStoredProducts(newProducts, catalogProducts));
         } catch (error) {
           console.error('[usePriceProducts] Error parsing products from storage event:', error);
         }
@@ -98,7 +157,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  }, [catalogProducts]);
 
   /**
    * Lista combinada: todos los productos del catálogo + los que tienen precios aunque ya no estén en el catálogo
@@ -117,7 +176,8 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
       return {
         sku: catalogProduct.codigo,
         name: catalogProduct.nombre,
-        prices: {}
+        prices: {},
+        activeUnitCode: getBaseUnitForProduct(catalogProduct)
       };
     });
 
@@ -163,7 +223,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
    * Agregar o actualizar precio de producto
    */
   const addOrUpdateProductPrice = useCallback(async (priceData: PriceForm): Promise<boolean> => {
-    const { sku, columnId, validFrom, validUntil } = priceData;
+    const { sku, columnId, unitCode, validFrom, validUntil } = priceData;
 
     // Validaciones básicas
     if (!sku.trim()) {
@@ -187,6 +247,12 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
     const catalogProduct = getCatalogProductBySKU(sku);
     if (!catalogProduct) {
       setError(`El SKU "${sku}" no existe en el catálogo de productos`);
+      return false;
+    }
+
+    const resolvedUnitCode = unitCode?.trim() || getBaseUnitForProduct(catalogProduct);
+    if (!resolvedUnitCode) {
+      setError('Debe seleccionar una unidad de medida');
       return false;
     }
 
@@ -254,30 +320,40 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
       }
 
       // Actualizar o crear producto
-      const existingProductIndex = products.findIndex(p => p.sku === sku.trim());
+      setProducts(prevProducts => {
+        const updated = [...prevProducts];
+        const targetIndex = updated.findIndex(p => p.sku === sku.trim());
 
-      if (existingProductIndex >= 0) {
-        // Actualizar producto existente
-        const updatedProducts = [...products];
-        updatedProducts[existingProductIndex] = {
-          ...updatedProducts[existingProductIndex],
-          prices: {
-            ...updatedProducts[existingProductIndex].prices,
-            [columnId]: newPrice
-          }
-        };
-        setProducts(updatedProducts);
-      } else {
-        // Agregar nuevo producto con información del catálogo
+        if (targetIndex >= 0) {
+          const target = updated[targetIndex];
+          const columnPrices = target.prices[columnId] || {};
+          updated[targetIndex] = {
+            ...target,
+            prices: {
+              ...target.prices,
+              [columnId]: {
+                ...columnPrices,
+                [resolvedUnitCode]: newPrice
+              }
+            },
+            activeUnitCode: target.activeUnitCode || resolvedUnitCode
+          };
+          return updated;
+        }
+
         const newProduct: Product = {
           sku: catalogProduct.codigo,
           name: catalogProduct.nombre,
           prices: {
-            [columnId]: newPrice
-          }
+            [columnId]: {
+              [resolvedUnitCode]: newPrice
+            }
+          },
+          activeUnitCode: resolvedUnitCode
         };
-        setProducts([...products, newProduct]);
-      }
+
+        return [...updated, newProduct];
+      });
 
       return true;
     } catch (err) {
@@ -294,13 +370,52 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
    * Eliminar precios de una columna específica
    */
   const removeProductPricesForColumn = useCallback((columnId: string): void => {
-    setProducts(products.map(product => ({
-      ...product,
-      prices: Object.fromEntries(
-        Object.entries(product.prices).filter(([key]) => key !== columnId)
-      )
-    })).filter(product => Object.keys(product.prices).length > 0)); // Eliminar productos sin precios
-  }, [products]);
+    setProducts(prevProducts => {
+      const next = prevProducts
+        .map(product => {
+          if (!(columnId in product.prices)) return product;
+          const { [columnId]: _removed, ...rest } = product.prices;
+          return {
+            ...product,
+            prices: rest
+          };
+        })
+        .filter(product => Object.values(product.prices).some(unitPrices => Object.keys(unitPrices).length > 0));
+      return next;
+    });
+  }, []);
+
+  const setProductActiveUnit = useCallback((sku: string, unitCode: string) => {
+    if (!unitCode) return;
+    setProducts(prevProducts => {
+      const targetIndex = prevProducts.findIndex(product => product.sku === sku);
+      if (targetIndex >= 0) {
+        if (prevProducts[targetIndex].activeUnitCode === unitCode) {
+          return prevProducts;
+        }
+        const updated = [...prevProducts];
+        updated[targetIndex] = {
+          ...prevProducts[targetIndex],
+          activeUnitCode: unitCode
+        };
+        return updated;
+      }
+
+      const catalogProduct = catalogProducts.find(product => product.codigo === sku);
+      if (!catalogProduct) {
+        return prevProducts;
+      }
+
+      const newProduct: Product = {
+        sku: catalogProduct.codigo,
+        name: catalogProduct.nombre,
+        prices: {},
+        activeUnitCode: unitCode
+      };
+
+      return [...prevProducts, newProduct];
+    });
+  }, [catalogProducts]);
 
   /**
    * Limpiar error
@@ -318,6 +433,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
     setSearchSKU,
     addOrUpdateProductPrice,
     removeProductPricesForColumn,
+    setProductActiveUnit,
     isSKUInCatalog,
     getCatalogProductBySKU,
     clearError

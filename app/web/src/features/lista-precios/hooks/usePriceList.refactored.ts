@@ -91,6 +91,7 @@ export const usePriceList = () => {
 
     // Acciones de productos
     addOrUpdateProductPrice: productsHook.addOrUpdateProductPrice,
+    setProductActiveUnit: productsHook.setProductActiveUnit,
     setSearchSKU: productsHook.setSearchSKU,
     isSKUInCatalog: productsHook.isSKUInCatalog,
     getCatalogProductBySKU: productsHook.getCatalogProductBySKU,

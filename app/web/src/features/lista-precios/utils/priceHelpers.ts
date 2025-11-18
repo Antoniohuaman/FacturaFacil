@@ -173,12 +173,18 @@ export const getOptimalQuantityBreakdown = (ranges: VolumeRange[]): Array<{
 };
 
 export const removeProductPricesForColumn = (products: Product[], columnId: string): Product[] => {
-  return products.map(product => ({
-    ...product,
-    prices: Object.fromEntries(
-      Object.entries(product.prices).filter(([key]) => key !== columnId)
-    )
-  }));
+  return products
+    .map(product => {
+      if (!(columnId in product.prices)) {
+        return product;
+      }
+      const { [columnId]: _removed, ...rest } = product.prices;
+      return {
+        ...product,
+        prices: rest
+      };
+    })
+    .filter(product => Object.values(product.prices).some(unitPrices => Object.keys(unitPrices).length > 0));
 };
 
 // ====== FUNCIONES PARA MATRIZ POR VOLUMEN ======

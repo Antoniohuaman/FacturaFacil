@@ -40,10 +40,20 @@ export interface VolumePrice {
 // Union type para cualquier tipo de precio
 export type Price = FixedPrice | VolumePrice;
 
+export type ProductUnitPrices = Record<string, Price>;
+
+export interface ProductUnitOption {
+  code: string;
+  label: string;
+  isBase: boolean;
+  factor?: number;
+}
+
 export interface Product {
   sku: string;
   name: string;
-  prices: Record<string, Price>;
+  prices: Record<string, ProductUnitPrices>;
+  activeUnitCode?: string;
 }
 
 export interface NewColumnForm {
@@ -58,6 +68,7 @@ export interface FixedPriceForm {
   type: 'fixed';
   sku: string;
   columnId: string;
+  unitCode: string;
   value: string;
   validFrom: string;
   validUntil: string;
@@ -68,6 +79,7 @@ export interface VolumePriceForm {
   type: 'volume';
   sku: string;
   columnId: string;
+  unitCode: string;
   ranges: {
     minQuantity: string;
     maxQuantity: string;

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, Plus, Trash2, AlertCircle, Info, Search } from 'lucide-react';
-import type { Column, Product, VolumePriceForm, VolumeRange, CatalogProduct } from '../../models/PriceTypes';
+import type { Column, Product, VolumePriceForm, VolumeRange, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
 import { generateDefaultVolumeRanges, validateVolumeRanges } from '../../utils/priceHelpers';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 
 interface VolumeMatrixModalProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ interface VolumeMatrixModalProps {
   column: Column;
   selectedProduct?: Product | null;
   catalogProducts?: CatalogProduct[];
+  unitOptions?: ProductUnitOption[];
+  initialUnitCode?: string;
 }
 
 export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
@@ -18,12 +21,15 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
   onSave,
   column,
   selectedProduct,
-  catalogProducts = []
+  catalogProducts = [],
+  unitOptions,
+  initialUnitCode
 }) => {
   const [formData, setFormData] = useState<VolumePriceForm>({
     type: 'volume',
     sku: '',
     columnId: column.id,
+    unitCode: initialUnitCode || '',
     ranges: [],
     validFrom: '',
     validUntil: ''
@@ -34,6 +40,65 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedProductName, setSelectedProductName] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const { state: configState } = useConfigurationContext();
+  const unitsByCode = useMemo(() => new Map(configState.units.map(unit => [unit.code, unit] as const)), [configState.units]);
+
+  const formatUnitLabel = useCallback((code: string) => {
+    const unit = unitsByCode.get(code);
+    if (!unit) return code;
+    const symbol = unit.symbol || unit.code;
+    const name = unit.name || '';
+    return `${symbol} ${name}`.trim();
+  }, [unitsByCode]);
+
+  const deriveDefaultUnit = useCallback((sku: string) => {
+    if (!sku) return initialUnitCode || '';
+    const catalogProduct = catalogProducts.find(product => product.codigo === sku);
+    return catalogProduct?.unidad || initialUnitCode || '';
+  }, [catalogProducts, initialUnitCode]);
+
+  const catalogUnitOptions = useMemo(() => {
+    const sku = formData.sku.trim();
+    if (!sku) return [] as ProductUnitOption[];
+    const catalogProduct = catalogProducts.find(product => product.codigo === sku);
+    if (!catalogProduct) return [] as ProductUnitOption[];
+
+    const seen = new Set<string>();
+    const options: ProductUnitOption[] = [];
+
+    const addOption = (code?: string, isBase = false, factor?: number) => {
+      if (!code || seen.has(code)) return;
+      seen.add(code);
+      options.push({ code, label: formatUnitLabel(code), isBase, factor });
+    };
+
+    addOption(catalogProduct.unidad, true);
+    catalogProduct.unidadesMedidaAdicionales?.forEach(unit => addOption(unit.unidadCodigo, false, unit.factorConversion));
+
+    return options;
+  }, [catalogProducts, formData.sku, formatUnitLabel]);
+
+  const availableUnitOptions = useMemo(() => {
+    if (unitOptions && unitOptions.length > 0) {
+      return unitOptions.map(option => ({
+        ...option,
+        label: option.label || formatUnitLabel(option.code)
+      }));
+    }
+    if (catalogUnitOptions.length > 0) {
+      return catalogUnitOptions;
+    }
+    const fallbackUnit = deriveDefaultUnit(formData.sku);
+    if (!fallbackUnit) return [] as ProductUnitOption[];
+    return [{ code: fallbackUnit, label: formatUnitLabel(fallbackUnit), isBase: true }];
+  }, [unitOptions, catalogUnitOptions, deriveDefaultUnit, formData.sku, formatUnitLabel]);
+
+  useEffect(() => {
+    if (!formData.sku || availableUnitOptions.length === 0) return;
+    if (!formData.unitCode || !availableUnitOptions.some(option => option.code === formData.unitCode)) {
+      setFormData(prev => ({ ...prev, unitCode: availableUnitOptions[0].code }));
+    }
+  }, [availableUnitOptions, formData.sku, formData.unitCode]);
 
   useEffect(() => {
     if (isOpen) {
@@ -43,16 +108,18 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
       const nextYearStr = nextYear.toISOString().split('T')[0];
 
       if (selectedProduct) {
-        // Editing existing product
         setSkuSearch(selectedProduct.sku);
         setSelectedProductName(selectedProduct.name);
+        const preferredUnit = initialUnitCode || selectedProduct.activeUnitCode || deriveDefaultUnit(selectedProduct.sku);
+        const unitPrices = selectedProduct.prices[column.id];
+        const existingPrice = preferredUnit ? unitPrices?.[preferredUnit] : undefined;
 
-        const existingPrice = selectedProduct.prices[column.id];
         if (existingPrice && existingPrice.type === 'volume') {
           setFormData({
             type: 'volume',
             sku: selectedProduct.sku,
             columnId: column.id,
+            unitCode: preferredUnit || '',
             ranges: existingPrice.ranges.map(range => ({
               minQuantity: range.minQuantity.toString(),
               maxQuantity: range.maxQuantity?.toString() || '',
@@ -62,11 +129,11 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
             validUntil: existingPrice.validUntil
           });
         } else {
-          // Product exists but no volume price yet
           setFormData({
             type: 'volume',
             sku: selectedProduct.sku,
             columnId: column.id,
+            unitCode: preferredUnit || '',
             ranges: generateDefaultVolumeRanges().map(range => ({
               minQuantity: range.minQuantity.toString(),
               maxQuantity: range.maxQuantity?.toString() || '',
@@ -77,13 +144,13 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
           });
         }
       } else {
-        // New product
         setSkuSearch('');
         setSelectedProductName('');
         setFormData({
           type: 'volume',
           sku: '',
           columnId: column.id,
+          unitCode: '',
           ranges: generateDefaultVolumeRanges().map(range => ({
             minQuantity: range.minQuantity.toString(),
             maxQuantity: range.maxQuantity?.toString() || '',
@@ -94,7 +161,7 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
         });
       }
     }
-  }, [isOpen, selectedProduct, column]);
+  }, [isOpen, selectedProduct, column, initialUnitCode, deriveDefaultUnit]);
 
   // Filtrar productos del catálogo según búsqueda
   const filteredCatalogProducts = catalogProducts.filter(product =>
@@ -106,14 +173,22 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
   const handleSelectProduct = (product: CatalogProduct) => {
     setSkuSearch(product.codigo);
     setSelectedProductName(product.nombre);
-    setFormData({ ...formData, sku: product.codigo });
+    setFormData(prev => ({
+      ...prev,
+      sku: product.codigo,
+      unitCode: product.unidad || prev.unitCode
+    }));
     setShowSuggestions(false);
   };
 
   // Manejar cambio en el campo de búsqueda de SKU
   const handleSkuSearchChange = (value: string) => {
     setSkuSearch(value);
-    setFormData({ ...formData, sku: value });
+    setFormData(prev => ({
+      ...prev,
+      sku: value,
+      unitCode: (catalogProducts.find(p => p.codigo === value)?.unidad) || ''
+    }));
     setShowSuggestions(value.length > 0);
 
     const product = catalogProducts.find(p => p.codigo === value);
@@ -175,7 +250,7 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
     const validation = validateVolumeRanges(volumeRanges);
     setValidationErrors(validation.errors);
     
-    return validation.isValid && formData.sku.trim() !== '';
+    return validation.isValid && formData.sku.trim() !== '' && !!formData.unitCode;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -194,6 +269,7 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
       type: 'volume',
       sku: '',
       columnId: column.id,
+      unitCode: '',
       ranges: [],
       validFrom: '',
       validUntil: ''
@@ -282,6 +358,27 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
                   No se encontraron productos que coincidan con "{skuSearch}"
                 </div>
               </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Unidad de medida</label>
+            <select
+              value={formData.unitCode}
+              onChange={(e) => setFormData(prev => ({ ...prev, unitCode: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={!formData.sku}
+              required
+            >
+              <option value="">Seleccionar unidad</option>
+              {availableUnitOptions.map(option => (
+                <option key={option.code} value={option.code}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {!formData.sku && (
+              <p className="text-xs text-gray-500 mt-1">Selecciona un SKU para habilitar las unidades configuradas.</p>
             )}
           </div>
 

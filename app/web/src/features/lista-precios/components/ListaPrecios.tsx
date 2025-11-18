@@ -37,6 +37,7 @@ export const ListaPrecios: React.FC = () => {
     toggleColumnVisibility,
     setBaseColumn,
     addOrUpdateProductPrice,
+    setProductActiveUnit,
     openColumnModal,
     closeColumnModal,
     closePriceModal
@@ -156,6 +157,7 @@ export const ListaPrecios: React.FC = () => {
             searchSKU={searchSKU}
             onSearchChange={setSearchSKU}
             onSavePrice={addOrUpdateProductPrice}
+            onUnitChange={setProductActiveUnit}
             catalogProducts={catalogProducts}
           />
         ) : (
@@ -180,7 +182,8 @@ export const ListaPrecios: React.FC = () => {
         selectedProduct={selectedProduct}
         selectedColumn={null}
         catalogProducts={catalogProducts}
-        onSwitchToVolumeModal={(columnId) => {
+        initialUnitCode={selectedProduct?.activeUnitCode}
+        onSwitchToVolumeModal={({ columnId }) => {
           // Cerrar modal actual y mostrar mensaje informativo por ahora
           closePriceModal();
           const column = columns.find(col => col.id === columnId);
