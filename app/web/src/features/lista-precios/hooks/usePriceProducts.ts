@@ -101,18 +101,49 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
   }, []);
 
   /**
-   * Productos filtrados por búsqueda
+   * Lista combinada: todos los productos del catálogo + los que tienen precios aunque ya no estén en el catálogo
+   */
+  const catalogMergedProducts = useMemo(() => {
+    const catalogSkuSet = new Set(catalogProducts.map(product => product.codigo));
+    const productsMap = new Map(products.map(product => [product.sku, product] as const));
+
+    const merged: Product[] = catalogProducts.map((catalogProduct) => {
+      const existing = productsMap.get(catalogProduct.codigo);
+      if (existing) {
+        return existing.name === catalogProduct.nombre
+          ? existing
+          : { ...existing, name: catalogProduct.nombre };
+      }
+      return {
+        sku: catalogProduct.codigo,
+        name: catalogProduct.nombre,
+        prices: {}
+      };
+    });
+
+    // Incluir productos que tienen precios pero ya no existen en el catálogo
+    products.forEach((product) => {
+      if (!catalogSkuSet.has(product.sku)) {
+        merged.push(product);
+      }
+    });
+
+    return merged;
+  }, [products, catalogProducts]);
+
+  /**
+   * Productos filtrados por búsqueda (sobre la lista combinada)
    */
   const filteredProducts = useMemo(() => {
-    if (searchSKU === '') return products;
+    if (searchSKU === '') return catalogMergedProducts;
 
     const searchTerm = searchSKU.toLowerCase().trim();
-    return products.filter(product => {
+    return catalogMergedProducts.filter(product => {
       const skuMatch = product.sku.toLowerCase().includes(searchTerm);
       const nameMatch = product.name.toLowerCase().includes(searchTerm);
       return skuMatch || nameMatch;
     });
-  }, [products, searchSKU]);
+  }, [catalogMergedProducts, searchSKU]);
 
   /**
    * Verificar si un SKU existe en el catálogo
@@ -279,7 +310,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
   }, []);
 
   return {
-    products,
+    products: catalogMergedProducts,
     filteredProducts,
     searchSKU,
     loading,

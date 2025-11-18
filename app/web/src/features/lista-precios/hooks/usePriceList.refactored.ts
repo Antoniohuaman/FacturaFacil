@@ -16,7 +16,7 @@ export const usePriceList = () => {
   const productsHook = usePriceProducts(catalogProducts);
 
   // Estado de modales
-  const [activeTab, setActiveTab] = useState<'columns' | 'products'>('columns');
+  const [activeTab, setActiveTab] = useState<'columns' | 'products'>('products');
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [showProductPriceModal, setShowProductPriceModal] = useState(false);
   const [editingColumn, setEditingColumn] = useState<Column | null>(null);

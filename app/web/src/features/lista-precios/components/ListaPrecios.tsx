@@ -79,19 +79,6 @@ export const ListaPrecios: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6" role="tablist">
         <div className="flex space-x-8">
           <button
-            onClick={() => handleTabChange('columns')}
-            role="tab"
-            aria-selected={currentTab === 'columns'}
-            aria-controls="columns-panel"
-            className={`py-4 border-b-2 font-medium text-sm transition-colors ${
-              currentTab === 'columns'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-            }`}
-          >
-            Plantilla de columnas
-          </button>
-          <button
             onClick={() => handleTabChange('products')}
             role="tab"
             aria-selected={currentTab === 'products'}
@@ -116,6 +103,19 @@ export const ListaPrecios: React.FC = () => {
             }`}
           >
             Paquetes
+          </button>
+          <button
+            onClick={() => handleTabChange('columns')}
+            role="tab"
+            aria-selected={currentTab === 'columns'}
+            aria-controls="columns-panel"
+            className={`py-4 border-b-2 font-medium text-sm transition-colors ${
+              currentTab === 'columns'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+            }`}
+          >
+            Plantilla de columnas
           </button>
         </div>
       </div>
