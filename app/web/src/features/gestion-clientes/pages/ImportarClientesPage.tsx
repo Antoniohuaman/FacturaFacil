@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Download,
   Upload,
   Info,
@@ -14,6 +13,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { useClientes } from '../hooks';
+import { ClientesModuleLayout } from '../components/ClientesModuleLayout';
 import type {
   ImportMode,
   CreateClienteDTO,
@@ -1212,25 +1212,18 @@ const ImportarClientesPage: React.FC = () => {
   );
 
   return (
-    <div className="flex-1 bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="px-6 py-6 lg:px-12 lg:py-10">
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => navigate('/clientes')}
-            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            title="Volver al listado"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-200" />
-          </button>
-          <div>
+    <ClientesModuleLayout activeTab="importar">
+      <div className="flex-1 bg-gray-50 dark:bg-gray-900">
+        <div className="px-6 py-6 lg:px-12 lg:py-10">
+          <div className="space-y-2 mb-6">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Importación de clientes</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Importa registros nuevos o actualiza clientes existentes usando el número de documento como identificador.
             </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{modeMeta.instructions}</p>
           </div>
-        </div>
 
-        <div className="flex flex-wrap gap-2 mb-6">
+          <div className="flex flex-wrap gap-2 mb-6">
           {(Object.keys(IMPORT_MODE_CONFIG) as ImportMode[]).map((modeKey) => {
             const meta = IMPORT_MODE_CONFIG[modeKey];
             const isActive = modeKey === mode;
@@ -1248,9 +1241,9 @@ const ImportarClientesPage: React.FC = () => {
               </button>
             );
           })}
-        </div>
+          </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.7fr,1fr]">
+          <div className="grid gap-6 lg:grid-cols-[1.7fr,1fr]">
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
               <div className="p-6 space-y-5">
@@ -1507,7 +1500,8 @@ const ImportarClientesPage: React.FC = () => {
           </aside>
         </div>
       </div>
-    </div>
+      </div>
+    </ClientesModuleLayout>
   );
 };
 
