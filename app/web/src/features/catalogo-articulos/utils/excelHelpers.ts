@@ -3,6 +3,7 @@
 import * as XLSX from 'xlsx';
 import type { Product, ProductFormData } from '../models/types';
 import type { Establishment } from '../../configuracion-sistema/models/Establishment';
+import { inferUnitMeasureType } from './unitMeasureHelpers';
 
 // ====================================================================
 // TIPOS Y CONSTANTES
@@ -398,6 +399,7 @@ function parseRow(
     nombre: String(row['Nombre'] || '').trim(),
     codigo: codigo,
     precio: parseNumber(row['Precio de venta'], 0),
+    tipoUnidadMedida: inferUnitMeasureType(unidad?.code || 'NIU'),
     unidad: unidad?.code || 'NIU',
     unidadesMedidaAdicionales: [],
     categoria: categoriaValue || '',

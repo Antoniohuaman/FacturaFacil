@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- tenantized store; tipos reales se migrarán luego */
 import type { Product, Package, FilterOptions, PaginationConfig } from '../models/types';
 import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
+import { inferUnitMeasureType } from '../utils/unitMeasureHelpers';
 // src/features/catalogo-articulos/hooks/useProductStore.tsx
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -98,6 +99,9 @@ const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
         if (item.unidadesMedidaAdicionales === undefined) {
           converted.unidadesMedidaAdicionales = [];
         }
+        if (!item.tipoUnidadMedida) {
+          converted.tipoUnidadMedida = inferUnitMeasureType(item.unidad);
+        }
         
         return converted;
       }) as T;
@@ -114,6 +118,13 @@ export const useProductStore = () => {
   // Usar categorías desde el ConfigurationContext
   const { state: configState, dispatch: configDispatch } = useConfigurationContext();
   const categories = configState.categories;
+  const resolveUnitType = useCallback(
+    (unitCode: string, provided?: Product['tipoUnidadMedida']) => {
+      if (provided) return provided;
+      return inferUnitMeasureType(unitCode, configState.units);
+    },
+    [configState.units]
+  );
 
   // Cargar datos desde localStorage o usar mock data
   // Ejecutar migración one-shot antes de leer
@@ -275,6 +286,7 @@ export const useProductStore = () => {
   const addProduct = useCallback((productData: Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => {
     const newProduct: Product = {
       ...productData,
+      tipoUnidadMedida: resolveUnitType(productData.unidad, productData.tipoUnidadMedida),
       unidadesMedidaAdicionales: productData.unidadesMedidaAdicionales || [],
       id: Date.now().toString(),
       fechaCreacion: new Date(),
@@ -290,7 +302,7 @@ export const useProductStore = () => {
         : cat
     );
     configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
-  }, [categories, configDispatch]);
+  }, [categories, configDispatch, resolveUnitType]);
 
   const updateProduct = useCallback((id: string, updates: Partial<Product>) => {
     setProducts(prev => 
@@ -352,6 +364,7 @@ export const useProductStore = () => {
           newProducts[existingIndex] = {
             ...newProducts[existingIndex],
             ...productData,
+            tipoUnidadMedida: resolveUnitType(productData.unidad, productData.tipoUnidadMedida ?? newProducts[existingIndex].tipoUnidadMedida),
             unidadesMedidaAdicionales: productData.unidadesMedidaAdicionales || [],
             fechaActualizacion: now
           };
@@ -367,6 +380,7 @@ export const useProductStore = () => {
           // Crear nuevo producto
           const newProduct: Product = {
             ...productData,
+            tipoUnidadMedida: resolveUnitType(productData.unidad, productData.tipoUnidadMedida),
             unidadesMedidaAdicionales: productData.unidadesMedidaAdicionales || [],
             id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
             fechaCreacion: now,
@@ -389,7 +403,7 @@ export const useProductStore = () => {
     });
 
     return { createdCount, updatedCount };
-  }, [categories, configDispatch]);
+  }, [categories, configDispatch, resolveUnitType]);
 
   // CRUD Categorías - Ahora usan ConfigurationContext
   const addCategory = useCallback((nombre: string, descripcion?: string, color?: string) => {

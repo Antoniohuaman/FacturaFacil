@@ -10,7 +10,8 @@ import CategoryModal from './CategoryModal';
 import { FieldsConfigPanel } from './FieldsConfigPanel';
 import { useProductStore } from '../hooks/useProductStore';
 import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
-import type { Product, ProductFormData } from '../models/types';
+import type { Product, ProductFormData, UnitMeasureType } from '../models/types';
+import { UNIT_MEASURE_TYPE_OPTIONS, filterUnitsByMeasureType, inferUnitMeasureType, isUnitAllowedForMeasureType } from '../utils/unitMeasureHelpers';
 import { useConfigurationContext, type Category } from '../../configuracion-sistema/context/ConfigurationContext';
 
 interface ProductModalProps {
@@ -91,11 +92,16 @@ const ProductModal: React.FC<ProductModalProps> = ({
     }
   }, [availableUnits]);
 
+  const inferMeasureTypeFromUnit = useCallback((unitCode: string): UnitMeasureType => {
+    return inferUnitMeasureType(unitCode, availableUnits);
+  }, [availableUnits]);
+
   const [formData, setFormData] = useState<ProductFormData>(() => ({
     nombre: '',
     codigo: '',
     precio: 0,
     unidad: getDefaultUnitForType('BIEN') as Product['unidad'],
+    tipoUnidadMedida: inferMeasureTypeFromUnit(getDefaultUnitForType('BIEN')),
     categoria: categories[0]?.nombre || '',
     impuesto: 'IGV (18.00%)',
     descripcion: '',
@@ -115,13 +121,21 @@ const ProductModal: React.FC<ProductModalProps> = ({
     unidadesMedidaAdicionales: [],
   }));
 
+  const filteredUnitsForType = useMemo(() => {
+    if (!formData.tipoUnidadMedida) return [];
+    return filterUnitsByMeasureType(sortedUnits, formData.tipoUnidadMedida);
+  }, [sortedUnits, formData.tipoUnidadMedida]);
+
+  const baseUnitOptions = filteredUnitsForType.length > 0 ? filteredUnitsForType : sortedUnits;
+  const isUsingFallbackUnits = filteredUnitsForType.length === 0 && !!formData.tipoUnidadMedida;
+
   const remainingUnitsForAdditional = useMemo(() => {
     const used = new Set<string>([
       formData.unidad,
       ...formData.unidadesMedidaAdicionales.map(unit => unit.unidadCodigo)
     ]);
-    return sortedUnits.filter(unit => !used.has(unit.code));
-  }, [formData.unidad, formData.unidadesMedidaAdicionales, sortedUnits]);
+    return baseUnitOptions.filter(unit => !used.has(unit.code));
+  }, [formData.unidad, formData.unidadesMedidaAdicionales, baseUnitOptions]);
 
   const [errors, setErrors] = useState<FormError>({});
   const [additionalUnitErrors, setAdditionalUnitErrors] = useState<Array<{ unidad?: string; factor?: string }>>([]);
@@ -130,6 +144,27 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [precioInput, setPrecioInput] = useState<string>('0.00');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+
+  const handleMeasureTypeChange = (nextType: UnitMeasureType) => {
+    if (formData.tipoUnidadMedida === nextType) return;
+    let sanitizedUnits: ProductFormData['unidadesMedidaAdicionales'] = [];
+    setFormData(prev => {
+      const filtered = filterUnitsByMeasureType(sortedUnits, nextType);
+      const availableForType = filtered.length > 0 ? filtered : sortedUnits;
+      const currentUnitStillValid = availableForType.some(unit => unit.code === prev.unidad);
+      const nextUnit = (currentUnitStillValid ? prev.unidad : availableForType[0]?.code || prev.unidad) as Product['unidad'];
+      sanitizedUnits = prev.unidadesMedidaAdicionales.filter(unit =>
+        unit.unidadCodigo !== nextUnit && isUnitAllowedForMeasureType(unit.unidadCodigo, sortedUnits, nextType)
+      );
+      return {
+        ...prev,
+        tipoUnidadMedida: nextType,
+        unidad: nextUnit,
+        unidadesMedidaAdicionales: sanitizedUnits
+      };
+    });
+    setAdditionalUnitErrors(sanitizedUnits.map(() => ({}))); // reset row errors
+  };
 
   const addAdditionalUnit = () => {
     if (remainingUnitsForAdditional.length === 0) return;
@@ -178,14 +213,14 @@ const ProductModal: React.FC<ProductModalProps> = ({
   };
 
   const getAdditionalUnitOptions = useCallback((rowIndex: number) => {
-    return sortedUnits.filter(unit => {
+    return baseUnitOptions.filter(unit => {
       if (unit.code === formData.unidad) return false;
       return (
         unit.code === formData.unidadesMedidaAdicionales[rowIndex]?.unidadCodigo ||
         !formData.unidadesMedidaAdicionales.some((other, idx) => idx !== rowIndex && other.unidadCodigo === unit.code)
       );
     });
-  }, [sortedUnits, formData.unidad, formData.unidadesMedidaAdicionales]);
+  }, [baseUnitOptions, formData.unidad, formData.unidadesMedidaAdicionales]);
 
   useEffect(() => {
     setAdditionalUnitErrors(prev => {
@@ -202,10 +237,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
     setFormData(prev => ({
       ...prev,
       unidad: defaultUnit as Product['unidad'],
+      tipoUnidadMedida: inferMeasureTypeFromUnit(defaultUnit),
       unidadesMedidaAdicionales: []
     }));
     setAdditionalUnitErrors([]);
-  }, [productType, getDefaultUnitForType]);
+  }, [productType, getDefaultUnitForType, inferMeasureTypeFromUnit]);
 
   useEffect(() => {
     if (product) {
@@ -213,13 +249,18 @@ const ProductModal: React.FC<ProductModalProps> = ({
         unidadCodigo: unit.unidadCodigo,
         factorConversion: unit.factorConversion
       })) || [];
+      const inferredType = product.tipoUnidadMedida || inferMeasureTypeFromUnit(product.unidad);
+      const sanitizedUnits = additionalUnits.filter(unit =>
+        isUnitAllowedForMeasureType(unit.unidadCodigo, sortedUnits, inferredType)
+      );
 
       setFormData({
         nombre: product.nombre,
         codigo: product.codigo,
         precio: product.precio,
         unidad: product.unidad,
-        unidadesMedidaAdicionales: additionalUnits,
+        tipoUnidadMedida: inferredType,
+        unidadesMedidaAdicionales: sanitizedUnits,
         categoria: product.categoria,
         impuesto: product.impuesto || 'IGV (18.00%)',
         descripcion: product.descripcion || '',
@@ -240,7 +281,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
       setPrecioInput(product.precio.toFixed(2));
       setImagePreview(product.imagen || '');
-      setAdditionalUnitErrors(additionalUnits.map(() => ({})));
+      setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
       
       // Detectar tipo de producto basado en unidad
       if (product.unidad === 'ZZ') {
@@ -249,11 +290,13 @@ const ProductModal: React.FC<ProductModalProps> = ({
         setProductType('BIEN');
       }
     } else {
+      const defaultUnit = getDefaultUnitForType('BIEN');
       setFormData({
         nombre: '',
         codigo: '',
         precio: 0,
-        unidad: getDefaultUnitForType('BIEN') as Product['unidad'],
+        unidad: defaultUnit as Product['unidad'],
+        tipoUnidadMedida: inferMeasureTypeFromUnit(defaultUnit),
         unidadesMedidaAdicionales: [],
         categoria: categories[0]?.nombre || '',
         impuesto: 'IGV (18.00%)',
@@ -280,7 +323,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     }
     setErrors({});
     setIsDescriptionExpanded(false);
-  }, [product, isOpen, categories, establishments, availableUnits, getDefaultUnitForType]);
+  }, [product, isOpen, categories, establishments, availableUnits, sortedUnits, getDefaultUnitForType, inferMeasureTypeFromUnit]);
 
   const validateForm = (): boolean => {
     const newErrors: FormError = {};
@@ -317,6 +360,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
     // 4. Unidad de medida (siempre obligatorio)
     if (isFieldVisible('unidad') && (!formData.unidad || formData.unidad.trim() === '')) {
       newErrors.unidad = 'La unidad de medida es requerida';
+    }
+
+    if (!formData.tipoUnidadMedida) {
+      newErrors.tipoUnidadMedida = 'Selecciona una familia de unidades';
     }
 
     // 5. Establecimiento (siempre obligatorio - al menos uno o todos)
@@ -393,6 +440,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
           rowErrors.unidad = 'No puede coincidir con la unidad base';
         } else if (seenUnits.has(unit.unidadCodigo)) {
           rowErrors.unidad = 'Unidad repetida';
+        } else if (!isUnitAllowedForMeasureType(unit.unidadCodigo, sortedUnits, formData.tipoUnidadMedida)) {
+          rowErrors.unidad = 'No coincide con la familia seleccionada';
         }
         seenUnits.add(unit.unidadCodigo);
       }
@@ -773,6 +822,42 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 </div>
               </div>
 
+              {/* Tipo de unidad */}
+              <div>
+                <label className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-1">
+                  Familia de unidades
+                  <span className="text-gray-400 text-[11px] font-normal">(agrupa conversiones compatibles)</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {UNIT_MEASURE_TYPE_OPTIONS.map(option => {
+                    const isActive = formData.tipoUnidadMedida === option.value;
+                    return (
+                      <button
+                        type="button"
+                        key={option.value}
+                        onClick={() => handleMeasureTypeChange(option.value)}
+                        className={`rounded-md border px-3 py-2 text-left text-[11px] transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/30 ${
+                          isActive
+                            ? 'border-violet-500 bg-violet-50 text-violet-900'
+                            : 'border-gray-200 hover:border-violet-300 hover:bg-violet-50/50 text-gray-700'
+                        }`}
+                      >
+                        <span className="block text-[12px] font-semibold tracking-tight">{option.label}</span>
+                        {option.helper && <span className="text-[11px] text-gray-500">{option.helper}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                {isUsingFallbackUnits && (
+                  <p className="text-[11px] text-amber-600 mt-1">
+                    No hay unidades activas para esta familia. Mostramos todas las disponibles hasta que configures más.
+                  </p>
+                )}
+                {errors.tipoUnidadMedida && (
+                  <p className="text-red-600 text-xs mt-1">{errors.tipoUnidadMedida}</p>
+                )}
+              </div>
+
               {/* 10. Unidad - Siempre visible */}
               <div>
                 <label htmlFor="unidad" className="block text-xs font-medium text-gray-700 mb-1">
@@ -807,8 +892,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     }}
                     className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
                   >
-                    {sortedUnits.length > 0 ? (
-                      sortedUnits.map(unit => (
+                    {baseUnitOptions.length > 0 ? (
+                      baseUnitOptions.map(unit => (
                         <option key={unit.id} value={unit.code}>
                           ({unit.code}) {unit.name}
                         </option>

@@ -5,11 +5,19 @@ export interface AdditionalUnitMeasure {
   factorConversion: number;
 }
 
+export type UnitMeasureType =
+  | 'UNIDADES'
+  | 'PESO'
+  | 'VOLUMEN'
+  | 'LONGITUD_AREA'
+  | 'TIEMPO_SERVICIO';
+
 export interface Product {
   id: string;
   codigo: string;
   nombre: string;
   unidad: string;
+  tipoUnidadMedida: UnitMeasureType;
   precio: number;
   categoria: string;
   imagen?: string;
@@ -88,6 +96,7 @@ export interface ProductFormData {
   nombre: string;
   codigo: string;
   precio: number;
+  tipoUnidadMedida: UnitMeasureType;
   unidad: string;
   unidadesMedidaAdicionales: AdditionalUnitMeasure[];
   categoria: string;
