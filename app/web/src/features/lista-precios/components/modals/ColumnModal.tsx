@@ -21,9 +21,12 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
     name: '',
     mode: 'fixed',
     visible: true,
-    isBase: false
+    isBase: false,
+    calculationMode: 'manual',
+    calculationValue: null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [calculationValueInput, setCalculationValueInput] = useState('');
   const isEditingBase = Boolean(editingColumn?.isBase);
 
   useEffect(() => {
@@ -32,24 +35,37 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
         name: editingColumn.name,
         mode: editingColumn.isBase ? 'fixed' : editingColumn.mode,
         visible: editingColumn.isBase ? true : editingColumn.visible,
-        isBase: editingColumn.isBase
+        isBase: editingColumn.isBase,
+        calculationMode: editingColumn.isBase ? 'manual' : editingColumn.calculationMode ?? 'manual',
+        calculationValue: editingColumn.isBase ? null : editingColumn.calculationValue ?? null
       });
+      setCalculationValueInput(
+        editingColumn.isBase || editingColumn.calculationValue == null
+          ? ''
+          : editingColumn.calculationValue.toString()
+      );
     } else {
       setFormData({
         name: '',
         mode: 'fixed',
         visible: true,
-        isBase: false
+        isBase: false,
+        calculationMode: 'manual',
+        calculationValue: null
       });
+      setCalculationValueInput('');
     }
   }, [editingColumn, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    const normalizedMode = formData.isBase ? 'manual' : (formData.calculationMode ?? 'manual');
     const payload: NewColumnForm = {
       ...formData,
-      name: formData.name.trim()
+      name: formData.name.trim(),
+      calculationMode: normalizedMode,
+      calculationValue: normalizedMode === 'manual' ? null : formData.calculationValue ?? null
     };
     
     try {
@@ -70,9 +86,32 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
       name: '',
       mode: 'fixed',
       visible: true,
-      isBase: false
+      isBase: false,
+      calculationMode: 'manual',
+      calculationValue: null
     });
+    setCalculationValueInput('');
     onClose();
+  };
+
+  const handleCalculationModeChange = (mode: 'manual' | 'percentOverBase' | 'fixedOverBase') => {
+    setFormData(prev => ({
+      ...prev,
+      calculationMode: mode,
+      calculationValue: mode === 'manual' ? null : prev.calculationValue
+    }));
+    if (mode === 'manual') {
+      setCalculationValueInput('');
+    }
+  };
+
+  const handleCalculationValueChange = (value: string) => {
+    setCalculationValueInput(value);
+    const parsed = parseFloat(value);
+    setFormData(prev => ({
+      ...prev,
+      calculationValue: value.trim() === '' || Number.isNaN(parsed) ? null : parsed
+    }));
   };
 
   if (!isOpen) return null;
@@ -122,6 +161,38 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
               <option value="volume">Precio por cantidad</option>
             </select>
           </div>
+
+          {!formData.isBase && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Regla desde precio base
+              </label>
+              <div className="flex items-center gap-2">
+                <select
+                  value={formData.calculationMode ?? 'manual'}
+                  onChange={(e) => handleCalculationModeChange(e.target.value as 'manual' | 'percentOverBase' | 'fixedOverBase')}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="manual">Manual</option>
+                  <option value="percentOverBase">% sobre precio base</option>
+                  <option value="fixedOverBase">Monto fijo sobre base</option>
+                </select>
+                {formData.calculationMode !== 'manual' && (
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={calculationValueInput}
+                    onChange={(e) => handleCalculationValueChange(e.target.value)}
+                    className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder={formData.calculationMode === 'percentOverBase' ? 'Ej: -10' : 'Ej: 3.5'}
+                  />
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Usa negativos para descuentos y positivos para recargos.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center space-x-4">
             <label className="flex items-center">

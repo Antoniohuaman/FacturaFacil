@@ -1,7 +1,8 @@
 // src/features/lista-precios/hooks/usePriceProducts.ts
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, ProductUnitPrices, Price } from '../models/PriceTypes';
+import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, ProductUnitPrices, Price, Column } from '../models/PriceTypes';
 import { lsKey } from '../utils/tenantHelpers';
+import { buildEffectivePriceMatrix, DEFAULT_UNIT_CODE } from '../utils/priceHelpers';
 
 /**
  * Utilidad para cargar desde localStorage
@@ -54,6 +55,9 @@ const validateDates = (validFrom: string, validUntil: string): string | null => 
  * Validar precio fijo
  */
 const validateFixedPrice = (value: string): string | null => {
+  if (value.trim() === '') {
+    return null;
+  }
   const numValue = parseFloat(value);
 
   if (isNaN(numValue)) {
@@ -70,8 +74,6 @@ const validateFixedPrice = (value: string): string | null => {
 type StoredProduct = Omit<Product, 'prices'> & {
   prices: Record<string, Price | ProductUnitPrices>;
 };
-
-const DEFAULT_UNIT_CODE = 'NIU';
 
 const isPriceObject = (value: unknown): value is Price => {
   if (!value || typeof value !== 'object') return false;
@@ -128,7 +130,7 @@ const normalizeStoredProducts = (
 /**
  * Hook para gestión de productos con precios
  */
-export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
+export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Column[]) => {
   const [products, setProducts] = useState<Product[]>(() => {
     const stored = loadFromLocalStorage<StoredProduct[]>(lsKey('price_list_products'), []);
     return normalizeStoredProducts(stored, catalogProducts);
@@ -224,9 +226,10 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
    */
   const addOrUpdateProductPrice = useCallback(async (priceData: PriceForm): Promise<boolean> => {
     const { sku, columnId, unitCode, validFrom, validUntil } = priceData;
+    const normalizedSku = sku.trim();
 
     // Validaciones básicas
-    if (!sku.trim()) {
+    if (!normalizedSku) {
       setError('El SKU es requerido');
       return false;
     }
@@ -236,30 +239,61 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
       return false;
     }
 
-    // Validar fechas
-    const dateError = validateDates(validFrom, validUntil);
-    if (dateError) {
-      setError(dateError);
-      return false;
-    }
+    const catalogProduct = getCatalogProductBySKU(normalizedSku);
+    const existingProduct = products.find(product => product.sku === normalizedSku);
 
-    // Buscar producto en el catálogo
-    const catalogProduct = getCatalogProductBySKU(sku);
-    if (!catalogProduct) {
-      setError(`El SKU "${sku}" no existe en el catálogo de productos`);
-      return false;
-    }
-
-    const resolvedUnitCode = unitCode?.trim() || getBaseUnitForProduct(catalogProduct);
+    const resolvedUnitCode = unitCode?.trim() || getBaseUnitForProduct(catalogProduct, existingProduct?.activeUnitCode);
     if (!resolvedUnitCode) {
       setError('Debe seleccionar una unidad de medida');
       return false;
+    }
+
+    const isClearingFixedPrice = priceData.type === 'fixed' && priceData.value.trim() === '';
+
+    if (!catalogProduct && !existingProduct) {
+      setError(`El SKU "${normalizedSku}" no existe en el catálogo de productos`);
+      return false;
+    }
+
+    if (!isClearingFixedPrice) {
+      const dateError = validateDates(validFrom, validUntil);
+      if (dateError) {
+        setError(dateError);
+        return false;
+      }
     }
 
     setLoading(true);
     setError(null);
 
     try {
+      if (isClearingFixedPrice) {
+        setProducts(prevProducts => {
+          const updated = prevProducts.map(product => {
+            if (product.sku !== normalizedSku) return product;
+            const columnPrices = product.prices[columnId];
+            if (!columnPrices || !(resolvedUnitCode in columnPrices)) return product;
+
+            const nextColumnPrices = { ...columnPrices };
+            delete nextColumnPrices[resolvedUnitCode];
+
+            const nextPrices = { ...product.prices };
+            if (Object.keys(nextColumnPrices).length === 0) {
+              delete nextPrices[columnId];
+            } else {
+              nextPrices[columnId] = nextColumnPrices;
+            }
+
+            return {
+              ...product,
+              prices: nextPrices
+            };
+          });
+          return updated;
+        });
+        return true;
+      }
+
       let newPrice: FixedPrice | VolumePrice;
 
       if (priceData.type === 'fixed') {
@@ -322,7 +356,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
       // Actualizar o crear producto
       setProducts(prevProducts => {
         const updated = [...prevProducts];
-        const targetIndex = updated.findIndex(p => p.sku === sku.trim());
+        const targetIndex = updated.findIndex(p => p.sku === normalizedSku);
 
         if (targetIndex >= 0) {
           const target = updated[targetIndex];
@@ -338,6 +372,10 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
             },
             activeUnitCode: target.activeUnitCode || resolvedUnitCode
           };
+          return updated;
+        }
+
+        if (!catalogProduct) {
           return updated;
         }
 
@@ -364,7 +402,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
     } finally {
       setLoading(false);
     }
-  }, [getCatalogProductBySKU]);
+  }, [getCatalogProductBySKU, products]);
 
   /**
    * Eliminar precios de una columna específica
@@ -425,6 +463,8 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
     setError(null);
   }, []);
 
+  const effectivePrices = useMemo(() => buildEffectivePriceMatrix(catalogMergedProducts, columns, catalogProducts), [catalogMergedProducts, columns, catalogProducts]);
+
   return {
     products: catalogMergedProducts,
     filteredProducts,
@@ -437,6 +477,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
     setProductActiveUnit,
     isSKUInCatalog,
     getCatalogProductBySKU,
-    clearError
+    clearError,
+    effectivePrices
   };
 };

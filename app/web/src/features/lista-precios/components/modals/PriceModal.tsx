@@ -405,8 +405,8 @@ export const PriceModal: React.FC<PriceModalProps> = ({
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="0.00"
-              required
             />
+            <p className="text-xs text-gray-500 mt-1">Deja vacío para limpiar el precio.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

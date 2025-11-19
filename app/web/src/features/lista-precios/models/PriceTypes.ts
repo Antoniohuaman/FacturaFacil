@@ -4,6 +4,8 @@ import type { LucideIcon } from 'lucide-react';
 // Re-exportar Product del catálogo para uso en otros módulos
 export type { CatalogProduct };
 
+export type ColumnCalculationMode = 'manual' | 'percentOverBase' | 'fixedOverBase';
+
 export interface Column {
   id: string;
   name: string;
@@ -11,6 +13,8 @@ export interface Column {
   visible: boolean;
   isBase: boolean;
   order: number;
+  calculationMode: ColumnCalculationMode;
+  calculationValue?: number | null;
 }
 
 // Para precios fijos
@@ -61,6 +65,8 @@ export interface NewColumnForm {
   mode: 'fixed' | 'volume';
   visible: boolean;
   isBase: boolean;
+  calculationMode?: ColumnCalculationMode;
+  calculationValue?: number | null;
 }
 
 // Para el formulario de precio fijo

@@ -134,7 +134,13 @@ export const usePriceList = () => {
           mode: newColumnData.mode,
           visible: newColumnData.visible,
           isBase: newColumnData.isBase && !columns.some(c => c.isBase),
-          order: newOrder
+          order: newOrder,
+          calculationMode: newColumnData.isBase ? 'manual' : newColumnData.calculationMode ?? 'manual',
+          calculationValue: newColumnData.isBase
+            ? null
+            : (typeof newColumnData.calculationValue === 'number' && Number.isFinite(newColumnData.calculationValue)
+              ? newColumnData.calculationValue
+              : null)
         };
         
         setColumns([...columns, newColumn]);
@@ -168,7 +174,9 @@ export const usePriceList = () => {
   const setBaseColumn = (columnId: string) => {
     setColumns(columns.map(col => ({
       ...col,
-      isBase: col.id === columnId
+      isBase: col.id === columnId,
+      calculationMode: col.id === columnId ? 'manual' : col.calculationMode,
+      calculationValue: col.id === columnId ? null : col.calculationValue
     })));
   };
 

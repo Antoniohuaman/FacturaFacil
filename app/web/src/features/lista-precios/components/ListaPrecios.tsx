@@ -29,6 +29,7 @@ export const ListaPrecios: React.FC = () => {
     selectedProduct,
     searchSKU,
     catalogProducts,
+    effectivePrices,
 
     // Actions
     setActiveTab,
@@ -71,7 +72,11 @@ export const ListaPrecios: React.FC = () => {
   const handleSaveColumn = useCallback((data: NewColumnForm) => {
     const normalized = {
       ...data,
-      name: data.name.trim()
+      name: data.name.trim(),
+      calculationMode: data.calculationMode ?? 'manual',
+      calculationValue: typeof data.calculationValue === 'number' && Number.isFinite(data.calculationValue)
+        ? data.calculationValue
+        : null
     };
 
     if (!normalized.name) {
@@ -79,15 +84,23 @@ export const ListaPrecios: React.FC = () => {
     }
 
     if (editingColumn) {
+      const nextCalculationMode = editingColumn.isBase ? 'manual' : normalized.calculationMode;
       updateColumn(editingColumn.id, {
         name: normalized.name,
         mode: normalized.mode,
-        visible: normalized.visible
+        visible: normalized.visible,
+        calculationMode: editingColumn.isBase ? undefined : nextCalculationMode,
+        calculationValue: editingColumn.isBase || nextCalculationMode === 'manual'
+          ? null
+          : normalized.calculationValue ?? null
       });
       return true;
     }
 
-    return addColumn(normalized);
+    return addColumn({
+      ...normalized,
+      calculationValue: normalized.calculationMode === 'manual' ? null : normalized.calculationValue ?? null
+    });
   }, [addColumn, editingColumn, updateColumn]);
 
   return (
@@ -181,6 +194,7 @@ export const ListaPrecios: React.FC = () => {
             onDeleteColumn={deleteColumn}
             onToggleVisibility={toggleColumnVisibility}
             onSetBaseColumn={setBaseColumn}
+            onUpdateColumn={updateColumn}
           />
         ) : currentTab === 'products' ? (
           <ProductPricing
@@ -192,6 +206,7 @@ export const ListaPrecios: React.FC = () => {
             onSavePrice={addOrUpdateProductPrice}
             onUnitChange={setProductActiveUnit}
             catalogProducts={catalogProducts}
+            effectivePrices={effectivePrices}
             registerAssignHandler={registerAssignPriceHandler}
           />
         ) : (

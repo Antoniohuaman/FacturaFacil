@@ -13,7 +13,7 @@ export const usePriceList = () => {
   // Sub-hooks especializados
   const columnsHook = useColumns();
   const { catalogProducts } = useCatalogSync();
-  const productsHook = usePriceProducts(catalogProducts);
+  const productsHook = usePriceProducts(catalogProducts, columnsHook.columns);
 
   // Estado de modales
   const [activeTab, setActiveTab] = useState<'columns' | 'products'>('products');
@@ -70,6 +70,7 @@ export const usePriceList = () => {
     filteredProducts: productsHook.filteredProducts,
     searchSKU: productsHook.searchSKU,
     catalogProducts,
+    effectivePrices: productsHook.effectivePrices,
 
     // Estado general
     loading,

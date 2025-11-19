@@ -9,6 +9,7 @@ interface ColumnManagementProps {
   onDeleteColumn: (columnId: string) => void;
   onToggleVisibility: (columnId: string) => void;
   onSetBaseColumn: (columnId: string) => void;
+  onUpdateColumn: (columnId: string, updates: Partial<Column>) => void;
 }
 
 export const ColumnManagement: React.FC<ColumnManagementProps> = ({
@@ -17,7 +18,8 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
   onEditColumn,
   onDeleteColumn,
   onToggleVisibility,
-  onSetBaseColumn
+  onSetBaseColumn,
+  onUpdateColumn
 }) => {
   return (
     <div className="p-6">
@@ -49,6 +51,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">COLUMNA</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">NOMBRE VISIBLE</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">MODO DE VALORIZACIÓN</th>
+                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">REGLA DESDE BASE</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">BASE</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">VISIBLE</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">ACCIONES</th>
@@ -73,6 +76,35 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                       }`}>
                         {column.mode === 'fixed' ? 'Precio fijo' : 'Precio por cantidad'}
                       </span>
+                    </td>
+                    <td className="py-3 px-2">
+                      {column.isBase ? (
+                        <span className="text-xs text-gray-500">Manual</span>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={column.calculationMode ?? 'manual'}
+                            onChange={(e) => onUpdateColumn(column.id, { calculationMode: e.target.value as 'manual' | 'percentOverBase' | 'fixedOverBase' })}
+                            className="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-400"
+                          >
+                            <option value="manual">Manual</option>
+                            <option value="percentOverBase">% base</option>
+                            <option value="fixedOverBase">Monto base</option>
+                          </select>
+                          {column.calculationMode !== 'manual' && (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={column.calculationValue ?? ''}
+                              onChange={(e) => onUpdateColumn(column.id, {
+                                calculationValue: e.target.value === '' ? null : Number(e.target.value)
+                              })}
+                              className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-400"
+                              placeholder="0"
+                            />
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3 px-2">
                       {column.isBase ? (

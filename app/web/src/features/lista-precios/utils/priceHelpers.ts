@@ -1,4 +1,32 @@
-import type { Column, Product, Price, VolumePrice, VolumeRange, PriceCalculation } from '../models/PriceTypes';
+import type {
+  CatalogProduct,
+  Column,
+  ColumnCalculationMode,
+  Product,
+  Price,
+  VolumePrice,
+  VolumeRange,
+  PriceCalculation
+} from '../models/PriceTypes';
+
+export type EffectivePriceSource = 'explicit' | 'calculated' | 'suggested' | 'none';
+
+export interface EffectivePriceResult {
+  value?: number;
+  source: EffectivePriceSource;
+}
+
+export type EffectivePriceMatrix = Record<string, Record<string, Record<string, EffectivePriceResult>>>;
+
+export const DEFAULT_UNIT_CODE = 'NIU';
+const DEFAULT_CALCULATION_MODE: ColumnCalculationMode = 'manual';
+
+const roundCurrency = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+
+export const getFixedPriceValue = (price?: Price): number | undefined => {
+  if (!price || price.type !== 'fixed') return undefined;
+  return price.value;
+};
 
 export const generateColumnId = (columns: Column[]): string => {
   return `P${columns.length + 1}`;
@@ -18,7 +46,9 @@ const createDefaultBaseColumn = (): Column => ({
   mode: 'fixed',
   visible: true,
   isBase: true,
-  order: 1
+  order: 1,
+  calculationMode: DEFAULT_CALCULATION_MODE,
+  calculationValue: null
 });
 
 const normalizeColumnOrder = (column: Column, index: number): Column => ({
@@ -26,10 +56,22 @@ const normalizeColumnOrder = (column: Column, index: number): Column => ({
   order: typeof column.order === 'number' ? column.order : index + 1
 });
 
+const withCalculationDefaults = (column: Column): Column => ({
+  ...column,
+  calculationMode: column.isBase
+    ? DEFAULT_CALCULATION_MODE
+    : (column.calculationMode as ColumnCalculationMode | undefined) ?? DEFAULT_CALCULATION_MODE,
+  calculationValue: column.isBase
+    ? null
+    : typeof column.calculationValue === 'number'
+      ? column.calculationValue
+      : null
+});
+
 export const ensureBaseColumn = (columns: Column[]): Column[] => {
   const normalized = columns
     .filter(Boolean)
-    .map((column, index) => normalizeColumnOrder(column, index));
+    .map((column, index) => withCalculationDefaults(normalizeColumnOrder(column, index)));
 
   if (normalized.length === 0) {
     return [createDefaultBaseColumn()];
@@ -48,12 +90,16 @@ export const ensureBaseColumn = (columns: Column[]): Column[] => {
         ...column,
         isBase: true,
         visible: true,
-        mode: 'fixed'
+        mode: 'fixed',
+        calculationMode: DEFAULT_CALCULATION_MODE,
+        calculationValue: null
       };
     }
     return {
       ...column,
-      isBase: false
+      isBase: false,
+      calculationMode: column.calculationMode ?? DEFAULT_CALCULATION_MODE,
+      calculationValue: typeof column.calculationValue === 'number' ? column.calculationValue : null
     };
   });
 };
@@ -94,6 +140,147 @@ export const validateColumnConfiguration = (columns: Column[]): {
 
 export const formatPrice = (value: number): string => {
   return `S/ ${value.toFixed(2)}`;
+};
+
+interface EffectivePriceArgs {
+  column: Column;
+  explicitPrice?: Price;
+  baseValue?: number;
+  baseUnitValue?: number;
+  conversionFactor?: number;
+}
+
+export const getEffectivePriceFromBase = ({
+  column,
+  explicitPrice,
+  baseValue,
+  baseUnitValue,
+  conversionFactor
+}: EffectivePriceArgs): EffectivePriceResult => {
+  const explicitValue = getFixedPriceValue(explicitPrice);
+  if (typeof explicitValue === 'number') {
+    return { value: explicitValue, source: 'explicit' };
+  }
+
+  const mode = column.calculationMode ?? DEFAULT_CALCULATION_MODE;
+  const calcValue = typeof column.calculationValue === 'number' ? column.calculationValue : null;
+
+  if (mode === 'percentOverBase' && typeof baseValue === 'number' && calcValue !== null) {
+    const computed = baseValue * (1 + calcValue / 100);
+    return { value: roundCurrency(computed), source: 'calculated' };
+  }
+
+  if (mode === 'fixedOverBase' && typeof baseValue === 'number' && calcValue !== null) {
+    const computed = baseValue + calcValue;
+    return { value: roundCurrency(computed), source: 'calculated' };
+  }
+
+  if (
+    typeof baseUnitValue === 'number' &&
+    typeof conversionFactor === 'number' &&
+    conversionFactor > 0
+  ) {
+    const suggested = baseUnitValue * conversionFactor;
+    return { value: roundCurrency(suggested), source: 'suggested' };
+  }
+
+  return { source: 'none' };
+};
+
+type UnitMeta = {
+  code: string;
+  isBase: boolean;
+  factor?: number;
+};
+
+const collectUnitMetas = (product: Product, catalogProduct?: CatalogProduct): UnitMeta[] => {
+  const seen = new Set<string>();
+  const metas: UnitMeta[] = [];
+
+  const addUnit = (code?: string, isBase = false, factor?: number) => {
+    if (!code || seen.has(code)) return;
+    seen.add(code);
+    metas.push({ code, isBase, factor: isBase ? 1 : factor });
+  };
+
+  addUnit(catalogProduct?.unidad, true, 1);
+  catalogProduct?.unidadesMedidaAdicionales?.forEach(unit => addUnit(unit.unidadCodigo, false, unit.factorConversion));
+
+  Object.values(product.prices).forEach(unitPrices => {
+    Object.keys(unitPrices).forEach(code => addUnit(code));
+  });
+
+  if (metas.length === 0) {
+    addUnit(product.activeUnitCode || catalogProduct?.unidad || DEFAULT_UNIT_CODE, true, 1);
+  }
+
+  return metas;
+};
+
+export const buildEffectivePriceMatrix = (
+  products: Product[],
+  columns: Column[],
+  catalogProducts: CatalogProduct[]
+): EffectivePriceMatrix => {
+  if (products.length === 0 || columns.length === 0) {
+    return {};
+  }
+
+  const baseColumn = findBaseColumn(columns);
+  const catalogMap = new Map(catalogProducts.map(product => [product.codigo, product] as const));
+  const matrix: EffectivePriceMatrix = {};
+
+  products.forEach(product => {
+    const catalogProduct = catalogMap.get(product.sku);
+    const unitMetas = collectUnitMetas(product, catalogProduct);
+    if (unitMetas.length === 0) return;
+
+    const baseUnitCode = unitMetas.find(unit => unit.isBase)?.code
+      || catalogProduct?.unidad
+      || product.activeUnitCode
+      || DEFAULT_UNIT_CODE;
+
+    const baseUnitValue = baseColumn
+      ? getFixedPriceValue(product.prices[baseColumn.id]?.[baseUnitCode])
+      : undefined;
+
+    const columnEntries: Record<string, Record<string, EffectivePriceResult>> = {};
+
+    columns.forEach(column => {
+      const unitEntries: Record<string, EffectivePriceResult> = {};
+
+      unitMetas.forEach(unit => {
+        const unitCode = unit.code;
+        const explicitPrice = product.prices[column.id]?.[unitCode];
+
+        const inferredBaseValue = !column.isBase && baseColumn
+          ? getFixedPriceValue(product.prices[baseColumn.id]?.[unitCode]) ?? (
+            typeof baseUnitValue === 'number' &&
+            unitCode !== baseUnitCode &&
+            typeof unit.factor === 'number' &&
+            unit.factor > 0
+              ? roundCurrency(baseUnitValue * unit.factor)
+              : undefined)
+          : undefined;
+
+        const conversionFactor = unitCode !== baseUnitCode ? unit.factor : undefined;
+
+        unitEntries[unitCode] = getEffectivePriceFromBase({
+          column,
+          explicitPrice,
+          baseValue: inferredBaseValue,
+          baseUnitValue,
+          conversionFactor
+        });
+      });
+
+      columnEntries[column.id] = unitEntries;
+    });
+
+    matrix[product.sku] = columnEntries;
+  });
+
+  return matrix;
 };
 
 export const formatVolumeRanges = (ranges: VolumeRange[]): string => {

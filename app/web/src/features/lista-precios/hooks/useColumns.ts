@@ -89,13 +89,20 @@ export const useColumns = () => {
       const newId = generateColumnId(columns);
       const newOrder = getNextOrder(columns);
 
+      const normalizedCalcMode = newColumnData.calculationMode ?? 'manual';
+      const normalizedCalcValue = typeof newColumnData.calculationValue === 'number' && Number.isFinite(newColumnData.calculationValue)
+        ? newColumnData.calculationValue
+        : null;
+
       const newColumn: Column = {
         id: newId,
         name: newColumnData.name.trim(),
         mode: newColumnData.mode,
         visible: newColumnData.visible,
         isBase: newColumnData.isBase && !columns.some(c => c.isBase),
-        order: newOrder
+        order: newOrder,
+        calculationMode: newColumnData.isBase ? 'manual' : normalizedCalcMode,
+        calculationValue: newColumnData.isBase ? null : normalizedCalcMode === 'manual' ? null : normalizedCalcValue
       };
 
       applyColumnsUpdate(prev => [...prev, newColumn]);
@@ -161,7 +168,9 @@ export const useColumns = () => {
       ...col,
       isBase: col.id === columnId,
       visible: col.id === columnId ? true : col.visible,
-      mode: col.id === columnId ? 'fixed' : col.mode
+      mode: col.id === columnId ? 'fixed' : col.mode,
+      calculationMode: col.id === columnId ? 'manual' : col.calculationMode,
+      calculationValue: col.id === columnId ? null : col.calculationValue
     })));
   }, [applyColumnsUpdate]);
 
@@ -177,8 +186,23 @@ export const useColumns = () => {
         delete nextUpdates.mode;
         delete nextUpdates.visible;
         delete nextUpdates.isBase;
+        delete nextUpdates.calculationMode;
+        delete nextUpdates.calculationValue;
       } else if (nextUpdates.isBase) {
         delete nextUpdates.isBase;
+      }
+
+      if (!col.isBase) {
+        if (nextUpdates.calculationMode === 'manual') {
+          nextUpdates.calculationValue = null;
+        } else if (nextUpdates.calculationValue !== undefined) {
+          if (nextUpdates.calculationValue === null) {
+            nextUpdates.calculationValue = null;
+          } else {
+            const numericValue = Number(nextUpdates.calculationValue);
+            nextUpdates.calculationValue = Number.isFinite(numericValue) ? numericValue : null;
+          }
+        }
       }
 
       return { ...col, ...nextUpdates };

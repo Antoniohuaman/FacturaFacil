@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Search, X, Settings, ChevronDown, ChevronRight, Check, MoreHorizontal, Loader2, Pencil } from 'lucide-react';
 import type { Column, Product, CatalogProduct, PriceForm, Price } from '../models/PriceTypes';
+import type { EffectivePriceMatrix, EffectivePriceResult, EffectivePriceSource } from '../utils/priceHelpers';
 import { filterVisibleColumns, formatPrice, formatDate, getVolumePreview, getVolumeTooltip, getPriceRange } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
@@ -15,6 +16,7 @@ interface ProductPricingProps {
   onSavePrice: (priceData: PriceForm) => Promise<boolean> | boolean;
   onUnitChange: (sku: string, unitCode: string) => void;
   catalogProducts?: CatalogProduct[];
+  effectivePrices: EffectivePriceMatrix;
   registerAssignHandler?: (handler: (() => void) | null) => void;
 }
 
@@ -59,6 +61,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   onSavePrice,
   onUnitChange,
   catalogProducts = [],
+  effectivePrices,
   registerAssignHandler
 }) => {
   const visibleColumns = filterVisibleColumns(columns);
@@ -77,6 +80,10 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const unitsByCode = useMemo(() => {
     return new Map(measurementUnits.map(unit => [unit.code, unit] as const));
   }, [measurementUnits]);
+
+  const resolveEffectivePrice = useCallback((sku: string, columnId: string, unitCode: string): EffectivePriceResult | undefined => {
+    return effectivePrices[sku]?.[columnId]?.[unitCode];
+  }, [effectivePrices]);
 
   // Estados para modales
   const [priceModalOpen, setPriceModalOpen] = useState(false);
@@ -322,10 +329,14 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const beginInlineEdit = useCallback((product: Product, column: Column, providedUnitCode?: string) => {
     const unitCode = providedUnitCode || resolveActiveUnit(product);
     const price = getPriceForColumnUnit(product, column.id, unitCode);
-    const nextValue = price?.type === 'fixed' ? price.value.toString() : '';
+    const meta = resolveEffectivePrice(product.sku, column.id, unitCode);
+    const resolvedValue = price?.type === 'fixed'
+      ? price.value
+      : (typeof meta?.value === 'number' ? meta.value : undefined);
+    const nextValue = typeof resolvedValue === 'number' ? resolvedValue.toString() : '';
     setEditingCell({ sku: product.sku, columnId: column.id, unitCode, value: nextValue });
     setCellStatuses(prev => ({ ...prev, [cellKey(product.sku, column.id, unitCode)]: {} }));
-  }, [getPriceForColumnUnit, resolveActiveUnit]);
+  }, [getPriceForColumnUnit, resolveActiveUnit, resolveEffectivePrice]);
 
   const cancelInlineEdit = useCallback(() => {
     setEditingCell(null);
@@ -342,17 +353,20 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     const key = cellKey(sku, columnId, unitCode);
     const trimmedValue = value.trim();
 
-    if (!trimmedValue) {
-      setCellStatuses(prev => ({ ...prev, [key]: { error: 'Ingresa un precio' } }));
-      return;
-    }
-
     const product = products.find(p => p.sku === sku);
     const column = columns.find(col => col.id === columnId);
 
     if (!product || !column) {
       setCellStatuses(prev => ({ ...prev, [key]: { error: 'Producto o columna no disponible' } }));
       return;
+    }
+
+    if (trimmedValue) {
+      const numericValue = parseFloat(trimmedValue);
+      if (Number.isNaN(numericValue) || numericValue <= 0) {
+        setCellStatuses(prev => ({ ...prev, [key]: { error: 'Ingresa un valor mayor a 0' } }));
+        return;
+      }
     }
 
     const existingPrice = getPriceForColumnUnit(product, columnId, unitCode);
@@ -435,6 +449,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const renderPriceCell = (product: Product, column: Column) => {
     const activeUnit = resolveActiveUnit(product);
     const price = getPriceForColumnUnit(product, column.id, activeUnit);
+    const meta = resolveEffectivePrice(product.sku, column.id, activeUnit);
     const key = cellKey(product.sku, column.id, activeUnit);
     const status = cellStatuses[key];
     const isSaving = !!cellSavingState[key];
@@ -459,6 +474,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           showUnitMeta={false}
           showValidityLabel={false}
           showEmptyHint={false}
+          resolvedValue={meta?.value}
+          valueSource={meta?.source}
         />
       );
     }
@@ -650,6 +667,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                               baseColumnId={baseColumnId}
                               getUnitOptions={getUnitOptions}
                               getPriceForColumnUnit={getPriceForColumnUnit}
+                              getEffectivePriceMeta={resolveEffectivePrice}
                               isEditingCell={isEditingCell}
                               beginInlineEdit={beginInlineEdit}
                               handleInlineValueChange={handleInlineValueChange}
@@ -817,6 +835,8 @@ interface FixedPriceCellProps {
   showUnitMeta?: boolean;
   showValidityLabel?: boolean;
   showEmptyHint?: boolean;
+  resolvedValue?: number;
+  valueSource?: EffectivePriceSource;
 }
 
 const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
@@ -835,7 +855,9 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
   variant = 'default',
   showUnitMeta = true,
   showValidityLabel = true,
-  showEmptyHint = true
+  showEmptyHint = true,
+  resolvedValue,
+  valueSource
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const normalizedUnit = unitCode || '—';
@@ -854,7 +876,14 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
     ? `Vence ${formatDate(price.validUntil)}`
     : null;
 
-  const displayValue = price && price.type === 'fixed' ? formatPrice(price.value) : '—';
+  const rawValue = typeof resolvedValue === 'number'
+    ? resolvedValue
+    : (price && price.type === 'fixed' ? price.value : undefined);
+  const formattedValue = typeof rawValue === 'number' ? formatPrice(rawValue) : '—';
+  const resolvedSource = valueSource ?? (price && price.type === 'fixed' ? 'explicit' : 'none');
+  const valueClass = typeof rawValue === 'number'
+    ? (resolvedSource === 'explicit' ? 'text-gray-900' : 'text-gray-700')
+    : 'text-gray-400';
 
   if (!isEditing) {
     return (
@@ -873,10 +902,10 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
           </div>
         )}
         <div className="flex items-center justify-between gap-2">
-          <span className={`text-sm font-semibold ${price && price.type === 'fixed' ? 'text-gray-900' : 'text-gray-400'}`}>
-            {displayValue}
+          <span className={`text-sm font-semibold ${valueClass}`}>
+            {formattedValue}
           </span>
-          {showEmptyHint && !price && (
+          {showEmptyHint && typeof rawValue !== 'number' && (
             <span className="text-[11px] text-gray-400">Editar</span>
           )}
         </div>
@@ -926,7 +955,7 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
       {!status?.error && showValidityLabel && validityLabel && (
         <span className="text-[11px] text-gray-400">{validityLabel}</span>
       )}
-      {!price && !status?.error && showEmptyHint && (
+      {typeof rawValue !== 'number' && !status?.error && showEmptyHint && (
         <span className="text-[11px] text-gray-400">{column.isBase ? 'Define el precio base' : 'Agregar precio'}</span>
       )}
     </div>
@@ -974,6 +1003,7 @@ interface UnitPricesPanelProps {
   baseColumnId?: string;
   getUnitOptions: (product: Product) => Array<{ code: string; label: string; isBase: boolean; factor?: number }>;
   getPriceForColumnUnit: (product: Product, columnId: string, unitOverride?: string) => Price | undefined;
+  getEffectivePriceMeta: (sku: string, columnId: string, unitCode: string) => EffectivePriceResult | undefined;
   isEditingCell: (sku: string, columnId: string, unitCode: string) => boolean;
   beginInlineEdit: (product: Product, column: Column, unitCode?: string) => void;
   handleInlineValueChange: (value: string) => void;
@@ -991,6 +1021,7 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
   baseColumnId,
   getUnitOptions,
   getPriceForColumnUnit,
+  getEffectivePriceMeta,
   isEditingCell,
   beginInlineEdit,
   handleInlineValueChange,
@@ -1016,6 +1047,7 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
 
   const renderUnitPriceCell = (column: Column, unitCode: string) => {
     const price = getPriceForColumnUnit(product, column.id, unitCode);
+    const meta = getEffectivePriceMeta(product.sku, column.id, unitCode);
     const key = cellKey(product.sku, column.id, unitCode);
     const status = cellStatuses[key];
     const isSaving = !!cellSavingState[key];
@@ -1041,6 +1073,8 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
           showUnitMeta={false}
           showValidityLabel
           showEmptyHint={false}
+          resolvedValue={meta?.value}
+          valueSource={meta?.source}
         />
       );
     }
