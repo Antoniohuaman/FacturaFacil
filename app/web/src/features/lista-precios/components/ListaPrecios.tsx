@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import type { NewColumnForm } from '../models/PriceTypes';
 import { usePriceList } from '../hooks/usePriceList';
 import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
@@ -36,6 +37,7 @@ export const ListaPrecios: React.FC = () => {
     deleteColumn,
     toggleColumnVisibility,
     setBaseColumn,
+    updateColumn,
     addOrUpdateProductPrice,
     setProductActiveUnit,
     openColumnModal,
@@ -65,6 +67,28 @@ export const ListaPrecios: React.FC = () => {
       setActiveTab(tab);
     }
   };
+
+  const handleSaveColumn = useCallback((data: NewColumnForm) => {
+    const normalized = {
+      ...data,
+      name: data.name.trim()
+    };
+
+    if (!normalized.name) {
+      return false;
+    }
+
+    if (editingColumn) {
+      updateColumn(editingColumn.id, {
+        name: normalized.name,
+        mode: normalized.mode,
+        visible: normalized.visible
+      });
+      return true;
+    }
+
+    return addColumn(normalized);
+  }, [addColumn, editingColumn, updateColumn]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -179,7 +203,7 @@ export const ListaPrecios: React.FC = () => {
       <ColumnModal
         isOpen={showColumnModal}
         onClose={closeColumnModal}
-        onSave={addColumn}
+        onSave={handleSaveColumn}
         editingColumn={editingColumn}
         hasBaseColumn={!!baseColumn}
       />

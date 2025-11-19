@@ -90,17 +90,26 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                       )}
                     </td>
                     <td className="py-3 px-2">
-                      <button
-                        onClick={() => onToggleVisibility(column.id)}
-                        className={`p-1 rounded transition-colors ${
-                          column.visible 
-                            ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20' 
-                            : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
-                        title={column.visible ? 'Ocultar columna' : 'Mostrar columna'}
-                      >
-                        {column.visible ? <Eye size={16} /> : <EyeOff size={16} />}
-                      </button>
+                      {column.isBase ? (
+                        <div
+                          className="inline-flex items-center p-1 rounded text-blue-600/70 cursor-not-allowed"
+                          title="La columna base siempre está visible"
+                        >
+                          <Eye size={16} />
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => onToggleVisibility(column.id)}
+                          className={`p-1 rounded transition-colors ${
+                            column.visible 
+                              ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20' 
+                              : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          }`}
+                          title={column.visible ? 'Ocultar columna' : 'Mostrar columna'}
+                        >
+                          {column.visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                        </button>
+                      )}
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex items-center space-x-3">
@@ -111,7 +120,14 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                         >
                           <Edit2 size={14} />
                         </button>
-                        {!column.isBase && (
+                        {column.isBase ? (
+                          <span
+                            className="text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                            title="No se puede eliminar la columna base"
+                          >
+                            <Trash2 size={14} />
+                          </span>
+                        ) : (
                           <button
                             onClick={() => onDeleteColumn(column.id)}
                             className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
@@ -127,14 +143,6 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
               </tbody>
             </table>
           </div>
-
-          {columns.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <div className="text-4xl mb-2">📊</div>
-              <p>No hay columnas configuradas</p>
-              <p className="text-sm">Agrega tu primera columna para comenzar</p>
-            </div>
-          )}
 
           {/* Info Box */}
           <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">

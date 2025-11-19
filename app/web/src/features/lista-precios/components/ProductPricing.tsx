@@ -504,6 +504,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     : selectedUnitForModal || undefined;
 
   const firstVolumeColumn = useMemo(() => orderedColumns.find(column => column.mode === 'volume'), [orderedColumns]);
+  const shouldShowEmptyState = orderedColumns.length > 0 && filteredProducts.length === 0;
+  const showNoCatalogProducts = shouldShowEmptyState && products.length === 0;
 
   return (
     <div className="p-5">
@@ -675,26 +677,19 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           )}
 
           {/* Empty States */}
-          {orderedColumns.length > 0 && filteredProducts.length === 0 && (
+          {shouldShowEmptyState && (
             <div className="text-center py-8 text-gray-500">
               <div className="text-4xl mb-2">🔍</div>
-              <p className="font-medium">
-                {searchSKU ? 'No se encontraron productos' : 'No hay productos registrados'}
-              </p>
-              <p className="text-sm mt-1">
-                {searchSKU 
-                  ? `No hay productos que coincidan con "${searchSKU}"` 
-                  : 'Agrega precios a tus productos para comenzar'
-                }
-              </p>
-              {!searchSKU && (
-                <button
-                  onClick={() => handleAssignPrice()}
-                  className="mt-4 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
-                  style={{ backgroundColor: '#1478D4' }}
-                >
-                  Asignar primer precio
-                </button>
+              {showNoCatalogProducts ? (
+                <>
+                  <p className="font-medium">No hay productos, crea tus productos en el módulo Productos</p>
+                  <p className="text-sm mt-1">Registra tus SKU en el módulo Productos para comenzar a asignar precios.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium">No se encontraron productos</p>
+                  <p className="text-sm mt-1">No hay productos que coincidan con "{searchSKU}"</p>
+                </>
               )}
             </div>
           )}

@@ -1,7 +1,7 @@
 // src/features/lista-precios/hooks/useColumns.ts
 import { useState, useEffect, useCallback } from 'react';
 import type { Column, NewColumnForm } from '../models/PriceTypes';
-import { generateColumnId, getNextOrder } from '../utils/priceHelpers';
+import { generateColumnId, getNextOrder, ensureBaseColumn } from '../utils/priceHelpers';
 import { lsKey } from '../utils/tenantHelpers';
 
 /**
@@ -34,15 +34,19 @@ const saveToLocalStorage = (key: string, data: unknown): void => {
  */
 export const useColumns = () => {
   const [columns, setColumns] = useState<Column[]>(() =>
-    loadFromLocalStorage<Column[]>(lsKey('price_list_columns'), [])
+    ensureBaseColumn(loadFromLocalStorage<Column[]>(lsKey('price_list_columns'), []))
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const applyColumnsUpdate = useCallback((updater: (prev: Column[]) => Column[]) => {
+    setColumns(prev => ensureBaseColumn(updater(prev)));
+  }, []);
+
   // Persistir columnas en localStorage cuando cambien
   useEffect(() => {
     saveToLocalStorage(lsKey('price_list_columns'), columns);
-  }, [columns]);
+  }, [columns, applyColumnsUpdate]);
 
   // Sincronizar cambios de otras pestañas
   useEffect(() => {
@@ -50,7 +54,7 @@ export const useColumns = () => {
       if (e.key === lsKey('price_list_columns') && e.newValue) {
         try {
           const newColumns = JSON.parse(e.newValue);
-          setColumns(newColumns);
+          setColumns(ensureBaseColumn(newColumns));
         } catch (error) {
           console.error('[useColumns] Error parsing columns from storage event:', error);
         }
@@ -94,7 +98,7 @@ export const useColumns = () => {
         order: newOrder
       };
 
-      setColumns([...columns, newColumn]);
+      applyColumnsUpdate(prev => [...prev, newColumn]);
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al agregar columna';
@@ -104,7 +108,7 @@ export const useColumns = () => {
     } finally {
       setLoading(false);
     }
-  }, [columns]);
+  }, [columns, applyColumnsUpdate]);
 
   /**
    * Eliminar columna
@@ -123,7 +127,7 @@ export const useColumns = () => {
     }
 
     try {
-      setColumns(columns.filter(c => c.id !== columnId));
+      applyColumnsUpdate(prev => prev.filter(c => c.id !== columnId));
       setError(null);
       return true;
     } catch (err) {
@@ -132,35 +136,54 @@ export const useColumns = () => {
       setError(errorMessage);
       return false;
     }
-  }, [columns]);
+  }, [columns, applyColumnsUpdate]);
 
   /**
    * Alternar visibilidad de columna
    */
   const toggleColumnVisibility = useCallback((columnId: string): void => {
-    setColumns(columns.map(col =>
+    const target = columns.find(col => col.id === columnId);
+    if (!target) return;
+    if (target.isBase) {
+      setError('La columna base siempre debe estar visible');
+      return;
+    }
+    applyColumnsUpdate(prev => prev.map(col =>
       col.id === columnId ? { ...col, visible: !col.visible } : col
     ));
-  }, [columns]);
+  }, [columns, applyColumnsUpdate]);
 
   /**
    * Establecer columna base
    */
   const setBaseColumn = useCallback((columnId: string): void => {
-    setColumns(columns.map(col => ({
+    applyColumnsUpdate(prev => prev.map(col => ({
       ...col,
-      isBase: col.id === columnId
+      isBase: col.id === columnId,
+      visible: col.id === columnId ? true : col.visible,
+      mode: col.id === columnId ? 'fixed' : col.mode
     })));
-  }, [columns]);
+  }, [applyColumnsUpdate]);
 
   /**
    * Actualizar columna
    */
   const updateColumn = useCallback((columnId: string, updates: Partial<Column>): void => {
-    setColumns(columns.map(col =>
-      col.id === columnId ? { ...col, ...updates } : col
-    ));
-  }, [columns]);
+    applyColumnsUpdate(prev => prev.map(col => {
+      if (col.id !== columnId) return col;
+
+      const nextUpdates: Partial<Column> = { ...updates };
+      if (col.isBase) {
+        delete nextUpdates.mode;
+        delete nextUpdates.visible;
+        delete nextUpdates.isBase;
+      } else if (nextUpdates.isBase) {
+        delete nextUpdates.isBase;
+      }
+
+      return { ...col, ...nextUpdates };
+    }));
+  }, [applyColumnsUpdate]);
 
   /**
    * Limpiar error

@@ -24,13 +24,14 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
     isBase: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditingBase = Boolean(editingColumn?.isBase);
 
   useEffect(() => {
     if (editingColumn) {
       setFormData({
         name: editingColumn.name,
-        mode: editingColumn.mode,
-        visible: editingColumn.visible,
+        mode: editingColumn.isBase ? 'fixed' : editingColumn.mode,
+        visible: editingColumn.isBase ? true : editingColumn.visible,
         isBase: editingColumn.isBase
       });
     } else {
@@ -46,9 +47,16 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    const payload: NewColumnForm = {
+      ...formData,
+      name: formData.name.trim()
+    };
     
     try {
-      const success = await onSave(formData);
+      if (!payload.name) {
+        return;
+      }
+      const success = await onSave(payload);
       if (success) {
         onClose();
       }
@@ -106,7 +114,9 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
             <select
               value={formData.mode}
               onChange={(e) => setFormData({ ...formData, mode: e.target.value as 'fixed' | 'volume' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={isEditingBase}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isEditingBase ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''}`}
+              title={isEditingBase ? 'La columna base siempre usa precio fijo' : undefined}
             >
               <option value="fixed">Precio fijo</option>
               <option value="volume">Precio por cantidad</option>
@@ -119,7 +129,9 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
                 type="checkbox"
                 checked={formData.visible}
                 onChange={(e) => setFormData({ ...formData, visible: e.target.checked })}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                disabled={isEditingBase}
+                className={`rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${isEditingBase ? 'cursor-not-allowed' : ''}`}
+                title={isEditingBase ? 'La columna base siempre es visible' : undefined}
               />
               <span className="ml-2 text-sm text-gray-700">Visible</span>
             </label>
@@ -130,12 +142,20 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
                   type="checkbox"
                   checked={formData.isBase}
                   onChange={(e) => setFormData({ ...formData, isBase: e.target.checked })}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  disabled
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-not-allowed"
+                  title="Siempre debe existir exactamente una columna base"
                 />
                 <span className="ml-2 text-sm text-gray-700">Columna base</span>
               </label>
             )}
           </div>
+
+          {isEditingBase && (
+            <p className="text-xs text-gray-500">
+              La columna base siempre se mantiene fija y visible; solo puedes cambiar su nombre.
+            </p>
+          )}
 
           <div className="flex justify-end space-x-3 mt-6">
             <button

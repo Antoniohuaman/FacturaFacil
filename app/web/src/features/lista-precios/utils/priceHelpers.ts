@@ -9,6 +9,55 @@ export const getNextOrder = (columns: Column[]): number => {
   return Math.max(...columns.map(c => c.order)) + 1;
 };
 
+const DEFAULT_BASE_COLUMN_ID = 'P1';
+const DEFAULT_BASE_COLUMN_NAME = 'Precio base';
+
+const createDefaultBaseColumn = (): Column => ({
+  id: DEFAULT_BASE_COLUMN_ID,
+  name: DEFAULT_BASE_COLUMN_NAME,
+  mode: 'fixed',
+  visible: true,
+  isBase: true,
+  order: 1
+});
+
+const normalizeColumnOrder = (column: Column, index: number): Column => ({
+  ...column,
+  order: typeof column.order === 'number' ? column.order : index + 1
+});
+
+export const ensureBaseColumn = (columns: Column[]): Column[] => {
+  const normalized = columns
+    .filter(Boolean)
+    .map((column, index) => normalizeColumnOrder(column, index));
+
+  if (normalized.length === 0) {
+    return [createDefaultBaseColumn()];
+  }
+
+  const sortedByOrder = [...normalized].sort((a, b) => a.order - b.order);
+  const explicitBase = sortedByOrder.find(column => column.isBase);
+  const defaultIdMatch = normalized.find(column => column.id === DEFAULT_BASE_COLUMN_ID);
+  const fallbackFirst = sortedByOrder[0];
+
+  const baseId = explicitBase?.id ?? defaultIdMatch?.id ?? fallbackFirst.id;
+
+  return normalized.map(column => {
+    if (column.id === baseId) {
+      return {
+        ...column,
+        isBase: true,
+        visible: true,
+        mode: 'fixed'
+      };
+    }
+    return {
+      ...column,
+      isBase: false
+    };
+  });
+};
+
 export const filterVisibleColumns = (columns: Column[]): Column[] => {
   return columns.filter(col => col.visible).sort((a, b) => a.order - b.order);
 };
