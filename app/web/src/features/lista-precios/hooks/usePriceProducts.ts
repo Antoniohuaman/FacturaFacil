@@ -364,7 +364,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
     } finally {
       setLoading(false);
     }
-  }, [products, getCatalogProductBySKU]);
+  }, [getCatalogProductBySKU]);
 
   /**
    * Eliminar precios de una columna específica
@@ -374,10 +374,11 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[]) => {
       const next = prevProducts
         .map(product => {
           if (!(columnId in product.prices)) return product;
-          const { [columnId]: _removed, ...rest } = product.prices;
+          const remainingPrices = { ...product.prices };
+          delete remainingPrices[columnId];
           return {
             ...product,
-            prices: rest
+            prices: remainingPrices
           };
         })
         .filter(product => Object.values(product.prices).some(unitPrices => Object.keys(unitPrices).length > 0));

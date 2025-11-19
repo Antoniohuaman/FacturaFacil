@@ -178,7 +178,8 @@ export const removeProductPricesForColumn = (products: Product[], columnId: stri
       if (!(columnId in product.prices)) {
         return product;
       }
-      const { [columnId]: _removed, ...rest } = product.prices;
+      const rest = { ...product.prices };
+      delete rest[columnId];
       return {
         ...product,
         prices: rest

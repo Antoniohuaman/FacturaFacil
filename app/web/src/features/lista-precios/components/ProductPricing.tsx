@@ -1,6 +1,6 @@
- import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Plus, Search, Edit2, X, Settings, ChevronDown, Check } from 'lucide-react';
-import type { Column, Product, CatalogProduct, PriceForm } from '../models/PriceTypes';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Plus, Search, X, Settings, ChevronDown, Check, MoreHorizontal, Loader2 } from 'lucide-react';
+import type { Column, Product, CatalogProduct, PriceForm, Price } from '../models/PriceTypes';
 import { filterVisibleColumns, formatPrice, formatDate, getVolumePreview, getVolumeTooltip, getPriceRange } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
@@ -24,6 +24,30 @@ interface SwitchToVolumePayload {
   productName?: string;
 }
 
+interface InlineCellState {
+  sku: string;
+  columnId: string;
+  value: string;
+}
+
+interface CellStatus {
+  error?: string;
+}
+
+const FALLBACK_UNIT_CODE = 'NIU';
+
+const getDefaultValidityRange = () => {
+  const today = new Date();
+  const nextYear = new Date();
+  nextYear.setFullYear(nextYear.getFullYear() + 1);
+  return {
+    validFrom: today.toISOString().split('T')[0],
+    validUntil: nextYear.toISOString().split('T')[0]
+  };
+};
+
+const cellKey = (sku: string, columnId: string) => `${sku}::${columnId}`;
+
 export const ProductPricing: React.FC<ProductPricingProps> = ({
   columns,
   products,
@@ -35,7 +59,6 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   catalogProducts = []
 }) => {
   const visibleColumns = filterVisibleColumns(columns);
-  const FALLBACK_UNIT_CODE = 'NIU';
 
   const { state: configState } = useConfigurationContext();
   const measurementUnits = configState.units;
@@ -48,7 +71,11 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const [priceModalOpen, setPriceModalOpen] = useState(false);
   const [volumeModalOpen, setVolumeModalOpen] = useState(false);
   const [unitMenuOpenSku, setUnitMenuOpenSku] = useState<string | null>(null);
+  const [rowMenuOpenSku, setRowMenuOpenSku] = useState<string | null>(null);
   const [selectedUnitForModal, setSelectedUnitForModal] = useState<string | null>(null);
+  const [editingCell, setEditingCell] = useState<InlineCellState | null>(null);
+  const [cellStatuses, setCellStatuses] = useState<Record<string, CellStatus>>({});
+  const [cellSavingState, setCellSavingState] = useState<Record<string, boolean>>({});
 
   // Estados para datos seleccionados
   const [selectedPriceColumn, setSelectedPriceColumn] = useState<Column | null>(null);
@@ -124,17 +151,18 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   }, [onUnitChange, resolveActiveUnit]);
 
   useEffect(() => {
-    if (!unitMenuOpenSku) return;
+    if (!unitMenuOpenSku && !rowMenuOpenSku) return;
     const handleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (target.closest('[data-unit-selector="true"]')) {
+      if (target.closest('[data-unit-selector="true"]') || target.closest('[data-row-menu="true"]')) {
         return;
       }
       setUnitMenuOpenSku(null);
+      setRowMenuOpenSku(null);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [unitMenuOpenSku]);
+  }, [unitMenuOpenSku, rowMenuOpenSku]);
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -178,6 +206,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   // Manejador para editar producto existente - detecta el tipo de precio a editar
   const handleEditProduct = (product: Product) => {
     setUnitMenuOpenSku(null);
+    setRowMenuOpenSku(null);
     const activeUnit = resolveActiveUnit(product);
     setSelectedUnitForModal(activeUnit);
     setSelectedProductForPriceModal(product);
@@ -201,6 +230,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const handleConfigureVolumePrice = (product: Product, column: Column) => {
     setSelectedUnitForModal(resolveActiveUnit(product));
     setUnitMenuOpenSku(null);
+    setRowMenuOpenSku(null);
     setSelectedVolumePrice({ product, column });
     setVolumeModalOpen(true);
   };
@@ -241,6 +271,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
       setSelectedProductForPriceModal(null);
       setSelectedUnitForModal(null);
       setUnitMenuOpenSku(null);
+      setRowMenuOpenSku(null);
     }
     return success;
   };
@@ -253,9 +284,79 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
       setSelectedPriceColumn(null);
       setSelectedUnitForModal(null);
       setUnitMenuOpenSku(null);
+      setRowMenuOpenSku(null);
     }
     return success;
   };
+
+  const isEditingCell = useCallback((sku: string, columnId: string) => {
+    return editingCell?.sku === sku && editingCell?.columnId === columnId;
+  }, [editingCell]);
+
+  const beginInlineEdit = useCallback((product: Product, column: Column) => {
+    const price = getPriceForColumnUnit(product, column.id);
+    const nextValue = price?.type === 'fixed' ? price.value.toString() : '';
+    setEditingCell({ sku: product.sku, columnId: column.id, value: nextValue });
+    setCellStatuses(prev => ({ ...prev, [cellKey(product.sku, column.id)]: {} }));
+  }, [getPriceForColumnUnit]);
+
+  const cancelInlineEdit = useCallback(() => {
+    setEditingCell(null);
+  }, []);
+
+  const handleInlineValueChange = useCallback((value: string) => {
+    setEditingCell(prev => (prev ? { ...prev, value } : prev));
+  }, []);
+
+  const commitInlineSave = useCallback(async () => {
+    if (!editingCell) return;
+
+    const { sku, columnId, value } = editingCell;
+    const key = cellKey(sku, columnId);
+    const trimmedValue = value.trim();
+
+    if (!trimmedValue) {
+      setCellStatuses(prev => ({ ...prev, [key]: { error: 'Ingresa un precio' } }));
+      return;
+    }
+
+    const product = products.find(p => p.sku === sku);
+    const column = columns.find(col => col.id === columnId);
+
+    if (!product || !column) {
+      setCellStatuses(prev => ({ ...prev, [key]: { error: 'Producto o columna no disponible' } }));
+      return;
+    }
+
+    const unitCode = resolveActiveUnit(product);
+    const existingPrice = getPriceForColumnUnit(product, columnId);
+    const { validFrom, validUntil } = existingPrice?.type === 'fixed'
+      ? { validFrom: existingPrice.validFrom, validUntil: existingPrice.validUntil }
+      : getDefaultValidityRange();
+
+    setCellSavingState(prev => ({ ...prev, [key]: true }));
+    setCellStatuses(prev => ({ ...prev, [key]: {} }));
+
+    const payload: PriceForm = {
+      type: 'fixed',
+      sku,
+      columnId,
+      unitCode,
+      value: trimmedValue,
+      validFrom,
+      validUntil
+    };
+
+    const success = await Promise.resolve(onSavePrice(payload));
+
+    if (!success) {
+      setCellStatuses(prev => ({ ...prev, [key]: { error: 'Error al guardar precio' } }));
+    } else {
+      setEditingCell(null);
+    }
+
+    setCellSavingState(prev => ({ ...prev, [key]: false }));
+  }, [editingCell, products, columns, resolveActiveUnit, getPriceForColumnUnit, onSavePrice]);
 
   const renderUnitSelector = (product: Product) => {
     const options = getUnitOptions(product);
@@ -269,7 +370,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
         <button
           type="button"
           onClick={() => setUnitMenuOpenSku(prev => (prev === product.sku ? null : product.sku))}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 bg-white text-xs font-semibold text-gray-700 shadow-sm hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 bg-white text-[11px] font-semibold text-gray-700 shadow-sm hover:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-200"
         >
           <span className="text-[11px] font-bold text-gray-900">{activeUnit}</span>
           <span className="text-[11px] text-gray-600 truncate max-w-[90px]">{activeLabel}</span>
@@ -277,7 +378,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
         </button>
 
         {unitMenuOpenSku === product.sku && (
-          <div className="absolute z-20 mt-2 w-52 rounded-lg border border-gray-200 bg-white shadow-lg p-1">
+          <div className="absolute z-20 mt-2 w-56 rounded-lg border border-gray-200 bg-white shadow-lg p-1">
             {options.map(option => (
               <button
                 key={`${product.sku}-${option.code}`}
@@ -307,61 +408,52 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
 
   const renderPriceCell = (product: Product, column: Column) => {
     const price = getPriceForColumnUnit(product, column.id);
-    
-    if (!price) {
+    const key = cellKey(product.sku, column.id);
+    const status = cellStatuses[key];
+    const isSaving = !!cellSavingState[key];
+
+    if (column.mode === 'fixed') {
       return (
-        <div className="text-center">
-          <span className="text-gray-400 text-sm">Sin precio</span>
-        </div>
+        <FixedPriceCell
+          column={column}
+          price={price}
+          isEditing={isEditingCell(product.sku, column.id)}
+          draftValue={isEditingCell(product.sku, column.id) ? editingCell?.value || '' : ''}
+          onStartEdit={() => beginInlineEdit(product, column)}
+          onChangeValue={handleInlineValueChange}
+          onCommit={commitInlineSave}
+          onCancel={cancelInlineEdit}
+          status={status}
+          isSaving={isSaving}
+        />
       );
     }
 
-    // Validar que el precio coincida con el modo de la columna
-    const isValidPriceType = (column.mode === 'fixed' && price.type === 'fixed') ||
-                            (column.mode === 'volume' && price.type === 'volume');
+    if (column.mode === 'volume') {
+      const isValidPriceType = price?.type === 'volume';
+      if (!price) {
+        return (
+          <VolumePriceCell
+            state="empty"
+            onConfigure={() => handleConfigureVolumePrice(product, column)}
+          />
+        );
+      }
 
-    if (!isValidPriceType) {
+      if (!isValidPriceType) {
+        return <span className="text-[12px] text-red-500">Tipo inválido</span>;
+      }
+
       return (
-        <div className="text-center">
-          <span className="text-red-400 text-sm">Tipo inválido</span>
-        </div>
+        <VolumePriceCell
+          state="filled"
+          price={price}
+          onConfigure={() => handleConfigureVolumePrice(product, column)}
+        />
       );
     }
 
-    return (
-      <div className="text-center group relative">
-        {price.type === 'fixed' ? (
-          <>
-            <div className="font-semibold text-green-600">
-              {formatPrice(price.value)}
-            </div>
-            <div className="text-xs text-gray-500">
-              Vigente hasta {formatDate(price.validUntil)}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="text-sm font-semibold text-blue-600 mb-1 flex items-center justify-center gap-1">
-              {getPriceRange(price.ranges)}
-              <button
-                onClick={() => handleConfigureVolumePrice(product, column)}
-                className="opacity-0 group-hover:opacity-100 text-blue-500 hover:text-blue-700 transition-opacity p-1 hover:bg-blue-50 rounded"
-                title="Configurar rangos de cantidad"
-              >
-                <Settings size={12} />
-              </button>
-            </div>
-            <div className="text-xs text-gray-700 mt-1 cursor-help font-medium leading-relaxed" 
-                 title={getVolumeTooltip(price.ranges)}>
-              {getVolumePreview(price.ranges)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Vigente hasta {formatDate(price.validUntil)}
-            </div>
-          </>
-        )}
-      </div>
-    );
+    return <span className="text-xs text-gray-400">Sin configuración</span>;
   };
 
   const priceModalUnitOptions = selectedProductForPriceModal
@@ -377,6 +469,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     ? (selectedUnitForModal || resolveActiveUnit(volumeModalProduct))
     : selectedUnitForModal || undefined;
 
+  const firstVolumeColumn = useMemo(() => visibleColumns.find(column => column.mode === 'volume'), [visibleColumns]);
+
   return (
     <div className="p-6">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -390,7 +484,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
             </div>
             <button
               onClick={() => handleAssignPrice()}
-              className="flex items-center px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
+              className="flex items-center px-3 py-2 text-white rounded-md text-sm hover:opacity-90 transition-colors"
               style={{ backgroundColor: '#1478D4' }}
             >
               <Plus size={16} className="mr-2" />
@@ -437,33 +531,33 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           {/* Products Table */}
           {visibleColumns.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 min-w-[100px]">
+                    <th className="text-left py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 min-w-[90px] uppercase">
                       SKU
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 min-w-[200px]">
+                    <th className="text-left py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 min-w-[200px] uppercase">
                       Producto
                     </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 min-w-[140px]">
+                    <th className="text-left py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 min-w-[140px] uppercase">
                       Unidad
                     </th>
                     {visibleColumns.map(column => (
-                      <th key={column.id} className="text-center py-3 px-4 text-sm font-medium text-gray-700 min-w-[120px]">
-                        <div className="flex flex-col items-center">
-                          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium mb-1 ${
-                            column.isBase ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {column.id} {column.isBase && '(Base)'}
+                      <th key={column.id} className="text-left py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 min-w-[150px] uppercase">
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                              column.isBase ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-gray-50 text-gray-600 border border-gray-100'
+                            }`}
+                          >
+                            {column.id} {column.isBase && '· Base'}
                           </span>
-                          <span className="text-xs text-gray-600 text-center leading-tight">
-                            {column.name}
-                          </span>
+                          <span className="text-[11px] text-gray-500 normal-case">{column.name}</span>
                         </div>
                       </th>
                     ))}
-                    <th className="text-center py-3 px-4 text-sm font-medium text-gray-700">
+                    <th className="text-right py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 uppercase">
                       Acciones
                     </th>
                   </tr>
@@ -471,32 +565,46 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                 <tbody>
                   {paginatedProducts.map((product) => (
                     <tr key={product.sku} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4 font-medium text-gray-900">
-                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                          {product.sku}
-                        </span>
+                      <td className="py-3 px-3 font-semibold text-gray-900 text-sm">
+                        {product.sku}
                       </td>
-                      <td className="py-3 px-4 text-gray-700">
+                      <td className="py-3 px-3 text-gray-700">
                         {product.name}
                       </td>
-                      <td className="py-3 px-4 text-gray-700">
+                      <td className="py-3 px-3 text-gray-700">
                         {renderUnitSelector(product)}
                       </td>
                       {visibleColumns.map(column => (
-                        <td key={column.id} className="py-3 px-4">
+                        <td key={column.id} className="py-3 px-3 align-top">
                           {renderPriceCell(product, column)}
                         </td>
                       ))}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center justify-center">
-                          <button
-                            onClick={() => handleEditProduct(product)}
-                            className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors"
-                            title="Editar precios"
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                        </div>
+                      <td className="py-3 px-3 text-right relative" data-row-menu="true">
+                        <button
+                          onClick={() => setRowMenuOpenSku(prev => (prev === product.sku ? null : product.sku))}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                          title="Más acciones"
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {rowMenuOpenSku === product.sku && (
+                          <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg text-sm py-1">
+                            <button
+                              className="w-full text-left px-4 py-2 hover:bg-gray-50"
+                              onClick={() => handleEditProduct(product)}
+                            >
+                              Gestionar precios
+                            </button>
+                            {firstVolumeColumn && (
+                              <button
+                                className="w-full text-left px-4 py-2 hover:bg-gray-50"
+                                onClick={() => handleConfigureVolumePrice(product, firstVolumeColumn)}
+                              >
+                                Configurar matriz
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -606,6 +714,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           setSelectedProductForPriceModal(null);
           setSelectedUnitForModal(null);
           setUnitMenuOpenSku(null);
+          setRowMenuOpenSku(null);
         }}
         onSave={handleSavePriceModal}
         columns={columns}
@@ -627,6 +736,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
             setSelectedPriceColumn(null);
             setSelectedUnitForModal(null);
             setUnitMenuOpenSku(null);
+            setRowMenuOpenSku(null);
           }}
           onSave={handleSaveVolumeMatrix}
           selectedProduct={selectedVolumePrice?.product || null}
@@ -637,5 +747,130 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
         />
       )}
     </div>
+  );
+};
+
+interface FixedPriceCellProps {
+  column: Column;
+  price?: Price;
+  isEditing: boolean;
+  draftValue: string;
+  onStartEdit: () => void;
+  onChangeValue: (value: string) => void;
+  onCommit: () => Promise<void> | void;
+  onCancel: () => void;
+  status?: CellStatus;
+  isSaving: boolean;
+}
+
+const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
+  column,
+  price,
+  isEditing,
+  draftValue,
+  onStartEdit,
+  onChangeValue,
+  onCommit,
+  onCancel,
+  status,
+  isSaving
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isEditing, status?.error]);
+
+  if (!isEditing) {
+    return (
+      <button
+        className="w-full min-h-[64px] text-left px-3 py-2 rounded-md border border-transparent hover:border-gray-200 hover:bg-gray-50 focus:outline-none"
+        onClick={onStartEdit}
+      >
+        <div className="flex flex-col gap-1">
+          {price && price.type === 'fixed' ? (
+            <>
+              <span className="text-sm font-semibold text-gray-900">{formatPrice(price.value)}</span>
+              <span className="text-[11px] text-gray-500">Vence {formatDate(price.validUntil)}</span>
+            </>
+          ) : (
+            <span className="text-sm text-gray-400">—</span>
+          )}
+        </div>
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="number"
+          step="0.01"
+          min="0"
+          value={draftValue}
+          onChange={(e) => onChangeValue(e.target.value)}
+          onBlur={() => void onCommit()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void onCommit();
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              onCancel();
+            }
+          }}
+          className="w-full px-2 py-1.5 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+        />
+        {isSaving && <Loader2 size={16} className="animate-spin text-gray-400" />}
+      </div>
+      {status?.error && <span className="text-[11px] text-red-500">{status.error}</span>}
+      {!status?.error && price?.type === 'fixed' && (
+        <span className="text-[11px] text-gray-400">Vence {formatDate(price.validUntil)}</span>
+      )}
+      {!price && !status?.error && (
+        <span className="text-[11px] text-gray-400">{column.isBase ? 'Define el precio base' : 'Agregar precio'}</span>
+      )}
+    </div>
+  );
+};
+
+type VolumePriceCellProps =
+  | { state: 'empty'; price?: undefined; onConfigure: () => void }
+  | { state: 'filled'; price: Extract<Price, { type: 'volume' }>; onConfigure: () => void };
+
+const VolumePriceCell: React.FC<VolumePriceCellProps> = (props) => {
+  if (props.state === 'empty') {
+    return (
+      <button
+        className="w-full min-h-[64px] text-left px-3 py-2 rounded-md border border-dashed border-gray-200 text-sm text-gray-400 hover:border-blue-200 hover:text-blue-600"
+        onClick={props.onConfigure}
+      >
+        Configurar rangos
+      </button>
+    );
+  }
+
+  const { price, onConfigure } = props;
+  return (
+    <button
+      className="w-full min-h-[64px] text-left px-3 py-2 rounded-md border border-transparent hover:border-blue-200 hover:bg-blue-50/40"
+      onClick={onConfigure}
+      title={getVolumeTooltip(price.ranges)}
+    >
+      <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+        <span className="font-semibold text-gray-800">{getPriceRange(price.ranges)}</span>
+        <Settings size={14} className="text-gray-400" />
+      </div>
+      <div className="text-[11px] text-gray-500 leading-snug">
+        {getVolumePreview(price.ranges, 3)}
+      </div>
+      <div className="text-[11px] text-gray-400 mt-1">Vence {formatDate(price.validUntil)}</div>
+    </button>
   );
 };

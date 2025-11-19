@@ -1,6 +1,6 @@
 // src/features/lista-precios/hooks/usePriceCalculator.ts
 import { useMemo } from 'react';
-import type { Product, Price, PriceCalculation } from '../models/PriceTypes';
+import type { Product, Price, PriceCalculation, ProductUnitPrices } from '../models/PriceTypes';
 import { calculatePrice } from '../utils/priceHelpers';
 import { lsKey } from '../utils/tenantHelpers';
 
@@ -72,18 +72,31 @@ export const usePriceCalculator = () => {
   /**
    * Obtener precio de un producto en una columna específica
    */
-  const getPriceForColumn = (sku: string, columnId: string): Price | undefined => {
+  const resolvePriceByUnit = (unitPrices: ProductUnitPrices | undefined, preferredUnit?: string, fallbackUnit?: string): Price | undefined => {
+    if (!unitPrices) return undefined;
+    if (preferredUnit && unitPrices[preferredUnit]) {
+      return unitPrices[preferredUnit];
+    }
+    if (fallbackUnit && unitPrices[fallbackUnit]) {
+      return unitPrices[fallbackUnit];
+    }
+    const firstUnit = Object.keys(unitPrices)[0];
+    return firstUnit ? unitPrices[firstUnit] : undefined;
+  };
+
+  const getPriceForColumn = (sku: string, columnId: string, unitCode?: string): Price | undefined => {
     const product = getProductBySKU(sku);
     if (!product) return undefined;
-    return product.prices[columnId];
+    const unitPrices = product.prices[columnId];
+    return resolvePriceByUnit(unitPrices, unitCode || product.activeUnitCode);
   };
 
   /**
    * Obtener precio base del producto (columna marcada como base)
    */
-  const getBasePrice = (sku: string): Price | undefined => {
+  const getBasePrice = (sku: string, unitCode?: string): Price | undefined => {
     if (!baseColumn) return undefined;
-    return getPriceForColumn(sku, baseColumn.id);
+    return getPriceForColumn(sku, baseColumn.id, unitCode);
   };
 
   /**
@@ -97,7 +110,8 @@ export const usePriceCalculator = () => {
   const calculatePriceBySKU = (
     sku: string,
     quantity: number = 1,
-    columnId?: string
+    columnId?: string,
+    unitCode?: string
   ): PriceCalculation | null => {
     const targetColumnId = columnId || baseColumn?.id;
 
@@ -106,7 +120,7 @@ export const usePriceCalculator = () => {
       return null;
     }
 
-    const price = getPriceForColumn(sku, targetColumnId);
+    const price = getPriceForColumn(sku, targetColumnId, unitCode);
 
     if (!price) {
       console.warn(`[usePriceCalculator] No se encontró precio para SKU "${sku}" en columna "${targetColumnId}"`);
@@ -120,12 +134,12 @@ export const usePriceCalculator = () => {
    * Obtener precio unitario simple (sin cálculos de volumen)
    * Útil para mostrar precio base en listados
    */
-  const getUnitPrice = (sku: string, columnId?: string): number | null => {
+  const getUnitPrice = (sku: string, columnId?: string, unitCode?: string): number | null => {
     const targetColumnId = columnId || baseColumn?.id;
 
     if (!targetColumnId) return null;
 
-    const price = getPriceForColumn(sku, targetColumnId);
+    const price = getPriceForColumn(sku, targetColumnId, unitCode);
 
     if (!price) return null;
 
@@ -142,9 +156,9 @@ export const usePriceCalculator = () => {
   /**
    * Verificar si un producto tiene precios configurados
    */
-  const hasPrice = (sku: string, columnId?: string): boolean => {
+  const hasPrice = (sku: string, columnId?: string, unitCode?: string): boolean => {
     if (columnId) {
-      return getPriceForColumn(sku, columnId) !== undefined;
+      return getPriceForColumn(sku, columnId, unitCode) !== undefined;
     }
     // Si no se especifica columna, verificar si tiene algún precio
     const product = getProductBySKU(sku);
@@ -161,11 +175,11 @@ export const usePriceCalculator = () => {
   /**
    * Obtener información de vigencia de un precio
    */
-  const getPriceValidity = (sku: string, columnId?: string): { validFrom: string; validUntil: string } | null => {
+  const getPriceValidity = (sku: string, columnId?: string, unitCode?: string): { validFrom: string; validUntil: string } | null => {
     const targetColumnId = columnId || baseColumn?.id;
     if (!targetColumnId) return null;
 
-    const price = getPriceForColumn(sku, targetColumnId);
+    const price = getPriceForColumn(sku, targetColumnId, unitCode);
     if (!price) return null;
 
     return {
@@ -177,8 +191,8 @@ export const usePriceCalculator = () => {
   /**
    * Verificar si un precio está vigente en una fecha específica
    */
-  const isPriceValid = (sku: string, date: Date = new Date(), columnId?: string): boolean => {
-    const validity = getPriceValidity(sku, columnId);
+  const isPriceValid = (sku: string, date: Date = new Date(), columnId?: string, unitCode?: string): boolean => {
+    const validity = getPriceValidity(sku, columnId, unitCode);
     if (!validity) return false;
 
     const from = new Date(validity.validFrom);

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect } from 'react';
-import type { Column, Product, NewColumnForm, PriceForm, FixedPrice, VolumePrice } from '../models/PriceTypes';
+import type { Column, Product, NewColumnForm, PriceForm, FixedPrice, VolumePrice, ProductUnitPrices } from '../models/PriceTypes';
 import {
   generateColumnId,
   getNextOrder,
@@ -15,6 +15,8 @@ interface CatalogProduct {
   precio: number;
   [key: string]: any;
 }
+
+const DEFAULT_UNIT_CODE = 'NIU';
 
 // Helpers de tenant/empresa para namespacing de localStorage
 const getTenantEmpresaId = () => 'EMP-01'; // TODO: reemplazar por hook real
@@ -192,6 +194,7 @@ export const usePriceList = () => {
     }
 
     const existingProductIndex = products.findIndex(p => p.sku === sku.trim());
+    const unitCode = priceData.unitCode || DEFAULT_UNIT_CODE;
 
     let newPrice: FixedPrice | VolumePrice;
 
@@ -230,12 +233,18 @@ export const usePriceList = () => {
     if (existingProductIndex >= 0) {
       // Actualizar producto existente
       const updatedProducts = [...products];
+      const productToUpdate = updatedProducts[existingProductIndex];
+      const existingColumnPrices: ProductUnitPrices = productToUpdate.prices[columnId] || {};
       updatedProducts[existingProductIndex] = {
-        ...updatedProducts[existingProductIndex],
+        ...productToUpdate,
         prices: {
-          ...updatedProducts[existingProductIndex].prices,
-          [columnId]: newPrice
-        }
+          ...productToUpdate.prices,
+          [columnId]: {
+            ...existingColumnPrices,
+            [unitCode]: newPrice
+          }
+        },
+        activeUnitCode: productToUpdate.activeUnitCode || unitCode
       };
       setProducts(updatedProducts);
     } else {
@@ -244,8 +253,11 @@ export const usePriceList = () => {
         sku: catalogProduct.codigo,
         name: catalogProduct.nombre,
         prices: {
-          [columnId]: newPrice
-        }
+          [columnId]: {
+            [unitCode]: newPrice
+          }
+        },
+        activeUnitCode: unitCode
       };
       setProducts([...products, newProduct]);
     }
