@@ -509,31 +509,28 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     <div className="p-5">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
         <div className="p-5">
-          <div className="mb-4 space-y-3">
-            <div>
+          <div className="mb-4 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-base font-semibold text-gray-900 dark:text-white">Precios por producto (SKU)</h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
-                En cada columna puedes definir un <strong>Precio Fijo</strong> con vigencia o un <strong>Precio por Cantidad</strong> (exclusivos).
-              </p>
-            </div>
-            <div className="relative max-w-md">
-              <Search size={15} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar SKU..."
-                value={searchSKU}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-10 pr-8 py-1.5 h-9 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-colors bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
-              />
-              {searchSKU && (
-                <button
-                  onClick={() => onSearchChange('')}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  title="Limpiar búsqueda"
-                >
-                  <X size={14} />
-                </button>
-              )}
+              <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar producto..."
+                  value={searchSKU}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  className="w-full h-9 pl-10 pr-8 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                {searchSKU && (
+                  <button
+                    onClick={() => onSearchChange('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    title="Limpiar búsqueda"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             </div>
             {searchSKU && (
               <div>
