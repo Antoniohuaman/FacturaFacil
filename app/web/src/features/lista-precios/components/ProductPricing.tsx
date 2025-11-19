@@ -374,7 +374,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     }
 
     setCellSavingState(prev => ({ ...prev, [key]: false }));
-  }, [editingCell, products, columns, resolveActiveUnit, getPriceForColumnUnit, onSavePrice]);
+  }, [editingCell, products, columns, getPriceForColumnUnit, onSavePrice]);
 
   const renderUnitSelector = (product: Product) => {
     const options = getUnitOptions(product);
@@ -447,6 +447,10 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           isSaving={isSaving}
           unitCode={activeUnit}
           isBase={column.id === baseColumnId}
+          variant="compact"
+          showUnitMeta={false}
+          showValidityLabel={false}
+          showEmptyHint={false}
         />
       );
     }
@@ -556,27 +560,32 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="w-8 text-center py-2 px-2" aria-label="Toggle"></th>
-                    <th className="text-left py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[90px] uppercase">
+                    <th className="w-8 text-center py-1.5 px-2" aria-label="Toggle"></th>
+                    <th className="text-left py-1.5 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[90px] uppercase">
                       SKU
                     </th>
-                    <th className="text-left py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[200px] uppercase">
+                    <th className="text-left py-1.5 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[220px] uppercase">
                       Producto
                     </th>
-                    <th className="text-left py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[140px] uppercase">
+                    <th className="text-left py-1.5 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[140px] uppercase">
                       Unidad
                     </th>
                     {orderedColumns.map(column => (
-                      <th key={column.id} className="text-left py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[140px] uppercase">
-                        <div className="flex items-center gap-2">
+                      <th key={column.id} className="text-left py-1.5 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[130px] uppercase">
+                        <div className="flex items-center gap-2 whitespace-nowrap">
                           <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase font-bold ${
                             column.isBase ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-gray-600 border-gray-200'
                           }`}>{column.id}</span>
-                          <span className="text-[11px] text-gray-500 normal-case" title={column.name}>{column.name}</span>
+                          <span className="text-[11px] text-gray-600 normal-case" title={column.name}>
+                            {column.isBase ? 'Precio base' : column.name}
+                          </span>
+                          {column.isBase && (
+                            <span className="px-1.5 py-0.5 rounded-full border border-blue-200 text-blue-700 text-[9px] font-semibold">Base</span>
+                          )}
                         </div>
                       </th>
                     ))}
-                    <th className="text-right py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 uppercase">
+                    <th className="text-right py-1.5 px-3 text-[11px] font-semibold tracking-wide text-gray-600 uppercase">
                       Acciones
                     </th>
                   </tr>
@@ -585,7 +594,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                   {paginatedProducts.map((product) => (
                     <React.Fragment key={product.sku}>
                       <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="py-2 px-2 text-center align-top">
+                        <td className="py-1.5 px-2 text-center align-middle">
                           <button
                             type="button"
                             onClick={() => toggleRowExpansion(product.sku)}
@@ -595,21 +604,21 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                             {expandedRows[product.sku] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           </button>
                         </td>
-                        <td className="py-2 px-3 font-semibold text-gray-900 text-sm align-top">
+                        <td className="py-1.5 px-3 font-semibold text-gray-900 text-sm align-middle">
                           {product.sku}
                         </td>
-                        <td className="py-2 px-3 text-gray-700 align-top">
+                        <td className="py-1.5 px-3 text-gray-700 align-middle">
                           {product.name}
                         </td>
-                        <td className="py-2 px-3 text-gray-700 align-top">
+                        <td className="py-1.5 px-3 text-gray-700 align-middle">
                           {renderUnitSelector(product)}
                         </td>
                         {orderedColumns.map(column => (
-                          <td key={column.id} className="py-2 px-2 align-top">
+                          <td key={column.id} className="py-1 px-2 align-middle">
                             {renderPriceCell(product, column)}
                           </td>
                         ))}
-                        <td className="py-2 px-3 text-right relative" data-row-menu="true">
+                        <td className="py-1.5 px-3 text-right relative" data-row-menu="true">
                           <button
                             onClick={() => setRowMenuOpenSku(prev => (prev === product.sku ? null : product.sku))}
                             className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
@@ -818,6 +827,8 @@ interface FixedPriceCellProps {
   isBase?: boolean;
   variant?: 'default' | 'compact';
   showUnitMeta?: boolean;
+  showValidityLabel?: boolean;
+  showEmptyHint?: boolean;
 }
 
 const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
@@ -834,12 +845,14 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
   unitCode,
   isBase,
   variant = 'default',
-  showUnitMeta = true
+  showUnitMeta = true,
+  showValidityLabel = true,
+  showEmptyHint = true
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const normalizedUnit = unitCode || '—';
   const isCompact = variant === 'compact';
-  const buttonSpacing = isCompact ? 'min-h-[64px] py-1.5' : 'min-h-[84px] py-2';
+  const buttonSpacing = isCompact ? 'min-h-[44px] py-2' : 'min-h-[72px] py-3';
   const inputPaddingY = isCompact ? 'py-1' : 'py-1.5';
 
   useEffect(() => {
@@ -852,6 +865,8 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
   const validityLabel = price?.type === 'fixed' && price.validUntil
     ? `Vence ${formatDate(price.validUntil)}`
     : null;
+
+  const displayValue = price && price.type === 'fixed' ? formatPrice(price.value) : '—';
 
   if (!isEditing) {
     return (
@@ -869,19 +884,17 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
             )}
           </div>
         )}
-        <div className="flex flex-col gap-1">
-          {price && price.type === 'fixed' ? (
-            <>
-              <span className="text-sm font-semibold text-gray-900">{formatPrice(price.value)}</span>
-              {validityLabel && <span className="text-[11px] text-gray-500">{validityLabel}</span>}
-            </>
-          ) : (
-            <>
-              <span className="text-sm text-gray-400">Sin precio</span>
-              <span className="text-[11px] text-gray-400">Pulsar para editar</span>
-            </>
+        <div className="flex items-center justify-between gap-2">
+          <span className={`text-sm font-semibold ${price && price.type === 'fixed' ? 'text-gray-900' : 'text-gray-400'}`}>
+            {displayValue}
+          </span>
+          {showEmptyHint && !price && (
+            <span className="text-[11px] text-gray-400">Editar</span>
           )}
         </div>
+        {showValidityLabel && validityLabel && (
+          <span className="text-[11px] text-gray-500 block mt-1">{validityLabel}</span>
+        )}
         <Pencil
           size={14}
           className={`absolute opacity-0 group-hover:opacity-80 text-gray-400 ${showUnitMeta ? 'top-2 right-2' : 'top-1.5 right-1.5'} transition-opacity`}
@@ -922,10 +935,10 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
         {isSaving && <Loader2 size={16} className="animate-spin text-gray-400" />}
       </div>
       {status?.error && <span className="text-[11px] text-red-500">{status.error}</span>}
-      {!status?.error && validityLabel && (
+      {!status?.error && showValidityLabel && validityLabel && (
         <span className="text-[11px] text-gray-400">{validityLabel}</span>
       )}
-      {!price && !status?.error && (
+      {!price && !status?.error && showEmptyHint && (
         <span className="text-[11px] text-gray-400">{column.isBase ? 'Define el precio base' : 'Agregar precio'}</span>
       )}
     </div>
@@ -940,7 +953,7 @@ const VolumePriceCell: React.FC<VolumePriceCellProps> = (props) => {
   if (props.state === 'empty') {
     return (
       <button
-        className="w-full min-h-[64px] text-left px-3 py-2 rounded-md border border-dashed border-gray-200 text-sm text-gray-400 hover:border-blue-200 hover:text-blue-600"
+        className="w-full min-h-[48px] text-left px-3 py-2 rounded-md border border-dashed border-gray-200 text-sm text-gray-400 hover:border-blue-200 hover:text-blue-600"
         onClick={props.onConfigure}
       >
         Configurar rangos
@@ -951,7 +964,7 @@ const VolumePriceCell: React.FC<VolumePriceCellProps> = (props) => {
   const { price, onConfigure } = props;
   return (
     <button
-      className="w-full min-h-[64px] text-left px-3 py-2 rounded-md border border-transparent hover:border-blue-200 hover:bg-blue-50/40"
+      className="w-full min-h-[48px] text-left px-3 py-2 rounded-md border border-transparent hover:border-blue-200 hover:bg-blue-50/40"
       onClick={onConfigure}
       title={getVolumeTooltip(price.ranges)}
     >
@@ -1038,6 +1051,8 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
           isBase={column.id === baseColumnId}
           variant="compact"
           showUnitMeta={false}
+          showValidityLabel
+          showEmptyHint={false}
         />
       );
     }
@@ -1071,23 +1086,23 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-inner">
-      <div className="flex items-center justify-between mb-4">
+    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-inner">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-sm font-semibold text-gray-900">Unidades y columnas detalladas</p>
-          <p className="text-[12px] text-gray-500">Gestiona cada unidad sin salir de la tabla</p>
+          <p className="text-[11px] text-gray-500">Gestiona cada unidad sin salir de la tabla</p>
         </div>
         <span className="text-[11px] text-gray-500">
           {unitOptions.length} unidad{unitOptions.length !== 1 ? 'es' : ''}
         </span>
       </div>
       <div className="overflow-x-auto -mx-1">
-        <table className="w-full text-xs border-separate border-spacing-y-2">
+        <table className="w-full text-xs border-separate border-spacing-y-1">
           <thead>
             <tr>
               <th className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500">Unidad</th>
               {columns.map(column => (
-                <th key={`unit-panel-${column.id}`} className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500 min-w-[130px]">
+                <th key={`unit-panel-${column.id}`} className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500 min-w-[120px]">
                   <div className="flex items-center gap-2">
                     <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${column.isBase ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-gray-600 border-gray-200'}`}>
                       {column.id}
@@ -1103,7 +1118,7 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
           <tbody>
             {unitOptions.map(option => (
               <tr key={`${product.sku}-${option.code}`} className="align-top">
-                <td className="align-top px-2 py-3">
+                <td className="align-top px-2 py-2">
                   <div className="flex items-center gap-2 text-[12px] text-gray-900 font-semibold">
                     <span>{option.code}</span>
                     {option.isBase && (
