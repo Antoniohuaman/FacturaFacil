@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Plus, Search, X, Settings, ChevronDown, Check, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Plus, Search, X, Settings, ChevronDown, ChevronRight, Check, MoreHorizontal, Loader2, Pencil } from 'lucide-react';
 import type { Column, Product, CatalogProduct, PriceForm, Price } from '../models/PriceTypes';
 import { filterVisibleColumns, formatPrice, formatDate, getVolumePreview, getVolumeTooltip, getPriceRange } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
@@ -27,6 +27,7 @@ interface SwitchToVolumePayload {
 interface InlineCellState {
   sku: string;
   columnId: string;
+  unitCode: string;
   value: string;
 }
 
@@ -46,7 +47,7 @@ const getDefaultValidityRange = () => {
   };
 };
 
-const cellKey = (sku: string, columnId: string) => `${sku}::${columnId}`;
+const cellKey = (sku: string, columnId: string, unitCode: string) => `${sku}::${columnId}::${unitCode}`;
 
 export const ProductPricing: React.FC<ProductPricingProps> = ({
   columns,
@@ -59,6 +60,14 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   catalogProducts = []
 }) => {
   const visibleColumns = filterVisibleColumns(columns);
+  const orderedColumns = useMemo(() => {
+    const base = visibleColumns.find(column => column.isBase);
+    if (!base) return visibleColumns;
+    const rest = visibleColumns.filter(column => column.id !== base.id);
+    return [base, ...rest];
+  }, [visibleColumns]);
+  const baseColumnId = orderedColumns.find(column => column.isBase)?.id;
+  const totalColumns = orderedColumns.length + 5; // toggle + SKU + nombre + unidad + acciones
 
   const { state: configState } = useConfigurationContext();
   const measurementUnits = configState.units;
@@ -76,6 +85,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const [editingCell, setEditingCell] = useState<InlineCellState | null>(null);
   const [cellStatuses, setCellStatuses] = useState<Record<string, CellStatus>>({});
   const [cellSavingState, setCellSavingState] = useState<Record<string, boolean>>({});
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
   // Estados para datos seleccionados
   const [selectedPriceColumn, setSelectedPriceColumn] = useState<Column | null>(null);
@@ -134,8 +144,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     return list;
   }, [catalogProducts, getUnitDisplay, resolveActiveUnit]);
 
-  const getPriceForColumnUnit = useCallback((product: Product, columnId: string) => {
-    const unitCode = resolveActiveUnit(product);
+  const getPriceForColumnUnit = useCallback((product: Product, columnId: string, unitOverride?: string) => {
+    const unitCode = unitOverride || resolveActiveUnit(product);
     const unitPrices = product.prices[columnId];
     if (!unitPrices) return undefined;
     return unitPrices[unitCode];
@@ -149,6 +159,13 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     onUnitChange(product.sku, unitCode);
     setUnitMenuOpenSku(null);
   }, [onUnitChange, resolveActiveUnit]);
+
+  const toggleRowExpansion = useCallback((sku: string) => {
+    setExpandedRows(prev => ({
+      ...prev,
+      [sku]: !prev[sku]
+    }));
+  }, []);
 
   useEffect(() => {
     if (!unitMenuOpenSku && !rowMenuOpenSku) return;
@@ -185,7 +202,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   // Manejador para asignar precio - detecta el tipo según la columna
   const handleAssignPrice = (column?: Column) => {
     // Si no se especifica columna, usar la primera visible
-    const targetColumn = column || visibleColumns[0];
+    const targetColumn = column || orderedColumns[0];
     
     if (!targetColumn) return;
 
@@ -211,8 +228,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     setSelectedUnitForModal(activeUnit);
     setSelectedProductForPriceModal(product);
 
-    const columnWithPrice = visibleColumns.find(column => getPriceForColumnUnit(product, column.id));
-    const targetColumn = columnWithPrice || visibleColumns[0];
+    const columnWithPrice = orderedColumns.find(column => getPriceForColumnUnit(product, column.id));
+    const targetColumn = columnWithPrice || orderedColumns[0];
     if (!targetColumn) return;
 
     const existingPrice = columnWithPrice ? getPriceForColumnUnit(product, columnWithPrice.id) : null;
@@ -227,8 +244,9 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   };
 
   // Manejadores para configurar precios existentes
-  const handleConfigureVolumePrice = (product: Product, column: Column) => {
-    setSelectedUnitForModal(resolveActiveUnit(product));
+  const handleConfigureVolumePrice = (product: Product, column: Column, unitOverride?: string) => {
+    const resolvedUnit = unitOverride || resolveActiveUnit(product);
+    setSelectedUnitForModal(resolvedUnit);
     setUnitMenuOpenSku(null);
     setRowMenuOpenSku(null);
     setSelectedVolumePrice({ product, column });
@@ -289,16 +307,17 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     return success;
   };
 
-  const isEditingCell = useCallback((sku: string, columnId: string) => {
-    return editingCell?.sku === sku && editingCell?.columnId === columnId;
+  const isEditingCell = useCallback((sku: string, columnId: string, unitCode: string) => {
+    return editingCell?.sku === sku && editingCell?.columnId === columnId && editingCell?.unitCode === unitCode;
   }, [editingCell]);
 
-  const beginInlineEdit = useCallback((product: Product, column: Column) => {
-    const price = getPriceForColumnUnit(product, column.id);
+  const beginInlineEdit = useCallback((product: Product, column: Column, providedUnitCode?: string) => {
+    const unitCode = providedUnitCode || resolveActiveUnit(product);
+    const price = getPriceForColumnUnit(product, column.id, unitCode);
     const nextValue = price?.type === 'fixed' ? price.value.toString() : '';
-    setEditingCell({ sku: product.sku, columnId: column.id, value: nextValue });
-    setCellStatuses(prev => ({ ...prev, [cellKey(product.sku, column.id)]: {} }));
-  }, [getPriceForColumnUnit]);
+    setEditingCell({ sku: product.sku, columnId: column.id, unitCode, value: nextValue });
+    setCellStatuses(prev => ({ ...prev, [cellKey(product.sku, column.id, unitCode)]: {} }));
+  }, [getPriceForColumnUnit, resolveActiveUnit]);
 
   const cancelInlineEdit = useCallback(() => {
     setEditingCell(null);
@@ -311,8 +330,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const commitInlineSave = useCallback(async () => {
     if (!editingCell) return;
 
-    const { sku, columnId, value } = editingCell;
-    const key = cellKey(sku, columnId);
+    const { sku, columnId, value, unitCode } = editingCell;
+    const key = cellKey(sku, columnId, unitCode);
     const trimmedValue = value.trim();
 
     if (!trimmedValue) {
@@ -328,8 +347,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
       return;
     }
 
-    const unitCode = resolveActiveUnit(product);
-    const existingPrice = getPriceForColumnUnit(product, columnId);
+    const existingPrice = getPriceForColumnUnit(product, columnId, unitCode);
     const { validFrom, validUntil } = existingPrice?.type === 'fixed'
       ? { validFrom: existingPrice.validFrom, validUntil: existingPrice.validUntil }
       : getDefaultValidityRange();
@@ -407,24 +425,28 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   };
 
   const renderPriceCell = (product: Product, column: Column) => {
-    const price = getPriceForColumnUnit(product, column.id);
-    const key = cellKey(product.sku, column.id);
+    const activeUnit = resolveActiveUnit(product);
+    const price = getPriceForColumnUnit(product, column.id, activeUnit);
+    const key = cellKey(product.sku, column.id, activeUnit);
     const status = cellStatuses[key];
     const isSaving = !!cellSavingState[key];
+    const currentlyEditing = isEditingCell(product.sku, column.id, activeUnit);
 
     if (column.mode === 'fixed') {
       return (
         <FixedPriceCell
           column={column}
           price={price}
-          isEditing={isEditingCell(product.sku, column.id)}
-          draftValue={isEditingCell(product.sku, column.id) ? editingCell?.value || '' : ''}
-          onStartEdit={() => beginInlineEdit(product, column)}
+          isEditing={currentlyEditing}
+          draftValue={currentlyEditing ? editingCell?.value || '' : ''}
+          onStartEdit={() => beginInlineEdit(product, column, activeUnit)}
           onChangeValue={handleInlineValueChange}
           onCommit={commitInlineSave}
           onCancel={cancelInlineEdit}
           status={status}
           isSaving={isSaving}
+          unitCode={activeUnit}
+          isBase={column.id === baseColumnId}
         />
       );
     }
@@ -435,7 +457,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
         return (
           <VolumePriceCell
             state="empty"
-            onConfigure={() => handleConfigureVolumePrice(product, column)}
+            onConfigure={() => handleConfigureVolumePrice(product, column, activeUnit)}
           />
         );
       }
@@ -448,7 +470,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
         <VolumePriceCell
           state="filled"
           price={price}
-          onConfigure={() => handleConfigureVolumePrice(product, column)}
+          onConfigure={() => handleConfigureVolumePrice(product, column, activeUnit)}
         />
       );
     }
@@ -469,7 +491,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     ? (selectedUnitForModal || resolveActiveUnit(volumeModalProduct))
     : selectedUnitForModal || undefined;
 
-  const firstVolumeColumn = useMemo(() => visibleColumns.find(column => column.mode === 'volume'), [visibleColumns]);
+  const firstVolumeColumn = useMemo(() => orderedColumns.find(column => column.mode === 'volume'), [orderedColumns]);
 
   return (
     <div className="p-6">
@@ -529,84 +551,115 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           </div>
 
           {/* Products Table */}
-          {visibleColumns.length > 0 ? (
+          {orderedColumns.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 min-w-[90px] uppercase">
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="w-8 text-center py-2 px-2" aria-label="Toggle"></th>
+                    <th className="text-left py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[90px] uppercase">
                       SKU
                     </th>
-                    <th className="text-left py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 min-w-[200px] uppercase">
+                    <th className="text-left py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[200px] uppercase">
                       Producto
                     </th>
-                    <th className="text-left py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 min-w-[140px] uppercase">
+                    <th className="text-left py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[140px] uppercase">
                       Unidad
                     </th>
-                    {visibleColumns.map(column => (
-                      <th key={column.id} className="text-left py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 min-w-[150px] uppercase">
-                        <div className="flex flex-col gap-1">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                              column.isBase ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-gray-50 text-gray-600 border border-gray-100'
-                            }`}
-                          >
-                            {column.id} {column.isBase && '· Base'}
-                          </span>
-                          <span className="text-[11px] text-gray-500 normal-case">{column.name}</span>
+                    {orderedColumns.map(column => (
+                      <th key={column.id} className="text-left py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[140px] uppercase">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase font-bold ${
+                            column.isBase ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-gray-600 border-gray-200'
+                          }`}>{column.id}</span>
+                          <span className="text-[11px] text-gray-500 normal-case" title={column.name}>{column.name}</span>
                         </div>
                       </th>
                     ))}
-                    <th className="text-right py-2 px-3 text-xs font-semibold tracking-wide text-gray-600 uppercase">
+                    <th className="text-right py-2 px-3 text-[11px] font-semibold tracking-wide text-gray-600 uppercase">
                       Acciones
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedProducts.map((product) => (
-                    <tr key={product.sku} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-3 font-semibold text-gray-900 text-sm">
-                        {product.sku}
-                      </td>
-                      <td className="py-3 px-3 text-gray-700">
-                        {product.name}
-                      </td>
-                      <td className="py-3 px-3 text-gray-700">
-                        {renderUnitSelector(product)}
-                      </td>
-                      {visibleColumns.map(column => (
-                        <td key={column.id} className="py-3 px-3 align-top">
-                          {renderPriceCell(product, column)}
+                    <React.Fragment key={product.sku}>
+                      <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td className="py-2 px-2 text-center align-top">
+                          <button
+                            type="button"
+                            onClick={() => toggleRowExpansion(product.sku)}
+                            className="inline-flex items-center justify-center w-6 h-6 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                            aria-label={expandedRows[product.sku] ? 'Contraer producto' : 'Expandir producto'}
+                          >
+                            {expandedRows[product.sku] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          </button>
                         </td>
-                      ))}
-                      <td className="py-3 px-3 text-right relative" data-row-menu="true">
-                        <button
-                          onClick={() => setRowMenuOpenSku(prev => (prev === product.sku ? null : product.sku))}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
-                          title="Más acciones"
-                        >
-                          <MoreHorizontal size={16} />
-                        </button>
-                        {rowMenuOpenSku === product.sku && (
-                          <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg text-sm py-1">
-                            <button
-                              className="w-full text-left px-4 py-2 hover:bg-gray-50"
-                              onClick={() => handleEditProduct(product)}
-                            >
-                              Gestionar precios
-                            </button>
-                            {firstVolumeColumn && (
+                        <td className="py-2 px-3 font-semibold text-gray-900 text-sm align-top">
+                          {product.sku}
+                        </td>
+                        <td className="py-2 px-3 text-gray-700 align-top">
+                          {product.name}
+                        </td>
+                        <td className="py-2 px-3 text-gray-700 align-top">
+                          {renderUnitSelector(product)}
+                        </td>
+                        {orderedColumns.map(column => (
+                          <td key={column.id} className="py-2 px-2 align-top">
+                            {renderPriceCell(product, column)}
+                          </td>
+                        ))}
+                        <td className="py-2 px-3 text-right relative" data-row-menu="true">
+                          <button
+                            onClick={() => setRowMenuOpenSku(prev => (prev === product.sku ? null : product.sku))}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                            title="Más acciones"
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+                          {rowMenuOpenSku === product.sku && (
+                            <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg text-sm py-1 z-10">
                               <button
                                 className="w-full text-left px-4 py-2 hover:bg-gray-50"
-                                onClick={() => handleConfigureVolumePrice(product, firstVolumeColumn)}
+                                onClick={() => handleEditProduct(product)}
                               >
-                                Configurar matriz
+                                Gestionar precios
                               </button>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
+                              {firstVolumeColumn && (
+                                <button
+                                  className="w-full text-left px-4 py-2 hover:bg-gray-50"
+                                  onClick={() => handleConfigureVolumePrice(product, firstVolumeColumn, resolveActiveUnit(product))}
+                                >
+                                  Configurar matriz
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                      {expandedRows[product.sku] && (
+                        <tr className="border-b border-gray-100 bg-gray-50/70">
+                          <td colSpan={totalColumns} className="px-6 py-4">
+                            <UnitPricesPanel
+                              product={product}
+                              columns={orderedColumns}
+                              baseColumnId={baseColumnId}
+                              getUnitOptions={getUnitOptions}
+                              getPriceForColumnUnit={getPriceForColumnUnit}
+                              isEditingCell={isEditingCell}
+                              beginInlineEdit={beginInlineEdit}
+                              handleInlineValueChange={handleInlineValueChange}
+                              commitInlineSave={commitInlineSave}
+                              cancelInlineEdit={cancelInlineEdit}
+                              cellStatuses={cellStatuses}
+                              cellSavingState={cellSavingState}
+                              handleConfigureVolumePrice={handleConfigureVolumePrice}
+                              editingCell={editingCell}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -620,7 +673,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           )}
 
           {/* Empty States */}
-          {visibleColumns.length > 0 && filteredProducts.length === 0 && (
+          {orderedColumns.length > 0 && filteredProducts.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <div className="text-4xl mb-2">🔍</div>
               <p className="font-medium">
@@ -761,6 +814,10 @@ interface FixedPriceCellProps {
   onCancel: () => void;
   status?: CellStatus;
   isSaving: boolean;
+  unitCode?: string;
+  isBase?: boolean;
+  variant?: 'default' | 'compact';
+  showUnitMeta?: boolean;
 }
 
 const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
@@ -773,9 +830,17 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
   onCommit,
   onCancel,
   status,
-  isSaving
+  isSaving,
+  unitCode,
+  isBase,
+  variant = 'default',
+  showUnitMeta = true
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const normalizedUnit = unitCode || '—';
+  const isCompact = variant === 'compact';
+  const buttonSpacing = isCompact ? 'min-h-[64px] py-1.5' : 'min-h-[84px] py-2';
+  const inputPaddingY = isCompact ? 'py-1' : 'py-1.5';
 
   useEffect(() => {
     if (isEditing) {
@@ -784,28 +849,55 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
     }
   }, [isEditing, status?.error]);
 
+  const validityLabel = price?.type === 'fixed' && price.validUntil
+    ? `Vence ${formatDate(price.validUntil)}`
+    : null;
+
   if (!isEditing) {
     return (
       <button
-        className="w-full min-h-[64px] text-left px-3 py-2 rounded-md border border-transparent hover:border-gray-200 hover:bg-gray-50 focus:outline-none"
+        className={`group relative w-full text-left px-3 ${buttonSpacing} rounded-md border border-transparent hover:border-gray-200 hover:bg-gray-50 focus:outline-none`}
         onClick={onStartEdit}
       >
+        {showUnitMeta && (
+          <div className="flex items-center justify-between text-[10px] mb-1">
+            <span className="font-semibold uppercase text-gray-500">{normalizedUnit}</span>
+            {isBase && (
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[9px] font-semibold">
+                Base
+              </span>
+            )}
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           {price && price.type === 'fixed' ? (
             <>
               <span className="text-sm font-semibold text-gray-900">{formatPrice(price.value)}</span>
-              <span className="text-[11px] text-gray-500">Vence {formatDate(price.validUntil)}</span>
+              {validityLabel && <span className="text-[11px] text-gray-500">{validityLabel}</span>}
             </>
           ) : (
-            <span className="text-sm text-gray-400">—</span>
+            <>
+              <span className="text-sm text-gray-400">Sin precio</span>
+              <span className="text-[11px] text-gray-400">Pulsar para editar</span>
+            </>
           )}
         </div>
+        <Pencil
+          size={14}
+          className={`absolute opacity-0 group-hover:opacity-80 text-gray-400 ${showUnitMeta ? 'top-2 right-2' : 'top-1.5 right-1.5'} transition-opacity`}
+        />
       </button>
     );
   }
 
   return (
     <div className="flex flex-col gap-1">
+      {showUnitMeta && (
+        <div className="flex items-center justify-between text-[10px] text-gray-500 font-semibold uppercase">
+          <span>{normalizedUnit}</span>
+          {isBase && <span className="text-blue-600">Base</span>}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <input
           ref={inputRef}
@@ -825,13 +917,13 @@ const FixedPriceCell: React.FC<FixedPriceCellProps> = ({
               onCancel();
             }
           }}
-          className="w-full px-2 py-1.5 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className={`w-full px-2 ${inputPaddingY} rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400`}
         />
         {isSaving && <Loader2 size={16} className="animate-spin text-gray-400" />}
       </div>
       {status?.error && <span className="text-[11px] text-red-500">{status.error}</span>}
-      {!status?.error && price?.type === 'fixed' && (
-        <span className="text-[11px] text-gray-400">Vence {formatDate(price.validUntil)}</span>
+      {!status?.error && validityLabel && (
+        <span className="text-[11px] text-gray-400">{validityLabel}</span>
       )}
       {!price && !status?.error && (
         <span className="text-[11px] text-gray-400">{column.isBase ? 'Define el precio base' : 'Agregar precio'}</span>
@@ -872,5 +964,172 @@ const VolumePriceCell: React.FC<VolumePriceCellProps> = (props) => {
       </div>
       <div className="text-[11px] text-gray-400 mt-1">Vence {formatDate(price.validUntil)}</div>
     </button>
+  );
+};
+
+interface UnitPricesPanelProps {
+  product: Product;
+  columns: Column[];
+  baseColumnId?: string;
+  getUnitOptions: (product: Product) => Array<{ code: string; label: string; isBase: boolean; factor?: number }>;
+  getPriceForColumnUnit: (product: Product, columnId: string, unitOverride?: string) => Price | undefined;
+  isEditingCell: (sku: string, columnId: string, unitCode: string) => boolean;
+  beginInlineEdit: (product: Product, column: Column, unitCode?: string) => void;
+  handleInlineValueChange: (value: string) => void;
+  commitInlineSave: () => Promise<void> | void;
+  cancelInlineEdit: () => void;
+  cellStatuses: Record<string, CellStatus>;
+  cellSavingState: Record<string, boolean>;
+  handleConfigureVolumePrice: (product: Product, column: Column, unitOverride?: string) => void;
+  editingCell: InlineCellState | null;
+}
+
+const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
+  product,
+  columns,
+  baseColumnId,
+  getUnitOptions,
+  getPriceForColumnUnit,
+  isEditingCell,
+  beginInlineEdit,
+  handleInlineValueChange,
+  commitInlineSave,
+  cancelInlineEdit,
+  cellStatuses,
+  cellSavingState,
+  handleConfigureVolumePrice,
+  editingCell
+}) => {
+  const unitOptions = getUnitOptions(product);
+  if (unitOptions.length === 0) {
+    return (
+      <div className="text-xs text-gray-500">
+        No se encontraron unidades asociadas a este producto.
+      </div>
+    );
+  }
+
+  const baseUnit = unitOptions.find(option => option.isBase) || unitOptions[0];
+  const baseUnitCode = baseUnit.code;
+  const activeUnitCode = product.activeUnitCode || baseUnitCode;
+
+  const renderUnitPriceCell = (column: Column, unitCode: string) => {
+    const price = getPriceForColumnUnit(product, column.id, unitCode);
+    const key = cellKey(product.sku, column.id, unitCode);
+    const status = cellStatuses[key];
+    const isSaving = !!cellSavingState[key];
+    const editing = isEditingCell(product.sku, column.id, unitCode);
+    const draftValue = editing ? editingCell?.value || '' : '';
+
+    if (column.mode === 'fixed') {
+      return (
+        <FixedPriceCell
+          column={column}
+          price={price}
+          isEditing={editing}
+          draftValue={draftValue}
+          onStartEdit={() => beginInlineEdit(product, column, unitCode)}
+          onChangeValue={handleInlineValueChange}
+          onCommit={commitInlineSave}
+          onCancel={cancelInlineEdit}
+          status={status}
+          isSaving={isSaving}
+          unitCode={unitCode}
+          isBase={column.id === baseColumnId}
+          variant="compact"
+          showUnitMeta={false}
+        />
+      );
+    }
+
+    if (column.mode === 'volume') {
+      const isValidPriceType = price?.type === 'volume';
+      const cellContent = !price ? (
+        <VolumePriceCell
+          state="empty"
+          onConfigure={() => handleConfigureVolumePrice(product, column, unitCode)}
+        />
+      ) : isValidPriceType ? (
+        <VolumePriceCell
+          state="filled"
+          price={price}
+          onConfigure={() => handleConfigureVolumePrice(product, column, unitCode)}
+        />
+      ) : (
+        <div className="text-[11px] text-red-500">Tipo inválido</div>
+      );
+
+      return (
+        <div className="space-y-1">
+          {cellContent}
+          {status?.error && <p className="text-[10px] text-red-500">{status.error}</p>}
+        </div>
+      );
+    }
+
+    return <span className="text-[11px] text-gray-400">Sin configuración</span>;
+  };
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-inner">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Unidades y columnas detalladas</p>
+          <p className="text-[12px] text-gray-500">Gestiona cada unidad sin salir de la tabla</p>
+        </div>
+        <span className="text-[11px] text-gray-500">
+          {unitOptions.length} unidad{unitOptions.length !== 1 ? 'es' : ''}
+        </span>
+      </div>
+      <div className="overflow-x-auto -mx-1">
+        <table className="w-full text-xs border-separate border-spacing-y-2">
+          <thead>
+            <tr>
+              <th className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500">Unidad</th>
+              {columns.map(column => (
+                <th key={`unit-panel-${column.id}`} className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500 min-w-[130px]">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${column.isBase ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-gray-600 border-gray-200'}`}>
+                      {column.id}
+                    </span>
+                    <span className="text-[10px] text-gray-500 normal-case" title={column.name}>
+                      {column.name}
+                    </span>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {unitOptions.map(option => (
+              <tr key={`${product.sku}-${option.code}`} className="align-top">
+                <td className="align-top px-2 py-3">
+                  <div className="flex items-center gap-2 text-[12px] text-gray-900 font-semibold">
+                    <span>{option.code}</span>
+                    {option.isBase && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">Base</span>
+                    )}
+                    {option.code === activeUnitCode && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-[10px]">Actual</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-gray-500">{option.label}</div>
+                  {option.factor && (
+                    <div className="text-[10px] text-gray-400 mt-1">
+                      1 {option.code} = {option.factor} {baseUnitCode}
+                    </div>
+                  )}
+                </td>
+                {columns.map(column => (
+                  <td key={`${product.sku}-${option.code}-${column.id}`} className="align-top px-2 py-1">
+                    {renderUnitPriceCell(column, option.code)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 };
