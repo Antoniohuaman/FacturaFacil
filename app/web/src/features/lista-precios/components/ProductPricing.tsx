@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Plus, Search, X, Settings, ChevronDown, ChevronRight, Check, MoreHorizontal, Loader2, Pencil } from 'lucide-react';
+import { Search, X, Settings, ChevronDown, ChevronRight, Check, MoreHorizontal, Loader2, Pencil } from 'lucide-react';
 import type { Column, Product, CatalogProduct, PriceForm, Price } from '../models/PriceTypes';
 import { filterVisibleColumns, formatPrice, formatDate, getVolumePreview, getVolumeTooltip, getPriceRange } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
@@ -15,6 +15,7 @@ interface ProductPricingProps {
   onSavePrice: (priceData: PriceForm) => Promise<boolean> | boolean;
   onUnitChange: (sku: string, unitCode: string) => void;
   catalogProducts?: CatalogProduct[];
+  registerAssignHandler?: (handler: (() => void) | null) => void;
 }
 
 interface SwitchToVolumePayload {
@@ -57,7 +58,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   onSearchChange,
   onSavePrice,
   onUnitChange,
-  catalogProducts = []
+  catalogProducts = [],
+  registerAssignHandler
 }) => {
   const visibleColumns = filterVisibleColumns(columns);
   const orderedColumns = useMemo(() => {
@@ -200,7 +202,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   }, [searchSKU]);
 
   // Manejador para asignar precio - detecta el tipo según la columna
-  const handleAssignPrice = (column?: Column) => {
+  const handleAssignPrice = useCallback((column?: Column) => {
     // Si no se especifica columna, usar la primera visible
     const targetColumn = column || orderedColumns[0];
     
@@ -218,7 +220,13 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
       setSelectedVolumePrice(null); // Para productos nuevos
       setVolumeModalOpen(true);
     }
-  };
+  }, [orderedColumns, setSelectedPriceColumn, setPriceModalOpen, setSelectedProductForPriceModal, setSelectedUnitForModal, setUnitMenuOpenSku, setSelectedVolumePrice, setVolumeModalOpen]);
+
+  useEffect(() => {
+    if (!registerAssignHandler) return;
+    registerAssignHandler(handleAssignPrice);
+    return () => registerAssignHandler(null);
+  }, [registerAssignHandler, handleAssignPrice]);
 
   // Manejador para editar producto existente - detecta el tipo de precio a editar
   const handleEditProduct = (product: Product) => {
@@ -498,55 +506,43 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const firstVolumeColumn = useMemo(() => orderedColumns.find(column => column.mode === 'volume'), [orderedColumns]);
 
   return (
-    <div className="p-6">
+    <div className="p-5">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
+        <div className="p-5">
+          <div className="mb-4 space-y-3">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Precios por producto (SKU)</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Precios por producto (SKU)</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
                 En cada columna puedes definir un <strong>Precio Fijo</strong> con vigencia o un <strong>Precio por Cantidad</strong> (exclusivos).
               </p>
             </div>
-            <button
-              onClick={() => handleAssignPrice()}
-              className="flex items-center px-3 py-2 text-white rounded-md text-sm hover:opacity-90 transition-colors"
-              style={{ backgroundColor: '#1478D4' }}
-            >
-              <Plus size={16} className="mr-2" />
-              Asignar precio
-            </button>
-          </div>
-
-          {/* Search Bar */}
-          <div className="mb-6">
             <div className="relative max-w-md">
-              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Search size={15} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar o ingresar SKU..."
+                placeholder="Buscar SKU..."
                 value={searchSKU}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full pl-10 pr-8 py-1.5 h-9 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-colors bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
               />
               {searchSKU && (
                 <button
                   onClick={() => onSearchChange('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   title="Limpiar búsqueda"
                 >
-                  <X size={16} />
+                  <X size={14} />
                 </button>
               )}
             </div>
             {searchSKU && (
-              <div className="mt-2">
+              <div>
                 {filteredProducts.length > 0 ? (
-                  <div className="text-sm text-green-600">
+                  <div className="text-xs text-green-600">
                     ✓ {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} encontrado{filteredProducts.length !== 1 ? 's' : ''} para "{searchSKU}"
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500">
+                  <div className="text-xs text-gray-500">
                     No se encontraron productos que coincidan con "{searchSKU}". Intenta con términos más generales.
                   </div>
                 )}

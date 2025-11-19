@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { usePriceList } from '../hooks/usePriceList';
 import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
@@ -44,6 +44,15 @@ export const ListaPrecios: React.FC = () => {
   } = usePriceList();
 
   const baseColumn = findBaseColumn(columns);
+  const assignPriceHandlerRef = useRef<(() => void) | null>(null);
+
+  const registerAssignPriceHandler = useCallback((handler: (() => void) | null) => {
+    assignPriceHandlerRef.current = handler;
+  }, []);
+
+  const handleAssignPriceFromSummary = useCallback(() => {
+    assignPriceHandlerRef.current?.();
+  }, []);
 
   // Determinar tab activo (preferencia al tab del hook para columns/products)
   const currentTab: TabType = packagesTabActive ? 'packages' : activeTab;
@@ -122,7 +131,7 @@ export const ListaPrecios: React.FC = () => {
       </div>
 
       {/* Summary Bar */}
-      <SummaryBar columns={columns} />
+      <SummaryBar columns={columns} onAssignPrice={handleAssignPriceFromSummary} />
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
@@ -159,6 +168,7 @@ export const ListaPrecios: React.FC = () => {
             onSavePrice={addOrUpdateProductPrice}
             onUnitChange={setProductActiveUnit}
             catalogProducts={catalogProducts}
+            registerAssignHandler={registerAssignPriceHandler}
           />
         ) : (
           <PackagesTab />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle, Plus } from 'lucide-react';
 import type { Column } from '../models/PriceTypes';
 import {
   filterVisibleColumns,
@@ -10,9 +10,10 @@ import {
 
 interface SummaryBarProps {
   columns: Column[];
+  onAssignPrice?: () => void;
 }
 
-export const SummaryBar = React.memo<SummaryBarProps>(({ columns }) => {
+export const SummaryBar = React.memo<SummaryBarProps>(({ columns, onAssignPrice }) => {
   const visibleColumns = filterVisibleColumns(columns);
   const baseColumn = findBaseColumn(columns);
   const fixedCount = countColumnsByMode(columns, 'fixed');
@@ -68,15 +69,30 @@ export const SummaryBar = React.memo<SummaryBarProps>(({ columns }) => {
           </div>
         </div>
 
-        <div className="text-xs text-gray-500 dark:text-gray-400">
-          {fixedCount} Precio fijo | {volumeCount} Precio por cantidad
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            {fixedCount} Precio fijo | {volumeCount} Precio por cantidad
+          </div>
+          {onAssignPrice && (
+            <button
+              onClick={onAssignPrice}
+              className="flex items-center px-3 py-2 text-white rounded-md text-sm hover:opacity-90 transition-colors whitespace-nowrap"
+              style={{ backgroundColor: '#1478D4' }}
+            >
+              <Plus size={16} className="mr-2" />
+              Asignar precio
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison: solo re-renderizar si cambia la lista de columnas
-  return JSON.stringify(prevProps.columns) === JSON.stringify(nextProps.columns);
+  // Custom comparison: solo re-renderizar si cambia la lista de columnas o el handler
+  return (
+    prevProps.onAssignPrice === nextProps.onAssignPrice &&
+    JSON.stringify(prevProps.columns) === JSON.stringify(nextProps.columns)
+  );
 });
 
 SummaryBar.displayName = 'SummaryBar';
