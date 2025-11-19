@@ -1,5 +1,4 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import * as ExcelJS from 'exceljs';
 import { Download, ChevronDown, FileSpreadsheet, Layers } from 'lucide-react';
 import ClienteFormNew from '../components/ClienteFormNew';
@@ -338,7 +337,6 @@ const filterClientesList = (clients: Cliente[], filters: ClientesFilterValues): 
 };
 
 function ClientesPage() {
-	const navigate = useNavigate();
 	const { showToast } = useCaja();
 			const { clientes, transientClientes, transientCount, clearTransientClientes, createCliente, updateCliente, deleteCliente, loading, pagination, fetchClientes } = useClientes();
 			const combinedClients = useMemo(() => [...clientes, ...transientClientes], [clientes, transientClientes]);
@@ -1161,12 +1159,6 @@ function ClientesPage() {
 							className="px-6 py-2 text-white text-sm font-medium rounded-lg shadow-sm hover:opacity-95 transition-opacity"
 						>
 							Nuevo cliente
-						</button>
-						<button
-							onClick={() => navigate('/importar-clientes')}
-							className="px-6 py-2 text-[#6F36FF] dark:text-[#8B5CF6] border border-[#6F36FF]/40 dark:border-[#8B5CF6]/40 text-sm font-medium rounded-lg hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/10 transition-colors"
-						>
-							Importar clientes
 						</button>
 						<div className="relative">
 							<button
