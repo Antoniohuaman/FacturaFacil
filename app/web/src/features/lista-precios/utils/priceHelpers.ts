@@ -10,7 +10,7 @@ import type {
   PriceCalculation
 } from '../models/PriceTypes';
 
-export type EffectivePriceSource = 'explicit' | 'global-rule' | 'suggested' | 'none';
+export type EffectivePriceSource = 'explicit' | 'global-rule' | 'none';
 
 export interface EffectivePriceResult {
   value?: number;
@@ -266,16 +266,12 @@ interface EffectivePriceArgs {
   column: Column;
   explicitPrice?: Price;
   baseValue?: number;
-  baseUnitValue?: number;
-  conversionFactor?: number;
 }
 
 export const getEffectivePriceFromBase = ({
   column,
   explicitPrice,
-  baseValue,
-  baseUnitValue,
-  conversionFactor
+  baseValue
 }: EffectivePriceArgs): EffectivePriceResult => {
   const explicitValue = getFixedPriceValue(explicitPrice);
   if (typeof explicitValue === 'number') {
@@ -310,13 +306,9 @@ export const getEffectivePriceFromBase = ({
   }
 
   if (
-    column.kind === 'manual' &&
-    typeof baseUnitValue === 'number' &&
-    typeof conversionFactor === 'number' &&
-    conversionFactor > 0
+    column.kind === 'manual'
   ) {
-    const suggested = baseUnitValue * conversionFactor;
-    return { value: roundCurrency(suggested), source: 'suggested' };
+    return { source: 'none' };
   }
 
   return { source: 'none' };
@@ -370,15 +362,6 @@ export const buildEffectivePriceMatrix = (
     const unitMetas = collectUnitMetas(product, catalogProduct);
     if (unitMetas.length === 0) return;
 
-    const baseUnitCode = unitMetas.find(unit => unit.isBase)?.code
-      || catalogProduct?.unidad
-      || product.activeUnitCode
-      || DEFAULT_UNIT_CODE;
-
-    const baseUnitValue = baseColumn
-      ? getFixedPriceValue(product.prices[baseColumn.id]?.[baseUnitCode])
-      : undefined;
-
     const columnEntries: Record<string, Record<string, EffectivePriceResult>> = {};
 
     columns.forEach(column => {
@@ -394,16 +377,10 @@ export const buildEffectivePriceMatrix = (
         const shouldApplyGlobalRule = column.kind === 'global-discount' || column.kind === 'global-increase';
         const baseValueForRule = shouldApplyGlobalRule ? unitBaseValue : undefined;
 
-        const conversionFactor = unitCode !== baseUnitCode && typeof unit.factor === 'number' && unit.factor > 0
-          ? unit.factor
-          : undefined;
-
         unitEntries[unitCode] = getEffectivePriceFromBase({
           column,
           explicitPrice,
-          baseValue: baseValueForRule,
-          baseUnitValue,
-          conversionFactor
+          baseValue: baseValueForRule
         });
       });
 
