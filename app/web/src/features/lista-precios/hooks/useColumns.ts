@@ -9,7 +9,9 @@ import {
   countManualColumns,
   isGlobalColumn,
   isProductDiscountColumn,
-  isMinAllowedColumn
+  isMinAllowedColumn,
+  isFixedColumn,
+  BASE_COLUMN_ID
 } from '../utils/priceHelpers';
 import { lsKey } from '../utils/tenantHelpers';
 
@@ -104,6 +106,7 @@ export const useColumns = () => {
         name: newColumnData.name.trim(),
         mode: newColumnData.mode,
         visible: newColumnData.visible,
+        isVisibleInTable: newColumnData.isVisibleInTable ?? true,
         isBase: false,
         order: newOrder,
         kind: 'manual'
@@ -142,7 +145,7 @@ export const useColumns = () => {
       return false;
     }
 
-    if (isProductDiscountColumn(column) || isMinAllowedColumn(column)) {
+    if (isProductDiscountColumn(column) || isMinAllowedColumn(column) || isFixedColumn(column)) {
       setError('Esta columna fija es obligatoria');
       return false;
     }
@@ -165,16 +168,18 @@ export const useColumns = () => {
   const toggleColumnVisibility = useCallback((columnId: string): void => {
     const target = columns.find(col => col.id === columnId);
     if (!target) return;
-    if (target.isBase) {
-      setError('La columna base siempre debe estar visible');
-      return;
-    }
-    if (isGlobalColumn(target)) {
-      setError('Las columnas globales siempre están visibles');
-      return;
-    }
     applyColumnsUpdate(prev => prev.map(col =>
       col.id === columnId ? { ...col, visible: !col.visible } : col
+    ));
+  }, [columns, applyColumnsUpdate]);
+
+  const toggleColumnTableVisibility = useCallback((columnId: string): void => {
+    const target = columns.find(col => col.id === columnId);
+    if (!target) return;
+    applyColumnsUpdate(prev => prev.map(col =>
+      col.id === columnId
+        ? { ...col, isVisibleInTable: !(col.isVisibleInTable !== false) }
+        : col
     ));
   }, [columns, applyColumnsUpdate]);
 
@@ -182,43 +187,10 @@ export const useColumns = () => {
    * Establecer columna base
    */
   const setBaseColumn = useCallback((columnId: string): void => {
-    const target = columns.find(col => col.id === columnId);
-    if (!target) {
-      setError('Columna no encontrada');
+    if (columnId !== BASE_COLUMN_ID) {
+      setError('La columna base es fija y no se puede reasignar');
       return;
     }
-
-    if (isGlobalColumn(target)) {
-      setError('No puedes usar una columna global como base');
-      return;
-    }
-
-    if (isProductDiscountColumn(target) || isMinAllowedColumn(target)) {
-      setError('No puedes usar esta columna como base');
-      return;
-    }
-
-    applyColumnsUpdate(prev => prev.map(col => {
-      if (col.id === columnId) {
-        return {
-          ...col,
-          kind: 'base',
-          isBase: true,
-          visible: true,
-          mode: 'fixed'
-        };
-      }
-
-      if (col.kind === 'base') {
-        return {
-          ...col,
-          kind: 'manual',
-          isBase: false
-        };
-      }
-
-      return col;
-    }));
   }, [applyColumnsUpdate, columns]);
 
   /**
@@ -228,17 +200,16 @@ export const useColumns = () => {
     applyColumnsUpdate(prev => prev.map(col => {
       if (col.id !== columnId) return col;
 
-      if (col.kind === 'base') {
-        if (typeof updates.name === 'string') {
-          return { ...col, name: updates.name };
-        }
-        return col;
-      }
-
-      if (isGlobalColumn(col)) {
+      if (isFixedColumn(col)) {
         const next: Column = { ...col };
         if (typeof updates.name === 'string') {
           next.name = updates.name;
+        }
+        if (typeof updates.visible === 'boolean') {
+          next.visible = updates.visible;
+        }
+        if (typeof updates.isVisibleInTable === 'boolean') {
+          next.isVisibleInTable = updates.isVisibleInTable;
         }
         if (updates.globalRuleType) {
           next.globalRuleType = updates.globalRuleType;
@@ -253,17 +224,6 @@ export const useColumns = () => {
         return next;
       }
 
-      if (isProductDiscountColumn(col) || isMinAllowedColumn(col)) {
-        const next: Column = { ...col, mode: 'fixed', isBase: false };
-        if (typeof updates.name === 'string') {
-          next.name = updates.name;
-        }
-        if (typeof updates.visible === 'boolean') {
-          next.visible = updates.visible;
-        }
-        return next;
-      }
-
       const next: Column = { ...col };
       if (typeof updates.name === 'string') {
         next.name = updates.name;
@@ -273,6 +233,9 @@ export const useColumns = () => {
       }
       if (typeof updates.visible === 'boolean') {
         next.visible = updates.visible;
+      }
+      if (typeof updates.isVisibleInTable === 'boolean') {
+        next.isVisibleInTable = updates.isVisibleInTable;
       }
       return next;
     }));
@@ -292,6 +255,7 @@ export const useColumns = () => {
     addColumn,
     deleteColumn,
     toggleColumnVisibility,
+    toggleColumnTableVisibility,
     setBaseColumn,
     updateColumn,
     clearError

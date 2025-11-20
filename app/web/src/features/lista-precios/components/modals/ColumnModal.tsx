@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Column, NewColumnForm } from '../../models/PriceTypes';
-import { isGlobalColumn } from '../../utils/priceHelpers';
+import { getColumnDisplayName, getFixedColumnHelpText, isFixedColumn, isGlobalColumn } from '../../utils/priceHelpers';
 
 interface ColumnModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
     name: '',
     mode: 'fixed',
     visible: true,
+    isVisibleInTable: true,
     kind: 'manual',
     globalRuleType: 'percent',
     globalRuleValue: null
@@ -30,6 +31,9 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
   const isEditingGlobal = editingColumn ? isGlobalColumn(editingColumn) : false;
   const isSpecialManualColumn = editingColumn ? (editingColumn.kind === 'product-discount' || editingColumn.kind === 'min-allowed') : false;
   const isManualContext = !editingColumn || editingColumn.kind === 'manual' || isSpecialManualColumn;
+  const displayName = editingColumn ? getColumnDisplayName(editingColumn) : null;
+  const fixedHelpText = editingColumn ? getFixedColumnHelpText(editingColumn.id) : null;
+  const editingIsFixed = editingColumn ? isFixedColumn(editingColumn) : false;
 
   useEffect(() => {
     if (editingColumn) {
@@ -37,6 +41,7 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
         name: editingColumn.name,
         mode: editingColumn.kind === 'product-discount' || editingColumn.kind === 'min-allowed' ? 'fixed' : editingColumn.mode,
         visible: editingColumn.visible,
+        isVisibleInTable: editingColumn.isVisibleInTable ?? true,
         kind: editingColumn.kind,
         globalRuleType: editingColumn.globalRuleType ?? 'percent',
         globalRuleValue: editingColumn.globalRuleValue ?? null
@@ -49,6 +54,7 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
         name: '',
         mode: 'fixed',
         visible: true,
+        isVisibleInTable: true,
         kind: 'manual',
         globalRuleType: 'percent',
         globalRuleValue: null
@@ -81,17 +87,13 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
       const payload: NewColumnForm = {
         ...formData,
         name: formData.name.trim(),
-        kind: editingColumn?.kind ?? 'manual'
+        kind: editingColumn?.kind ?? 'manual',
+        isVisibleInTable: formData.isVisibleInTable ?? true
       };
 
       if (!isEditingGlobal) {
         delete payload.globalRuleType;
         delete payload.globalRuleValue;
-      }
-
-      if (!isManualContext) {
-        payload.mode = editingColumn?.mode ?? 'fixed';
-        payload.visible = editingColumn?.visible ?? true;
       }
 
       if (isSpecialManualColumn) {
@@ -112,6 +114,7 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
       name: '',
       mode: 'fixed',
       visible: true,
+      isVisibleInTable: true,
       kind: 'manual',
       globalRuleType: 'percent',
       globalRuleValue: null
@@ -147,48 +150,74 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Ej: Precio de venta al público"
+              placeholder={displayName ?? 'Ej: Precio preferencial'}
               required
             />
+            {fixedHelpText && (
+              <p className="text-xs text-gray-500 mt-1">
+                {fixedHelpText}
+              </p>
+            )}
           </div>
 
           {isManualContext && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Modo de valorización
-                </label>
-                <select
-                  value={formData.mode}
-                  onChange={(e) => setFormData({ ...formData, mode: e.target.value as 'fixed' | 'volume' })}
-                  disabled={isSpecialManualColumn}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                >
-                  <option value="fixed">Precio fijo</option>
-                  <option value="volume">Precio por cantidad</option>
-                </select>
-                {isSpecialManualColumn && (
-                  <p className="text-xs text-gray-500 mt-1">Esta columna especial siempre usa precio fijo manual.</p>
-                )}
-              </div>
-
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.visible}
-                    onChange={(e) => setFormData({ ...formData, visible: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Visible</span>
-                </label>
-              </div>
-            </>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Modo de valorización
+              </label>
+              <select
+                value={formData.mode}
+                onChange={(e) => setFormData({ ...formData, mode: e.target.value as 'fixed' | 'volume' })}
+                disabled={isSpecialManualColumn || editingIsFixed}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                <option value="fixed">Precio fijo</option>
+                <option value="volume">Precio por cantidad</option>
+              </select>
+              {(isSpecialManualColumn || editingIsFixed) && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {isSpecialManualColumn
+                    ? 'Esta columna especial siempre usa precio fijo manual.'
+                    : 'Las columnas fijas mantienen el modo de valorización predeterminado.'}
+                </p>
+              )}
+            </div>
           )}
+
+          <div>
+            <p className="block text-sm font-medium text-gray-700 mb-2">Visibilidad</p>
+            <div className="space-y-3">
+              <label className="flex items-center justify-between px-3 py-2 border border-gray-200 rounded-lg">
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Visible en formularios</span>
+                  <p className="text-xs text-gray-500">Permite usar esta columna al gestionar precios.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.visible}
+                  onChange={(e) => setFormData({ ...formData, visible: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+              </label>
+
+              <label className="flex items-center justify-between px-3 py-2 border border-gray-200 rounded-lg">
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Visible en tabla</span>
+                  <p className="text-xs text-gray-500">Controla si la columna se muestra en la tabla de precios.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.isVisibleInTable !== false}
+                  onChange={(e) => setFormData({ ...formData, isVisibleInTable: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+              </label>
+            </div>
+          </div>
 
           {isEditingBase && (
             <p className="text-xs text-gray-500">
-              La columna base siempre se mantiene fija y visible; solo puedes cambiar su nombre.
+              La columna base siempre se mantiene fija; solo puedes ajustar su nombre y visibilidad.
             </p>
           )}
 

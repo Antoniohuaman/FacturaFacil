@@ -36,7 +36,7 @@ export const ListaPrecios: React.FC = () => {
     addColumn,
     deleteColumn,
     toggleColumnVisibility,
-    setBaseColumn,
+    toggleColumnTableVisibility,
     updateColumn,
     addOrUpdateProductPrice,
     setProductActiveUnit,
@@ -73,15 +73,24 @@ export const ListaPrecios: React.FC = () => {
       return false;
     }
 
+    const nextVisible = typeof data.visible === 'boolean' ? data.visible : true;
+    const nextTableVisibility = data.isVisibleInTable !== false;
+
     if (editingColumn) {
       if (editingColumn.kind === 'base') {
-        updateColumn(editingColumn.id, { name: trimmedName });
+        updateColumn(editingColumn.id, {
+          name: trimmedName,
+          visible: nextVisible,
+          isVisibleInTable: nextTableVisibility
+        });
         return true;
       }
 
       if (editingColumn.kind === 'global-discount' || editingColumn.kind === 'global-increase') {
         updateColumn(editingColumn.id, {
           name: trimmedName,
+          visible: nextVisible,
+          isVisibleInTable: nextTableVisibility,
           globalRuleType: data.globalRuleType,
           globalRuleValue: typeof data.globalRuleValue === 'number' ? Math.max(data.globalRuleValue, 0) : null
         });
@@ -91,7 +100,8 @@ export const ListaPrecios: React.FC = () => {
       if (editingColumn.kind === 'product-discount' || editingColumn.kind === 'min-allowed') {
         updateColumn(editingColumn.id, {
           name: trimmedName,
-          visible: data.visible
+          visible: nextVisible,
+          isVisibleInTable: nextTableVisibility
         });
         return true;
       }
@@ -99,7 +109,8 @@ export const ListaPrecios: React.FC = () => {
       updateColumn(editingColumn.id, {
         name: trimmedName,
         mode: data.mode,
-        visible: data.visible
+        visible: nextVisible,
+        isVisibleInTable: nextTableVisibility
       });
       return true;
     }
@@ -107,7 +118,8 @@ export const ListaPrecios: React.FC = () => {
     return addColumn({
       name: trimmedName,
       mode: data.mode,
-      visible: data.visible,
+      visible: nextVisible,
+      isVisibleInTable: nextTableVisibility,
       kind: 'manual'
     });
   }, [addColumn, editingColumn, updateColumn]);
@@ -199,7 +211,7 @@ export const ListaPrecios: React.FC = () => {
             onEditColumn={(column) => openColumnModal(column)}
             onDeleteColumn={deleteColumn}
             onToggleVisibility={toggleColumnVisibility}
-            onSetBaseColumn={setBaseColumn}
+            onToggleTableVisibility={toggleColumnTableVisibility}
           />
         ) : currentTab === 'products' ? (
           <ProductPricing

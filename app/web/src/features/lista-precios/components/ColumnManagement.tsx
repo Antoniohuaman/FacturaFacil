@@ -1,7 +1,16 @@
 import React from 'react';
-import { Plus, Eye, EyeOff, Edit2, Trash2, Check, Info } from 'lucide-react';
+import { Plus, Eye, EyeOff, Edit2, Trash2, Check, Info, Table } from 'lucide-react';
 import type { Column } from '../models/PriceTypes';
-import { countManualColumns, MANUAL_COLUMN_LIMIT, isGlobalColumn, isProductDiscountColumn, isMinAllowedColumn } from '../utils/priceHelpers';
+import {
+  countManualColumns,
+  MANUAL_COLUMN_LIMIT,
+  isGlobalColumn,
+  isProductDiscountColumn,
+  isMinAllowedColumn,
+  getFixedColumnHelpText,
+  getColumnDisplayName,
+  isFixedColumn
+} from '../utils/priceHelpers';
 
 interface ColumnManagementProps {
   columns: Column[];
@@ -9,7 +18,7 @@ interface ColumnManagementProps {
   onEditColumn: (column: Column) => void;
   onDeleteColumn: (columnId: string) => void;
   onToggleVisibility: (columnId: string) => void;
-  onSetBaseColumn: (columnId: string) => void;
+  onToggleTableVisibility: (columnId: string) => void;
 }
 
 export const ColumnManagement: React.FC<ColumnManagementProps> = ({
@@ -18,7 +27,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
   onEditColumn,
   onDeleteColumn,
   onToggleVisibility,
-  onSetBaseColumn
+  onToggleTableVisibility
 }) => {
   const manualCount = countManualColumns(columns);
   const manualLimitReached = manualCount >= MANUAL_COLUMN_LIMIT;
@@ -122,19 +131,33 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">DETALLE / REGLA</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">BASE</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">VISIBLE</th>
+                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">VISIBLE EN TABLA</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
-                {columns.map((column) => (
-                  <tr key={column.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                {columns.map((column) => {
+                  const fixedHelpText = getFixedColumnHelpText(column.id);
+                  const displayName = getColumnDisplayName(column);
+                  const isTableVisible = column.isVisibleInTable !== false;
+                  return (
+                    <tr key={column.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     <td className="py-3 px-2">
                       <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300">
                         {column.id}
                       </span>
                     </td>
                     <td className="py-3 px-2 text-sm text-gray-900 dark:text-white font-medium">
-                      {column.name}
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {displayName}
+                        </div>
+                        {fixedHelpText && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {fixedHelpText}
+                          </p>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-2">
                       {renderKindBadge(column)}
@@ -152,45 +175,36 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                       {renderRuleDescription(column)}
                     </td>
                     <td className="py-3 px-2">
-                      {column.isBase ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300">
-                          <Check size={12} className="mr-1" />
-                          Base
-                        </span>
-                      ) : (!isGlobalColumn(column) && !isProductDiscountColumn(column) && !isMinAllowedColumn(column)) ? (
-                        <button
-                          onClick={() => onSetBaseColumn(column.id)}
-                          className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors"
-                        >
-                          Establecer como base
-                        </button>
-                      ) : isGlobalColumn(column) ? (
-                        <span className="text-xs text-gray-500">Fijada por regla</span>
-                      ) : (
-                        <span className="text-xs text-gray-500">No disponible</span>
-                      )}
+                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300">
+                        <Check size={12} className="mr-1" />
+                        Base fija
+                      </span>
                     </td>
                     <td className="py-3 px-2">
-                      {column.isBase || isGlobalColumn(column) ? (
-                        <div
-                          className="inline-flex items-center p-1 rounded text-blue-600/70 cursor-not-allowed"
-                          title="La columna base siempre está visible"
-                        >
-                          <Eye size={16} />
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => onToggleVisibility(column.id)}
-                          className={`p-1 rounded transition-colors ${
-                            column.visible 
-                              ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20' 
-                              : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
-                          }`}
-                          title={column.visible ? 'Ocultar columna' : 'Mostrar columna'}
-                        >
-                          {column.visible ? <Eye size={16} /> : <EyeOff size={16} />}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => onToggleVisibility(column.id)}
+                        className={`p-1 rounded transition-colors ${
+                          column.visible 
+                            ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20' 
+                            : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                        title={column.visible ? 'Ocultar en formularios' : 'Mostrar en formularios'}
+                      >
+                        {column.visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                      </button>
+                    </td>
+                    <td className="py-3 px-2">
+                      <button
+                        onClick={() => onToggleTableVisibility(column.id)}
+                        className={`p-1 rounded transition-colors ${
+                          isTableVisible
+                            ? 'text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/20'
+                            : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                        title={isTableVisible ? 'Ocultar en tablas' : 'Mostrar en tablas'}
+                      >
+                        {isTableVisible ? <Table size={16} /> : <EyeOff size={16} />}
+                      </button>
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex items-center space-x-3">
@@ -201,7 +215,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                         >
                           <Edit2 size={14} />
                         </button>
-                        {column.isBase || isGlobalColumn(column) || isProductDiscountColumn(column) || isMinAllowedColumn(column) ? (
+                        {isFixedColumn(column) ? (
                           <span
                             className="text-gray-400 dark:text-gray-500 cursor-not-allowed"
                             title="No se puede eliminar esta columna"
@@ -220,7 +234,8 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>

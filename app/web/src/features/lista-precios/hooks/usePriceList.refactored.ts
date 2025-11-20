@@ -87,6 +87,7 @@ export const usePriceList = () => {
     addColumn: columnsHook.addColumn,
     deleteColumn,
     toggleColumnVisibility: columnsHook.toggleColumnVisibility,
+    toggleColumnTableVisibility: columnsHook.toggleColumnTableVisibility,
     setBaseColumn: columnsHook.setBaseColumn,
     updateColumn: columnsHook.updateColumn,
 

@@ -65,12 +65,13 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   registerAssignHandler
 }) => {
   const visibleColumns = filterVisibleColumns(columns);
+  const tableColumns = useMemo(() => visibleColumns.filter(column => column.isVisibleInTable !== false), [visibleColumns]);
   const orderedColumns = useMemo(() => {
-    const base = visibleColumns.find(column => column.isBase);
-    if (!base) return visibleColumns;
-    const rest = visibleColumns.filter(column => column.id !== base.id);
+    const base = tableColumns.find(column => column.isBase);
+    if (!base) return tableColumns;
+    const rest = tableColumns.filter(column => column.id !== base.id);
     return [base, ...rest];
-  }, [visibleColumns]);
+  }, [tableColumns]);
   const firstEditableColumn = useMemo(() => orderedColumns.find(column => !isGlobalColumn(column)), [orderedColumns]);
   const baseColumnId = orderedColumns.find(column => column.isBase)?.id;
   const totalColumns = orderedColumns.length + 5; // toggle + SKU + nombre + unidad + acciones
@@ -703,8 +704,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           ) : (
             <div className="text-center py-8 text-gray-500">
               <div className="text-4xl mb-2">👁️</div>
-              <p>No hay columnas visibles</p>
-              <p className="text-sm">Ve a "Plantilla de columnas" para hacer visible al menos una columna</p>
+              <p>No hay columnas visibles en la tabla</p>
+              <p className="text-sm">Ve a "Plantilla de columnas" y activa "Visible en tabla" al menos en una columna</p>
             </div>
           )}
 
@@ -737,7 +738,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                   )}
                 </div>
                 <div>
-                  <span className="font-medium">{visibleColumns.length}</span> columna{visibleColumns.length !== 1 ? 's' : ''} visible{visibleColumns.length !== 1 ? 's' : ''}
+                  <span className="font-medium">{tableColumns.length}</span> columna{tableColumns.length !== 1 ? 's' : ''} visible{tableColumns.length !== 1 ? 's' : ''} en tabla
                 </div>
               </div>
 

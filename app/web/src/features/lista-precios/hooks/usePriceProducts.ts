@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, ProductUnitPrices, Price, Column } from '../models/PriceTypes';
 import { lsKey } from '../utils/tenantHelpers';
-import { buildEffectivePriceMatrix, DEFAULT_UNIT_CODE, getFixedPriceValue } from '../utils/priceHelpers';
+import { buildEffectivePriceMatrix, DEFAULT_UNIT_CODE, getFixedPriceValue, getCanonicalColumnId } from '../utils/priceHelpers';
 
 /**
  * Utilidad para cargar desde localStorage
@@ -99,13 +99,20 @@ const normalizeStoredProduct = (
   const normalizedPrices: Record<string, ProductUnitPrices> = {};
 
   Object.entries(product.prices || {}).forEach(([columnId, rawValue]) => {
+    const canonicalColumnId = getCanonicalColumnId(columnId);
     if (!rawValue) return;
     if (isPriceObject(rawValue)) {
-      normalizedPrices[columnId] = { [baseUnit]: rawValue };
+      normalizedPrices[canonicalColumnId] = {
+        ...(normalizedPrices[canonicalColumnId] || {}),
+        [baseUnit]: rawValue
+      };
     } else if (isUnitPriceMap(rawValue)) {
-      normalizedPrices[columnId] = rawValue;
+      normalizedPrices[canonicalColumnId] = {
+        ...(normalizedPrices[canonicalColumnId] || {}),
+        ...rawValue
+      };
     } else {
-      normalizedPrices[columnId] = {};
+      normalizedPrices[canonicalColumnId] = normalizedPrices[canonicalColumnId] || {};
     }
   });
 
@@ -239,9 +246,10 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
       return false;
     }
 
+    const canonicalColumnId = getCanonicalColumnId(columnId);
     const catalogProduct = getCatalogProductBySKU(normalizedSku);
     const existingProduct = products.find(product => product.sku === normalizedSku);
-    const targetColumn = columns.find(column => column.id === columnId);
+    const targetColumn = columns.find(column => column.id === canonicalColumnId);
 
     if (!targetColumn) {
       setError('Columna no encontrada');
@@ -297,7 +305,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
         setProducts(prevProducts => {
           const updated = prevProducts.map(product => {
             if (product.sku !== normalizedSku) return product;
-            const columnPrices = product.prices[columnId];
+            const columnPrices = product.prices[canonicalColumnId];
             if (!columnPrices || !(resolvedUnitCode in columnPrices)) return product;
 
             const nextColumnPrices = { ...columnPrices };
@@ -305,9 +313,9 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
 
             const nextPrices = { ...product.prices };
             if (Object.keys(nextColumnPrices).length === 0) {
-              delete nextPrices[columnId];
+              delete nextPrices[canonicalColumnId];
             } else {
-              nextPrices[columnId] = nextColumnPrices;
+              nextPrices[canonicalColumnId] = nextColumnPrices;
             }
 
             return {
@@ -386,12 +394,12 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
 
         if (targetIndex >= 0) {
           const target = updated[targetIndex];
-          const columnPrices = target.prices[columnId] || {};
+          const columnPrices = target.prices[canonicalColumnId] || {};
           updated[targetIndex] = {
             ...target,
             prices: {
               ...target.prices,
-              [columnId]: {
+              [canonicalColumnId]: {
                 ...columnPrices,
                 [resolvedUnitCode]: newPrice
               }
@@ -409,7 +417,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
           sku: catalogProduct.codigo,
           name: catalogProduct.nombre,
           prices: {
-            [columnId]: {
+            [canonicalColumnId]: {
               [resolvedUnitCode]: newPrice
             }
           },
@@ -434,12 +442,15 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
    * Eliminar precios de una columna específica
    */
   const removeProductPricesForColumn = useCallback((columnId: string): void => {
+    const canonicalColumnId = getCanonicalColumnId(columnId);
     setProducts(prevProducts => {
       const next = prevProducts
         .map(product => {
-          if (!(columnId in product.prices)) return product;
-          const remainingPrices = { ...product.prices };
-          delete remainingPrices[columnId];
+          const remainingEntries = Object.entries(product.prices).filter(([priceColumnId]) => getCanonicalColumnId(priceColumnId) !== canonicalColumnId);
+          if (remainingEntries.length === Object.entries(product.prices).length) {
+            return product;
+          }
+          const remainingPrices = Object.fromEntries(remainingEntries);
           return {
             ...product,
             prices: remainingPrices

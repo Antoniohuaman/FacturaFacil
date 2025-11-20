@@ -12,6 +12,7 @@ export interface Column {
   name: string;
   mode: 'fixed' | 'volume';
   visible: boolean;
+  isVisibleInTable?: boolean;
   isBase: boolean;
   order: number;
   kind: ColumnKind;
@@ -66,6 +67,7 @@ export interface NewColumnForm {
   name: string;
   mode: 'fixed' | 'volume';
   visible: boolean;
+  isVisibleInTable?: boolean;
   isBase?: boolean;
   kind?: ColumnKind;
   globalRuleType?: GlobalRuleType;

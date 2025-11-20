@@ -51,58 +51,157 @@ export const getNextOrder = (columns: Column[]): number => {
 };
 
 export const BASE_COLUMN_ID = 'P1';
-export const BASE_COLUMN_NAME = 'Precio base';
-export const GLOBAL_DISCOUNT_COLUMN_ID = 'PGD';
-export const GLOBAL_INCREASE_COLUMN_ID = 'PGA';
-export const PRODUCT_DISCOUNT_COLUMN_ID = 'PPD';
-export const MIN_ALLOWED_COLUMN_ID = 'PPM';
+export const MIN_ALLOWED_COLUMN_ID = 'P2';
+export const PRODUCT_DISCOUNT_COLUMN_ID = 'P3';
+export const WHOLESALE_COLUMN_ID = 'P4';
+export const VIP_COLUMN_ID = 'P5';
+export const CAMPAIGN_COLUMN_ID = 'P6';
+export const GLOBAL_DISCOUNT_COLUMN_ID = 'P7';
+export const GLOBAL_INCREASE_COLUMN_ID = 'P8';
 export const MANUAL_COLUMN_LIMIT = 10;
-const GLOBAL_DISCOUNT_NAME = 'Descuento global';
-const GLOBAL_INCREASE_NAME = 'Aumento global';
-const PRODUCT_DISCOUNT_NAME = 'Precio con descuento';
-const MIN_ALLOWED_NAME = 'Precio mínimo permitido';
 
-const createBaseColumn = (): Column => ({
-  id: BASE_COLUMN_ID,
-  name: BASE_COLUMN_NAME,
-  mode: 'fixed',
-  visible: true,
-  isBase: true,
-  order: 1,
-  kind: 'base'
-});
+type FixedColumnDefinition = {
+  id: string;
+  legacyIds?: string[];
+  order: number;
+  defaultName: string;
+  kind: ColumnKind;
+  isBase: boolean;
+  defaultVisible?: boolean;
+  defaultVisibleInTable?: boolean;
+  defaultMode?: Column['mode'];
+  helpText?: string;
+};
 
-const createGlobalColumn = (kind: Extract<ColumnKind, 'global-discount' | 'global-increase'>): Column => ({
-  id: kind === 'global-discount' ? GLOBAL_DISCOUNT_COLUMN_ID : GLOBAL_INCREASE_COLUMN_ID,
-  name: kind === 'global-discount' ? GLOBAL_DISCOUNT_NAME : GLOBAL_INCREASE_NAME,
-  mode: 'fixed',
-  visible: true,
-  isBase: false,
-  order: kind === 'global-discount' ? 2 : 3,
-  kind,
-  globalRuleType: 'percent',
-  globalRuleValue: null
-});
+const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
+  {
+    id: BASE_COLUMN_ID,
+    order: 1,
+    defaultName: 'PRECIO BASE',
+    kind: 'base',
+    isBase: true,
+    defaultVisible: true,
+    defaultVisibleInTable: true,
+    defaultMode: 'fixed',
+    helpText: 'Precio de referencia principal definido manualmente.'
+  },
+  {
+    id: MIN_ALLOWED_COLUMN_ID,
+    legacyIds: ['PPM'],
+    order: 2,
+    defaultName: 'PRECIO MÍNIMO',
+    kind: 'min-allowed',
+    isBase: false,
+    defaultVisible: true,
+    defaultVisibleInTable: true,
+    defaultMode: 'fixed',
+    helpText: 'Valor mínimo permitido para aplicar descuentos.'
+  },
+  {
+    id: PRODUCT_DISCOUNT_COLUMN_ID,
+    legacyIds: ['PPD'],
+    order: 3,
+    defaultName: 'PRECIO CON DSCTO',
+    kind: 'product-discount',
+    isBase: false,
+    defaultVisible: true,
+    defaultVisibleInTable: true,
+    defaultMode: 'fixed',
+    helpText: 'Precio final negociado para el producto.'
+  },
+  {
+    id: WHOLESALE_COLUMN_ID,
+    order: 4,
+    defaultName: 'PRECIO POR MAYOR',
+    kind: 'manual',
+    isBase: false,
+    defaultVisible: true,
+    defaultVisibleInTable: true,
+    defaultMode: 'fixed',
+    helpText: 'Precio manual para ventas por volumen.'
+  },
+  {
+    id: VIP_COLUMN_ID,
+    order: 5,
+    defaultName: 'PRECIO CLIENTE VIP',
+    kind: 'manual',
+    isBase: false,
+    defaultVisible: true,
+    defaultVisibleInTable: true,
+    defaultMode: 'fixed',
+    helpText: 'Precio preferencial para clientes VIP.'
+  },
+  {
+    id: CAMPAIGN_COLUMN_ID,
+    order: 6,
+    defaultName: 'PRECIO CAMPAÑA',
+    kind: 'manual',
+    isBase: false,
+    defaultVisible: true,
+    defaultVisibleInTable: true,
+    defaultMode: 'fixed',
+    helpText: 'Precio especial para campañas o promociones.'
+  },
+  {
+    id: GLOBAL_DISCOUNT_COLUMN_ID,
+    legacyIds: ['PGD'],
+    order: 7,
+    defaultName: 'DESCUENTO GLOBAL',
+    kind: 'global-discount',
+    isBase: false,
+    defaultVisible: true,
+    defaultVisibleInTable: true,
+    defaultMode: 'fixed',
+    helpText: 'Aplicación automática de un descuento sobre el precio base.'
+  },
+  {
+    id: GLOBAL_INCREASE_COLUMN_ID,
+    legacyIds: ['PGA'],
+    order: 8,
+    defaultName: 'AUMENTO GLOBAL',
+    kind: 'global-increase',
+    isBase: false,
+    defaultVisible: true,
+    defaultVisibleInTable: true,
+    defaultMode: 'fixed',
+    helpText: 'Aplicación automática de un recargo sobre el precio base.'
+  }
+];
 
-const createProductDiscountColumn = (): Column => ({
-  id: PRODUCT_DISCOUNT_COLUMN_ID,
-  name: PRODUCT_DISCOUNT_NAME,
-  mode: 'fixed',
-  visible: true,
-  isBase: false,
-  order: 4,
-  kind: 'product-discount'
-});
+const fixedColumnMap = new Map(FIXED_COLUMN_DEFINITIONS.map(def => [def.id, def] as const));
+const legacyColumnIdMap = new Map<string, string>(
+  FIXED_COLUMN_DEFINITIONS.flatMap(def => (def.legacyIds ?? []).map(legacyId => [legacyId, def.id] as const))
+);
 
-const createMinAllowedColumn = (): Column => ({
-  id: MIN_ALLOWED_COLUMN_ID,
-  name: MIN_ALLOWED_NAME,
-  mode: 'fixed',
-  visible: true,
-  isBase: false,
-  order: 5,
-  kind: 'min-allowed'
-});
+const getCanonicalFixedColumnId = (columnId?: string): string | undefined => {
+  if (!columnId) return undefined;
+  if (fixedColumnMap.has(columnId)) {
+    return columnId;
+  }
+  return legacyColumnIdMap.get(columnId);
+};
+
+const buildFixedColumn = (definition: FixedColumnDefinition, existing?: Column): Column => {
+  const column: Column = {
+    id: definition.id,
+    name: existing?.name?.trim() ? existing.name : definition.defaultName,
+    mode: definition.defaultMode ?? 'fixed',
+    visible: typeof existing?.visible === 'boolean' ? existing.visible : definition.defaultVisible !== false,
+    isVisibleInTable: typeof existing?.isVisibleInTable === 'boolean'
+      ? existing.isVisibleInTable
+      : definition.defaultVisibleInTable !== false,
+    isBase: definition.isBase,
+    order: definition.order,
+    kind: definition.kind
+  };
+
+  if (definition.kind === 'global-discount' || definition.kind === 'global-increase') {
+    column.globalRuleType = existing?.globalRuleType ?? 'percent';
+    column.globalRuleValue = normalizeGlobalRuleValue(existing?.globalRuleValue);
+  }
+
+  return column;
+};
 
 const normalizeColumnOrder = (column: Column, index: number): Column => ({
   ...column,
@@ -117,20 +216,25 @@ const normalizeGlobalRuleValue = (value?: number | null): number | null => {
 };
 
 const sanitizeColumn = (column: Column, index: number): Column => {
-  const derivedKind: ColumnKind = column.kind
-    ?? (column.isBase ? 'base' : 'manual');
+  const canonicalId = getCanonicalFixedColumnId(column.id);
+  if (canonicalId) {
+    const definition = fixedColumnMap.get(canonicalId)!;
+    return buildFixedColumn(definition, { ...column, id: canonicalId });
+  }
 
-  const enforcedMode = (derivedKind === 'base' || derivedKind === 'global-discount' || derivedKind === 'global-increase' || derivedKind === 'product-discount' || derivedKind === 'min-allowed')
-    ? 'fixed'
-    : column.mode ?? 'fixed';
+  const derivedKind: ColumnKind = column.kind && column.kind !== 'base'
+    ? column.kind
+    : 'manual';
 
   const normalized: Column = {
     ...column,
+    id: column.id || `P${index + FIXED_COLUMN_DEFINITIONS.length + 1}`,
     order: typeof column.order === 'number' && Number.isFinite(column.order) ? column.order : index + 1,
     kind: derivedKind,
-    isBase: derivedKind === 'base',
-    mode: enforcedMode,
-    visible: derivedKind === 'base' ? true : column.visible !== false
+    isBase: false,
+    mode: derivedKind === 'manual' && column.mode === 'volume' ? 'volume' : 'fixed',
+    visible: column.visible !== false,
+    isVisibleInTable: column.isVisibleInTable !== false
   };
 
   if (derivedKind === 'global-discount' || derivedKind === 'global-increase') {
@@ -144,143 +248,53 @@ const sanitizeColumn = (column: Column, index: number): Column => {
   return normalized;
 };
 
+export const getFixedColumnDefinition = (columnId?: string): FixedColumnDefinition | undefined => {
+  const canonicalId = getCanonicalFixedColumnId(columnId);
+  if (!canonicalId) return undefined;
+  return fixedColumnMap.get(canonicalId);
+};
+
+export const isFixedColumnId = (columnId?: string): boolean => Boolean(getFixedColumnDefinition(columnId));
+export const isFixedColumn = (column: Column): boolean => isFixedColumnId(column.id);
+
+export const getCanonicalColumnId = (columnId: string): string => {
+  return getCanonicalFixedColumnId(columnId) ?? columnId;
+};
+
+export const getFixedColumnHelpText = (columnId: string): string | undefined => {
+  return getFixedColumnDefinition(columnId)?.helpText;
+};
+
+export const getColumnDisplayName = (column: Column): string => {
+  return getFixedColumnDefinition(column.id)?.defaultName ?? column.name;
+};
+
 export const ensureRequiredColumns = (columns: Column[]): Column[] => {
   const normalized = columns
     .filter(Boolean)
-    .map((column, index) => sanitizeColumn(normalizeColumnOrder(column, index), index))
-    .sort((a, b) => a.order - b.order);
+    .map((column, index) => sanitizeColumn(normalizeColumnOrder(column, index), index));
 
-  let baseColumn: Column | undefined;
-  let globalDiscount: Column | undefined;
-  let globalIncrease: Column | undefined;
-  let productDiscount: Column | undefined;
-  let minAllowed: Column | undefined;
-  const manualColumns: Column[] = [];
-
-  normalized.forEach(column => {
-    if (!baseColumn && column.kind === 'base') {
-      baseColumn = column;
-      return;
-    }
-
-    if (column.kind === 'global-discount') {
-      globalDiscount = column;
-      return;
-    }
-
-    if (column.kind === 'global-increase') {
-      globalIncrease = column;
-      return;
-    }
-
-    if (!productDiscount && column.kind === 'product-discount') {
-      productDiscount = {
-        ...column,
-        kind: 'product-discount',
-        isBase: false,
-        mode: 'fixed'
-      };
-      return;
-    }
-
-    if (!minAllowed && column.kind === 'min-allowed') {
-      minAllowed = {
-        ...column,
-        kind: 'min-allowed',
-        isBase: false,
-        mode: 'fixed'
-      };
-      return;
-    }
-
-    manualColumns.push({ ...column, kind: 'manual', isBase: false });
+  const fixedColumns = FIXED_COLUMN_DEFINITIONS.map(definition => {
+    const existing = normalized.find(column => column.id === definition.id);
+    return buildFixedColumn(definition, existing);
   });
 
-  const result: Column[] = [];
-  let nextOrder = 1;
-
-  const pushColumn = (column: Column): void => {
-    result.push({
-      ...column,
-      order: nextOrder++
-    });
-  };
-
-  const normalizedBase: Column = baseColumn
-    ? {
-      ...baseColumn,
-      kind: 'base',
-      isBase: true,
-      visible: true,
-      mode: 'fixed'
-    }
-    : createBaseColumn();
-
-  pushColumn(normalizedBase);
-
-  const ensuredDiscount: Column = globalDiscount
-    ? {
-      ...globalDiscount,
-      kind: 'global-discount',
-      isBase: false,
-      visible: true,
-      mode: 'fixed',
-      globalRuleType: globalDiscount.globalRuleType ?? 'percent',
-      globalRuleValue: normalizeGlobalRuleValue(globalDiscount.globalRuleValue)
-    }
-    : createGlobalColumn('global-discount');
-
-  pushColumn(ensuredDiscount);
-
-  const ensuredIncrease: Column = globalIncrease
-    ? {
-      ...globalIncrease,
-      kind: 'global-increase',
-      isBase: false,
-      visible: true,
-      mode: 'fixed',
-      globalRuleType: globalIncrease.globalRuleType ?? 'percent',
-      globalRuleValue: normalizeGlobalRuleValue(globalIncrease.globalRuleValue)
-    }
-    : createGlobalColumn('global-increase');
-
-  pushColumn(ensuredIncrease);
-
-  const ensuredProductDiscount: Column = productDiscount
-    ? {
-      ...productDiscount,
-      kind: 'product-discount',
-      isBase: false,
-      mode: 'fixed'
-    }
-    : createProductDiscountColumn();
-
-  pushColumn(ensuredProductDiscount);
-
-  const ensuredMinAllowed: Column = minAllowed
-    ? {
-      ...minAllowed,
-      kind: 'min-allowed',
-      isBase: false,
-      mode: 'fixed'
-    }
-    : createMinAllowedColumn();
-
-  pushColumn(ensuredMinAllowed);
-
-  manualColumns
+  const manualColumns: Column[] = normalized
+    .filter(column => !isFixedColumn(column))
     .sort((a, b) => a.order - b.order)
-    .forEach(column => {
-      pushColumn({
-        ...column,
-        kind: 'manual',
-        isBase: false,
-        visible: column.visible !== false,
-        mode: column.mode ?? 'fixed'
-      });
-    });
+    .map(column => ({
+      ...column,
+      kind: 'manual',
+      isBase: false,
+      visible: column.visible !== false,
+      isVisibleInTable: column.isVisibleInTable !== false,
+      mode: column.mode === 'volume' ? 'volume' : 'fixed'
+    }));
 
-  return result;
+  return [...fixedColumns, ...manualColumns].map((column, index) => ({
+    ...column,
+    order: index + 1
+  }));
 };
 
 export const filterVisibleColumns = (columns: Column[]): Column[] => {
@@ -315,7 +329,7 @@ export const countColumnsByMode = (columns: Column[], mode: 'fixed' | 'volume'):
 };
 
 export const countManualColumns = (columns: Column[]): number => {
-  return columns.filter(column => column.kind === 'manual').length;
+  return columns.filter(column => column.kind === 'manual' && !isFixedColumn(column)).length;
 };
 
 export const validateColumnConfiguration = (columns: Column[]): {
