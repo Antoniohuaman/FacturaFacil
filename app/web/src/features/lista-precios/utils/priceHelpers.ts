@@ -387,23 +387,21 @@ export const buildEffectivePriceMatrix = (
       unitMetas.forEach(unit => {
         const unitCode = unit.code;
         const explicitPrice = product.prices[column.id]?.[unitCode];
-
-        const inferredBaseValue = !column.isBase && baseColumn
-          ? getFixedPriceValue(product.prices[baseColumn.id]?.[unitCode]) ?? (
-            typeof baseUnitValue === 'number' &&
-            unitCode !== baseUnitCode &&
-            typeof unit.factor === 'number' &&
-            unit.factor > 0
-              ? roundCurrency(baseUnitValue * unit.factor)
-              : undefined)
+        const unitBaseValue = baseColumn
+          ? getFixedPriceValue(product.prices[baseColumn.id]?.[unitCode])
           : undefined;
 
-        const conversionFactor = unitCode !== baseUnitCode ? unit.factor : undefined;
+        const shouldApplyGlobalRule = column.kind === 'global-discount' || column.kind === 'global-increase';
+        const baseValueForRule = shouldApplyGlobalRule ? unitBaseValue : undefined;
+
+        const conversionFactor = unitCode !== baseUnitCode && typeof unit.factor === 'number' && unit.factor > 0
+          ? unit.factor
+          : undefined;
 
         unitEntries[unitCode] = getEffectivePriceFromBase({
           column,
           explicitPrice,
-          baseValue: inferredBaseValue,
+          baseValue: baseValueForRule,
           baseUnitValue,
           conversionFactor
         });
