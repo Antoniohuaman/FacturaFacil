@@ -8,7 +8,8 @@ import {
   MANUAL_COLUMN_LIMIT,
   countManualColumns,
   isGlobalColumn,
-  isProductDiscountColumn
+  isProductDiscountColumn,
+  isMinAllowedColumn
 } from '../utils/priceHelpers';
 import { lsKey } from '../utils/tenantHelpers';
 
@@ -141,8 +142,8 @@ export const useColumns = () => {
       return false;
     }
 
-    if (isProductDiscountColumn(column)) {
-      setError('La columna de precio con descuento es obligatoria');
+    if (isProductDiscountColumn(column) || isMinAllowedColumn(column)) {
+      setError('Esta columna fija es obligatoria');
       return false;
     }
 
@@ -192,8 +193,8 @@ export const useColumns = () => {
       return;
     }
 
-    if (isProductDiscountColumn(target)) {
-      setError('No puedes usar la columna de precio con descuento como base');
+    if (isProductDiscountColumn(target) || isMinAllowedColumn(target)) {
+      setError('No puedes usar esta columna como base');
       return;
     }
 
@@ -252,7 +253,7 @@ export const useColumns = () => {
         return next;
       }
 
-      if (isProductDiscountColumn(col)) {
+      if (isProductDiscountColumn(col) || isMinAllowedColumn(col)) {
         const next: Column = { ...col, mode: 'fixed', isBase: false };
         if (typeof updates.name === 'string') {
           next.name = updates.name;

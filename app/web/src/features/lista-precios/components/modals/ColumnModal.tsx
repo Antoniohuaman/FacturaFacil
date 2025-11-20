@@ -28,14 +28,14 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
   const [ruleValueInput, setRuleValueInput] = useState('');
   const isEditingBase = editingColumn?.kind === 'base';
   const isEditingGlobal = editingColumn ? isGlobalColumn(editingColumn) : false;
-  const isProductDiscount = editingColumn?.kind === 'product-discount';
-  const isManualContext = !editingColumn || editingColumn.kind === 'manual' || isProductDiscount;
+  const isSpecialManualColumn = editingColumn ? (editingColumn.kind === 'product-discount' || editingColumn.kind === 'min-allowed') : false;
+  const isManualContext = !editingColumn || editingColumn.kind === 'manual' || isSpecialManualColumn;
 
   useEffect(() => {
     if (editingColumn) {
       setFormData({
         name: editingColumn.name,
-        mode: editingColumn.kind === 'product-discount' ? 'fixed' : editingColumn.mode,
+        mode: editingColumn.kind === 'product-discount' || editingColumn.kind === 'min-allowed' ? 'fixed' : editingColumn.mode,
         visible: editingColumn.visible,
         kind: editingColumn.kind,
         globalRuleType: editingColumn.globalRuleType ?? 'percent',
@@ -94,7 +94,7 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
         payload.visible = editingColumn?.visible ?? true;
       }
 
-      if (isProductDiscount) {
+      if (isSpecialManualColumn) {
         payload.mode = 'fixed';
       }
 
@@ -161,13 +161,13 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
                 <select
                   value={formData.mode}
                   onChange={(e) => setFormData({ ...formData, mode: e.target.value as 'fixed' | 'volume' })}
-                  disabled={isProductDiscount}
+                  disabled={isSpecialManualColumn}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                 >
                   <option value="fixed">Precio fijo</option>
                   <option value="volume">Precio por cantidad</option>
                 </select>
-                {isProductDiscount && (
+                {isSpecialManualColumn && (
                   <p className="text-xs text-gray-500 mt-1">Esta columna especial siempre usa precio fijo manual.</p>
                 )}
               </div>

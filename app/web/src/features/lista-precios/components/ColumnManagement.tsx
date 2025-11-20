@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Eye, EyeOff, Edit2, Trash2, Check, Info } from 'lucide-react';
 import type { Column } from '../models/PriceTypes';
-import { countManualColumns, MANUAL_COLUMN_LIMIT, isGlobalColumn, isProductDiscountColumn } from '../utils/priceHelpers';
+import { countManualColumns, MANUAL_COLUMN_LIMIT, isGlobalColumn, isProductDiscountColumn, isMinAllowedColumn } from '../utils/priceHelpers';
 
 interface ColumnManagementProps {
   columns: Column[];
@@ -49,6 +49,12 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
             Precio con descuento
           </span>
         );
+      case 'min-allowed':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+            Precio mínimo permitido
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">
@@ -76,7 +82,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
         </span>
       );
     }
-    if (isProductDiscountColumn(column)) {
+    if (isProductDiscountColumn(column) || isMinAllowedColumn(column)) {
       return <span className="text-xs text-gray-500">Manual</span>;
     }
     return <span className="text-xs text-gray-500">Manual</span>;
@@ -151,7 +157,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                           <Check size={12} className="mr-1" />
                           Base
                         </span>
-                      ) : (!isGlobalColumn(column) && !isProductDiscountColumn(column)) ? (
+                      ) : (!isGlobalColumn(column) && !isProductDiscountColumn(column) && !isMinAllowedColumn(column)) ? (
                         <button
                           onClick={() => onSetBaseColumn(column.id)}
                           className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors"
@@ -195,7 +201,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                         >
                           <Edit2 size={14} />
                         </button>
-                        {column.isBase || isGlobalColumn(column) || isProductDiscountColumn(column) ? (
+                        {column.isBase || isGlobalColumn(column) || isProductDiscountColumn(column) || isMinAllowedColumn(column) ? (
                           <span
                             className="text-gray-400 dark:text-gray-500 cursor-not-allowed"
                             title="No se puede eliminar esta columna"

@@ -88,7 +88,7 @@ export const ListaPrecios: React.FC = () => {
         return true;
       }
 
-      if (editingColumn.kind === 'product-discount') {
+      if (editingColumn.kind === 'product-discount' || editingColumn.kind === 'min-allowed') {
         updateColumn(editingColumn.id, {
           name: trimmedName,
           visible: data.visible
@@ -190,13 +190,6 @@ export const ListaPrecios: React.FC = () => {
             <div className="flex flex-col items-center">
               <div className="w-8 h-8 border-4 border-blue-200 dark:border-blue-800 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600 dark:text-gray-400">Cargando...</p>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="text-red-600 dark:text-red-400 mb-2">❌</div>
-              <p className="text-gray-600 dark:text-gray-400">{error}</p>
             </div>
           </div>
         ) : currentTab === 'columns' ? (

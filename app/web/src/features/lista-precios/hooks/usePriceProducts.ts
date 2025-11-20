@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, ProductUnitPrices, Price, Column } from '../models/PriceTypes';
 import { lsKey } from '../utils/tenantHelpers';
-import { buildEffectivePriceMatrix, DEFAULT_UNIT_CODE } from '../utils/priceHelpers';
+import { buildEffectivePriceMatrix, DEFAULT_UNIT_CODE, getFixedPriceValue } from '../utils/priceHelpers';
 
 /**
  * Utilidad para cargar desde localStorage
@@ -241,6 +241,12 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
 
     const catalogProduct = getCatalogProductBySKU(normalizedSku);
     const existingProduct = products.find(product => product.sku === normalizedSku);
+    const targetColumn = columns.find(column => column.id === columnId);
+
+    if (!targetColumn) {
+      setError('Columna no encontrada');
+      return false;
+    }
 
     const resolvedUnitCode = unitCode?.trim() || getBaseUnitForProduct(catalogProduct, existingProduct?.activeUnitCode);
     if (!resolvedUnitCode) {
@@ -260,6 +266,26 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
       if (dateError) {
         setError(dateError);
         return false;
+      }
+    }
+
+    if (
+      !isClearingFixedPrice &&
+      priceData.type === 'fixed' &&
+      targetColumn.kind === 'min-allowed'
+    ) {
+      const baseColumn = columns.find(column => column.kind === 'base');
+      const baseColumnId = baseColumn?.id;
+      const baseValue = baseColumnId && existingProduct
+        ? getFixedPriceValue(existingProduct.prices[baseColumnId]?.[resolvedUnitCode])
+        : undefined;
+
+      if (typeof baseValue === 'number') {
+        const minValue = parseFloat(priceData.value);
+        if (Number.isFinite(minValue) && minValue > baseValue) {
+          setError('El precio mínimo no puede ser mayor que el precio base.');
+          return false;
+        }
       }
     }
 
@@ -402,7 +428,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
     } finally {
       setLoading(false);
     }
-  }, [getCatalogProductBySKU, products]);
+  }, [getCatalogProductBySKU, products, columns]);
 
   /**
    * Eliminar precios de una columna específica
