@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 // Re-exportar Product del catálogo para uso en otros módulos
 export type { CatalogProduct };
 
-export type ColumnKind = 'base' | 'global-discount' | 'global-increase' | 'manual';
+export type ColumnKind = 'base' | 'global-discount' | 'global-increase' | 'product-discount' | 'manual';
 export type GlobalRuleType = 'percent' | 'amount';
 
 export interface Column {

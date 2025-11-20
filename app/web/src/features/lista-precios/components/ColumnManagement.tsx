@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Eye, EyeOff, Edit2, Trash2, Check, Info } from 'lucide-react';
 import type { Column } from '../models/PriceTypes';
-import { countManualColumns, MANUAL_COLUMN_LIMIT, isGlobalColumn } from '../utils/priceHelpers';
+import { countManualColumns, MANUAL_COLUMN_LIMIT, isGlobalColumn, isProductDiscountColumn } from '../utils/priceHelpers';
 
 interface ColumnManagementProps {
   columns: Column[];
@@ -43,6 +43,12 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
             Recargo global
           </span>
         );
+      case 'product-discount':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+            Precio con descuento
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">
@@ -69,6 +75,9 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
           {column.globalRuleType === 'amount' ? 'Monto fijo' : 'Porcentaje'} {formattedValue}
         </span>
       );
+    }
+    if (isProductDiscountColumn(column)) {
+      return <span className="text-xs text-gray-500">Manual</span>;
     }
     return <span className="text-xs text-gray-500">Manual</span>;
   };
@@ -142,15 +151,17 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                           <Check size={12} className="mr-1" />
                           Base
                         </span>
-                      ) : !isGlobalColumn(column) ? (
+                      ) : (!isGlobalColumn(column) && !isProductDiscountColumn(column)) ? (
                         <button
                           onClick={() => onSetBaseColumn(column.id)}
                           className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors"
                         >
                           Establecer como base
                         </button>
-                      ) : (
+                      ) : isGlobalColumn(column) ? (
                         <span className="text-xs text-gray-500">Fijada por regla</span>
+                      ) : (
+                        <span className="text-xs text-gray-500">No disponible</span>
                       )}
                     </td>
                     <td className="py-3 px-2">
@@ -184,7 +195,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                         >
                           <Edit2 size={14} />
                         </button>
-                        {column.isBase || isGlobalColumn(column) ? (
+                        {column.isBase || isGlobalColumn(column) || isProductDiscountColumn(column) ? (
                           <span
                             className="text-gray-400 dark:text-gray-500 cursor-not-allowed"
                             title="No se puede eliminar esta columna"

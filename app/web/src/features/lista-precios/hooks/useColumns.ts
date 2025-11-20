@@ -7,7 +7,8 @@ import {
   ensureRequiredColumns,
   MANUAL_COLUMN_LIMIT,
   countManualColumns,
-  isGlobalColumn
+  isGlobalColumn,
+  isProductDiscountColumn
 } from '../utils/priceHelpers';
 import { lsKey } from '../utils/tenantHelpers';
 
@@ -140,6 +141,11 @@ export const useColumns = () => {
       return false;
     }
 
+    if (isProductDiscountColumn(column)) {
+      setError('La columna de precio con descuento es obligatoria');
+      return false;
+    }
+
     try {
       applyColumnsUpdate(prev => prev.filter(c => c.id !== columnId));
       setError(null);
@@ -183,6 +189,11 @@ export const useColumns = () => {
 
     if (isGlobalColumn(target)) {
       setError('No puedes usar una columna global como base');
+      return;
+    }
+
+    if (isProductDiscountColumn(target)) {
+      setError('No puedes usar la columna de precio con descuento como base');
       return;
     }
 
@@ -237,6 +248,17 @@ export const useColumns = () => {
           } else if (typeof updates.globalRuleValue === 'number' && Number.isFinite(updates.globalRuleValue)) {
             next.globalRuleValue = Math.max(updates.globalRuleValue, 0);
           }
+        }
+        return next;
+      }
+
+      if (isProductDiscountColumn(col)) {
+        const next: Column = { ...col, mode: 'fixed', isBase: false };
+        if (typeof updates.name === 'string') {
+          next.name = updates.name;
+        }
+        if (typeof updates.visible === 'boolean') {
+          next.visible = updates.visible;
         }
         return next;
       }

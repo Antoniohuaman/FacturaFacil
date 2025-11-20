@@ -88,6 +88,14 @@ export const ListaPrecios: React.FC = () => {
         return true;
       }
 
+      if (editingColumn.kind === 'product-discount') {
+        updateColumn(editingColumn.id, {
+          name: trimmedName,
+          visible: data.visible
+        });
+        return true;
+      }
+
       updateColumn(editingColumn.id, {
         name: trimmedName,
         mode: data.mode,

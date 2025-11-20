@@ -54,9 +54,11 @@ export const BASE_COLUMN_ID = 'P1';
 export const BASE_COLUMN_NAME = 'Precio base';
 export const GLOBAL_DISCOUNT_COLUMN_ID = 'PGD';
 export const GLOBAL_INCREASE_COLUMN_ID = 'PGA';
+export const PRODUCT_DISCOUNT_COLUMN_ID = 'PPD';
 export const MANUAL_COLUMN_LIMIT = 10;
 const GLOBAL_DISCOUNT_NAME = 'Descuento global';
 const GLOBAL_INCREASE_NAME = 'Aumento global';
+const PRODUCT_DISCOUNT_NAME = 'Precio con descuento';
 
 const createBaseColumn = (): Column => ({
   id: BASE_COLUMN_ID,
@@ -80,6 +82,16 @@ const createGlobalColumn = (kind: Extract<ColumnKind, 'global-discount' | 'globa
   globalRuleValue: null
 });
 
+const createProductDiscountColumn = (): Column => ({
+  id: PRODUCT_DISCOUNT_COLUMN_ID,
+  name: PRODUCT_DISCOUNT_NAME,
+  mode: 'fixed',
+  visible: true,
+  isBase: false,
+  order: 4,
+  kind: 'product-discount'
+});
+
 const normalizeColumnOrder = (column: Column, index: number): Column => ({
   ...column,
   order: typeof column.order === 'number' ? column.order : index + 1
@@ -96,7 +108,7 @@ const sanitizeColumn = (column: Column, index: number): Column => {
   const derivedKind: ColumnKind = column.kind
     ?? (column.isBase ? 'base' : 'manual');
 
-  const enforcedMode = (derivedKind === 'base' || derivedKind === 'global-discount' || derivedKind === 'global-increase')
+  const enforcedMode = (derivedKind === 'base' || derivedKind === 'global-discount' || derivedKind === 'global-increase' || derivedKind === 'product-discount')
     ? 'fixed'
     : column.mode ?? 'fixed';
 
@@ -129,6 +141,7 @@ export const ensureRequiredColumns = (columns: Column[]): Column[] => {
   let baseColumn: Column | undefined;
   let globalDiscount: Column | undefined;
   let globalIncrease: Column | undefined;
+  let productDiscount: Column | undefined;
   const manualColumns: Column[] = [];
 
   normalized.forEach(column => {
@@ -144,6 +157,16 @@ export const ensureRequiredColumns = (columns: Column[]): Column[] => {
 
     if (column.kind === 'global-increase') {
       globalIncrease = column;
+      return;
+    }
+
+    if (!productDiscount && column.kind === 'product-discount') {
+      productDiscount = {
+        ...column,
+        kind: 'product-discount',
+        isBase: false,
+        mode: 'fixed'
+      };
       return;
     }
 
@@ -200,6 +223,17 @@ export const ensureRequiredColumns = (columns: Column[]): Column[] => {
 
   pushColumn(ensuredIncrease);
 
+  const ensuredProductDiscount: Column = productDiscount
+    ? {
+      ...productDiscount,
+      kind: 'product-discount',
+      isBase: false,
+      mode: 'fixed'
+    }
+    : createProductDiscountColumn();
+
+  pushColumn(ensuredProductDiscount);
+
   manualColumns
     .sort((a, b) => a.order - b.order)
     .forEach(column => {
@@ -227,6 +261,8 @@ export const isGlobalColumn = (column: Column): boolean => {
   return column.kind === 'global-discount' || column.kind === 'global-increase';
 };
 
+export const isProductDiscountColumn = (column: Column): boolean => column.kind === 'product-discount';
+
 export const filterProducts = (products: Product[], searchTerm: string): Product[] => {
   if (!searchTerm.trim()) return products;
   
@@ -252,7 +288,7 @@ export const validateColumnConfiguration = (columns: Column[]): {
 } => {
   const hasBase = columns.some(c => c.kind === 'base');
   const hasVisible = columns.some(c => c.visible);
-  const hasVisibleEditable = columns.some(c => c.visible && (c.kind === 'base' || c.kind === 'manual'));
+  const hasVisibleEditable = columns.some(c => c.visible && (c.kind === 'base' || c.kind === 'manual' || c.kind === 'product-discount'));
   const isValid = hasBase && hasVisible && hasVisibleEditable;
   
   return { hasBase, hasVisible, isValid };
@@ -306,7 +342,7 @@ export const getEffectivePriceFromBase = ({
   }
 
   if (
-    column.kind === 'manual'
+    column.kind === 'manual' || column.kind === 'product-discount'
   ) {
     return { source: 'none' };
   }
