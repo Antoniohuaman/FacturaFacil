@@ -7,7 +7,6 @@ import { ProductPricing } from './ProductPricing';
 import { PackagesTab } from './PackagesTab';
 import { ColumnModal } from './modals/ColumnModal';
 import { PriceModal } from './modals/PriceModal';
-import { findBaseColumn } from '../utils/priceHelpers';
 
 type TabType = 'columns' | 'products' | 'packages';
 
@@ -46,7 +45,6 @@ export const ListaPrecios: React.FC = () => {
     closePriceModal
   } = usePriceList();
 
-  const baseColumn = findBaseColumn(columns);
   const assignPriceHandlerRef = useRef<(() => void) | null>(null);
 
   const registerAssignPriceHandler = useCallback((handler: (() => void) | null) => {
@@ -70,36 +68,39 @@ export const ListaPrecios: React.FC = () => {
   };
 
   const handleSaveColumn = useCallback((data: NewColumnForm) => {
-    const normalized = {
-      ...data,
-      name: data.name.trim(),
-      calculationMode: data.calculationMode ?? 'manual',
-      calculationValue: typeof data.calculationValue === 'number' && Number.isFinite(data.calculationValue)
-        ? data.calculationValue
-        : null
-    };
-
-    if (!normalized.name) {
+    const trimmedName = data.name.trim();
+    if (!trimmedName) {
       return false;
     }
 
     if (editingColumn) {
-      const nextCalculationMode = editingColumn.isBase ? 'manual' : normalized.calculationMode;
+      if (editingColumn.kind === 'base') {
+        updateColumn(editingColumn.id, { name: trimmedName });
+        return true;
+      }
+
+      if (editingColumn.kind === 'global-discount' || editingColumn.kind === 'global-increase') {
+        updateColumn(editingColumn.id, {
+          name: trimmedName,
+          globalRuleType: data.globalRuleType,
+          globalRuleValue: typeof data.globalRuleValue === 'number' ? Math.max(data.globalRuleValue, 0) : null
+        });
+        return true;
+      }
+
       updateColumn(editingColumn.id, {
-        name: normalized.name,
-        mode: normalized.mode,
-        visible: normalized.visible,
-        calculationMode: editingColumn.isBase ? undefined : nextCalculationMode,
-        calculationValue: editingColumn.isBase || nextCalculationMode === 'manual'
-          ? null
-          : normalized.calculationValue ?? null
+        name: trimmedName,
+        mode: data.mode,
+        visible: data.visible
       });
       return true;
     }
 
     return addColumn({
-      ...normalized,
-      calculationValue: normalized.calculationMode === 'manual' ? null : normalized.calculationValue ?? null
+      name: trimmedName,
+      mode: data.mode,
+      visible: data.visible,
+      kind: 'manual'
     });
   }, [addColumn, editingColumn, updateColumn]);
 
@@ -168,7 +169,11 @@ export const ListaPrecios: React.FC = () => {
       </div>
 
       {/* Summary Bar */}
-      <SummaryBar columns={columns} onAssignPrice={handleAssignPriceFromSummary} />
+      <SummaryBar
+        columns={columns}
+        onAssignPrice={handleAssignPriceFromSummary}
+        viewMode={currentTab}
+      />
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
@@ -194,7 +199,6 @@ export const ListaPrecios: React.FC = () => {
             onDeleteColumn={deleteColumn}
             onToggleVisibility={toggleColumnVisibility}
             onSetBaseColumn={setBaseColumn}
-            onUpdateColumn={updateColumn}
           />
         ) : currentTab === 'products' ? (
           <ProductPricing
@@ -220,7 +224,6 @@ export const ListaPrecios: React.FC = () => {
         onClose={closeColumnModal}
         onSave={handleSaveColumn}
         editingColumn={editingColumn}
-        hasBaseColumn={!!baseColumn}
       />
 
       <PriceModal

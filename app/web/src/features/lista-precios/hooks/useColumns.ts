@@ -1,7 +1,14 @@
 // src/features/lista-precios/hooks/useColumns.ts
 import { useState, useEffect, useCallback } from 'react';
 import type { Column, NewColumnForm } from '../models/PriceTypes';
-import { generateColumnId, getNextOrder, ensureBaseColumn } from '../utils/priceHelpers';
+import {
+  generateColumnId,
+  getNextOrder,
+  ensureRequiredColumns,
+  MANUAL_COLUMN_LIMIT,
+  countManualColumns,
+  isGlobalColumn
+} from '../utils/priceHelpers';
 import { lsKey } from '../utils/tenantHelpers';
 
 /**
@@ -34,13 +41,13 @@ const saveToLocalStorage = (key: string, data: unknown): void => {
  */
 export const useColumns = () => {
   const [columns, setColumns] = useState<Column[]>(() =>
-    ensureBaseColumn(loadFromLocalStorage<Column[]>(lsKey('price_list_columns'), []))
+    ensureRequiredColumns(loadFromLocalStorage<Column[]>(lsKey('price_list_columns'), []))
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const applyColumnsUpdate = useCallback((updater: (prev: Column[]) => Column[]) => {
-    setColumns(prev => ensureBaseColumn(updater(prev)));
+    setColumns(prev => ensureRequiredColumns(updater(prev)));
   }, []);
 
   // Persistir columnas en localStorage cuando cambien
@@ -54,7 +61,7 @@ export const useColumns = () => {
       if (e.key === lsKey('price_list_columns') && e.newValue) {
         try {
           const newColumns = JSON.parse(e.newValue);
-          setColumns(ensureBaseColumn(newColumns));
+          setColumns(ensureRequiredColumns(newColumns));
         } catch (error) {
           console.error('[useColumns] Error parsing columns from storage event:', error);
         }
@@ -74,8 +81,9 @@ export const useColumns = () => {
       return false;
     }
 
-    if (columns.length >= 10) {
-      setError('Has alcanzado el límite máximo de 10 columnas');
+    const manualCount = countManualColumns(columns);
+    if (manualCount >= MANUAL_COLUMN_LIMIT) {
+      setError(`Has alcanzado el límite de ${MANUAL_COLUMN_LIMIT} columnas manuales`);
       return false;
     }
 
@@ -89,20 +97,14 @@ export const useColumns = () => {
       const newId = generateColumnId(columns);
       const newOrder = getNextOrder(columns);
 
-      const normalizedCalcMode = newColumnData.calculationMode ?? 'manual';
-      const normalizedCalcValue = typeof newColumnData.calculationValue === 'number' && Number.isFinite(newColumnData.calculationValue)
-        ? newColumnData.calculationValue
-        : null;
-
       const newColumn: Column = {
         id: newId,
         name: newColumnData.name.trim(),
         mode: newColumnData.mode,
         visible: newColumnData.visible,
-        isBase: newColumnData.isBase && !columns.some(c => c.isBase),
+        isBase: false,
         order: newOrder,
-        calculationMode: newColumnData.isBase ? 'manual' : normalizedCalcMode,
-        calculationValue: newColumnData.isBase ? null : normalizedCalcMode === 'manual' ? null : normalizedCalcValue
+        kind: 'manual'
       };
 
       applyColumnsUpdate(prev => [...prev, newColumn]);
@@ -133,6 +135,11 @@ export const useColumns = () => {
       return false;
     }
 
+    if (isGlobalColumn(column)) {
+      setError('Las columnas globales son obligatorias');
+      return false;
+    }
+
     try {
       applyColumnsUpdate(prev => prev.filter(c => c.id !== columnId));
       setError(null);
@@ -155,6 +162,10 @@ export const useColumns = () => {
       setError('La columna base siempre debe estar visible');
       return;
     }
+    if (isGlobalColumn(target)) {
+      setError('Las columnas globales siempre están visibles');
+      return;
+    }
     applyColumnsUpdate(prev => prev.map(col =>
       col.id === columnId ? { ...col, visible: !col.visible } : col
     ));
@@ -164,15 +175,39 @@ export const useColumns = () => {
    * Establecer columna base
    */
   const setBaseColumn = useCallback((columnId: string): void => {
-    applyColumnsUpdate(prev => prev.map(col => ({
-      ...col,
-      isBase: col.id === columnId,
-      visible: col.id === columnId ? true : col.visible,
-      mode: col.id === columnId ? 'fixed' : col.mode,
-      calculationMode: col.id === columnId ? 'manual' : col.calculationMode,
-      calculationValue: col.id === columnId ? null : col.calculationValue
-    })));
-  }, [applyColumnsUpdate]);
+    const target = columns.find(col => col.id === columnId);
+    if (!target) {
+      setError('Columna no encontrada');
+      return;
+    }
+
+    if (isGlobalColumn(target)) {
+      setError('No puedes usar una columna global como base');
+      return;
+    }
+
+    applyColumnsUpdate(prev => prev.map(col => {
+      if (col.id === columnId) {
+        return {
+          ...col,
+          kind: 'base',
+          isBase: true,
+          visible: true,
+          mode: 'fixed'
+        };
+      }
+
+      if (col.kind === 'base') {
+        return {
+          ...col,
+          kind: 'manual',
+          isBase: false
+        };
+      }
+
+      return col;
+    }));
+  }, [applyColumnsUpdate, columns]);
 
   /**
    * Actualizar columna
@@ -181,31 +216,42 @@ export const useColumns = () => {
     applyColumnsUpdate(prev => prev.map(col => {
       if (col.id !== columnId) return col;
 
-      const nextUpdates: Partial<Column> = { ...updates };
-      if (col.isBase) {
-        delete nextUpdates.mode;
-        delete nextUpdates.visible;
-        delete nextUpdates.isBase;
-        delete nextUpdates.calculationMode;
-        delete nextUpdates.calculationValue;
-      } else if (nextUpdates.isBase) {
-        delete nextUpdates.isBase;
+      if (col.kind === 'base') {
+        if (typeof updates.name === 'string') {
+          return { ...col, name: updates.name };
+        }
+        return col;
       }
 
-      if (!col.isBase) {
-        if (nextUpdates.calculationMode === 'manual') {
-          nextUpdates.calculationValue = null;
-        } else if (nextUpdates.calculationValue !== undefined) {
-          if (nextUpdates.calculationValue === null) {
-            nextUpdates.calculationValue = null;
-          } else {
-            const numericValue = Number(nextUpdates.calculationValue);
-            nextUpdates.calculationValue = Number.isFinite(numericValue) ? numericValue : null;
+      if (isGlobalColumn(col)) {
+        const next: Column = { ...col };
+        if (typeof updates.name === 'string') {
+          next.name = updates.name;
+        }
+        if (updates.globalRuleType) {
+          next.globalRuleType = updates.globalRuleType;
+        }
+        if (updates.globalRuleValue !== undefined) {
+          if (updates.globalRuleValue === null) {
+            next.globalRuleValue = null;
+          } else if (typeof updates.globalRuleValue === 'number' && Number.isFinite(updates.globalRuleValue)) {
+            next.globalRuleValue = Math.max(updates.globalRuleValue, 0);
           }
         }
+        return next;
       }
 
-      return { ...col, ...nextUpdates };
+      const next: Column = { ...col };
+      if (typeof updates.name === 'string') {
+        next.name = updates.name;
+      }
+      if (updates.mode === 'fixed' || updates.mode === 'volume') {
+        next.mode = updates.mode;
+      }
+      if (typeof updates.visible === 'boolean') {
+        next.visible = updates.visible;
+      }
+      return next;
     }));
   }, [applyColumnsUpdate]);
 

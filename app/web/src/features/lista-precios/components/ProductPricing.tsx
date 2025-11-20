@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { Search, X, Settings, ChevronDown, ChevronRight, Check, MoreHorizontal, Loader2, Pencil } from 'lucide-react';
 import type { Column, Product, CatalogProduct, PriceForm, Price } from '../models/PriceTypes';
 import type { EffectivePriceMatrix, EffectivePriceResult, EffectivePriceSource } from '../utils/priceHelpers';
-import { filterVisibleColumns, formatPrice, formatDate, getVolumePreview, getVolumeTooltip, getPriceRange } from '../utils/priceHelpers';
+import { filterVisibleColumns, formatPrice, formatDate, getVolumePreview, getVolumeTooltip, getPriceRange, isGlobalColumn } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
@@ -71,6 +71,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     const rest = visibleColumns.filter(column => column.id !== base.id);
     return [base, ...rest];
   }, [visibleColumns]);
+  const firstEditableColumn = useMemo(() => orderedColumns.find(column => !isGlobalColumn(column)), [orderedColumns]);
   const baseColumnId = orderedColumns.find(column => column.isBase)?.id;
   const totalColumns = orderedColumns.length + 5; // toggle + SKU + nombre + unidad + acciones
 
@@ -210,9 +211,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
 
   // Manejador para asignar precio - detecta el tipo según la columna
   const handleAssignPrice = useCallback((column?: Column) => {
-    // Si no se especifica columna, usar la primera visible
-    const targetColumn = column || orderedColumns[0];
-    
+    const preferredColumn = column && !isGlobalColumn(column) ? column : null;
+    const targetColumn = preferredColumn || firstEditableColumn;
     if (!targetColumn) return;
 
     setSelectedProductForPriceModal(null);
@@ -227,7 +227,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
       setSelectedVolumePrice(null); // Para productos nuevos
       setVolumeModalOpen(true);
     }
-  }, [orderedColumns, setSelectedPriceColumn, setPriceModalOpen, setSelectedProductForPriceModal, setSelectedUnitForModal, setUnitMenuOpenSku, setSelectedVolumePrice, setVolumeModalOpen]);
+  }, [firstEditableColumn, setSelectedPriceColumn, setPriceModalOpen, setSelectedProductForPriceModal, setSelectedUnitForModal, setUnitMenuOpenSku, setSelectedVolumePrice, setVolumeModalOpen]);
 
   useEffect(() => {
     if (!registerAssignHandler) return;
@@ -243,11 +243,11 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     setSelectedUnitForModal(activeUnit);
     setSelectedProductForPriceModal(product);
 
-    const columnWithPrice = orderedColumns.find(column => getPriceForColumnUnit(product, column.id));
-    const targetColumn = columnWithPrice || orderedColumns[0];
+    const columnWithPrice = orderedColumns.find(column => !isGlobalColumn(column) && getPriceForColumnUnit(product, column.id));
+    const targetColumn = columnWithPrice || firstEditableColumn;
     if (!targetColumn) return;
 
-    const existingPrice = columnWithPrice ? getPriceForColumnUnit(product, columnWithPrice.id) : null;
+    const existingPrice = getPriceForColumnUnit(product, targetColumn.id);
 
     if (targetColumn.mode === 'fixed' || existingPrice?.type === 'fixed') {
       setSelectedPriceColumn(targetColumn);
@@ -455,6 +455,24 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     const isSaving = !!cellSavingState[key];
     const currentlyEditing = isEditingCell(product.sku, column.id, activeUnit);
 
+    if (column.mode === 'fixed' && isGlobalColumn(column)) {
+      return (
+        <GlobalRuleCell
+          resolvedValue={meta?.value}
+          variant="compact"
+        />
+      );
+    }
+
+    if (column.mode === 'fixed' && isGlobalColumn(column)) {
+      return (
+        <GlobalRuleCell
+          resolvedValue={meta?.value}
+          variant="compact"
+        />
+      );
+    }
+
     if (column.mode === 'fixed') {
       return (
         <FixedPriceCell
@@ -583,18 +601,14 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                       Unidad
                     </th>
                     {orderedColumns.map(column => (
-                      <th key={column.id} className="text-left py-1.5 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[130px] uppercase">
-                        <div className="flex items-center gap-2 whitespace-nowrap">
-                          <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase font-bold ${
-                            column.isBase ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-gray-600 border-gray-200'
-                          }`}>{column.id}</span>
-                          <span className="text-[11px] text-gray-600 normal-case" title={column.name}>
-                            {column.isBase ? 'Precio base' : column.name}
-                          </span>
-                          {column.isBase && (
-                            <span className="px-1.5 py-0.5 rounded-full border border-blue-200 text-blue-700 text-[9px] font-semibold">Base</span>
-                          )}
-                        </div>
+                      <th
+                        key={column.id}
+                        className="text-left py-1.5 px-3 text-[11px] font-semibold tracking-wide text-gray-600 min-w-[130px] uppercase"
+                        title={column.name}
+                      >
+                        <span className="text-[11px] text-gray-700 font-semibold normal-case">
+                          {column.isBase ? 'Precio base' : column.name}
+                        </span>
                       </th>
                     ))}
                     <th className="text-right py-1.5 px-3 text-[11px] font-semibold tracking-wide text-gray-600 uppercase">
@@ -814,6 +828,25 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
           unitOptions={volumeUnitOptions}
         />
       )}
+    </div>
+  );
+};
+
+interface GlobalRuleCellProps {
+  resolvedValue?: number;
+  variant?: 'default' | 'compact';
+}
+
+const GlobalRuleCell: React.FC<GlobalRuleCellProps> = ({ resolvedValue, variant = 'default' }) => {
+  const hasValue = typeof resolvedValue === 'number';
+  const valueLabel = hasValue ? formatPrice(resolvedValue as number) : '—';
+  const spacing = variant === 'compact' ? 'min-h-[44px] py-2' : 'min-h-[60px] py-3';
+
+  return (
+    <div className={`w-full px-3 ${spacing} rounded-md border border-transparent bg-transparent flex items-center`}>
+      <span className={`text-sm font-semibold ${hasValue ? 'text-gray-900' : 'text-gray-400'}`}>
+        {valueLabel}
+      </span>
     </div>
   );
 };
@@ -1124,15 +1157,14 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
             <tr>
               <th className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500">Unidad</th>
               {columns.map(column => (
-                <th key={`unit-panel-${column.id}`} className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500 min-w-[120px]">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${column.isBase ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-gray-600 border-gray-200'}`}>
-                      {column.id}
-                    </span>
-                    <span className="text-[10px] text-gray-500 normal-case" title={column.name}>
-                      {column.name}
-                    </span>
-                  </div>
+                <th
+                  key={`unit-panel-${column.id}`}
+                  className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500 min-w-[120px]"
+                  title={column.name}
+                >
+                  <span className="text-[10px] text-gray-600 font-semibold normal-case">
+                    {column.name}
+                  </span>
                 </th>
               ))}
             </tr>

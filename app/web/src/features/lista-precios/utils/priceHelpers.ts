@@ -1,7 +1,8 @@
 import type {
   CatalogProduct,
   Column,
-  ColumnCalculationMode,
+  ColumnKind,
+  GlobalRuleType,
   Product,
   Price,
   VolumePrice,
@@ -9,7 +10,7 @@ import type {
   PriceCalculation
 } from '../models/PriceTypes';
 
-export type EffectivePriceSource = 'explicit' | 'calculated' | 'suggested' | 'none';
+export type EffectivePriceSource = 'explicit' | 'global-rule' | 'suggested' | 'none';
 
 export interface EffectivePriceResult {
   value?: number;
@@ -19,7 +20,6 @@ export interface EffectivePriceResult {
 export type EffectivePriceMatrix = Record<string, Record<string, Record<string, EffectivePriceResult>>>;
 
 export const DEFAULT_UNIT_CODE = 'NIU';
-const DEFAULT_CALCULATION_MODE: ColumnCalculationMode = 'manual';
 
 const roundCurrency = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 
@@ -28,8 +28,21 @@ export const getFixedPriceValue = (price?: Price): number | undefined => {
   return price.value;
 };
 
+const MANUAL_COLUMN_ID_PATTERN = /^P(\d+)$/i;
+
 export const generateColumnId = (columns: Column[]): string => {
-  return `P${columns.length + 1}`;
+  const numericSuffixes = columns
+    .map(column => {
+      const match = MANUAL_COLUMN_ID_PATTERN.exec(column.id || '');
+      return match ? Number(match[1]) : null;
+    })
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+
+  const nextValue = numericSuffixes.length > 0
+    ? Math.max(...numericSuffixes) + 1
+    : 1;
+
+  return `P${nextValue}`;
 };
 
 export const getNextOrder = (columns: Column[]): number => {
@@ -37,18 +50,34 @@ export const getNextOrder = (columns: Column[]): number => {
   return Math.max(...columns.map(c => c.order)) + 1;
 };
 
-const DEFAULT_BASE_COLUMN_ID = 'P1';
-const DEFAULT_BASE_COLUMN_NAME = 'Precio base';
+export const BASE_COLUMN_ID = 'P1';
+export const BASE_COLUMN_NAME = 'Precio base';
+export const GLOBAL_DISCOUNT_COLUMN_ID = 'PGD';
+export const GLOBAL_INCREASE_COLUMN_ID = 'PGA';
+export const MANUAL_COLUMN_LIMIT = 10;
+const GLOBAL_DISCOUNT_NAME = 'Descuento global';
+const GLOBAL_INCREASE_NAME = 'Aumento global';
 
-const createDefaultBaseColumn = (): Column => ({
-  id: DEFAULT_BASE_COLUMN_ID,
-  name: DEFAULT_BASE_COLUMN_NAME,
+const createBaseColumn = (): Column => ({
+  id: BASE_COLUMN_ID,
+  name: BASE_COLUMN_NAME,
   mode: 'fixed',
   visible: true,
   isBase: true,
   order: 1,
-  calculationMode: DEFAULT_CALCULATION_MODE,
-  calculationValue: null
+  kind: 'base'
+});
+
+const createGlobalColumn = (kind: Extract<ColumnKind, 'global-discount' | 'global-increase'>): Column => ({
+  id: kind === 'global-discount' ? GLOBAL_DISCOUNT_COLUMN_ID : GLOBAL_INCREASE_COLUMN_ID,
+  name: kind === 'global-discount' ? GLOBAL_DISCOUNT_NAME : GLOBAL_INCREASE_NAME,
+  mode: 'fixed',
+  visible: true,
+  isBase: false,
+  order: kind === 'global-discount' ? 2 : 3,
+  kind,
+  globalRuleType: 'percent',
+  globalRuleValue: null
 });
 
 const normalizeColumnOrder = (column: Column, index: number): Column => ({
@@ -56,52 +85,134 @@ const normalizeColumnOrder = (column: Column, index: number): Column => ({
   order: typeof column.order === 'number' ? column.order : index + 1
 });
 
-const withCalculationDefaults = (column: Column): Column => ({
-  ...column,
-  calculationMode: column.isBase
-    ? DEFAULT_CALCULATION_MODE
-    : (column.calculationMode as ColumnCalculationMode | undefined) ?? DEFAULT_CALCULATION_MODE,
-  calculationValue: column.isBase
-    ? null
-    : typeof column.calculationValue === 'number'
-      ? column.calculationValue
-      : null
-});
+const normalizeGlobalRuleValue = (value?: number | null): number | null => {
+  if (typeof value !== 'number' || Number.isNaN(value) || value < 0) {
+    return null;
+  }
+  return value;
+};
 
-export const ensureBaseColumn = (columns: Column[]): Column[] => {
-  const normalized = columns
-    .filter(Boolean)
-    .map((column, index) => withCalculationDefaults(normalizeColumnOrder(column, index)));
+const sanitizeColumn = (column: Column, index: number): Column => {
+  const derivedKind: ColumnKind = column.kind
+    ?? (column.isBase ? 'base' : 'manual');
 
-  if (normalized.length === 0) {
-    return [createDefaultBaseColumn()];
+  const enforcedMode = (derivedKind === 'base' || derivedKind === 'global-discount' || derivedKind === 'global-increase')
+    ? 'fixed'
+    : column.mode ?? 'fixed';
+
+  const normalized: Column = {
+    ...column,
+    order: typeof column.order === 'number' && Number.isFinite(column.order) ? column.order : index + 1,
+    kind: derivedKind,
+    isBase: derivedKind === 'base',
+    mode: enforcedMode,
+    visible: derivedKind === 'base' ? true : column.visible !== false
+  };
+
+  if (derivedKind === 'global-discount' || derivedKind === 'global-increase') {
+    normalized.globalRuleType = column.globalRuleType ?? 'percent';
+    normalized.globalRuleValue = normalizeGlobalRuleValue(column.globalRuleValue);
+  } else {
+    delete normalized.globalRuleType;
+    delete normalized.globalRuleValue;
   }
 
-  const sortedByOrder = [...normalized].sort((a, b) => a.order - b.order);
-  const explicitBase = sortedByOrder.find(column => column.isBase);
-  const defaultIdMatch = normalized.find(column => column.id === DEFAULT_BASE_COLUMN_ID);
-  const fallbackFirst = sortedByOrder[0];
+  return normalized;
+};
 
-  const baseId = explicitBase?.id ?? defaultIdMatch?.id ?? fallbackFirst.id;
+export const ensureRequiredColumns = (columns: Column[]): Column[] => {
+  const normalized = columns
+    .filter(Boolean)
+    .map((column, index) => sanitizeColumn(normalizeColumnOrder(column, index), index))
+    .sort((a, b) => a.order - b.order);
 
-  return normalized.map(column => {
-    if (column.id === baseId) {
-      return {
-        ...column,
-        isBase: true,
-        visible: true,
-        mode: 'fixed',
-        calculationMode: DEFAULT_CALCULATION_MODE,
-        calculationValue: null
-      };
+  let baseColumn: Column | undefined;
+  let globalDiscount: Column | undefined;
+  let globalIncrease: Column | undefined;
+  const manualColumns: Column[] = [];
+
+  normalized.forEach(column => {
+    if (!baseColumn && column.kind === 'base') {
+      baseColumn = column;
+      return;
     }
-    return {
-      ...column,
-      isBase: false,
-      calculationMode: column.calculationMode ?? DEFAULT_CALCULATION_MODE,
-      calculationValue: typeof column.calculationValue === 'number' ? column.calculationValue : null
-    };
+
+    if (column.kind === 'global-discount') {
+      globalDiscount = column;
+      return;
+    }
+
+    if (column.kind === 'global-increase') {
+      globalIncrease = column;
+      return;
+    }
+
+    manualColumns.push({ ...column, kind: 'manual', isBase: false });
   });
+
+  const result: Column[] = [];
+  let nextOrder = 1;
+
+  const pushColumn = (column: Column): void => {
+    result.push({
+      ...column,
+      order: nextOrder++
+    });
+  };
+
+  const normalizedBase: Column = baseColumn
+    ? {
+      ...baseColumn,
+      kind: 'base',
+      isBase: true,
+      visible: true,
+      mode: 'fixed'
+    }
+    : createBaseColumn();
+
+  pushColumn(normalizedBase);
+
+  const ensuredDiscount: Column = globalDiscount
+    ? {
+      ...globalDiscount,
+      kind: 'global-discount',
+      isBase: false,
+      visible: true,
+      mode: 'fixed',
+      globalRuleType: globalDiscount.globalRuleType ?? 'percent',
+      globalRuleValue: normalizeGlobalRuleValue(globalDiscount.globalRuleValue)
+    }
+    : createGlobalColumn('global-discount');
+
+  pushColumn(ensuredDiscount);
+
+  const ensuredIncrease: Column = globalIncrease
+    ? {
+      ...globalIncrease,
+      kind: 'global-increase',
+      isBase: false,
+      visible: true,
+      mode: 'fixed',
+      globalRuleType: globalIncrease.globalRuleType ?? 'percent',
+      globalRuleValue: normalizeGlobalRuleValue(globalIncrease.globalRuleValue)
+    }
+    : createGlobalColumn('global-increase');
+
+  pushColumn(ensuredIncrease);
+
+  manualColumns
+    .sort((a, b) => a.order - b.order)
+    .forEach(column => {
+      pushColumn({
+        ...column,
+        kind: 'manual',
+        isBase: false,
+        visible: column.visible !== false,
+        mode: column.mode ?? 'fixed'
+      });
+    });
+
+  return result;
 };
 
 export const filterVisibleColumns = (columns: Column[]): Column[] => {
@@ -109,7 +220,11 @@ export const filterVisibleColumns = (columns: Column[]): Column[] => {
 };
 
 export const findBaseColumn = (columns: Column[]): Column | undefined => {
-  return columns.find(col => col.isBase);
+  return columns.find(col => col.kind === 'base');
+};
+
+export const isGlobalColumn = (column: Column): boolean => {
+  return column.kind === 'global-discount' || column.kind === 'global-increase';
 };
 
 export const filterProducts = (products: Product[], searchTerm: string): Product[] => {
@@ -126,14 +241,19 @@ export const countColumnsByMode = (columns: Column[], mode: 'fixed' | 'volume'):
   return columns.filter(c => c.mode === mode).length;
 };
 
+export const countManualColumns = (columns: Column[]): number => {
+  return columns.filter(column => column.kind === 'manual').length;
+};
+
 export const validateColumnConfiguration = (columns: Column[]): {
   hasBase: boolean;
   hasVisible: boolean;
   isValid: boolean;
 } => {
-  const hasBase = columns.some(c => c.isBase);
+  const hasBase = columns.some(c => c.kind === 'base');
   const hasVisible = columns.some(c => c.visible);
-  const isValid = hasBase && hasVisible;
+  const hasVisibleEditable = columns.some(c => c.visible && (c.kind === 'base' || c.kind === 'manual'));
+  const isValid = hasBase && hasVisible && hasVisibleEditable;
   
   return { hasBase, hasVisible, isValid };
 };
@@ -162,20 +282,35 @@ export const getEffectivePriceFromBase = ({
     return { value: explicitValue, source: 'explicit' };
   }
 
-  const mode = column.calculationMode ?? DEFAULT_CALCULATION_MODE;
-  const calcValue = typeof column.calculationValue === 'number' ? column.calculationValue : null;
+  if (column.kind === 'global-discount' || column.kind === 'global-increase') {
+    if (typeof baseValue !== 'number') {
+      return { source: 'none' };
+    }
 
-  if (mode === 'percentOverBase' && typeof baseValue === 'number' && calcValue !== null) {
-    const computed = baseValue * (1 + calcValue / 100);
-    return { value: roundCurrency(computed), source: 'calculated' };
-  }
+    const ruleValue = typeof column.globalRuleValue === 'number' ? column.globalRuleValue : null;
+    if (ruleValue === null) {
+      return { source: 'none' };
+    }
 
-  if (mode === 'fixedOverBase' && typeof baseValue === 'number' && calcValue !== null) {
-    const computed = baseValue + calcValue;
-    return { value: roundCurrency(computed), source: 'calculated' };
+    const ruleType: GlobalRuleType = column.globalRuleType ?? 'percent';
+    let computed: number;
+
+    if (ruleType === 'percent') {
+      const modifier = ruleValue / 100;
+      computed = column.kind === 'global-discount'
+        ? baseValue * (1 - modifier)
+        : baseValue * (1 + modifier);
+    } else {
+      computed = column.kind === 'global-discount'
+        ? baseValue - ruleValue
+        : baseValue + ruleValue;
+    }
+
+    return { value: roundCurrency(Math.max(computed, 0)), source: 'global-rule' };
   }
 
   if (
+    column.kind === 'manual' &&
     typeof baseUnitValue === 'number' &&
     typeof conversionFactor === 'number' &&
     conversionFactor > 0

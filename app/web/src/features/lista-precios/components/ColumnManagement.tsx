@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Eye, EyeOff, Edit2, Trash2, Check, Info } from 'lucide-react';
 import type { Column } from '../models/PriceTypes';
+import { countManualColumns, MANUAL_COLUMN_LIMIT, isGlobalColumn } from '../utils/priceHelpers';
 
 interface ColumnManagementProps {
   columns: Column[];
@@ -9,7 +10,6 @@ interface ColumnManagementProps {
   onDeleteColumn: (columnId: string) => void;
   onToggleVisibility: (columnId: string) => void;
   onSetBaseColumn: (columnId: string) => void;
-  onUpdateColumn: (columnId: string, updates: Partial<Column>) => void;
 }
 
 export const ColumnManagement: React.FC<ColumnManagementProps> = ({
@@ -18,9 +18,61 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
   onEditColumn,
   onDeleteColumn,
   onToggleVisibility,
-  onSetBaseColumn,
-  onUpdateColumn
+  onSetBaseColumn
 }) => {
+  const manualCount = countManualColumns(columns);
+  const manualLimitReached = manualCount >= MANUAL_COLUMN_LIMIT;
+
+  const renderKindBadge = (column: Column) => {
+    switch (column.kind) {
+      case 'base':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+            Base principal
+          </span>
+        );
+      case 'global-discount':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+            Descuento global
+          </span>
+        );
+      case 'global-increase':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+            Recargo global
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+            Manual
+          </span>
+        );
+    }
+  };
+
+  const renderRuleDescription = (column: Column) => {
+    if (column.kind === 'base') {
+      return <span className="text-xs text-gray-500">Definición manual</span>;
+    }
+    if (isGlobalColumn(column)) {
+      if (column.globalRuleValue == null) {
+        return <span className="text-xs text-gray-500">Configura la regla</span>;
+      }
+      const sign = column.kind === 'global-discount' ? '-' : '+';
+      const formattedValue = column.globalRuleType === 'amount'
+        ? `${sign} S/ ${column.globalRuleValue.toFixed(2)}`
+        : `${sign}${column.globalRuleValue}%`;
+      return (
+        <span className="text-xs font-medium text-gray-700">
+          {column.globalRuleType === 'amount' ? 'Monto fijo' : 'Porcentaje'} {formattedValue}
+        </span>
+      );
+    }
+    return <span className="text-xs text-gray-500">Manual</span>;
+  };
+
   return (
     <div className="p-6">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -29,14 +81,14 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Plantilla de columnas</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Máximo 10 columnas · Debe existir una sola columna Base · Al menos una visible.
+                Máximo {MANUAL_COLUMN_LIMIT} columnas manuales · Base y reglas globales son obligatorias.
               </p>
             </div>
             <button
               onClick={onAddColumn}
-              disabled={columns.length >= 10}
+              disabled={manualLimitReached}
               className="flex items-center px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-              style={columns.length < 10 ? { backgroundColor: '#1478D4' } : {}}
+              style={!manualLimitReached ? { backgroundColor: '#1478D4' } : {}}
             >
               <Plus size={16} className="mr-2" />
               Agregar columna
@@ -50,8 +102,9 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                 <tr className="border-b border-gray-200 dark:border-gray-700">
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">COLUMNA</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">NOMBRE VISIBLE</th>
+                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">TIPO</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">MODO DE VALORIZACIÓN</th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">REGLA DESDE BASE</th>
+                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">DETALLE / REGLA</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">BASE</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">VISIBLE</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">ACCIONES</th>
@@ -69,6 +122,9 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                       {column.name}
                     </td>
                     <td className="py-3 px-2">
+                      {renderKindBadge(column)}
+                    </td>
+                    <td className="py-3 px-2">
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                         column.mode === 'fixed' 
                           ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300' 
@@ -78,33 +134,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                       </span>
                     </td>
                     <td className="py-3 px-2">
-                      {column.isBase ? (
-                        <span className="text-xs text-gray-500">Manual</span>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={column.calculationMode ?? 'manual'}
-                            onChange={(e) => onUpdateColumn(column.id, { calculationMode: e.target.value as 'manual' | 'percentOverBase' | 'fixedOverBase' })}
-                            className="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-400"
-                          >
-                            <option value="manual">Manual</option>
-                            <option value="percentOverBase">% base</option>
-                            <option value="fixedOverBase">Monto base</option>
-                          </select>
-                          {column.calculationMode !== 'manual' && (
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={column.calculationValue ?? ''}
-                              onChange={(e) => onUpdateColumn(column.id, {
-                                calculationValue: e.target.value === '' ? null : Number(e.target.value)
-                              })}
-                              className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-400"
-                              placeholder="0"
-                            />
-                          )}
-                        </div>
-                      )}
+                      {renderRuleDescription(column)}
                     </td>
                     <td className="py-3 px-2">
                       {column.isBase ? (
@@ -112,17 +142,19 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                           <Check size={12} className="mr-1" />
                           Base
                         </span>
-                      ) : (
+                      ) : !isGlobalColumn(column) ? (
                         <button
                           onClick={() => onSetBaseColumn(column.id)}
                           className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors"
                         >
                           Establecer como base
                         </button>
+                      ) : (
+                        <span className="text-xs text-gray-500">Fijada por regla</span>
                       )}
                     </td>
                     <td className="py-3 px-2">
-                      {column.isBase ? (
+                      {column.isBase || isGlobalColumn(column) ? (
                         <div
                           className="inline-flex items-center p-1 rounded text-blue-600/70 cursor-not-allowed"
                           title="La columna base siempre está visible"
@@ -152,10 +184,10 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                         >
                           <Edit2 size={14} />
                         </button>
-                        {column.isBase ? (
+                        {column.isBase || isGlobalColumn(column) ? (
                           <span
                             className="text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                            title="No se puede eliminar la columna base"
+                            title="No se puede eliminar esta columna"
                           >
                             <Trash2 size={14} />
                           </span>
@@ -180,9 +212,14 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
           <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex">
               <Info size={16} className="text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
-                <strong>Columna Base:</strong> Define el precio de referencia principal (ej: P1) que se usa 
-                al emitir comprobantes. No se puede eliminar y debe existir al menos una.
+              <div className="text-sm text-blue-800 space-y-1">
+                <p>
+                  <strong>Columna base:</strong> Define el precio de referencia principal que se usa al emitir comprobantes.
+                  Siempre es visible y se edita manualmente.
+                </p>
+                <p>
+                  <strong>Reglas globales:</strong> Las columnas de descuento y recargo calculan valores desde el precio base y son de solo lectura.
+                </p>
               </div>
             </div>
           </div>

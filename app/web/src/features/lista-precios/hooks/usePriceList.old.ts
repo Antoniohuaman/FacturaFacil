@@ -4,7 +4,11 @@ import type { Column, Product, NewColumnForm, PriceForm, FixedPrice, VolumePrice
 import {
   generateColumnId,
   getNextOrder,
-  removeProductPricesForColumn
+  removeProductPricesForColumn,
+  ensureRequiredColumns,
+  MANUAL_COLUMN_LIMIT,
+  countManualColumns,
+  isGlobalColumn
 } from '../utils/priceHelpers';
 
 // Tipos del módulo de productos (catálogo)
@@ -50,7 +54,7 @@ const saveToLocalStorage = (key: string, data: any): void => {
 export const usePriceList = () => {
   // Cargar columnas desde localStorage (vacío por defecto)
   const [columns, setColumns] = useState<Column[]>(() =>
-    loadFromLocalStorage<Column[]>('price_list_columns', [])
+    ensureRequiredColumns(loadFromLocalStorage<Column[]>('price_list_columns', []))
   );
 
   // Cargar precios desde localStorage (vacío por defecto)
@@ -117,7 +121,12 @@ export const usePriceList = () => {
 
   // Column management functions
   const addColumn = async (newColumnData: NewColumnForm) => {
-    if (newColumnData.name.trim() && columns.length < 10) {
+    const manualCount = countManualColumns(columns);
+    if (!newColumnData.name.trim() || manualCount >= MANUAL_COLUMN_LIMIT) {
+      return false;
+    }
+
+    if (newColumnData.name.trim()) {
       setLoading(true);
       setError(null);
       
@@ -133,17 +142,12 @@ export const usePriceList = () => {
           name: newColumnData.name.trim(),
           mode: newColumnData.mode,
           visible: newColumnData.visible,
-          isBase: newColumnData.isBase && !columns.some(c => c.isBase),
+          isBase: false,
           order: newOrder,
-          calculationMode: newColumnData.isBase ? 'manual' : newColumnData.calculationMode ?? 'manual',
-          calculationValue: newColumnData.isBase
-            ? null
-            : (typeof newColumnData.calculationValue === 'number' && Number.isFinite(newColumnData.calculationValue)
-              ? newColumnData.calculationValue
-              : null)
+          kind: 'manual'
         };
         
-        setColumns([...columns, newColumn]);
+        setColumns(prev => ensureRequiredColumns([...prev, newColumn]));
         return true;
       } catch {
         setError('Error al agregar columna');
@@ -157,8 +161,8 @@ export const usePriceList = () => {
 
   const deleteColumn = (columnId: string) => {
     const column = columns.find(c => c.id === columnId);
-    if (column && !column.isBase) {
-      setColumns(columns.filter(c => c.id !== columnId));
+    if (column && !column.isBase && !isGlobalColumn(column)) {
+      setColumns(prev => ensureRequiredColumns(prev.filter(c => c.id !== columnId)));
       setProducts(removeProductPricesForColumn(products, columnId));
       return true;
     }
@@ -166,24 +170,69 @@ export const usePriceList = () => {
   };
 
   const toggleColumnVisibility = (columnId: string) => {
-    setColumns(columns.map(col => 
+    const target = columns.find(col => col.id === columnId);
+    if (!target || target.isBase || isGlobalColumn(target)) {
+      return;
+    }
+    setColumns(prev => ensureRequiredColumns(prev.map(col => 
       col.id === columnId ? { ...col, visible: !col.visible } : col
-    ));
+    )));
   };
 
   const setBaseColumn = (columnId: string) => {
-    setColumns(columns.map(col => ({
-      ...col,
-      isBase: col.id === columnId,
-      calculationMode: col.id === columnId ? 'manual' : col.calculationMode,
-      calculationValue: col.id === columnId ? null : col.calculationValue
+    const target = columns.find(col => col.id === columnId);
+    if (!target || isGlobalColumn(target)) {
+      return;
+    }
+    setColumns(prev => ensureRequiredColumns(prev.map(col => {
+      if (col.id === columnId) {
+        return { ...col, kind: 'base', isBase: true, visible: true, mode: 'fixed' };
+      }
+      if (col.kind === 'base') {
+        return { ...col, kind: 'manual', isBase: false };
+      }
+      return col;
     })));
   };
 
   const updateColumn = (columnId: string, updates: Partial<Column>) => {
-    setColumns(columns.map(col => 
-      col.id === columnId ? { ...col, ...updates } : col
-    ));
+    setColumns(prev => ensureRequiredColumns(prev.map(col => {
+      if (col.id !== columnId) return col;
+
+      if (col.kind === 'base') {
+        return typeof updates.name === 'string' ? { ...col, name: updates.name } : col;
+      }
+
+      if (isGlobalColumn(col)) {
+        const next: Column = { ...col };
+        if (typeof updates.name === 'string') {
+          next.name = updates.name;
+        }
+        if (updates.globalRuleType) {
+          next.globalRuleType = updates.globalRuleType;
+        }
+        if (updates.globalRuleValue !== undefined) {
+          if (updates.globalRuleValue === null) {
+            next.globalRuleValue = null;
+          } else if (typeof updates.globalRuleValue === 'number' && Number.isFinite(updates.globalRuleValue)) {
+            next.globalRuleValue = Math.max(updates.globalRuleValue, 0);
+          }
+        }
+        return next;
+      }
+
+      const next: Column = { ...col };
+      if (typeof updates.name === 'string') {
+        next.name = updates.name;
+      }
+      if (updates.mode === 'fixed' || updates.mode === 'volume') {
+        next.mode = updates.mode;
+      }
+      if (typeof updates.visible === 'boolean') {
+        next.visible = updates.visible;
+      }
+      return next;
+    })));
   };
 
   // Product management functions

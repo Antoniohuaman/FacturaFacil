@@ -1,80 +1,101 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Column, NewColumnForm } from '../../models/PriceTypes';
+import { isGlobalColumn } from '../../utils/priceHelpers';
 
 interface ColumnModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (columnData: NewColumnForm) => boolean | Promise<boolean>;
   editingColumn?: Column | null;
-  hasBaseColumn: boolean;
 }
 
 export const ColumnModal: React.FC<ColumnModalProps> = ({
   isOpen,
   onClose,
   onSave,
-  editingColumn,
-  hasBaseColumn
+  editingColumn
 }) => {
   const [formData, setFormData] = useState<NewColumnForm>({
     name: '',
     mode: 'fixed',
     visible: true,
-    isBase: false,
-    calculationMode: 'manual',
-    calculationValue: null
+    kind: 'manual',
+    globalRuleType: 'percent',
+    globalRuleValue: null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [calculationValueInput, setCalculationValueInput] = useState('');
-  const isEditingBase = Boolean(editingColumn?.isBase);
+  const [ruleValueInput, setRuleValueInput] = useState('');
+  const isEditingBase = editingColumn?.kind === 'base';
+  const isEditingGlobal = editingColumn ? isGlobalColumn(editingColumn) : false;
+  const isManualContext = !editingColumn || editingColumn.kind === 'manual';
 
   useEffect(() => {
     if (editingColumn) {
       setFormData({
         name: editingColumn.name,
-        mode: editingColumn.isBase ? 'fixed' : editingColumn.mode,
-        visible: editingColumn.isBase ? true : editingColumn.visible,
-        isBase: editingColumn.isBase,
-        calculationMode: editingColumn.isBase ? 'manual' : editingColumn.calculationMode ?? 'manual',
-        calculationValue: editingColumn.isBase ? null : editingColumn.calculationValue ?? null
+        mode: editingColumn.mode,
+        visible: editingColumn.visible,
+        kind: editingColumn.kind,
+        globalRuleType: editingColumn.globalRuleType ?? 'percent',
+        globalRuleValue: editingColumn.globalRuleValue ?? null
       });
-      setCalculationValueInput(
-        editingColumn.isBase || editingColumn.calculationValue == null
-          ? ''
-          : editingColumn.calculationValue.toString()
+      setRuleValueInput(
+        editingColumn.globalRuleValue != null ? editingColumn.globalRuleValue.toString() : ''
       );
     } else {
       setFormData({
         name: '',
         mode: 'fixed',
         visible: true,
-        isBase: false,
-        calculationMode: 'manual',
-        calculationValue: null
+        kind: 'manual',
+        globalRuleType: 'percent',
+        globalRuleValue: null
       });
-      setCalculationValueInput('');
+      setRuleValueInput('');
     }
   }, [editingColumn, isOpen]);
 
+  const handleRuleValueChange = (value: string) => {
+    setRuleValueInput(value);
+    const parsed = Number(value);
+    setFormData(prev => ({
+      ...prev,
+      globalRuleValue: value.trim() === '' || Number.isNaN(parsed) ? null : Math.max(parsed, 0)
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.name.trim()) {
+      return;
+    }
+    if (isEditingGlobal && formData.globalRuleValue == null) {
+      alert('Ingresa un valor para la regla global.');
+      return;
+    }
+
     setIsSubmitting(true);
-    const normalizedMode = formData.isBase ? 'manual' : (formData.calculationMode ?? 'manual');
-    const payload: NewColumnForm = {
-      ...formData,
-      name: formData.name.trim(),
-      calculationMode: normalizedMode,
-      calculationValue: normalizedMode === 'manual' ? null : formData.calculationValue ?? null
-    };
-    
     try {
-      if (!payload.name) {
-        return;
+      const payload: NewColumnForm = {
+        ...formData,
+        name: formData.name.trim(),
+        kind: editingColumn?.kind ?? 'manual'
+      };
+
+      if (!isEditingGlobal) {
+        delete payload.globalRuleType;
+        delete payload.globalRuleValue;
       }
+
+      if (!isManualContext) {
+        payload.mode = editingColumn?.mode ?? 'fixed';
+        payload.visible = editingColumn?.visible ?? true;
+      }
+
       const success = await onSave(payload);
       if (success) {
-        onClose();
+        handleClose();
       }
     } finally {
       setIsSubmitting(false);
@@ -86,32 +107,12 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
       name: '',
       mode: 'fixed',
       visible: true,
-      isBase: false,
-      calculationMode: 'manual',
-      calculationValue: null
+      kind: 'manual',
+      globalRuleType: 'percent',
+      globalRuleValue: null
     });
-    setCalculationValueInput('');
+    setRuleValueInput('');
     onClose();
-  };
-
-  const handleCalculationModeChange = (mode: 'manual' | 'percentOverBase' | 'fixedOverBase') => {
-    setFormData(prev => ({
-      ...prev,
-      calculationMode: mode,
-      calculationValue: mode === 'manual' ? null : prev.calculationValue
-    }));
-    if (mode === 'manual') {
-      setCalculationValueInput('');
-    }
-  };
-
-  const handleCalculationValueChange = (value: string) => {
-    setCalculationValueInput(value);
-    const parsed = parseFloat(value);
-    setFormData(prev => ({
-      ...prev,
-      calculationValue: value.trim() === '' || Number.isNaN(parsed) ? null : parsed
-    }));
   };
 
   if (!isOpen) return null;
@@ -146,86 +147,72 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Modo de valorización
-            </label>
-            <select
-              value={formData.mode}
-              onChange={(e) => setFormData({ ...formData, mode: e.target.value as 'fixed' | 'volume' })}
-              disabled={isEditingBase}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isEditingBase ? 'bg-gray-100 cursor-not-allowed text-gray-500' : ''}`}
-              title={isEditingBase ? 'La columna base siempre usa precio fijo' : undefined}
-            >
-              <option value="fixed">Precio fijo</option>
-              <option value="volume">Precio por cantidad</option>
-            </select>
-          </div>
-
-          {!formData.isBase && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Regla desde precio base
-              </label>
-              <div className="flex items-center gap-2">
+          {isManualContext && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Modo de valorización
+                </label>
                 <select
-                  value={formData.calculationMode ?? 'manual'}
-                  onChange={(e) => handleCalculationModeChange(e.target.value as 'manual' | 'percentOverBase' | 'fixedOverBase')}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={formData.mode}
+                  onChange={(e) => setFormData({ ...formData, mode: e.target.value as 'fixed' | 'volume' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="manual">Manual</option>
-                  <option value="percentOverBase">% sobre precio base</option>
-                  <option value="fixedOverBase">Monto fijo sobre base</option>
+                  <option value="fixed">Precio fijo</option>
+                  <option value="volume">Precio por cantidad</option>
                 </select>
-                {formData.calculationMode !== 'manual' && (
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={calculationValueInput}
-                    onChange={(e) => handleCalculationValueChange(e.target.value)}
-                    className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder={formData.calculationMode === 'percentOverBase' ? 'Ej: -10' : 'Ej: 3.5'}
-                  />
-                )}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Usa negativos para descuentos y positivos para recargos.
-              </p>
-            </div>
+
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.visible}
+                    onChange={(e) => setFormData({ ...formData, visible: e.target.checked })}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Visible</span>
+                </label>
+              </div>
+            </>
           )}
-
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.visible}
-                onChange={(e) => setFormData({ ...formData, visible: e.target.checked })}
-                disabled={isEditingBase}
-                className={`rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${isEditingBase ? 'cursor-not-allowed' : ''}`}
-                title={isEditingBase ? 'La columna base siempre es visible' : undefined}
-              />
-              <span className="ml-2 text-sm text-gray-700">Visible</span>
-            </label>
-
-            {(!hasBaseColumn || (editingColumn && editingColumn.isBase)) && (
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.isBase}
-                  onChange={(e) => setFormData({ ...formData, isBase: e.target.checked })}
-                  disabled
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-not-allowed"
-                  title="Siempre debe existir exactamente una columna base"
-                />
-                <span className="ml-2 text-sm text-gray-700">Columna base</span>
-              </label>
-            )}
-          </div>
 
           {isEditingBase && (
             <p className="text-xs text-gray-500">
               La columna base siempre se mantiene fija y visible; solo puedes cambiar su nombre.
             </p>
+          )}
+
+          {isEditingGlobal && (
+            <div className="space-y-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Regla desde precio base
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={formData.globalRuleType ?? 'percent'}
+                    onChange={(e) => setFormData(prev => ({ ...prev, globalRuleType: e.target.value as 'percent' | 'amount' }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="percent">Porcentaje sobre base</option>
+                    <option value="amount">Monto fijo</option>
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={ruleValueInput}
+                    onChange={(e) => handleRuleValueChange(e.target.value)}
+                    className="w-28 px-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Usa valores positivos. El descuento resta y el recargo suma al precio base.
+                </p>
+              </div>
+            </div>
           )}
 
           <div className="flex justify-end space-x-3 mt-6">
@@ -238,9 +225,9 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={!formData.name.trim() || isSubmitting}
+              disabled={!formData.name.trim() || (isEditingGlobal && formData.globalRuleValue == null) || isSubmitting}
               className="px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
-              style={!(!formData.name.trim() || isSubmitting) ? { backgroundColor: '#1478D4' } : {}}
+              style={!(!formData.name.trim() || (isEditingGlobal && formData.globalRuleValue == null) || isSubmitting) ? { backgroundColor: '#1478D4' } : {}}
             >
               {isSubmitting ? (
                 <>
