@@ -151,8 +151,14 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder={displayName ?? 'Ej: Precio preferencial'}
+              disabled={editingIsFixed}
               required
             />
+            {editingIsFixed && (
+              <p className="text-xs text-gray-500 mt-1">
+                Los nombres de las columnas fijas se definen automáticamente y no se pueden editar.
+              </p>
+            )}
             {fixedHelpText && (
               <p className="text-xs text-gray-500 mt-1">
                 {fixedHelpText}

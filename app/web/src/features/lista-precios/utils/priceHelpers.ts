@@ -52,12 +52,13 @@ export const getNextOrder = (columns: Column[]): number => {
 
 export const BASE_COLUMN_ID = 'P1';
 export const MIN_ALLOWED_COLUMN_ID = 'P2';
-export const PRODUCT_DISCOUNT_COLUMN_ID = 'P3';
-export const WHOLESALE_COLUMN_ID = 'P4';
-export const VIP_COLUMN_ID = 'P5';
-export const CAMPAIGN_COLUMN_ID = 'P6';
-export const GLOBAL_DISCOUNT_COLUMN_ID = 'P7';
-export const GLOBAL_INCREASE_COLUMN_ID = 'P8';
+export const WHOLESALE_COLUMN_ID = 'P3';
+export const DISTRIBUTOR_COLUMN_ID = 'P4';
+export const CORPORATE_COLUMN_ID = 'P5';
+export const PREFERRED_COLUMN_ID = 'P6';
+export const PROMOTIONAL_COLUMN_ID = 'P7';
+export const GLOBAL_DISCOUNT_COLUMN_ID = 'P8';
+export const GLOBAL_INCREASE_COLUMN_ID = 'P9';
 export const MANUAL_COLUMN_LIMIT = 10;
 
 type FixedColumnDefinition = {
@@ -98,54 +99,67 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     helpText: 'Valor mínimo permitido para aplicar descuentos.'
   },
   {
-    id: PRODUCT_DISCOUNT_COLUMN_ID,
+    id: WHOLESALE_COLUMN_ID,
     legacyIds: ['PPD'],
     order: 3,
-    defaultName: 'PRECIO CON DSCTO',
-    kind: 'product-discount',
+    defaultName: 'PRECIO MAYORISTA',
+    kind: 'manual',
     isBase: false,
     defaultVisible: true,
     defaultVisibleInTable: true,
     defaultMode: 'fixed',
-    helpText: 'Precio final negociado para el producto.'
+    helpText: 'Precio manual para ventas al por mayor.'
   },
   {
-    id: WHOLESALE_COLUMN_ID,
+    id: DISTRIBUTOR_COLUMN_ID,
     order: 4,
-    defaultName: 'PRECIO POR MAYOR',
+    defaultName: 'PRECIO DISTRIBUIDOR',
     kind: 'manual',
     isBase: false,
     defaultVisible: true,
     defaultVisibleInTable: true,
     defaultMode: 'fixed',
-    helpText: 'Precio manual para ventas por volumen.'
+    helpText: 'Lista especial para socios distribuidores.'
   },
   {
-    id: VIP_COLUMN_ID,
+    id: CORPORATE_COLUMN_ID,
     order: 5,
-    defaultName: 'PRECIO CLIENTE VIP',
+    defaultName: 'PRECIO CORPORATIVO',
     kind: 'manual',
     isBase: false,
     defaultVisible: true,
     defaultVisibleInTable: true,
     defaultMode: 'fixed',
-    helpText: 'Precio preferencial para clientes VIP.'
+    helpText: 'Tarifa fija para cuentas corporativas.'
   },
   {
-    id: CAMPAIGN_COLUMN_ID,
+    id: PREFERRED_COLUMN_ID,
+    legacyIds: ['P5'],
     order: 6,
-    defaultName: 'PRECIO CAMPAÑA',
+    defaultName: 'PRECIO PREFERENCIAL',
     kind: 'manual',
     isBase: false,
     defaultVisible: true,
     defaultVisibleInTable: true,
     defaultMode: 'fixed',
-    helpText: 'Precio especial para campañas o promociones.'
+    helpText: 'Precio exclusivo para clientes frecuentes.'
+  },
+  {
+    id: PROMOTIONAL_COLUMN_ID,
+    legacyIds: ['P6'],
+    order: 7,
+    defaultName: 'PRECIO PROMOCIONAL',
+    kind: 'manual',
+    isBase: false,
+    defaultVisible: true,
+    defaultVisibleInTable: true,
+    defaultMode: 'fixed',
+    helpText: 'Precio especial para campañas y ofertas.'
   },
   {
     id: GLOBAL_DISCOUNT_COLUMN_ID,
-    legacyIds: ['PGD'],
-    order: 7,
+    legacyIds: ['P7', 'PGD'],
+    order: 8,
     defaultName: 'DESCUENTO GLOBAL',
     kind: 'global-discount',
     isBase: false,
@@ -156,8 +170,8 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
   },
   {
     id: GLOBAL_INCREASE_COLUMN_ID,
-    legacyIds: ['PGA'],
-    order: 8,
+    legacyIds: ['P8', 'PGA'],
+    order: 9,
     defaultName: 'AUMENTO GLOBAL',
     kind: 'global-increase',
     isBase: false,
@@ -184,7 +198,7 @@ const getCanonicalFixedColumnId = (columnId?: string): string | undefined => {
 const buildFixedColumn = (definition: FixedColumnDefinition, existing?: Column): Column => {
   const column: Column = {
     id: definition.id,
-    name: existing?.name?.trim() ? existing.name : definition.defaultName,
+    name: definition.defaultName,
     mode: definition.defaultMode ?? 'fixed',
     visible: typeof existing?.visible === 'boolean' ? existing.visible : definition.defaultVisible !== false,
     isVisibleInTable: typeof existing?.isVisibleInTable === 'boolean'
@@ -216,30 +230,33 @@ const normalizeGlobalRuleValue = (value?: number | null): number | null => {
 };
 
 const sanitizeColumn = (column: Column, index: number): Column => {
-  const canonicalId = getCanonicalFixedColumnId(column.id);
+  const requiresReindex = column.id === GLOBAL_INCREASE_COLUMN_ID && column.kind !== 'global-increase';
+  const workingColumn = requiresReindex ? { ...column, id: undefined } : column;
+
+  const canonicalId = getCanonicalFixedColumnId(workingColumn.id);
   if (canonicalId) {
     const definition = fixedColumnMap.get(canonicalId)!;
-    return buildFixedColumn(definition, { ...column, id: canonicalId });
+    return buildFixedColumn(definition, { ...workingColumn, id: canonicalId });
   }
 
-  const derivedKind: ColumnKind = column.kind && column.kind !== 'base'
-    ? column.kind
+  const derivedKind: ColumnKind = workingColumn.kind && workingColumn.kind !== 'base'
+    ? workingColumn.kind
     : 'manual';
 
   const normalized: Column = {
-    ...column,
-    id: column.id || `P${index + FIXED_COLUMN_DEFINITIONS.length + 1}`,
-    order: typeof column.order === 'number' && Number.isFinite(column.order) ? column.order : index + 1,
+    ...workingColumn,
+    id: workingColumn.id || `P${index + FIXED_COLUMN_DEFINITIONS.length + 1}`,
+    order: typeof workingColumn.order === 'number' && Number.isFinite(workingColumn.order) ? workingColumn.order : index + 1,
     kind: derivedKind,
     isBase: false,
-    mode: derivedKind === 'manual' && column.mode === 'volume' ? 'volume' : 'fixed',
-    visible: column.visible !== false,
-    isVisibleInTable: column.isVisibleInTable !== false
+    mode: derivedKind === 'manual' && workingColumn.mode === 'volume' ? 'volume' : 'fixed',
+    visible: workingColumn.visible !== false,
+    isVisibleInTable: workingColumn.isVisibleInTable !== false
   };
 
   if (derivedKind === 'global-discount' || derivedKind === 'global-increase') {
-    normalized.globalRuleType = column.globalRuleType ?? 'percent';
-    normalized.globalRuleValue = normalizeGlobalRuleValue(column.globalRuleValue);
+    normalized.globalRuleType = workingColumn.globalRuleType ?? 'percent';
+    normalized.globalRuleValue = normalizeGlobalRuleValue(workingColumn.globalRuleValue);
   } else {
     delete normalized.globalRuleType;
     delete normalized.globalRuleValue;

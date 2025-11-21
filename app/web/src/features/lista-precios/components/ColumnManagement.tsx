@@ -175,10 +175,14 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                       {renderRuleDescription(column)}
                     </td>
                     <td className="py-3 px-2">
-                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300">
-                        <Check size={12} className="mr-1" />
-                        Base fija
-                      </span>
+                      {column.isBase ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300">
+                          <Check size={12} className="mr-1" />
+                          Base fija
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+                      )}
                     </td>
                     <td className="py-3 px-2">
                       <button

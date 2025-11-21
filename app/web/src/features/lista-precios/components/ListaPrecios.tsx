@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import type { NewColumnForm } from '../models/PriceTypes';
+import type { Column, NewColumnForm } from '../models/PriceTypes';
 import { usePriceList } from '../hooks/usePriceList';
 import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
@@ -7,6 +7,7 @@ import { ProductPricing } from './ProductPricing';
 import { PackagesTab } from './PackagesTab';
 import { ColumnModal } from './modals/ColumnModal';
 import { PriceModal } from './modals/PriceModal';
+import { isFixedColumn } from '../utils/priceHelpers';
 
 type TabType = 'columns' | 'products' | 'packages';
 
@@ -69,7 +70,7 @@ export const ListaPrecios: React.FC = () => {
 
   const handleSaveColumn = useCallback((data: NewColumnForm) => {
     const trimmedName = data.name.trim();
-    if (!trimmedName) {
+    if (!trimmedName && !editingColumn) {
       return false;
     }
 
@@ -77,41 +78,28 @@ export const ListaPrecios: React.FC = () => {
     const nextTableVisibility = data.isVisibleInTable !== false;
 
     if (editingColumn) {
-      if (editingColumn.kind === 'base') {
-        updateColumn(editingColumn.id, {
-          name: trimmedName,
-          visible: nextVisible,
-          isVisibleInTable: nextTableVisibility
-        });
-        return true;
+      const isFixed = isFixedColumn(editingColumn);
+      const updates: Partial<Column> = {
+        visible: nextVisible,
+        isVisibleInTable: nextTableVisibility
+      };
+
+      if (!isFixed) {
+        updates.name = trimmedName;
+      }
+
+      if (!isFixed && editingColumn.kind === 'manual') {
+        updates.mode = data.mode;
       }
 
       if (editingColumn.kind === 'global-discount' || editingColumn.kind === 'global-increase') {
-        updateColumn(editingColumn.id, {
-          name: trimmedName,
-          visible: nextVisible,
-          isVisibleInTable: nextTableVisibility,
-          globalRuleType: data.globalRuleType,
-          globalRuleValue: typeof data.globalRuleValue === 'number' ? Math.max(data.globalRuleValue, 0) : null
-        });
-        return true;
+        updates.globalRuleType = data.globalRuleType;
+        updates.globalRuleValue = typeof data.globalRuleValue === 'number'
+          ? Math.max(data.globalRuleValue, 0)
+          : null;
       }
 
-      if (editingColumn.kind === 'product-discount' || editingColumn.kind === 'min-allowed') {
-        updateColumn(editingColumn.id, {
-          name: trimmedName,
-          visible: nextVisible,
-          isVisibleInTable: nextTableVisibility
-        });
-        return true;
-      }
-
-      updateColumn(editingColumn.id, {
-        name: trimmedName,
-        mode: data.mode,
-        visible: nextVisible,
-        isVisibleInTable: nextTableVisibility
-      });
+      updateColumn(editingColumn.id, updates);
       return true;
     }
 

@@ -166,22 +166,18 @@ export const useColumns = () => {
    * Alternar visibilidad de columna
    */
   const toggleColumnVisibility = useCallback((columnId: string): void => {
-    const target = columns.find(col => col.id === columnId);
-    if (!target) return;
     applyColumnsUpdate(prev => prev.map(col =>
       col.id === columnId ? { ...col, visible: !col.visible } : col
     ));
-  }, [columns, applyColumnsUpdate]);
+  }, [applyColumnsUpdate]);
 
   const toggleColumnTableVisibility = useCallback((columnId: string): void => {
-    const target = columns.find(col => col.id === columnId);
-    if (!target) return;
     applyColumnsUpdate(prev => prev.map(col =>
       col.id === columnId
         ? { ...col, isVisibleInTable: !(col.isVisibleInTable !== false) }
         : col
     ));
-  }, [columns, applyColumnsUpdate]);
+  }, [applyColumnsUpdate]);
 
   /**
    * Establecer columna base
@@ -189,9 +185,8 @@ export const useColumns = () => {
   const setBaseColumn = useCallback((columnId: string): void => {
     if (columnId !== BASE_COLUMN_ID) {
       setError('La columna base es fija y no se puede reasignar');
-      return;
     }
-  }, [applyColumnsUpdate, columns]);
+  }, [setError]);
 
   /**
    * Actualizar columna
@@ -202,9 +197,6 @@ export const useColumns = () => {
 
       if (isFixedColumn(col)) {
         const next: Column = { ...col };
-        if (typeof updates.name === 'string') {
-          next.name = updates.name;
-        }
         if (typeof updates.visible === 'boolean') {
           next.visible = updates.visible;
         }
