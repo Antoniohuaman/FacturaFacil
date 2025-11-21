@@ -14,39 +14,16 @@ import {
   BASE_COLUMN_ID
 } from '../utils/priceHelpers';
 import { lsKey } from '../utils/tenantHelpers';
-
-/**
- * Utilidad para cargar desde localStorage
- */
-const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return defaultValue;
-    return JSON.parse(stored);
-  } catch (error) {
-    console.error(`[useColumns] Error loading ${key} from localStorage:`, error);
-    return defaultValue;
-  }
-};
-
-/**
- * Utilidad para guardar en localStorage
- */
-const saveToLocalStorage = (key: string, data: unknown): void => {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.error(`[useColumns] Error saving ${key} to localStorage:`, error);
-  }
-};
+import { ensureTenantStorageMigration, readTenantJson, writeTenantJson } from '../utils/storage';
 
 /**
  * Hook para gestión de columnas de precios
  */
 export const useColumns = () => {
-  const [columns, setColumns] = useState<Column[]>(() =>
-    ensureRequiredColumns(loadFromLocalStorage<Column[]>(lsKey('price_list_columns'), []))
-  );
+  const [columns, setColumns] = useState<Column[]>(() => {
+    ensureTenantStorageMigration('price_list_columns');
+    return ensureRequiredColumns(readTenantJson<Column[]>('price_list_columns', []));
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +33,7 @@ export const useColumns = () => {
 
   // Persistir columnas en localStorage cuando cambien
   useEffect(() => {
-    saveToLocalStorage(lsKey('price_list_columns'), columns);
+    writeTenantJson('price_list_columns', columns);
   }, [columns, applyColumnsUpdate]);
 
   // Sincronizar cambios de otras pestañas

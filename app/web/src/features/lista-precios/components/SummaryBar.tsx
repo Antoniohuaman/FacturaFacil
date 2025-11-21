@@ -122,12 +122,44 @@ export const SummaryBar = React.memo<SummaryBarProps>(({ columns, onAssignPrice,
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison: solo re-renderizar si cambia la lista de columnas o el handler
   return (
     prevProps.onAssignPrice === nextProps.onAssignPrice &&
     prevProps.viewMode === nextProps.viewMode &&
-    JSON.stringify(prevProps.columns) === JSON.stringify(nextProps.columns)
+    areColumnsEqual(prevProps.columns, nextProps.columns)
   );
 });
 
 SummaryBar.displayName = 'SummaryBar';
+
+const areColumnsEqual = (prevColumns: Column[], nextColumns: Column[]): boolean => {
+  if (prevColumns === nextColumns) {
+    return true;
+  }
+
+  if (prevColumns.length !== nextColumns.length) {
+    return false;
+  }
+
+  const nextMap = new Map(nextColumns.map(column => [column.id, column] as const));
+  if (nextMap.size !== nextColumns.length) {
+    return false;
+  }
+
+  return prevColumns.every((column) => {
+    const candidate = nextMap.get(column.id);
+    if (!candidate) {
+      return false;
+    }
+
+    return (
+      column.name === candidate.name &&
+      column.mode === candidate.mode &&
+      column.isBase === candidate.isBase &&
+      column.visible === candidate.visible &&
+      (column.isVisibleInTable ?? true) === (candidate.isVisibleInTable ?? true) &&
+      column.kind === candidate.kind &&
+      column.globalRuleType === candidate.globalRuleType &&
+      (column.globalRuleValue ?? null) === (candidate.globalRuleValue ?? null)
+    );
+  });
+};

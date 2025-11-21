@@ -1,35 +1,23 @@
 // src/features/lista-precios/hooks/usePriceCalculator.ts
 import { useMemo } from 'react';
-import type { Product, Price, PriceCalculation, ProductUnitPrices } from '../models/PriceTypes';
+import type { Product, Price, PriceCalculation, ProductUnitPrices, Column } from '../models/PriceTypes';
 import { calculatePrice } from '../utils/priceHelpers';
-import { lsKey } from '../utils/tenantHelpers';
+import { ensureTenantStorageMigration, readTenantJson } from '../utils/storage';
 
 /**
  * Utilidad para cargar productos con precios desde localStorage
  */
 const loadPriceProducts = (): Product[] => {
-  try {
-    const stored = localStorage.getItem(lsKey('price_list_products'));
-    if (!stored) return [];
-    return JSON.parse(stored);
-  } catch (error) {
-    console.error('[usePriceCalculator] Error loading price products:', error);
-    return [];
-  }
+  ensureTenantStorageMigration('price_list_products');
+  return readTenantJson<Product[]>('price_list_products', []);
 };
 
 /**
  * Utilidad para cargar columnas desde localStorage
  */
 const loadColumns = () => {
-  try {
-    const stored = localStorage.getItem(lsKey('price_list_columns'));
-    if (!stored) return [];
-    return JSON.parse(stored);
-  } catch (error) {
-    console.error('[usePriceCalculator] Error loading columns:', error);
-    return [];
-  }
+  ensureTenantStorageMigration('price_list_columns');
+  return readTenantJson<Column[]>('price_list_columns', []);
 };
 
 /**

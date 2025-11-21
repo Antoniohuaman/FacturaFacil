@@ -298,8 +298,10 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
           <button
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600"
+            type="button"
+            aria-label="Cerrar modal"
           >
-            <X size={20} />
+            <X size={20} aria-hidden />
           </button>
         </div>
 
@@ -468,8 +470,9 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
                         type="button"
                         onClick={() => removeRange(index)}
                         className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                        aria-label="Eliminar rango"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={14} aria-hidden />
                       </button>
                     )}
                   </div>

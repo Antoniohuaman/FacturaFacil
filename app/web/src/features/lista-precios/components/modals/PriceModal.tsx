@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { X, Search } from 'lucide-react';
 import type { Column, Product, PriceForm, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { isGlobalColumn } from '../../utils/priceHelpers';
 
 interface PriceModalProps {
   isOpen: boolean;
@@ -103,6 +104,8 @@ export const PriceModal: React.FC<PriceModalProps> = ({
       isBase: true
     }];
   }, [unitOptions, catalogUnitOptions, deriveDefaultUnit, formData.sku, formatUnitLabel]);
+
+  const editableColumns = useMemo(() => columns.filter(column => !isGlobalColumn(column)), [columns]);
 
   useEffect(() => {
     if (!formData.sku || availableUnitOptions.length === 0) return;
@@ -291,8 +294,10 @@ export const PriceModal: React.FC<PriceModalProps> = ({
           <button
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600"
+            type="button"
+            aria-label="Cerrar modal"
           >
-            <X size={20} />
+            <X size={20} aria-hidden />
           </button>
         </div>
 
@@ -383,7 +388,7 @@ export const PriceModal: React.FC<PriceModalProps> = ({
               required
             >
               <option value="">Seleccionar columna</option>
-              {columns.map(column => (
+              {editableColumns.map(column => (
                 <option key={column.id} value={column.id}>
                   {column.id} - {column.name} {column.mode === 'volume' ? '(Precio por cantidad)' : '(Precio fijo)'}
                 </option>

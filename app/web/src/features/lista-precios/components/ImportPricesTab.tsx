@@ -1,31 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Upload, Download, Info, AlertTriangle, CheckCircle2, FileSpreadsheet, RefreshCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import type { Column, Product, CatalogProduct, FixedPrice } from '../models/PriceTypes';
-import type { BulkPriceImportEntry, BulkPriceImportResult } from '../models/PriceImportTypes';
+import type { Column, Product, CatalogProduct } from '../models/PriceTypes';
+import type {
+  BulkPriceImportEntry,
+  BulkPriceImportResult,
+  ImportTableColumnConfig,
+  PriceImportPreviewRow
+} from '../models/PriceImportTypes';
 import {
-  BASE_COLUMN_ID,
-  MIN_ALLOWED_COLUMN_ID,
-  DEFAULT_UNIT_CODE,
-  getColumnDisplayName,
-  filterVisibleColumns,
-  isGlobalColumn
-} from '../utils/priceHelpers';
-
-type ImportRowStatus = 'ready' | 'error' | 'applied';
-
-type ParsedImportRow = {
-  id: string;
-  rowNumber: number;
-  sku: string;
-  unitCode: string;
-  prices: Record<string, number | null>;
-  validFrom: string;
-  validUntil: string;
-  errors: string[];
-  warnings: string[];
-  status: ImportRowStatus;
-};
+  TEMPLATE_TITLE,
+  EXPORT_TITLE,
+  SKU_HEADER,
+  UNIT_HEADER,
+  VALIDITY_HEADER,
+  buildTableColumnConfigs,
+  buildExpectedHeaders,
+  collectUnitsWithPrices,
+  formatDateLabel,
+  parsePriceImportFile
+} from '../utils/importProcessing';
+import { ImportActionControls } from './import-prices/ImportActionControls';
+import { ImportStatusMessages } from './import-prices/ImportStatusMessages';
+import { ImportPreviewTable } from './import-prices/ImportPreviewTable';
+import { readTenantJson, writeTenantJson } from '../utils/storage';
 
 interface ImportPricesTabProps {
   columns: Column[];
@@ -34,238 +31,25 @@ interface ImportPricesTabProps {
   loading: boolean;
   onApplyImport: (entries: BulkPriceImportEntry[]) => Promise<BulkPriceImportResult>;
 }
-
-interface TableColumnConfig {
-  columnId: string;
-  header: string;
-  column: Column;
+interface StoredImportState {
+  rows: PriceImportPreviewRow[];
+  selectedFileName: string | null;
+  lastResult?: {
+    summary: BulkPriceImportResult;
+    completedAt: string;
+  };
 }
 
-const SKU_HEADER = 'SKU';
-const UNIT_HEADER = 'UNIDAD';
-const VALIDITY_HEADER = 'VIGENCIA';
-const TEMPLATE_TITLE = 'Plantilla';
-const EXPORT_TITLE = 'Precios';
+const IMPORT_STORAGE_KEY = 'price_list_import_state';
 
-const buildTableColumnConfigs = (columns: Column[]): TableColumnConfig[] => {
-  return filterVisibleColumns(columns)
-    .filter(column => column.isVisibleInTable !== false && !isGlobalColumn(column))
-    .map(column => ({
-      columnId: column.id,
-      header: getColumnDisplayName(column),
-      column
-    }));
-};
-
-const buildExpectedHeaders = (tableColumns: TableColumnConfig[]): string[] => {
-  return [SKU_HEADER, UNIT_HEADER, ...tableColumns.map(column => column.header), VALIDITY_HEADER];
-};
-
-const normalizeHeader = (value: string): string => value
-  .trim()
-  .replace(/\s+/g, ' ')
-  .toUpperCase()
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '');
-
-const headersMatchTemplate = (headerRow: unknown[], expectedHeaders: string[]): boolean => {
-  const matches = expectedHeaders.every((header, index) => {
-    const expected = normalizeHeader(header);
-    const current = normalizeHeader(String(headerRow[index] ?? ''));
-    return expected === current;
+const getStoredImportState = (): StoredImportState => {
+  if (typeof window === 'undefined') {
+    return { rows: [], selectedFileName: null };
+  }
+  return readTenantJson<StoredImportState>(IMPORT_STORAGE_KEY, {
+    rows: [],
+    selectedFileName: null
   });
-
-  if (!matches) {
-    return false;
-  }
-
-  const hasExtraColumns = headerRow.slice(expectedHeaders.length).some(cell => String(cell ?? '').trim() !== '');
-  return !hasExtraColumns;
-};
-
-const parseNumberCell = (value: unknown): number | null => {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  const normalized = String(value)
-    .trim()
-    .replace(/\s+/g, '')
-    .replace(/,/g, '.')
-    .replace(/[^0-9.-]/g, '');
-
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const pad2 = (value: number): string => value.toString().padStart(2, '0');
-
-const buildIsoDate = (year: number, month: number, day: number): string | null => {
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
-    return null;
-  }
-  if (month < 1 || month > 12 || day < 1 || day > 31) {
-    return null;
-  }
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) {
-    return null;
-  }
-  return `${year}-${pad2(month)}-${pad2(day)}`;
-};
-
-const parseExcelSerialDate = (value: number): string | null => {
-  if (!Number.isFinite(value)) {
-    return null;
-  }
-  const excelEpoch = Date.UTC(1899, 11, 30);
-  const milliseconds = excelEpoch + value * 86400000;
-  const date = new Date(milliseconds);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
-};
-
-const parseDateCell = (value: unknown): string | null => {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) {
-      return null;
-    }
-    return `${value.getUTCFullYear()}-${pad2(value.getUTCMonth() + 1)}-${pad2(value.getUTCDate())}`;
-  }
-
-  if (typeof value === 'number') {
-    return parseExcelSerialDate(value);
-  }
-
-  const normalized = String(value).trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const isoMatch = normalized.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
-  if (isoMatch) {
-    const year = Number(isoMatch[1]);
-    const month = Number(isoMatch[2]);
-    const day = Number(isoMatch[3]);
-    return buildIsoDate(year, month, day);
-  }
-
-  const slashMatch = normalized.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (slashMatch) {
-    const day = Number(slashMatch[1]);
-    const month = Number(slashMatch[2]);
-    let year = Number(slashMatch[3]);
-    if (year < 100) {
-      year += 2000;
-    }
-    return buildIsoDate(year, month, day);
-  }
-
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-  return `${parsed.getUTCFullYear()}-${pad2(parsed.getUTCMonth() + 1)}-${pad2(parsed.getUTCDate())}`;
-};
-
-const formatDateLabel = (value: string): string => {
-  if (!value) return '';
-  const [year, month, day] = value.split('-');
-  if (!year || !month || !day) {
-    return value;
-  }
-  return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-};
-
-const getDefaultValidity = () => {
-  const today = new Date();
-  const until = new Date();
-  until.setFullYear(until.getFullYear() + 1);
-  return {
-    validFrom: today.toISOString().split('T')[0],
-    validUntil: until.toISOString().split('T')[0]
-  };
-};
-
-const buildHeaderIndexMap = (expectedHeaders: string[]): Record<string, number> => {
-  return expectedHeaders.reduce<Record<string, number>>((map, header, index) => {
-    map[header] = index;
-    return map;
-  }, {});
-};
-
-const collectAllowedUnits = (catalogProduct?: CatalogProduct, existingProduct?: Product): Set<string> => {
-  const units = new Set<string>();
-  if (catalogProduct?.unidad) {
-    units.add(catalogProduct.unidad.toUpperCase());
-  }
-  catalogProduct?.unidadesMedidaAdicionales?.forEach(unit => {
-    if (unit.unidadCodigo) {
-      units.add(unit.unidadCodigo.toUpperCase());
-    }
-  });
-
-  if (existingProduct) {
-    Object.values(existingProduct.prices).forEach(unitPrices => {
-      Object.keys(unitPrices).forEach(code => units.add(code.toUpperCase()));
-    });
-    if (existingProduct.activeUnitCode) {
-      units.add(existingProduct.activeUnitCode.toUpperCase());
-    }
-  }
-
-  return units;
-};
-
-const collectUnitsWithPrices = (product: Product, allowedColumnIds: Set<string>): string[] => {
-  const units = new Set<string>();
-  Object.entries(product.prices || {}).forEach(([columnId, unitPrices]) => {
-    if (!allowedColumnIds.has(columnId)) {
-      return;
-    }
-    Object.keys(unitPrices || {}).forEach(code => units.add(code));
-  });
-  return Array.from(units);
-};
-
-const getExistingFixedPrice = (product: Product | undefined, columnId: string, unitCode: string): FixedPrice | undefined => {
-  if (!product || !unitCode) {
-    return undefined;
-  }
-  const columnPrices = product.prices[columnId];
-  if (!columnPrices) {
-    return undefined;
-  }
-
-  const direct = columnPrices[unitCode];
-  if (direct && direct.type === 'fixed') {
-    return direct;
-  }
-
-  const normalized = unitCode.toUpperCase();
-  const fallbackEntry = Object.entries(columnPrices).find(([code]) => code.toUpperCase() === normalized);
-  const fallbackPrice = fallbackEntry?.[1];
-  if (fallbackPrice && fallbackPrice.type === 'fixed') {
-    return fallbackPrice;
-  }
-  return undefined;
 };
 
 export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
@@ -275,14 +59,19 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   loading,
   onApplyImport
 }) => {
-  const [rows, setRows] = useState<ParsedImportRow[]>([]);
+  const persistedState = useMemo(() => getStoredImportState(), []);
+  const [rows, setRows] = useState<PriceImportPreviewRow[]>(persistedState.rows ?? []);
   const [parseError, setParseError] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<{ summary: BulkPriceImportResult; completedAt: Date } | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(persistedState.selectedFileName ?? null);
+  const [lastResult, setLastResult] = useState<{ summary: BulkPriceImportResult; completedAt: Date } | null>(
+    persistedState.lastResult
+      ? { summary: persistedState.lastResult.summary, completedAt: new Date(persistedState.lastResult.completedAt) }
+      : null
+  );
 
-  const tableColumns = useMemo(() => buildTableColumnConfigs(columns), [columns]);
+  const tableColumns: ImportTableColumnConfig[] = useMemo(() => buildTableColumnConfigs(columns), [columns]);
   const expectedHeaders = useMemo(() => buildExpectedHeaders(tableColumns), [tableColumns]);
   const tableColumnSignature = useMemo(() => tableColumns.map(column => `${column.columnId}:${column.header}`).join('|'), [tableColumns]);
 
@@ -293,8 +82,19 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     setLastResult(null);
   }, [tableColumnSignature]);
 
-  const productLookup = useMemo(() => new Map(products.map(product => [product.sku, product] as const)), [products]);
-  const catalogLookup = useMemo(() => new Map(catalogProducts.map(product => [product.codigo, product] as const)), [catalogProducts]);
+  const productLookup = useMemo(() => new Map(products.map(product => [product.sku.toUpperCase(), product] as const)), [products]);
+  const catalogLookup = useMemo(() => new Map(catalogProducts.map(product => [product.codigo.toUpperCase(), product] as const)), [catalogProducts]);
+
+  useEffect(() => {
+    const payload: StoredImportState = {
+      rows,
+      selectedFileName,
+      lastResult: lastResult
+        ? { summary: lastResult.summary, completedAt: lastResult.completedAt.toISOString() }
+        : undefined
+    };
+    writeTenantJson(IMPORT_STORAGE_KEY, payload);
+  }, [rows, selectedFileName, lastResult]);
 
   const resetState = () => {
     setRows([]);
@@ -385,7 +185,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     XLSX.writeFile(workbook, `Exportacion_Precios_${today}.xlsx`);
   };
 
-  const parseFile = useCallback(async (file: File) => {
+  const handleFileSelected = useCallback(async (file: File) => {
     if (tableColumns.length === 0) {
       setParseError('Activa al menos una columna visible antes de importar.');
       setRows([]);
@@ -398,136 +198,13 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     setLastResult(null);
 
     try {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as unknown[][];
-      if (rawRows.length < 2) {
-        throw new Error('La plantilla no contiene filas con datos.');
-      }
-
-      const headerRow = rawRows[0];
-      if (!headersMatchTemplate(headerRow, expectedHeaders)) {
-        throw new Error('La estructura del archivo no coincide con las columnas visibles. Descarga una nueva plantilla desde esta pantalla.');
-      }
-
-      const headerIndex = buildHeaderIndexMap(expectedHeaders);
-      const nextRows: ParsedImportRow[] = [];
-
-      rawRows.slice(1).forEach((rawRow, index) => {
-        const rowNumber = index + 2;
-        const normalizedValues = rawRow.map(cell => (typeof cell === 'string' ? cell.trim() : cell));
-        const isEmptyRow = normalizedValues.every(value => value === '' || value === null || value === undefined);
-        if (isEmptyRow) {
-          return;
-        }
-
-        const errors: string[] = [];
-        const warnings: string[] = [];
-        const sku = String(normalizedValues[headerIndex[SKU_HEADER]] ?? '').trim().toUpperCase();
-        if (!sku) {
-          errors.push('El SKU es obligatorio.');
-        }
-
-        const catalogProduct = catalogLookup.get(sku);
-        const existingProduct = productLookup.get(sku);
-        if (!catalogProduct && !existingProduct) {
-          errors.push('El SKU no existe en el catálogo ni tiene precios registrados.');
-        }
-
-        const unitCell = String(normalizedValues[headerIndex[UNIT_HEADER]] ?? '').trim().toUpperCase();
-        const allowedUnits = collectAllowedUnits(catalogProduct, existingProduct);
-        const fallbackUnit = unitCell || catalogProduct?.unidad?.toUpperCase() || existingProduct?.activeUnitCode?.toUpperCase() || DEFAULT_UNIT_CODE;
-        const unitCode = fallbackUnit;
-
-        if (allowedUnits.size > 0 && !allowedUnits.has(unitCode)) {
-          errors.push(`La unidad ${unitCode} no es válida para este SKU.`);
-        }
-
-        if (!unitCell && allowedUnits.size > 1) {
-          warnings.push(`Se usó la unidad ${unitCode} por defecto.`);
-        }
-
-        const priceValues: Record<string, number | null> = {};
-        tableColumns.forEach(({ header, columnId }) => {
-          const parsedValue = parseNumberCell(normalizedValues[headerIndex[header]]);
-          const existingPrice = getExistingFixedPrice(existingProduct, columnId, unitCode);
-          const hasExistingValue = Boolean(existingPrice);
-
-          if (parsedValue === null || parsedValue === undefined) {
-            if (hasExistingValue) {
-              priceValues[columnId] = null;
-            }
-            return;
-          }
-
-          if (parsedValue < 0) {
-            errors.push(`El valor de ${header} debe ser mayor o igual a 0.`);
-            return;
-          }
-
-          priceValues[columnId] = parsedValue;
-        });
-
-        const hasChanges = Object.keys(priceValues).length > 0;
-        if (!hasChanges) {
-          errors.push('No se detectaron cambios para esta fila.');
-        }
-
-        const { validFrom, validUntil: defaultValidUntil } = getDefaultValidity();
-        const parsedValidity = parseDateCell(normalizedValues[headerIndex[VALIDITY_HEADER]]);
-        const validUntil = parsedValidity ?? defaultValidUntil;
-        const fromDate = new Date(`${validFrom}T00:00:00`);
-        const untilDate = new Date(`${validUntil}T00:00:00`);
-        if (!Number.isNaN(fromDate.getTime()) && !Number.isNaN(untilDate.getTime()) && untilDate <= fromDate) {
-          errors.push('La fecha de vigencia debe ser posterior a la fecha actual.');
-        }
-
-        const existingBasePrice = getExistingFixedPrice(existingProduct, BASE_COLUMN_ID, unitCode);
-        const referenceBaseValue = (() => {
-          const nextBaseValue = priceValues[BASE_COLUMN_ID];
-          if (nextBaseValue === null) {
-            return null;
-          }
-          if (typeof nextBaseValue === 'number') {
-            return nextBaseValue;
-          }
-          if (existingBasePrice && existingBasePrice.type === 'fixed') {
-            return existingBasePrice.value;
-          }
-          return null;
-        })();
-
-        const nextMinValue = priceValues[MIN_ALLOWED_COLUMN_ID];
-        if (
-          referenceBaseValue !== null &&
-          typeof nextMinValue === 'number' &&
-          nextMinValue > referenceBaseValue
-        ) {
-          errors.push('El PRECIO MÍNIMO no puede ser mayor que el PRECIO BASE.');
-        }
-
-        const status: ImportRowStatus = errors.length > 0 ? 'error' : 'ready';
-        nextRows.push({
-          id: `${sku}-${rowNumber}`,
-          rowNumber,
-          sku,
-          unitCode,
-          prices: priceValues,
-          validFrom,
-          validUntil,
-          errors,
-          warnings,
-          status
-        });
+      const parsedRows = await parsePriceImportFile(file, {
+        tableColumns,
+        expectedHeaders,
+        productLookup,
+        catalogLookup
       });
-
-      if (nextRows.length === 0) {
-        throw new Error('No se encontraron filas con datos. Verifica el archivo.');
-      }
-
-      setRows(nextRows);
+      setRows(parsedRows);
       setSelectedFileName(file.name);
     } catch (error) {
       console.error('[ImportPricesTab] Error parsing file:', error);
@@ -538,15 +215,6 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
       setIsParsing(false);
     }
   }, [catalogLookup, expectedHeaders, productLookup, tableColumns]);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    parseFile(file);
-    event.target.value = '';
-  };
 
   const readyRows = rows.filter(row => row.status === 'ready');
   const errorRows = rows.filter(row => row.status === 'error');
@@ -583,73 +251,16 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
 
   return (
     <div className="p-6 space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
-          <div className="flex items-center gap-3">
-            <FileSpreadsheet className="w-10 h-10 text-blue-600" />
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Importar precios desde Excel</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Descarga la plantilla con las columnas visibles en "Precios por producto", completa los valores y súbela nuevamente para actualizar la lista.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={handleDownloadTemplate}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Descargar plantilla
-            </button>
-            <button
-              type="button"
-              onClick={handleExportPrices}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-            >
-              <RefreshCcw className="w-4 h-4 mr-2" />
-              Exportar precios actuales
-            </button>
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            <p className="font-semibold mb-1">Recomendaciones:</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Descarga una nueva plantilla cuando cambies las columnas visibles.</li>
-              <li>Usa una fila por cada SKU y unidad de medida.</li>
-              <li>No reordenes ni agregues columnas adicionales.</li>
-              <li>La columna VIGENCIA acepta formatos dd/mm/aaaa o números de Excel.</li>
-              <li>El PRECIO MÍNIMO debe ser menor o igual al PRECIO BASE.</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Estado del archivo</div>
-          <div className="text-2xl font-semibold text-gray-900 dark:text-white">
-            {selectedFileName ? selectedFileName : 'Ningún archivo seleccionado'}
-          </div>
-          <label className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 transition-colors">
-            <Upload className="w-4 h-4 mr-2" />
-            Seleccionar archivo
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
-          {rows.length > 0 && (
-            <button
-              type="button"
-              onClick={resetState}
-              className="inline-flex items-center px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Limpiar selección
-            </button>
-          )}
-        </div>
-      </div>
+      <ImportActionControls
+        tableColumnsCount={tableColumns.length}
+        selectedFileName={selectedFileName}
+        hasRows={rows.length > 0}
+        isParsing={isParsing}
+        onDownloadTemplate={handleDownloadTemplate}
+        onExportPrices={handleExportPrices}
+        onResetSelection={resetState}
+        onFileSelected={handleFileSelected}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
@@ -666,119 +277,17 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
         </div>
       </div>
 
-      {(parseError || isParsing) && (
-        <div className={`rounded-lg border px-4 py-3 text-sm ${parseError ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300' : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200'}`}>
-          {isParsing ? 'Procesando archivo...' : parseError}
-        </div>
-      )}
+      <ImportStatusMessages parseError={parseError} isParsing={isParsing} lastResult={lastResult} />
 
-      {lastResult && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 text-sm text-green-800 dark:text-green-300 space-y-1">
-          <div className="font-semibold flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
-            Importación aplicada el {lastResult.completedAt.toLocaleString('es-PE')}.
-          </div>
-          <div>
-            {lastResult.summary.appliedPrices} precios actualizados en {lastResult.summary.appliedProducts} productos. Filas omitidas: {lastResult.summary.skippedRows}.
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Vista previa de la importación</h3>
-            <p className="text-sm text-gray-500">Solo se mostrarán las filas que contienen datos.</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleApplyImport}
-            disabled={loading || isParsing || isApplying || readyRows.length === 0}
-            className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${readyRows.length === 0 || loading || isParsing || isApplying
-              ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 cursor-not-allowed'
-              : 'bg-green-600 text-white hover:bg-green-700'}`}
-          >
-            Aplicar precios
-          </button>
-        </div>
-        <div className="overflow-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-900/30">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-gray-500">Fila</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-500">SKU</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-500">Unidad</th>
-                {tableColumns.map(column => (
-                  <th key={column.columnId} className="px-3 py-2 text-left font-medium text-gray-500">
-                    {column.header}
-                  </th>
-                ))}
-                <th className="px-3 py-2 text-left font-medium text-gray-500">Vigencia</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-500">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={tableColumns.length + 5} className="px-3 py-6 text-center text-gray-500">
-                    Carga un archivo XLSX para comenzar.
-                  </td>
-                </tr>
-              )}
-              {rows.map(row => (
-                <tr key={row.id} className="bg-white dark:bg-gray-900/20">
-                  <td className="px-3 py-2 text-gray-500">{row.rowNumber}</td>
-                  <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">{row.sku}</td>
-                  <td className="px-3 py-2 text-gray-700 dark:text-gray-200">{row.unitCode}</td>
-                  {tableColumns.map(column => {
-                    const cellPrice = row.prices[column.columnId];
-                    return (
-                      <td key={`${row.id}-${column.columnId}`} className="px-3 py-2 text-gray-700 dark:text-gray-200">
-                        {cellPrice === null && (
-                          <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">Eliminar</span>
-                        )}
-                        {typeof cellPrice === 'number' && cellPrice.toFixed(2)}
-                      </td>
-                    );
-                  })}
-                  <td className="px-3 py-2 text-gray-700 dark:text-gray-200">{formatDateLabel(row.validUntil)}</td>
-                  <td className="px-3 py-2">
-                    {row.status === 'ready' && (
-                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                        <CheckCircle2 className="w-3 h-3 mr-1" /> Lista
-                      </span>
-                    )}
-                    {row.status === 'applied' && (
-                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
-                        <Info className="w-3 h-3 mr-1" /> Aplicada
-                      </span>
-                    )}
-                    {row.status === 'error' && (
-                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-600">
-                        <AlertTriangle className="w-3 h-3 mr-1" /> Revisar
-                      </span>
-                    )}
-                    {row.errors.length > 0 && (
-                      <ul className="mt-2 text-xs text-red-600 space-y-1">
-                        {row.errors.map((message, index) => (
-                          <li key={`${row.id}-err-${index}`}>{message}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {row.warnings.length > 0 && row.errors.length === 0 && (
-                      <ul className="mt-2 text-xs text-amber-600 space-y-1">
-                        {row.warnings.map((message, index) => (
-                          <li key={`${row.id}-warn-${index}`}>{message}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ImportPreviewTable
+        rows={rows}
+        tableColumns={tableColumns}
+        readyCount={readyRows.length}
+        isParsing={isParsing}
+        isApplying={isApplying}
+        loading={loading}
+        onApplyPrices={handleApplyImport}
+      />
     </div>
   );
 };

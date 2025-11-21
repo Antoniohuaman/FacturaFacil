@@ -1,4 +1,4 @@
-import type { FixedPrice } from './PriceTypes';
+import type { Column, FixedPrice } from './PriceTypes';
 
 export interface ImportedFixedPriceValue {
   columnId: string;
@@ -30,3 +30,24 @@ export type ImportedPriceRecord = {
   validityLabel: string;
   priceObjects: Record<string, FixedPrice>;
 };
+
+export type ImportRowStatus = 'ready' | 'error' | 'applied';
+
+export interface PriceImportPreviewRow {
+  id: string;
+  rowNumber: number;
+  sku: string;
+  unitCode: string;
+  prices: Record<string, number | null>;
+  validFrom: string;
+  validUntil: string;
+  errors: string[];
+  warnings: string[];
+  status: ImportRowStatus;
+}
+
+export interface ImportTableColumnConfig {
+  columnId: string;
+  header: string;
+  column: Column;
+}

@@ -4,31 +4,11 @@ import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, Produ
 import type { BulkPriceImportEntry, BulkPriceImportResult } from '../models/PriceImportTypes';
 import { lsKey } from '../utils/tenantHelpers';
 import { buildEffectivePriceMatrix, DEFAULT_UNIT_CODE, getFixedPriceValue, getCanonicalColumnId } from '../utils/priceHelpers';
+import { ensureTenantStorageMigration, readTenantJson, writeTenantJson } from '../utils/storage';
 
 /**
  * Utilidad para cargar desde localStorage
  */
-const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return defaultValue;
-    return JSON.parse(stored);
-  } catch (error) {
-    console.error(`[usePriceProducts] Error loading ${key} from localStorage:`, error);
-    return defaultValue;
-  }
-};
-
-/**
- * Utilidad para guardar en localStorage
- */
-const saveToLocalStorage = (key: string, data: unknown): void => {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.error(`[usePriceProducts] Error saving ${key} to localStorage:`, error);
-  }
-};
 
 /**
  * Validar fechas de vigencia
@@ -140,7 +120,8 @@ const normalizeStoredProducts = (
  */
 export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Column[]) => {
   const [products, setProducts] = useState<Product[]>(() => {
-    const stored = loadFromLocalStorage<StoredProduct[]>(lsKey('price_list_products'), []);
+    ensureTenantStorageMigration('price_list_products');
+    const stored = readTenantJson<StoredProduct[]>('price_list_products', []);
     return normalizeStoredProducts(stored, catalogProducts);
   });
   const [searchSKU, setSearchSKU] = useState('');
@@ -149,7 +130,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
 
   // Persistir productos en localStorage cuando cambien
   useEffect(() => {
-    saveToLocalStorage(lsKey('price_list_products'), products);
+    writeTenantJson('price_list_products', products);
   }, [products]);
 
   // Sincronizar cambios de otras pestañas
