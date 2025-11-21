@@ -16,7 +16,7 @@ export const usePriceList = () => {
   const productsHook = usePriceProducts(catalogProducts, columnsHook.columns);
 
   // Estado de modales
-  const [activeTab, setActiveTab] = useState<'columns' | 'products'>('products');
+  const [activeTab, setActiveTab] = useState<'columns' | 'products' | 'import'>('products');
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [showProductPriceModal, setShowProductPriceModal] = useState(false);
   const [editingColumn, setEditingColumn] = useState<Column | null>(null);
@@ -93,6 +93,7 @@ export const usePriceList = () => {
 
     // Acciones de productos
     addOrUpdateProductPrice: productsHook.addOrUpdateProductPrice,
+    applyImportedFixedPrices: productsHook.applyImportedFixedPrices,
     setProductActiveUnit: productsHook.setProductActiveUnit,
     setSearchSKU: productsHook.setSearchSKU,
     isSKUInCatalog: productsHook.isSKUInCatalog,

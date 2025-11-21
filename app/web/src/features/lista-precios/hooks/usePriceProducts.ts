@@ -1,6 +1,7 @@
 // src/features/lista-precios/hooks/usePriceProducts.ts
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, ProductUnitPrices, Price, Column } from '../models/PriceTypes';
+import type { BulkPriceImportEntry, BulkPriceImportResult } from '../models/PriceImportTypes';
 import { lsKey } from '../utils/tenantHelpers';
 import { buildEffectivePriceMatrix, DEFAULT_UNIT_CODE, getFixedPriceValue, getCanonicalColumnId } from '../utils/priceHelpers';
 
@@ -502,6 +503,137 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
 
   const effectivePrices = useMemo(() => buildEffectivePriceMatrix(catalogMergedProducts, columns, catalogProducts), [catalogMergedProducts, columns, catalogProducts]);
 
+  const applyImportedFixedPrices = useCallback(async (entries: BulkPriceImportEntry[]): Promise<BulkPriceImportResult> => {
+    const stats: BulkPriceImportResult = {
+      totalRows: entries.length,
+      appliedRows: 0,
+      appliedProducts: 0,
+      appliedPrices: 0,
+      skippedRows: entries.length,
+      createdProducts: 0
+    };
+
+    if (entries.length === 0) {
+      return stats;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const validColumnIds = new Set(columns.map(column => getCanonicalColumnId(column.id)));
+      const appliedProductIds = new Set<string>();
+
+      setProducts(prevProducts => {
+        const nextProducts = [...prevProducts];
+
+        entries.forEach(entry => {
+          const normalizedSku = entry.sku.trim();
+          if (!normalizedSku) {
+            return;
+          }
+
+          const sanitizedPrices = entry.prices
+            .map(price => ({
+              columnId: getCanonicalColumnId(price.columnId),
+              value: price.value
+            }))
+            .filter(price => validColumnIds.has(price.columnId) && Number.isFinite(price.value) && price.value > 0);
+
+          if (sanitizedPrices.length === 0) {
+            return;
+          }
+
+          const existingIndex = nextProducts.findIndex(product => product.sku === normalizedSku);
+          const existingProduct = existingIndex >= 0 ? nextProducts[existingIndex] : undefined;
+          const catalogProduct = catalogProducts.find(product => product.codigo === normalizedSku);
+
+          if (!existingProduct && !catalogProduct) {
+            return;
+          }
+
+          const resolvedUnitCode = entry.unitCode?.trim() || existingProduct?.activeUnitCode || getBaseUnitForProduct(catalogProduct, existingProduct?.activeUnitCode);
+
+          if (!resolvedUnitCode) {
+            return;
+          }
+
+          let targetProduct: Product;
+          if (existingProduct) {
+            targetProduct = {
+              ...existingProduct,
+              prices: { ...existingProduct.prices }
+            };
+          } else {
+            targetProduct = {
+              sku: normalizedSku,
+              name: catalogProduct?.nombre ?? normalizedSku,
+              prices: {},
+              activeUnitCode: resolvedUnitCode
+            };
+          }
+
+          let appliedForRow = 0;
+
+          sanitizedPrices.forEach(price => {
+            const columnPrices = {
+              ...(targetProduct.prices[price.columnId] || {})
+            };
+
+            columnPrices[resolvedUnitCode] = {
+              type: 'fixed',
+              value: Math.round((price.value + Number.EPSILON) * 100) / 100,
+              validFrom: entry.validFrom,
+              validUntil: entry.validUntil
+            } as FixedPrice;
+
+            targetProduct.prices[price.columnId] = columnPrices;
+            appliedForRow += 1;
+          });
+
+          if (appliedForRow === 0) {
+            return;
+          }
+
+          stats.appliedRows += 1;
+          stats.appliedPrices += appliedForRow;
+          appliedProductIds.add(targetProduct.sku);
+
+          if (!targetProduct.activeUnitCode) {
+            targetProduct.activeUnitCode = resolvedUnitCode;
+          }
+
+          if (existingProduct && existingIndex >= 0) {
+            nextProducts[existingIndex] = targetProduct;
+          } else {
+            nextProducts.push(targetProduct);
+            stats.createdProducts += 1;
+          }
+        });
+
+        stats.appliedProducts = appliedProductIds.size;
+        stats.skippedRows = Math.max(0, stats.totalRows - stats.appliedRows);
+
+        return nextProducts;
+      });
+
+      return stats;
+    } catch (error) {
+      console.error('[usePriceProducts] Error applying imported prices:', error);
+      setError('Ocurrió un error al aplicar los precios importados');
+      return {
+        totalRows: entries.length,
+        appliedRows: 0,
+        appliedProducts: 0,
+        appliedPrices: 0,
+        skippedRows: entries.length,
+        createdProducts: 0
+      };
+    } finally {
+      setLoading(false);
+    }
+  }, [catalogProducts, columns]);
+
   return {
     products: catalogMergedProducts,
     filteredProducts,
@@ -515,6 +647,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
     isSKUInCatalog,
     getCatalogProductBySKU,
     clearError,
-    effectivePrices
+    effectivePrices,
+    applyImportedFixedPrices
   };
 };

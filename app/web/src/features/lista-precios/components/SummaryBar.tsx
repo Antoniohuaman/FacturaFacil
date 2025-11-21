@@ -13,7 +13,7 @@ import {
 interface SummaryBarProps {
   columns: Column[];
   onAssignPrice?: () => void;
-  viewMode?: 'products' | 'columns' | 'packages';
+  viewMode?: 'products' | 'columns' | 'packages' | 'import';
 }
 
 export const SummaryBar = React.memo<SummaryBarProps>(({ columns, onAssignPrice, viewMode = 'products' }) => {

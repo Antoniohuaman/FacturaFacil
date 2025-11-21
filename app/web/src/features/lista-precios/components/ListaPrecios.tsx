@@ -5,11 +5,12 @@ import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
 import { ProductPricing } from './ProductPricing';
 import { PackagesTab } from './PackagesTab';
+import { ImportPricesTab } from './ImportPricesTab';
 import { ColumnModal } from './modals/ColumnModal';
 import { PriceModal } from './modals/PriceModal';
 import { isFixedColumn } from '../utils/priceHelpers';
 
-type TabType = 'columns' | 'products' | 'packages';
+type TabType = 'columns' | 'products' | 'packages' | 'import';
 
 export const ListaPrecios: React.FC = () => {
   // Estado local solo para el tab de Paquetes (que no está en el hook)
@@ -40,6 +41,7 @@ export const ListaPrecios: React.FC = () => {
     toggleColumnTableVisibility,
     updateColumn,
     addOrUpdateProductPrice,
+    applyImportedFixedPrices,
     setProductActiveUnit,
     openColumnModal,
     closeColumnModal,
@@ -173,6 +175,19 @@ export const ListaPrecios: React.FC = () => {
           >
             Plantilla de columnas
           </button>
+          <button
+            onClick={() => handleTabChange('import')}
+            role="tab"
+            aria-selected={currentTab === 'import'}
+            aria-controls="import-panel"
+            className={`py-4 border-b-2 font-medium text-sm transition-colors ${
+              currentTab === 'import'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+            }`}
+          >
+            Importar precios
+          </button>
         </div>
       </div>
 
@@ -213,6 +228,14 @@ export const ListaPrecios: React.FC = () => {
             catalogProducts={catalogProducts}
             effectivePrices={effectivePrices}
             registerAssignHandler={registerAssignPriceHandler}
+          />
+        ) : currentTab === 'import' ? (
+          <ImportPricesTab
+            columns={columns}
+            products={products}
+            catalogProducts={catalogProducts}
+            loading={loading}
+            onApplyImport={applyImportedFixedPrices}
           />
         ) : (
           <PackagesTab />
