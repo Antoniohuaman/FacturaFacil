@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Upload, Download, Info, AlertTriangle, CheckCircle2, FileSpreadsheet, RefreshCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type { Column, Product, CatalogProduct, FixedPrice } from '../models/PriceTypes';
@@ -6,39 +6,11 @@ import type { BulkPriceImportEntry, BulkPriceImportResult } from '../models/Pric
 import {
   BASE_COLUMN_ID,
   MIN_ALLOWED_COLUMN_ID,
-  WHOLESALE_COLUMN_ID,
-  DISTRIBUTOR_COLUMN_ID,
-  CORPORATE_COLUMN_ID,
-  PREFERRED_COLUMN_ID,
-  PROMOTIONAL_COLUMN_ID,
   DEFAULT_UNIT_CODE,
-  getColumnDisplayName
+  getColumnDisplayName,
+  filterVisibleColumns,
+  isGlobalColumn
 } from '../utils/priceHelpers';
-
-const TEMPLATE_HEADERS = [
-  'SKU',
-  'UNIDAD',
-  'PRECIO BASE',
-  'PRECIO MÍNIMO',
-  'PRECIO MAYORISTA',
-  'PRECIO DISTRIBUIDOR',
-  'PRECIO CORPORATIVO',
-  'PRECIO PREFERENCIAL',
-  'PRECIO PROMOCIONAL',
-  'VIGENCIA'
-] as const;
-
-const TEMPLATE_PRICE_COLUMNS: Array<{ header: (typeof TEMPLATE_HEADERS)[number]; columnId: string }> = [
-  { header: 'PRECIO BASE', columnId: BASE_COLUMN_ID },
-  { header: 'PRECIO MÍNIMO', columnId: MIN_ALLOWED_COLUMN_ID },
-  { header: 'PRECIO MAYORISTA', columnId: WHOLESALE_COLUMN_ID },
-  { header: 'PRECIO DISTRIBUIDOR', columnId: DISTRIBUTOR_COLUMN_ID },
-  { header: 'PRECIO CORPORATIVO', columnId: CORPORATE_COLUMN_ID },
-  { header: 'PRECIO PREFERENCIAL', columnId: PREFERRED_COLUMN_ID },
-  { header: 'PRECIO PROMOCIONAL', columnId: PROMOTIONAL_COLUMN_ID }
-];
-
-const TEMPLATE_PATH = '/plantillas/Plantilla_ImportacionPrecios.xlsx';
 
 type ImportRowStatus = 'ready' | 'error' | 'applied';
 
@@ -63,6 +35,32 @@ interface ImportPricesTabProps {
   onApplyImport: (entries: BulkPriceImportEntry[]) => Promise<BulkPriceImportResult>;
 }
 
+interface TableColumnConfig {
+  columnId: string;
+  header: string;
+  column: Column;
+}
+
+const SKU_HEADER = 'SKU';
+const UNIT_HEADER = 'UNIDAD';
+const VALIDITY_HEADER = 'VIGENCIA';
+const TEMPLATE_TITLE = 'Plantilla';
+const EXPORT_TITLE = 'Precios';
+
+const buildTableColumnConfigs = (columns: Column[]): TableColumnConfig[] => {
+  return filterVisibleColumns(columns)
+    .filter(column => column.isVisibleInTable !== false && !isGlobalColumn(column))
+    .map(column => ({
+      columnId: column.id,
+      header: getColumnDisplayName(column),
+      column
+    }));
+};
+
+const buildExpectedHeaders = (tableColumns: TableColumnConfig[]): string[] => {
+  return [SKU_HEADER, UNIT_HEADER, ...tableColumns.map(column => column.header), VALIDITY_HEADER];
+};
+
 const normalizeHeader = (value: string): string => value
   .trim()
   .replace(/\s+/g, ' ')
@@ -70,12 +68,19 @@ const normalizeHeader = (value: string): string => value
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '');
 
-const headersMatchTemplate = (headerRow: unknown[]): boolean => {
-  return TEMPLATE_HEADERS.every((header, index) => {
+const headersMatchTemplate = (headerRow: unknown[], expectedHeaders: string[]): boolean => {
+  const matches = expectedHeaders.every((header, index) => {
     const expected = normalizeHeader(header);
     const current = normalizeHeader(String(headerRow[index] ?? ''));
     return expected === current;
   });
+
+  if (!matches) {
+    return false;
+  }
+
+  const hasExtraColumns = headerRow.slice(expectedHeaders.length).some(cell => String(cell ?? '').trim() !== '');
+  return !hasExtraColumns;
 };
 
 const parseNumberCell = (value: unknown): number | null => {
@@ -100,6 +105,7 @@ const parseNumberCell = (value: unknown): number | null => {
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 };
+
 const pad2 = (value: number): string => value.toString().padStart(2, '0');
 
 const buildIsoDate = (year: number, month: number, day: number): string | null => {
@@ -198,12 +204,11 @@ const getDefaultValidity = () => {
   };
 };
 
-const buildHeaderIndexMap = (): Record<typeof TEMPLATE_HEADERS[number], number> => {
-  const map: Partial<Record<typeof TEMPLATE_HEADERS[number], number>> = {};
-  TEMPLATE_HEADERS.forEach((header, index) => {
+const buildHeaderIndexMap = (expectedHeaders: string[]): Record<string, number> => {
+  return expectedHeaders.reduce<Record<string, number>>((map, header, index) => {
     map[header] = index;
-  });
-  return map as Record<typeof TEMPLATE_HEADERS[number], number>;
+    return map;
+  }, {});
 };
 
 const collectAllowedUnits = (catalogProduct?: CatalogProduct, existingProduct?: Product): Set<string> => {
@@ -229,9 +234,12 @@ const collectAllowedUnits = (catalogProduct?: CatalogProduct, existingProduct?: 
   return units;
 };
 
-const collectUnitsWithPrices = (product: Product): string[] => {
+const collectUnitsWithPrices = (product: Product, allowedColumnIds: Set<string>): string[] => {
   const units = new Set<string>();
-  Object.values(product.prices || {}).forEach(unitPrices => {
+  Object.entries(product.prices || {}).forEach(([columnId, unitPrices]) => {
+    if (!allowedColumnIds.has(columnId)) {
+      return;
+    }
     Object.keys(unitPrices || {}).forEach(code => units.add(code));
   });
   return Array.from(units);
@@ -274,15 +282,16 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ summary: BulkPriceImportResult; completedAt: Date } | null>(null);
 
-  const priceColumns = useMemo(() => {
-    return TEMPLATE_PRICE_COLUMNS.map(config => {
-      const column = columns.find(col => col.id === config.columnId);
-      return {
-        ...config,
-        label: column ? getColumnDisplayName(column) : config.header
-      };
-    });
-  }, [columns]);
+  const tableColumns = useMemo(() => buildTableColumnConfigs(columns), [columns]);
+  const expectedHeaders = useMemo(() => buildExpectedHeaders(tableColumns), [tableColumns]);
+  const tableColumnSignature = useMemo(() => tableColumns.map(column => `${column.columnId}:${column.header}`).join('|'), [tableColumns]);
+
+  useEffect(() => {
+    setRows([]);
+    setParseError(null);
+    setSelectedFileName(null);
+    setLastResult(null);
+  }, [tableColumnSignature]);
 
   const productLookup = useMemo(() => new Map(products.map(product => [product.sku, product] as const)), [products]);
   const catalogLookup = useMemo(() => new Map(catalogProducts.map(product => [product.codigo, product] as const)), [catalogProducts]);
@@ -295,16 +304,31 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   };
 
   const handleDownloadTemplate = () => {
-    window.open(TEMPLATE_PATH, '_blank');
+    if (tableColumns.length === 0) {
+      setParseError('Activa al menos una columna visible en la tabla para generar una plantilla.');
+      return;
+    }
+
+    const worksheet = XLSX.utils.aoa_to_sheet([expectedHeaders]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, TEMPLATE_TITLE);
+    const timestamp = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(workbook, `Plantilla_ImportacionPrecios_${timestamp}.xlsx`);
   };
 
   const handleExportPrices = () => {
+    if (tableColumns.length === 0) {
+      setParseError('Activa al menos una columna visible en la tabla para exportar.');
+      return;
+    }
+
     setParseError(null);
-    const aoa: (string | number)[][] = [TEMPLATE_HEADERS.slice() as string[]];
+    const allowedColumnIds = new Set(tableColumns.map(column => column.columnId));
+    const aoa: (string | number)[][] = [expectedHeaders];
     let exportedRows = 0;
 
     products.forEach(product => {
-      const unitCodes = collectUnitsWithPrices(product);
+      const unitCodes = collectUnitsWithPrices(product, allowedColumnIds);
       if (unitCodes.length === 0) {
         return;
       }
@@ -324,13 +348,13 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
 
       orderedUnits.forEach(unitCode => {
         const row: Record<string, string | number> = {
-          SKU: product.sku,
-          UNIDAD: unitCode
+          [SKU_HEADER]: product.sku,
+          [UNIT_HEADER]: unitCode
         };
 
         let validityIso: string | null = null;
 
-        priceColumns.forEach(({ columnId, header }) => {
+        tableColumns.forEach(({ columnId, header }) => {
           const price = product.prices[columnId]?.[unitCode];
           if (price && price.type === 'fixed') {
             row[header] = price.value;
@@ -342,27 +366,33 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
           }
         });
 
-        row.VIGENCIA = validityIso ? formatDateLabel(validityIso) : '';
-
-        const orderedRow = TEMPLATE_HEADERS.map(header => row[header] ?? '');
+        row[VALIDITY_HEADER] = validityIso ? formatDateLabel(validityIso) : '';
+        const orderedRow = expectedHeaders.map(header => row[header] ?? '');
         aoa.push(orderedRow);
         exportedRows += 1;
       });
     });
 
     if (exportedRows === 0) {
-      setParseError('No hay precios registrados para exportar.');
+      setParseError('No hay precios registrados para las columnas visibles.');
       return;
     }
 
     const worksheet = XLSX.utils.aoa_to_sheet(aoa);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Precios');
+    XLSX.utils.book_append_sheet(workbook, worksheet, EXPORT_TITLE);
     const today = new Date().toISOString().split('T')[0];
     XLSX.writeFile(workbook, `Exportacion_Precios_${today}.xlsx`);
   };
 
   const parseFile = useCallback(async (file: File) => {
+    if (tableColumns.length === 0) {
+      setParseError('Activa al menos una columna visible antes de importar.');
+      setRows([]);
+      setSelectedFileName(null);
+      return;
+    }
+
     setIsParsing(true);
     setParseError(null);
     setLastResult(null);
@@ -373,17 +403,16 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as unknown[][];
-
       if (rawRows.length < 2) {
         throw new Error('La plantilla no contiene filas con datos.');
       }
 
       const headerRow = rawRows[0];
-      if (!headersMatchTemplate(headerRow)) {
-        throw new Error('La estructura del archivo no coincide con la plantilla oficial. Descarga una nueva copia y vuelve a intentar.');
+      if (!headersMatchTemplate(headerRow, expectedHeaders)) {
+        throw new Error('La estructura del archivo no coincide con las columnas visibles. Descarga una nueva plantilla desde esta pantalla.');
       }
 
-      const headerIndex = buildHeaderIndexMap();
+      const headerIndex = buildHeaderIndexMap(expectedHeaders);
       const nextRows: ParsedImportRow[] = [];
 
       rawRows.slice(1).forEach((rawRow, index) => {
@@ -396,20 +425,18 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
 
         const errors: string[] = [];
         const warnings: string[] = [];
-        const sku = String(normalizedValues[headerIndex.SKU] ?? '').trim().toUpperCase();
-
+        const sku = String(normalizedValues[headerIndex[SKU_HEADER]] ?? '').trim().toUpperCase();
         if (!sku) {
           errors.push('El SKU es obligatorio.');
         }
 
         const catalogProduct = catalogLookup.get(sku);
         const existingProduct = productLookup.get(sku);
-
         if (!catalogProduct && !existingProduct) {
           errors.push('El SKU no existe en el catálogo ni tiene precios registrados.');
         }
 
-        const unitCell = String(normalizedValues[headerIndex.UNIDAD] ?? '').trim().toUpperCase();
+        const unitCell = String(normalizedValues[headerIndex[UNIT_HEADER]] ?? '').trim().toUpperCase();
         const allowedUnits = collectAllowedUnits(catalogProduct, existingProduct);
         const fallbackUnit = unitCell || catalogProduct?.unidad?.toUpperCase() || existingProduct?.activeUnitCode?.toUpperCase() || DEFAULT_UNIT_CODE;
         const unitCode = fallbackUnit;
@@ -423,7 +450,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
         }
 
         const priceValues: Record<string, number | null> = {};
-        TEMPLATE_PRICE_COLUMNS.forEach(({ header, columnId }) => {
+        tableColumns.forEach(({ header, columnId }) => {
           const parsedValue = parseNumberCell(normalizedValues[headerIndex[header]]);
           const existingPrice = getExistingFixedPrice(existingProduct, columnId, unitCode);
           const hasExistingValue = Boolean(existingPrice);
@@ -449,9 +476,8 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
         }
 
         const { validFrom, validUntil: defaultValidUntil } = getDefaultValidity();
-        const parsedValidity = parseDateCell(normalizedValues[headerIndex.VIGENCIA]);
+        const parsedValidity = parseDateCell(normalizedValues[headerIndex[VALIDITY_HEADER]]);
         const validUntil = parsedValidity ?? defaultValidUntil;
-
         const fromDate = new Date(`${validFrom}T00:00:00`);
         const untilDate = new Date(`${validUntil}T00:00:00`);
         if (!Number.isNaN(fromDate.getTime()) && !Number.isNaN(untilDate.getTime()) && untilDate <= fromDate) {
@@ -483,7 +509,6 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
         }
 
         const status: ImportRowStatus = errors.length > 0 ? 'error' : 'ready';
-
         nextRows.push({
           id: `${sku}-${rowNumber}`,
           rowNumber,
@@ -512,7 +537,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     } finally {
       setIsParsing(false);
     }
-  }, [catalogLookup, productLookup]);
+  }, [catalogLookup, expectedHeaders, productLookup, tableColumns]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -564,7 +589,9 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
             <FileSpreadsheet className="w-10 h-10 text-blue-600" />
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Importar precios desde Excel</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Descarga la plantilla oficial, completa los precios y súbela nuevamente para actualizar la lista.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Descarga la plantilla con las columnas visibles en "Precios por producto", completa los valores y súbela nuevamente para actualizar la lista.
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -588,8 +615,9 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
           <div className="text-sm text-gray-600 dark:text-gray-400">
             <p className="font-semibold mb-1">Recomendaciones:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>No reordenes ni agregues columnas a la plantilla.</li>
+              <li>Descarga una nueva plantilla cuando cambies las columnas visibles.</li>
               <li>Usa una fila por cada SKU y unidad de medida.</li>
+              <li>No reordenes ni agregues columnas adicionales.</li>
               <li>La columna VIGENCIA acepta formatos dd/mm/aaaa o números de Excel.</li>
               <li>El PRECIO MÍNIMO debe ser menor o igual al PRECIO BASE.</li>
             </ul>
@@ -680,9 +708,9 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
                 <th className="px-3 py-2 text-left font-medium text-gray-500">Fila</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-500">SKU</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-500">Unidad</th>
-                {priceColumns.map(column => (
+                {tableColumns.map(column => (
                   <th key={column.columnId} className="px-3 py-2 text-left font-medium text-gray-500">
-                    {column.label}
+                    {column.header}
                   </th>
                 ))}
                 <th className="px-3 py-2 text-left font-medium text-gray-500">Vigencia</th>
@@ -692,7 +720,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={priceColumns.length + 5} className="px-3 py-6 text-center text-gray-500">
+                  <td colSpan={tableColumns.length + 5} className="px-3 py-6 text-center text-gray-500">
                     Carga un archivo XLSX para comenzar.
                   </td>
                 </tr>
@@ -702,7 +730,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
                   <td className="px-3 py-2 text-gray-500">{row.rowNumber}</td>
                   <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">{row.sku}</td>
                   <td className="px-3 py-2 text-gray-700 dark:text-gray-200">{row.unitCode}</td>
-                  {priceColumns.map(column => {
+                  {tableColumns.map(column => {
                     const cellPrice = row.prices[column.columnId];
                     return (
                       <td key={`${row.id}-${column.columnId}`} className="px-3 py-2 text-gray-700 dark:text-gray-200">
