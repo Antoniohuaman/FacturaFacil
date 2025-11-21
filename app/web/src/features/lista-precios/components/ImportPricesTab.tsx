@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Upload, Download, Info, AlertTriangle, CheckCircle2, FileSpreadsheet, RefreshCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import type { Column, Product, CatalogProduct } from '../models/PriceTypes';
+import type { Column, Product, CatalogProduct, FixedPrice } from '../models/PriceTypes';
 import type { BulkPriceImportEntry, BulkPriceImportResult } from '../models/PriceImportTypes';
 import {
   BASE_COLUMN_ID,
@@ -47,7 +47,7 @@ type ParsedImportRow = {
   rowNumber: number;
   sku: string;
   unitCode: string;
-  prices: Record<string, number>;
+  prices: Record<string, number | null>;
   validFrom: string;
   validUntil: string;
   errors: string[];
@@ -100,6 +100,37 @@ const parseNumberCell = (value: unknown): number | null => {
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 };
+const pad2 = (value: number): string => value.toString().padStart(2, '0');
+
+const buildIsoDate = (year: number, month: number, day: number): string | null => {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) {
+    return null;
+  }
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+};
+
+const parseExcelSerialDate = (value: number): string | null => {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  const excelEpoch = Date.UTC(1899, 11, 30);
+  const milliseconds = excelEpoch + value * 86400000;
+  const date = new Date(milliseconds);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
+};
 
 const parseDateCell = (value: unknown): string | null => {
   if (value === null || value === undefined || value === '') {
@@ -110,24 +141,11 @@ const parseDateCell = (value: unknown): string | null => {
     if (Number.isNaN(value.getTime())) {
       return null;
     }
-    return value.toISOString().split('T')[0];
+    return `${value.getUTCFullYear()}-${pad2(value.getUTCMonth() + 1)}-${pad2(value.getUTCDate())}`;
   }
 
   if (typeof value === 'number') {
-    if (typeof XLSX.SSF?.parse_date_code === 'function') {
-      const parsed = XLSX.SSF.parse_date_code(value);
-      if (parsed) {
-        const date = new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
-        return date.toISOString().split('T')[0];
-      }
-    }
-
-    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-    const date = new Date(excelEpoch.getTime() + value * 86400000);
-    if (Number.isNaN(date.getTime())) {
-      return null;
-    }
-    return date.toISOString().split('T')[0];
+    return parseExcelSerialDate(value);
   }
 
   const normalized = String(value).trim();
@@ -135,38 +153,39 @@ const parseDateCell = (value: unknown): string | null => {
     return null;
   }
 
+  const isoMatch = normalized.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    return buildIsoDate(year, month, day);
+  }
+
   const slashMatch = normalized.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (slashMatch) {
     const day = Number(slashMatch[1]);
-    const month = Number(slashMatch[2]) - 1;
+    const month = Number(slashMatch[2]);
     let year = Number(slashMatch[3]);
     if (year < 100) {
       year += 2000;
     }
-    const date = new Date(Date.UTC(year, month, day));
-    if (Number.isNaN(date.getTime())) {
-      return null;
-    }
-    return date.toISOString().split('T')[0];
+    return buildIsoDate(year, month, day);
   }
 
   const parsed = new Date(normalized);
   if (Number.isNaN(parsed.getTime())) {
     return null;
   }
-  return parsed.toISOString().split('T')[0];
+  return `${parsed.getUTCFullYear()}-${pad2(parsed.getUTCMonth() + 1)}-${pad2(parsed.getUTCDate())}`;
 };
 
 const formatDateLabel = (value: string): string => {
   if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) {
     return value;
   }
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const year = date.getUTCFullYear();
-  return `${day}/${month}/${year}`;
+  return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
 };
 
 const getDefaultValidity = () => {
@@ -210,6 +229,37 @@ const collectAllowedUnits = (catalogProduct?: CatalogProduct, existingProduct?: 
   return units;
 };
 
+const collectUnitsWithPrices = (product: Product): string[] => {
+  const units = new Set<string>();
+  Object.values(product.prices || {}).forEach(unitPrices => {
+    Object.keys(unitPrices || {}).forEach(code => units.add(code));
+  });
+  return Array.from(units);
+};
+
+const getExistingFixedPrice = (product: Product | undefined, columnId: string, unitCode: string): FixedPrice | undefined => {
+  if (!product || !unitCode) {
+    return undefined;
+  }
+  const columnPrices = product.prices[columnId];
+  if (!columnPrices) {
+    return undefined;
+  }
+
+  const direct = columnPrices[unitCode];
+  if (direct && direct.type === 'fixed') {
+    return direct;
+  }
+
+  const normalized = unitCode.toUpperCase();
+  const fallbackEntry = Object.entries(columnPrices).find(([code]) => code.toUpperCase() === normalized);
+  const fallbackPrice = fallbackEntry?.[1];
+  if (fallbackPrice && fallbackPrice.type === 'fixed') {
+    return fallbackPrice;
+  }
+  return undefined;
+};
+
 export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   columns,
   products,
@@ -249,39 +299,61 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   };
 
   const handleExportPrices = () => {
-    if (products.length === 0) {
+    setParseError(null);
+    const aoa: (string | number)[][] = [TEMPLATE_HEADERS.slice() as string[]];
+    let exportedRows = 0;
+
+    products.forEach(product => {
+      const unitCodes = collectUnitsWithPrices(product);
+      if (unitCodes.length === 0) {
+        return;
+      }
+
+      const catalogUnit = catalogLookup.get(product.sku)?.unidad;
+      const orderedUnits = [...unitCodes].sort((a, b) => {
+        if (catalogUnit) {
+          if (a === catalogUnit && b !== catalogUnit) return -1;
+          if (b === catalogUnit && a !== catalogUnit) return 1;
+        }
+        if (product.activeUnitCode) {
+          if (a === product.activeUnitCode && b !== product.activeUnitCode) return -1;
+          if (b === product.activeUnitCode && a !== product.activeUnitCode) return 1;
+        }
+        return a.localeCompare(b);
+      });
+
+      orderedUnits.forEach(unitCode => {
+        const row: Record<string, string | number> = {
+          SKU: product.sku,
+          UNIDAD: unitCode
+        };
+
+        let validityIso: string | null = null;
+
+        priceColumns.forEach(({ columnId, header }) => {
+          const price = product.prices[columnId]?.[unitCode];
+          if (price && price.type === 'fixed') {
+            row[header] = price.value;
+            if (!validityIso && price.validUntil) {
+              validityIso = price.validUntil;
+            }
+          } else {
+            row[header] = '';
+          }
+        });
+
+        row.VIGENCIA = validityIso ? formatDateLabel(validityIso) : '';
+
+        const orderedRow = TEMPLATE_HEADERS.map(header => row[header] ?? '');
+        aoa.push(orderedRow);
+        exportedRows += 1;
+      });
+    });
+
+    if (exportedRows === 0) {
       setParseError('No hay precios registrados para exportar.');
       return;
     }
-
-    const aoa: (string | number)[][] = [TEMPLATE_HEADERS.slice() as string[]];
-
-    products.forEach(product => {
-      const unitCode = product.activeUnitCode || catalogLookup.get(product.sku)?.unidad || DEFAULT_UNIT_CODE;
-      const row: Record<string, string | number> = {
-        SKU: product.sku,
-        UNIDAD: unitCode
-      };
-
-      let validity = '';
-
-      priceColumns.forEach(({ columnId, header }) => {
-        const price = product.prices[columnId]?.[unitCode];
-        if (price && price.type === 'fixed') {
-          row[header] = price.value;
-          if (!validity && price.validUntil) {
-            validity = formatDateLabel(price.validUntil);
-          }
-        } else {
-          row[header] = '';
-        }
-      });
-
-      row.VIGENCIA = validity;
-
-      const orderedRow = TEMPLATE_HEADERS.map(header => row[header] ?? '');
-      aoa.push(orderedRow);
-    });
 
     const worksheet = XLSX.utils.aoa_to_sheet(aoa);
     const workbook = XLSX.utils.book_new();
@@ -350,36 +422,64 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
           warnings.push(`Se usó la unidad ${unitCode} por defecto.`);
         }
 
-        const priceValues: Record<string, number> = {};
+        const priceValues: Record<string, number | null> = {};
         TEMPLATE_PRICE_COLUMNS.forEach(({ header, columnId }) => {
-          const value = parseNumberCell(normalizedValues[headerIndex[header]]);
-          if (value !== null) {
-            priceValues[columnId] = value;
+          const parsedValue = parseNumberCell(normalizedValues[headerIndex[header]]);
+          const existingPrice = getExistingFixedPrice(existingProduct, columnId, unitCode);
+          const hasExistingValue = Boolean(existingPrice);
+
+          if (parsedValue === null || parsedValue === undefined) {
+            if (hasExistingValue) {
+              priceValues[columnId] = null;
+            }
+            return;
           }
+
+          if (parsedValue < 0) {
+            errors.push(`El valor de ${header} debe ser mayor o igual a 0.`);
+            return;
+          }
+
+          priceValues[columnId] = parsedValue;
         });
 
-        if (priceValues[BASE_COLUMN_ID] === undefined) {
-          errors.push('Debes completar el PRECIO BASE.');
-        }
-
-        if (
-          priceValues[BASE_COLUMN_ID] !== undefined &&
-          priceValues[MIN_ALLOWED_COLUMN_ID] !== undefined &&
-          priceValues[MIN_ALLOWED_COLUMN_ID] > priceValues[BASE_COLUMN_ID]
-        ) {
-          errors.push('El PRECIO MÍNIMO no puede ser mayor que el PRECIO BASE.');
-        }
-
-        if (Object.keys(priceValues).length === 0) {
-          errors.push('Agrega al menos un precio para importar.');
+        const hasChanges = Object.keys(priceValues).length > 0;
+        if (!hasChanges) {
+          errors.push('No se detectaron cambios para esta fila.');
         }
 
         const { validFrom, validUntil: defaultValidUntil } = getDefaultValidity();
         const parsedValidity = parseDateCell(normalizedValues[headerIndex.VIGENCIA]);
         const validUntil = parsedValidity ?? defaultValidUntil;
 
-        if (new Date(validUntil) <= new Date(validFrom)) {
+        const fromDate = new Date(`${validFrom}T00:00:00`);
+        const untilDate = new Date(`${validUntil}T00:00:00`);
+        if (!Number.isNaN(fromDate.getTime()) && !Number.isNaN(untilDate.getTime()) && untilDate <= fromDate) {
           errors.push('La fecha de vigencia debe ser posterior a la fecha actual.');
+        }
+
+        const existingBasePrice = getExistingFixedPrice(existingProduct, BASE_COLUMN_ID, unitCode);
+        const referenceBaseValue = (() => {
+          const nextBaseValue = priceValues[BASE_COLUMN_ID];
+          if (nextBaseValue === null) {
+            return null;
+          }
+          if (typeof nextBaseValue === 'number') {
+            return nextBaseValue;
+          }
+          if (existingBasePrice && existingBasePrice.type === 'fixed') {
+            return existingBasePrice.value;
+          }
+          return null;
+        })();
+
+        const nextMinValue = priceValues[MIN_ALLOWED_COLUMN_ID];
+        if (
+          referenceBaseValue !== null &&
+          typeof nextMinValue === 'number' &&
+          nextMinValue > referenceBaseValue
+        ) {
+          errors.push('El PRECIO MÍNIMO no puede ser mayor que el PRECIO BASE.');
         }
 
         const status: ImportRowStatus = errors.length > 0 ? 'error' : 'ready';
@@ -602,11 +702,17 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
                   <td className="px-3 py-2 text-gray-500">{row.rowNumber}</td>
                   <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">{row.sku}</td>
                   <td className="px-3 py-2 text-gray-700 dark:text-gray-200">{row.unitCode}</td>
-                  {priceColumns.map(column => (
-                    <td key={`${row.id}-${column.columnId}`} className="px-3 py-2 text-gray-700 dark:text-gray-200">
-                      {row.prices[column.columnId] !== undefined ? row.prices[column.columnId].toFixed(2) : ''}
-                    </td>
-                  ))}
+                  {priceColumns.map(column => {
+                    const cellPrice = row.prices[column.columnId];
+                    return (
+                      <td key={`${row.id}-${column.columnId}`} className="px-3 py-2 text-gray-700 dark:text-gray-200">
+                        {cellPrice === null && (
+                          <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">Eliminar</span>
+                        )}
+                        {typeof cellPrice === 'number' && cellPrice.toFixed(2)}
+                      </td>
+                    );
+                  })}
                   <td className="px-3 py-2 text-gray-700 dark:text-gray-200">{formatDateLabel(row.validUntil)}</td>
                   <td className="px-3 py-2">
                     {row.status === 'ready' && (

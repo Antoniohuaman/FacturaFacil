@@ -538,7 +538,15 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
               columnId: getCanonicalColumnId(price.columnId),
               value: price.value
             }))
-            .filter(price => validColumnIds.has(price.columnId) && Number.isFinite(price.value) && price.value > 0);
+            .filter(price => {
+              if (!validColumnIds.has(price.columnId)) {
+                return false;
+              }
+              if (price.value === null) {
+                return true;
+              }
+              return typeof price.value === 'number' && Number.isFinite(price.value) && price.value >= 0;
+            });
 
           if (sanitizedPrices.length === 0) {
             return;
@@ -576,13 +584,35 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
           let appliedForRow = 0;
 
           sanitizedPrices.forEach(price => {
+            const existingColumnPrices = targetProduct.prices[price.columnId];
             const columnPrices = {
-              ...(targetProduct.prices[price.columnId] || {})
+              ...(existingColumnPrices || {})
             };
+
+            if (price.value === null) {
+              if (!columnPrices[resolvedUnitCode]) {
+                return;
+              }
+              delete columnPrices[resolvedUnitCode];
+              if (Object.keys(columnPrices).length === 0) {
+                delete targetProduct.prices[price.columnId];
+              } else {
+                targetProduct.prices[price.columnId] = columnPrices;
+              }
+              appliedForRow += 1;
+              return;
+            }
+
+            const roundedValue = Math.round((price.value + Number.EPSILON) * 100) / 100;
+            const existingPrice = columnPrices[resolvedUnitCode];
+            if (existingPrice && existingPrice.type === 'fixed' && existingPrice.value === roundedValue && existingPrice.validUntil === entry.validUntil && existingPrice.validFrom === entry.validFrom) {
+              targetProduct.prices[price.columnId] = columnPrices;
+              return;
+            }
 
             columnPrices[resolvedUnitCode] = {
               type: 'fixed',
-              value: Math.round((price.value + Number.EPSILON) * 100) / 100,
+              value: roundedValue,
               validFrom: entry.validFrom,
               validUntil: entry.validUntil
             } as FixedPrice;

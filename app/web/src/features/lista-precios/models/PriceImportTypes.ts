@@ -2,7 +2,7 @@ import type { FixedPrice } from './PriceTypes';
 
 export interface ImportedFixedPriceValue {
   columnId: string;
-  value: number;
+  value: number | null;
 }
 
 export interface BulkPriceImportEntry {
@@ -26,7 +26,7 @@ export type ImportedPriceRecord = {
   sku: string;
   unitCode: string;
   templateRow: number;
-  values: Partial<Record<string, number>>;
+  values: Partial<Record<string, number | null>>;
   validityLabel: string;
   priceObjects: Record<string, FixedPrice>;
 };
