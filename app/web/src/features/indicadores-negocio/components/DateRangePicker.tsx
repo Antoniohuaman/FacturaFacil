@@ -1,12 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-
-export interface DateRange {
-  startDate: Date;
-  endDate: Date;
-  label: string;
-}
+import type { DateRange } from '../models/dateRange';
+import { createCurrentMonthRange } from '../models/dateRange';
 
 interface DateRangePickerProps {
   value?: DateRange;
@@ -14,24 +9,55 @@ interface DateRangePickerProps {
   className?: string;
 }
 
-const DateRangePicker: React.FC<DateRangePickerProps> = ({ 
-  value, 
-  onChange, 
-  className = '' 
+type Preset = {
+  label: string;
+  getValue: () => DateRange;
+};
+
+const normalizeToLocalNoon = (date: Date) => {
+  const normalized = new Date(date); // clone to avoid mutating callers
+  normalized.setHours(12, 0, 0, 0);
+  return normalized;
+};
+
+const normalizeRange = (range: DateRange): DateRange => ({
+  startDate: normalizeToLocalNoon(range.startDate),
+  endDate: normalizeToLocalNoon(range.endDate),
+  label: range.label,
+});
+
+const getMonthStart = (date: Date) => {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1);
+  start.setHours(12, 0, 0, 0);
+  return start;
+};
+
+const DateRangePicker: React.FC<DateRangePickerProps> = ({
+  value,
+  onChange,
+  className = ''
 }) => {
+  const valueStartTime = value?.startDate ? value.startDate.getTime() : null;
+  const valueEndTime = value?.endDate ? value.endDate.getTime() : null;
+
+  const initialRangeRef = useRef<DateRange>(
+    value?.startDate && value?.endDate ? normalizeRange(value) : createCurrentMonthRange()
+  );
+
   const [isOpen, setIsOpen] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedStart, setSelectedStart] = useState<Date | null>(value?.startDate || null);
-  const [selectedEnd, setSelectedEnd] = useState<Date | null>(value?.endDate || null);
+  const [currentMonth, setCurrentMonth] = useState(getMonthStart(initialRangeRef.current.startDate));
+  const [draftStart, setDraftStart] = useState<Date | null>(initialRangeRef.current.startDate);
+  const [draftEnd, setDraftEnd] = useState<Date | null>(initialRangeRef.current.endDate);
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Presets rápidos
-  const presets = [
+  const presets: Preset[] = [
     {
       label: 'Hoy',
       getValue: () => {
         const today = new Date();
+        today.setHours(12, 0, 0, 0);
         return { startDate: today, endDate: today, label: 'Hoy' };
       }
     },
@@ -41,17 +67,14 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
         const end = new Date();
         const start = new Date();
         start.setDate(start.getDate() - 6);
+        start.setHours(12, 0, 0, 0);
+        end.setHours(12, 0, 0, 0);
         return { startDate: start, endDate: end, label: 'Últimos 7 días' };
       }
     },
     {
       label: 'Este mes',
-      getValue: () => {
-        const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth(), 1);
-        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        return { startDate: start, endDate: end, label: 'Este mes' };
-      }
+      getValue: createCurrentMonthRange
     },
     {
       label: 'Últimos 30 días',
@@ -59,6 +82,8 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
         const end = new Date();
         const start = new Date();
         start.setDate(start.getDate() - 29);
+        start.setHours(12, 0, 0, 0);
+        end.setHours(12, 0, 0, 0);
         return { startDate: start, endDate: end, label: 'Últimos 30 días' };
       }
     },
@@ -68,6 +93,8 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
         const now = new Date();
         const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const end = new Date(now.getFullYear(), now.getMonth(), 0);
+        start.setHours(12, 0, 0, 0);
+        end.setHours(12, 0, 0, 0);
         return { startDate: start, endDate: end, label: 'Mes anterior' };
       }
     }
@@ -83,12 +110,15 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   };
 
   // Formatear rango para el display
+  const effectiveStart = value?.startDate ?? draftStart;
+  const effectiveEnd = value?.endDate ?? draftEnd;
+
   const formatRange = () => {
-    if (!selectedStart || !selectedEnd) return 'Seleccionar período';
-    if (selectedStart.toDateString() === selectedEnd.toDateString()) {
-      return formatDate(selectedStart);
+    if (!effectiveStart || !effectiveEnd) return 'Seleccionar período';
+    if (effectiveStart.toDateString() === effectiveEnd.toDateString()) {
+      return formatDate(effectiveStart);
     }
-    return `${formatDate(selectedStart)} – ${formatDate(selectedEnd)}`;
+    return `${formatDate(effectiveStart)} – ${formatDate(effectiveEnd)}`;
   };
 
   // Generar días del calendario
@@ -96,6 +126,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
     const year = date.getFullYear();
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1);
+    firstDay.setHours(12, 0, 0, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
     
@@ -112,63 +143,68 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
   // Verificar si una fecha está en el rango seleccionado o hover
   const isInRange = (date: Date) => {
-    if (!selectedStart) return false;
+    if (!draftStart) return false;
     
-    const end = selectedEnd || hoverDate;
+    const end = draftEnd || hoverDate;
     if (!end) return false;
     
-    const start = selectedStart < end ? selectedStart : end;
-    const finish = selectedStart < end ? end : selectedStart;
+    const start = draftStart < end ? draftStart : end;
+    const finish = draftStart < end ? end : draftStart;
     
     return date >= start && date <= finish;
   };
 
   // Verificar si es fecha de inicio o fin
   const isRangeStart = (date: Date) => {
-    if (!selectedStart) return false;
-    return date.toDateString() === selectedStart.toDateString();
+    if (!draftStart) return false;
+    return date.toDateString() === draftStart.toDateString();
   };
 
   const isRangeEnd = (date: Date) => {
-    if (!selectedEnd) return false;
-    return date.toDateString() === selectedEnd.toDateString();
+    if (!draftEnd) return false;
+    return date.toDateString() === draftEnd.toDateString();
   };
 
   // Manejar clic en fecha
   const handleDateClick = (date: Date) => {
-    if (!selectedStart || selectedEnd) {
-      setSelectedStart(date);
-      setSelectedEnd(null);
-    } else {
-      if (date < selectedStart) {
-        setSelectedEnd(selectedStart);
-        setSelectedStart(date);
-      } else {
-        setSelectedEnd(date);
-      }
+    const normalizedDate = normalizeToLocalNoon(date);
+    if (!draftStart || draftEnd) {
+      setDraftStart(normalizedDate);
+      setDraftEnd(null);
+      return;
     }
+
+    if (normalizedDate < draftStart) {
+      setDraftEnd(draftStart);
+      setDraftStart(normalizedDate);
+      return;
+    }
+
+    setDraftEnd(normalizedDate);
   };
 
   // Aplicar selección
   const applySelection = () => {
-    if (selectedStart && selectedEnd) {
+    if (draftStart && draftEnd) {
       const range: DateRange = {
-        startDate: selectedStart,
-        endDate: selectedEnd,
+        startDate: draftStart,
+        endDate: draftEnd,
         label: 'Personalizado'
       };
-      onChange(range);
+      onChange(normalizeRange(range));
       setIsOpen(false);
+      setHoverDate(null);
     }
   };
 
   // Manejar preset
-  const handlePreset = (preset: any) => {
-    const range = preset.getValue();
-    setSelectedStart(range.startDate);
-    setSelectedEnd(range.endDate);
+  const handlePreset = (preset: Preset) => {
+    const range = normalizeRange(preset.getValue());
+    setDraftStart(range.startDate);
+    setDraftEnd(range.endDate);
     onChange(range);
     setIsOpen(false);
+    setHoverDate(null);
   };
 
   // Cerrar al hacer clic fuera
@@ -183,13 +219,33 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (value?.startDate && value?.endDate) {
+      setDraftStart(normalizeToLocalNoon(value.startDate));
+      setDraftEnd(normalizeToLocalNoon(value.endDate));
+      setCurrentMonth(getMonthStart(value.startDate));
+    }
+  }, [value, valueEndTime, valueStartTime]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setHoverDate(null);
+      return;
+    }
+
+    if (value?.startDate && value?.endDate) {
+      setDraftStart(normalizeToLocalNoon(value.startDate));
+      setDraftEnd(normalizeToLocalNoon(value.endDate));
+    }
+  }, [isOpen, value, valueEndTime, valueStartTime]);
+
   const monthNames = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
   const currentMonthDays = generateCalendarDays(currentMonth);
-  const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+  const nextMonth = getMonthStart(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   const nextMonthDays = generateCalendarDays(nextMonth);
 
   return (
@@ -235,7 +291,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-4">
                     <button
-                      onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
+                      onClick={() => setCurrentMonth(getMonthStart(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)))}
                       className="p-1 hover:bg-slate-100 rounded transition-colors"
                     >
                       <ChevronLeft className="w-4 h-4 text-slate-600" />
@@ -265,7 +321,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
                         <button
                           key={index}
                           onClick={() => isCurrentMonth && handleDateClick(date)}
-                          onMouseEnter={() => setHoverDate(date)}
+                          onMouseEnter={() => setHoverDate(normalizeToLocalNoon(date))}
                           className={`
                             w-8 h-8 text-sm rounded-md transition-colors
                             ${!isCurrentMonth ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100'}
@@ -290,7 +346,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
                       {monthNames[nextMonth.getMonth()]} {nextMonth.getFullYear()}
                     </h3>
                     <button
-                      onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
+                      onClick={() => setCurrentMonth(getMonthStart(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)))}
                       className="p-1 hover:bg-slate-100 rounded transition-colors"
                     >
                       <ChevronRight className="w-4 h-4 text-slate-600" />
@@ -316,7 +372,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
                         <button
                           key={index}
                           onClick={() => isCurrentMonth && handleDateClick(date)}
-                          onMouseEnter={() => setHoverDate(date)}
+                          onMouseEnter={() => setHoverDate(normalizeToLocalNoon(date))}
                           className={`
                             w-8 h-8 text-sm rounded-md transition-colors
                             ${!isCurrentMonth ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100'}
@@ -338,8 +394,8 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
                 <button
                   onClick={() => {
-                    setSelectedStart(null);
-                    setSelectedEnd(null);
+                    setDraftStart(null);
+                    setDraftEnd(null);
                     setIsOpen(false);
                   }}
                   className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors"
@@ -355,7 +411,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   </button>
                   <button
                     onClick={applySelection}
-                    disabled={!selectedStart || !selectedEnd}
+                    disabled={!draftStart || !draftEnd}
                     className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Aplicar
@@ -371,3 +427,4 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
 };
 
 export default DateRangePicker;
+export type { DateRange } from '../models/dateRange';

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Filter, Plus } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import type { DateRange } from './DateRangePicker';
+import type { DateRange } from '../models/dateRange';
+import { createCurrentMonthRange } from '../models/dateRange';
 
 interface PageHeaderProps {
   title: string;
@@ -33,13 +34,9 @@ export default function Toolbar({
 }: ToolbarProps) {
   const { state: configState } = useConfigurationContext();
   const [selectedEstablishment, setSelectedEstablishment] = useState('Todos');
-  const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(() => {
-    // Inicializar con "Este mes"
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return { startDate: start, endDate: end, label: 'Este mes' };
-  });
+  const initialRangeRef = useRef<DateRange>(createCurrentMonthRange());
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(initialRangeRef.current);
+  const hasNotifiedInitialRange = useRef(false);
 
   // Obtener establecimientos activos desde la configuración
   const establishments = configState.establishments.filter(e => e.isActive);
@@ -57,6 +54,13 @@ export default function Toolbar({
     setSelectedDateRange(range);
     onDateRangeChange?.(range);
   };
+
+  useEffect(() => {
+    if (!hasNotifiedInitialRange.current) {
+      onDateRangeChange?.(selectedDateRange);
+      hasNotifiedInitialRange.current = true;
+    }
+  }, [onDateRangeChange, selectedDateRange]);
 
   const handleFilter = () => {
     onFilter?.();
