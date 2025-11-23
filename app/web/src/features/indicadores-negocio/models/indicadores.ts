@@ -38,15 +38,55 @@ export interface VentasPorEstablecimientoItem {
   barColorClass: string;
 }
 
+export type TrendDirection = 'up' | 'down';
+
+export interface RankingItem {
+  id: string;
+  name: string;
+  amount: number;
+  info: string;
+  changePercentage: number;
+  trend: TrendDirection;
+}
+
+export interface RankingData {
+  topVendedores: RankingItem[];
+  productosDestacados: RankingItem[];
+  clientesPrincipales: RankingItem[];
+}
+
+export interface CrecimientoComparativoPoint {
+  label: string;
+  ventas: number;
+}
+
+export interface CrecimientoDetalle {
+  description: string;
+  variationPercent: number;
+  comparativo: CrecimientoComparativoPoint[];
+}
+
 export interface IndicadoresData {
   kpis: KpiSummary;
   ventasPorComprobante: VentasPorComprobanteItem[];
   ventasPorEstablecimiento: VentasPorEstablecimientoItem[];
   ventasDiarias: VentaDiaria[];
   totalVentasPeriodo: number;
+  ranking: RankingData;
+  crecimientoDetalle: CrecimientoDetalle;
 }
 
 export interface IndicadoresFilters {
   dateRange: DateRange;
   establishmentId: string;
 }
+
+// Strong aliases for API consumers
+export type KPIRanking = RankingItem;
+export type KPIProducto = RankingItem;
+export type KPICliente = RankingItem;
+export type KPIVentasDiarias = VentaDiaria;
+export type KPIVentasPorEstablecimiento = VentasPorEstablecimientoItem;
+export type KPICrecimiento = CrecimientoDetalle;
+
+export type IndicadoresApiResponse = IndicadoresData;

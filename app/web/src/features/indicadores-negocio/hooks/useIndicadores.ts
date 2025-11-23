@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { IndicadoresData, IndicadoresFilters } from '../models/indicadores';
-import { fetchIndicadores } from '../api/indicadores';
+import { fetchIndicadoresFromApi, fetchIndicadoresFromFixtures } from '../api/indicadores';
 
 interface UseIndicadoresResult {
   data: IndicadoresData | null;
@@ -15,13 +15,21 @@ export function useIndicadores(filters: IndicadoresFilters): UseIndicadoresResul
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const response = await fetchIndicadores(filters);
+      const response = await fetchIndicadoresFromApi(filters);
       setData(response);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      return;
+    } catch (apiError) {
+      console.warn('[indicadores-negocio] fallo al consumir la API real, usando fixtures.', apiError);
+      try {
+        const fallbackResponse = await fetchIndicadoresFromFixtures(filters);
+        setData(fallbackResponse);
+        return;
+      } catch (fallbackError) {
+        setError(fallbackError instanceof Error ? fallbackError.message : 'Error desconocido');
+      }
     } finally {
       setLoading(false);
     }

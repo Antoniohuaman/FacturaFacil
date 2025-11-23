@@ -5,24 +5,11 @@ import { useConfigurationContext } from '../../configuracion-sistema/context/Con
 import type { DateRange } from '../models/dateRange';
 import { createCurrentMonthRange } from '../models/dateRange';
 
-interface PageHeaderProps {
-  title: string;
-}
-
 interface ToolbarProps {
   onFilter?: () => void;
   onCreateDocument?: () => void;
   onEstablishmentChange?: (establishment: string) => void;
   onDateRangeChange?: (range: DateRange) => void;
-}
-
-// COMPONENTE DE TÍTULO DE PÁGINA
-export function PageHeader({ title }: PageHeaderProps) {
-  return (
-    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 -mx-10 px-16 py-6">
-      <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight">{title}</h1>
-    </div>
-  );
 }
 
 // COMPONENTE DE TOOLBAR
