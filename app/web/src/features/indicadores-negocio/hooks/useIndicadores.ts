@@ -1,37 +1,37 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { IndicadoresData, IndicadoresFilters } from '../models/indicadores';
-import { fetchIndicadoresFromApi, fetchIndicadoresFromFixtures } from '../api/indicadores';
+import { fetchIndicadores } from '../api/indicadores';
+import { createEmptyIndicadoresData } from '../models/defaults';
+
+type IndicadoresStatus = 'idle' | 'loading' | 'success' | 'error';
+type IndicadoresSource = 'api' | 'fallback' | 'none';
 
 interface UseIndicadoresResult {
-  data: IndicadoresData | null;
-  loading: boolean;
+  data: IndicadoresData;
+  status: IndicadoresStatus;
+  source: IndicadoresSource;
   error: string | null;
-  refetch: () => void;
+  refetch: () => Promise<void>;
 }
 
+const INITIAL_STATE = {
+  data: createEmptyIndicadoresData(),
+  status: 'idle' as IndicadoresStatus,
+  source: 'none' as IndicadoresSource,
+  error: null as string | null
+};
+
 export function useIndicadores(filters: IndicadoresFilters): UseIndicadoresResult {
-  const [data, setData] = useState<IndicadoresData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState(INITIAL_STATE);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setState((prev) => ({ ...prev, status: 'loading', error: null }));
     try {
-      const response = await fetchIndicadoresFromApi(filters);
-      setData(response);
-      return;
-    } catch (apiError) {
-      console.warn('[indicadores-negocio] fallo al consumir la API real, usando fixtures.', apiError);
-      try {
-        const fallbackResponse = await fetchIndicadoresFromFixtures(filters);
-        setData(fallbackResponse);
-        return;
-      } catch (fallbackError) {
-        setError(fallbackError instanceof Error ? fallbackError.message : 'Error desconocido');
-      }
-    } finally {
-      setLoading(false);
+      const result = await fetchIndicadores(filters);
+      setState({ data: result.data, status: 'success', source: result.source, error: null });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      setState((prev) => ({ ...prev, status: 'error', error: message, source: 'none' }));
     }
   }, [filters]);
 
@@ -40,11 +40,10 @@ export function useIndicadores(filters: IndicadoresFilters): UseIndicadoresResul
   }, [loadData]);
 
   return {
-    data,
-    loading,
-    error,
-    refetch: () => {
-      void loadData();
-    }
+    data: state.data,
+    status: state.status,
+    source: state.source,
+    error: state.error,
+    refetch: () => loadData()
   };
 }

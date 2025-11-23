@@ -1,29 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
 import { Filter, Plus } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useIndicadoresFilters } from '../hooks/useIndicadoresFilters';
 import type { DateRange } from '../models/dateRange';
-import { createCurrentMonthRange } from '../models/dateRange';
 
 interface ToolbarProps {
   onFilter?: () => void;
   onCreateDocument?: () => void;
-  onEstablishmentChange?: (establishment: string) => void;
-  onDateRangeChange?: (range: DateRange) => void;
 }
 
 // COMPONENTE DE TOOLBAR
 export default function Toolbar({
   onFilter,
-  onCreateDocument,
-  onEstablishmentChange,
-  onDateRangeChange
+  onCreateDocument
 }: ToolbarProps) {
   const { state: configState } = useConfigurationContext();
-  const [selectedEstablishment, setSelectedEstablishment] = useState('Todos');
-  const initialRangeRef = useRef<DateRange>(createCurrentMonthRange());
-  const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(initialRangeRef.current);
-  const hasNotifiedInitialRange = useRef(false);
+  const {
+    dateRange,
+    establishmentId,
+    setDateRange,
+    setEstablishmentId
+  } = useIndicadoresFilters();
 
   // Obtener establecimientos activos desde la configuración
   const establishments = configState.establishments.filter(e => e.isActive);
@@ -33,21 +30,12 @@ export default function Toolbar({
   ];
 
   const handleEstablishmentChange = (establishment: string) => {
-    setSelectedEstablishment(establishment);
-    onEstablishmentChange?.(establishment);
+    setEstablishmentId(establishment);
   };
 
   const handleDateRangeChange = (range: DateRange) => {
-    setSelectedDateRange(range);
-    onDateRangeChange?.(range);
+    setDateRange(range);
   };
-
-  useEffect(() => {
-    if (!hasNotifiedInitialRange.current) {
-      onDateRangeChange?.(selectedDateRange);
-      hasNotifiedInitialRange.current = true;
-    }
-  }, [onDateRangeChange, selectedDateRange]);
 
   const handleFilter = () => {
     onFilter?.();
@@ -67,7 +55,7 @@ export default function Toolbar({
           <div className="flex items-center space-x-3">
             <label className="text-sm font-medium text-slate-700 dark:text-gray-300 min-w-[50px]">Período:</label>
             <DateRangePicker
-              value={selectedDateRange}
+              value={dateRange}
               onChange={handleDateRangeChange}
             />
           </div>
@@ -76,7 +64,7 @@ export default function Toolbar({
           <div className="flex items-center space-x-3">
             <label className="text-sm font-medium text-slate-700 dark:text-gray-300 min-w-[90px]">Establecimiento:</label>
             <select
-              value={selectedEstablishment}
+              value={establishmentId}
               onChange={(e) => handleEstablishmentChange(e.target.value)}
               className="h-10 px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white min-w-[150px]"
             >
