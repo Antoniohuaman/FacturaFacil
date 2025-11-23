@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Award, ShoppingCart, Users } from "lucide-react";
+import { Award, Settings, ShoppingCart, Users } from "lucide-react";
 import DetalleVentasDiariasModal from "../components/DetalleVentasDiariasModal";
 import DetalleCrecimientoModal from "../components/DetalleCrecimientoModal";
 import Toolbar from "../components/Toolbar";
@@ -9,17 +9,26 @@ import VentasPorComprobanteCard from "../components/VentasPorComprobanteCard";
 import VentasPorEstablecimientoCard from "../components/VentasPorEstablecimientoCard";
 import DetalleVentasDiariasCard from "../components/DetalleVentasDiariasCard";
 import RankingCard from "../components/RankingCard";
+import NotificacionIndicadorModal from "../components/NotificacionIndicadorModal";
 import PageHeader from "../../../components/PageHeader";
 import { useIndicadores } from "../hooks/useIndicadores";
 import { formatRangeLabel } from "../utils/formatters";
 import { useIndicadoresFilters } from "../hooks/useIndicadoresFilters";
+import { useNotificacionesIndicador } from "../hooks/useNotificacionesIndicador";
+import { createEmptyNotificacionPayload } from "../models/notificacionesDefaults";
 import type { IndicadoresFilters } from "../models/indicadores";
+import type { NotificacionIndicadorPayload } from "../models/notificaciones";
+import { useConfigurationContext } from "../../configuracion-sistema/context/ConfigurationContext";
+
+const NOTIFICADOR_GENERAL_ID = "indicadores-general";
 
 const IndicadoresPage: React.FC = () => {
   const navigate = useNavigate();
   const [openDetalleModal, setOpenDetalleModal] = useState(false);
   const [openDetalleCrecimientoModal, setOpenDetalleCrecimientoModal] = useState(false);
+  const [openNotificacionesModal, setOpenNotificacionesModal] = useState(false);
   const { dateRange, establishmentId } = useIndicadoresFilters();
+  const { state: configState } = useConfigurationContext();
 
   const filters = useMemo<IndicadoresFilters>(() => ({
     dateRange,
@@ -27,6 +36,57 @@ const IndicadoresPage: React.FC = () => {
   }), [dateRange, establishmentId]);
 
   const { data, status, error, source } = useIndicadores(filters);
+
+  const normalizedEstablishmentId = establishmentId || "Todos";
+  const notificationsFilters = useMemo(() => ({
+    indicatorId: NOTIFICADOR_GENERAL_ID,
+    establecimientoId: normalizedEstablishmentId !== "Todos" ? normalizedEstablishmentId : undefined
+  }), [normalizedEstablishmentId]);
+
+  const notificationsState = useNotificacionesIndicador(notificationsFilters);
+
+  const establishmentOptions = useMemo(() => {
+    const activos = configState.establishments.filter((est) => est.isActive !== false);
+    return [
+      { value: "Todos", label: "Todos los establecimientos" },
+      ...activos.map((est) => ({ value: est.id, label: `${est.code ?? est.id} - ${est.name}` }))
+    ];
+  }, [configState.establishments]);
+
+  const currencyOptions = useMemo(() => {
+    if (!configState.currencies.length) {
+      return [{ value: "PEN", label: "PEN" }];
+    }
+    return configState.currencies.map((currency) => ({
+      value: currency.code,
+      label: `${currency.code} · ${currency.symbol}`
+    }));
+  }, [configState.currencies]);
+
+  const defaultCurrencyCode = currencyOptions[0]?.value ?? "PEN";
+  const companyId = configState.company?.id ?? "empresa-actual";
+  const companyName = configState.company?.businessName ?? configState.company?.tradeName ?? "Empresa actual";
+
+  const createNotificationPayload = useCallback((): NotificacionIndicadorPayload => {
+    const rest = createEmptyNotificacionPayload();
+    return {
+      ...rest,
+      indicadorId: NOTIFICADOR_GENERAL_ID,
+      segmento: {
+        empresaId: companyId,
+        establecimientoId: normalizedEstablishmentId,
+        moneda: defaultCurrencyCode
+      },
+      vigencia: {
+        fechaInicio: rest.vigencia.fechaInicio,
+        fechaFin: rest.vigencia.fechaFin ?? ''
+      },
+      destinatario: {
+        email: '',
+        telefono: ''
+      }
+    };
+  }, [companyId, normalizedEstablishmentId, defaultCurrencyCode]);
 
   const handleCrearComprobante = () => {
     navigate("/comprobantes/nuevo");
@@ -42,7 +102,19 @@ const IndicadoresPage: React.FC = () => {
   return (
     <div>
       {/* HEADER DE PÁGINA - Título separado */}
-      <PageHeader title="Indicadores de Gestión" />
+      <PageHeader
+        title="Indicadores de Gestión"
+        actions={(
+          <button
+            type="button"
+            onClick={() => setOpenNotificacionesModal(true)}
+            className="rounded-full border border-gray-200 bg-white p-2 text-gray-500 hover:text-gray-800"
+            aria-label="Configurar notificaciones"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+        )}
+      />
       
       {/* TOOLBAR - Controles y acciones */}
       <Toolbar
@@ -52,8 +124,13 @@ const IndicadoresPage: React.FC = () => {
 
       <div className="p-4 md:p-6">
         {status === 'success' && (
-          <div className="mb-4 text-xs text-gray-500">
-            Origen de datos: {source === 'api' ? 'Servicio real' : source === 'fallback' ? 'Fallback local' : 'Sin definir'}
+          <div className="mb-4 flex flex-wrap gap-4 text-xs text-gray-500">
+            <span>
+              Origen de datos: {source === 'api' ? 'Servicio real' : source === 'fallback' ? 'Fallback local' : 'Sin definir'}
+            </span>
+            <span>
+              Notificaciones: {notificationsState.hasActivas ? 'activas' : 'sin activar'}
+            </span>
           </div>
         )}
         {error && (
@@ -106,6 +183,15 @@ const IndicadoresPage: React.FC = () => {
         open={openDetalleCrecimientoModal}
         onClose={() => setOpenDetalleCrecimientoModal(false)}
         detalle={data?.crecimientoDetalle}
+      />
+      <NotificacionIndicadorModal
+        open={openNotificacionesModal}
+        onClose={() => setOpenNotificacionesModal(false)}
+        companyName={companyName}
+        establishments={establishmentOptions}
+        currencies={currencyOptions}
+        createPayload={createNotificationPayload}
+        notificationsState={notificationsState}
       />
     </div>
   );
