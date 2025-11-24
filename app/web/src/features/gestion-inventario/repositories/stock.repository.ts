@@ -1,6 +1,7 @@
 // src/features/gestion-inventario/repositories/stock.repository.ts
 
 import type { MovimientoStock } from '../models';
+import { lsKey } from '../../../shared/tenant';
 
 const STORAGE_KEY_MOVEMENTS = 'facturafacil_stock_movements';
 
@@ -14,7 +15,18 @@ export class StockRepository {
    */
   static getMovements(): MovimientoStock[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEY_MOVEMENTS);
+      const tenantKey = lsKey(STORAGE_KEY_MOVEMENTS);
+      let data = localStorage.getItem(tenantKey);
+
+      if (!data) {
+        const legacyData = localStorage.getItem(STORAGE_KEY_MOVEMENTS);
+        if (legacyData) {
+          localStorage.setItem(tenantKey, legacyData);
+          localStorage.removeItem(STORAGE_KEY_MOVEMENTS);
+          data = legacyData;
+        }
+      }
+
       if (!data) return [];
 
       const movements: MovimientoStock[] = JSON.parse(data);
@@ -34,7 +46,8 @@ export class StockRepository {
    */
   static saveMovements(movements: MovimientoStock[]): void {
     try {
-      localStorage.setItem(STORAGE_KEY_MOVEMENTS, JSON.stringify(movements));
+      const tenantKey = lsKey(STORAGE_KEY_MOVEMENTS);
+      localStorage.setItem(tenantKey, JSON.stringify(movements));
     } catch (error) {
       console.error('Error saving movements to localStorage:', error);
       throw new Error('No se pudieron guardar los movimientos de stock');
@@ -91,6 +104,7 @@ export class StockRepository {
    * Limpiar todos los movimientos (usar con precaución)
    */
   static clearAllMovements(): void {
-    localStorage.removeItem(STORAGE_KEY_MOVEMENTS);
+    const tenantKey = lsKey(STORAGE_KEY_MOVEMENTS);
+    localStorage.removeItem(tenantKey);
   }
 }

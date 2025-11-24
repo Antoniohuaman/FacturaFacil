@@ -81,13 +81,14 @@ export const PAYMENT_METHODS = [
 ];
 
 // ===================================================================
-// CONFIGURACIONES DE TIENDA
+// CONFIGURACIONES DE TIENDA (PLACEHOLDER PARA DESARROLLO)
 // ===================================================================
+// TODO: reemplazar por configuración real de empresa/establecimiento desde backend o ConfigurationContext
 export const DEFAULT_STORE_INFO = {
-  name: 'Gamarra 2',
-  address: 'Jr. Gamarra 123, La Victoria, Lima',
-  ruc: '20123456789',
-  phone: '(01) 123-4567'
+  name: '',
+  address: '',
+  ruc: '',
+  phone: ''
 };
 
 // ===================================================================
@@ -114,14 +115,15 @@ export const SYSTEM_CONFIG = {
 };
 
 // ===================================================================
-// CONFIGURACIÓN TEMPORAL DE CAJA
+// CONFIGURACIÓN TEMPORAL DE CAJA (PLACEHOLDER)
 // ===================================================================
+// TODO: reemplazar por integración real con módulo de Caja (no agregar más datos mock)
 export const DEFAULT_CAJA_CONFIG: CajaIntegrationConfig = {
-  requiereCajaParaComprobantes: false,  // Por defecto deshabilitado para desarrollo
+  requiereCajaParaComprobantes: false,
   requiereCajaAbierta: false,
-  modoPosSoloConcaja: true,
-  usuarioTieneCajaAsignada: true,      // Mock: usuario tiene caja asignada
-  cajaEstaAbierta: true                // Mock: caja está abierta
+  modoPosSoloConcaja: false,
+  usuarioTieneCajaAsignada: false,
+  cajaEstaAbierta: false
 };
 
 // ===================================================================

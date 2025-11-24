@@ -51,7 +51,7 @@ interface UseBusinessReturn {
   };
 }
 
-// Mock data
+// TODO: reemplazar por API real de configuración de métodos de pago (no agregar más datos mock)
 const MOCK_PAYMENT_METHODS: PaymentMethod[] = [
   {
     id: 'pm-1',

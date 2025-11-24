@@ -15,6 +15,7 @@ import {
   Filter, Download, Plus, ChevronDown, Calendar, Check, Columns, X, FileCheck, Link
 } from 'lucide-react';
 import { useDocumentoContext } from '../../contexts/DocumentosContext';
+import { lsKey } from '../../../../shared/tenant';
 import { getTodayISO, formatDateShortSpanish } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
 import { DrawerDetalleDocumento } from '../../components/DrawerDetalleDocumento';
@@ -163,14 +164,27 @@ const ListaCotizaciones = () => {
 
   const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
     try {
-      const raw = localStorage.getItem('cotizaciones_columns_config');
-      if (raw) return JSON.parse(raw);
+      const tenantKey = lsKey('cotizaciones_columns_config');
+      const storedTenant = localStorage.getItem(tenantKey);
+      if (storedTenant) return JSON.parse(storedTenant);
+
+      const legacy = localStorage.getItem('cotizaciones_columns_config');
+      if (legacy) {
+        localStorage.setItem(tenantKey, legacy);
+        localStorage.removeItem('cotizaciones_columns_config');
+        return JSON.parse(legacy);
+      }
     } catch (e) {}
     return MASTER_COLUMNS;
   });
 
   useEffect(() => {
-    localStorage.setItem('cotizaciones_columns_config', JSON.stringify(columnsConfig));
+    try {
+      const tenantKey = lsKey('cotizaciones_columns_config');
+      localStorage.setItem(tenantKey, JSON.stringify(columnsConfig));
+    } catch (e) {
+      console.error('Error saving cotizaciones columns config:', e);
+    }
   }, [columnsConfig]);
 
   const visibleColumns = useMemo(() => columnsConfig.filter(c => c.visible), [columnsConfig]);

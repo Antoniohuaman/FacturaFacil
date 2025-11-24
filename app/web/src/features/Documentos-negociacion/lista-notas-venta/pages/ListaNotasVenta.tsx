@@ -15,6 +15,7 @@ import {
   Filter, Download, Plus, ChevronDown, Calendar, Check, Columns, X, FileCheck, Link
 } from 'lucide-react';
 import { useDocumentoContext } from '../../contexts/DocumentosContext';
+import { lsKey } from '../../../../shared/tenant';
 import { getTodayISO, formatDateShortSpanish } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
 import { DrawerDetalleDocumento } from '../../components/DrawerDetalleDocumento';
@@ -163,14 +164,27 @@ const ListaNotasVenta = () => {
 
   const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
     try {
-      const raw = localStorage.getItem('notas_venta_columns_config');
-      if (raw) return JSON.parse(raw);
+      const tenantKey = lsKey('notas_venta_columns_config');
+      const storedTenant = localStorage.getItem(tenantKey);
+      if (storedTenant) return JSON.parse(storedTenant);
+
+      const legacy = localStorage.getItem('notas_venta_columns_config');
+      if (legacy) {
+        localStorage.setItem(tenantKey, legacy);
+        localStorage.removeItem('notas_venta_columns_config');
+        return JSON.parse(legacy);
+      }
     } catch (e) {}
     return MASTER_COLUMNS;
   });
 
   useEffect(() => {
-    localStorage.setItem('notas_venta_columns_config', JSON.stringify(columnsConfig));
+    try {
+      const tenantKey = lsKey('notas_venta_columns_config');
+      localStorage.setItem(tenantKey, JSON.stringify(columnsConfig));
+    } catch (e) {
+      console.error('Error saving notas de venta columns config:', e);
+    }
   }, [columnsConfig]);
 
   const visibleColumns = useMemo(() => columnsConfig.filter(c => c.visible), [columnsConfig]);

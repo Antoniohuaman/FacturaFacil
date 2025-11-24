@@ -14,16 +14,12 @@ export const PAGINATION_CONFIG = {
   NOTAS_VENTA_PER_PAGE: 10
 } as const;
 
+// TODO: reemplazar por API real o ConfigurationContext (no agregar más datos mock)
 export const MOCK_VENDORS = [
-  'Javier Masías Loza',
-  'María González',
-  'Carlos Rodríguez',
-  'Ana López'
-] as const;
+  { id: 'v1', name: 'Vendedor' }
+];
 
+// TODO: reemplazar por API real o ConfigurationContext (no agregar más datos mock)
 export const MOCK_PAYMENT_METHODS = [
-  'Efectivo',
-  'Transferencia',
-  'Tarjeta',
-  'Crédito'
-] as const;
+  { id: 'efectivo', name: 'Efectivo' }
+];
