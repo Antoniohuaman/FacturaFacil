@@ -25,7 +25,17 @@ const VentasPorEstablecimientoCard: React.FC<VentasPorEstablecimientoCardProps> 
                   <span className={`h-3 w-3 rounded-full inline-block ${tienda.colorClass}`}></span>
                   <span className="font-semibold text-gray-900 dark:text-gray-100">{tienda.nombre}</span>
                 </div>
-                <span className="text-green-600 text-xs font-semibold">{tienda.variacion}</span>
+                <span
+                  className={`text-xs font-semibold ${
+                    tienda.variacionValor > 0
+                      ? 'text-green-600'
+                      : tienda.variacionValor < 0
+                        ? 'text-rose-600'
+                        : 'text-gray-500 dark:text-gray-300'
+                  }`}
+                >
+                  {tienda.variacionValor === 0 ? 'Sin variación' : tienda.variacion}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="text-xs text-gray-500 dark:text-gray-400">{tienda.porcentaje}% del total</div>

@@ -9,6 +9,8 @@ import VentasPorComprobanteCard from "../components/VentasPorComprobanteCard";
 import VentasPorEstablecimientoCard from "../components/VentasPorEstablecimientoCard";
 import DetalleVentasDiariasCard from "../components/DetalleVentasDiariasCard";
 import RankingCard from "../components/RankingCard";
+import ClientesInsightsCard from "../components/ClientesInsightsCard";
+import FormasPagoCard from "../components/FormasPagoCard";
 import NotificacionIndicadorModal from "../components/NotificacionIndicadorModal";
 import PageHeader from "../../../components/PageHeader";
 import { useIndicadores } from "../hooks/useIndicadores";
@@ -169,12 +171,22 @@ const IndicadoresPage: React.FC = () => {
                 title="Productos Más Vendidos"
                 icon={<ShoppingCart className="h-5 w-5" />}
                 items={data.ranking.productosDestacados}
+                footer={
+                  data.ranking.productosConcentracion.topN > 0
+                    ? `Top ${data.ranking.productosConcentracion.topN} productos concentran ${data.ranking.productosConcentracion.porcentaje.toFixed(1)}% de las ventas`
+                    : undefined
+                }
               />
               <RankingCard
                 title="Clientes Principales"
                 icon={<Users className="h-5 w-5" />}
                 items={data.ranking.clientesPrincipales}
               />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <ClientesInsightsCard data={data.clientesInsights} />
+              <FormasPagoCard data={data.formasPagoDistribucion} />
             </div>
 
             <DetalleVentasDiariasCard data={data.ventasDiarias} onViewMore={() => setOpenDetalleModal(true)} />

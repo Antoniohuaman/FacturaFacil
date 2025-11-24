@@ -1,7 +1,10 @@
 import type {
+  ClientesInsights,
+  FormaPagoDistribucionItem,
   IndicadoresData,
   KpiSummary,
-  RankingData
+  RankingData,
+  TopProductosConcentracion
 } from './indicadores';
 
 const ZERO_TREND = '0%';
@@ -14,14 +17,37 @@ export const createDefaultKpiSummary = (): KpiSummary => ({
   comprobantesEmitidos: 0,
   comprobantesDelta: ZERO_TREND,
   crecimientoVsMesAnterior: ZERO_TREND,
-  crecimientoDescripcion: 'Sin datos disponibles'
+  crecimientoDescripcion: 'Sin datos disponibles',
+  ticketPromedioPeriodo: 0,
+  tasaAnulacionesPorcentaje: 0,
+  comprobantesAnulados: 0,
+  totalComprobantesConsiderados: 0
 });
 
 export const createDefaultRankingData = (): RankingData => ({
   topVendedores: [],
   productosDestacados: [],
-  clientesPrincipales: []
+  clientesPrincipales: [],
+  productosConcentracion: createDefaultTopProductosConcentracion()
 });
+
+export const createDefaultTopProductosConcentracion = (): TopProductosConcentracion => ({
+  topN: 0,
+  porcentaje: 0,
+  montoTop: 0,
+  total: 0
+});
+
+export const createDefaultClientesInsights = (): ClientesInsights => ({
+  nuevos: 0,
+  recurrentes: 0,
+  totalClientes: 0,
+  porcentajeNuevos: 0,
+  porcentajeRecurrentes: 0,
+  frecuenciaMediaCompras: 0
+});
+
+export const createDefaultFormasPagoDistribucion = (): FormaPagoDistribucionItem[] => [];
 
 export const createEmptyIndicadoresData = (): IndicadoresData => ({
   kpis: createDefaultKpiSummary(),
@@ -34,5 +60,7 @@ export const createEmptyIndicadoresData = (): IndicadoresData => ({
     description: 'Sin datos comparativos disponibles.',
     variationPercent: 0,
     comparativo: []
-  }
+  },
+  clientesInsights: createDefaultClientesInsights(),
+  formasPagoDistribucion: createDefaultFormasPagoDistribucion()
 });

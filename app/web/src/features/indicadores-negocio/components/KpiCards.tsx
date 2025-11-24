@@ -1,4 +1,4 @@
-import { ShoppingCart, Users, DollarSign, TrendingUp } from 'lucide-react';
+import { ShoppingCart, Users, DollarSign, TrendingUp, Ticket, Ban } from 'lucide-react';
 import type { KpiSummary } from '../models/indicadores';
 import { formatCurrency } from '../utils/formatters';
 
@@ -65,6 +65,36 @@ const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails }) => {
             Ver detalles
           </button>
         </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-4">
+          <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+            <Ticket className="h-6 w-6 text-gray-700 dark:text-gray-200" />
+          </div>
+          <span className="text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/70 px-2 py-1 rounded-full">
+            Promedio
+          </span>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Ticket Promedio</h3>
+        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{formatCurrency(data.ticketPromedioPeriodo)}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Comprobantes emitidos: {data.comprobantesEmitidos.toLocaleString()}</p>
+      </div>
+
+      <div className="bg-rose-50 dark:bg-rose-900/20 rounded-xl p-6 shadow-sm border border-rose-100 dark:border-rose-900/40">
+        <div className="flex items-center justify-between mb-4">
+          <div className="p-3 bg-rose-200 dark:bg-rose-800 rounded-lg">
+            <Ban className="h-6 w-6 text-rose-800 dark:text-rose-200" />
+          </div>
+          <span className="text-xs font-medium text-rose-800 dark:text-rose-200 bg-rose-200/60 dark:bg-rose-800/70 px-2 py-1 rounded-full">
+            {`${data.tasaAnulacionesPorcentaje.toFixed(1)}%`}
+          </span>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Tasa de Anulaciones</h3>
+        <p className="text-sm text-gray-700 dark:text-gray-300">
+          Emitidos: <span className="font-semibold">{data.comprobantesEmitidos}</span> · Anulados: <span className="font-semibold">{data.comprobantesAnulados}</span>
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Base: {data.totalComprobantesConsiderados.toLocaleString()} comprobantes</p>
       </div>
     </div>
   );

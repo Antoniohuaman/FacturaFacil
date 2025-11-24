@@ -42,6 +42,8 @@ const VentasPorComprobanteCard: React.FC<VentasPorComprobanteCardProps> = ({ dat
                       <div>
                         <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{item.name}</span>
                         <span className="block text-xs text-gray-500">{item.percent}% del total</span>
+                        <span className="block text-xs text-gray-500 mt-1">Ticket promedio: {formatCurrency(item.ticketPromedio)}</span>
+                        <span className="block text-xs text-gray-400">Comprobantes: {item.comprobantes.toLocaleString()}</span>
                       </div>
                       <div className="text-right ml-2">
                         <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(item.value)}</span>

@@ -7,9 +7,10 @@ interface RankingCardProps {
   icon: ReactNode;
   items: RankingItem[];
   valueFormatter?: (value: number, item: RankingItem) => string;
+  footer?: ReactNode;
 }
 
-const RankingCard: React.FC<RankingCardProps> = ({ title, icon, items, valueFormatter }) => (
+const RankingCard: React.FC<RankingCardProps> = ({ title, icon, items, valueFormatter, footer }) => (
   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-0">
     <div className="flex items-center justify-between px-6 pt-6 pb-2">
       <div className="flex items-center gap-2">
@@ -50,6 +51,7 @@ const RankingCard: React.FC<RankingCardProps> = ({ title, icon, items, valueForm
         ))
       )}
     </div>
+    {footer ? <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">{footer}</div> : null}
   </div>
 );
 

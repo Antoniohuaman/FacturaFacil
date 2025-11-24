@@ -19,6 +19,10 @@ export interface KpiSummary {
   comprobantesDelta: string;
   crecimientoVsMesAnterior: string;
   crecimientoDescripcion: string;
+  ticketPromedioPeriodo: number;
+  tasaAnulacionesPorcentaje: number;
+  comprobantesAnulados: number;
+  totalComprobantesConsiderados: number;
 }
 
 export interface VentasPorComprobanteItem {
@@ -26,6 +30,8 @@ export interface VentasPorComprobanteItem {
   value: number;
   color: string;
   trend: string;
+  ticketPromedio: number;
+  comprobantes: number;
 }
 
 export interface VentasPorEstablecimientoItem {
@@ -34,6 +40,7 @@ export interface VentasPorEstablecimientoItem {
   porcentaje: number;
   monto: number;
   variacion: string;
+  variacionValor: number;
   colorClass: string;
   barColorClass: string;
 }
@@ -53,6 +60,31 @@ export interface RankingData {
   topVendedores: RankingItem[];
   productosDestacados: RankingItem[];
   clientesPrincipales: RankingItem[];
+  productosConcentracion: TopProductosConcentracion;
+}
+
+export interface TopProductosConcentracion {
+  topN: number;
+  porcentaje: number;
+  montoTop: number;
+  total: number;
+}
+
+export interface ClientesInsights {
+  nuevos: number;
+  recurrentes: number;
+  totalClientes: number;
+  porcentajeNuevos: number;
+  porcentajeRecurrentes: number;
+  frecuenciaMediaCompras: number;
+}
+
+export interface FormaPagoDistribucionItem {
+  id: string;
+  label: string;
+  monto: number;
+  porcentaje: number;
+  comprobantes: number;
 }
 
 export interface CrecimientoComparativoPoint {
@@ -74,6 +106,8 @@ export interface IndicadoresData {
   totalVentasPeriodo: number;
   ranking: RankingData;
   crecimientoDetalle: CrecimientoDetalle;
+  clientesInsights: ClientesInsights;
+  formasPagoDistribucion: FormaPagoDistribucionItem[];
 }
 
 export interface IndicadoresFilters {

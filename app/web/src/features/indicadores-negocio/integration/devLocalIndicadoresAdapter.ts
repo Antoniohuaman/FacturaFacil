@@ -1,6 +1,6 @@
-import type { IndicadoresData, IndicadoresFilters, RankingItem, VentaDiaria, VentasPorComprobanteItem, VentasPorEstablecimientoItem, KpiSummary } from '../models/indicadores';
+import type { ClientesInsights, FormaPagoDistribucionItem, IndicadoresData, IndicadoresFilters, KpiSummary, RankingItem, TopProductosConcentracion, VentaDiaria, VentasPorComprobanteItem, VentasPorEstablecimientoItem } from '../models/indicadores';
 import { createEmptyIndicadoresData } from '../models/defaults';
-import { devLocalIndicadoresStore, type DevVentaSnapshot } from './devLocalStore';
+import { devLocalIndicadoresStore, type DevVentaEstado, type DevVentaSnapshot } from './devLocalStore';
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
@@ -62,9 +62,33 @@ const formatTrendLabel = (currentValue: number, previousValue: number) => {
 
 const pickIdentifier = (venta: DevVentaSnapshot) => venta.clienteId || venta.clienteDocumento || venta.clienteNombre || venta.id;
 
-const filterVentas = (ventas: DevVentaSnapshot[], range: IndicadoresFilters['dateRange'], establishmentId?: string) => {
+const filterVentas = (
+  ventas: DevVentaSnapshot[],
+  range: IndicadoresFilters['dateRange'],
+  establishmentId?: string,
+  estado: DevVentaEstado = 'emitido'
+) => {
   const start = startOfDay(range.startDate).getTime();
   const end = endOfDay(range.endDate).getTime();
+  const normalizedEstablishment = (establishmentId && establishmentId !== 'Todos') ? establishmentId : null;
+  return ventas.filter((venta) => {
+    if (estado && venta.estado !== estado) {
+      return false;
+    }
+    if (normalizedEstablishment && venta.establecimientoId !== normalizedEstablishment) {
+      return false;
+    }
+    const ventaDate = new Date(venta.fechaEmision).getTime();
+    return ventaDate >= start && ventaDate <= end;
+  });
+};
+
+const filterVentasHistoricasAntesDelRango = (
+  ventas: DevVentaSnapshot[],
+  range: IndicadoresFilters['dateRange'],
+  establishmentId?: string
+) => {
+  const start = startOfDay(range.startDate).getTime();
   const normalizedEstablishment = (establishmentId && establishmentId !== 'Todos') ? establishmentId : null;
   return ventas.filter((venta) => {
     if (venta.estado !== 'emitido') {
@@ -74,7 +98,7 @@ const filterVentas = (ventas: DevVentaSnapshot[], range: IndicadoresFilters['dat
       return false;
     }
     const ventaDate = new Date(venta.fechaEmision).getTime();
-    return ventaDate >= start && ventaDate <= end;
+    return ventaDate < start;
   });
 };
 
@@ -110,11 +134,14 @@ const aggregateVentasPorComprobante = (actual: DevVentaSnapshot[], previous: Dev
   return Array.from(keys).map((key) => {
     const currentTotal = (actualGroups.get(key) ?? []).reduce((acc, venta) => acc + convertToBaseCurrency(venta), 0);
     const previousTotal = (previousGroups.get(key) ?? []).reduce((acc, venta) => acc + convertToBaseCurrency(venta), 0);
+    const currentCount = actualGroups.get(key)?.length ?? 0;
     return {
       name: labels.get(key) ?? key.toUpperCase(),
       value: currentTotal,
       color: colors.get(key) ?? '#64748b',
-      trend: formatTrendLabel(currentTotal, previousTotal)
+      trend: formatTrendLabel(currentTotal, previousTotal),
+      ticketPromedio: currentCount === 0 ? 0 : Number((currentTotal / currentCount).toFixed(2)),
+      comprobantes: currentCount
     };
   }).sort((a, b) => b.value - a.value);
 };
@@ -122,21 +149,29 @@ const aggregateVentasPorComprobante = (actual: DevVentaSnapshot[], previous: Dev
 const colorPalette = ['bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500'];
 const barPalette = ['bg-blue-200', 'bg-emerald-200', 'bg-amber-200', 'bg-purple-200', 'bg-rose-200'];
 
-const aggregateVentasPorEstablecimiento = (actual: DevVentaSnapshot[]): VentasPorEstablecimientoItem[] => {
-  const byEst = groupBy(actual, (venta) => venta.establecimientoId || 'SIN_EST');
-  const totals = Array.from(byEst.entries()).map(([key, ventas], index) => {
+const aggregateVentasPorEstablecimiento = (
+  actual: DevVentaSnapshot[],
+  previous: DevVentaSnapshot[]
+): VentasPorEstablecimientoItem[] => {
+  const byEstActual = groupBy(actual, (venta) => venta.establecimientoId || 'SIN_EST');
+  const byEstPrevio = groupBy(previous, (venta) => venta.establecimientoId || 'SIN_EST');
+
+  const totals = Array.from(byEstActual.entries()).map(([key, ventas], index) => {
     const amount = ventas.reduce((acc, venta) => acc + convertToBaseCurrency(venta), 0);
+    const prevAmount = (byEstPrevio.get(key) ?? []).reduce((acc, venta) => acc + convertToBaseCurrency(venta), 0);
     const nombre = ventas[0]?.establecimientoNombre || 'General';
     const colorIndex = index % colorPalette.length;
+    const variacionValor = formatChangePercentage(amount, prevAmount);
     return {
       id: key,
       nombre,
       monto: Number(amount.toFixed(2)),
-      variacion: '0%',
+      variacion: formatTrendLabel(amount, prevAmount),
+      variacionValor,
       porcentaje: 0,
       colorClass: colorPalette[colorIndex],
       barColorClass: barPalette[colorIndex]
-    };
+    } satisfies VentasPorEstablecimientoItem;
   });
 
   const totalAmount = totals.reduce((acc, item) => acc + item.monto, 0);
@@ -194,10 +229,11 @@ const aggregateRanking = (ventas: DevVentaSnapshot[], previous: DevVentaSnapshot
 
   const vendedoresActual = buildMap(ventas, (venta) => venta.vendedorNombre);
   const vendedoresPrev = buildMap(previous, (venta) => venta.vendedorNombre);
-  const productosActual = new Map<string, number>();
-  const productosPrev = new Map<string, number>();
   const clientesActual = buildMap(ventas, (venta) => venta.clienteNombre);
   const clientesPrev = buildMap(previous, (venta) => venta.clienteNombre);
+
+  const productosActual = new Map<string, number>();
+  const productosPrev = new Map<string, number>();
 
   ventas.forEach((venta) => {
     venta.productos.forEach((producto) => {
@@ -239,11 +275,82 @@ const aggregateRanking = (ventas: DevVentaSnapshot[], previous: DevVentaSnapshot
       .slice(0, 5)
   );
 
+  const productosOrdenados = Array.from(productosActual.entries())
+    .sort((a, b) => b[1] - a[1]);
+  const productosTop = productosOrdenados.slice(0, 5);
+  const totalProductos = productosOrdenados.reduce((acc, [, amount]) => acc + amount, 0);
+  const montoTop = productosTop.reduce((acc, [, amount]) => acc + amount, 0);
+  const productosConcentracion: TopProductosConcentracion = {
+    topN: productosTop.length,
+    porcentaje: totalProductos === 0 ? 0 : Number(((montoTop / totalProductos) * 100).toFixed(1)),
+    montoTop: Number(montoTop.toFixed(2)),
+    total: Number(totalProductos.toFixed(2))
+  };
+
   return {
     topVendedores: buildRankingItems(vendedoresActual, vendedoresPrev),
     productosDestacados: buildRankingItems(productosActual, productosPrev),
-    clientesPrincipales: buildRankingItems(clientesActual, clientesPrev)
+    clientesPrincipales: buildRankingItems(clientesActual, clientesPrev),
+    productosConcentracion
   };
+};
+
+const calculateClientesInsights = (
+  ventasPeriodo: DevVentaSnapshot[],
+  ventasPrevias: DevVentaSnapshot[]
+): ClientesInsights => {
+  const clientesPrevios = new Set(ventasPrevias.map(pickIdentifier));
+  const clientesPeriodo = new Map<string, number>();
+
+  ventasPeriodo.forEach((venta) => {
+    const key = pickIdentifier(venta);
+    clientesPeriodo.set(key, (clientesPeriodo.get(key) ?? 0) + 1);
+  });
+
+  let nuevos = 0;
+  clientesPeriodo.forEach((_count, key) => {
+    if (!clientesPrevios.has(key)) {
+      nuevos += 1;
+    }
+  });
+
+  const totalClientes = clientesPeriodo.size;
+  const recurrentes = totalClientes - nuevos;
+  const porcentajeNuevos = totalClientes === 0 ? 0 : Number(((nuevos / totalClientes) * 100).toFixed(1));
+  const porcentajeRecurrentes = totalClientes === 0 ? 0 : Number(((recurrentes / totalClientes) * 100).toFixed(1));
+  const frecuenciaMedia = totalClientes === 0 ? 0 : Number((ventasPeriodo.length / totalClientes).toFixed(2));
+
+  return {
+    nuevos,
+    recurrentes,
+    totalClientes,
+    porcentajeNuevos,
+    porcentajeRecurrentes,
+    frecuenciaMediaCompras: frecuenciaMedia
+  };
+};
+
+const calculateFormaPagoDistribucion = (ventasPeriodo: DevVentaSnapshot[]): FormaPagoDistribucionItem[] => {
+  const map = new Map<string, { label: string; monto: number; comprobantes: number }>();
+  ventasPeriodo.forEach((venta) => {
+    const raw = (venta.formaPago ?? '').trim();
+    const id = raw.length > 0 ? raw.toLowerCase() : 'sin-especificar';
+    const label = raw.length > 0 ? raw : 'Sin especificar';
+    const current = map.get(id) ?? { label, monto: 0, comprobantes: 0 };
+    current.monto += convertToBaseCurrency(venta);
+    current.comprobantes += 1;
+    map.set(id, current);
+  });
+  const total = Array.from(map.values()).reduce((acc, item) => acc + item.monto, 0);
+  return Array.from(map.entries())
+    .map<FormaPagoDistribucionItem>(([id, item]) => ({
+      id,
+      label: item.label,
+      monto: Number(item.monto.toFixed(2)),
+      porcentaje: total === 0 ? 0 : Number(((item.monto / total) * 100).toFixed(1)),
+      comprobantes: item.comprobantes
+    }))
+    .sort((a, b) => b.monto - a.monto);
 };
 
 const buildCrecimientoDetalle = (totalActual: number, totalPrevio: number, ventasDiarias: VentaDiaria[]) => {
@@ -272,7 +379,9 @@ const buildKpiSummary = (
   clientesActual: number,
   clientesPrevios: number,
   comprobantesActuales: number,
-  comprobantesPrevios: number
+  comprobantesPrevios: number,
+  ticketPromedioPeriodo: number,
+  anulaciones: { totalAnulados: number; totalConsiderados: number; tasa: number }
 ): KpiSummary => ({
   totalVentas: Number(totalActual.toFixed(2)),
   totalVentasTrend: formatTrendLabel(totalActual, totalPrevio),
@@ -283,7 +392,11 @@ const buildKpiSummary = (
   crecimientoVsMesAnterior: formatTrendLabel(totalActual, totalPrevio),
   crecimientoDescripcion: totalActual >= totalPrevio
     ? 'Tus ventas mantienen una tendencia positiva.'
-    : 'Revisa precios y campañas para impulsar las ventas.'
+    : 'Revisa precios y campañas para impulsar las ventas.',
+  ticketPromedioPeriodo,
+  tasaAnulacionesPorcentaje: Number(anulaciones.tasa.toFixed(1)),
+  comprobantesAnulados: anulaciones.totalAnulados,
+  totalComprobantesConsiderados: anulaciones.totalConsiderados
 });
 
 export const resolveIndicadoresFromDevLocal = async (filters: IndicadoresFilters): Promise<IndicadoresData> => {
@@ -295,19 +408,41 @@ export const resolveIndicadoresFromDevLocal = async (filters: IndicadoresFilters
   const currentRangeVentas = filterVentas(ventas, filters.dateRange, filters.establishmentId);
   const previousRange = buildPreviousRange(filters.dateRange);
   const previousRangeVentas = filterVentas(ventas, previousRange, filters.establishmentId);
+  const ventasPreviasHistoricas = filterVentasHistoricasAntesDelRango(ventas, filters.dateRange, filters.establishmentId);
+  const ventasAnuladasPeriodo = filterVentas(ventas, filters.dateRange, filters.establishmentId, 'anulado');
 
   const totalActual = currentRangeVentas.reduce((acc, venta) => acc + convertToBaseCurrency(venta), 0);
   const totalPrevio = previousRangeVentas.reduce((acc, venta) => acc + convertToBaseCurrency(venta), 0);
+  const ticketPromedioPeriodo = currentRangeVentas.length === 0 ? 0 : Number((totalActual / currentRangeVentas.length).toFixed(2));
+  const totalComprobantesConsiderados = currentRangeVentas.length + ventasAnuladasPeriodo.length;
+  const tasaAnulaciones = totalComprobantesConsiderados === 0
+    ? 0
+    : (ventasAnuladasPeriodo.length / totalComprobantesConsiderados) * 100;
 
   const clientesActuales = new Set(currentRangeVentas.map(pickIdentifier)).size;
   const clientesPrevios = new Set(previousRangeVentas.map(pickIdentifier)).size;
+  const clientesInsights = calculateClientesInsights(currentRangeVentas, ventasPreviasHistoricas);
+  const formasPagoDistribucion = calculateFormaPagoDistribucion(currentRangeVentas);
 
   const ventasDiarias = aggregateVentasDiarias(currentRangeVentas);
   const ventasPorComprobante = aggregateVentasPorComprobante(currentRangeVentas, previousRangeVentas);
-  const ventasPorEstablecimiento = aggregateVentasPorEstablecimiento(currentRangeVentas);
+  const ventasPorEstablecimiento = aggregateVentasPorEstablecimiento(currentRangeVentas, previousRangeVentas);
   const ranking = aggregateRanking(currentRangeVentas, previousRangeVentas);
   const crecimientoDetalle = buildCrecimientoDetalle(totalActual, totalPrevio, ventasDiarias);
-  const kpis = buildKpiSummary(totalActual, totalPrevio, clientesActuales, clientesPrevios, currentRangeVentas.length, previousRangeVentas.length);
+  const kpis = buildKpiSummary(
+    totalActual,
+    totalPrevio,
+    clientesActuales,
+    clientesPrevios,
+    currentRangeVentas.length,
+    previousRangeVentas.length,
+    ticketPromedioPeriodo,
+    {
+      totalAnulados: ventasAnuladasPeriodo.length,
+      totalConsiderados: totalComprobantesConsiderados,
+      tasa: tasaAnulaciones
+    }
+  );
 
   return {
     kpis,
@@ -316,7 +451,9 @@ export const resolveIndicadoresFromDevLocal = async (filters: IndicadoresFilters
     ventasDiarias,
     totalVentasPeriodo: Number(totalActual.toFixed(2)),
     ranking,
-    crecimientoDetalle
+    crecimientoDetalle,
+    clientesInsights,
+    formasPagoDistribucion
   } satisfies IndicadoresData;
 };
 
