@@ -2,6 +2,7 @@ import type { IndicadoresData, IndicadoresFilters } from '../models/indicadores'
 import { resolveFallbackIndicadores } from './fixtures';
 import type { IndicadoresApiResponseDTO } from './types';
 import { mapIndicadoresResponse } from './mapper';
+import { resolveIndicadoresFromDevLocal } from '../integration/devLocalIndicadoresAdapter';
 
 const INDICADORES_API_URL = (import.meta.env.VITE_INDICADORES_API_URL ?? '').trim();
 
@@ -29,7 +30,7 @@ const resolveEndpoint = (filters: IndicadoresFilters) => {
 
 export const hasIndicadoresApi = () => INDICADORES_API_URL.length > 0;
 
-type FetchSource = 'api' | 'fallback';
+type FetchSource = 'api' | 'dev-local' | 'fallback';
 
 interface FetchOptions {
   signal?: AbortSignal;
@@ -66,7 +67,13 @@ export const fetchIndicadores = async (
     const data = await fetchIndicadoresFromApi(filters, options);
     return { data, source: 'api' };
   } catch (error) {
-    console.warn('[indicadores-negocio] No se pudo obtener datos reales, usando fallback.', error);
+    console.warn('[indicadores-negocio] No se pudo obtener datos reales, intentando dev-local.', error);
+    try {
+      const devLocal = await resolveIndicadoresFromDevLocal(filters);
+      return { data: devLocal, source: 'dev-local' };
+    } catch (devLocalError) {
+      console.warn('[indicadores-negocio] No se pudo construir indicadores dev-local, usando fixtures.', devLocalError);
+    }
     const data = await fetchIndicadoresFromFixtures(filters);
     return { data, source: 'fallback' };
   }

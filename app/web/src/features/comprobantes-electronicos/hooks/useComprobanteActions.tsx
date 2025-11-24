@@ -9,6 +9,7 @@ import { useInventoryFacade } from '../../gestion-inventario/api/inventory.facad
 import { useComprobanteContext } from '../lista-comprobantes/contexts/ComprobantesListContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useToast } from '../shared/ui/Toast/useToast';
+import { devLocalIndicadoresStore, mapCartItemsToVentaProductos } from '../../indicadores-negocio/integration/devLocalStore';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -24,6 +25,8 @@ interface ComprobanteData {
   formaPago?: string;
   establishmentId?: string;
   companyId?: string;
+  exchangeRate?: number;
+  source?: 'emision' | 'pos' | 'otros';
   // Campos opcionales provenientes del formulario de emisión
   client?: string;
   clientDoc?: string;
@@ -336,6 +339,43 @@ export const useComprobanteActions = () => {
         // No lanzar error, el comprobante ya se creó exitosamente
       }
 
+      // ✅ Registrar snapshot para indicadores locales
+      try {
+        const now = new Date();
+        const fechaEmisionDate = data.fechaEmision
+          ? new Date(`${data.fechaEmision}T00:00:00`)
+          : now;
+        const targetEstablishmentId = data.establishmentId || session?.currentEstablishmentId;
+        const establishment = targetEstablishmentId
+          ? (session?.availableEstablishments || []).find((est) => est.id === targetEstablishmentId) || session?.currentEstablishment
+          : session?.currentEstablishment;
+
+        devLocalIndicadoresStore.registerVenta({
+          numeroComprobante,
+          tipoComprobante: data.tipoComprobante,
+          clienteNombre: data.client || 'Cliente mostrador',
+          clienteDocumento: data.clientDoc,
+          clienteId: data.clientDoc,
+          vendedorNombre: session?.userName || 'Usuario',
+          vendedorId: session?.userId,
+          establecimientoId: targetEstablishmentId,
+          establecimientoNombre: establishment?.name,
+          establecimientoCodigo: establishment?.code,
+          empresaId: data.companyId || session?.currentCompanyId,
+          moneda: data.currency || 'PEN',
+          tipoCambio: data.currency && data.currency !== 'PEN' ? data.exchangeRate ?? 1 : 1,
+          total: data.totals.total,
+          subtotal: data.totals.subtotal,
+          igv: data.totals.igv,
+          fechaEmision: fechaEmisionDate.toISOString(),
+          productos: mapCartItemsToVentaProductos(data.cartItems),
+          formaPago: data.formaPago,
+          source: data.source ?? 'otros'
+        });
+      } catch (indicadoresError) {
+        console.warn('[indicadores-dev-local] No se pudo registrar la venta local', indicadoresError);
+      }
+
       toast.success(
         '¡Comprobante creado!',
         `${data.tipoComprobante} ${numeroComprobante} generado exitosamente`,
@@ -373,7 +413,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, addMovimientoStock, addComprobante]);
+  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, addMovimientoStock, addComprobante, session]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

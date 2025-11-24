@@ -39,7 +39,7 @@ const PuntoVenta = () => {
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItemPrice, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
-  const { currentCurrency } = useCurrency();
+  const { currentCurrency, currencyInfo } = useCurrency();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada } = useDocumentType();
 
   // Estado consolidado (SIN CAMBIOS)
@@ -106,7 +106,10 @@ const PuntoVenta = () => {
         totals,
         formaPago,
         establishmentId: currentEstablishmentId,
-        companyId: currentCompanyId
+        companyId: currentCompanyId,
+        currency: currentCurrency,
+        exchangeRate: currencyInfo?.rate,
+        source: 'pos'
       });
 
       if (success) {

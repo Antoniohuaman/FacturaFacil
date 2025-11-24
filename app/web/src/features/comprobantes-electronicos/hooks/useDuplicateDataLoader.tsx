@@ -156,7 +156,7 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
     // 9. Limpiar el state de navegación para que no se vuelva a cargar
     window.history.replaceState({}, document.title);
 
-  }, [location.state]); // Dependencia: location.state para que se ejecute cuando cambie
+  }, [location.state, handlers]); // Dependencias: cambiar cuando cambie el state o los handlers
 
   return null; // Este hook no retorna nada, solo ejecuta efectos
 };

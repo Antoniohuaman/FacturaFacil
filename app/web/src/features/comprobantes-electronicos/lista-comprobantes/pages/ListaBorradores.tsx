@@ -220,7 +220,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   }
 
   // Usar solo borradores de localStorage (sin datos hardcodeados)
-  const drafts: Draft[] = useMemo(() => localDrafts, [localDraftsRaw]);
+  const drafts: Draft[] = localDrafts;
 
   // Aplicar filtros de fecha usando la utilidad
   const filteredDrafts = useMemo(() => {

@@ -36,7 +36,7 @@ export const useCurrency = () => {
         setCurrentCurrency(baseCurrency.code as Currency);
       }
     }
-  }, [state.currencies]);
+  }, [state.currencies, currentCurrency]);
 
   // Obtener información de la moneda actual
   const currencyInfo = useMemo(() => {

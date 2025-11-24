@@ -9,6 +9,13 @@ export const useToast = () => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   /**
+   * Remover un toast específico
+   */
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
+
+  /**
    * Agregar un nuevo toast
    */
   const addToast = useCallback((
@@ -44,14 +51,7 @@ export const useToast = () => {
     }
 
     return id;
-  }, []);
-
-  /**
-   * Remover un toast específico
-   */
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
+  }, [removeToast]);
 
   /**
    * Limpiar todos los toasts

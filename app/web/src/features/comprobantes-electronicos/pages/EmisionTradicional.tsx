@@ -59,7 +59,7 @@ const EmisionTradicional = () => {
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
-  const { currentCurrency, changeCurrency } = useCurrency();
+  const { currentCurrency, currencyInfo, changeCurrency } = useCurrency();
   const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
   const { openPreview, showPreview, closePreview } = usePreview();
@@ -114,8 +114,6 @@ const EmisionTradicional = () => {
   // Estado para el modal de éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
-  
-  // Estado para el modal de nueva forma de pago
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
   // Calculate totals
@@ -187,6 +185,8 @@ const EmisionTradicional = () => {
         email: optionalFields.correo || clienteSeleccionadoGlobal?.email,
         address: optionalFields.direccion || clienteSeleccionadoGlobal?.direccion,
         shippingAddress: optionalFields.direccionEnvio,
+        exchangeRate: currencyInfo?.rate,
+        source: 'emision',
         purchaseOrder: optionalFields.ordenCompra,
         costCenter: optionalFields.centroCosto,
         waybill: optionalFields.guiaRemision

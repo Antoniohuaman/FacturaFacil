@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /* eslint-disable no-empty -- bloques de captura intencionales; logging diferido */
-/* eslint-disable @typescript-eslint/no-unused-expressions -- expresiones con efectos; refactor diferido */
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -11,6 +10,7 @@ import {
   CheckCircle2, Send, XOctagon, AlertTriangle, Ban, X, Link
 } from 'lucide-react';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
+import { devLocalIndicadoresStore } from '../../../indicadores-negocio/integration/devLocalStore';
 import {
   SelectionProvider,
   useSelection,
@@ -37,7 +37,7 @@ function parseInvoiceDate(dateStr?: string): Date {
 
 const InvoiceListDashboard = () => {
   // ✅ Obtener comprobantes del contexto global
-  const { state } = useComprobanteContext();
+  const { state, dispatch } = useComprobanteContext();
   const invoices = state.comprobantes;
 
   // Hook de selección masiva
@@ -274,15 +274,35 @@ const InvoiceListDashboard = () => {
   };
 
   const confirmVoid = () => {
+    if (!selectedInvoiceForVoid) {
+      return;
+    }
     if (!voidReason.trim()) {
       alert('Debe ingresar un motivo de anulación');
       return;
     }
-    
-    console.log('Anulando:', selectedInvoiceForVoid?.id, 'Motivo:', voidReason);
-    // TODO: Implementar lógica de anulación
-    alert(`Comprobante ${selectedInvoiceForVoid?.id} anulado. Motivo: ${voidReason}`);
-    
+
+    try {
+      dispatch({
+        type: 'UPDATE_COMPROBANTE',
+        payload: {
+          ...selectedInvoiceForVoid,
+          status: 'Anulado',
+          statusColor: 'red'
+        }
+      });
+    } catch (error) {
+      console.error('No se pudo actualizar el comprobante en memoria', error);
+    }
+
+    try {
+      devLocalIndicadoresStore.marcarVentaAnulada(selectedInvoiceForVoid.id);
+    } catch (error) {
+      console.warn('No se pudo marcar la venta como anulada en indicadores locales', error);
+    }
+
+    alert(`Comprobante ${selectedInvoiceForVoid.id} anulado. Motivo: ${voidReason}`);
+
     setShowVoidModal(false);
     setSelectedInvoiceForVoid(null);
     setVoidReason('');

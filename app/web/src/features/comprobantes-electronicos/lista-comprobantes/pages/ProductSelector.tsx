@@ -128,6 +128,61 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Scroll hovered item into view
+  useEffect(() => {
+    if (hoveredIndex >= 0 && itemRefs.current[hoveredIndex]) {
+      itemRefs.current[hoveredIndex]?.scrollIntoView({
+        block: 'nearest',
+        behavior: 'smooth'
+      });
+    }
+  }, [hoveredIndex]);
+
+  // Auto-focus search when opening dropdown
+  const handleSearchFocus = () => {
+    setShowDropdown(true);
+    setHoveredIndex(-1);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setShowDropdown(value.length > 0);
+    setHoveredIndex(-1);
+  };
+
+  const handleProductSelect = useCallback((product: Product) => {
+    if (isMultipleMode) {
+      // Multiple selection mode
+      const newSelected = new Set(selectedProducts);
+      if (selectedProducts.has(product.id)) {
+        newSelected.delete(product.id);
+        const newQuantities = { ...quantities };
+        delete newQuantities[product.id];
+        setQuantities(newQuantities);
+      } else {
+        newSelected.add(product.id);
+        setQuantities(prev => ({ ...prev, [product.id]: 1 }));
+      }
+      setSelectedProducts(newSelected);
+    } else {
+      // Single selection mode - immediate add
+      const quantity = quantities[product.id] || 1;
+      onAddProducts([{ product, quantity }]);
+      
+      // Clear and close
+      setSearchTerm('');
+      setShowDropdown(false);
+      setSelectedProducts(new Set());
+      setQuantities({});
+      setHoveredIndex(-1);
+      
+      // Optional: show brief success feedback
+      setIsLoading(true);
+      setTimeout(() => setIsLoading(false), 300);
+    }
+  }, [isMultipleMode, selectedProducts, quantities, onAddProducts]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -161,62 +216,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [showDropdown, hoveredIndex, filteredProducts]);
-
-  // Scroll hovered item into view
-  useEffect(() => {
-    if (hoveredIndex >= 0 && itemRefs.current[hoveredIndex]) {
-      itemRefs.current[hoveredIndex]?.scrollIntoView({
-        block: 'nearest',
-        behavior: 'smooth'
-      });
-    }
-  }, [hoveredIndex]);
-
-  // Auto-focus search when opening dropdown
-  const handleSearchFocus = () => {
-    setShowDropdown(true);
-    setHoveredIndex(-1);
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    setShowDropdown(value.length > 0);
-    setHoveredIndex(-1);
-  };
-
-  const handleProductSelect = (product: Product) => {
-    if (isMultipleMode) {
-      // Multiple selection mode
-      const newSelected = new Set(selectedProducts);
-      if (selectedProducts.has(product.id)) {
-        newSelected.delete(product.id);
-        const newQuantities = { ...quantities };
-        delete newQuantities[product.id];
-        setQuantities(newQuantities);
-      } else {
-        newSelected.add(product.id);
-        setQuantities(prev => ({ ...prev, [product.id]: 1 }));
-      }
-      setSelectedProducts(newSelected);
-    } else {
-      // Single selection mode - immediate add
-      const quantity = quantities[product.id] || 1;
-      onAddProducts([{ product, quantity }]);
-      
-      // Clear and close
-      setSearchTerm('');
-      setShowDropdown(false);
-      setSelectedProducts(new Set());
-      setQuantities({});
-      setHoveredIndex(-1);
-      
-      // Optional: show brief success feedback
-      setIsLoading(true);
-      setTimeout(() => setIsLoading(false), 300);
-    }
-  };
+  }, [showDropdown, hoveredIndex, filteredProducts, handleProductSelect]);
 
   const handleQuantityChange = (productId: string, delta: number) => {
     setQuantities(prev => ({

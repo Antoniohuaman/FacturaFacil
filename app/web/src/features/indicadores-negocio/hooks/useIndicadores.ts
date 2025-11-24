@@ -4,7 +4,7 @@ import { fetchIndicadores } from '../api/indicadores';
 import { createEmptyIndicadoresData } from '../models/defaults';
 
 type IndicadoresStatus = 'idle' | 'loading' | 'success' | 'error';
-type IndicadoresSource = 'api' | 'fallback' | 'none';
+type IndicadoresSource = 'api' | 'dev-local' | 'fallback' | 'none';
 
 interface UseIndicadoresResult {
   data: IndicadoresData;

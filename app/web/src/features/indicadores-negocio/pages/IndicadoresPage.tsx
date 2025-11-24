@@ -126,7 +126,15 @@ const IndicadoresPage: React.FC = () => {
         {status === 'success' && (
           <div className="mb-4 flex flex-wrap gap-4 text-xs text-gray-500">
             <span>
-              Origen de datos: {source === 'api' ? 'Servicio real' : source === 'fallback' ? 'Fallback local' : 'Sin definir'}
+              Origen de datos: {
+                source === 'api'
+                  ? 'Servicio real'
+                  : source === 'dev-local'
+                    ? 'Datos locales (dev)'
+                    : source === 'fallback'
+                      ? 'Fallback local'
+                      : 'Sin definir'
+              }
             </span>
             <span>
               Notificaciones: {notificationsState.hasActivas ? 'activas' : 'sin activar'}

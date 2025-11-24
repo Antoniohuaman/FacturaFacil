@@ -89,7 +89,7 @@ export const useProductSearch = () => {
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [AVAILABLE_PRODUCTS]);
 
   // Búsqueda con debounce
   useEffect(() => {
@@ -127,7 +127,7 @@ export const useProductSearch = () => {
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [AVAILABLE_PRODUCTS]);
 
   // Buscar por categoría
   const searchByCategory = useCallback((category: string) => {
