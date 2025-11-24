@@ -126,7 +126,7 @@ const IndicadoresPage: React.FC = () => {
 
       <div className="p-4 md:p-6">
         {status === 'success' && (
-          <div className="mb-4 flex flex-wrap gap-4 text-xs text-gray-500">
+          <div className="mb-2 flex flex-wrap gap-3 text-xs text-gray-500 leading-relaxed">
             <span>
               Origen de datos: {
                 source === 'api'
