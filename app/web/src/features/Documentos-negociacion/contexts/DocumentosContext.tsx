@@ -2,6 +2,7 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { Documento } from '../models/documento.types';
+import { lsKey } from '../../../shared/tenant';
 
 // ============================================
 // TIPOS Y INTERFACES
@@ -21,11 +22,27 @@ type DocumentoAction =
 // DATOS INICIALES - CARGAR DESDE LOCALSTORAGE
 // ============================================
 
+const STORAGE_BASE_KEY = 'documentos_negociacion';
+
 const loadDocumentosFromStorage = (): Documento[] => {
   try {
-    const stored = localStorage.getItem('documentos_negociacion');
-    if (stored) {
-      return JSON.parse(stored);
+    // Intentar leer primero desde la key namespaced por empresa
+    const tenantKey = lsKey(STORAGE_BASE_KEY);
+    const storedTenant = localStorage.getItem(tenantKey);
+    if (storedTenant) {
+      return JSON.parse(storedTenant);
+    }
+
+    // Compatibilidad: leer key legacy sin tenant y migrarla si existe
+    const legacyStored = localStorage.getItem(STORAGE_BASE_KEY);
+    if (legacyStored) {
+      try {
+        localStorage.setItem(tenantKey, legacyStored);
+        localStorage.removeItem(STORAGE_BASE_KEY);
+      } catch {
+        // si falla la migración, seguimos usando la legacy en memoria
+      }
+      return JSON.parse(legacyStored);
     }
   } catch (error) {
     console.error('Error loading documentos from localStorage:', error);
@@ -100,7 +117,8 @@ export function DocumentoProvider({ children }: DocumentoProviderProps) {
   // Sincronizar con localStorage cada vez que cambian los documentos
   useEffect(() => {
     try {
-      localStorage.setItem('documentos_negociacion', JSON.stringify(state.documentos));
+      const tenantKey = lsKey(STORAGE_BASE_KEY);
+      localStorage.setItem(tenantKey, JSON.stringify(state.documentos));
     } catch (error) {
       console.error('Error saving documentos to localStorage:', error);
     }

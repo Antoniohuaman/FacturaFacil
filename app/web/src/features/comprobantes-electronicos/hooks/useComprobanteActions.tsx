@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import type { CartItem } from '../models/comprobante.types';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { MedioPago } from '../../control-caja/models/Caja';
+import { lsKey } from '../../../shared/tenant';
 // Reemplazamos el uso de addMovimiento desde el store del catálogo por la fachada de inventario
 import { useInventoryFacade } from '../../gestion-inventario/api/inventory.facade';
 import { useComprobanteContext } from '../lista-comprobantes/contexts/ComprobantesListContext';
@@ -300,7 +301,7 @@ export const useComprobanteActions = () => {
           
           if (conversionSourceId && conversionSourceType) {
             // Obtener documentos del localStorage
-            const documentosLS = localStorage.getItem('documentos_negociacion');
+            const documentosLS = localStorage.getItem(lsKey('documentos_negociacion'));
             if (documentosLS) {
               const documentos = JSON.parse(documentosLS);
               
@@ -321,7 +322,7 @@ export const useComprobanteActions = () => {
               });
               
               // Guardar documentos actualizados
-              localStorage.setItem('documentos_negociacion', JSON.stringify(updatedDocumentos));
+              localStorage.setItem(lsKey('documentos_negociacion'), JSON.stringify(updatedDocumentos));
               
               console.log(`✅ Documento ${conversionSourceId} actualizado con relación a ${numeroComprobante}`);
             }

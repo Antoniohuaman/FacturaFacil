@@ -6,31 +6,13 @@ import { inferUnitMeasureType } from '../utils/unitMeasureHelpers';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { ensureEmpresaId, lsKey } from '../../../shared/tenant';
 
 // ===================================================================
 // DATOS INICIALES - CATÁLOGO VACÍO
 // Los usuarios crearán sus propios productos desde el catálogo
 // ===================================================================
 const mockProducts: Product[] = [];
-
-// ================================================================
-// TENANT/EMPRESA - Helpers locales para namespacing por empresa
-// NOTA: Reemplazar implementación de getTenantEmpresaId() por el hook real de auth/tenant de la app.
-function getTenantEmpresaId(): string {
-  // TODO: leer el empresaId desde el contexto de autenticación/tenant real de la app
-  // Por ahora, devolver un valor fijo para aislar el bucket de datos por empresa.
-  return 'DEFAULT_EMPRESA';
-}
-function ensureEmpresaId(): string {
-  const empresaId = getTenantEmpresaId();
-  if (!empresaId || typeof empresaId !== 'string' || empresaId.trim() === '') {
-    const msg = 'empresaId inválido. TODO: integrar hook real de tenant para obtener empresa actual.';
-    console.warn(msg);
-    throw new Error(msg);
-  }
-  return empresaId;
-}
-const lsKey = (base: string) => `${ensureEmpresaId()}:${base}`;
 
 // One-shot migration de llaves legacy -> namespaced por empresa
 function migrateLegacyToNamespaced() {
@@ -191,12 +173,11 @@ export const useProductStore = () => {
   // Efecto para intentar recarga automática si cambia el helper
   useEffect(() => {
     try {
-      const current = getTenantEmpresaId();
+      const current = ensureEmpresaId();
       reloadForEmpresa(current);
     } catch {
       // si empresaId inválido, no recargar
     }
-    // Dependencia "virtual": si el helper cambia a futuro (hook real), este efecto reaccionará
   }, [reloadForEmpresa]);
   
   const [loading, setLoading] = useState(false);

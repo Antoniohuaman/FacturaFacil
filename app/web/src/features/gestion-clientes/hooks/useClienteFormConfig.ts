@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ensureEmpresaId } from '../../../shared/tenant';
 import {
   ALWAYS_REQUIRED_FIELD_IDS,
   ALWAYS_VISIBLE_FIELD_IDS,
@@ -18,17 +19,9 @@ type PersistedFormConfig = {
 
 const fieldMap = new Map<ClienteFieldId, ClienteFieldConfig>(CLIENTE_FIELD_CONFIGS.map((field) => [field.id, field]));
 
-const getTenantEmpresaId = (): string => 'DEFAULT_EMPRESA'; // TODO: Reemplazar cuando exista hook real
+const getTenantEmpresaId = (): string => ensureEmpresaId();
 
-const ensureEmpresaId = (): string => {
-  const empresaId = getTenantEmpresaId();
-  if (!empresaId || typeof empresaId !== 'string' || !empresaId.trim()) {
-    throw new Error('empresaId inválido para la configuración del formulario de clientes');
-  }
-  return empresaId;
-};
-
-const lsKey = (): string => `${ensureEmpresaId()}:${STORAGE_KEY}`;
+const lsKey = (): string => `${getTenantEmpresaId()}:${STORAGE_KEY}`;
 
 const sanitizeVisible = (ids?: ClienteFieldId[]): ClienteFieldId[] => {
   const known = new Set(fieldMap.keys());

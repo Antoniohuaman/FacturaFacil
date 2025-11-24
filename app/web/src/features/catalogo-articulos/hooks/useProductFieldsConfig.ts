@@ -44,7 +44,7 @@ export const useProductFieldsConfig = () => {
   // Tenant helpers locales (namespacing por empresa)
   function getTenantEmpresaId(): string {
     // TODO: Reemplazar por selector/hook real de tenant de la app
-    return 'DEFAULT_EMPRESA';
+    return ensureEmpresaId();
   }
   function ensureEmpresaId(): string {
     const empresaId = getTenantEmpresaId();

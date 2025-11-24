@@ -4,20 +4,8 @@ import type { Establishment } from '../../configuracion-sistema/models/Establish
 import React, { useState, useEffect, useMemo } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
-// Tenant helpers locales (namespacing por empresa)
-function getTenantEmpresaId(): string {
-  // TODO: Reemplazar por selector/hook real de tenant de la app
-  return 'DEFAULT_EMPRESA';
-}
-function ensureEmpresaId(): string {
-  const empresaId = getTenantEmpresaId();
-  if (!empresaId || typeof empresaId !== 'string' || empresaId.trim() === '') {
-    const msg = 'empresaId inválido. TODO: integrar hook real de tenant para obtener empresa actual.';
-    console.warn(msg);
-    throw new Error(msg);
-  }
-  return empresaId;
-}
+// Tenant helpers compartidos (namespacing por empresa)
+import { ensureEmpresaId } from '../../../shared/tenant';
 const lsKey = (base: string) => `${ensureEmpresaId()}:${base}`;
 
 // One-shot migration de llaves legacy -> namespaced por empresa (para columnas de tabla y otros)

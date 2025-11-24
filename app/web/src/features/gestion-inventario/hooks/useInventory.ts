@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import { useAuth } from '../../autenticacion/hooks';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import type {
   StockAlert,
@@ -22,6 +23,7 @@ import { StockRepository } from '../repositories/stock.repository';
  * Centraliza toda la lógica de negocio relacionada con stock
  */
 export const useInventory = () => {
+  const { user } = useAuth();
   // Estado de la aplicación
   const { allProducts, updateProduct } = useProductStore();
   const { state: configState } = useConfigurationContext();
@@ -152,7 +154,7 @@ export const useInventory = () => {
         product,
         warehouse,
         data,
-        'Usuario Actual' // TODO: Obtener del contexto de autenticación
+        user?.nombre || 'Usuario Actual'
       );
 
       // Actualizar producto en el store
@@ -191,7 +193,7 @@ export const useInventory = () => {
         warehouseOrigen,
         warehouseDestino,
         data,
-        'Usuario Actual' // TODO: Obtener del contexto de autenticación
+        user?.nombre || 'Usuario Actual'
       );
 
       // Actualizar producto en el store
@@ -219,7 +221,7 @@ export const useInventory = () => {
         allProducts,
         warehouses,
         data,
-        'Usuario Actual' // TODO: Obtener del contexto de autenticación
+        user?.nombre || 'Usuario Actual'
       );
 
       // Actualizar productos en el store
