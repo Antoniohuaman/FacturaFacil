@@ -516,7 +516,6 @@ const ProductsPage: React.FC = () => {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
                   Buscar productos
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Código, nombre, alias o marca</p>
               </div>
               {activeFiltersCount > 0 && (
                 <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-violet-50 dark:bg-violet-900/30 px-3 py-1 text-xs font-semibold text-violet-700 dark:text-violet-200">
