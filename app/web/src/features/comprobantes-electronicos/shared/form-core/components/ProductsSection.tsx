@@ -205,6 +205,22 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     return null;
   }, [globalPricing]);
 
+  const hasGlobalDiscountRule = useMemo(() => {
+    return globalDiscountColumn?.globalRuleType === 'percent' && typeof globalDiscountColumn.globalRuleValue === 'number';
+  }, [globalDiscountColumn]);
+
+  const hasGlobalIncreaseRule = useMemo(() => {
+    return globalIncreaseColumn?.globalRuleType === 'percent' && typeof globalIncreaseColumn.globalRuleValue === 'number';
+  }, [globalIncreaseColumn]);
+
+  const discountValueLabel = useMemo(() => {
+    return hasGlobalDiscountRule ? `${Math.abs(globalPricing.discountPercent || 0)}%` : 'No disponible';
+  }, [globalPricing.discountPercent, hasGlobalDiscountRule]);
+
+  const increaseValueLabel = useMemo(() => {
+    return hasGlobalIncreaseRule ? `${Math.abs(globalPricing.increasePercent || 0)}%` : 'No disponible';
+  }, [globalPricing.increasePercent, hasGlobalIncreaseRule]);
+
   // Guardar configuración en localStorage
   useEffect(() => {
     try {
@@ -453,17 +469,6 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     setGlobalPricing(prev => ({ ...prev, mode }));
   }, []);
 
-  const handleGlobalPercentChange = useCallback((mode: 'discount' | 'increase', rawValue: string) => {
-    const parsed = Math.abs(parseFloat(rawValue));
-    const sanitized = Number.isNaN(parsed) ? 0 : parsed;
-    setGlobalPricing(prev => {
-      if (mode === 'discount') {
-        return { ...prev, discountPercent: Math.min(sanitized, 99.99) };
-      }
-      return { ...prev, increasePercent: Math.min(sanitized, 999.99) };
-    });
-  }, []);
-
   // ✅ Columnas visibles ordenadas correctamente
   const visibleColumns = useMemo(() =>
     columnConfig
@@ -704,26 +709,20 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         const availableUnits = priceBookUnits.length > 0
           ? priceBookUnits
           : [{ code: resolvedUnit, label: formatUnitLabel(resolvedUnit) || (item.unidad ?? resolvedUnit), isBase: true }];
-        const displayLabel = formatUnitLabel(resolvedUnit) || item.unidad || resolvedUnit;
 
         return (
           <td className="px-4 py-4">
-            <div className="flex flex-col gap-1">
-              <div className="text-xs text-center text-gray-500 font-medium">
-                {displayLabel}
-              </div>
-              <select
-                value={resolvedUnit}
-                onChange={e => handleUnitChange(item, e.target.value)}
-                className="w-full text-center text-xs text-gray-700 border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer hover:bg-gray-50"
-              >
-                {availableUnits.map(unit => (
-                  <option key={unit.code} value={unit.code}>
-                    {unit.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={resolvedUnit}
+              onChange={e => handleUnitChange(item, e.target.value)}
+              className="w-full text-center text-xs text-gray-700 border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer hover:bg-gray-50"
+            >
+              {availableUnits.map(unit => (
+                <option key={unit.code} value={unit.code}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
           </td>
         );
       }
@@ -855,7 +854,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               {showGlobalPricing && (
                 <div
                   ref={priceModePopoverRef}
-                  className="absolute right-0 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-lg p-4 z-20"
+                  className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white shadow-lg p-3 z-20"
                 >
                   <p className="text-xs text-gray-500 mb-2">
                     Aplica un ajuste porcentual a todas las líneas del comprobante.
@@ -879,19 +878,15 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                           className="text-violet-600 focus:ring-violet-500"
                           checked={globalPricing.mode === 'discount'}
                           onChange={() => handleGlobalModeChange('discount')}
+                          disabled={!hasGlobalDiscountRule}
                         />
                         Descuento global (%)
                       </label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={99.99}
-                        step={0.1}
-                        disabled={globalPricing.mode !== 'discount'}
-                        value={globalPricing.discountPercent}
-                        onChange={e => handleGlobalPercentChange('discount', e.target.value)}
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 disabled:bg-gray-50"
-                      />
+                      <div className="pl-6">
+                        <span className="inline-flex items-center justify-center rounded-md border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-700 bg-gray-50">
+                          {discountValueLabel}
+                        </span>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="flex items-center gap-2">
@@ -901,19 +896,15 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                           className="text-violet-600 focus:ring-violet-500"
                           checked={globalPricing.mode === 'increase'}
                           onChange={() => handleGlobalModeChange('increase')}
+                          disabled={!hasGlobalIncreaseRule}
                         />
                         Aumento global (%)
                       </label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={999.99}
-                        step={0.1}
-                        disabled={globalPricing.mode !== 'increase'}
-                        value={globalPricing.increasePercent}
-                        onChange={e => handleGlobalPercentChange('increase', e.target.value)}
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 disabled:bg-gray-50"
-                      />
+                      <div className="pl-6">
+                        <span className="inline-flex items-center justify-center rounded-md border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-700 bg-gray-50">
+                          {increaseValueLabel}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
