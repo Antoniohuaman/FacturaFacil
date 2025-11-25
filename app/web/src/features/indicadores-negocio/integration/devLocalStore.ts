@@ -158,6 +158,7 @@ class DevLocalIndicadoresStore {
       return;
     }
     try {
+      // NOT tenant-specific: almacenamiento puramente local para modo DEV de indicadores
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) {
         return;
@@ -185,6 +186,7 @@ class DevLocalIndicadoresStore {
         version: STORAGE_VERSION,
         ventas: this.ventas
       };
+      // NOT tenant-specific: almacenamiento puramente local para modo DEV de indicadores
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (error) {
       console.error('[DevLocalIndicadoresStore] No se pudo persistir el estado local', error);

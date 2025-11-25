@@ -5,6 +5,7 @@ import type {
   SegmentoIndicador,
   VigenciaNotificacion
 } from './notificaciones';
+import { ensureEmpresaId } from '../../../shared/tenant';
 
 const nowIsoDate = (): string => new Date().toISOString().slice(0, 10);
 
@@ -15,7 +16,7 @@ export const createDefaultVigencia = (): VigenciaNotificacion => ({
 export const createDefaultDestinatario = (): DestinatarioNotificacion => ({});
 
 export const createDefaultSegmento = (): SegmentoIndicador => ({
-  empresaId: 'actual',
+  empresaId: ensureEmpresaId(),
   moneda: 'PEN'
 });
 

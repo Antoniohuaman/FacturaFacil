@@ -21,6 +21,7 @@ export const useInventarioDisponibilidad = () => {
 
   // Filtros activos
   const [filtros, setFiltros] = useState<DisponibilidadFilters>({
+    // establecimientoId vacío representa "sin seleccionar" y se filtra luego por empresa actual
     establecimientoId: '',
     almacenId: '',
     filtroSku: '',

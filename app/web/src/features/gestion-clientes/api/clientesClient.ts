@@ -473,6 +473,7 @@ class ClientesClient {
    */
   private getDevClientes(): Cliente[] {
     try {
+      // NOT tenant-specific: almacenamiento de clientes de prueba solo para modo DEV
       const stored = localStorage.getItem('dev_clientes');
       return stored ? JSON.parse(stored) : [];
     } catch {
@@ -484,6 +485,7 @@ class ClientesClient {
    * Guardar clientes en localStorage (DEV)
    */
   private saveDevClientes(clientes: Cliente[]): void {
+    // NOT tenant-specific: almacenamiento de clientes de prueba solo para modo DEV
     localStorage.setItem('dev_clientes', JSON.stringify(clientes));
   }
 

@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 import { InventoryService } from '../../services/inventory.service';
+import { useAuth } from '../../../autenticacion/hooks';
 import type { MovimientoStock } from '../../models';
 import * as XLSX from 'xlsx';
 
@@ -16,6 +17,7 @@ interface MassUpdateModalProps {
 
 const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) => {
   const { allProducts, updateProduct } = useProductStore();
+  const { user } = useAuth();
   const { state: configState } = useConfigurationContext();
   const warehouses = configState.warehouses.filter(w => w.isActive);
 
@@ -108,7 +110,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                 observaciones: 'Reseteo masivo de stock a cero',
                 documentoReferencia: ''
               },
-              'Usuario Actual' // TODO: Obtener del contexto
+              user?.nombre || 'Usuario'
             );
 
             // Actualizar el producto en el store
@@ -335,7 +337,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                 observaciones: `Importación masiva: ${stockActual} → ${cantidad}`,
                 documentoReferencia: ''
               },
-              'Usuario Actual' // TODO: Obtener del contexto
+              user?.nombre || 'Usuario'
             );
 
             // Actualizar el producto en el store
