@@ -17,6 +17,7 @@ import type {
 import { filterByPeriod, sortByDateDesc } from '../utils/inventory.helpers';
 import { InventoryService } from '../services/inventory.service';
 import { StockRepository } from '../repositories/stock.repository';
+import { useUserSession } from '../../../contexts/UserSessionContext';
 
 /**
  * Hook personalizado para gestión de inventario
@@ -26,6 +27,7 @@ export const useInventory = () => {
   const { user } = useAuth();
   // Estado de la aplicación
   const { allProducts, updateProduct } = useProductStore();
+  const { session } = useUserSession();
   const { state: configState } = useConfigurationContext();
 
   // Estados locales para movimientos de stock (cargados desde repositorio)
@@ -154,7 +156,7 @@ export const useInventory = () => {
         product,
         warehouse,
         data,
-        user?.nombre || 'Usuario Actual'
+        session?.userName || user?.nombre || 'Usuario'
       );
 
       // Actualizar producto en el store
@@ -193,7 +195,7 @@ export const useInventory = () => {
         warehouseOrigen,
         warehouseDestino,
         data,
-        user?.nombre || 'Usuario Actual'
+        session?.userName || user?.nombre || 'Usuario'
       );
 
       // Actualizar producto en el store
@@ -221,7 +223,7 @@ export const useInventory = () => {
         allProducts,
         warehouses,
         data,
-        user?.nombre || 'Usuario Actual'
+        session?.userName || user?.nombre || 'Usuario'
       );
 
       // Actualizar productos en el store

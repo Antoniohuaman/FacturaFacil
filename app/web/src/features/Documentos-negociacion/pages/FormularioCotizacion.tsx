@@ -25,7 +25,7 @@ import { Toast } from '../../comprobantes-electronicos/shared/ui/Toast/Toast';
 // Contextos
 import { useDocumentoContext } from '../contexts/DocumentosContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import { useCurrentEstablishmentId } from '../../../contexts/UserSessionContext';
+import { useCurrentEstablishmentId, useUserSession } from '../../../contexts/UserSessionContext';
 
 const FormularioCotizacion = () => {
   const navigate = useNavigate();
@@ -33,6 +33,7 @@ const FormularioCotizacion = () => {
   const { addDocumento, updateDocumento } = useDocumentoContext();
   const { state: configState } = useConfigurationContext();
   const currentEstablishmentId = useCurrentEstablishmentId();
+  const { session } = useUserSession();
 
   // Detectar modo edición
   const documentoToEdit = location.state?.documento;
@@ -238,7 +239,7 @@ const FormularioCotizacion = () => {
           month: 'short',
           year: 'numeric'
         }),
-        vendor: 'Javier Masías Loza', // TODO: Usuario actual
+        vendor: session?.userName ?? 'Usuario',
         total: totals.total,
         status: 'Borrador' as const,
         statusColor: 'gray' as const,
@@ -254,9 +255,15 @@ const FormularioCotizacion = () => {
         ...optionalFields,
         // Auditoría
         editedDate: isEditMode ? new Date().toISOString() : undefined,
-        editedBy: isEditMode ? 'Javier Masías Loza' : undefined, // TODO: Usuario actual
-        createdDate: isEditMode && documentoToEdit.createdDate ? documentoToEdit.createdDate : new Date().toISOString(),
-        createdBy: isEditMode && documentoToEdit.createdBy ? documentoToEdit.createdBy : 'Javier Masías Loza',
+        editedBy: isEditMode ? (session?.userName ?? 'Usuario') : undefined,
+        createdDate:
+          isEditMode && documentoToEdit.createdDate
+            ? documentoToEdit.createdDate
+            : new Date().toISOString(),
+        createdBy:
+          isEditMode && documentoToEdit.createdBy
+            ? documentoToEdit.createdBy
+            : (session?.userName ?? 'Usuario'),
         // Mantener correlación si existe
         relatedDocumentId: isEditMode && documentoToEdit.relatedDocumentId ? documentoToEdit.relatedDocumentId : undefined,
         relatedDocumentType: isEditMode && documentoToEdit.relatedDocumentType ? documentoToEdit.relatedDocumentType : undefined,
@@ -322,7 +329,7 @@ const FormularioCotizacion = () => {
           month: 'short',
           year: 'numeric'
         }),
-        vendor: 'Javier Masías Loza', // TODO: Usuario actual
+        vendor: session?.userName ?? 'Usuario',
         total: totals.total,
         status: (isEditMode && documentoToEdit.status === 'Convertido') ? 'Convertido' as const : 'Pendiente' as const,
         statusColor: (isEditMode && documentoToEdit.status === 'Convertido') ? 'green' as const : 'orange' as const,
@@ -338,9 +345,9 @@ const FormularioCotizacion = () => {
         ...optionalFields,
         // Auditoría
         editedDate: isEditMode ? new Date().toISOString() : undefined,
-        editedBy: isEditMode ? 'Javier Masías Loza' : undefined, // TODO: Usuario actual
+        editedBy: isEditMode ? session?.userName ?? 'Usuario' : undefined,
         createdDate: isEditMode && documentoToEdit.createdDate ? documentoToEdit.createdDate : new Date().toISOString(),
-        createdBy: isEditMode && documentoToEdit.createdBy ? documentoToEdit.createdBy : 'Javier Masías Loza',
+        createdBy: isEditMode && documentoToEdit.createdBy ? documentoToEdit.createdBy : session?.userName ?? 'Usuario',
         // Mantener correlación si existe
         relatedDocumentId: isEditMode && documentoToEdit.relatedDocumentId ? documentoToEdit.relatedDocumentId : undefined,
         relatedDocumentType: isEditMode && documentoToEdit.relatedDocumentType ? documentoToEdit.relatedDocumentType : undefined,

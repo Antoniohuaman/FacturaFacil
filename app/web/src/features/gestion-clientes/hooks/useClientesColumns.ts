@@ -49,7 +49,11 @@ export interface ClienteColumnDefinition {
   defaultVisible?: boolean;
 }
 
-const STORAGE_KEY = 'ff_gestionClientes_columnVisibility';
+// Legacy key kept for migration/reference; storage is now tenantized via STORAGE_BASE_KEY
+// const STORAGE_KEY = 'ff_gestionClientes_columnVisibility';
+import { lsKey as tenantLsKey } from '../../../shared/tenant';
+
+const STORAGE_BASE_KEY = 'clientes_visible_columns';
 
 export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = [
   { id: 'avatar', label: 'Avatar', defaultVisible: true },
@@ -111,7 +115,8 @@ const DEFAULT_VISIBLE_COLUMN_IDS: ClienteColumnId[] = [
 const readFromStorage = (): ClienteColumnId[] | null => {
   if (typeof window === 'undefined') return null;
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const storageKey = tenantLsKey(STORAGE_BASE_KEY);
+    const stored = window.localStorage.getItem(storageKey);
     if (!stored) return null;
     const parsed = JSON.parse(stored) as ClienteColumnId[];
     if (!Array.isArray(parsed)) return null;
@@ -127,7 +132,8 @@ const readFromStorage = (): ClienteColumnId[] | null => {
 const writeToStorage = (ids: ClienteColumnId[]): void => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    const storageKey = tenantLsKey(STORAGE_BASE_KEY);
+    window.localStorage.setItem(storageKey, JSON.stringify(ids));
   } catch {
     // noop
   }

@@ -19,9 +19,7 @@ type PersistedFormConfig = {
 
 const fieldMap = new Map<ClienteFieldId, ClienteFieldConfig>(CLIENTE_FIELD_CONFIGS.map((field) => [field.id, field]));
 
-const getTenantEmpresaId = (): string => ensureEmpresaId();
-
-const lsKey = (): string => `${getTenantEmpresaId()}:${STORAGE_KEY}`;
+const lsKey = (): string => `${ensureEmpresaId()}:${STORAGE_KEY}`;
 
 const sanitizeVisible = (ids?: ClienteFieldId[]): ClienteFieldId[] => {
   const known = new Set(fieldMap.keys());
