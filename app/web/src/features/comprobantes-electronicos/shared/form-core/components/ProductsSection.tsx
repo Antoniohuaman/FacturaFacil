@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { CartItem, DraftAction, TipoComprobante } from '../../../models/comprobante.types';
-import { UNIDADES_MEDIDA } from '../../../models/constants';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
 import { CheckSquare, Square, Sliders, Settings2 } from 'lucide-react';
 import { usePriceBook } from '../hooks/usePriceBook';
@@ -142,6 +141,9 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     baseColumnId,
     globalDiscountColumn,
     globalIncreaseColumn,
+    getUnitOptionsForSku,
+    getPreferredUnitForSku,
+    formatUnitLabel,
     getPriceOptionsFor,
     resolveMinPrice
   } = usePriceBook();
@@ -253,13 +255,14 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     return roundCurrency(value / safeMultiplier);
   }, [globalMultiplier]);
 
-  const resolveUnitCode = useCallback((item: CartItem) => {
-    return item.unidadMedida || item.unidad || 'NIU';
-  }, []);
-
   const resolveSku = useCallback((item: CartItem) => {
     return item.code || String(item.id);
   }, []);
+
+  const resolveUnitCode = useCallback((item: CartItem) => {
+    const sku = resolveSku(item);
+    return getPreferredUnitForSku(sku, item.unidadMedida || item.unidad);
+  }, [getPreferredUnitForSku, resolveSku]);
 
   useEffect(() => {
     const validIds = new Set(cartItems.map(item => String(item.id)));
@@ -296,6 +299,10 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
       const unitCode = resolveUnitCode(item);
       const updates: Partial<CartItem> = {};
+
+      if (item.unidadMedida !== unitCode) {
+        updates.unidadMedida = unitCode;
+      }
 
       let priceOptions: PriceColumnOption[] = [];
       if (hasSelectableColumns) {
@@ -373,6 +380,16 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       return next;
     });
   }, []);
+
+  const handleUnitChange = useCallback((item: CartItem, unitCode: string) => {
+    const itemKey = String(item.id);
+    clearDraftForItem(itemKey);
+    clearErrorForItem(itemKey);
+    updateCartItem(item.id, {
+      unidadMedida: unitCode,
+      isManualPrice: false
+    });
+  }, [clearDraftForItem, clearErrorForItem, updateCartItem]);
 
   const handlePriceOptionChange = useCallback((item: CartItem, columnId: string, options: PriceColumnOption[]) => {
     const option = options.find(entry => entry.columnId === columnId);
@@ -680,29 +697,36 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           </td>
         );
 
-      case 'unidad':
+      case 'unidad': {
+        const sku = resolveSku(item);
+        const resolvedUnit = resolveUnitCode(item);
+        const priceBookUnits = getUnitOptionsForSku(sku);
+        const availableUnits = priceBookUnits.length > 0
+          ? priceBookUnits
+          : [{ code: resolvedUnit, label: formatUnitLabel(resolvedUnit) || (item.unidad ?? resolvedUnit), isBase: true }];
+        const displayLabel = formatUnitLabel(resolvedUnit) || item.unidad || resolvedUnit;
+
         return (
           <td className="px-4 py-4">
             <div className="flex flex-col gap-1">
-              {/* ✅ Nombre de la unidad del producto */}
               <div className="text-xs text-center text-gray-500 font-medium">
-                {item.unidad || 'UNIDAD'}
+                {displayLabel}
               </div>
-              {/* ✅ Selector para cambiar unidad */}
               <select
-                value={item.unidadMedida || item.unidad || 'UNIDAD'}
-                onChange={(e) => updateCartItem(item.id, { unidadMedida: e.target.value, isManualPrice: false })}
+                value={resolvedUnit}
+                onChange={e => handleUnitChange(item, e.target.value)}
                 className="w-full text-center text-xs text-gray-700 border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer hover:bg-gray-50"
               >
-                {UNIDADES_MEDIDA.map(unidad => (
-                  <option key={unidad.value} value={unidad.value}>
-                    {unidad.label}
+                {availableUnits.map(unit => (
+                  <option key={unit.code} value={unit.code}>
+                    {unit.label}
                   </option>
                 ))}
               </select>
             </div>
           </td>
         );
+      }
 
       case 'precio': {
         const itemKey = String(item.id);
