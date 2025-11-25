@@ -1,8 +1,17 @@
 import type { CartItem } from '../../comprobantes-electronicos/models/comprobante.types';
+import { lsKey } from '../../../shared/tenant';
 
-const STORAGE_KEY = 'ff_dev_local_indicadores_ventas';
+const STORAGE_BASE_KEY = 'ff_dev_local_indicadores_ventas';
 const STORAGE_VERSION = 1;
 const isBrowser = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+
+const resolveIndicadoresStorageKey = () => {
+  try {
+    return { key: lsKey(STORAGE_BASE_KEY), namespaced: true };
+  } catch {
+    return { key: STORAGE_BASE_KEY, namespaced: false };
+  }
+};
 
 interface PersistedDevLocalState {
   version: number;
@@ -158,8 +167,18 @@ class DevLocalIndicadoresStore {
       return;
     }
     try {
-      // NOT tenant-specific: almacenamiento puramente local para modo DEV de indicadores
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const { key, namespaced } = resolveIndicadoresStorageKey();
+      let raw = window.localStorage.getItem(key);
+
+      if (!raw && namespaced) {
+        const legacy = window.localStorage.getItem(STORAGE_BASE_KEY);
+        if (legacy) {
+          raw = legacy;
+          window.localStorage.setItem(key, legacy);
+          window.localStorage.removeItem(STORAGE_BASE_KEY);
+        }
+      }
+
       if (!raw) {
         return;
       }
@@ -186,8 +205,12 @@ class DevLocalIndicadoresStore {
         version: STORAGE_VERSION,
         ventas: this.ventas
       };
-      // NOT tenant-specific: almacenamiento puramente local para modo DEV de indicadores
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      const { key, namespaced } = resolveIndicadoresStorageKey();
+      window.localStorage.setItem(key, JSON.stringify(payload));
+
+      if (namespaced) {
+        window.localStorage.removeItem(STORAGE_BASE_KEY);
+      }
     } catch (error) {
       console.error('[DevLocalIndicadoresStore] No se pudo persistir el estado local', error);
     }

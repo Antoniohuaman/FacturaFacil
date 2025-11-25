@@ -54,40 +54,74 @@ const UserSessionContext = createContext<UserSessionContextValue | undefined>(un
 
 const SESSION_STORAGE_KEY = 'facturafacil_user_session';
 
+type GlobalUserSession = {
+  currentCompanyId?: string;
+  currentEstablishmentId?: string;
+};
+
+const syncGlobalSession = (session: UserSession | null) => {
+  const globalAny = globalThis as typeof globalThis & {
+    __USER_SESSION__?: GlobalUserSession;
+  };
+
+  if (session) {
+    globalAny.__USER_SESSION__ = {
+      currentCompanyId: session.currentCompanyId,
+      currentEstablishmentId: session.currentEstablishmentId,
+    };
+  } else if (globalAny.__USER_SESSION__) {
+    delete globalAny.__USER_SESSION__;
+  }
+};
+
+const readStoredSession = (): UserSession | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const storedSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!storedSession) {
+      return null;
+    }
+    const parsedSession = JSON.parse(storedSession) as UserSession;
+    syncGlobalSession(parsedSession);
+    return parsedSession;
+  } catch (error) {
+    console.error('Error loading session from localStorage:', error);
+    return null;
+  }
+};
+
 interface UserSessionProviderProps {
   children: ReactNode;
 }
 
 export function UserSessionProvider({ children }: UserSessionProviderProps) {
-  const [session, setSessionState] = useState<UserSession | null>(null);
+  const [session, setSessionState] = useState<UserSession | null>(() => readStoredSession());
   const [loading, setLoading] = useState(true);
 
-  // Cargar sesión desde localStorage al montar
   useEffect(() => {
-    try {
-      const storedSession = localStorage.getItem(SESSION_STORAGE_KEY);
-      if (storedSession) {
-        const parsedSession = JSON.parse(storedSession);
-        setSessionState(parsedSession);
-      }
-    } catch (error) {
-      console.error('Error loading session from localStorage:', error);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
   }, []);
 
   // Guardar sesión en localStorage cuando cambie
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
     if (session) {
       try {
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
       } catch (error) {
         console.error('Error saving session to localStorage:', error);
       }
     } else {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
     }
+  }, [session]);
+
+  useEffect(() => {
+    syncGlobalSession(session);
   }, [session]);
 
   const setSession = useCallback((newSession: UserSession) => {

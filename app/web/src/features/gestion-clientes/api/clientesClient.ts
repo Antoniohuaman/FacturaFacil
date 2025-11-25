@@ -14,9 +14,19 @@ import type {
 } from '../models';
 import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
 import { documentCodeFromType, normalizeDocumentNumber, parseLegacyDocumentString } from '../utils/documents';
+import { lsKey } from '../../../shared/tenant';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true' || !import.meta.env.VITE_API_URL;
+const DEV_CLIENTES_BASE_KEY = 'dev_clientes';
+
+const resolveDevClientesStorageKey = () => {
+  try {
+    return { key: lsKey(DEV_CLIENTES_BASE_KEY), namespaced: true };
+  } catch {
+    return { key: DEV_CLIENTES_BASE_KEY, namespaced: false };
+  }
+};
 
 interface ApiError {
   code: string;
@@ -473,8 +483,18 @@ class ClientesClient {
    */
   private getDevClientes(): Cliente[] {
     try {
-      // NOT tenant-specific: almacenamiento de clientes de prueba solo para modo DEV
-      const stored = localStorage.getItem('dev_clientes');
+      const { key, namespaced } = resolveDevClientesStorageKey();
+      let stored = localStorage.getItem(key);
+
+      if (!stored && namespaced) {
+        const legacy = localStorage.getItem(DEV_CLIENTES_BASE_KEY);
+        if (legacy) {
+          localStorage.setItem(key, legacy);
+          localStorage.removeItem(DEV_CLIENTES_BASE_KEY);
+          stored = legacy;
+        }
+      }
+
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -485,8 +505,16 @@ class ClientesClient {
    * Guardar clientes en localStorage (DEV)
    */
   private saveDevClientes(clientes: Cliente[]): void {
-    // NOT tenant-specific: almacenamiento de clientes de prueba solo para modo DEV
-    localStorage.setItem('dev_clientes', JSON.stringify(clientes));
+    try {
+      const { key, namespaced } = resolveDevClientesStorageKey();
+      localStorage.setItem(key, JSON.stringify(clientes));
+
+      if (namespaced) {
+        localStorage.removeItem(DEV_CLIENTES_BASE_KEY);
+      }
+    } catch {
+      // noop en modo DEV
+    }
   }
 
   // ==================== CLIENTES ====================
