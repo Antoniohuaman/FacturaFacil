@@ -135,7 +135,6 @@ export const useProductStore = () => {
   const reloadForEmpresa = useCallback((empresaId: string) => {
     try {
       if (!empresaId || empresaId.trim() === '') {
-        console.warn('reloadForEmpresa: empresaId inválido. TODO: integrar hook real de tenant.');
         return;
       }
       // Leer explícitamente con la empresa indicada (sin usar lsKey para este caso)

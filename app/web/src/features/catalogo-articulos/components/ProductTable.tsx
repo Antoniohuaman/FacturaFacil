@@ -5,8 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 
 // Tenant helpers compartidos (namespacing por empresa)
-import { ensureEmpresaId } from '../../../shared/tenant';
-const lsKey = (base: string) => `${ensureEmpresaId()}:${base}`;
+import { ensureEmpresaId, lsKey } from '../../../shared/tenant';
 
 // One-shot migration de llaves legacy -> namespaced por empresa (para columnas de tabla y otros)
 function migrateLegacyToNamespaced() {

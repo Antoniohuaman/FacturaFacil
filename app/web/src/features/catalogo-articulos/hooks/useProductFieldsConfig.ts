@@ -1,5 +1,6 @@
 // Hook para gestionar la configuración de campos del formulario de productos
 import { useState, useEffect } from 'react';
+import { ensureEmpresaId, lsKey } from '../../../shared/tenant';
 
 export interface ProductFieldConfig {
   id: string;
@@ -41,22 +42,6 @@ const DEFAULT_FIELDS_CONFIG: ProductFieldConfig[] = [
 const STORAGE_KEY = 'productFieldsConfig';
 
 export const useProductFieldsConfig = () => {
-  // Tenant helpers locales (namespacing por empresa)
-  function getTenantEmpresaId(): string {
-    // TODO: Reemplazar por selector/hook real de tenant de la app
-    return ensureEmpresaId();
-  }
-  function ensureEmpresaId(): string {
-    const empresaId = getTenantEmpresaId();
-    if (!empresaId || typeof empresaId !== 'string' || empresaId.trim() === '') {
-      const msg = 'empresaId inválido. TODO: integrar hook real de tenant para obtener empresa actual.';
-      console.warn(msg);
-      throw new Error(msg);
-    }
-    return empresaId;
-  }
-  const lsKey = (base: string) => `${ensureEmpresaId()}:${base}`;
-
   function migrateLegacyToNamespaced() {
     try {
       const empresaId = ensureEmpresaId();
