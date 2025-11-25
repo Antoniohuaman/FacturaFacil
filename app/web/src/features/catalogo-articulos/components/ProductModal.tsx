@@ -154,6 +154,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [unitInfoMessage, setUnitInfoMessage] = useState<string | null>(null);
+  const [hasInitializedForm, setHasInitializedForm] = useState(false);
 
   const findUnitByCode = useCallback((code?: string) => {
     if (!code) return undefined;
@@ -280,88 +281,107 @@ const ProductModal: React.FC<ProductModalProps> = ({
     setAdditionalUnitErrors([]);
   }, [productType, getDefaultUnitForType, inferMeasureTypeFromUnit]);
 
-  useEffect(() => {
-    if (product) {
-      const additionalUnits = product.unidadesMedidaAdicionales?.map(unit => ({
-        unidadCodigo: unit.unidadCodigo,
-        factorConversion: unit.factorConversion
-      })) || [];
-      const inferredType = product.tipoUnidadMedida || inferMeasureTypeFromUnit(product.unidad);
-      const sanitizedUnits = additionalUnits.filter(unit =>
-        isUnitAllowedForMeasureType(unit.unidadCodigo, sortedUnits, inferredType)
-      );
+  const defaultCategoryName = useMemo(() => categories[0]?.nombre || '', [categories]);
 
-      setFormData({
-        nombre: product.nombre,
-        codigo: product.codigo,
-        precio: product.precio,
-        unidad: product.unidad,
-        tipoUnidadMedida: inferredType,
-        unidadesMedidaAdicionales: sanitizedUnits,
-        categoria: product.categoria,
-        impuesto: product.impuesto || 'IGV (18.00%)',
-        descripcion: product.descripcion || '',
-        establecimientoIds: product.establecimientoIds || [],
-        disponibleEnTodos: product.disponibleEnTodos || false,
-        alias: product.alias || '',
-        precioCompra: product.precioCompra || 0,
-        porcentajeGanancia: product.porcentajeGanancia || 0,
-        codigoBarras: product.codigoBarras || '',
-        codigoFabrica: product.codigoFabrica || '',
-        codigoSunat: product.codigoSunat || '',
-        descuentoProducto: product.descuentoProducto || 0,
-        marca: product.marca || '',
-        modelo: product.modelo || '',
-        peso: product.peso || 0,
-        tipoExistencia: product.tipoExistencia || 'MERCADERIAS'
-      });
+  const initializeFormForNewProduct = useCallback(() => {
+    const defaultUnit = getDefaultUnitForType('BIEN');
+    const inferredType = inferMeasureTypeFromUnit(defaultUnit);
 
-      setPrecioInput(product.precio.toFixed(2));
-      setImagePreview(product.imagen || '');
-      setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
-      
-      // Detectar tipo de producto basado en unidad
-      if (product.unidad === 'ZZ') {
-        setProductType('SERVICIO');
-      } else {
-        setProductType('BIEN');
-      }
-    } else {
-      const defaultUnit = getDefaultUnitForType('BIEN');
-      setFormData({
-        nombre: '',
-        codigo: '',
-        precio: 0,
-        unidad: defaultUnit as Product['unidad'],
-        tipoUnidadMedida: inferMeasureTypeFromUnit(defaultUnit),
-        unidadesMedidaAdicionales: [],
-        categoria: categories[0]?.nombre || '',
-        impuesto: 'IGV (18.00%)',
-        descripcion: '',
-        establecimientoIds: [],
-        disponibleEnTodos: false,
-        alias: '',
-        precioCompra: 0,
-        porcentajeGanancia: 0,
-        codigoBarras: '',
-        codigoFabrica: '',
-        codigoSunat: '',
-        descuentoProducto: 0,
-        marca: '',
-        modelo: '',
-        peso: 0,
-        tipoExistencia: 'MERCADERIAS'
-      });
+    setFormData({
+      nombre: '',
+      codigo: '',
+      precio: 0,
+      unidad: defaultUnit as Product['unidad'],
+      tipoUnidadMedida: inferredType,
+      unidadesMedidaAdicionales: [],
+      categoria: defaultCategoryName,
+      impuesto: 'IGV (18.00%)',
+      descripcion: '',
+      establecimientoIds: [],
+      disponibleEnTodos: false,
+      alias: '',
+      precioCompra: 0,
+      porcentajeGanancia: 0,
+      codigoBarras: '',
+      codigoFabrica: '',
+      codigoSunat: '',
+      descuentoProducto: 0,
+      marca: '',
+      modelo: '',
+      peso: 0,
+      tipoExistencia: 'MERCADERIAS'
+    });
 
-      setPrecioInput('0.00');
-      setImagePreview('');
-      setProductType('BIEN');
-      setAdditionalUnitErrors([]);
-    }
+    setPrecioInput('0.00');
+    setImagePreview('');
+    setProductType('BIEN');
+    setAdditionalUnitErrors([]);
     setErrors({});
     setUnitInfoMessage(null);
     setIsDescriptionExpanded(false);
-  }, [product, isOpen, categories, establishments, availableUnits, sortedUnits, getDefaultUnitForType, inferMeasureTypeFromUnit]);
+  }, [defaultCategoryName, getDefaultUnitForType, inferMeasureTypeFromUnit]);
+
+  const initializeFormFromProduct = useCallback((productData: Product) => {
+    const additionalUnits = productData.unidadesMedidaAdicionales?.map(unit => ({
+      unidadCodigo: unit.unidadCodigo,
+      factorConversion: unit.factorConversion
+    })) || [];
+    const inferredType = productData.tipoUnidadMedida || inferMeasureTypeFromUnit(productData.unidad);
+    const sanitizedUnits = additionalUnits.filter(unit =>
+      isUnitAllowedForMeasureType(unit.unidadCodigo, sortedUnits, inferredType)
+    );
+
+    setFormData({
+      nombre: productData.nombre,
+      codigo: productData.codigo,
+      precio: productData.precio,
+      unidad: productData.unidad,
+      tipoUnidadMedida: inferredType,
+      unidadesMedidaAdicionales: sanitizedUnits,
+      categoria: productData.categoria,
+      impuesto: productData.impuesto || 'IGV (18.00%)',
+      descripcion: productData.descripcion || '',
+      establecimientoIds: productData.establecimientoIds || [],
+      disponibleEnTodos: productData.disponibleEnTodos || false,
+      alias: productData.alias || '',
+      precioCompra: productData.precioCompra || 0,
+      porcentajeGanancia: productData.porcentajeGanancia || 0,
+      codigoBarras: productData.codigoBarras || '',
+      codigoFabrica: productData.codigoFabrica || '',
+      codigoSunat: productData.codigoSunat || '',
+      descuentoProducto: productData.descuentoProducto || 0,
+      marca: productData.marca || '',
+      modelo: productData.modelo || '',
+      peso: productData.peso || 0,
+      tipoExistencia: productData.tipoExistencia || 'MERCADERIAS'
+    });
+
+    setPrecioInput(productData.precio.toFixed(2));
+    setImagePreview(productData.imagen || '');
+    setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
+    setProductType(productData.unidad === 'ZZ' ? 'SERVICIO' : 'BIEN');
+    setErrors({});
+    setUnitInfoMessage(null);
+    setIsDescriptionExpanded(false);
+  }, [inferMeasureTypeFromUnit, sortedUnits]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setHasInitializedForm(false);
+      return;
+    }
+
+    if (product) {
+      initializeFormFromProduct(product);
+      setHasInitializedForm(true);
+      return;
+    }
+
+    if (!hasInitializedForm) {
+      initializeFormForNewProduct();
+      setHasInitializedForm(true);
+    }
+  }, [isOpen, product, hasInitializedForm, initializeFormForNewProduct, initializeFormFromProduct]);
 
   const validateForm = (): boolean => {
     const newErrors: FormError = {};
