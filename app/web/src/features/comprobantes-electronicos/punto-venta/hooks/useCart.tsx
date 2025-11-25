@@ -99,7 +99,6 @@ export const useCart = (): UseCartReturn => {
         quantity,
         subtotal: product.price / 1.18, // Calcular subtotal sin IGV
         total: product.price,
-        priceType: 'base', // Tipo de precio por defecto
         basePrice: product.price // Guardar precio base original
       }];
     });
@@ -212,7 +211,8 @@ export const useCart = (): UseCartReturn => {
               ...product,
               quantity,
               subtotal: product.price / 1.18, // Calcular subtotal sin IGV
-              total: product.price
+              total: product.price,
+              basePrice: product.price
             });
           }
         });

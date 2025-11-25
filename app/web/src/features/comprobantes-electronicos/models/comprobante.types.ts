@@ -9,15 +9,6 @@ export type DraftAction = 'borradores' | 'continuar' | 'terminar';
 export type IgvType = 'igv18' | 'igv10' | 'exonerado' | 'inafecto';
 export type PreviewFormat = 'a4' | 'ticket';
 
-// Nuevos tipos para precios múltiples
-export type PriceType = 'base' | 'mayorista' | 'distribuidor' | 'vip' | 'campana';
-
-export interface PriceOption {
-  value: PriceType;
-  label: string;
-  price: number;
-}
-
 // Nuevos tipos para monedas
 export type Currency = 'PEN' | 'USD';
 
@@ -89,8 +80,10 @@ export interface CartItem {
   igvType?: IgvType;
   unidadMedida?: string;
   currency?: Currency;
-  priceType?: PriceType;
-  availablePrices?: PriceOption[];
+  priceColumnId?: string;
+  priceColumnLabel?: string;
+  minAllowedPrice?: number;
+  isManualPrice?: boolean;
   basePrice?: number;
   stock: number; // ✅ Stock disponible
   requiresStockControl?: boolean; // ✅ Si requiere validación de stock

@@ -1,9 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { CartItem, DraftAction, TipoComprobante } from '../../../models/comprobante.types';
 import { UNIDADES_MEDIDA } from '../../../models/constants';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
-import { CheckSquare, Square, Sliders } from 'lucide-react';
+import { CheckSquare, Square, Sliders, Settings2 } from 'lucide-react';
+import { usePriceBook } from '../hooks/usePriceBook';
+import type { PriceColumnOption } from '../hooks/usePriceBook';
+import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
 
 interface ProductsSectionProps {
   cartItems: CartItem[];
@@ -134,6 +137,72 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
   const [showColumnConfig, setShowColumnConfig] = useState(false);
 
+  const {
+    hasSelectableColumns,
+    baseColumnId,
+    globalDiscountColumn,
+    globalIncreaseColumn,
+    getPriceOptionsFor,
+    resolveMinPrice
+  } = usePriceBook();
+
+  const normalizedDiscountDefault = useMemo(() => {
+    if (globalDiscountColumn?.globalRuleType !== 'percent') return 0;
+    return typeof globalDiscountColumn.globalRuleValue === 'number'
+      ? globalDiscountColumn.globalRuleValue
+      : 0;
+  }, [globalDiscountColumn]);
+
+  const normalizedIncreaseDefault = useMemo(() => {
+    if (globalIncreaseColumn?.globalRuleType !== 'percent') return 0;
+    return typeof globalIncreaseColumn.globalRuleValue === 'number'
+      ? globalIncreaseColumn.globalRuleValue
+      : 0;
+  }, [globalIncreaseColumn]);
+
+  type GlobalPricingMode = 'none' | 'discount' | 'increase';
+
+  const [globalPricing, setGlobalPricing] = useState<{
+    mode: GlobalPricingMode;
+    discountPercent: number;
+    increasePercent: number;
+  }>(() => ({
+    mode: 'none',
+    discountPercent: normalizedDiscountDefault,
+    increasePercent: normalizedIncreaseDefault
+  }));
+
+  useEffect(() => {
+    setGlobalPricing(prev => {
+      const nextDiscount = prev.mode === 'discount' ? prev.discountPercent : normalizedDiscountDefault;
+      const nextIncrease = prev.mode === 'increase' ? prev.increasePercent : normalizedIncreaseDefault;
+      if (nextDiscount === prev.discountPercent && nextIncrease === prev.increasePercent) {
+        return prev;
+      }
+      return {
+        ...prev,
+        discountPercent: nextDiscount,
+        increasePercent: nextIncrease
+      };
+    });
+  }, [normalizedDiscountDefault, normalizedIncreaseDefault]);
+
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+  const [priceErrors, setPriceErrors] = useState<Record<string, string>>({});
+  const [showGlobalPricing, setShowGlobalPricing] = useState(false);
+  const priceModeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const priceModePopoverRef = useRef<HTMLDivElement | null>(null);
+
+  const globalRuleLabel = useMemo(() => {
+    if (globalPricing.mode === 'discount') {
+      return `Descuento global ${Math.abs(globalPricing.discountPercent || 0)}%`;
+    }
+    if (globalPricing.mode === 'increase') {
+      return `Aumento global ${Math.abs(globalPricing.increasePercent || 0)}%`;
+    }
+    return null;
+  }, [globalPricing]);
+
   // Guardar configuración en localStorage
   useEffect(() => {
     try {
@@ -142,6 +211,241 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       console.error('Error saving column configuration:', e);
     }
   }, [columnConfig]);
+
+  useEffect(() => {
+    if (!showGlobalPricing) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        priceModePopoverRef.current?.contains(target) ||
+        priceModeButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setShowGlobalPricing(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showGlobalPricing]);
+
+  const formatCurrency = useCallback((value: number) => `S/ ${Number(value || 0).toFixed(2)}`, []);
+
+  const globalMultiplier = useMemo(() => {
+    if (globalPricing.mode === 'discount') {
+      const percent = Math.min(Math.abs(globalPricing.discountPercent || 0), 99.99);
+      return Math.max(0.0001, 1 - percent / 100);
+    }
+    if (globalPricing.mode === 'increase') {
+      const percent = Math.abs(globalPricing.increasePercent || 0);
+      return 1 + percent / 100;
+    }
+    return 1;
+  }, [globalPricing]);
+
+  const applyGlobalRuleValue = useCallback((value: number) => {
+    return roundCurrency(value * globalMultiplier);
+  }, [globalMultiplier]);
+
+  const stripGlobalRuleValue = useCallback((value: number) => {
+    const safeMultiplier = globalMultiplier === 0 ? 1 : globalMultiplier;
+    return roundCurrency(value / safeMultiplier);
+  }, [globalMultiplier]);
+
+  const resolveUnitCode = useCallback((item: CartItem) => {
+    return item.unidadMedida || item.unidad || 'NIU';
+  }, []);
+
+  const resolveSku = useCallback((item: CartItem) => {
+    return item.code || String(item.id);
+  }, []);
+
+  useEffect(() => {
+    const validIds = new Set(cartItems.map(item => String(item.id)));
+
+    setPriceDrafts(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(key => {
+        if (!validIds.has(key)) {
+          delete next[key];
+        }
+      });
+      return next;
+    });
+
+    setPriceErrors(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(key => {
+        if (!validIds.has(key)) {
+          delete next[key];
+        }
+      });
+      return next;
+    });
+  }, [cartItems]);
+
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      return;
+    }
+
+    cartItems.forEach(item => {
+      const sku = resolveSku(item);
+      if (!sku) return;
+
+      const unitCode = resolveUnitCode(item);
+      const updates: Partial<CartItem> = {};
+
+      let priceOptions: PriceColumnOption[] = [];
+      if (hasSelectableColumns) {
+        priceOptions = getPriceOptionsFor(sku, unitCode);
+      }
+
+      const currentOption = priceOptions.find(option => option.columnId === item.priceColumnId);
+      const fallbackOption = priceOptions.length > 0
+        ? (priceOptions.find(option => option.columnId === baseColumnId) || priceOptions[0])
+        : undefined;
+      const selectedOption = item.isManualPrice ? undefined : (currentOption || fallbackOption);
+
+      const minPrice = hasSelectableColumns ? resolveMinPrice(sku, unitCode) : undefined;
+      const roundedMin = typeof minPrice === 'number' ? roundCurrency(minPrice) : undefined;
+
+      if (typeof roundedMin === 'number') {
+        if (item.minAllowedPrice !== roundedMin) {
+          updates.minAllowedPrice = roundedMin;
+        }
+      } else if (typeof item.minAllowedPrice === 'number') {
+        updates.minAllowedPrice = undefined;
+      }
+
+      if (!item.isManualPrice && selectedOption) {
+        if (item.priceColumnId !== selectedOption.columnId) {
+          updates.priceColumnId = selectedOption.columnId;
+        }
+        if (item.priceColumnLabel !== selectedOption.label) {
+          updates.priceColumnLabel = selectedOption.label;
+        }
+        if (item.basePrice !== selectedOption.price) {
+          updates.basePrice = roundCurrency(selectedOption.price);
+        }
+      }
+
+      let baseValue: number | undefined;
+      if (item.isManualPrice && typeof item.basePrice === 'number') {
+        baseValue = item.basePrice;
+      } else if (!item.isManualPrice && selectedOption) {
+        baseValue = selectedOption.price;
+      } else if (typeof item.basePrice === 'number') {
+        baseValue = item.basePrice;
+      } else {
+        baseValue = stripGlobalRuleValue(item.price || 0);
+      }
+
+      if (typeof baseValue === 'number') {
+        const computedPrice = applyGlobalRuleValue(baseValue);
+        const guardedPrice = typeof roundedMin === 'number'
+          ? Math.max(computedPrice, roundedMin)
+          : computedPrice;
+        if (!Number.isNaN(guardedPrice) && guardedPrice !== item.price) {
+          updates.price = roundCurrency(guardedPrice);
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        updateCartItem(item.id, updates);
+      }
+    });
+  }, [applyGlobalRuleValue, baseColumnId, cartItems, getPriceOptionsFor, hasSelectableColumns, resolveMinPrice, resolveSku, resolveUnitCode, stripGlobalRuleValue, updateCartItem]);
+
+  const clearDraftForItem = useCallback((itemId: string) => {
+    setPriceDrafts(prev => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+  }, []);
+
+  const clearErrorForItem = useCallback((itemId: string) => {
+    setPriceErrors(prev => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+  }, []);
+
+  const handlePriceOptionChange = useCallback((item: CartItem, columnId: string, options: PriceColumnOption[]) => {
+    const option = options.find(entry => entry.columnId === columnId);
+    if (!option) return;
+
+    clearDraftForItem(String(item.id));
+    clearErrorForItem(String(item.id));
+
+    updateCartItem(item.id, {
+      priceColumnId: option.columnId,
+      priceColumnLabel: option.label,
+      basePrice: roundCurrency(option.price),
+      price: applyGlobalRuleValue(option.price),
+      isManualPrice: false
+    });
+  }, [applyGlobalRuleValue, clearDraftForItem, clearErrorForItem, updateCartItem]);
+
+  const handlePriceInputChange = useCallback((itemId: string, value: string) => {
+    setPriceDrafts(prev => ({
+      ...prev,
+      [itemId]: value
+    }));
+  }, []);
+
+  const handlePriceInputBlur = useCallback((item: CartItem, rawValue: string) => {
+    const itemId = String(item.id);
+    let parsed = parseFloat(rawValue);
+    if (Number.isNaN(parsed)) {
+      parsed = item.price || 0;
+    }
+
+    let normalized = roundCurrency(parsed);
+    let errorMessage: string | undefined;
+    if (typeof item.minAllowedPrice === 'number' && normalized < item.minAllowedPrice) {
+      normalized = item.minAllowedPrice;
+      errorMessage = `El precio mínimo es ${formatCurrency(item.minAllowedPrice)}`;
+    }
+
+    const baseValue = stripGlobalRuleValue(normalized);
+
+    updateCartItem(item.id, {
+      basePrice: baseValue,
+      price: normalized,
+      isManualPrice: true
+    });
+
+    clearDraftForItem(itemId);
+
+    setPriceErrors(prev => {
+      const next = { ...prev };
+      if (errorMessage) {
+        next[itemId] = errorMessage;
+      } else {
+        delete next[itemId];
+      }
+      return next;
+    });
+  }, [clearDraftForItem, formatCurrency, stripGlobalRuleValue, updateCartItem]);
+
+  const handleGlobalModeChange = useCallback((mode: GlobalPricingMode) => {
+    setGlobalPricing(prev => ({ ...prev, mode }));
+  }, []);
+
+  const handleGlobalPercentChange = useCallback((mode: 'discount' | 'increase', rawValue: string) => {
+    const parsed = Math.abs(parseFloat(rawValue));
+    const sanitized = Number.isNaN(parsed) ? 0 : parsed;
+    setGlobalPricing(prev => {
+      if (mode === 'discount') {
+        return { ...prev, discountPercent: Math.min(sanitized, 99.99) };
+      }
+      return { ...prev, increasePercent: Math.min(sanitized, 999.99) };
+    });
+  }, []);
 
   // ✅ Columnas visibles ordenadas correctamente
   const visibleColumns = useMemo(() =>
@@ -171,15 +475,6 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       col.isFixed ? col : { ...col, isVisible: false }
     ));
   };
-
-  // Función para generar precios múltiples
-  const getAvailablePrices = (basePrice: number) => [
-    { value: 'base' as const, label: 'Precio Base', price: basePrice },
-    { value: 'mayorista' as const, label: 'Precio Mayorista', price: basePrice * 0.85 },
-    { value: 'distribuidor' as const, label: 'Precio Distribuidor', price: basePrice * 0.75 },
-    { value: 'vip' as const, label: 'Precio VIP', price: basePrice * 0.90 },
-    { value: 'campana' as const, label: 'Precio Campaña', price: basePrice * 0.80 }
-  ];
 
   // ===================================================================
   // RENDERIZADO DE CELDAS
@@ -396,7 +691,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               {/* ✅ Selector para cambiar unidad */}
               <select
                 value={item.unidadMedida || item.unidad || 'UNIDAD'}
-                onChange={(e) => updateCartItem(item.id, { unidadMedida: e.target.value })}
+                onChange={(e) => updateCartItem(item.id, { unidadMedida: e.target.value, isManualPrice: false })}
                 className="w-full text-center text-xs text-gray-700 border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer hover:bg-gray-50"
               >
                 {UNIDADES_MEDIDA.map(unidad => (
@@ -409,61 +704,59 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           </td>
         );
 
-      case 'precio':
+      case 'precio': {
+        const itemKey = String(item.id);
+        const options = hasSelectableColumns ? getPriceOptionsFor(resolveSku(item), resolveUnitCode(item)) : [];
+        const hasOptions = options.length > 0;
+        const selectValue = hasOptions
+          ? (options.some(option => option.columnId === item.priceColumnId)
+              ? item.priceColumnId || options[0].columnId
+              : options[0].columnId)
+          : '';
+        const inputValue = priceDrafts[itemKey] ?? (item.price ?? 0).toFixed(2);
+        const minLabel = typeof item.minAllowedPrice === 'number' ? formatCurrency(item.minAllowedPrice) : null;
+        const errorMessage = priceErrors[itemKey];
+
         return (
           <td className="px-4 py-4 text-right text-sm">
             <div className="flex items-center space-x-1">
               <select
-                value={item.priceType || 'base'}
-                className="w-32 px-2 py-1 border rounded text-center text-xs"
-                onChange={e => {
-                  const basePrice = item.basePrice || item.price;
-                  const availablePrices = getAvailablePrices(basePrice);
-                  const selectedPrice = availablePrices.find(p => p.value === e.target.value);
-                  if (selectedPrice) {
-                    updateCartItem(item.id, {
-                      priceType: e.target.value as any,
-                      price: selectedPrice.price
-                    });
-                  }
-                }}
+                value={selectValue || ''}
+                disabled={!hasOptions}
+                className="w-32 px-2 py-1 border rounded text-center text-xs disabled:bg-gray-50 disabled:text-gray-400"
+                onChange={e => handlePriceOptionChange(item, e.target.value, options)}
               >
-                {getAvailablePrices(item.basePrice || item.price).map(priceOption => (
-                  <option key={priceOption.value} value={priceOption.value}>
-                    {priceOption.label}
-                  </option>
-                ))}
+                {hasOptions ? (
+                  options.map(option => (
+                    <option key={option.columnId} value={option.columnId}>
+                      {option.label}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Lista no configurada</option>
+                )}
               </select>
-              {(item.priceType || 'base') === 'base' ? (
+              <div className="flex flex-col w-20 text-right">
                 <input
-                  key={`price-${item.id}-${item.price}`}
-                  type="text"
-                  defaultValue={item.price.toFixed(2)}
-                  className="w-20 px-2 py-1 border rounded text-right text-xs"
-                  placeholder="0.00"
-                  onBlur={e => {
-                    const value = e.target.value.trim();
-                    if (value === '') {
-                      const formatted = parseFloat('0').toFixed(2);
-                      updateCartItem(item.id, { price: 0, basePrice: 0 });
-                      e.target.value = formatted;
-                    } else {
-                      const cleanValue = value.replace(/[^0-9.]/g, '');
-                      const numValue = parseFloat(cleanValue) || 0;
-                      const formatted = parseFloat(numValue.toFixed(2));
-                      updateCartItem(item.id, { price: formatted, basePrice: formatted });
-                      e.target.value = formatted.toFixed(2);
-                    }
-                  }}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={inputValue}
+                  onChange={e => handlePriceInputChange(itemKey, e.target.value)}
+                  onBlur={e => handlePriceInputBlur(item, e.target.value)}
+                  className={`w-full px-2 py-1 border rounded text-xs text-right focus:outline-none focus:ring-2 ${errorMessage ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-300 focus:ring-violet-500/30 focus:border-violet-500'}`}
                 />
-              ) : (
-                <div className="w-20 text-right font-medium text-xs">
-                  {item.price.toFixed(2)}
-                </div>
-              )}
+                {minLabel && (
+                  <p className="text-[11px] text-gray-400 mt-0.5">Precio mínimo: {minLabel}</p>
+                )}
+                {errorMessage && (
+                  <p className="text-[11px] text-red-500 mt-0.5">{errorMessage}</p>
+                )}
+              </div>
             </div>
           </td>
         );
+      }
 
       case 'subtotal':
         return (
@@ -524,6 +817,91 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
             >
               <Sliders className="w-4 h-4" />
             </button>
+
+            <div className="relative">
+              <button
+                ref={priceModeButtonRef}
+                onClick={() => setShowGlobalPricing(prev => !prev)}
+                className={`flex items-center justify-center w-9 h-9 border rounded-lg shadow-sm transition-all ${globalPricing.mode !== 'none' ? 'text-violet-700 border-violet-300 bg-violet-50 hover:bg-violet-100' : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 hover:border-violet-400'}`}
+                title="Modo de precios globales"
+                aria-label="Configurar regla global de precios"
+              >
+                <Settings2 className="w-4 h-4" />
+              </button>
+              {showGlobalPricing && (
+                <div
+                  ref={priceModePopoverRef}
+                  className="absolute right-0 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-lg p-4 z-20"
+                >
+                  <p className="text-xs text-gray-500 mb-2">
+                    Aplica un ajuste porcentual a todas las líneas del comprobante.
+                  </p>
+                  <div className="space-y-3 text-sm text-gray-700">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="price-mode"
+                        className="text-violet-600 focus:ring-violet-500"
+                        checked={globalPricing.mode === 'none'}
+                        onChange={() => handleGlobalModeChange('none')}
+                      />
+                      Sin regla global
+                    </label>
+                    <div className="space-y-1">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="price-mode"
+                          className="text-violet-600 focus:ring-violet-500"
+                          checked={globalPricing.mode === 'discount'}
+                          onChange={() => handleGlobalModeChange('discount')}
+                        />
+                        Descuento global (%)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={99.99}
+                        step={0.1}
+                        disabled={globalPricing.mode !== 'discount'}
+                        value={globalPricing.discountPercent}
+                        onChange={e => handleGlobalPercentChange('discount', e.target.value)}
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 disabled:bg-gray-50"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="price-mode"
+                          className="text-violet-600 focus:ring-violet-500"
+                          checked={globalPricing.mode === 'increase'}
+                          onChange={() => handleGlobalModeChange('increase')}
+                        />
+                        Aumento global (%)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={999.99}
+                        step={0.1}
+                        disabled={globalPricing.mode !== 'increase'}
+                        value={globalPricing.increasePercent}
+                        onChange={e => handleGlobalPercentChange('increase', e.target.value)}
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 disabled:bg-gray-50"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {globalRuleLabel && (
+              <span className="px-2 py-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded">
+                {globalRuleLabel}
+              </span>
+            )}
+
             {cartItems.length > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-violet-50 border border-violet-200 rounded-lg">
                 <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-pulse"></div>
