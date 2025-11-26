@@ -1,0 +1,114 @@
+import React from 'react';
+import { Layers, Ruler, Droplet, Clock3, Boxes, Weight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { Unit } from '../../../configuracion-sistema/models/Unit';
+import type { ProductFormData, UnitMeasureType } from '../../models/types';
+import type { FormError } from '../../hooks/useProductForm';
+import { UNIT_MEASURE_TYPE_OPTIONS } from '../../utils/unitMeasureHelpers';
+
+const UNIT_TYPE_META: Record<
+  UnitMeasureType,
+  { label: string; Icon: LucideIcon }
+> = {
+  UNIDADES: { label: 'Unidades', Icon: Boxes },
+  PESO: { label: 'Peso', Icon: Weight },
+  VOLUMEN: { label: 'Volumen', Icon: Droplet },
+  LONGITUD_AREA: { label: 'Longitud / área', Icon: Ruler },
+  TIEMPO_SERVICIO: { label: 'Tiempo / servicio', Icon: Clock3 }
+};
+
+interface ProductUnitsSectionProps {
+  formData: ProductFormData;
+  errors: FormError;
+  baseUnitOptions: Unit[];
+  availableUnits: Unit[];
+  isUsingFallbackUnits: boolean;
+  handleMeasureTypeChange: (nextType: UnitMeasureType) => void;
+  handleBaseUnitChange: (nextUnit: ProductFormData['unidad']) => void;
+}
+
+export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
+  formData,
+  errors,
+  baseUnitOptions,
+  availableUnits,
+  isUsingFallbackUnits,
+  handleMeasureTypeChange,
+  handleBaseUnitChange
+}) => {
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-1">
+          <span>Familia de unidades</span>
+        </div>
+        <div className="flex gap-1 overflow-x-auto pb-1" role="group" aria-label="Familia de unidades">
+          {UNIT_MEASURE_TYPE_OPTIONS.map(option => {
+            const isActive = formData.tipoUnidadMedida === option.value;
+            const meta = UNIT_TYPE_META[option.value as UnitMeasureType] ?? { label: option.label, Icon: Layers };
+            const Icon = meta.Icon;
+            return (
+              <button
+                type="button"
+                key={option.value}
+                onClick={() => handleMeasureTypeChange(option.value as UnitMeasureType)}
+                aria-pressed={isActive}
+                className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 ${
+                  isActive
+                    ? 'border-violet-500 bg-violet-50 text-violet-900 shadow-sm'
+                    : 'border-gray-200 text-gray-600 hover:border-violet-300 hover:text-violet-700'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{meta.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-gray-500">La familia define qué unidades son compatibles para este producto.</p>
+        {isUsingFallbackUnits && (
+          <p className="text-[11px] text-amber-600 mt-1">
+            No hay unidades activas para esta familia. Mostramos todas las disponibles hasta que configures más.
+          </p>
+        )}
+        {errors.tipoUnidadMedida && <p className="text-red-600 text-xs mt-1">{errors.tipoUnidadMedida}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="unidad" className="block text-xs font-medium text-gray-700 mb-1">
+          Unidad mínima <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+          <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <select
+            id="unidad"
+            value={formData.unidad}
+            onChange={(e) => handleBaseUnitChange(e.target.value as ProductFormData['unidad'])}
+            className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          >
+            {baseUnitOptions.length > 0 ? (
+              baseUnitOptions.map(unit => (
+                <option key={unit.id} value={unit.code}>
+                  ({unit.code}) {unit.name}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="NIU">(NIU) Unidad</option>
+                <option value="ZZ">(ZZ) Servicios</option>
+              </>
+            )}
+          </select>
+        </div>
+        <p className="text-[11px] text-gray-500 mt-1">
+          Es la unidad con la que se controla el stock interno (1, 2, 3…). Las demás presentaciones se convierten a partir de esta unidad.
+        </p>
+        <p className="text-xs text-gray-500 mt-1">
+          {availableUnits.length > 0
+            ? `${availableUnits.length} unidad${availableUnits.length !== 1 ? 'es' : ''} disponible${availableUnits.length !== 1 ? 's' : ''}`
+            : 'Ve a Configuración → Negocio para gestionar unidades'}
+        </p>
+      </div>
+    </div>
+  );
+};

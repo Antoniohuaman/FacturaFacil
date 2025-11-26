@@ -57,6 +57,7 @@ export interface Product {
   image?: string;
   barcode?: string;
   unit?: string;
+  impuesto?: string;
   // Datos adicionales del catálogo (opcional)
   catalogData?: {
     impuesto?: string;
