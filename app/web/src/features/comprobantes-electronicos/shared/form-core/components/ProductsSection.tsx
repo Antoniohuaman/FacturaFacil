@@ -271,6 +271,19 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     return roundCurrency(value / safeMultiplier);
   }, [globalMultiplier]);
 
+  const getIgvPercent = useCallback((item: CartItem) => {
+    if (typeof item.igv === 'number') {
+      return item.igv;
+    }
+    if (item.igvType === 'igv10') {
+      return 10;
+    }
+    if (item.igvType === 'igv18') {
+      return 18;
+    }
+    return 0;
+  }, []);
+
   const resolveSku = useCallback((item: CartItem) => {
     return item.code || String(item.id);
   }, []);
@@ -657,14 +670,19 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           </td>
         );
 
-      case 'impuesto':
+      case 'impuesto': {
+        const igvPercent = getIgvPercent(item);
+        const fallbackLabel = igvPercent > 0 ? `IGV (${igvPercent.toFixed(2)}%)` : item.igvType === 'inafecto' ? 'Inafecto (0.00%)' : 'Exonerado (0.00%)';
+        const igvLabel = item.impuesto || fallbackLabel;
         return (
           <td className="px-4 py-4 text-center text-sm">
-            <div className="inline-flex px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
-              {item.impuesto || 'IGV 18%'}
+            <div className="inline-flex flex-col items-center px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full min-w-[120px] leading-tight">
+              <span>{igvLabel}</span>
+              <span className="text-[10px] text-gray-500">({igvPercent.toFixed(2)}%)</span>
             </div>
           </td>
         );
+      }
 
       case 'cantidad':
         return (
@@ -684,7 +702,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                 min={0.01}
                 step={0.01}
                 value={item.quantity}
-                className="w-12 h-8 px-1.5 py-0 border border-gray-400 rounded text-center font-semibold text-xs focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                className="w-12 h-8 px-1.5 py-0 border border-gray-400 rounded text-center font-semibold text-xs focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/30 no-number-spinner"
                 onChange={e => {
                   const newQty = parseFloat(e.target.value) || 0.01;
                   updateCartItem(item.id, { quantity: newQty });
@@ -767,10 +785,13 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                   value={inputValue}
                   onChange={e => handlePriceInputChange(itemKey, e.target.value)}
                   onBlur={e => handlePriceInputBlur(item, e.target.value)}
-                  className={`w-full px-2 py-1 border rounded text-xs text-right focus:outline-none focus:ring-2 ${errorMessage ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-300 focus:ring-violet-500/30 focus:border-violet-500'}`}
+                  className={`w-full px-2 py-1 border rounded text-xs text-right focus:outline-none focus:ring-2 no-number-spinner ${errorMessage ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-300 focus:ring-violet-500/30 focus:border-violet-500'}`}
                 />
                 {minLabel && (
-                  <p className="text-[11px] text-gray-400 mt-0.5">Precio mínimo: {minLabel}</p>
+                  <div className="text-[11px] text-gray-400 mt-0.5 flex items-center justify-between gap-1 whitespace-nowrap">
+                    <span>Precio mínimo</span>
+                    <span className="font-medium text-gray-500">{minLabel}</span>
+                  </div>
                 )}
                 {errorMessage && (
                   <p className="text-[11px] text-red-500 mt-0.5">{errorMessage}</p>
@@ -781,12 +802,16 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         );
       }
 
-      case 'subtotal':
+      case 'subtotal': {
+        const igvPercent = getIgvPercent(item);
+        const divisor = igvPercent > 0 ? 1 + igvPercent / 100 : 1;
+        const subtotalValue = divisor === 0 ? 0 : (item.price * item.quantity) / divisor;
         return (
           <td className="px-4 py-4 text-right text-sm text-gray-700">
-            S/ {((item.price * item.quantity) / (1 + ((item.igv !== undefined ? item.igv : 18) / 100))).toFixed(2)}
+            S/ {subtotalValue.toFixed(2)}
           </td>
         );
+      }
 
       case 'total':
         return (

@@ -12,6 +12,17 @@
     animation-duration: 0ms !important;
     animation-delay: 0ms !important;
   }
+
+  /* Helper para ocultar los spinners nativos en inputs numéricos específicos */
+  input[type='number'].no-number-spinner {
+    -moz-appearance: textfield;
+  }
+
+  input[type='number'].no-number-spinner::-webkit-inner-spin-button,
+  input[type='number'].no-number-spinner::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }
 
 @layer utilities {

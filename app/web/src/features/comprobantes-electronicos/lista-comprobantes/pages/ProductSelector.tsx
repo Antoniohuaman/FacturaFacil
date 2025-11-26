@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
+import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
 
 interface Product {
   id: string;
@@ -33,12 +34,43 @@ interface ProductSelectorProps {
   existingProducts?: string[]; // IDs of products already in cart
 }
 
+const formatCurrency = (value: number | null | undefined) => {
+  const numericValue = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return `S/ ${numericValue.toFixed(2)}`;
+};
+
+const resolveStockTone = (stock: number) => {
+  if (stock <= 0) return 'text-red-600';
+  if (stock <= 10) return 'text-yellow-600';
+  return 'text-green-600';
+};
+
 const ProductSelector: React.FC<ProductSelectorProps> = ({ 
   onAddProducts, 
   existingProducts = [] 
 }) => {
   // Obtener productos del catálogo real
   const { allProducts: catalogProducts } = useProductStore();
+  const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook();
+
+  const getBasePriceForProduct = useCallback((product: Product): number | null => {
+    if (!hasSelectableColumns) {
+      return typeof product.price === 'number' ? product.price : null;
+    }
+
+    const sku = product.code || product.id;
+    if (!sku) {
+      return typeof product.price === 'number' ? product.price : null;
+    }
+
+    const options = getPriceOptionsFor(sku, product.unidad);
+    if (options.length === 0) {
+      return typeof product.price === 'number' ? product.price : null;
+    }
+
+    const preferredOption = options.find(option => option.isBase || (baseColumnId && option.columnId === baseColumnId));
+    return preferredOption?.price ?? options[0]?.price ?? (typeof product.price === 'number' ? product.price : null);
+  }, [baseColumnId, getPriceOptionsFor, hasSelectableColumns]);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isMultipleMode, setIsMultipleMode] = useState(false);
@@ -384,6 +416,12 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                 const isSelected = selectedProducts.has(product.id);
                 const isHovered = hoveredIndex === index;
                 const isInCart = existingProducts.includes(product.id);
+                const basePriceValue = getBasePriceForProduct(product);
+                const resolvedUnitPrice = typeof basePriceValue === 'number' ? basePriceValue : product.price;
+                const safeUnitPrice = Number.isFinite(resolvedUnitPrice) ? resolvedUnitPrice : 0;
+                const formattedBasePrice = formatCurrency(safeUnitPrice);
+                const stockValue = Number.isFinite(product.stock) ? product.stock : 0;
+                const stockToneClass = resolveStockTone(stockValue);
                 
                 return (
                   <div
@@ -411,22 +449,19 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                           <div className="font-medium text-gray-900">
                             {highlightMatch(product.name, searchTerm)}
                           </div>
-                          <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mt-1">
                             <span>{highlightMatch(product.code, searchTerm)}</span>
                             <span>•</span>
                             <span>{product.category}</span>
-                            {product.requiresStockControl && (
-                              <>
-                                <span>•</span>
-                                <span className={`font-medium ${
-                                  product.stock <= 0 ? 'text-red-600' : 
-                                  product.stock <= 10 ? 'text-yellow-600' : 
-                                  'text-green-600'
-                                }`}>
-                                  Stock: {product.stock}
-                                </span>
-                              </>
-                            )}
+                            <span>•</span>
+                            <span className="flex items-center gap-1 text-gray-600">
+                              <span>Precio base:</span>
+                              <span className="font-semibold text-blue-600">{formattedBasePrice}</span>
+                            </span>
+                            <span>•</span>
+                            <span className={`font-medium ${stockToneClass}`}>
+                              Stock: {stockValue}
+                            </span>
                             {isInCart && (
                               <>
                                 <span>•</span>
@@ -468,12 +503,13 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                         
                         {/* Price */}
                         <div className="text-right">
+                          <div className="text-[11px] uppercase text-gray-400 tracking-wide">Precio base</div>
                           <div className="font-bold text-blue-600">
-                            S/ {product.price.toFixed(2)}
+                            {formattedBasePrice}
                           </div>
                           {isMultipleMode && isSelected && (
                             <div className="text-xs text-gray-500">
-                              Total: S/ {((quantities[product.id] || 1) * product.price).toFixed(2)}
+                              Total: {formatCurrency((quantities[product.id] || 1) * safeUnitPrice)}
                             </div>
                           )}
                         </div>

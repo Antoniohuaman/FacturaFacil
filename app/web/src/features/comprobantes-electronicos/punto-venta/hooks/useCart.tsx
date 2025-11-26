@@ -3,7 +3,7 @@
 // ===================================================================
 
 import { useState, useCallback, useMemo } from 'react';
-import type { CartItem, Product } from '../../models/comprobante.types';
+import type { CartItem, Product, IgvType } from '../../models/comprobante.types';
 import { SYSTEM_CONFIG } from '../../models/constants';
 
 export interface UseCartReturn {
@@ -27,6 +27,82 @@ export interface UseCartReturn {
   existingProductIds: string[];
 }
 
+type IgvConfig = {
+  igvType: IgvType;
+  igvPercent: number;
+  impuestoLabel: string;
+};
+
+const DEFAULT_IGV_CONFIG: IgvConfig = {
+  igvType: 'igv18',
+  igvPercent: 18,
+  impuestoLabel: 'IGV (18.00%)'
+};
+
+const IGV_PERCENT_BY_TYPE: Record<IgvType, number> = {
+  igv18: 18,
+  igv10: 10,
+  exonerado: 0,
+  inafecto: 0
+};
+
+const resolveIgvConfigFromLabel = (label?: string): IgvConfig => {
+  if (!label) {
+    return DEFAULT_IGV_CONFIG;
+  }
+
+  const normalized = label.toLowerCase();
+  if (normalized.includes('exonerado')) {
+    return { igvType: 'exonerado', igvPercent: 0, impuestoLabel: label };
+  }
+  if (normalized.includes('inafecto')) {
+    return { igvType: 'inafecto', igvPercent: 0, impuestoLabel: label };
+  }
+
+  const numericMatch = label.match(/(\d+(?:\.\d+)?)/);
+  if (numericMatch) {
+    const percent = parseFloat(numericMatch[1]);
+    if (!Number.isNaN(percent)) {
+      if (percent >= 17 && percent <= 19) {
+        return { igvType: 'igv18', igvPercent: percent, impuestoLabel: label };
+      }
+      if (percent >= 9 && percent <= 11) {
+        return { igvType: 'igv10', igvPercent: percent, impuestoLabel: label };
+      }
+      if (percent === 0) {
+        return { igvType: 'exonerado', igvPercent: 0, impuestoLabel: label };
+      }
+    }
+  }
+
+  if (normalized.includes('10')) {
+    return { igvType: 'igv10', igvPercent: 10, impuestoLabel: label };
+  }
+  if (normalized.includes('18')) {
+    return { igvType: 'igv18', igvPercent: 18, impuestoLabel: label };
+  }
+
+  return { ...DEFAULT_IGV_CONFIG, impuestoLabel: label };
+};
+
+const inferIgvPercent = (item: { igv?: number; igvType?: IgvType }): number => {
+  if (typeof item.igv === 'number') {
+    return item.igv;
+  }
+  if (item.igvType && item.igvType in IGV_PERCENT_BY_TYPE) {
+    return IGV_PERCENT_BY_TYPE[item.igvType];
+  }
+  return DEFAULT_IGV_CONFIG.igvPercent;
+};
+
+const stripTaxFromPrice = (price: number, igvPercent: number): number => {
+  const safePrice = Number.isFinite(price) ? price : 0;
+  if (!igvPercent || igvPercent <= 0) {
+    return safePrice;
+  }
+  return safePrice / (1 + igvPercent / 100);
+};
+
 export const useCart = (): UseCartReturn => {
   // ===================================================================
   // CONFIGURACIÓN Y ESTADO
@@ -46,6 +122,21 @@ export const useCart = (): UseCartReturn => {
   })();
   
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
+    const price = Number.isFinite(product.price) ? product.price : 0;
+    const igvConfig = resolveIgvConfigFromLabel(product.impuesto);
+    return {
+      ...product,
+      quantity,
+      subtotal: stripTaxFromPrice(price, igvConfig.igvPercent),
+      total: price,
+      basePrice: price,
+      igv: igvConfig.igvPercent,
+      igvType: igvConfig.igvType,
+      impuesto: igvConfig.impuestoLabel
+    };
+  }, []);
 
   // ===================================================================
   // FUNCIONES BÁSICAS DEL CARRITO
@@ -94,15 +185,9 @@ export const useCart = (): UseCartReturn => {
         );
       }
       // Si no existe, agregar nuevo con cálculos
-      return [...prev, {
-        ...product,
-        quantity,
-        subtotal: product.price / 1.18, // Calcular subtotal sin IGV
-        total: product.price,
-        basePrice: product.price // Guardar precio base original
-      }];
+      return [...prev, createCartItem(product, quantity)];
     });
-  }, [cartItems, allowNegativeStock]);
+  }, [cartItems, allowNegativeStock, createCartItem]);
 
   /**
    * Remover producto del carrito
@@ -169,7 +254,7 @@ export const useCart = (): UseCartReturn => {
           ? {
               ...item,
               price: newPrice,
-              subtotal: newPrice / 1.18, // Recalcular subtotal sin IGV
+              subtotal: stripTaxFromPrice(newPrice, inferIgvPercent(item)),
               total: newPrice,
               basePrice: newPrice // Actualizar también el precio base
             }
@@ -207,19 +292,13 @@ export const useCart = (): UseCartReturn => {
             };
           } else {
             // Si no existe, agregar nuevo
-            updated.push({
-              ...product,
-              quantity,
-              subtotal: product.price / 1.18, // Calcular subtotal sin IGV
-              total: product.price,
-              basePrice: product.price
-            });
+            updated.push(createCartItem(product, quantity));
           }
         });
         return updated;
       });
     }
-  }, []);
+  }, [createCartItem]);
 
   // ===================================================================
   // DATOS CALCULADOS
