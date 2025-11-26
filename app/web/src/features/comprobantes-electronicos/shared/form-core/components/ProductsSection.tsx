@@ -190,6 +190,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   }, [normalizedDiscountDefault, normalizedIncreaseDefault]);
 
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+  const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
   const [priceErrors, setPriceErrors] = useState<Record<string, string>>({});
   const [showGlobalPricing, setShowGlobalPricing] = useState(false);
   const priceModeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -315,6 +316,16 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       });
       return next;
     });
+
+    setQuantityDrafts(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(key => {
+        if (!validIds.has(key)) {
+          delete next[key];
+        }
+      });
+      return next;
+    });
   }, [cartItems]);
 
   useEffect(() => {
@@ -409,6 +420,36 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       return next;
     });
   }, []);
+
+  const clearQuantityDraft = useCallback((itemId: string) => {
+    setQuantityDrafts(prev => {
+      if (!(itemId in prev)) return prev;
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+  }, []);
+
+  const formatQuantityDisplay = useCallback((value: number) => {
+    if (!Number.isFinite(value)) return '0';
+    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  }, []);
+
+  const handleQuantityInputChange = useCallback((itemId: string, rawValue: string) => {
+    const normalized = rawValue.replace(',', '.');
+    if (normalized === '' || /^\d*(?:\.\d{0,4})?$/.test(normalized)) {
+      setQuantityDrafts(prev => ({ ...prev, [itemId]: normalized }));
+    }
+  }, []);
+
+  const handleQuantityInputBlur = useCallback((item: CartItem, rawValue: string) => {
+    const normalized = rawValue.replace(',', '.');
+    const parsed = parseFloat(normalized);
+    const fallback = item.quantity && item.quantity > 0 ? item.quantity : 0.01;
+    const nextQuantity = Number.isFinite(parsed) ? Math.max(0.01, parsed) : fallback;
+    clearQuantityDraft(String(item.id));
+    updateCartItem(item.id, { quantity: nextQuantity });
+  }, [clearQuantityDraft, updateCartItem]);
 
   const handleUnitChange = useCallback((item: CartItem, unitCode: string) => {
     const itemKey = String(item.id);
@@ -690,9 +731,13 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
             <div className="flex items-center justify-center gap-1.5">
               <button
                 className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-base font-bold rounded hover:bg-gray-100"
-                onClick={() => updateCartItem(item.id, {
-                  quantity: Math.max(0.01, parseFloat((item.quantity - 1).toFixed(2)))
-                })}
+                onClick={() => {
+                  const itemKey = String(item.id);
+                  clearQuantityDraft(itemKey);
+                  updateCartItem(item.id, {
+                    quantity: Math.max(0.01, parseFloat((item.quantity - 1).toFixed(2)))
+                  });
+                }}
                 disabled={item.quantity <= 0.01}
               >
                 −
@@ -701,18 +746,20 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                 type="number"
                 min={0.01}
                 step={0.01}
-                value={item.quantity}
+                value={quantityDrafts[String(item.id)] ?? formatQuantityDisplay(item.quantity)}
                 className="w-12 h-8 px-1.5 py-0 border border-gray-400 rounded text-center font-semibold text-xs focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/30 no-number-spinner"
-                onChange={e => {
-                  const newQty = parseFloat(e.target.value) || 0.01;
-                  updateCartItem(item.id, { quantity: newQty });
-                }}
+                onChange={e => handleQuantityInputChange(String(item.id), e.target.value)}
+                onBlur={e => handleQuantityInputBlur(item, e.target.value)}
               />
               <button
                 className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-700 text-base font-bold rounded hover:bg-gray-100"
-                onClick={() => updateCartItem(item.id, {
-                  quantity: parseFloat((item.quantity + 1).toFixed(2))
-                })}
+                onClick={() => {
+                  const itemKey = String(item.id);
+                  clearQuantityDraft(itemKey);
+                  updateCartItem(item.id, {
+                    quantity: parseFloat((item.quantity + 1).toFixed(2))
+                  });
+                }}
               >
                 +
               </button>
