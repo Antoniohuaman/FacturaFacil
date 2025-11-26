@@ -1,513 +1,644 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- tenantized store; tipos reales se migrarán luego */
-import type { Product, Package, FilterOptions, PaginationConfig } from '../models/types';
+import { create } from 'zustand';
 import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
+import type {
+  Product,
+  Package,
+  FilterOptions,
+  PaginationConfig,
+  ProductFormData
+} from '../models/types';
 import { inferUnitMeasureType } from '../utils/unitMeasureHelpers';
-// src/features/catalogo-articulos/hooks/useProductStore.tsx
+import {
+  runCatalogStorageMigration,
+  loadProductsFromStorage,
+  saveProductsToStorage,
+  loadPackagesFromStorage,
+  savePackagesToStorage,
+  loadCategoriesFromStorage,
+  saveCategoriesToStorage
+} from '../utils/catalogStorage';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import { ensureEmpresaId, lsKey } from '../../../shared/tenant';
+type ProductInput = Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>;
+type PackageInput = Omit<Package, 'id' | 'fechaCreacion'>;
 
-// ===================================================================
-// DATOS INICIALES - CATÁLOGO VACÍO
-// Los usuarios crearán sus propios productos desde el catálogo
-// ===================================================================
-const mockProducts: Product[] = [];
+interface ProductStoreState {
+  allProducts: Product[];
+  products: Product[];
+  categories: Category[];
+  packages: Package[];
+  filters: FilterOptions;
+  pagination: PaginationConfig;
+  loading: boolean;
+  addProduct: (data: ProductInput) => Product;
+  updateProduct: (id: string, data: Partial<Product>) => void;
+  deleteProduct: (id: string) => void;
+  deleteAllProducts: () => void;
+  addCategory: (nombre: string, descripcion?: string, color?: string) => Category | undefined;
+  updateFilters: (changes: Partial<FilterOptions>) => void;
+  resetFilters: () => void;
+  changePage: (page: number) => void;
+  changeItemsPerPage: (size: number) => void;
+  importProducts: (rows: ProductFormData[]) => { createdCount: number; updatedCount: number };
+  addPackage: (input: PackageInput) => Package;
+  updatePackage: (id: string, data: Partial<PackageInput>) => void;
+  deletePackage: (id: string) => void;
+}
 
-// One-shot migration de llaves legacy -> namespaced por empresa
-function migrateLegacyToNamespaced() {
+const STORAGE_AVAILABLE = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+const DEFAULT_ITEMS_PER_PAGE = 10;
+const PRICE_RANGE = { min: 0, max: 50000 } as const;
+
+if (STORAGE_AVAILABLE) {
   try {
-    const empresaId = ensureEmpresaId();
-    const markerKey = `${empresaId}:catalog_migrated`;
-    const migrated = localStorage.getItem(markerKey);
-    if (migrated === 'v1') return;
-
-    const legacyKeys = [
-      'catalog_products',
-      'catalog_categories',
-      'catalog_packages',
-      // 'catalog_movimientos' removido: este módulo no gestiona stock
-      'productTableColumns',
-      'productTableColumnsVersion',
-      'productFieldsConfig'
-    ];
-
-    for (const key of legacyKeys) {
-      const namespaced = `${empresaId}:${key}`;
-      const hasNamespaced = localStorage.getItem(namespaced) !== null;
-      const legacyValue = localStorage.getItem(key);
-      if (!hasNamespaced && legacyValue !== null) {
-        localStorage.setItem(namespaced, legacyValue);
-        localStorage.removeItem(key);
-      }
-    }
-
-    localStorage.setItem(markerKey, 'v1');
-  } catch (err) {
-    console.warn('Migración legacy->namespaced omitida por empresaId inválido o error:', err);
+    runCatalogStorageMigration();
+  } catch (error) {
+    console.warn('catalogStorage: migration skipped', error);
   }
 }
 
-// Helpers para localStorage con manejo de fechas (namespaced por empresa)
-const saveToLocalStorage = (key: string, data: any) => {
-  try {
-    const k = lsKey(key);
-    localStorage.setItem(k, JSON.stringify(data));
-  } catch (error) {
-    console.error(`Error saving ${key} to localStorage:`, error);
-  }
-};
+const initialProducts = STORAGE_AVAILABLE ? loadProductsFromStorage() : [];
+const initialPackages = STORAGE_AVAILABLE ? loadPackagesFromStorage() : [];
+const initialCategoriesRaw = STORAGE_AVAILABLE ? loadCategoriesFromStorage() : [];
+const defaultFilters = createDefaultFilters();
+const defaultPagination = createDefaultPagination();
+const initialCategories = syncCategoriesWithProducts(initialCategoriesRaw, initialProducts);
+const initialListing = buildListing(initialProducts, defaultFilters, defaultPagination);
 
-const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
-  try {
-    const k = lsKey(key);
-    const stored = localStorage.getItem(k);
-    if (!stored) return defaultValue;
+export const useProductStore = create<ProductStoreState>((set) => ({
+  allProducts: initialProducts,
+  products: initialListing.pageItems,
+  categories: initialCategories,
+  packages: initialPackages,
+  filters: defaultFilters,
+  pagination: initialListing.pagination,
+  loading: false,
 
-    const parsed = JSON.parse(stored);
-
-    // Convertir fechas de string a Date
-    if (Array.isArray(parsed)) {
-      return parsed.map((item: any) => {
-        const converted: any = { ...item };
-        
-        // Convertir fechas estándar de productos/categorías/paquetes
-        if (item.fechaCreacion) {
-          converted.fechaCreacion = new Date(item.fechaCreacion);
-        }
-        if (item.fechaActualizacion) {
-          converted.fechaActualizacion = new Date(item.fechaActualizacion);
-        }
-        if (item.unidadesMedidaAdicionales === undefined) {
-          converted.unidadesMedidaAdicionales = [];
-        }
-        if (!item.tipoUnidadMedida) {
-          converted.tipoUnidadMedida = inferUnitMeasureType(item.unidad);
-        }
-        
-        return converted;
-      }) as T;
-    }
-
-    return parsed;
-  } catch (error) {
-    console.error(`Error loading ${key} from localStorage:`, error);
-    return defaultValue;
-  }
-};
-
-export const useProductStore = () => {
-  // Usar categorías desde el ConfigurationContext
-  const { state: configState, dispatch: configDispatch } = useConfigurationContext();
-  const categories = configState.categories;
-  const resolveUnitType = useCallback(
-    (unitCode: string, provided?: Product['tipoUnidadMedida']) => {
-      if (provided) return provided;
-      return inferUnitMeasureType(unitCode, configState.units);
-    },
-    [configState.units]
-  );
-
-  // Cargar datos desde localStorage o usar mock data
-  // Ejecutar migración one-shot antes de leer
-  useEffect(() => {
-    migrateLegacyToNamespaced();
-  }, []);
-
-  const [products, setProducts] = useState<Product[]>(() =>
-    loadFromLocalStorage('catalog_products', mockProducts)
-  );
-  const [packages, setPackages] = useState<Package[]>(() =>
-    loadFromLocalStorage('catalog_packages', [])
-  );
-
-  // Persistir productos en localStorage
-  useEffect(() => {
-    saveToLocalStorage('catalog_products', products);
-  }, [products]);
-
-  // Persistir paquetes en localStorage
-  useEffect(() => {
-    saveToLocalStorage('catalog_packages', packages);
-  }, [packages]);
-
-  // Cambio de empresa en caliente: recargar estado cuando cambie empresaId actual
-  const reloadForEmpresa = useCallback((empresaId: string) => {
-    try {
-      if (!empresaId || empresaId.trim() === '') {
-        return;
-      }
-      // Leer explícitamente con la empresa indicada (sin usar lsKey para este caso)
-      const read = <T,>(key: string, def: T): T => {
-        try {
-          const raw = localStorage.getItem(`${empresaId}:${key}`);
-          if (!raw) return def;
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            return parsed.map((item: any) => {
-              const converted: any = { ...item };
-              if (item.fechaCreacion) converted.fechaCreacion = new Date(item.fechaCreacion);
-              if (item.fechaActualizacion) converted.fechaActualizacion = new Date(item.fechaActualizacion);
-              if (item.unidadesMedidaAdicionales === undefined) converted.unidadesMedidaAdicionales = [];
-              if (item.fecha) converted.fecha = new Date(item.fecha);
-              return converted;
-            }) as T;
-          }
-          return parsed;
-        } catch {
-          return def;
-        }
+  addProduct: (data) => {
+    let createdProduct: Product | undefined;
+    set((state) => {
+      const product = buildProduct(undefined, data);
+      const allProducts = [product, ...state.allProducts];
+      persistProducts(allProducts);
+      const categories = updateCategoriesAfterProductChange(state.categories, allProducts);
+      const listing = buildListing(allProducts, state.filters, state.pagination);
+      createdProduct = product;
+      return {
+        allProducts,
+        categories,
+        products: listing.pageItems,
+        pagination: listing.pagination
       };
+    });
+    return createdProduct!;
+  },
 
-  const p = read<Product[]>('catalog_products', mockProducts);
-      const pk = read<Package[]>('catalog_packages', []);
+  updateProduct: (id, changes) => {
+    set((state) => {
+      const index = state.allProducts.findIndex((product) => product.id === id);
+      if (index === -1) {
+        return state;
+      }
+      const updatedProduct = buildProduct(state.allProducts[index], changes);
+      const allProducts = [...state.allProducts];
+      allProducts[index] = updatedProduct;
+      persistProducts(allProducts);
+      const categories = updateCategoriesAfterProductChange(state.categories, allProducts);
+      const listing = buildListing(allProducts, state.filters, state.pagination);
+      return {
+        allProducts,
+        categories,
+        products: listing.pageItems,
+        pagination: listing.pagination
+      };
+    });
+  },
 
-      setProducts(p);
-      setPackages(pk);
-    } catch (e) {
-      console.warn('reloadForEmpresa falló:', e);
+  deleteProduct: (id) => {
+    set((state) => {
+      if (!state.allProducts.some((product) => product.id === id)) {
+        return state;
+      }
+      const allProducts = state.allProducts.filter((product) => product.id !== id);
+      const { packages, changed } = removeProductFromPackages(state.packages, id);
+      if (changed) {
+        persistPackages(packages);
+      }
+      persistProducts(allProducts);
+      const categories = updateCategoriesAfterProductChange(state.categories, allProducts);
+      const listing = buildListing(allProducts, state.filters, state.pagination);
+      return {
+        allProducts,
+        categories,
+        packages,
+        products: listing.pageItems,
+        pagination: listing.pagination
+      };
+    });
+  },
+
+  deleteAllProducts: () => {
+    set((state) => {
+      if (!state.allProducts.length && !state.packages.length) {
+        return state;
+      }
+      persistProducts([]);
+      persistPackages([]);
+      const categories = updateCategoriesAfterProductChange(state.categories, []);
+      const listing = buildListing([], state.filters, { ...state.pagination, currentPage: 1 });
+      return {
+        allProducts: [],
+        products: listing.pageItems,
+        pagination: listing.pagination,
+        categories,
+        packages: []
+      };
+    });
+  },
+
+  addCategory: (nombre, descripcion, color) => {
+    let created: Category | undefined;
+    set((state) => {
+      const sanitizedName = nombre.trim();
+      if (!sanitizedName) {
+        return state;
+      }
+      const normalized = normalizeCategoryKey(sanitizedName);
+      const existing = state.categories.find((category) => normalizeCategoryKey(category.nombre) === normalized);
+      let categories: Category[];
+
+      if (existing) {
+        const updated: Category = {
+          ...existing,
+          nombre: sanitizedName,
+          descripcion: descripcion?.trim() || existing.descripcion,
+          color: color || existing.color
+        };
+        categories = state.categories.map((category) => (category.id === existing.id ? updated : category));
+        created = updated;
+      } else {
+        const newCategory: Category = {
+          id: generateId('cat'),
+          nombre: sanitizedName,
+          descripcion: descripcion?.trim() || undefined,
+          color,
+          productCount: state.allProducts.filter((product) => normalizeCategoryKey(product.categoria) === normalized).length,
+          fechaCreacion: new Date()
+        };
+        categories = [...state.categories, newCategory].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+        created = newCategory;
+      }
+
+      persistCategories(categories);
+      return { categories };
+    });
+
+    return created;
+  },
+
+  updateFilters: (changes) => {
+    set((state) => {
+      const filters = mergeFilters(state.filters, changes);
+      const listing = buildListing(state.allProducts, filters, { ...state.pagination, currentPage: 1 });
+      return {
+        filters,
+        products: listing.pageItems,
+        pagination: listing.pagination
+      };
+    });
+  },
+
+  resetFilters: () => {
+    set((state) => {
+      const filters = createDefaultFilters();
+      const listing = buildListing(state.allProducts, filters, { ...state.pagination, currentPage: 1 });
+      return {
+        filters,
+        products: listing.pageItems,
+        pagination: listing.pagination
+      };
+    });
+  },
+
+  changePage: (page) => {
+    set((state) => {
+      const listing = buildListing(state.allProducts, state.filters, { ...state.pagination, currentPage: page });
+      return {
+        products: listing.pageItems,
+        pagination: listing.pagination
+      };
+    });
+  },
+
+  changeItemsPerPage: (size) => {
+    set((state) => {
+      const nextPagination = {
+        ...state.pagination,
+        currentPage: 1,
+        itemsPerPage: Math.max(1, size)
+      };
+      const listing = buildListing(state.allProducts, state.filters, nextPagination);
+      return {
+        products: listing.pageItems,
+        pagination: listing.pagination
+      };
+    });
+  },
+
+  importProducts: (rows) => {
+    if (!rows?.length) {
+      return { createdCount: 0, updatedCount: 0 };
     }
-  }, []);
 
-  // Efecto para intentar recarga automática si cambia el helper
-  useEffect(() => {
-    try {
-      const current = ensureEmpresaId();
-      reloadForEmpresa(current);
-    } catch {
-      // si empresaId inválido, no recargar
-    }
-  }, [reloadForEmpresa]);
-  
-  const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState<FilterOptions>({
+    const stats = { createdCount: 0, updatedCount: 0 };
+
+    set((state) => {
+      const nextProducts = [...state.allProducts];
+      const indexByCode = new Map<string, number>();
+      nextProducts.forEach((product, index) => {
+        indexByCode.set(normalizeProductCode(product.codigo), index);
+      });
+
+      rows.forEach((row) => {
+        const input = mapFormDataToInput(row);
+        const codeKey = normalizeProductCode(input.codigo);
+        if (!codeKey) {
+          return;
+        }
+        if (indexByCode.has(codeKey)) {
+          const index = indexByCode.get(codeKey)!;
+          nextProducts[index] = buildProduct(nextProducts[index], input);
+          stats.updatedCount += 1;
+        } else {
+          const created = buildProduct(undefined, input);
+          nextProducts.push(created);
+          indexByCode.set(codeKey, nextProducts.length - 1);
+          stats.createdCount += 1;
+        }
+      });
+
+      persistProducts(nextProducts);
+      const categories = updateCategoriesAfterProductChange(state.categories, nextProducts);
+      const listing = buildListing(nextProducts, state.filters, state.pagination);
+      return {
+        allProducts: nextProducts,
+        categories,
+        products: listing.pageItems,
+        pagination: listing.pagination
+      };
+    });
+
+    return stats;
+  },
+
+  addPackage: (input) => {
+    let createdPackage: Package | undefined;
+    set((state) => {
+      const payload = buildPackage(undefined, input);
+      const packages = [...state.packages, payload];
+      createdPackage = payload;
+      persistPackages(packages);
+      return { packages };
+    });
+    return createdPackage!;
+  },
+
+  updatePackage: (id, changes) => {
+    set((state) => {
+      const index = state.packages.findIndex((pkg) => pkg.id === id);
+      if (index === -1) {
+        return state;
+      }
+      const updated = buildPackage(state.packages[index], changes);
+      const packages = [...state.packages];
+      packages[index] = updated;
+      persistPackages(packages);
+      return { packages };
+    });
+  },
+
+  deletePackage: (id) => {
+    set((state) => {
+      if (!state.packages.some((pkg) => pkg.id === id)) {
+        return state;
+      }
+      const packages = state.packages.filter((pkg) => pkg.id !== id);
+      persistPackages(packages);
+      return { packages };
+    });
+  }
+}));
+
+function createDefaultFilters(): FilterOptions {
+  return {
     busqueda: '',
     categoria: '',
     unidad: '',
-    rangoPrecios: { min: 0, max: 50000 },
+    rangoPrecios: { ...PRICE_RANGE },
     marca: '',
     modelo: '',
     impuesto: '',
     ordenarPor: 'fechaCreacion',
     direccion: 'desc'
-  });
-  const [pagination, setPagination] = useState<PaginationConfig>({
+  };
+}
+
+function createDefaultPagination(): PaginationConfig {
+  return {
     currentPage: 1,
     totalPages: 1,
-    itemsPerPage: 10,
+    itemsPerPage: DEFAULT_ITEMS_PER_PAGE,
     totalItems: 0
-  });
+  };
+}
 
-  // Productos filtrados y paginados
-  const filteredProducts = useMemo(() => {
-    const filtered = products.filter(product => {
-      // Búsqueda expandida en múltiples campos
-      const searchTerm = filters.busqueda.toLowerCase();
-      const matchesBusqueda = !filters.busqueda ||
-        product.nombre.toLowerCase().includes(searchTerm) ||
-        product.codigo.toLowerCase().includes(searchTerm) ||
-        product.categoria.toLowerCase().includes(searchTerm) ||
-        (product.alias && product.alias.toLowerCase().includes(searchTerm)) ||
-        (product.codigoBarras && product.codigoBarras.toLowerCase().includes(searchTerm)) ||
-        (product.codigoFabrica && product.codigoFabrica.toLowerCase().includes(searchTerm)) ||
-        (product.codigoSunat && product.codigoSunat.toLowerCase().includes(searchTerm)) ||
-        (product.descripcion && product.descripcion.toLowerCase().includes(searchTerm)) ||
-        (product.marca && product.marca.toLowerCase().includes(searchTerm)) ||
-        (product.modelo && product.modelo.toLowerCase().includes(searchTerm));
+function buildListing(allProducts: Product[], filters: FilterOptions, pagination: PaginationConfig) {
+  const filtered = applyFilters(allProducts, filters);
+  const sorted = sortProducts(filtered, filters);
+  const nextPagination = computePagination(sorted.length, pagination.itemsPerPage, pagination.currentPage);
+  const start = (nextPagination.currentPage - 1) * nextPagination.itemsPerPage;
+  const end = start + nextPagination.itemsPerPage;
+  return {
+    pageItems: sorted.slice(start, end),
+    pagination: nextPagination
+  };
+}
 
-      const matchesCategoria = !filters.categoria || product.categoria === filters.categoria;
-      const matchesUnidad = !filters.unidad || product.unidad === filters.unidad;
-  const matchesMarca = !filters.marca || product.marca === filters.marca;
-  const matchesModelo = !filters.modelo || product.modelo === filters.modelo;
-      const matchesImpuesto = !filters.impuesto || product.impuesto === filters.impuesto;
+function applyFilters(products: Product[], filters: FilterOptions): Product[] {
+  const search = filters.busqueda.trim().toLowerCase();
+  const hasSearch = search.length > 0;
 
-      const matchesPrecio = product.precio >= filters.rangoPrecios.min &&
-        product.precio <= filters.rangoPrecios.max;
-
-      return matchesBusqueda && matchesCategoria && matchesUnidad && matchesPrecio &&
-        matchesMarca && matchesModelo && matchesImpuesto;
-    });
-
-    // Ordenar
-    filtered.sort((a, b) => {
-      const direction = filters.direccion === 'asc' ? 1 : -1;
-      
-      switch (filters.ordenarPor) {
-        case 'nombre':
-          return direction * a.nombre.localeCompare(b.nombre);
-        case 'precio':
-          return direction * (a.precio - b.precio);
-        case 'fechaCreacion':
-          return direction * (a.fechaCreacion.getTime() - b.fechaCreacion.getTime());
-        default:
-          return 0;
+  return products.filter((product) => {
+    if (hasSearch) {
+      const haystack = `${product.nombre} ${product.codigo} ${product.descripcion ?? ''}`.toLowerCase();
+      if (!haystack.includes(search)) {
+        return false;
       }
-    });
-
-    // Actualizar paginación
-    const totalItems = filtered.length;
-    const totalPages = Math.ceil(totalItems / pagination.itemsPerPage);
-    
-    setPagination(prev => ({
-      ...prev,
-      totalItems,
-      totalPages,
-      currentPage: Math.min(prev.currentPage, Math.max(1, totalPages))
-    }));
-
-    // Paginar
-    const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
-    const endIndex = startIndex + pagination.itemsPerPage;
-    
-    return filtered.slice(startIndex, endIndex);
-  }, [products, filters, pagination.currentPage, pagination.itemsPerPage]);
-
-  // CRUD Productos
-  const addProduct = useCallback((productData: Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => {
-    const newProduct: Product = {
-      ...productData,
-      tipoUnidadMedida: resolveUnitType(productData.unidad, productData.tipoUnidadMedida),
-      unidadesMedidaAdicionales: productData.unidadesMedidaAdicionales || [],
-      id: Date.now().toString(),
-      fechaCreacion: new Date(),
-      fechaActualizacion: new Date()
-    };
-    
-    setProducts(prev => [newProduct, ...prev]);
-
-    // Actualizar contador de categoría en ConfigurationContext
-    const updatedCategories = categories.map(cat =>
-      cat.nombre === productData.categoria
-        ? { ...cat, productCount: cat.productCount + 1 }
-        : cat
-    );
-    configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
-  }, [categories, configDispatch, resolveUnitType]);
-
-  const updateProduct = useCallback((id: string, updates: Partial<Product>) => {
-    setProducts(prev => 
-      prev.map(product => 
-        product.id === id
-          ? {
-              ...product,
-              ...updates,
-              unidadesMedidaAdicionales: updates.unidadesMedidaAdicionales ?? product.unidadesMedidaAdicionales ?? [],
-              fechaActualizacion: new Date()
-            }
-          : product
-      )
-    );
-  }, []);
-
-  const deleteProduct = useCallback((id: string) => {
-    const product = products.find(p => p.id === id);
-    if (product) {
-      setProducts(prev => prev.filter(p => p.id !== id));
-      // Actualizar contador de categoría en ConfigurationContext
-      const updatedCategories = categories.map(cat =>
-        cat.nombre === product.categoria
-          ? { ...cat, productCount: Math.max(0, cat.productCount - 1) }
-          : cat
-      );
-      configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
     }
-  }, [products, categories, configDispatch]);
 
-  // Eliminar todos los productos y resetear contadores de categorías
-  const deleteAllProducts = useCallback(() => {
-    setProducts([]);
-    const updatedCategories = categories.map(cat => ({ ...cat, productCount: 0 }));
-    configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
-  }, [categories, configDispatch]);
+    if (filters.categoria && product.categoria !== filters.categoria) return false;
+    if (filters.unidad && product.unidad !== filters.unidad) return false;
+    if (filters.marca && (product.marca ?? '').toLowerCase() !== filters.marca.toLowerCase()) return false;
+    if (filters.modelo && (product.modelo ?? '').toLowerCase() !== filters.modelo.toLowerCase()) return false;
+    if (filters.impuesto && (product.impuesto ?? '').toLowerCase() !== filters.impuesto.toLowerCase()) return false;
+    if (product.precio < filters.rangoPrecios.min) return false;
+    if (product.precio > filters.rangoPrecios.max) return false;
 
-  // Importación masiva con upsert (clave = código)
-  const importProducts = useCallback((productsData: Array<Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>>) => {
-    const now = new Date();
-    let createdCount = 0;
-    let updatedCount = 0;
+    return true;
+  });
+}
 
-    setProducts(prev => {
-      const newProducts = [...prev];
-      const categoryCounts = new Map<string, number>();
-
-      // Contar productos por categoría existentes
-      prev.forEach(p => {
-        categoryCounts.set(p.categoria, (categoryCounts.get(p.categoria) || 0) + 1);
-      });
-
-      productsData.forEach(productData => {
-        const existingIndex = newProducts.findIndex(p => p.codigo === productData.codigo);
-
-        if (existingIndex >= 0) {
-          // Actualizar producto existente
-          const oldCategory = newProducts[existingIndex].categoria;
-          newProducts[existingIndex] = {
-            ...newProducts[existingIndex],
-            ...productData,
-            tipoUnidadMedida: resolveUnitType(productData.unidad, productData.tipoUnidadMedida ?? newProducts[existingIndex].tipoUnidadMedida),
-            unidadesMedidaAdicionales: productData.unidadesMedidaAdicionales || [],
-            fechaActualizacion: now
-          };
-
-          // Actualizar contador si cambió de categoría
-          if (oldCategory !== productData.categoria) {
-            categoryCounts.set(oldCategory, Math.max(0, (categoryCounts.get(oldCategory) || 0) - 1));
-            categoryCounts.set(productData.categoria, (categoryCounts.get(productData.categoria) || 0) + 1);
-          }
-
-          updatedCount++;
-        } else {
-          // Crear nuevo producto
-          const newProduct: Product = {
-            ...productData,
-            tipoUnidadMedida: resolveUnitType(productData.unidad, productData.tipoUnidadMedida),
-            unidadesMedidaAdicionales: productData.unidadesMedidaAdicionales || [],
-            id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-            fechaCreacion: now,
-            fechaActualizacion: now
-          };
-          newProducts.push(newProduct);
-          categoryCounts.set(productData.categoria, (categoryCounts.get(productData.categoria) || 0) + 1);
-          createdCount++;
-        }
-      });
-
-      // Actualizar contadores de categorías
-      const updatedCategories = categories.map(cat => ({
-        ...cat,
-        productCount: categoryCounts.get(cat.nombre) || 0
-      }));
-      configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
-
-      return newProducts;
-    });
-
-    return { createdCount, updatedCount };
-  }, [categories, configDispatch, resolveUnitType]);
-
-  // CRUD Categorías - Ahora usan ConfigurationContext
-  const addCategory = useCallback((nombre: string, descripcion?: string, color?: string) => {
-    // Evitar duplicados por nombre (case-insensitive)
-    if (categories.some(cat => cat.nombre.trim().toLowerCase() === nombre.trim().toLowerCase())) {
-      return;
+function sortProducts(products: Product[], filters: FilterOptions): Product[] {
+  const sorted = [...products];
+  sorted.sort((a, b) => {
+    let comparison = 0;
+    switch (filters.ordenarPor) {
+      case 'precio':
+        comparison = a.precio - b.precio;
+        break;
+      case 'nombre':
+        comparison = a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
+        break;
+      case 'fechaCreacion':
+      default:
+        comparison = (a.fechaCreacion?.getTime() ?? 0) - (b.fechaCreacion?.getTime() ?? 0);
+        break;
     }
-    const newCategory: Category = {
-      id: Date.now().toString(),
-      nombre,
-      descripcion,
-      color,
-      productCount: 0,
-      fechaCreacion: new Date()
-    };
-    configDispatch({ type: 'SET_CATEGORIES', payload: [...categories, newCategory] });
-  }, [categories, configDispatch]);
+    return filters.direccion === 'asc' ? comparison : -comparison;
+  });
+  return sorted;
+}
 
-  const updateCategory = useCallback((id: string, updates: Partial<Category>) => {
-    const updatedCategories = categories.map(category =>
-      category.id === id ? { ...category, ...updates } : category
-    );
-    configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
-  }, [categories, configDispatch]);
+function computePagination(totalItems: number, itemsPerPage: number, requestedPage: number): PaginationConfig {
+  const size = Math.max(1, itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(Math.max(0, totalItems) / size) || 1);
+  const currentPage = Math.min(Math.max(1, requestedPage), totalPages);
+  return {
+    currentPage,
+    totalPages,
+    itemsPerPage: size,
+    totalItems
+  };
+}
 
-  const deleteCategory = useCallback((id: string) => {
-    const updatedCategories = categories.filter(cat => cat.id !== id);
-    configDispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
-  }, [categories, configDispatch]);
+function mergeFilters(current: FilterOptions, changes: Partial<FilterOptions>): FilterOptions {
+  return {
+    ...current,
+    ...changes,
+    rangoPrecios: {
+      ...current.rangoPrecios,
+      ...(changes.rangoPrecios ?? {})
+    }
+  };
+}
 
-  // Filtros y paginación
-  const updateFilters = useCallback((newFilters: Partial<FilterOptions>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
-  }, []);
+function buildProduct(existing: Product | undefined, input: Partial<ProductInput>): Product {
+  const now = new Date();
+  const unidad = (input.unidad ?? existing?.unidad ?? 'NIU') as Product['unidad'];
+  const producto: Product = {
+    ...existing,
+    ...input,
+    id: existing?.id ?? generateId('prod'),
+    codigo: (input.codigo ?? existing?.codigo ?? generateId('PROD')).trim(),
+    nombre: (input.nombre ?? existing?.nombre ?? 'Producto sin nombre').trim(),
+    unidad,
+    tipoUnidadMedida: input.tipoUnidadMedida ?? existing?.tipoUnidadMedida ?? inferUnitMeasureType(unidad),
+    precio: toNumber(input.precio, existing?.precio ?? 0),
+    categoria: input.categoria ?? existing?.categoria ?? '',
+    descripcion: input.descripcion ?? existing?.descripcion,
+    imagen: resolveImageValue(input.imagen ?? existing?.imagen),
+    impuesto: input.impuesto ?? existing?.impuesto ?? 'IGV (18.00%)',
+    unidadesMedidaAdicionales: input.unidadesMedidaAdicionales ?? existing?.unidadesMedidaAdicionales ?? [],
+    establecimientoIds: input.establecimientoIds ?? existing?.establecimientoIds ?? [],
+    disponibleEnTodos: input.disponibleEnTodos ?? existing?.disponibleEnTodos ?? false,
+    alias: input.alias ?? existing?.alias,
+    precioCompra: toOptionalNumber(input.precioCompra, existing?.precioCompra),
+    porcentajeGanancia: toOptionalNumber(input.porcentajeGanancia, existing?.porcentajeGanancia),
+    codigoBarras: input.codigoBarras ?? existing?.codigoBarras,
+    codigoFabrica: input.codigoFabrica ?? existing?.codigoFabrica,
+    codigoSunat: input.codigoSunat ?? existing?.codigoSunat,
+    descuentoProducto: toOptionalNumber(input.descuentoProducto, existing?.descuentoProducto),
+    marca: input.marca ?? existing?.marca,
+    modelo: input.modelo ?? existing?.modelo,
+    peso: toOptionalNumber(input.peso, existing?.peso),
+    tipoExistencia: input.tipoExistencia ?? existing?.tipoExistencia ?? 'MERCADERIAS',
+    cantidad: toOptionalNumber(input.cantidad, existing?.cantidad),
+    stockPorEstablecimiento: input.stockPorEstablecimiento ?? existing?.stockPorEstablecimiento,
+    stockPorAlmacen: input.stockPorAlmacen ?? existing?.stockPorAlmacen,
+    stockMinimoPorAlmacen: input.stockMinimoPorAlmacen ?? existing?.stockMinimoPorAlmacen,
+    stockMaximoPorAlmacen: input.stockMaximoPorAlmacen ?? existing?.stockMaximoPorAlmacen,
+    fechaCreacion: existing?.fechaCreacion ?? now,
+    fechaActualizacion: now
+  };
 
-  const resetFilters = useCallback(() => {
-    setFilters({
-      busqueda: '',
-      categoria: '',
-      unidad: '',
-      rangoPrecios: { min: 0, max: 50000 },
-      marca: '',
-      modelo: '',
-      impuesto: '',
-      ordenarPor: 'fechaCreacion',
-      direccion: 'desc'
-    });
-  }, []);
+  return producto;
+}
 
-  const changePage = useCallback((page: number) => {
-    setPagination(prev => ({
-      ...prev,
-      currentPage: Math.max(1, Math.min(page, prev.totalPages))
-    }));
-  }, []);
-
-  const changeItemsPerPage = useCallback((itemsPerPage: number) => {
-    setPagination(prev => ({
-      ...prev,
-      itemsPerPage,
-      currentPage: 1
-    }));
-  }, []);
-
-  // CRUD Paquetes
-  const addPackage = useCallback((packageData: Omit<Package, 'id' | 'fechaCreacion'>) => {
-    const newPackage: Package = {
-      ...packageData,
-      id: Date.now().toString(),
-      fechaCreacion: new Date()
-    };
-    setPackages(prev => [newPackage, ...prev]);
-  }, []);
-
-  const updatePackage = useCallback((id: string, updates: Partial<Package>) => {
-    setPackages(prev =>
-      prev.map(pkg =>
-        pkg.id === id ? { ...pkg, ...updates } : pkg
-      )
-    );
-  }, []);
-
-  const deletePackage = useCallback((id: string) => {
-    setPackages(prev => prev.filter(pkg => pkg.id !== id));
-  }, []);
+function buildPackage(existing: Package | undefined, input: Partial<PackageInput>): Package {
+  const productos = input.productos ?? existing?.productos ?? [];
+  const precio = typeof input.precio === 'number' ? input.precio : computePackagePrice(productos, input.descuento ?? existing?.descuento);
 
   return {
-    // Estado
-    products: filteredProducts,
-    allProducts: products,
-    categories,
-    packages,
-    loading,
-    filters,
-    pagination,
-
-    // Productos
-    addProduct,
-    updateProduct,
-    deleteProduct,
-    deleteAllProducts,
-    importProducts,
-
-    // Categorías
-    addCategory,
-    updateCategory,
-    deleteCategory,
-
-    // Paquetes
-    addPackage,
-    updatePackage,
-    deletePackage,
-
-    // Filtros y paginación
-    updateFilters,
-    resetFilters,
-    changePage,
-    changeItemsPerPage,
-
-    // Utils
-    setLoading,
-
-    // Cambio de empresa
-    reloadForEmpresa
+    id: existing?.id ?? generateId('pkg'),
+    nombre: (input.nombre ?? existing?.nombre ?? 'Paquete').trim(),
+    descripcion: input.descripcion?.trim() ?? existing?.descripcion,
+    productos,
+    precio,
+    descuento: toOptionalNumber(input.descuento, existing?.descuento),
+    imagen: resolveImageValue(input.imagen ?? existing?.imagen),
+    fechaCreacion: existing?.fechaCreacion ?? new Date()
   };
-};
+}
+
+function mapFormDataToInput(data: ProductFormData): ProductInput {
+  return {
+    nombre: data.nombre,
+    codigo: data.codigo,
+    precio: toNumber(data.precio, 0),
+    unidad: data.unidad,
+    tipoUnidadMedida: data.tipoUnidadMedida ?? inferUnitMeasureType(data.unidad),
+    categoria: data.categoria?.trim() || '',
+    descripcion: data.descripcion,
+    impuesto: data.impuesto,
+    imagen: typeof data.imagen === 'string' ? data.imagen : undefined,
+    unidadesMedidaAdicionales: data.unidadesMedidaAdicionales ?? [],
+    establecimientoIds: data.establecimientoIds ?? [],
+    disponibleEnTodos: data.disponibleEnTodos ?? false,
+    alias: data.alias,
+    precioCompra: toOptionalNumber(data.precioCompra),
+    porcentajeGanancia: toOptionalNumber(data.porcentajeGanancia),
+    codigoBarras: data.codigoBarras,
+    codigoFabrica: data.codigoFabrica,
+    codigoSunat: data.codigoSunat,
+    descuentoProducto: toOptionalNumber(data.descuentoProducto),
+    marca: data.marca,
+    modelo: data.modelo,
+    peso: toOptionalNumber(data.peso),
+    tipoExistencia: data.tipoExistencia ?? 'MERCADERIAS'
+  };
+}
+
+function syncCategoriesWithProducts(existingCategories: Category[], products: Product[]): Category[] {
+  const registry = new Map<string, Category>();
+
+  existingCategories.forEach((category) => {
+    const key = normalizeCategoryKey(category.nombre);
+    if (!key) {
+      return;
+    }
+    registry.set(key, { ...category, productCount: 0 });
+  });
+
+  products.forEach((product) => {
+    const key = normalizeCategoryKey(product.categoria);
+    if (!key) {
+      return;
+    }
+    if (!registry.has(key)) {
+      registry.set(key, {
+        id: generateId('cat'),
+        nombre: product.categoria,
+        descripcion: undefined,
+        color: undefined,
+        productCount: 0,
+        fechaCreacion: product.fechaCreacion ?? new Date()
+      });
+    }
+    const current = registry.get(key)!;
+    current.productCount += 1;
+  });
+
+  return Array.from(registry.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+}
+
+function updateCategoriesAfterProductChange(categories: Category[], products: Product[]): Category[] {
+  const updated = syncCategoriesWithProducts(categories, products);
+  persistCategories(updated);
+  return updated;
+}
+
+function removeProductFromPackages(packages: Package[], productId: string) {
+  let changed = false;
+  const sanitized = packages
+    .map((pkg) => {
+      const productos = pkg.productos.filter((item) => item.productId !== productId);
+      if (productos.length === pkg.productos.length) {
+        return pkg;
+      }
+      changed = true;
+      return {
+        ...pkg,
+        productos,
+        precio: computePackagePrice(productos, pkg.descuento)
+      };
+    })
+    .filter((pkg) => pkg.productos.length > 0);
+
+  return { packages: changed ? sanitized : packages, changed };
+}
+
+function computePackagePrice(items: Package['productos'], discount?: number): number {
+  const subtotal = items.reduce((sum, item) => sum + item.precioUnitario * item.cantidad, 0);
+  if (!discount) {
+    return subtotal;
+  }
+  return subtotal - (subtotal * discount) / 100;
+}
+
+function normalizeProductCode(code?: string): string {
+  return (code ?? '').trim().toLowerCase();
+}
+
+function normalizeCategoryKey(value?: string): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function generateId(prefix: string): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toOptionalNumber(value: unknown, fallback?: number): number | undefined {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function resolveImageValue(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
+  }
+  return undefined;
+}
+
+function persistProducts(products: Product[]) {
+  if (!STORAGE_AVAILABLE) {
+    return;
+  }
+  saveProductsToStorage(products);
+}
+
+function persistPackages(packages: Package[]) {
+  if (!STORAGE_AVAILABLE) {
+    return;
+  }
+  savePackagesToStorage(packages);
+}
+
+function persistCategories(categories: Category[]) {
+  if (!STORAGE_AVAILABLE) {
+    return;
+  }
+  saveCategoriesToStorage(categories);
+}
