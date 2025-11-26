@@ -21,6 +21,19 @@ const getUnitLabel = (units: Unit[], code?: string) => {
   return unit ? `${unit.code} - ${unit.name}` : code;
 };
 
+const formatDate = (value?: Date | string) => {
+  if (!value) return '-';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+  return new Intl.DateTimeFormat('es-PE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(date);
+};
+
 export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   row,
   visibleColumns,
@@ -122,6 +135,18 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
         </td>
       )}
 
+      {visibleColumns.has('disponibleEnTodos') && (
+        <td className="px-6 py-4 whitespace-nowrap">
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              row.disponibleEnTodos ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {row.disponibleEnTodos ? 'Sí' : 'No'}
+          </span>
+        </td>
+      )}
+
       {visibleColumns.has('alias') && (
         <td className="px-6 py-4 whitespace-nowrap">
           {row.alias ? (
@@ -219,6 +244,18 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
           ) : (
             <span className="text-sm text-gray-400">-</span>
           )}
+        </td>
+      )}
+
+      {visibleColumns.has('fechaCreacion') && (
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+          {formatDate(row.fechaCreacion)}
+        </td>
+      )}
+
+      {visibleColumns.has('fechaActualizacion') && (
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+          {formatDate(row.fechaActualizacion)}
         </td>
       )}
 

@@ -399,6 +399,11 @@ function sortProducts(products: Product[], filters: FilterOptions): Product[] {
         comparison = a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
         break;
       case 'fechaCreacion':
+        comparison = (a.fechaCreacion?.getTime() ?? 0) - (b.fechaCreacion?.getTime() ?? 0);
+        break;
+      case 'fechaActualizacion':
+        comparison = (a.fechaActualizacion?.getTime() ?? 0) - (b.fechaActualizacion?.getTime() ?? 0);
+        break;
       default:
         comparison = (a.fechaCreacion?.getTime() ?? 0) - (b.fechaCreacion?.getTime() ?? 0);
         break;

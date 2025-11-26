@@ -187,7 +187,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 setFormData={setFormData}
                 establishments={establishments}
                 errors={errors}
-                isEditing={Boolean(product)}
               />
 
               <ProductDescriptionSection

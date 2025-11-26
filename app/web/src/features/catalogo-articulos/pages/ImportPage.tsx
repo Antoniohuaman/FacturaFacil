@@ -17,7 +17,7 @@ const ImportPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [finalResult, setFinalResult] = useState<{ createdCount: number; updatedCount: number } | null>(null);
 
-  const { importProducts, allProducts } = useProductStore();
+  const { importProducts, allProducts, categories } = useProductStore();
   const { state: configState } = useConfigurationContext();
 
   const handleFileSelected = async (file: File) => {
@@ -32,7 +32,7 @@ const ImportPage: React.FC = () => {
         allProducts,
         configState.units.filter(u => u.isActive && u.isVisible !== false),
         configState.establishments.filter(e => e.isActive),
-        configState.categories
+        categories
       );
 
       setImportResult(result);

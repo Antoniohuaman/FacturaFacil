@@ -9,15 +9,13 @@ interface ProductAvailabilitySectionProps {
   setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>;
   establishments: Establishment[];
   errors: FormError;
-  isEditing: boolean;
 }
 
 export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProps> = ({
   formData,
   setFormData,
   establishments,
-  errors,
-  isEditing
+  errors
 }) => {
   const handleToggleAll = () => {
     const allSelected = formData.establecimientoIds.length === establishments.length;
@@ -27,10 +25,15 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
     }));
   };
 
-  const establishmentsToDisplay = isEditing
-    ? establishments.filter(est => formData.establecimientoIds.includes(est.id))
-    : establishments;
   const allSelected = formData.establecimientoIds.length === establishments.length && establishments.length > 0;
+
+  const handleDisponibleEnTodos = () => {
+    setFormData(prev => ({
+      ...prev,
+      disponibleEnTodos: !prev.disponibleEnTodos,
+      establecimientoIds: !prev.disponibleEnTodos ? establishments.map(est => est.id) : []
+    }));
+  };
 
   return (
     <div className="border border-purple-300 rounded-md bg-purple-50/30 p-3 space-y-2">
@@ -56,18 +59,37 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
         </button>
       </div>
 
+      <button
+        type="button"
+        onClick={handleDisponibleEnTodos}
+        className={`w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-medium border rounded transition-colors ${
+          formData.disponibleEnTodos
+            ? 'bg-purple-100 border-purple-300 text-purple-800'
+            : 'bg-white border-gray-200 text-gray-700 hover:border-purple-200'
+        }`}
+      >
+        Disponible en todos los establecimientos
+        <span
+          className={`inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+            formData.disponibleEnTodos ? 'bg-purple-600' : 'bg-gray-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+              formData.disponibleEnTodos ? 'translate-x-3' : 'translate-x-0.5'
+            }`}
+          />
+        </span>
+      </button>
+
       <div className="space-y-1.5 max-h-40 overflow-y-auto">
         {establishments.length === 0 ? (
           <div className="text-center py-4 text-gray-500">
             <Building2 className="w-8 h-8 mx-auto mb-1 text-gray-300" />
             <p className="text-xs font-medium">No hay establecimientos activos</p>
           </div>
-        ) : isEditing && establishmentsToDisplay.length === 0 ? (
-          <div className="text-center py-4 text-amber-600 bg-amber-50 rounded border border-amber-200">
-            <p className="text-xs font-medium">No hay establecimientos asignados a este producto</p>
-          </div>
         ) : (
-          establishmentsToDisplay.map(est => {
+          establishments.map(est => {
             const isSelected = formData.establecimientoIds.includes(est.id);
             return (
               <label
@@ -84,13 +106,14 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
                 <input
                   type="checkbox"
                   checked={isSelected}
+                  disabled={formData.disponibleEnTodos}
                   onChange={(e) => {
                     const newIds = e.target.checked
                       ? [...formData.establecimientoIds, est.id]
                       : formData.establecimientoIds.filter(id => id !== est.id);
                     setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
                   }}
-                  className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-1"
+                  className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-1 disabled:opacity-50"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -118,8 +141,8 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
       {establishments.length > 0 && (
         <div className="flex items-center justify-between pt-1.5 border-t border-purple-200">
           <p className="text-[10px] text-gray-600">
-            {isEditing
-              ? `${formData.establecimientoIds.length} establecimiento(s) asignado(s)`
+            {formData.disponibleEnTodos
+              ? 'Disponible en todos los establecimientos activos'
               : `${formData.establecimientoIds.length} de ${establishments.length} seleccionado(s)`}
           </p>
         </div>

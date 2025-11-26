@@ -88,7 +88,7 @@ export interface FilterOptions {
   marca?: string;
   modelo?: string;
   impuesto?: string;
-  ordenarPor: 'nombre' | 'precio' | 'fechaCreacion';
+  ordenarPor: 'nombre' | 'precio' | 'fechaCreacion' | 'fechaActualizacion';
   direccion: 'asc' | 'desc';
 }
 

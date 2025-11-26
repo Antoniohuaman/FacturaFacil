@@ -121,6 +121,12 @@ export const ProductTableHeader: React.FC<ProductTableHeaderProps> = ({
           </th>
         )}
 
+        {visibleColumns.has('disponibleEnTodos') && (
+          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            Disponible en todos
+          </th>
+        )}
+
         {visibleColumns.has('alias') && (
           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Alias
@@ -184,6 +190,32 @@ export const ProductTableHeader: React.FC<ProductTableHeaderProps> = ({
         {visibleColumns.has('tipoExistencia') && (
           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
             Tipo de Existencia
+          </th>
+        )}
+
+        {visibleColumns.has('fechaCreacion') && (
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+            onClick={() => onSort('fechaCreacion')}
+          >
+            <div className="flex items-center space-x-1">
+              <span>Fecha Creación</span>
+              <SortIcon state={getSortState('fechaCreacion')} />
+            </div>
+          </th>
+        )}
+
+        {visibleColumns.has('fechaActualizacion') && (
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+            onClick={() => onSort('fechaActualizacion')}
+          >
+            <div className="flex items-center space-x-1">
+              <span>Última Actualización</span>
+              <SortIcon state={getSortState('fechaActualizacion')} />
+            </div>
           </th>
         )}
 

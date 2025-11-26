@@ -127,6 +127,17 @@ const ProductsPage: React.FC = () => {
     return Array.from(impuestos).sort();
   }, [allProducts]);
 
+  const unitOptions = useMemo(() => {
+    const activeUnits = configState.units.filter(unit => unit.isActive && unit.isVisible !== false);
+    const uniqueCodes = new Map<string, string>();
+    activeUnits.forEach(unit => {
+      if (!uniqueCodes.has(unit.code)) {
+        uniqueCodes.set(unit.code, unit.name);
+      }
+    });
+    return Array.from(uniqueCodes.entries()).map(([code, name]) => ({ code, name }));
+  }, [configState.units]);
+
   // Eliminado: tipos de existencia (inventario) para desacoplar del stock
 
   // Calcular número de filtros activos
@@ -255,8 +266,11 @@ const ProductsPage: React.FC = () => {
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
             >
               <option value="">📦 Todas las unidades</option>
-              <option value="UNIDAD">UNIDAD</option>
-              <option value="DOCENA">DOCENA</option>
+              {unitOptions.map(unit => (
+                <option key={unit.code} value={unit.code}>
+                  {unit.code} - {unit.name}
+                </option>
+              ))}
             </select>
           </div>
 
