@@ -29,6 +29,8 @@ export interface Comprobante {
   waybill?: string;
   observations?: string;
   internalNote?: string;
+  relatedDocumentId?: string;
+  relatedDocumentType?: string;
 }
 
 interface ComprobanteState {

@@ -2,13 +2,7 @@
 /* eslint-disable no-empty -- bloques de captura intencionales; logging diferido */
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import {
-  Search, Printer, FileText, MoreHorizontal,
-  Share2, Copy, Eye, Edit2, XCircle,
-  CheckCircle2, Send, XOctagon, AlertTriangle, Ban, X, Link
-} from 'lucide-react';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
 import { devLocalIndicadoresStore } from '../../../indicadores-negocio/integration/devLocalStore';
 import {
@@ -29,6 +23,10 @@ import { StatsCards } from '../components/StatsCards';
 import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
 import { TableFooter } from '../components/TableFooter';
 import { ListHeader } from '../components/ListHeader';
+import { InvoiceListTable } from '../components/lista-comprobantes/InvoiceListTable';
+import { ColumnFilterPopover } from '../components/lista-comprobantes/ColumnFilterPopover';
+import { VoidInvoiceModal } from '../components/lista-comprobantes/VoidInvoiceModal';
+import type { ColumnConfig } from '../types/columnConfig';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -54,9 +52,6 @@ const InvoiceListDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showTotals, setShowTotals] = useState(false);
   const [recordsPerPage, setRecordsPerPage] = useState<number>(TABLE_CONFIG.DEFAULT_RECORDS_PER_PAGE);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
-  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   
   // Estados para nuevas funcionalidades
   const [density, setDensity] = useState<'comfortable' | 'intermediate' | 'compact'>('comfortable');
@@ -97,20 +92,6 @@ const InvoiceListDashboard = () => {
   // --------------------
   // Column manager (config local)
   // --------------------
-  interface ColumnConfig {
-    id: string;
-    key: string;
-    label: string;
-    visible: boolean;
-    fixed: 'left' | 'right' | null;
-    align: 'left' | 'right' | 'center';
-    truncate?: boolean;
-    minWidth?: string;
-    maxWidth?: string;
-    shrink?: number;
-    whiteSpace?: string;
-    flex?: string;
-  }
   // Lista maestra en orden (no cambia la keys del modelo de datos)
   const MASTER_COLUMNS = useMemo(() => ([
     { id: 'documentNumber', key: 'id', label: 'N° Comprobante', visible: true, fixed: 'left', align: 'left', minWidth: '168px', width: 'w-[168px]', shrink: 0 },
@@ -488,82 +469,6 @@ const InvoiceListDashboard = () => {
     return s.includes('void') || s.includes('anulado');
   }).length;
 
-  // Función para obtener el pill de estado con nombre e icono exacto y contraste AA
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
-      'sent': { 
-        label: 'Enviado', 
-        color: 'text-blue-800 dark:text-blue-200', 
-        bgColor: 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700',
-        icon: <Send className="w-3.5 h-3.5" />
-      },
-      'accepted': { 
-        label: 'Aceptado', 
-        color: 'text-green-800 dark:text-green-200', 
-        bgColor: 'bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700',
-        icon: <CheckCircle2 className="w-3.5 h-3.5" />
-      },
-      'rejected': { 
-        label: 'Rechazado', 
-        color: 'text-red-800 dark:text-red-200', 
-        bgColor: 'bg-red-100 dark:bg-red-900/40 border-red-300 dark:border-red-700',
-        icon: <XOctagon className="w-3.5 h-3.5" />
-      },
-      'fix': { 
-        label: 'Corregir', 
-        color: 'text-orange-800 dark:text-orange-200', 
-        bgColor: 'bg-orange-100 dark:bg-orange-900/40 border-orange-300 dark:border-orange-700',
-        icon: <AlertTriangle className="w-3.5 h-3.5" />
-      },
-      'voided': { 
-        label: 'Anulado', 
-        color: 'text-gray-800 dark:text-gray-200', 
-        bgColor: 'bg-gray-100 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700',
-        icon: <Ban className="w-3.5 h-3.5" />
-      }
-    };
-
-    const config = statusConfig[status.toLowerCase()] || statusConfig['sent'];
-
-    return (
-      <span 
-        className={`inline-flex items-center border ${config.bgColor} ${config.color} focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`}
-        style={{
-          gap: '6px',
-          height: '28px',
-          padding: '0 12px',
-          borderRadius: '9999px',
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-          fontSize: '0.75rem'
-        }}
-        role="status"
-        aria-label={`Estado: ${config.label}`}
-        tabIndex={0}
-      >
-        {config.icon}
-        {config.label}
-      </span>
-    );
-  };
-
-  // Componente Skeleton Row
-  const SkeletonRow = () => (
-    <tr className="animate-pulse">
-      {visibleColumns.map((col) => (
-        <td key={col.id} className="px-6 py-4">
-          <div className={`h-4 bg-gray-200 dark:bg-gray-700 rounded ${
-            col.key === 'id' ? 'w-32' : 
-            col.key === 'client' ? 'w-48' : 
-            col.key === 'total' ? 'w-24 ml-auto' : 
-            col.key === 'status' ? 'w-28 mx-auto' : 
-            'w-32'
-          }`}></div>
-        </td>
-      ))}
-    </tr>
-  );
-
   // Ref para debounce
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -602,6 +507,22 @@ const InvoiceListDashboard = () => {
   // Verificar si una columna tiene filtro activo
   const hasActiveFilter = (columnKey: string) => {
     return !!columnFilters[columnKey];
+  };
+
+  const handleRequestFilter = (columnKey: string, position: { top: number; left: number }) => {
+    if (activeFilterColumn === columnKey) {
+      setActiveFilterColumn(null);
+      setFilterPopoverPosition(null);
+      return;
+    }
+
+    setActiveFilterColumn(columnKey);
+    setFilterPopoverPosition(position);
+  };
+
+  const handleCloseFilterPopover = () => {
+    setActiveFilterColumn(null);
+    setFilterPopoverPosition(null);
   };
 
   // ========== Handlers de acciones masivas ==========
@@ -820,439 +741,37 @@ const InvoiceListDashboard = () => {
 
       {/* Main Content */}
       <div className="px-6 py-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-          {/* Table */}
-          <div className="overflow-x-auto overflow-y-visible comprobantes-table-container" style={{ paddingBottom: '12px' }}>
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                <tr>
-                  {/* Checkbox maestro con popover */}
-                  <th className="px-2 py-3 sticky left-0 z-20 bg-gray-50 dark:bg-gray-700 w-[50px]">
-                    <input 
-                      type="checkbox" 
-                      checked={paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selection.isSelected(inv.id))}
-                      ref={(el) => {
-                        if (el) {
-                          const someSelected = paginatedInvoices.some(inv => selection.isSelected(inv.id));
-                          const allSelected = paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selection.isSelected(inv.id));
-                          el.indeterminate = someSelected && !allSelected;
-                        }
-                      }}
-                      onChange={() => {
-                        const ids = paginatedInvoices.map(inv => inv.id);
-                        const totals = paginatedInvoices.map(inv => Number(inv.total) || 0);
-                        selection.toggleAll(ids, totals);
-                      }}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      aria-label="Seleccionar todos"
-                    />
-                  </th>
-                  {visibleColumns.map((col) => {
-                    const isPinnedLeft = col.fixed === 'left';
-                    const isPinnedRight = col.fixed === 'right';
-                    const widthClass = (col as any).width || '';
-                    
-                    return (
-                      <th 
-                        key={col.id} 
-                        className={`py-3 text-xs font-medium uppercase tracking-wider ${widthClass} ${
-                          col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
-                        } text-gray-700 dark:text-gray-300 ${
-                          isPinnedLeft 
-                            ? 'sticky left-0 z-20 bg-gray-50 dark:bg-gray-700 shadow-[2px_0_4px_rgba(0,0,0,0.06)]' 
-                            : isPinnedRight 
-                            ? 'sticky right-0 z-20 bg-gray-50 dark:bg-gray-700 shadow-[-2px_0_4px_rgba(0,0,0,0.06)]' 
-                            : ''
-                        }`}
-                      >
-                        <div className="flex items-center justify-between space-x-2">
-                          <span>{col.label}</span>
-                          {['N° Comprobante', 'Tipo', 'N° Doc Cliente', 'Cliente', 'Vendedor'].includes(col.label) && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                const columnKey = col.label === 'N° Comprobante' ? 'id' :
-                                                  col.label === 'Tipo' ? 'type' :
-                                                  col.label === 'N° Doc Cliente' ? 'clientDoc' :
-                                                  col.label === 'Cliente' ? 'client' :
-                                                  'vendor';
-                                setActiveFilterColumn(activeFilterColumn === columnKey ? null : columnKey);
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                setFilterPopoverPosition({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX });
-                              }}
-                              className={`transition-colors ${hasActiveFilter(col.label === 'N° Comprobante' ? 'id' : col.label === 'Tipo' ? 'type' : col.label === 'N° Doc Cliente' ? 'clientDoc' : col.label === 'Cliente' ? 'client' : 'vendor') ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                              aria-label={`Filtrar por ${col.label}`}
-                            >
-                              <Search className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {isLoading ? (
-                  // Skeleton rows durante carga
-                  <>
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                  </>
-                ) : paginatedInvoices.length === 0 ? (
-                  <tr>
-                    <td colSpan={Math.max(1, visibleColumns.length + 1)} className="px-6 py-12">
-                      <div className="flex flex-col items-center justify-center text-center">
-                        <FileText className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          No se encontraron comprobantes
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-md">
-                          {dateFrom || dateTo
-                            ? 'No hay comprobantes en el rango de fechas seleccionado. Intenta ajustar los filtros de fecha.'
-                            : 'Aún no se han emitido comprobantes. Comienza creando tu primer comprobante desde Punto de Venta o Emisión Tradicional.'}
-                        </p>
-                        <button
-                          onClick={() => navigate('/comprobantes/emision')}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        >
-                          Crear comprobante
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedInvoices.map((invoice, index) => {
-                    const rowPadding = density === 'comfortable' ? 'py-4' : density === 'intermediate' ? 'py-3' : 'py-2';
-                    const isFechaEmisionVisible = visibleColumns.some(c => c.id === 'date');
-                    const isMonedaVisible = visibleColumns.some(c => c.id === 'currency');
-                    
-                    return (
-                      <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${selection.isSelected(invoice.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-                        {/* Checkbox por fila */}
-                        <td className={`px-2 ${rowPadding} sticky left-0 z-10 bg-white dark:bg-gray-800 w-[50px]`}>
-                          <input 
-                            type="checkbox" 
-                            checked={selection.isSelected(invoice.id)}
-                            onChange={() => selection.toggleSelection(invoice.id, Number(invoice.total) || 0)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            aria-label={`Seleccionar ${invoice.id}`}
-                          />
-                        </td>
+        <InvoiceListTable
+          invoices={paginatedInvoices}
+          visibleColumns={visibleColumns}
+          density={density}
+          selection={selection}
+          isLoading={isLoading}
+          hasActiveFilter={hasActiveFilter}
+          onRequestFilter={handleRequestFilter}
+          onViewDetails={handleViewDetails}
+          onPrint={handlePrint}
+          onShare={handleShare}
+          onDuplicate={handleDuplicate}
+          onEdit={(invoice) => navigate('/comprobantes/emision', { state: { edit: invoice } })}
+          onVoid={handleVoid}
+          onNavigateToDocuments={() => navigate('/documentos')}
+          onCreateInvoice={() => navigate('/comprobantes/emision')}
+          hasDateFilter={Boolean(dateFrom || dateTo)}
+        />
 
-                        {visibleColumns.map(col => {
-                          const value = (invoice as any)[col.key];
-                          const isPinnedLeft = col.fixed === 'left';
-                          const isPinnedRight = col.fixed === 'right';
-                          const widthClass = (col as any).width || '';
-
-                          // Renderizado especial para columna de acciones
-                          if (col.key === 'actions') {
-                            return (
-                              <td 
-                                key={col.id} 
-                                className={`px-4 ${rowPadding} whitespace-nowrap ${widthClass} ${
-                                  isPinnedRight 
-                                    ? 'sticky right-0 z-10 bg-white dark:bg-gray-800 shadow-[-2px_0_4px_rgba(0,0,0,0.06)]' 
-                                    : ''
-                                }`}
-                              >
-                                <div className="flex items-center justify-center gap-1">
-                                  {/* Botón Imprimir visible (opcional) */}
-                                  <button
-                                    onClick={() => handlePrint(invoice)}
-                                    className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    title="Imprimir"
-                                    aria-label={`Imprimir comprobante ${invoice.id}`}
-                                  >
-                                    <Printer className="w-4 h-4" />
-                                  </button>
-
-                                  {/* Menú kebab consolidado */}
-                                  <div className="relative">
-                                    <button
-                                      ref={(el) => { buttonRefs.current[invoice.id] = el; }}
-                                      onClick={(e) => {
-                                        if (openMenuId === invoice.id) {
-                                          setOpenMenuId(null);
-                                          setMenuPosition(null);
-                                        } else {
-                                          const rect = e.currentTarget.getBoundingClientRect();
-                                          setMenuPosition({
-                                            top: rect.bottom + window.scrollY + 4,
-                                            left: rect.right + window.scrollX - 176
-                                          });
-                                          setOpenMenuId(invoice.id);
-                                        }
-                                      }}
-                                      className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      title="Más acciones"
-                                      aria-label={`Más acciones para comprobante ${invoice.id}`}
-                                      aria-expanded={openMenuId === invoice.id}
-                                      aria-haspopup="true"
-                                    >
-                                      <MoreHorizontal className="w-4 h-4" />
-                                    </button>
-
-                                    {openMenuId === invoice.id && menuPosition && createPortal(
-                                      <>
-                                        <div 
-                                          className="fixed inset-0 z-40" 
-                                          onClick={() => {
-                                            setOpenMenuId(null);
-                                            setMenuPosition(null);
-                                          }}
-                                        />
-                                        
-                                        <div 
-                                          className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50"
-                                          style={{
-                                            top: `${menuPosition.top}px`,
-                                            left: `${menuPosition.left}px`
-                                          }}
-                                          role="menu"
-                                          aria-orientation="vertical"
-                                        >
-                                          <button
-                                            onClick={() => {
-                                              handleViewDetails(invoice);
-                                              setOpenMenuId(null);
-                                              setMenuPosition(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-blue-50 dark:focus:bg-gray-700"
-                                            role="menuitem"
-                                            aria-label={`Ver detalles de ${invoice.id}`}
-                                          >
-                                            <Eye className="w-4 h-4 flex-shrink-0" />
-                                            <span>Ver detalles</span>
-                                          </button>
-                                          
-                                          <button
-                                            onClick={() => {
-                                              handlePrint(invoice);
-                                              setOpenMenuId(null);
-                                              setMenuPosition(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-blue-50 dark:focus:bg-gray-700"
-                                            role="menuitem"
-                                            aria-label={`Imprimir ${invoice.id}`}
-                                          >
-                                            <Printer className="w-4 h-4 flex-shrink-0" />
-                                            <span>Imprimir</span>
-                                          </button>
-
-                                          <button
-                                            onClick={() => {
-                                              handleShare(invoice);
-                                              setOpenMenuId(null);
-                                              setMenuPosition(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-blue-50 dark:focus:bg-gray-700"
-                                            role="menuitem"
-                                            aria-label={`Compartir ${invoice.id}`}
-                                          >
-                                            <Share2 className="w-4 h-4 flex-shrink-0" />
-                                            <span>Compartir</span>
-                                          </button>
-                                          
-                                          <button
-                                            onClick={() => {
-                                              handleDuplicate(invoice);
-                                              setOpenMenuId(null);
-                                              setMenuPosition(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-blue-50 dark:focus:bg-gray-700"
-                                            role="menuitem"
-                                            aria-label={`Duplicar ${invoice.id}`}
-                                          >
-                                            <Copy className="w-4 h-4 flex-shrink-0" />
-                                            <span>Duplicar</span>
-                                          </button>
-                                          
-                                          <button
-                                            onClick={() => {
-                                              navigate('/comprobantes/emision', { state: { edit: invoice } });
-                                              setOpenMenuId(null);
-                                              setMenuPosition(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-gray-700 hover:text-amber-600 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-amber-50 dark:focus:bg-gray-700"
-                                            role="menuitem"
-                                            aria-label={`Editar ${invoice.id}`}
-                                          >
-                                            <Edit2 className="w-4 h-4 flex-shrink-0" />
-                                            <span>Editar</span>
-                                          </button>
-                                          
-                                          <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-                                          
-                                          <button
-                                            onClick={() => {
-                                              handleVoid(invoice);
-                                              setOpenMenuId(null);
-                                              setMenuPosition(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2.5 focus:outline-none focus:bg-red-50 dark:focus:bg-red-900/20"
-                                            role="menuitem"
-                                            aria-label={`Anular ${invoice.id}`}
-                                          >
-                                            <XCircle className="w-4 h-4 flex-shrink-0" />
-                                            <span>Anular</span>
-                                          </button>
-                                        </div>
-                                      </>,
-                                      document.body
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                            );
-                          }
-
-                          // Renderizado de otras columnas
-                          const display = (() => {
-                            // N° Comprobante con lógica condicional
-                            if (col.key === 'id') {
-                              return (
-                                <div>
-                                  <div className="font-medium text-gray-900 dark:text-white">
-                                    {value || '—'}
-                                  </div>
-                                  {!isFechaEmisionVisible && invoice.date && (
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
-                                      📅 {invoice.date}
-                                    </div>
-                                  )}
-                                  {(invoice as any).relatedDocumentId && (
-                                    <button
-                                      onClick={() => navigate('/documentos')}
-                                      className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-full w-fit mt-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer transition-colors"
-                                      title={`Ver ${(invoice as any).relatedDocumentType}: ${(invoice as any).relatedDocumentId}`}
-                                    >
-                                      <Link className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                                      <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
-                                        ← {(invoice as any).relatedDocumentId}
-                                      </span>
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            }
-
-                            // Cliente con doble línea
-                            if (col.key === 'client') {
-                              return (
-                                <div className="max-w-[240px]">
-                                  <div 
-                                    className="font-medium text-gray-900 dark:text-white truncate" 
-                                    title={value || '—'}
-                                  >
-                                    {value || '—'}
-                                  </div>
-                                  {invoice.clientDoc && (
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                                      {invoice.clientDoc}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            }
-
-                            // Total con símbolo de moneda
-                            if (col.key === 'total') {
-                              const currency = invoice.currency || 'PEN';
-                              const symbol = currency === 'USD' ? '$' : 'S/';
-                              const exchangeRate = invoice.exchangeRate;
-                              
-                              return (
-                                <div className="text-right">
-                                  <div className="font-bold text-gray-900 dark:text-white">
-                                    {symbol} {Number(value || 0).toFixed(2)}
-                                  </div>
-                                  {!isMonedaVisible && currency !== 'PEN' && exchangeRate && (
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                      TC: {Number(exchangeRate).toFixed(3)}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            }
-
-                            // Estado con pill
-                            if (col.key === 'status') {
-                              return (
-                                <div style={{ marginRight: '10px' }}>
-                                  {getStatusBadge(invoice.status || 'sent')}
-                                </div>
-                              );
-                            }
-
-                            // F. Vencimiento solo fecha (sin texto relativo)
-                            if (col.key === 'dueDate') {
-                              return value || '—';
-                            }
-
-                            // Columnas con truncate
-                            if (col.truncate && value) {
-                              return (
-                                <div 
-                                  className="truncate overflow-hidden text-ellipsis" 
-                                  title={String(value)}
-                                  style={{ maxWidth: '100%' }}
-                                >
-                                  {String(value)}
-                                </div>
-                              );
-                            }
-
-                            // Valor por defecto
-                            return value !== undefined && value !== null && value !== '' ? String(value) : '—';
-                          })();
-
-                          return (
-                            <td 
-                              key={col.id} 
-                              className={`${rowPadding} text-sm ${widthClass} ${
-                                col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
-                              } ${
-                                col.key === 'total' || col.key === 'id' ? '' : 'text-gray-700 dark:text-gray-300'
-                              } ${
-                                col.key === 'status' ? 'whitespace-nowrap' : ''
-                              } ${
-                                isPinnedLeft 
-                                  ? 'sticky left-0 z-10 bg-white dark:bg-gray-800 shadow-[2px_0_4px_rgba(0,0,0,0.06)]' 
-                                  : isPinnedRight 
-                                  ? 'sticky right-0 z-10 bg-white dark:bg-gray-800 shadow-[-2px_0_4px_rgba(0,0,0,0.06)]' 
-                                  : ''
-                              }`}
-                            >
-                              {display}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Footer */}
-          <TableFooter
-            recordsPerPage={recordsPerPage}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            startRecord={startRecord}
-            endRecord={endRecord}
-            totalRecords={totalRecords}
-            onToggleTotals={() => setShowTotals(!showTotals)}
-            onRecordsPerPageChange={setRecordsPerPage}
-            onPageChange={setCurrentPage}
-          />
-        </div>
+        <TableFooter
+          recordsPerPage={recordsPerPage}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          startRecord={startRecord}
+          endRecord={endRecord}
+          totalRecords={totalRecords}
+          onToggleTotals={() => setShowTotals(!showTotals)}
+          onRecordsPerPageChange={setRecordsPerPage}
+          onPageChange={setCurrentPage}
+        />
+      </div>
 
         {/* Totals Panel - Componente modular */}
         <StatsCards
@@ -1267,121 +786,15 @@ const InvoiceListDashboard = () => {
           onToggleTotals={() => setShowTotals(false)}
         />
 
-        {/* Popover de filtros por columna */}
-        {activeFilterColumn && filterPopoverPosition && createPortal(
-          <>
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setActiveFilterColumn(null)}
-            />
-            {/* Popover */}
-            <div
-              className="fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 w-80"
-              style={{
-                top: `${filterPopoverPosition.top + 8}px`,
-                left: `${filterPopoverPosition.left - 320}px`,
-              }}
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Filtrar por {activeFilterColumn === 'id' ? 'N° Comprobante' : activeFilterColumn === 'type' ? 'Tipo' : activeFilterColumn === 'clientDoc' ? 'N° Doc Cliente' : activeFilterColumn === 'client' ? 'Cliente' : 'Vendedor'}
-                  </h4>
-                  <button
-                    onClick={() => setActiveFilterColumn(null)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    aria-label="Cerrar"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Input según tipo de columna */}
-                {['id', 'client', 'vendor'].includes(activeFilterColumn) && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Buscar
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Escribir para filtrar..."
-                      value={tempColumnFilters[activeFilterColumn] || ''}
-                      onChange={(e) => {
-                        setTempColumnFilters(prev => ({ ...prev, [activeFilterColumn]: e.target.value }));
-                        handleColumnFilterChange(activeFilterColumn, e.target.value);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      autoFocus
-                    />
-                  </div>
-                )}
-
-                {activeFilterColumn === 'type' && (
-                  <div className="space-y-2">
-                    {['Factura', 'Boleta', 'Nota de Crédito', 'Nota de Débito'].map((tipo) => (
-                      <label key={tipo} className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(tempColumnFilters[activeFilterColumn] || '').split(',').includes(tipo)}
-                          onChange={(e) => {
-                            const current = (tempColumnFilters[activeFilterColumn] || '').split(',').filter(Boolean);
-                            const newValue = e.target.checked
-                              ? [...current, tipo].join(',')
-                              : current.filter(t => t !== tipo).join(',');
-                            setTempColumnFilters(prev => ({ ...prev, [activeFilterColumn]: newValue }));
-                            handleColumnFilterChange(activeFilterColumn, newValue);
-                          }}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{tipo}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-                {activeFilterColumn === 'clientDoc' && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Número de documento
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ej: 12345678"
-                      value={tempColumnFilters[activeFilterColumn] || ''}
-                      onChange={(e) => {
-                        setTempColumnFilters(prev => ({ ...prev, [activeFilterColumn]: e.target.value }));
-                        handleColumnFilterChange(activeFilterColumn, e.target.value);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      autoFocus
-                    />
-                  </div>
-                )}
-
-                {/* Botones de acción */}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-600">
-                  <button
-                    onClick={() => {
-                      clearColumnFilter(activeFilterColumn);
-                      setActiveFilterColumn(null);
-                    }}
-                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium"
-                  >
-                    Limpiar
-                  </button>
-                  <button
-                    onClick={() => setActiveFilterColumn(null)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                  >
-                    Aplicar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>,
-          document.body
-        )}
+        <ColumnFilterPopover
+          columnKey={activeFilterColumn}
+          position={filterPopoverPosition}
+          tempFilters={tempColumnFilters}
+          onTempFiltersChange={setTempColumnFilters}
+          onFilterChange={handleColumnFilterChange}
+          onClearFilter={clearColumnFilter}
+          onClose={handleCloseFilterPopover}
+        />
 
         {/* Barra de acciones masivas */}
         <BulkBar
@@ -1458,70 +871,19 @@ const InvoiceListDashboard = () => {
           />
         )}
 
-        {/* Modal de Anulación */}
-        {showVoidModal && selectedInvoiceForVoid && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Anular Comprobante
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowVoidModal(false);
-                    setSelectedInvoiceForVoid(null);
-                    setVoidReason('');
-                  }}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                <p className="text-sm text-red-800 dark:text-red-200">
-                  ¿Está seguro que desea anular el comprobante <strong>{selectedInvoiceForVoid.id}</strong>?
-                </p>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Motivo de anulación *
-                </label>
-                <textarea
-                  value={voidReason}
-                  onChange={(e) => setVoidReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                  rows={3}
-                  placeholder="Ingrese el motivo de la anulación..."
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setShowVoidModal(false);
-                    setSelectedInvoiceForVoid(null);
-                    setVoidReason('');
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={confirmVoid}
-                  disabled={!voidReason.trim()}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <XCircle className="w-4 h-4" />
-                  Anular comprobante
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <VoidInvoiceModal
+          isOpen={showVoidModal && Boolean(selectedInvoiceForVoid)}
+          invoiceId={selectedInvoiceForVoid?.id}
+          reason={voidReason}
+          onReasonChange={setVoidReason}
+          onCancel={() => {
+            setShowVoidModal(false);
+            setSelectedInvoiceForVoid(null);
+            setVoidReason('');
+          }}
+          onConfirm={confirmVoid}
+        />
       </div>
-    </div>
     </>
   );
 };
