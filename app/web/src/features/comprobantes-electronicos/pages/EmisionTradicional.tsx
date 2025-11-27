@@ -45,6 +45,7 @@ import { useConfigurationContext } from '../../configuracion-sistema/context/Con
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
 import type { ClientData } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
+import { validateComprobanteNormativa } from '../shared/core/comprobanteValidation';
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
@@ -169,8 +170,21 @@ const EmisionTradicional = () => {
 
   // Handlers (SIN CAMBIOS - exactamente igual que antes)
   const handleVistaPrevia = () => {
-    if (cartItems.length === 0) {
-      error('Productos requeridos', 'Debe agregar al menos un producto para ver la vista previa');
+    const validation = validateComprobanteNormativa({
+      tipoComprobante,
+      serieSeleccionada,
+      cliente: draftClientData,
+      formaPago,
+      fechaEmision,
+      moneda: currentCurrency,
+      cartItems,
+      totals,
+    });
+
+    if (!validation.isValid) {
+      validation.errors.forEach((e) => {
+        error('Faltan datos para vista previa', e.message);
+      });
       return;
     }
     openPreview();
@@ -179,6 +193,24 @@ const EmisionTradicional = () => {
   const handleCrearComprobante = async () => {
     if (!canProcess) {
       error('No se puede procesar', 'Verifique que la caja esté abierta y no haya operaciones en curso');
+      return;
+    }
+
+    const validation = validateComprobanteNormativa({
+      tipoComprobante,
+      serieSeleccionada,
+      cliente: draftClientData,
+      formaPago,
+      fechaEmision,
+      moneda: currentCurrency,
+      cartItems,
+      totals,
+    });
+
+    if (!validation.isValid) {
+      validation.errors.forEach((e) => {
+        error('No se puede procesar', e.message);
+      });
       return;
     }
 

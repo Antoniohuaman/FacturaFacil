@@ -24,6 +24,7 @@ import { ToastContainer } from '../../shared/ui/Toast/ToastContainer';
 import { PaymentMethodModal } from '../../shared/modales/PaymentMethodModal';
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
+import { validateComprobanteNormativa } from '../../shared/core/comprobanteValidation';
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart } from 'lucide-react';
@@ -82,8 +83,21 @@ const PuntoVenta = () => {
       return;
     }
 
-    if (cartItems.length === 0) {
-      warning('Carrito vacío', 'Agregue productos antes de procesar la venta');
+    const validation = validateComprobanteNormativa({
+      tipoComprobante,
+      serieSeleccionada,
+      cliente: clienteSeleccionado,
+      formaPago,
+      fechaEmision: undefined,
+      moneda: currentCurrency,
+      cartItems,
+      totals,
+    });
+
+    if (!validation.isValid) {
+      validation.errors.forEach((e) => {
+        warning('Faltan datos para procesar la venta', e.message);
+      });
       return;
     }
 
@@ -93,6 +107,24 @@ const PuntoVenta = () => {
   const handleCrearComprobante = async () => {
     if (!canProcess) {
       error('No se puede procesar', 'Verifique que la caja esté abierta y no haya operaciones en curso');
+      return;
+    }
+
+    const validation = validateComprobanteNormativa({
+      tipoComprobante,
+      serieSeleccionada,
+      cliente: clienteSeleccionado,
+      formaPago,
+      fechaEmision: undefined,
+      moneda: currentCurrency,
+      cartItems,
+      totals,
+    });
+
+    if (!validation.isValid) {
+      validation.errors.forEach((e) => {
+        error('No se puede procesar', e.message);
+      });
       return;
     }
 

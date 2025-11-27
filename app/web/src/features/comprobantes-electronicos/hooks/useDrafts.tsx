@@ -18,6 +18,7 @@ import {
   appendDraftToStorage,
   readDraftsFromStorage
 } from '../shared/drafts/draftStorage';
+import { validateComprobanteNormativa } from '../shared/core/comprobanteValidation';
 
 interface DraftSaveParams {
   tipoComprobante: TipoComprobante;
@@ -127,9 +128,22 @@ export const useDrafts = (): UseDraftsReturn => {
       notaInterna,
       vendedor
     } = params;
-    
-    // Mostrar toast de confirmación
-    setShowDraftToast(true);
+
+    const validation = validateComprobanteNormativa({
+      tipoComprobante,
+      serieSeleccionada,
+      cliente,
+      formaPago: undefined,
+      fechaEmision: undefined,
+      moneda: currency,
+      cartItems,
+      totals,
+    });
+
+    if (!validation.isValid) {
+      // No mostrar toast de guardado; la capa superior debe manejar mensajes si es necesario
+      return;
+    }
     
     // Recopilar datos relevantes del formulario
     const draftData: DraftData = {
