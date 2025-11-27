@@ -148,6 +148,9 @@ export interface DraftData {
   cliente?: ClientData;
   observaciones?: string;
   notaInterna?: string;
+  totals?: PaymentTotals;
+  currency?: Currency;
+  vendedor?: string;
   createdAt: string;
 }
 

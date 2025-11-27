@@ -4,13 +4,33 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { 
-  DraftData, 
-  DraftAction, 
-  CartItem, 
-  TipoComprobante 
+import type {
+  DraftData,
+  DraftAction,
+  CartItem,
+  TipoComprobante,
+  ClientData,
+  PaymentTotals,
+  Currency
 } from '../models/comprobante.types';
 import { SYSTEM_CONFIG } from '../models/constants';
+import {
+  appendDraftToStorage,
+  readDraftsFromStorage
+} from '../shared/drafts/draftStorage';
+
+interface DraftSaveParams {
+  tipoComprobante: TipoComprobante;
+  serieSeleccionada: string;
+  cartItems: CartItem[];
+  onClearCart?: () => void;
+  cliente?: ClientData;
+  totals?: PaymentTotals;
+  currency?: Currency;
+  observaciones?: string;
+  notaInterna?: string;
+  vendedor?: string;
+}
 
 export interface UseDraftsReturn {
   // Estados del borrador
@@ -26,19 +46,9 @@ export interface UseDraftsReturn {
   setDraftAction: (action: DraftAction) => void;
   
   // Funciones principales
-  handleSaveDraft: (params: {
-    tipoComprobante: TipoComprobante;
-    serieSeleccionada: string;
-    cartItems: CartItem[];
-    onClearCart?: () => void;
-  }) => void;
+  handleSaveDraft: (params: DraftSaveParams) => void;
   
-  handleDraftModalSave: (params: {
-    tipoComprobante: TipoComprobante;
-    serieSeleccionada: string;
-    cartItems: CartItem[];
-    onClearCart?: () => void;
-  }) => void;
+  handleDraftModalSave: (params: DraftSaveParams) => void;
   
   closeDraftToast: () => void;
   closeDraftModal: () => void;
@@ -87,27 +97,15 @@ export const useDrafts = (): UseDraftsReturn => {
    * Obtener borradores desde localStorage
    */
   const getDraftsFromStorage = useCallback((): DraftData[] => {
-    try {
-      const drafts = localStorage.getItem(SYSTEM_CONFIG.DRAFTS_STORAGE_KEY);
-      return drafts ? JSON.parse(drafts) : [];
-    } catch (error) {
-      console.error('Error reading drafts from localStorage:', error);
-      return [];
-    }
+    return readDraftsFromStorage();
   }, []);
 
   /**
    * Guardar borrador en localStorage
    */
   const saveDraftToStorage = useCallback((draft: DraftData) => {
-    try {
-      const drafts = getDraftsFromStorage();
-      drafts.push(draft);
-      localStorage.setItem(SYSTEM_CONFIG.DRAFTS_STORAGE_KEY, JSON.stringify(drafts));
-    } catch (error) {
-      console.error('Error saving draft to localStorage:', error);
-    }
-  }, [getDraftsFromStorage]);
+    appendDraftToStorage(draft);
+  }, []);
 
   // ===================================================================
   // FUNCIONES PRINCIPALES DE BORRADOR
@@ -117,13 +115,18 @@ export const useDrafts = (): UseDraftsReturn => {
    * Guardar borrador (función principal)
    * Mantiene exactamente la misma lógica del archivo original
    */
-  const handleSaveDraft = useCallback((params: {
-    tipoComprobante: TipoComprobante;
-    serieSeleccionada: string;
-    cartItems: CartItem[];
-    onClearCart?: () => void;
-  }) => {
-    const { tipoComprobante, serieSeleccionada, cartItems } = params;
+  const handleSaveDraft = useCallback((params: DraftSaveParams) => {
+    const {
+      tipoComprobante,
+      serieSeleccionada,
+      cartItems,
+      cliente,
+      totals,
+      currency,
+      observaciones,
+      notaInterna,
+      vendedor
+    } = params;
     
     // Mostrar toast de confirmación
     setShowDraftToast(true);
@@ -136,6 +139,12 @@ export const useDrafts = (): UseDraftsReturn => {
       productos: cartItems,
       fechaEmision: new Date().toISOString().slice(0, 10),
       fechaVencimiento: draftExpiryDate || undefined,
+      cliente,
+      observaciones,
+      notaInterna,
+      totals,
+      currency,
+      vendedor,
       createdAt: new Date().toISOString(),
       // Aquí se pueden agregar más campos según necesidad
     };
@@ -153,12 +162,7 @@ export const useDrafts = (): UseDraftsReturn => {
    * Manejar guardado desde el modal con navegación
    * Mantiene exactamente la misma lógica del archivo original
    */
-  const handleDraftModalSave = useCallback((params: {
-    tipoComprobante: TipoComprobante;
-    serieSeleccionada: string;
-    cartItems: CartItem[];
-    onClearCart?: () => void;
-  }) => {
+  const handleDraftModalSave = useCallback((params: DraftSaveParams) => {
     const { onClearCart } = params;
     
     // Cerrar modal

@@ -5,7 +5,7 @@
 // ===================================================================
 
 import ProductsSection from '../../comprobantes-electronicos/shared/form-core/components/ProductsSection';
-import type { CartItem, DraftAction, TipoComprobante } from '../../comprobantes-electronicos/models/comprobante.types';
+import type { CartItem } from '../../comprobantes-electronicos/models/comprobante.types';
 
 interface DocumentoProductsSectionProps {
   cartItems: CartItem[];
@@ -20,21 +20,5 @@ interface DocumentoProductsSectionProps {
 }
 
 export const DocumentoProductsSection: React.FC<DocumentoProductsSectionProps> = (props) => {
-  // Props por defecto para funcionalidades que no usamos en documentos
-  const defaultProps = {
-    showDraftModal: false,
-    setShowDraftModal: () => {},
-    showDraftToast: false,
-    setShowDraftToast: () => {},
-    draftExpiryDate: '',
-    setDraftExpiryDate: () => {},
-    draftAction: 'save' as DraftAction,
-    setDraftAction: () => {},
-    handleDraftModalSave: () => {},
-    tipoComprobante: 'boleta' as TipoComprobante,
-    serieSeleccionada: '',
-    clearCart: () => {},
-  };
-
-  return <ProductsSection {...props} {...defaultProps} />;
+  return <ProductsSection {...props} />;
 };

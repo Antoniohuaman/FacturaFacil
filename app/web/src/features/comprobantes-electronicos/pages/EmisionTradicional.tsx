@@ -40,8 +40,10 @@ import { SuccessModal } from '../shared/modales/SuccessModal';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { useState } from 'react';
+import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
+import type { ClientData } from '../models/comprobante.types';
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
@@ -57,6 +59,7 @@ const EmisionTradicional = () => {
   const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
+  const { session } = useUserSession();
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
   const { currentCurrency, currencyInfo, changeCurrency } = useCurrency();
@@ -139,6 +142,16 @@ const EmisionTradicional = () => {
     clienteSeleccionadoGlobal !== null &&
     serieSeleccionada !== '' &&
     cartItems.length > 0;
+
+  const draftClientData: ClientData | undefined = clienteSeleccionadoGlobal
+    ? {
+        nombre: clienteSeleccionadoGlobal.nombre,
+        tipoDocumento: clienteSeleccionadoGlobal.dni && clienteSeleccionadoGlobal.dni.length === 11 ? 'ruc' : 'dni',
+        documento: clienteSeleccionadoGlobal.dni,
+        direccion: clienteSeleccionadoGlobal.direccion,
+        email: clienteSeleccionadoGlobal.email
+      }
+    : undefined;
 
 
   // Handler para abrir modal de nueva forma de pago
@@ -309,18 +322,6 @@ const EmisionTradicional = () => {
               updateCartItem={updateCartItem}
               removeFromCart={removeFromCart}
               totals={totals}
-              showDraftModal={showDraftModal}
-              setShowDraftModal={setShowDraftModal}
-              showDraftToast={showDraftToast}
-              setShowDraftToast={setShowDraftToast}
-              draftExpiryDate={draftExpiryDate}
-              setDraftExpiryDate={setDraftExpiryDate}
-              draftAction={draftAction}
-              setDraftAction={setDraftAction}
-              handleDraftModalSave={handleDraftModalSave}
-              tipoComprobante={tipoComprobante}
-              serieSeleccionada={serieSeleccionada}
-              clearCart={clearCart}
               refreshKey={productSelectorKey}
             />
 
@@ -386,7 +387,13 @@ const EmisionTradicional = () => {
               tipoComprobante,
               serieSeleccionada,
               cartItems,
-              onClearCart: clearCart
+              onClearCart: clearCart,
+              cliente: draftClientData,
+              totals,
+              currency: currentCurrency,
+              observaciones,
+              notaInterna,
+              vendedor: session?.userName || undefined
             });
           }}
           draftExpiryDate={draftExpiryDate}

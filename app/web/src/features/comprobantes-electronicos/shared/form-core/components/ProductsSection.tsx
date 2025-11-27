@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { CartItem, DraftAction, TipoComprobante } from '../../../models/comprobante.types';
+import type { CartItem } from '../../../models/comprobante.types';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
 import { CheckSquare, Square, Sliders, Settings2 } from 'lucide-react';
 import { usePriceBook } from '../hooks/usePriceBook';
@@ -17,23 +17,6 @@ interface ProductsSectionProps {
     igv: number;
     total: number;
   };
-  showDraftModal: boolean;
-  setShowDraftModal: (value: boolean) => void;
-  showDraftToast: boolean;
-  setShowDraftToast: (value: boolean) => void;
-  draftExpiryDate: string;
-  setDraftExpiryDate: (value: string) => void;
-  draftAction: DraftAction;
-  setDraftAction: (value: DraftAction) => void;
-  handleDraftModalSave: (params: {
-    tipoComprobante: TipoComprobante;
-    serieSeleccionada: string;
-    cartItems: CartItem[];
-    onClearCart?: () => void;
-  }) => void;
-  tipoComprobante: TipoComprobante;
-  serieSeleccionada: string;
-  clearCart: () => void;
   refreshKey?: number;
   selectedEstablishmentId?: string;
 }
@@ -98,18 +81,6 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   updateCartItem,
   removeFromCart,
   totals,
-  showDraftModal,
-  setShowDraftModal,
-  showDraftToast,
-  setShowDraftToast,
-  draftExpiryDate,
-  setDraftExpiryDate,
-  draftAction,
-  setDraftAction,
-  handleDraftModalSave,
-  tipoComprobante,
-  serieSeleccionada,
-  clearCart,
   refreshKey = 0,
   // selectedEstablishmentId, // TODO: Usar para filtrar stock por establecimiento
 }) => {
@@ -1157,96 +1128,6 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         </div>
       </div>
 
-      {/* Toast de confirmación */}
-      {showDraftToast && (
-        <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-green-600 text-white px-6 py-3 rounded shadow-lg flex items-center space-x-2 animate-fade-in">
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="m9 12 2 2 4-4"/>
-            </svg>
-            <span>Borrador guardado exitosamente</span>
-            <button className="ml-4 text-white/80 hover:text-white" onClick={() => setShowDraftToast(false)}>&times;</button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para guardar borrador */}
-      {showDraftModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Guardar borrador</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de vencimiento (opcional)</label>
-              <input
-                type="date"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                value={draftExpiryDate}
-                onChange={e => setDraftExpiryDate(e.target.value)}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">¿Qué deseas hacer después de guardar?</label>
-              <div className="space-y-2">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="draftAction"
-                    value="borradores"
-                    checked={draftAction === 'borradores'}
-                    onChange={() => setDraftAction('borradores')}
-                    className="mr-2 w-4 h-4 text-blue-600"
-                  />
-                  Ir a lista de borradores
-                </label>
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="draftAction"
-                    value="continuar"
-                    checked={draftAction === 'continuar'}
-                    onChange={() => setDraftAction('continuar')}
-                    className="mr-2 w-4 h-4 text-blue-600"
-                  />
-                  Continuar editando
-                </label>
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="draftAction"
-                    value="terminar"
-                    checked={draftAction === 'terminar'}
-                    onChange={() => setDraftAction('terminar')}
-                    className="mr-2 w-4 h-4 text-blue-600"
-                  />
-                  Terminar y salir
-                </label>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={() => setShowDraftModal(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                onClick={() => {
-                  handleDraftModalSave({
-                    tipoComprobante,
-                    serieSeleccionada,
-                    cartItems,
-                    onClearCart: clearCart
-                  });
-                }}
-              >
-                Guardar borrador
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
