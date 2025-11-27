@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import { useCallback } from 'react';
-import type { CartItem } from '../models/comprobante.types';
+import type { CartItem, PaymentCollectionPayload } from '../models/comprobante.types';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import type { MedioPago } from '../../control-caja/models/Caja';
 import { lsKey } from '../../../shared/tenant';
@@ -40,6 +40,8 @@ interface ComprobanteData {
   costCenter?: string;
   waybill?: string;
   currency?: string;
+  paymentDetails?: PaymentCollectionPayload;
+  registrarPago?: boolean;
 }
 
 export const useComprobanteActions = () => {
@@ -52,19 +54,37 @@ export const useComprobanteActions = () => {
   /**
    * Mapea las formas de pago de comprobantes a los medios de pago de caja
    */
-  const mapFormaPagoToMedioPago = useCallback((formaPago: string): MedioPago => {
-    const mapping: Record<string, MedioPago> = {
-      'efectivo': 'Efectivo',
-      'contado': 'Efectivo', // Contado se asume como efectivo
-      'tarjeta': 'Tarjeta',
-      'yape': 'Yape',
-      'plin': 'Plin',
-      'transferencia': 'Transferencia',
-      'deposito': 'Deposito'
-    };
+  const mapFormaPagoToMedioPago = useCallback((formaPago?: string): MedioPago => {
+    const normalized = formaPago
+      ? formaPago.toLowerCase().replace(/^pm-/, '')
+      : 'efectivo';
 
-    return mapping[formaPago.toLowerCase()] || 'Efectivo';
+    if (normalized.includes('yape')) return 'Yape';
+    if (normalized.includes('plin')) return 'Plin';
+    if (normalized.includes('tarjeta') || normalized.includes('visa') || normalized.includes('master')) return 'Tarjeta';
+    if (normalized.includes('transfer')) return 'Transferencia';
+    if (normalized.includes('deposit')) return 'Deposito';
+    if (normalized.includes('contado') || normalized.includes('cash')) return 'Efectivo';
+
+    return 'Efectivo';
   }, []);
+
+  const buildPaymentLabel = useCallback((paymentDetails?: PaymentCollectionPayload, fallbackFormaPago?: string) => {
+    if (paymentDetails?.mode === 'credito') {
+      return 'Crédito';
+    }
+
+    if (paymentDetails?.mode === 'contado' && paymentDetails.lines.length > 0) {
+      const labels = Array.from(new Set(paymentDetails.lines.map((line) => mapFormaPagoToMedioPago(line.method))));
+      return labels.join(' + ');
+    }
+
+    if (fallbackFormaPago) {
+      return mapFormaPagoToMedioPago(fallbackFormaPago);
+    }
+
+    return 'Efectivo';
+  }, [mapFormaPagoToMedioPago]);
 
   // Validar datos del comprobante
   const validateComprobanteData = useCallback((data: ComprobanteData): boolean => {
@@ -154,24 +174,60 @@ export const useComprobanteActions = () => {
       // Simular respuesta exitosa
       const numeroComprobante = `${data.serieSeleccionada}-${String(Math.floor(Math.random() * 10000)).padStart(8, '0')}`;
 
+      const paymentSummaryLabel = buildPaymentLabel(data.paymentDetails, data.formaPago);
+
       // Registrar movimiento en caja si está abierta
       if (cajaStatus === 'abierta') {
         try {
-          const medioPago = mapFormaPagoToMedioPago(data.formaPago || 'contado');
-          
+          const registrarCobranza = Boolean(
+            data.paymentDetails &&
+            data.paymentDetails.mode === 'contado' &&
+            (data.registrarPago ?? true) &&
+            data.paymentDetails.lines.length > 0
+          );
+
           // Obtener usuario actual desde sesión
           const userId = session?.userId || 'temp-user-id';
           const userName = session?.userName || 'Usuario';
 
-          await agregarMovimiento({
-            tipo: 'Ingreso',
-            concepto: `${data.tipoComprobante} ${numeroComprobante}`,
-            medioPago: medioPago,
-            monto: data.totals.total,
-            referencia: numeroComprobante,
-            usuarioId: userId,
-            usuarioNombre: userName
-          });
+          if (registrarCobranza && data.paymentDetails) {
+            for (const line of data.paymentDetails.lines) {
+              const medioPago = mapFormaPagoToMedioPago(line.method);
+              const observaciones = [
+                line.bank ? `Caja: ${line.bank}` : null,
+                line.reference ? `Ref: ${line.reference}` : null,
+                line.operationNumber ? `Op: ${line.operationNumber}` : null,
+                data.paymentDetails?.notes,
+              ]
+                .filter(Boolean)
+                .join(' | ') || undefined;
+
+              await agregarMovimiento({
+                tipo: 'Ingreso',
+                concepto: `${data.tipoComprobante} ${numeroComprobante}`,
+                medioPago,
+                monto: line.amount,
+                referencia: line.reference || numeroComprobante,
+                usuarioId: userId,
+                usuarioNombre: userName,
+                comprobante: numeroComprobante,
+                observaciones,
+              });
+            }
+          } else {
+            const medioPago = mapFormaPagoToMedioPago(data.formaPago || 'contado');
+
+            await agregarMovimiento({
+              tipo: 'Ingreso',
+              concepto: `${data.tipoComprobante} ${numeroComprobante}`,
+              medioPago,
+              monto: data.totals.total,
+              referencia: numeroComprobante,
+              usuarioId: userId,
+              usuarioNombre: userName,
+              comprobante: numeroComprobante,
+            });
+          }
         } catch (cajaError) {
           console.error('Error registrando movimiento en caja:', cajaError);
           // No lanzar error, el comprobante ya se creó exitosamente
@@ -254,7 +310,7 @@ export const useComprobanteActions = () => {
           }
         })() : formattedDate;
 
-        const paymentMethodLabel = data.formaPago ? mapFormaPagoToMedioPago(data.formaPago) : 'Efectivo';
+        const paymentMethodLabel = paymentSummaryLabel;
 
         // ✅ VERIFICAR SI VIENE DE CONVERSIÓN PARA AGREGAR CORRELACIÓN
         const conversionSourceId = sessionStorage.getItem('conversionSourceId');
@@ -370,7 +426,7 @@ export const useComprobanteActions = () => {
           igv: data.totals.igv,
           fechaEmision: fechaEmisionDate.toISOString(),
           productos: mapCartItemsToVentaProductos(data.cartItems),
-          formaPago: data.formaPago,
+          formaPago: paymentSummaryLabel,
           source: data.source ?? 'otros'
         });
       } catch (indicadoresError) {
@@ -414,7 +470,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, addMovimientoStock, addComprobante, session]);
+  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, buildPaymentLabel, addMovimientoStock, addComprobante, session]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

@@ -130,7 +130,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
   // Estado de la caja
   const isCashBoxClosed = cashBoxStatus === 'closed';
-  const canProcessSale = !isProcessing && cartItems.length > 0 && !isCashBoxClosed;
+  const canProcessSale = !isProcessing && cartItems.length > 0;
 
   // Calcular descuento aplicado
   const calculateDiscount = () => {
@@ -241,20 +241,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   };
 
   const handleTipoComprobanteChange = (nuevoTipo: 'boleta' | 'factura') => {
-    if (nuevoTipo === 'factura') {
-      if (clienteSeleccionado && clienteSeleccionado.tipoDocumento !== 'RUC') {
-        const confirmar = window.confirm(
-          `⚠️ ADVERTENCIA: Para emitir FACTURA el cliente debe tener RUC.\n\n` +
-          `Cliente seleccionado: ${clienteSeleccionado.nombre}\n` +
-          `Tipo de documento actual: ${clienteSeleccionado.tipoDocumento}\n\n` +
-          `¿Deseas cambiar a FACTURA de todas formas?\n` +
-          `(Deberás seleccionar o crear un cliente con RUC antes de continuar)`
-        );
-
-        if (!confirmar) return;
-      }
-    }
-
     setTipoComprobante(nuevoTipo);
     setShowTypeSelector(false);
   };
@@ -264,29 +250,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
     if (onCurrencyChange) {
       onCurrencyChange(newCurrency);
     }
-  };
-
-  const handleProceedToPayment = () => {
-    // Validación para FACTURA
-    if (tipoComprobante === 'factura') {
-      if (!clienteSeleccionado) {
-        alert('⚠️ Para emitir una FACTURA es obligatorio seleccionar un cliente con RUC.\n\nPor favor, selecciona o crea un cliente con RUC.');
-        return;
-      }
-
-      if (clienteSeleccionado.tipoDocumento !== 'RUC') {
-        alert(`⚠️ Para emitir una FACTURA el cliente debe tener RUC.\n\nCliente actual: ${clienteSeleccionado.nombre}\nTipo de documento: ${clienteSeleccionado.tipoDocumento}\n\nPor favor, selecciona un cliente con RUC o edita este cliente para agregar su RUC.`);
-        return;
-      }
-
-      if (!clienteSeleccionado.documento || clienteSeleccionado.documento.length !== 11) {
-        alert(`⚠️ El RUC del cliente no es válido.\n\nCliente: ${clienteSeleccionado.nombre}\nRUC: ${clienteSeleccionado.documento || 'No especificado'}\n\nEl RUC debe tener exactamente 11 dígitos. Por favor, edita el cliente para corregir el RUC.`);
-        return;
-      }
-    }
-
-    // Si pasa validaciones, proceder al pago
-    onConfirmSale();
   };
 
   return (
@@ -715,7 +678,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
             
             {/* Botón Principal Compacto */}
             <button
-              onClick={handleProceedToPayment}
+              onClick={onConfirmSale}
               disabled={!canProcessSale}
               className={`w-full py-3 rounded-lg font-bold text-base shadow-md transition-all ${
                 canProcessSale

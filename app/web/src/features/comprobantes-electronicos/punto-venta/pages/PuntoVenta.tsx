@@ -21,14 +21,15 @@ import { CartCheckoutPanel } from '../components/CartCheckoutPanel';
 
 // Importar componentes compartidos
 import { ToastContainer } from '../../shared/ui/Toast/ToastContainer';
-import { PaymentMethodModal } from '../../shared/modales/PaymentMethodModal';
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
-import { validateComprobanteNormativa } from '../../shared/core/comprobanteValidation';
+import { CobranzaModal } from '../../shared/modales/CobranzaModal';
+import { validateComprobanteReadyForCobranza } from '../../shared/core/comprobanteValidation';
+import type { ClientData, PaymentCollectionPayload } from '../../models/comprobante.types';
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 const PuntoVenta = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ const PuntoVenta = () => {
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItemPrice, clearCart } = useCart();
-  const { calculateTotals, showPaymentModal, setShowPaymentModal } = usePayment();
+  const { calculateTotals } = usePayment();
   const { currentCurrency, currencyInfo } = useCurrency();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada } = useDocumentType();
 
@@ -47,7 +48,7 @@ const PuntoVenta = () => {
   const {
     formaPago,
     isProcessing, setIsProcessing,
-    isCajaOpen, canProcess, cajaStatus,
+    isCajaOpen, cajaStatus,
     resetForm
   } = useComprobanteState();
 
@@ -63,9 +64,23 @@ const PuntoVenta = () => {
   // Estado para el modal de éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
+  const [showCobranzaModal, setShowCobranzaModal] = useState(false);
+  const [fechaEmision] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Estado para cliente seleccionado (nuevo flujo)
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null);
+
+  const clienteDraftData: ClientData | undefined = useMemo(() => {
+    if (!clienteSeleccionado) return undefined;
+    const rawTipo = (clienteSeleccionado.tipoDocumento || '').toString().toLowerCase();
+    const tipoDocumento: ClientData['tipoDocumento'] = rawTipo === 'ruc' ? 'ruc' : 'dni';
+    return {
+      nombre: clienteSeleccionado.nombre,
+      tipoDocumento,
+      documento: clienteSeleccionado.documento,
+      direccion: clienteSeleccionado.direccion,
+    };
+  }, [clienteSeleccionado]);
 
   // Obtener productos disponibles del catálogo (filtrados por establecimiento)
   const availableProducts = useAvailableProducts({
@@ -76,56 +91,51 @@ const PuntoVenta = () => {
   // Calculate totals (SIN CAMBIOS)
   const totals = calculateTotals(cartItems);
 
+  const buildCobranzaValidationInput = useCallback(() => ({
+    tipoComprobante,
+    serieSeleccionada,
+    cliente: clienteDraftData,
+    formaPago,
+    fechaEmision,
+    moneda: currentCurrency,
+    cartItems,
+    totals,
+  }), [cartItems, clienteDraftData, currentCurrency, fechaEmision, formaPago, serieSeleccionada, tipoComprobante, totals]);
+
+  const ensureDataBeforeCobranza = useCallback((toastTitle: string) => {
+    const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
+      onError: (validationError) => warning(toastTitle, validationError.message),
+    });
+    return validation.isValid;
+  }, [buildCobranzaValidationInput, warning]);
+
   // Handlers (SIN CAMBIOS - exactamente igual que antes)
   const handleConfirmSale = () => {
-    if (!isCajaOpen) {
-      error('Caja cerrada', 'No se puede procesar ventas con la caja cerrada. Abra la caja e inténtelo nuevamente.');
+    if (!ensureDataBeforeCobranza('Faltan datos para procesar la venta')) {
       return;
     }
-
-    const validation = validateComprobanteNormativa({
-      tipoComprobante,
-      serieSeleccionada,
-      cliente: clienteSeleccionado,
-      formaPago,
-      fechaEmision: undefined,
-      moneda: currentCurrency,
-      cartItems,
-      totals,
-    });
-
-    if (!validation.isValid) {
-      validation.errors.forEach((e) => {
-        warning('Faltan datos para procesar la venta', e.message);
-      });
-      return;
-    }
-
-    setShowPaymentModal(true);
+    setShowCobranzaModal(true);
   };
 
-  const handleCrearComprobante = async () => {
-    if (!canProcess) {
-      error('No se puede procesar', 'Verifique que la caja esté abierta y no haya operaciones en curso');
-      return;
+  const handleCrearComprobante = async (paymentPayload?: PaymentCollectionPayload): Promise<boolean> => {
+    const isCredito = paymentPayload?.mode === 'credito';
+
+    if (isProcessing) {
+      error('Proceso en ejecución', 'Espera a que termine la operación anterior antes de continuar');
+      return false;
     }
 
-    const validation = validateComprobanteNormativa({
-      tipoComprobante,
-      serieSeleccionada,
-      cliente: clienteSeleccionado,
-      formaPago,
-      fechaEmision: undefined,
-      moneda: currentCurrency,
-      cartItems,
-      totals,
+    if (!isCredito && !isCajaOpen) {
+      error('Caja cerrada', 'Abre una caja para registrar pagos al contado. También puedes emitir a crédito.');
+      return false;
+    }
+
+    const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
+      onError: (validationError) => error('No se puede procesar', validationError.message),
     });
 
     if (!validation.isValid) {
-      validation.errors.forEach((e) => {
-        error('No se puede procesar', e.message);
-      });
-      return;
+      return false;
     }
 
     setIsProcessing(true);
@@ -141,26 +151,33 @@ const PuntoVenta = () => {
         companyId: currentCompanyId,
         currency: currentCurrency,
         exchangeRate: currencyInfo?.rate,
-        source: 'pos'
+        source: 'pos',
+        client: clienteDraftData?.nombre,
+        clientDoc: clienteDraftData?.documento,
+        fechaEmision,
+        paymentDetails: paymentPayload,
+        registrarPago: paymentPayload?.mode !== 'credito'
       });
 
       if (success) {
-        // Guardar datos del comprobante para el modal
+        const received = paymentPayload?.mode === 'contado'
+          ? paymentPayload.lines.reduce((sum, line) => sum + line.amount, 0)
+          : 0;
+
         setLastComprobante({
           tipo: tipoComprobante === 'factura' ? 'Factura' : tipoComprobante === 'boleta' ? 'Boleta' : 'Nota de Venta',
           serie: serieSeleccionada,
           numero: '001-00001', // TODO: Obtener el número real del backend
           total: totals.total,
-          cliente: 'Cliente General', // TODO: Obtener del formulario si existe
-          vuelto: 0 // En POS el vuelto se calcula en PaymentModal
+          cliente: clienteDraftData?.nombre || 'Cliente',
+          vuelto: received > totals.total ? received - totals.total : 0
         });
-        
-        // Cerrar modal de pago y mostrar modal de éxito
-        setShowPaymentModal(false);
+
+        setShowCobranzaModal(false);
         setShowSuccessModal(true);
-        
-        // NO limpiar el carrito todavía - se hará cuando el usuario haga clic en "Nueva venta"
       }
+
+      return success;
     } finally {
       setIsProcessing(false);
     }
@@ -170,6 +187,10 @@ const PuntoVenta = () => {
     console.log('Imprimiendo comprobante...', lastComprobante);
     // TODO: Implementar lógica de impresión
     window.print();
+  };
+
+  const handleCobranzaComplete = async (payload: PaymentCollectionPayload) => {
+    await handleCrearComprobante(payload);
   };
 
   const handleNewSale = () => {
@@ -266,15 +287,22 @@ const PuntoVenta = () => {
           onRemove={removeToast}
         />
 
-        {/* Payment Method Modal - NUEVO MODAL SIMPLIFICADO (SOLO PAGO) */}
-        <PaymentMethodModal
-          isOpen={showPaymentModal}
-          onClose={() => setShowPaymentModal(false)}
-          total={totals.total}
-          currency={currentCurrency}
+        <CobranzaModal
+          isOpen={showCobranzaModal}
+          onClose={() => {
+            if (!isProcessing) {
+              setShowCobranzaModal(false);
+            }
+          }}
+          cartItems={cartItems}
+          totals={totals}
+          cliente={clienteDraftData}
           tipoComprobante={tipoComprobante}
-          clienteNombre={clienteSeleccionado?.nombre}
-          onPaymentComplete={handleCrearComprobante}
+          serie={serieSeleccionada}
+          fechaEmision={fechaEmision}
+          moneda={currentCurrency}
+          formaPago={formaPago}
+          onComplete={handleCobranzaComplete}
           isProcessing={isProcessing}
         />
 

@@ -125,6 +125,25 @@ export interface PaymentMethod {
   amount: number;
 }
 
+export type PaymentCollectionMode = 'contado' | 'credito';
+
+export interface PaymentLineInput {
+  id: string;
+  method: string;
+  amount: number;
+  reference?: string;
+  bank?: string;
+  operationNumber?: string;
+}
+
+export interface PaymentCollectionPayload {
+  mode: PaymentCollectionMode;
+  lines: PaymentLineInput[];
+  notes?: string;
+  cajaDestino?: string;
+  fechaCobranza?: string;
+}
+
 // Tipos para configuración de caja temporal
 export interface CajaIntegrationConfig {
   requiereCajaParaComprobantes: boolean;

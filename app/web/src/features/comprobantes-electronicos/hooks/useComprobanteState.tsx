@@ -37,7 +37,6 @@ export const useComprobanteState = () => {
   const [showOptionalFields, setShowOptionalFields] = useState(false);
   const [observaciones, setObservaciones] = useState('');
   const [notaInterna, setNotaInterna] = useState('');
-  const [receivedAmount, setReceivedAmount] = useState('');
   const [formaPago, setFormaPago] = useState(defaultPaymentMethod);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -77,7 +76,6 @@ export const useComprobanteState = () => {
   const resetForm = useCallback(() => {
     setObservaciones('');
     setNotaInterna('');
-    setReceivedAmount('');
     setFormaPago(defaultPaymentMethod);
     setShowOptionalFields(false);
   }, [defaultPaymentMethod]);
@@ -101,8 +99,6 @@ export const useComprobanteState = () => {
     setObservaciones,
     notaInterna,
     setNotaInterna,
-    receivedAmount,
-    setReceivedAmount,
     formaPago,
     setFormaPago,
     isProcessing,

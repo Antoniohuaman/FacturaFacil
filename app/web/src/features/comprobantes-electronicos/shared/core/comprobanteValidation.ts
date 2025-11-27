@@ -105,3 +105,20 @@ export const validateComprobanteNormativa = (
     errors,
   };
 };
+
+interface ReadyForCobranzaOptions {
+  onError?: (error: ComprobanteValidationError) => void;
+}
+
+export const validateComprobanteReadyForCobranza = (
+  input: ComprobanteValidationInput,
+  options?: ReadyForCobranzaOptions,
+): ComprobanteValidationResult => {
+  const result = validateComprobanteNormativa(input);
+
+  if (!result.isValid && options?.onError) {
+    result.errors.forEach(options.onError);
+  }
+
+  return result;
+};
