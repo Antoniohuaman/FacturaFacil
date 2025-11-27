@@ -44,6 +44,7 @@ import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
 import type { ClientData } from '../models/comprobante.types';
+import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
@@ -118,6 +119,8 @@ const EmisionTradicional = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [lookupClient, setLookupClient] = useState<{ data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' } | null>(null);
+  const { createCliente } = useClientes();
 
   // Calculate totals
   const totals = calculateTotals(cartItems);
@@ -206,6 +209,24 @@ const EmisionTradicional = () => {
       });
 
       if (success) {
+        if (lookupClient) {
+          const { data } = lookupClient;
+          await createCliente({
+            documentType: data.tipoDocumento.toUpperCase() === 'RUC' ? 'RUC' : 'DNI',
+            documentNumber: data.documento,
+            name: data.nombre,
+            type: 'Cliente',
+            direccion: data.direccion,
+            email: data.email,
+            tipoDocumento: data.tipoDocumento.toUpperCase(),
+            numeroDocumento: data.documento,
+            razonSocial: data.tipoDocumento.toLowerCase() === 'ruc' ? data.nombre : undefined,
+            nombreCompleto: data.tipoDocumento.toLowerCase() === 'dni' ? data.nombre : undefined,
+            tipoCuenta: 'Cliente'
+          });
+          setLookupClient(null);
+        }
+
         // Guardar datos del comprobante para el modal
         const received = parseFloat(receivedAmount) || 0;
         setLastComprobante({
@@ -310,6 +331,7 @@ const EmisionTradicional = () => {
               onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
               onVistaPrevia={sidePreview?.togglePane}
               onClienteChange={setClienteSeleccionadoGlobal}
+              onLookupClientSelected={setLookupClient}
               fechaEmision={fechaEmision}
               onFechaEmisionChange={setFechaEmision}
               onOptionalFieldsChange={(fields: Record<string, any>) => setOptionalFields(prev => ({ ...prev, ...fields }))}

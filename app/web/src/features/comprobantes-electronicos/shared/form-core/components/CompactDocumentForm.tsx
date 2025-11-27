@@ -27,12 +27,14 @@ import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
 import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
+import type { TipoComprobante } from '../../../models/comprobante.types';
+import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';
 import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
 
 interface CompactDocumentFormProps {
   // Tipo de Comprobante
-  tipoComprobante: 'factura' | 'boleta';
-  setTipoComprobante: (value: 'factura' | 'boleta') => void;
+  tipoComprobante: TipoComprobante;
+  setTipoComprobante: (value: TipoComprobante) => void;
   
   // Serie y Fecha
   serieSeleccionada: string;
@@ -61,6 +63,9 @@ interface CompactDocumentFormProps {
   fechaEmision?: string;
   onFechaEmisionChange?: (value: string) => void;
   onOptionalFieldsChange?: (fields: Record<string, any>) => void;
+
+  // Señalizar al contenedor si el cliente actual proviene de lookup externo
+  onLookupClientSelected?: (client: { data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' }) => void;
 }
 
 const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
@@ -81,6 +86,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   fechaEmision,
   onFechaEmisionChange,
   onOptionalFieldsChange,
+  onLookupClientSelected,
 }) => {
   const { state } = useConfigurationContext();
   const { paymentMethods } = state;
@@ -103,6 +109,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const [localGuiaRemision, setLocalGuiaRemision] = useState<string>('');
   const [localCentroCosto, setLocalCentroCosto] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [clientDocError, setClientDocError] = useState<string | null>(null);
+  const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [documentType, setDocumentType] = useState('DNI');
   const [clientType, setClientType] = useState('natural');
@@ -286,6 +294,81 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     onClienteChange?.({ nombre: nombreCompleto, dni: cliente.numeroDocumento, direccion: cliente.direccion || 'Dirección no definida' });
 
     setSearchQuery('');
+    setClientDocError(null);
+  };
+
+  const isValidDocumentForLookup = () => {
+    const digitsOnly = searchQuery.replace(/\D/g, '');
+    if (!digitsOnly) {
+      return false;
+    }
+
+    if (tipoComprobante === 'factura') {
+      if (digitsOnly.length !== 11) {
+        setClientDocError('El RUC debe tener 11 dígitos');
+        return false;
+      }
+      setClientDocError(null);
+      return true;
+    }
+
+    if (digitsOnly.length !== 8) {
+      setClientDocError('El DNI debe tener 8 dígitos');
+      return false;
+    }
+    setClientDocError(null);
+    return true;
+  };
+
+  const handleLookupClick = async () => {
+    if (!isValidDocumentForLookup()) {
+      return;
+    }
+
+    const digitsOnly = searchQuery.replace(/\D/g, '');
+    setIsLookupLoading(true);
+    try {
+      // 1) Buscar en clientes locales existentes
+      const existing = mockClientes.find((cliente: any) => cliente.numeroDocumento === digitsOnly);
+      if (existing) {
+        handleSeleccionarCliente(existing);
+        return;
+      }
+
+      // 2) Lookup simulado RENIEC/SUNAT
+      const fromLookup = tipoComprobante === 'factura'
+        ? await lookupEmpresaPorRuc(digitsOnly)
+        : await lookupPersonaPorDni(digitsOnly);
+
+      if (!fromLookup) {
+        setClientDocError('No se encontraron datos para este documento');
+        return;
+      }
+
+      const selectedClient = {
+        nombre: fromLookup.nombre,
+        dni: fromLookup.documento,
+        direccion: fromLookup.direccion || 'Dirección no definida',
+        email: fromLookup.email,
+      };
+
+      setClienteSeleccionadoLocal(selectedClient);
+      onClienteChange?.(selectedClient);
+      onLookupClientSelected?.({
+        data: {
+          nombre: fromLookup.nombre,
+          documento: fromLookup.documento,
+          tipoDocumento: fromLookup.tipoDocumento,
+          direccion: fromLookup.direccion,
+          email: fromLookup.email,
+        },
+        origen: fromLookup.origen,
+      });
+      setSearchQuery(fromLookup.documento);
+      setClientDocError(null);
+    } finally {
+      setIsLookupLoading(false);
+    }
   };
 
   // Notify parent about initial values so the parent has the same view
@@ -405,14 +488,20 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   {/* Search button inside input (compacto) */}
                   <button
                     type="button"
-                    aria-label="Buscar cliente"
-                    className="absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 focus:ring-2 focus:ring-indigo-300 transition-colors"
-                    title="Buscar cliente"
-                    onClick={() => {/* Trigger search */}}
+                    aria-label={tipoComprobante === 'factura' ? 'Buscar en SUNAT' : 'Buscar en RENIEC'}
+                    className="absolute right-1 top-1 inline-flex h-7 px-2 items-center justify-center rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 focus:ring-2 focus:ring-indigo-300 transition-colors text-[11px] font-medium gap-1"
+                    title={tipoComprobante === 'factura' ? 'Buscar en SUNAT' : 'Buscar en RENIEC'}
+                    onClick={handleLookupClick}
+                    disabled={isLookupLoading}
                   >
                     <Search className="w-3.5 h-3.5" />
+                    <span>{tipoComprobante === 'factura' ? 'SUNAT' : 'RENIEC'}</span>
                   </button>
                 </div>
+
+                {clientDocError && (
+                  <p className="mt-1 text-xs text-red-600">{clientDocError}</p>
+                )}
 
                 {/* Resultados de búsqueda */}
                 {searchQuery && (
