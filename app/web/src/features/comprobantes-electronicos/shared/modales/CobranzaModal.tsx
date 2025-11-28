@@ -161,6 +161,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const { incrementSeriesCorrelative } = useSeriesCommands();
   const currentEstablishmentId = useCurrentEstablishmentId();
   const effectiveEstablishmentId = establishmentId || currentEstablishmentId;
+  const esBoleta = tipoComprobante === 'boleta';
   const cobranzasSeries = useMemo(
     () => filterCollectionSeries(state.series, effectiveEstablishmentId || undefined),
     [state.series, effectiveEstablishmentId]
@@ -263,8 +264,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     if (!isOpen) return;
 
     const initialMethodId = resolveInitialMethod();
+    const initialMode: PaymentCollectionMode = esBoleta
+      ? 'contado'
+      : (isCajaOpen ? 'contado' : 'credito');
 
-    setMode(isCajaOpen ? 'contado' : 'credito');
+    setMode(initialMode);
     setPaymentLines([
       {
         id: 'line-1',
@@ -277,7 +281,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     setCajaDestino(defaultCajaDestino);
     setNotas('');
     setErrorMessage(null);
-  }, [defaultCajaDestino, fechaEmision, isCajaOpen, isOpen, resolveInitialMethod, totals.total]);
+  }, [defaultCajaDestino, esBoleta, fechaEmision, isCajaOpen, isOpen, resolveInitialMethod, totals.total]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -299,10 +303,20 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    if (esBoleta) return;
     if (!isCajaOpen && mode === 'contado') {
       setMode('credito');
     }
-  }, [isCajaOpen, isOpen, mode]);
+  }, [esBoleta, isCajaOpen, isOpen, mode]);
+
+  useEffect(() => {
+    if (!isOpen || !esBoleta) {
+      return;
+    }
+    if (mode !== 'contado') {
+      setMode('contado');
+    }
+  }, [esBoleta, isOpen, mode]);
 
   const handleAddLine = useCallback(() => {
     setPaymentLines((prev) => {
@@ -365,43 +379,66 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
   const handleModeChange = useCallback(
     (target: PaymentCollectionMode) => {
+      if (esBoleta && target === 'credito') {
+        setMode('contado');
+        setErrorMessage('Las boletas solo se pueden emitir al contado.');
+        return;
+      }
+
       if (target === 'contado' && !isCajaOpen) {
-        setMode('credito');
-        setErrorMessage('No hay caja abierta. Selecciona Crédito o abre una caja para registrar el cobro.');
+        if (esBoleta) {
+          setMode('contado');
+          setErrorMessage('Abre una caja para registrar boletas al contado.');
+        } else {
+          setMode('credito');
+          setErrorMessage('No hay caja abierta. Selecciona Crédito o abre una caja para registrar el cobro.');
+        }
         return;
       }
 
       setErrorMessage(null);
       setMode(target);
     },
-    [isCajaOpen],
+    [esBoleta, isCajaOpen],
   );
 
   const handleSubmit = async (targetMode: PaymentCollectionMode) => {
     setErrorMessage(null);
 
-    if (targetMode === 'contado' && !isCajaOpen) {
-      setMode('credito');
-      setErrorMessage('No hay caja abierta. Selecciona Crédito o abre una caja para registrar el cobro.');
+    const enforcedMode: PaymentCollectionMode = esBoleta ? 'contado' : targetMode;
+
+    if (esBoleta && targetMode === 'credito') {
+      setMode('contado');
+      setErrorMessage('Las boletas solo se pueden emitir al contado.');
+    }
+
+    if (enforcedMode === 'contado' && !isCajaOpen) {
+      if (esBoleta) {
+        setMode('contado');
+        setErrorMessage('Abre una caja para registrar boletas al contado.');
+      } else {
+        setMode('credito');
+        setErrorMessage('No hay caja abierta. Selecciona Crédito o abre una caja para registrar el cobro.');
+      }
       return;
     }
 
-    if (targetMode === 'contado' && !validatePayment(targetMode)) {
+    if (enforcedMode === 'contado' && !validatePayment(enforcedMode)) {
       return;
     }
 
-    const requiresCollectionDocument = targetMode === 'contado';
+    const requiresCollectionDocument = enforcedMode === 'contado';
     if (requiresCollectionDocument && !collectionDocumentPreview) {
       setErrorMessage('Configura una serie de cobranza activa para este establecimiento antes de registrar pagos.');
       return;
     }
 
-    setMode(targetMode);
+    setMode(enforcedMode);
 
     const payload: PaymentCollectionPayload = {
-      mode: targetMode,
+      mode: enforcedMode,
       lines:
-        targetMode === 'contado'
+        enforcedMode === 'contado'
           ? paymentLines.map((line) => ({
               id: line.id,
               method: line.method,
@@ -411,11 +448,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
               operationNumber: line.operationNumber,
             }))
           : [],
-      cajaDestino: targetMode === 'contado' ? cajaDestino || undefined : undefined,
-      fechaCobranza: targetMode === 'contado' ? fechaCobranza || undefined : undefined,
+      cajaDestino: enforcedMode === 'contado' ? cajaDestino || undefined : undefined,
+      fechaCobranza: enforcedMode === 'contado' ? fechaCobranza || undefined : undefined,
       notes: notas || undefined,
       collectionDocument:
-        targetMode === 'contado' && collectionDocumentPreview
+        enforcedMode === 'contado' && collectionDocumentPreview
           ? {
               ...collectionDocumentPreview,
               issuedAt: fechaCobranza || new Date().toISOString().split('T')[0],
@@ -431,7 +468,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         return;
       }
 
-      if (targetMode === 'contado' && payload.collectionDocument) {
+      if (enforcedMode === 'contado' && payload.collectionDocument) {
         incrementSeriesCorrelative(
           payload.collectionDocument.seriesId,
           payload.collectionDocument.correlative
@@ -633,9 +670,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleModeChange('credito')}
+                  disabled={esBoleta}
                   className={`rounded-xl border px-4 py-3 text-left text-sm transition focus:outline-none ${
                     mode === 'credito' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' : 'border-slate-200 hover:border-slate-300'
-                  }`}
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
                 >
                   <p className="font-semibold">Pago a crédito</p>
                   <p className="text-xs text-slate-500">Registra la cobranza después</p>

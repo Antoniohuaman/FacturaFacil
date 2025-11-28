@@ -132,6 +132,7 @@ const PuntoVenta = () => {
 
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
       onError: (validationError) => error('No se puede procesar', validationError.message),
+      paymentMode: paymentPayload?.mode,
     });
 
     if (!validation.isValid) {

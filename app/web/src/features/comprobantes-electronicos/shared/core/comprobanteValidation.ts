@@ -1,4 +1,4 @@
-import type { CartItem, TipoComprobante, ClientData, PaymentTotals } from '../../models/comprobante.types';
+import type { CartItem, TipoComprobante, ClientData, PaymentTotals, PaymentCollectionMode } from '../../models/comprobante.types';
 
 export type ComprobanteField =
   | 'tipoComprobante'
@@ -23,6 +23,7 @@ export interface ComprobanteValidationInput {
   moneda?: { code?: string } | string | null;
   cartItems: CartItem[];
   totals?: PaymentTotals | null;
+  paymentMode?: PaymentCollectionMode;
 }
 
 export interface ComprobanteValidationResult {
@@ -108,17 +109,30 @@ export const validateComprobanteNormativa = (
 
 interface ReadyForCobranzaOptions {
   onError?: (error: ComprobanteValidationError) => void;
+  paymentMode?: PaymentCollectionMode;
 }
 
 export const validateComprobanteReadyForCobranza = (
   input: ComprobanteValidationInput,
   options?: ReadyForCobranzaOptions,
 ): ComprobanteValidationResult => {
-  const result = validateComprobanteNormativa(input);
+  const baseResult = validateComprobanteNormativa(input);
+  const errors = [...baseResult.errors];
+  const tipo = (input.tipoComprobante || '').toString().trim().toLowerCase();
 
-  if (!result.isValid && options?.onError) {
-    result.errors.forEach(options.onError);
+  if (tipo === 'boleta' && options?.paymentMode === 'credito') {
+    errors.push({
+      field: 'formaPago',
+      message: 'Las boletas solo se pueden emitir al contado.',
+    });
   }
 
-  return result;
+  if (errors.length > 0 && options?.onError) {
+    errors.forEach(options.onError);
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
 };
