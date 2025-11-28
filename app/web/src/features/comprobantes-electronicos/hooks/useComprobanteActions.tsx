@@ -1,7 +1,8 @@
+import type { CreditInstallment } from '../../../shared/payments/paymentTerms';
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import { useCallback } from 'react';
-import type { CartItem, PaymentCollectionPayload, Currency } from '../models/comprobante.types';
+import type { CartItem, ComprobantePaymentTerms, PaymentCollectionPayload, Currency } from '../models/comprobante.types';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { lsKey } from '../../../shared/tenant';
 import { mapPaymentMethodToMedioPago } from '../../../shared/payments/paymentMapping';
@@ -43,6 +44,8 @@ interface ComprobanteData {
   waybill?: string;
   currency?: string;
   paymentDetails?: PaymentCollectionPayload;
+  paymentTerms?: ComprobantePaymentTerms;
+  creditSchedule?: CreditInstallment[];
   registrarPago?: boolean;
 }
 

@@ -1,3 +1,5 @@
+import type { CreditInstallment, PaymentTermsPayload } from '../../../shared/payments/paymentTerms';
+
 // ===================================================================
 // TIPOS DE DATOS PARA EL SISTEMA DE COMPROBANTES ELECTRÓNICOS
 // ===================================================================
@@ -153,6 +155,8 @@ export interface PaymentCollectionPayload {
   collectionDocument?: CollectionDocumentPayload;
 }
 
+export type ComprobantePaymentTerms = PaymentTermsPayload;
+
 // Tipos para configuración de caja temporal
 export interface CajaIntegrationConfig {
   requiereCajaParaComprobantes: boolean;
@@ -179,6 +183,7 @@ export interface DraftData {
   totals?: PaymentTotals;
   currency?: Currency;
   vendedor?: string;
+  creditSchedule?: CreditInstallment[];
   createdAt: string;
 }
 

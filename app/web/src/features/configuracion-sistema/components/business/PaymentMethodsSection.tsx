@@ -4,6 +4,9 @@ import { CreditCard, Plus, Edit3, Trash2, Star, Eye, EyeOff } from 'lucide-react
 import type { PaymentMethod } from '../../models/PaymentMethod';
 import { DefaultSelector } from '../common/DefaultSelector';
 import { ConfigurationCard } from '../common/ConfigurationCard';
+import CreditScheduleEditor from './CreditScheduleEditor';
+import type { CreditInstallmentDefinition } from '../../../../shared/payments/paymentTerms';
+import { buildCreditPaymentMethodName, validateCreditDefinitionSchedule } from '../../../../shared/payments/paymentTerms';
 
 interface PaymentMethodsSectionProps {
   paymentMethods: PaymentMethod[];
@@ -18,57 +21,122 @@ export function PaymentMethodsSection({
 }: PaymentMethodsSectionProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ code: '', name: '' });
+  const [formData, setFormData] = useState<{ code: string; name: string; creditSchedule: CreditInstallmentDefinition[] }>({ code: '', name: '', creditSchedule: [] });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
+  const isCredit = formData.code === 'CREDITO';
 
   // Agrupar métodos por código normativo (CONTADO vs CREDITO)
   const contadoMethods = paymentMethods.filter(pm => pm.code === 'CONTADO');
   const creditoMethods = paymentMethods.filter(pm => pm.code === 'CREDITO');
 
   const resetForm = () => {
-    setFormData({ code: '', name: '' });
+    setFormData({ code: '', name: '', creditSchedule: [] });
     setEditingId(null);
     setShowForm(false);
+    setFormErrors([]);
   };
 
   const handleEdit = (method: PaymentMethod) => {
-    setFormData({ code: method.code, name: method.name });
+    const schedule = method.creditSchedule ? [...method.creditSchedule] : [];
+    const normalizedName = method.code === 'CREDITO'
+      ? buildCreditPaymentMethodName(schedule)
+      : method.name;
+    setFormData({ code: method.code, name: normalizedName, creditSchedule: schedule });
     setEditingId(method.id);
     setShowForm(true);
+    setFormErrors([]);
+  };
+
+  const handleCodeChange = (code: string) => {
+    setFormData(prev => {
+      if (code === 'CREDITO') {
+        return {
+          ...prev,
+          code,
+          name: buildCreditPaymentMethodName(prev.creditSchedule),
+        };
+      }
+
+      return {
+        ...prev,
+        code,
+        creditSchedule: [],
+        name: prev.code === 'CREDITO' ? '' : prev.name,
+      };
+    });
+    if (formErrors.length) {
+      setFormErrors([]);
+    }
+  };
+
+  const handleCreditScheduleChange = (schedule: CreditInstallmentDefinition[]) => {
+    setFormData(prev => ({
+      ...prev,
+      creditSchedule: schedule,
+      name: prev.code === 'CREDITO' ? buildCreditPaymentMethodName(schedule) : prev.name,
+    }));
+    if (formErrors.length) {
+      setFormErrors([]);
+    }
+  };
+
+  const handleNameInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextName = event.target.value;
+    setFormData(prev => (prev.code === 'CREDITO' ? prev : { ...prev, name: nextName }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.code.trim() || !formData.name.trim()) return;
+    const normalizedName =
+      formData.code === 'CREDITO'
+        ? buildCreditPaymentMethodName(formData.creditSchedule)
+        : formData.name.trim();
 
-    // Validar que el código sea CONTADO o CREDITO
+    if (!formData.code.trim() || !normalizedName.trim()) return;
+
     if (!['CONTADO', 'CREDITO'].includes(formData.code)) {
-      alert('El código debe ser CONTADO o CREDITO');
+      alert('El codigo debe ser CONTADO o CREDITO');
       return;
     }
 
+    if (formData.code === 'CREDITO' && formData.creditSchedule.length > 0) {
+      const scheduleErrors = validateCreditDefinitionSchedule(formData.creditSchedule);
+      if (scheduleErrors.length > 0) {
+        setFormErrors(scheduleErrors);
+        return;
+      }
+    }
+
+    setFormErrors([]);
     setIsSubmitting(true);
 
     try {
+      const normalizedSchedule =
+        formData.code === 'CREDITO' && formData.creditSchedule.length > 0
+          ? formData.creditSchedule
+          : undefined;
       let updatedMethods: PaymentMethod[];
-      
+
       if (editingId) {
-        // Update existing - Solo actualizar el nombre, el código no se puede cambiar
         updatedMethods = paymentMethods.map(pm =>
           pm.id === editingId
-            ? { ...pm, name: formData.name }
+            ? {
+                ...pm,
+                name: normalizedName,
+                creditSchedule: pm.code === 'CREDITO' ? normalizedSchedule : undefined
+              }
             : pm
         );
       } else {
-        // Create new
         const newMethod: PaymentMethod = {
           id: Date.now().toString(),
           code: formData.code, // CONTADO o CREDITO
-          name: formData.name,
+          name: normalizedName,
           type: formData.code === 'CONTADO' ? 'CASH' : 'CREDIT',
-          sunatCode: formData.code === 'CONTADO' ? '001' : '002', // Código SUNAT
-          sunatDescription: formData.name,
+          sunatCode: formData.code === 'CONTADO' ? '001' : '002', // C�digo SUNAT
+          sunatDescription: normalizedName,
           configuration: {
             requiresReference: false,
             allowsPartialPayments: true,
@@ -95,15 +163,14 @@ export function PaymentMethodsSection({
             customerTypes: ['INDIVIDUAL', 'BUSINESS'],
             allowedCurrencies: ['PEN']
           },
+          creditSchedule: normalizedSchedule,
           isDefault: false,
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date()
         };
         updatedMethods = [...paymentMethods, newMethod];
-        
-        // Guardar el ID de la nueva forma de pago en sessionStorage
-        // para que se autoseleccione al regresar al formulario de emisión
+
         sessionStorage.setItem('lastCreatedPaymentMethod', newMethod.id);
       }
 
@@ -223,7 +290,7 @@ export function PaymentMethodsSection({
                 </label>
                 <select
                   value={formData.code}
-                  onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                  onChange={(e) => handleCodeChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                   required
                   disabled={!!editingId}
@@ -244,15 +311,41 @@ export function PaymentMethodsSection({
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ej: Efectivo, Yape, Tarjeta Visa, Crédito 30 días..."
+                  onChange={handleNameInputChange}
+                  readOnly={isCredit}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    isCredit ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : ''
+                  }`}
+                  placeholder={isCredit ? 'Crédito - define días de crédito' : 'Ej: Efectivo, Yape, Tarjeta Visa, Crédito 30 días...'}
                   required
                   maxLength={50}
                 />
-                <p className="text-xs text-gray-500 mt-1">Escribe el nombre que desees (máx. 50 caracteres)</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {isCredit
+                    ? 'El nombre se genera automáticamente según los días del cronograma.'
+                    : 'Escribe el nombre que desees (máx. 50 caracteres)'}
+                </p>
               </div>
             </div>
+
+            {formData.code === 'CREDITO' && (
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-white/50 p-4">
+                <div>
+                  <h5 className="text-sm font-semibold text-slate-700">Cronograma por defecto (opcional)</h5>
+                  <p className="text-xs text-slate-500">Define cuotas sugeridas para este método de pago. Podrás ajustarlas durante la emisión.</p>
+                </div>
+                <CreditScheduleEditor value={formData.creditSchedule} onChange={handleCreditScheduleChange} />
+                {formErrors.length > 0 && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                    <ul className="list-disc pl-4">
+                      {formErrors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
               <button
@@ -466,3 +559,10 @@ export function PaymentMethodsSection({
     </div>
   );
 }
+
+
+
+
+
+
+

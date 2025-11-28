@@ -1,3 +1,4 @@
+import type { CreditInstallmentDefinition } from '../../../shared/payments/paymentTerms';
 export interface PaymentMethod {
   id: string;
   code: string; // Internal code for identification
@@ -51,6 +52,9 @@ export interface PaymentMethod {
     allowedCurrencies: string[];
   };
   
+  // Credit schedule template (only for credit methods)
+  creditSchedule?: CreditInstallmentDefinition[];
+  
   isDefault: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -66,6 +70,7 @@ export interface CreatePaymentMethodRequest {
   financial: PaymentMethod['financial'];
   display: PaymentMethod['display'];
   validation: PaymentMethod['validation'];
+  creditSchedule?: CreditInstallmentDefinition[];
 }
 
 export interface UpdatePaymentMethodRequest extends Partial<CreatePaymentMethodRequest> {
