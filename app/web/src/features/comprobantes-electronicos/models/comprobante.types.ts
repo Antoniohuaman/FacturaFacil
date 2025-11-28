@@ -136,12 +136,21 @@ export interface PaymentLineInput {
   operationNumber?: string;
 }
 
+export interface CollectionDocumentPayload {
+  seriesId: string;
+  seriesCode: string;
+  correlative: number;
+  fullNumber: string;
+  issuedAt?: string;
+}
+
 export interface PaymentCollectionPayload {
   mode: PaymentCollectionMode;
   lines: PaymentLineInput[];
   notes?: string;
   cajaDestino?: string;
   fechaCobranza?: string;
+  collectionDocument?: CollectionDocumentPayload;
 }
 
 // Tipos para configuración de caja temporal

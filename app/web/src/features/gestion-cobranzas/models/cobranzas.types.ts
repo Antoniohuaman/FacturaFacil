@@ -16,6 +16,7 @@ export interface CuentaPorCobrarSummary {
   comprobanteSerie: string;
   comprobanteNumero: string;
   tipoComprobante: string;
+  establishmentId?: string;
   clienteNombre: string;
   clienteDocumento: string;
   fechaEmision: string;
@@ -48,6 +49,7 @@ export interface CobranzaDocumento {
   estado: CobranzaStatus;
   referencia?: string;
   notas?: string;
+  collectionSeriesId?: string;
 }
 
 export interface CobranzaFilters {

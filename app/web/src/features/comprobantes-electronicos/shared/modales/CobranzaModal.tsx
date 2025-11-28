@@ -29,6 +29,9 @@ import type {
 import { useCurrency } from '../form-core/hooks/useCurrency';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 import { useCaja } from '../../../control-caja/context/CajaContext';
+import { useCurrentEstablishmentId } from '../../../../contexts/UserSessionContext';
+import { filterCollectionSeries, getNextCollectionDocument } from '../../../../shared/series/collectionSeries';
+import { useSeriesCommands } from '../../../configuracion-sistema/hooks/useSeriesCommands';
 
 type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
@@ -51,8 +54,9 @@ interface CobranzaModalProps {
   fechaEmision: string;
   moneda: Currency | CurrencyInfo | string;
   formaPago?: string;
-  onComplete: (payload: PaymentCollectionPayload) => void;
+  onComplete: (payload: PaymentCollectionPayload) => Promise<boolean> | boolean;
   isProcessing?: boolean;
+  establishmentId?: string;
 }
 
 interface PaymentLineForm extends PaymentLineInput {
@@ -147,12 +151,21 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   formaPago,
   onComplete,
   isProcessing = false,
+  establishmentId,
 }) => {
   const { formatPrice } = useCurrency();
   const { state } = useConfigurationContext();
   const { paymentMethods, cajas } = state;
   const { status: cajaStatus, aperturaActual } = useCaja();
   const isCajaOpen = cajaStatus === 'abierta';
+  const { incrementSeriesCorrelative } = useSeriesCommands();
+  const currentEstablishmentId = useCurrentEstablishmentId();
+  const effectiveEstablishmentId = establishmentId || currentEstablishmentId;
+  const cobranzasSeries = useMemo(
+    () => filterCollectionSeries(state.series, effectiveEstablishmentId || undefined),
+    [state.series, effectiveEstablishmentId]
+  );
+  const [collectionSeriesId, setCollectionSeriesId] = useState('');
 
   const availablePaymentOptions = useMemo<PaymentOptionMeta[]>(() => {
     const active = paymentMethods
@@ -187,6 +200,20 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     [cajaAbiertaNombre, cajaOptions],
   );
 
+  const selectedCollectionSeries = useMemo(() => {
+    if (!collectionSeriesId) {
+      return null;
+    }
+    return cobranzasSeries.find((series) => series.id === collectionSeriesId) || null;
+  }, [collectionSeriesId, cobranzasSeries]);
+
+  const collectionDocumentPreview = useMemo(() => {
+    if (!selectedCollectionSeries) {
+      return null;
+    }
+    return getNextCollectionDocument(selectedCollectionSeries);
+  }, [selectedCollectionSeries]);
+
   const resolveInitialMethod = useCallback(() => {
     if (!availablePaymentOptions.length) {
       return 'efectivo';
@@ -216,6 +243,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const [cajaDestino, setCajaDestino] = useState(defaultCajaDestino);
   const [notas, setNotas] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const currencyCode = typeof moneda === 'string' ? moneda : moneda?.code ?? 'PEN';
   const normalizedCurrencyCode = (currencyCode || 'PEN').toUpperCase();
@@ -250,6 +278,24 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     setNotas('');
     setErrorMessage(null);
   }, [defaultCajaDestino, fechaEmision, isCajaOpen, isOpen, resolveInitialMethod, totals.total]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    if (cobranzasSeries.length === 0) {
+      setCollectionSeriesId('');
+      return;
+    }
+
+    setCollectionSeriesId((current) => {
+      if (current && cobranzasSeries.some((series) => series.id === current)) {
+        return current;
+      }
+      return cobranzasSeries[0]?.id || '';
+    });
+  }, [cobranzasSeries, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -331,7 +377,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     [isCajaOpen],
   );
 
-  const handleSubmit = (targetMode: PaymentCollectionMode) => {
+  const handleSubmit = async (targetMode: PaymentCollectionMode) => {
     setErrorMessage(null);
 
     if (targetMode === 'contado' && !isCajaOpen) {
@@ -341,6 +387,12 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     }
 
     if (targetMode === 'contado' && !validatePayment(targetMode)) {
+      return;
+    }
+
+    const requiresCollectionDocument = targetMode === 'contado';
+    if (requiresCollectionDocument && !collectionDocumentPreview) {
+      setErrorMessage('Configura una serie de cobranza activa para este establecimiento antes de registrar pagos.');
       return;
     }
 
@@ -362,22 +414,53 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       cajaDestino: targetMode === 'contado' ? cajaDestino || undefined : undefined,
       fechaCobranza: targetMode === 'contado' ? fechaCobranza || undefined : undefined,
       notes: notas || undefined,
+      collectionDocument:
+        targetMode === 'contado' && collectionDocumentPreview
+          ? {
+              ...collectionDocumentPreview,
+              issuedAt: fechaCobranza || new Date().toISOString().split('T')[0],
+            }
+          : undefined,
     };
 
-    onComplete(payload);
+    try {
+      setSubmitting(true);
+      const result = await Promise.resolve(onComplete(payload));
+      if (!result) {
+        setErrorMessage('No se pudo completar la operación. Intenta nuevamente.');
+        return;
+      }
+
+      if (targetMode === 'contado' && payload.collectionDocument) {
+        incrementSeriesCorrelative(
+          payload.collectionDocument.seriesId,
+          payload.collectionDocument.correlative
+        );
+      }
+    } catch (submitError) {
+      console.error('Error al registrar cobranza:', submitError);
+      setErrorMessage('Ocurrió un error al registrar el pago. Intenta nuevamente.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formattedDifference = formatCurrency(Math.abs(diferencia));
   const differenceStatus = diferencia > tolerance ? 'faltante' : diferencia < -tolerance ? 'vuelto' : 'ajustado';
   const confirmLabel = mode === 'contado' ? 'Registrar pago y emitir' : 'Emitir a crédito';
-  const confirmDisabled = isProcessing || (mode === 'contado' && !isCajaOpen);
-  const handleConfirm = () => handleSubmit(mode);
+  const confirmDisabled =
+    isProcessing ||
+    submitting ||
+    (mode === 'contado' && (!isCajaOpen || !collectionDocumentPreview));
+  const handleConfirm = () => {
+    void handleSubmit(mode);
+  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={isProcessing ? undefined : onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={isProcessing || submitting ? undefined : onClose} />
 
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 max-h-[92vh] flex flex-col">
         <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -389,7 +472,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
             type="button"
             className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
             onClick={onClose}
-            disabled={isProcessing}
+            disabled={isProcessing || submitting}
             aria-label="Cerrar"
           >
             <X className="w-5 h-5" />
@@ -485,6 +568,44 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           </section>
 
           <section className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Serie de cobranza</p>
+                  <h3 className="text-base font-semibold text-slate-900">Elige la serie que emitirá el recibo</h3>
+                </div>
+              </div>
+              {cobranzasSeries.length === 0 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  Necesitas configurar una serie de cobranza activa para este establecimiento antes de registrar pagos.
+                  Ve a Configuración &gt; Series y crea una con prefijo "C".
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Serie</label>
+                    <select
+                      value={collectionSeriesId}
+                      onChange={(event) => setCollectionSeriesId(event.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    >
+                      {cobranzasSeries.map((seriesOption) => (
+                        <option key={seriesOption.id} value={seriesOption.id}>
+                          {seriesOption.series}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {collectionDocumentPreview && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Próximo recibo</p>
+                      <p className="text-lg font-semibold text-slate-900">{collectionDocumentPreview.fullNumber}</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
               <div className="flex items-center justify-between">
                 <div>

@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import { useCallback } from 'react';
-import type { CartItem, PaymentCollectionPayload } from '../models/comprobante.types';
+import type { CartItem, PaymentCollectionPayload, Currency } from '../models/comprobante.types';
 import { useCaja } from '../../control-caja/context/CajaContext';
-import type { MedioPago } from '../../control-caja/models/Caja';
 import { lsKey } from '../../../shared/tenant';
+import { mapPaymentMethodToMedioPago } from '../../../shared/payments/paymentMapping';
 // Reemplazamos el uso de addMovimiento desde el store del catálogo por la fachada de inventario
 import { useInventoryFacade } from '../../gestion-inventario/api/inventory.facade';
 import { useComprobanteContext } from '../lista-comprobantes/contexts/ComprobantesListContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useToast } from '../shared/ui/Toast/useToast';
 import { devLocalIndicadoresStore, mapCartItemsToVentaProductos } from '../../indicadores-negocio/integration/devLocalStore';
+import { useCobranzasContext } from '../../gestion-cobranzas/context/CobranzasContext';
+import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../../gestion-cobranzas/models/cobranzas.types';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -50,24 +52,7 @@ export const useComprobanteActions = () => {
   const { addMovimiento: addMovimientoStock } = useInventoryFacade();
   const { addComprobante } = useComprobanteContext();
   const { session } = useUserSession();
-
-  /**
-   * Mapea las formas de pago de comprobantes a los medios de pago de caja
-   */
-  const mapFormaPagoToMedioPago = useCallback((formaPago?: string): MedioPago => {
-    const normalized = formaPago
-      ? formaPago.toLowerCase().replace(/^pm-/, '')
-      : 'efectivo';
-
-    if (normalized.includes('yape')) return 'Yape';
-    if (normalized.includes('plin')) return 'Plin';
-    if (normalized.includes('tarjeta') || normalized.includes('visa') || normalized.includes('master')) return 'Tarjeta';
-    if (normalized.includes('transfer')) return 'Transferencia';
-    if (normalized.includes('deposit')) return 'Deposito';
-    if (normalized.includes('contado') || normalized.includes('cash')) return 'Efectivo';
-
-    return 'Efectivo';
-  }, []);
+  const { upsertCuenta, addCobranzaDocument } = useCobranzasContext();
 
   const buildPaymentLabel = useCallback((paymentDetails?: PaymentCollectionPayload, fallbackFormaPago?: string) => {
     if (paymentDetails?.mode === 'credito') {
@@ -75,16 +60,16 @@ export const useComprobanteActions = () => {
     }
 
     if (paymentDetails?.mode === 'contado' && paymentDetails.lines.length > 0) {
-      const labels = Array.from(new Set(paymentDetails.lines.map((line) => mapFormaPagoToMedioPago(line.method))));
+      const labels = Array.from(new Set(paymentDetails.lines.map((line) => mapPaymentMethodToMedioPago(line.method))));
       return labels.join(' + ');
     }
 
     if (fallbackFormaPago) {
-      return mapFormaPagoToMedioPago(fallbackFormaPago);
+      return mapPaymentMethodToMedioPago(fallbackFormaPago);
     }
 
     return 'Efectivo';
-  }, [mapFormaPagoToMedioPago]);
+  }, []);
 
   // Validar datos del comprobante
   const validateComprobanteData = useCallback((data: ComprobanteData): boolean => {
@@ -175,6 +160,79 @@ export const useComprobanteActions = () => {
       const numeroComprobante = `${data.serieSeleccionada}-${String(Math.floor(Math.random() * 10000)).padStart(8, '0')}`;
 
       const paymentSummaryLabel = buildPaymentLabel(data.paymentDetails, data.formaPago);
+      const [serieCode, correlativoParte] = numeroComprobante.split('-');
+      const resolvedCurrency: Currency = (data.currency as Currency) || 'PEN';
+      const tipoComprobanteDisplay = (() => {
+        const normalized = data.tipoComprobante?.toLowerCase?.() ?? '';
+        if (normalized.includes('factura')) return 'Factura';
+        if (normalized.includes('boleta')) return 'Boleta de venta';
+        return 'Nota de Venta';
+      })();
+      const clienteNombre = data.client || 'Cliente General';
+      const clienteDocumento = data.clientDoc || '00000000';
+      const establecimientoId = data.establishmentId || session?.currentEstablishmentId;
+      const sucursalNombre = session?.currentEstablishment?.name;
+      const cajeroNombre = session?.userName || 'Usuario';
+      const fechaEmisionIso = data.fechaEmision || new Date().toISOString().split('T')[0];
+      const fechaVencimientoIso = data.fechaVencimiento;
+
+      if (data.paymentDetails?.mode === 'credito') {
+        const hoy = new Date();
+        const vence = fechaVencimientoIso ? new Date(`${fechaVencimientoIso}T00:00:00`) : null;
+        const cuenta: CuentaPorCobrarSummary = {
+          id: numeroComprobante,
+          comprobanteId: numeroComprobante,
+          comprobanteSerie: serieCode || data.serieSeleccionada,
+          comprobanteNumero: correlativoParte || '',
+          tipoComprobante: tipoComprobanteDisplay,
+          establishmentId: establecimientoId,
+          clienteNombre,
+          clienteDocumento,
+          fechaEmision: fechaEmisionIso,
+          fechaVencimiento: fechaVencimientoIso,
+          formaPago: 'credito',
+          moneda: resolvedCurrency,
+          total: data.totals.total,
+          cobrado: 0,
+          saldo: data.totals.total,
+          cuotas: undefined,
+          estado: 'pendiente',
+          vencido: Boolean(vence && vence.getTime() < hoy.getTime()),
+          sucursal: sucursalNombre,
+          cajero: cajeroNombre,
+        };
+        upsertCuenta(cuenta);
+      } else if (
+        data.paymentDetails?.mode === 'contado' &&
+        data.paymentDetails.collectionDocument
+      ) {
+        const montoCobrado = data.paymentDetails.lines.reduce(
+          (acc, line) => acc + (Number(line.amount) || 0),
+          0
+        );
+        const cobranzaDocumento: CobranzaDocumento = {
+          id: `cbza-${Date.now()}`,
+          numero: data.paymentDetails.collectionDocument.fullNumber,
+          tipo: 'Cobranza',
+          fechaCobranza:
+            data.paymentDetails.fechaCobranza ||
+            data.paymentDetails.collectionDocument.issuedAt ||
+            fechaEmisionIso,
+          comprobanteId: numeroComprobante,
+          comprobanteSerie: serieCode || data.serieSeleccionada,
+          comprobanteNumero: correlativoParte || '',
+          clienteNombre,
+          medioPago: buildPaymentLabel(data.paymentDetails, data.formaPago),
+          cajaDestino: data.paymentDetails.cajaDestino || 'Caja Principal',
+          moneda: resolvedCurrency,
+          monto: montoCobrado,
+          estado: 'cancelado',
+          referencia: numeroComprobante,
+          notas: data.paymentDetails.notes,
+          collectionSeriesId: data.paymentDetails.collectionDocument.seriesId,
+        };
+        addCobranzaDocument(cobranzaDocumento);
+      }
 
       // Registrar movimiento en caja si está abierta
       if (cajaStatus === 'abierta') {
@@ -192,7 +250,7 @@ export const useComprobanteActions = () => {
 
           if (registrarCobranza && data.paymentDetails) {
             for (const line of data.paymentDetails.lines) {
-              const medioPago = mapFormaPagoToMedioPago(line.method);
+              const medioPago = mapPaymentMethodToMedioPago(line.method);
               const observaciones = [
                 line.bank ? `Caja: ${line.bank}` : null,
                 line.reference ? `Ref: ${line.reference}` : null,
@@ -215,7 +273,7 @@ export const useComprobanteActions = () => {
               });
             }
           } else {
-            const medioPago = mapFormaPagoToMedioPago(data.formaPago || 'contado');
+            const medioPago = mapPaymentMethodToMedioPago(data.formaPago || 'contado');
 
             await agregarMovimiento({
               tipo: 'Ingreso',
@@ -290,11 +348,6 @@ export const useComprobanteActions = () => {
         const formattedDate = `${now.getDate()} ${months[now.getMonth()]}. ${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
         // Determinar el tipo de comprobante para la lista
-        let tipoComprobanteDisplay = 'Boleta de venta';
-        if (data.tipoComprobante.toLowerCase().includes('factura')) {
-          tipoComprobanteDisplay = 'Factura';
-        }
-
         // Obtener usuario actual
         const vendorName = session?.userName || 'Usuario';
 
@@ -470,7 +523,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, mapFormaPagoToMedioPago, buildPaymentLabel, addMovimientoStock, addComprobante, session]);
+  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, buildPaymentLabel, addMovimientoStock, addComprobante, session, addCobranzaDocument, upsertCuenta]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

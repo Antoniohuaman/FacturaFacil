@@ -5,7 +5,7 @@ import {
   FileText, Receipt, Clipboard, MessageSquare, 
   Edit3, Trash2, Hash, MoreVertical, 
   ToggleLeft, ToggleRight, Calendar, CheckCircle,
-  AlertTriangle, Play
+  AlertTriangle, Play, NotebookPen
 } from 'lucide-react';
 import type { Series } from '../../models/Series';
 import type { Establishment } from '../../models/Establishment';
@@ -73,6 +73,13 @@ const voucherTypeConfig = {
     color: 'orange',
     prefix: 'NV',
     description: 'Documento interno, sin validez tributaria'
+  },
+  COLLECTION: {
+    label: 'Recibo de Cobranza',
+    icon: NotebookPen,
+    color: 'cyan',
+    prefix: 'C',
+    description: 'Pagos registrados en caja'
   },
   OTHER: {
     label: 'Otro Documento',

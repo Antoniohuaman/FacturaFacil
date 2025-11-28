@@ -99,11 +99,12 @@ export const CobranzasDashboard = () => {
     setShowCobranzaModal(true);
   };
 
-  const handleCobranzaComplete = (payload: PaymentCollectionPayload) => {
-    if (!selectedCuenta) return;
+  const handleCobranzaComplete = async (payload: PaymentCollectionPayload) => {
+    if (!selectedCuenta) return false;
     const documento = registerCobranza({ cuenta: selectedCuenta, payload });
     setShowCobranzaModal(false);
     success('Cobranza registrada', `${documento.numero} por ${formatMoney(documento.monto, documento.moneda)}`);
+    return true;
   };
 
   const handleVerComprobante = (id: string) => {

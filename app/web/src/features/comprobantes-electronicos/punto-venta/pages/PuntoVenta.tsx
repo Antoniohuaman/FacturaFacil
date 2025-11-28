@@ -190,7 +190,7 @@ const PuntoVenta = () => {
   };
 
   const handleCobranzaComplete = async (payload: PaymentCollectionPayload) => {
-    await handleCrearComprobante(payload);
+    return handleCrearComprobante(payload);
   };
 
   const handleNewSale = () => {

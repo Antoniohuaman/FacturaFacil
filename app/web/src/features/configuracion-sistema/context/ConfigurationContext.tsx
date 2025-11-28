@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- archivo mezcla context y utilidades; split diferido */
-import { createContext, useContext, useReducer, useEffect } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
@@ -14,6 +14,7 @@ import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesig
 import { SUNAT_UNITS } from '../models/Unit';
 import type { Warehouse } from '../models/Warehouse';
 import type { Caja } from '../models/Caja';
+import { lsKey } from '../../../shared/tenant';
 
 // Category interface - moved from catalogo-articulos
 export interface Category {
@@ -58,6 +59,66 @@ interface ConfigurationState {
   isLoading: boolean;
   error: string | null;
 }
+
+const SERIES_STORAGE_KEY = 'config_series_v1';
+
+const getSeriesStorageKey = () => {
+  try {
+    return lsKey(SERIES_STORAGE_KEY);
+  } catch {
+    return SERIES_STORAGE_KEY;
+  }
+};
+
+const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefined);
+
+const reviveSeries = (series: Series): Series => ({
+  ...series,
+  createdAt: series.createdAt ? new Date(series.createdAt) : new Date(),
+  updatedAt: series.updatedAt ? new Date(series.updatedAt) : new Date(),
+  sunatConfiguration: series.sunatConfiguration
+    ? {
+        ...series.sunatConfiguration,
+        authorizationDate: reviveDate(series.sunatConfiguration.authorizationDate),
+        expiryDate: reviveDate(series.sunatConfiguration.expiryDate),
+      }
+    : series.sunatConfiguration,
+  statistics: series.statistics
+    ? {
+        ...series.statistics,
+        lastUsedDate: reviveDate(series.statistics.lastUsedDate),
+        estimatedExhaustionDate: reviveDate(series.statistics.estimatedExhaustionDate),
+      }
+    : series.statistics,
+});
+
+const loadStoredSeries = (): Series[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(getSeriesStorageKey());
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Series[];
+    return parsed.map(reviveSeries);
+  } catch (error) {
+    console.warn('[Configuration] No se pudieron cargar las series guardadas:', error);
+    return [];
+  }
+};
+
+const persistSeries = (series: Series[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getSeriesStorageKey(), JSON.stringify(series));
+  } catch (error) {
+    console.warn('[Configuration] No se pudieron guardar las series:', error);
+  }
+};
 
 type ConfigurationAction =
   | { type: 'SET_LOADING'; payload: boolean }
@@ -301,6 +362,20 @@ interface ConfigurationProviderProps {
 
 export function ConfigurationProvider({ children }: ConfigurationProviderProps) {
   const [state, dispatch] = useReducer(configurationReducer, initialState);
+  const seriesHydratedRef = useRef(false);
+
+  useEffect(() => {
+    const storedSeries = loadStoredSeries();
+    if (storedSeries.length) {
+      dispatch({ type: 'SET_SERIES', payload: storedSeries });
+    }
+    seriesHydratedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!seriesHydratedRef.current) return;
+    persistSeries(state.series);
+  }, [state.series]);
 
   // Initialize with mock data for development
   useEffect(() => {

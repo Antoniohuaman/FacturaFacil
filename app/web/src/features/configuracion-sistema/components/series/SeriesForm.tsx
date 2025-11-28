@@ -2,12 +2,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/series/SeriesForm.tsx
 import { useState, useEffect } from 'react';
-import { X, FileText, Receipt, Clipboard, MessageSquare, Building2, Hash, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { X, FileText, Receipt, Clipboard, MessageSquare, Building2, Hash, AlertCircle, CheckCircle, Info, NotebookPen } from 'lucide-react';
 import type { Series } from '../../models/Series';
 import type { Establishment } from '../../models/Establishment';
 import { SettingsToggle } from '../common/SettingsToggle';
 
-type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE';
+type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
 interface SeriesFormData {
   type: VoucherType;
@@ -64,6 +64,15 @@ const voucherTypeConfig = {
     description: 'Propuesta comercial para clientes',
     rules: 'Código libre de 4 caracteres (letras y números)',
     examples: ['COT1', 'PRES', 'QT01']
+  },
+  COLLECTION: {
+    label: 'Recibo de Cobranza',
+    icon: NotebookPen,
+    color: 'cyan',
+    prefix: 'C',
+    description: 'Pagos registrados en caja',
+    rules: 'Debe comenzar con "C" seguido de 3 caracteres',
+    examples: ['C001', 'C123', 'CABC']
   }
 };
 

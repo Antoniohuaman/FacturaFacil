@@ -1,10 +1,10 @@
 // src/features/configuration/components/series/SeriesList.tsx
 import { useState } from 'react';
-import { FileText, Receipt, Clipboard, MessageSquare, Building2, Search, Plus } from 'lucide-react';
+import { FileText, Receipt, Clipboard, MessageSquare, Building2, Search, Plus, NotebookPen } from 'lucide-react';
 import type { Series } from '../../models/Series';
 import type { Establishment } from '../../models/Establishment';
 
-type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE';
+type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 import { SeriesCard } from './SeriesCard';
 import { StatusIndicator } from '../common/StatusIndicator';
 
@@ -77,6 +77,12 @@ const voucherTypeConfig = {
     icon: MessageSquare,
     color: 'purple',
     prefix: 'COT'
+  },
+  COLLECTION: {
+    label: 'Recibo de Cobranza',
+    icon: NotebookPen,
+    color: 'cyan',
+    prefix: 'C'
   },
   OTHER: {
     label: 'Otro Documento',

@@ -66,7 +66,7 @@ export interface DocumentType {
   code: string; // SUNAT code (01, 03, 07, 08, etc.)
   name: string;
   shortName: string;
-  category: 'INVOICE' | 'RECEIPT' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | 'GUIDE' | 'QUOTATION' | 'SALES_NOTE' | 'OTHER';
+  category: 'INVOICE' | 'RECEIPT' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | 'GUIDE' | 'QUOTATION' | 'SALES_NOTE' | 'COLLECTION' | 'OTHER';
   
   // Document properties
   properties: {
@@ -223,6 +223,32 @@ export const SUNAT_DOCUMENT_TYPES: DocumentType[] = [
       seriesLength: 3,
       correlativeLength: 8,
       allowedPrefixes: ['FD', 'BD'],
+    },
+    isActive: true,
+  },
+  {
+    id: 'RC',
+    code: 'RC',
+    name: 'Recibo de Cobranza',
+    shortName: 'COB',
+    category: 'COLLECTION',
+    properties: {
+      affectsTaxes: false,
+      requiresCustomerRuc: false,
+      requiresCustomerName: true,
+      allowsCredit: false,
+      requiresPaymentMethod: true,
+      canBeVoided: true,
+      canHaveCreditNote: false,
+      canHaveDebitNote: false,
+      isElectronic: false,
+      requiresSignature: false,
+    },
+    seriesConfiguration: {
+      defaultPrefix: 'C',
+      seriesLength: 3,
+      correlativeLength: 8,
+      allowedPrefixes: ['C'],
     },
     isActive: true,
   },

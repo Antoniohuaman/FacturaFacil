@@ -15,7 +15,8 @@ import {
   Clipboard,
   MessageSquare,
   FileText,
-  Building2
+  Building2,
+  NotebookPen
 } from 'lucide-react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { ConfigurationCard } from '../components/common/ConfigurationCard';
@@ -24,7 +25,7 @@ import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import type { Series, DocumentType } from '../models/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../models/Series';
 
-type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE';
+type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
 interface SeriesFormData {
   type: VoucherType;
@@ -64,6 +65,13 @@ const voucherTypeConfig = {
     color: 'purple',
     prefix: '',
     description: 'Propuesta comercial para clientes - Serie libre'
+  },
+  COLLECTION: {
+    label: 'Recibo de Cobranza',
+    icon: NotebookPen,
+    color: 'cyan',
+    prefix: 'C',
+    description: 'Documenta pagos registrados - Debe empezar con "C"'
   }
 };
 
@@ -73,7 +81,8 @@ const getDocumentTypeForVoucherType = (voucherType: VoucherType): DocumentType =
     'INVOICE': '01',      // Factura
     'RECEIPT': '03',      // Boleta de Venta
     'SALE_NOTE': 'NV',    // Nota de Venta (custom)
-    'QUOTE': 'COT'        // Cotización (custom)
+    'QUOTE': 'COT',       // Cotización (custom)
+    'COLLECTION': 'RC'    // Recibo de Cobranza
   };
   
   const sunatCode = documentTypeMap[voucherType];
@@ -121,6 +130,8 @@ const fixSeriesDocumentType = (series: Series): Series => {
     correctType = 'RECEIPT';
   } else if (seriesCode.startsWith('F')) {
     correctType = 'INVOICE';
+  } else if (seriesCode.startsWith('C')) {
+    correctType = 'COLLECTION';
   } else {
     // For series that don't start with B or F, try to determine based on document type
     if (series.documentType.code === 'NV' || series.documentType.name.includes('Nota de Venta')) {
@@ -186,12 +197,11 @@ export function SeriesConfiguration() {
           voucherType = 'SALE_NOTE'; // Default for OTHER
         }
         break;
+      case 'COLLECTION':
+        voucherType = 'COLLECTION';
+        break;
       case 'CREDIT_NOTE':
-        voucherType = 'SALE_NOTE'; // Map to closest available type
-        break;
       case 'DEBIT_NOTE':
-        voucherType = 'SALE_NOTE'; // Map to closest available type
-        break;
       case 'GUIDE':
         voucherType = 'SALE_NOTE'; // Map to closest available type
         break;
@@ -280,7 +290,7 @@ export function SeriesConfiguration() {
     }
     
     // For INVOICE and RECEIPT, suggest next series with appropriate prefix
-    const prefix = type === 'INVOICE' ? 'F' : 'B';
+    const prefix = type === 'INVOICE' ? 'F' : type === 'RECEIPT' ? 'B' : 'C';
     
     const existingNumbers = series
       .filter(s => s.type === type && s.series.startsWith(prefix))
@@ -293,7 +303,9 @@ export function SeriesConfiguration() {
     
     // If it's the first series of this type, suggest nice default codes
     if (existingNumbers.length === 0) {
-      return type === 'INVOICE' ? 'FE01' : 'BE01';
+      if (type === 'INVOICE') return 'FE01';
+      if (type === 'RECEIPT') return 'BE01';
+      return 'CE01';
     }
     
     // Otherwise, suggest with F/B + padded number
@@ -359,6 +371,14 @@ export function SeriesConfiguration() {
       const restOfSeries = formData.series.substring(1);
       if (!/^[A-Z0-9]{3}$/.test(restOfSeries)) {
         return `Los 3 caracteres después de "B" deben ser letras (A-Z) o números (0-9)`;
+      }
+    } else if (formData.type === 'COLLECTION') {
+      if (!formData.series.startsWith('C')) {
+        return 'Los recibos de cobranza deben comenzar con "C"';
+      }
+      const restOfSeries = formData.series.substring(1);
+      if (!/^[A-Z0-9]{3}$/.test(restOfSeries)) {
+        return 'Los 3 caracteres después de "C" deben ser letras (A-Z) o números (0-9)';
       }
     } else if (formData.type === 'SALE_NOTE' || formData.type === 'QUOTE') {
       // Free format: any 4 characters (letters/numbers)

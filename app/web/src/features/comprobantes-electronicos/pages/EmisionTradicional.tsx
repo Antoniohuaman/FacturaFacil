@@ -301,8 +301,8 @@ const EmisionTradicional = () => {
     }
   };
 
-  const handleCobranzaComplete = async (payload: PaymentCollectionPayload) => {
-    await handleCrearComprobante(payload);
+  const handleCobranzaComplete = (payload: PaymentCollectionPayload) => {
+    return handleCrearComprobante(payload);
   };
 
   const handlePrint = () => {
@@ -494,6 +494,7 @@ const EmisionTradicional = () => {
           formaPago={formaPago}
           onComplete={handleCobranzaComplete}
           isProcessing={isProcessing}
+          establishmentId={session?.currentEstablishmentId}
         />
 
         <PreviewModal
