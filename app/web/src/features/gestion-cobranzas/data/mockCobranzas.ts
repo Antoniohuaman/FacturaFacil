@@ -1,0 +1,101 @@
+import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../models/cobranzas.types';
+
+export const cuentasPorCobrarMock: CuentaPorCobrarSummary[] = [
+  {
+    id: 'cxc-001',
+    comprobanteId: 'comp-001',
+    comprobanteSerie: 'FE01',
+    comprobanteNumero: '000123',
+    tipoComprobante: 'Factura electrónica',
+    clienteNombre: 'Inversiones Andinas SAC',
+    clienteDocumento: '20606633150',
+    fechaEmision: '2025-11-15',
+    fechaVencimiento: '2025-12-15',
+    formaPago: 'credito',
+    moneda: 'PEN',
+    total: 12500.45,
+    cobrado: 3500,
+    saldo: 9000.45,
+    cuotas: 3,
+    estado: 'parcial',
+    vencido: false,
+    sucursal: 'Principal',
+    cajero: 'María Rojas'
+  },
+  {
+    id: 'cxc-002',
+    comprobanteId: 'comp-002',
+    comprobanteSerie: 'BE03',
+    comprobanteNumero: '000876',
+    tipoComprobante: 'Boleta electrónica',
+    clienteNombre: 'Carlos Pérez',
+    clienteDocumento: '46781234',
+    fechaEmision: '2025-10-20',
+    fechaVencimiento: '2025-11-04',
+    formaPago: 'contado',
+    moneda: 'PEN',
+    total: 420.9,
+    cobrado: 200,
+    saldo: 220.9,
+    estado: 'vencido',
+    vencido: true,
+    sucursal: 'Sucursal Norte',
+    cajero: 'Ana Contreras'
+  },
+  {
+    id: 'cxc-003',
+    comprobanteId: 'comp-003',
+    comprobanteSerie: 'FE02',
+    comprobanteNumero: '000045',
+    tipoComprobante: 'Factura electrónica',
+    clienteNombre: 'Servicios Integrales Lima',
+    clienteDocumento: '20550112233',
+    fechaEmision: '2025-11-01',
+    fechaVencimiento: '2025-11-30',
+    formaPago: 'credito',
+    moneda: 'USD',
+    total: 3200,
+    cobrado: 0,
+    saldo: 3200,
+    estado: 'pendiente',
+    vencido: false,
+    sucursal: 'Principal',
+    cajero: 'María Rojas'
+  }
+];
+
+export const cobranzasMock: CobranzaDocumento[] = [
+  {
+    id: 'cbza-001',
+    numero: 'C001-000045',
+    tipo: 'Cobranza',
+    fechaCobranza: '2025-11-18',
+    comprobanteId: 'comp-001',
+    comprobanteSerie: 'FE01',
+    comprobanteNumero: '000123',
+    clienteNombre: 'Inversiones Andinas SAC',
+    medioPago: 'Transferencia',
+    cajaDestino: 'Caja Principal',
+    moneda: 'PEN',
+    monto: 2500,
+    estado: 'cancelado',
+    referencia: 'TRX-893331',
+    notas: 'Pago cuota 1'
+  },
+  {
+    id: 'cbza-002',
+    numero: 'C001-000046',
+    tipo: 'Cobranza',
+    fechaCobranza: '2025-11-16',
+    comprobanteId: 'comp-004',
+    comprobanteSerie: 'FE03',
+    comprobanteNumero: '000654',
+    clienteNombre: 'Constructora Pacífico',
+    medioPago: 'Tarjeta',
+    cajaDestino: 'POS Miraflores',
+    moneda: 'PEN',
+    monto: 1890.34,
+    estado: 'cancelado',
+    referencia: 'VISA-99812'
+  }
+];

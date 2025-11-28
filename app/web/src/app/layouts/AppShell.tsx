@@ -10,6 +10,7 @@ import { ThemeProvider } from "../../contexts/ThemeContext";
 import { UserSessionProvider } from "../../contexts/UserSessionContext";
 import { SessionInitializer } from "../../contexts/SessionInitializer";
 import { FieldsConfigurationProvider } from "../../features/comprobantes-electronicos/shared/form-core/contexts/FieldsConfigurationContext";
+import { CobranzasProvider } from "../../features/gestion-cobranzas/context/CobranzasContext";
 
 export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -21,7 +22,8 @@ export default function AppShell() {
           <SessionInitializer>
             <FieldsConfigurationProvider>
               <ComprobanteProvider>
-                <DocumentoProvider>
+                <CobranzasProvider>
+                  <DocumentoProvider>
                   <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden">
                     {/* Header fijo */}
                     <div className="flex-shrink-0 z-50">
@@ -46,7 +48,8 @@ export default function AppShell() {
                       </div>
                     </div>
                   </div>
-                </DocumentoProvider>
+                  </DocumentoProvider>
+                </CobranzasProvider>
               </ComprobanteProvider>
             </FieldsConfigurationProvider>
           </SessionInitializer>

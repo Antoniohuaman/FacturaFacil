@@ -27,6 +27,7 @@ import { CajaFormPage } from "../../features/configuracion-sistema/pages/CajaFor
 import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../../features/lista-precios/components/ListaPrecios";
 import { InventoryPage } from "../../features/gestion-inventario/pages/InventoryPage";
+import CobranzasDashboard from "../../features/gestion-cobranzas/pages/CobranzasDashboard";
 
 import RouteErrorBoundary from "./RouteErrorBoundary";
 
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
       // Nota: ruta "/documentos-comerciales" eliminada porque el módulo fue removido
       { path: "/control-caja", element: <ControlCajaHome /> },
       { path: "/caja/sesiones", element: <SesionesCajaPage /> },
+      { path: "/cobranzas", element: <CobranzasDashboard /> },
       
       // Documentos de Negociación
       { path: "/documentos-negociacion", element: <DocumentosTabs /> },
