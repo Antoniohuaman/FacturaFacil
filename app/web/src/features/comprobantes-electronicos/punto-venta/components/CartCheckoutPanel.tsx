@@ -4,7 +4,7 @@
 // Fusiona CartSidebar con selección de Boleta/Factura y Cliente
 // ===================================================================
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Plus,
   Minus,
@@ -16,12 +16,16 @@ import {
   Edit,
   X,
   FileText,
-  Receipt
+  Receipt,
+  CreditCard as CreditCardIcon,
+  CalendarClock
 } from 'lucide-react';
-import type { CartSidebarProps, Product } from '../../models/comprobante.types';
+import type { CartSidebarProps, Product, ComprobanteCreditTerms } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { UI_MESSAGES } from '../../models/constants';
 import ClienteForm from '../../../gestion-clientes/components/ClienteForm.tsx';
+import type { PaymentMethod } from '../../../configuracion-sistema/models/PaymentMethod';
+import { CreditScheduleSummaryCard } from '../../shared/payments/CreditScheduleSummaryCard';
 
 interface CartCheckoutPanelProps extends CartSidebarProps {
   onAddProduct?: (product: Product) => void;
@@ -32,6 +36,17 @@ interface CartCheckoutPanelProps extends CartSidebarProps {
   onCurrencyChange?: (currency: 'PEN' | 'USD') => void;
   clienteSeleccionado: any | null;
   setClienteSeleccionado: (cliente: any | null) => void;
+  paymentMethods: PaymentMethod[];
+  formaPagoId: string;
+  onFormaPagoChange: (paymentMethodId: string) => void;
+  onNuevaFormaPago?: () => void;
+  isCreditMethod?: boolean;
+  onConfigureCreditSchedule?: () => void;
+  creditTerms?: ComprobanteCreditTerms;
+  creditScheduleErrors?: string[];
+  creditPaymentMethodName?: string;
+  onEmitWithoutPayment?: () => void;
+  onEmitCreditDirect?: () => void;
 }
 
 interface ClientePOS {
@@ -57,7 +72,18 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   setTipoComprobante,
   onCurrencyChange,
   clienteSeleccionado,
-  setClienteSeleccionado
+  setClienteSeleccionado,
+  paymentMethods,
+  formaPagoId,
+  onFormaPagoChange,
+  onNuevaFormaPago,
+  isCreditMethod,
+  onConfigureCreditSchedule,
+  creditTerms,
+  creditScheduleErrors,
+  creditPaymentMethodName,
+  onEmitWithoutPayment,
+  onEmitCreditDirect,
 }) => {
   const { formatPrice, changeCurrency } = useCurrency();
 
@@ -103,6 +129,22 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
     { value: 'Proveedor', label: 'Proveedor' },
   ];
 
+  const availablePaymentMethods = useMemo(() => (
+    paymentMethods
+      .filter((method) => method.isActive && (method.display?.showInPos ?? true))
+      .sort((a, b) => (a.display?.displayOrder ?? 0) - (b.display?.displayOrder ?? 0))
+  ), [paymentMethods]);
+
+  const selectedPaymentMethod = useMemo(() => (
+    availablePaymentMethods.find((method) => method.id === formaPagoId) || availablePaymentMethods[0]
+  ), [availablePaymentMethods, formaPagoId]);
+
+  const paymentMethodBadge = selectedPaymentMethod?.type === 'CREDIT'
+    ? 'bg-emerald-100 text-emerald-700'
+    : 'bg-slate-100 text-slate-600';
+  const selectedPaymentCode = (selectedPaymentMethod?.code || '').toUpperCase();
+  const isCreditPaymentSelection = selectedPaymentCode === 'CREDITO';
+
   // Cargar clientes desde localStorage
   const getClientesFromLocalStorage = () => {
     try {
@@ -131,6 +173,32 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   // Estado de la caja
   const isCashBoxClosed = cashBoxStatus === 'closed';
   const canProcessSale = !isProcessing && cartItems.length > 0;
+  const primaryDisabled = !canProcessSale || (isCreditPaymentSelection ? !onEmitCreditDirect : false);
+  const secondaryDisabled = !canProcessSale || (isCreditPaymentSelection ? !onConfirmSale : !onEmitWithoutPayment);
+  const primaryLabel = isCreditPaymentSelection ? 'Emitir a crédito' : 'Registrar pago y emitir';
+  const secondaryLabel = isCreditPaymentSelection ? 'Emitir y registrar abono' : 'Emitir sin cobrar';
+
+  const handlePrimaryAction = () => {
+    if (primaryDisabled) {
+      return;
+    }
+    if (isCreditPaymentSelection) {
+      onEmitCreditDirect?.();
+      return;
+    }
+    onConfirmSale();
+  };
+
+  const handleSecondaryAction = () => {
+    if (secondaryDisabled) {
+      return;
+    }
+    if (isCreditPaymentSelection) {
+      onConfirmSale();
+      return;
+    }
+    onEmitWithoutPayment?.();
+  };
 
   // Calcular descuento aplicado
   const calculateDiscount = () => {
@@ -337,6 +405,58 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                 <option value="PEN">S/.</option>
                 <option value="USD">$</option>
               </select>
+            </div>
+          </div>
+
+          {/* Forma de pago */}
+          <div className="mt-2 space-y-1.5">
+            <label
+              className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide"
+              htmlFor="pos-payment-method"
+            >
+              <CreditCardIcon className="h-3 w-3" />
+              Forma de pago
+            </label>
+            <div className="flex items-center gap-2">
+              <select
+                id="pos-payment-method"
+                value={selectedPaymentMethod?.id || ''}
+                onChange={(event) => onFormaPagoChange(event.target.value)}
+                className="flex-1 px-2 py-1.5 bg-white border border-gray-300 rounded text-[11px] font-semibold text-gray-900 hover:border-blue-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {availablePaymentMethods.length === 0 && (
+                  <option value="">Sin métodos disponibles</option>
+                )}
+                {availablePaymentMethods.map((method) => (
+                  <option key={method.id} value={method.id}>
+                    {method.name}
+                  </option>
+                ))}
+              </select>
+              {onNuevaFormaPago && (
+                <button
+                  type="button"
+                  onClick={onNuevaFormaPago}
+                  className="px-2 py-1 text-[10px] font-semibold text-blue-600 border border-blue-200 rounded hover:bg-blue-50"
+                >
+                  + Nueva
+                </button>
+              )}
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-gray-500">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${paymentMethodBadge}`}>
+                {selectedPaymentMethod?.name || 'Sin selección'}
+              </span>
+              {isCreditMethod && onConfigureCreditSchedule && (
+                <button
+                  type="button"
+                  onClick={onConfigureCreditSchedule}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200"
+                >
+                  <CalendarClock className="h-3 w-3" />
+                  Cronograma
+                </button>
+              )}
             </div>
           </div>
 
@@ -581,6 +701,19 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           )}
         </div>
 
+        {isCreditMethod && (
+          <div className="px-3 pb-3">
+            <CreditScheduleSummaryCard
+              creditTerms={creditTerms}
+              currency={currency}
+              total={totals.total}
+              onConfigure={onConfigureCreditSchedule}
+              errors={creditScheduleErrors}
+              paymentMethodName={creditPaymentMethodName || selectedPaymentMethod?.name}
+            />
+          </div>
+        )}
+
         {/* Sección de Descuento - Compacta y Profesional */}
         {cartItems.length > 0 && (
           <div className="px-3 pb-2">
@@ -678,10 +811,10 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
             
             {/* Botón Principal Compacto */}
             <button
-              onClick={onConfirmSale}
-              disabled={!canProcessSale}
+              onClick={handlePrimaryAction}
+              disabled={primaryDisabled}
               className={`w-full py-3 rounded-lg font-bold text-base shadow-md transition-all ${
-                canProcessSale
+                !primaryDisabled
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg transform hover:scale-[1.01] active:scale-[0.99]'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
               }`}
@@ -693,13 +826,27 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                 </span>
               ) : (
                 <div className="flex items-center justify-center gap-2">
-                  <span className="text-xs font-semibold opacity-90">VENDER</span>
-                  <span className="text-lg font-black">
-                    {formatPrice(finalTotal, currency)}
-                  </span>
+                  <span className="text-xs font-semibold opacity-90">{primaryLabel}</span>
+                  {!isCreditPaymentSelection && (
+                    <span className="text-lg font-black">
+                      {formatPrice(finalTotal, currency)}
+                    </span>
+                  )}
                 </div>
               )}
             </button>
+
+            {(isCreditPaymentSelection ? onConfirmSale : onEmitWithoutPayment) && (
+              <button
+                onClick={handleSecondaryAction}
+                disabled={secondaryDisabled}
+                className={`w-full py-2 rounded-lg text-sm font-semibold transition ${
+                  !secondaryDisabled ? 'text-blue-700 hover:bg-blue-50' : 'text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {secondaryLabel}
+              </button>
+            )}
             
             {/* Footer Compacto */}
             <div className="flex items-center justify-between text-xs pt-1">

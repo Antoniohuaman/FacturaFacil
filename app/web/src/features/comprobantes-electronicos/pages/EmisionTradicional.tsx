@@ -42,7 +42,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
-import type { ClientData, PaymentCollectionPayload } from '../models/comprobante.types';
+import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { validateComprobanteNormativa, validateComprobanteReadyForCobranza } from '../shared/core/comprobanteValidation';
 import { CobranzaModal } from '../shared/modales/CobranzaModal';
@@ -246,16 +246,20 @@ const EmisionTradicional = () => {
     openPreview();
   };
 
-  const ensureDataBeforeCobranza = () => {
+  const paymentMethodCode = selectedPaymentMethod?.code?.toUpperCase() ?? '';
+  const isCreditPaymentSelection = paymentMethodCode === 'CREDITO';
+
+  const ensureDataBeforeCobranza = (paymentMode?: PaymentCollectionMode) => {
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
       onError: (validationError) => error('Faltan datos para continuar', validationError.message),
+      paymentMode,
     });
 
     return validation.isValid;
   };
 
   const handleOpenCobranzaModal = () => {
-    if (!ensureDataBeforeCobranza()) {
+    if (!ensureDataBeforeCobranza(isCreditPaymentSelection ? 'credito' : undefined)) {
       return;
     }
     if (isCreditMethod && creditTemplateErrors.length > 0) {
@@ -265,6 +269,53 @@ const EmisionTradicional = () => {
       return;
     }
     setShowCobranzaModal(true);
+  };
+
+  const handleEmitirSinCobrar = async () => {
+    if (!ensureDataBeforeCobranza()) {
+      return;
+    }
+    await handleCrearComprobante();
+  };
+
+  const handleEmitirCreditoDirecto = async () => {
+    if (!isCreditPaymentSelection) {
+      handleOpenCobranzaModal();
+      return;
+    }
+    if (!ensureDataBeforeCobranza('credito')) {
+      return;
+    }
+    if (creditTemplateErrors.length > 0) {
+      creditTemplateErrors.forEach((validationError) =>
+        error('Cronograma de crédito incompleto', validationError),
+      );
+      return;
+    }
+    if (!creditTerms) {
+      error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
+      return;
+    }
+    await handleCrearComprobante({
+      mode: 'credito',
+      lines: [],
+    });
+  };
+
+  const handlePrimaryAction = () => {
+    if (isCreditPaymentSelection) {
+      void handleEmitirCreditoDirecto();
+      return;
+    }
+    handleOpenCobranzaModal();
+  };
+
+  const handleSecondaryAction = () => {
+    if (isCreditPaymentSelection) {
+      handleOpenCobranzaModal();
+      return;
+    }
+    void handleEmitirSinCobrar();
   };
 
   const handleCrearComprobante = async (paymentPayload?: PaymentCollectionPayload): Promise<boolean> => {
@@ -504,14 +555,25 @@ const EmisionTradicional = () => {
               />
             )}
 
-            {/* Action Buttons Section - Sin cambios */}
+            {/* Action Buttons Section - ahora con acciones dinámicas */}
             <ActionButtonsSection
               onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
               onCancelar={goToComprobantes}
               onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
-              onCrearComprobante={fieldsConfig.actionButtons.crearComprobante ? handleOpenCobranzaModal : undefined}
               isCartEmpty={cartItems.length === 0}
               productsCount={cartItems.length}
+              primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
+                label: isCreditPaymentSelection ? 'Emitir a crédito' : 'Registrar pago y emitir',
+                onClick: handlePrimaryAction,
+                disabled: isProcessing || cartItems.length === 0,
+                title: isCreditPaymentSelection ? 'Generar el comprobante sin registrar cobro' : 'Ir al cobro para registrar el pago',
+              } : undefined}
+              secondaryAction={fieldsConfig.actionButtons.crearComprobante ? {
+                label: isCreditPaymentSelection ? 'Emitir y registrar abono' : 'Emitir sin cobrar',
+                onClick: handleSecondaryAction,
+                disabled: isProcessing || cartItems.length === 0,
+                title: isCreditPaymentSelection ? 'Registrar un abono inicial antes de cerrar la venta' : 'Emitir el comprobante dejando el cobro pendiente',
+              } : undefined}
             />
             </div>
           </div>
@@ -526,7 +588,7 @@ const EmisionTradicional = () => {
               viewModel={sidePreviewViewModel}
               hasMinimumData={hasMinimumDataForPreview}
               validationErrors={[]} // TODO: Agregar validaciones reales si es necesario
-              onConfirm={handleOpenCobranzaModal}
+              onConfirm={handlePrimaryAction}
               onSaveDraft={() => setShowDraftModal(true)}
               isProcessing={false}
             />

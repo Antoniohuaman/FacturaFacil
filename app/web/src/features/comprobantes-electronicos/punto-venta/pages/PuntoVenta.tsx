@@ -13,7 +13,9 @@ import { useDocumentType } from '../../shared/form-core/hooks/useDocumentType';
 import { useComprobanteState } from '../../hooks/useComprobanteState';
 import { useComprobanteActions } from '../../hooks/useComprobanteActions';
 import { useAvailableProducts } from '../../hooks/useAvailableProducts';
+import { useCreditTermsConfigurator } from '../../hooks/useCreditTermsConfigurator';
 import { useCurrentEstablishmentId, useCurrentCompanyId } from '../../../../contexts/UserSessionContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 
 // Importar componentes POS
 import { ProductGrid } from '../components/ProductGrid';
@@ -25,11 +27,16 @@ import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
 import { CobranzaModal } from '../../shared/modales/CobranzaModal';
 import { validateComprobanteReadyForCobranza } from '../../shared/core/comprobanteValidation';
-import type { ClientData, PaymentCollectionPayload } from '../../models/comprobante.types';
+import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload } from '../../models/comprobante.types';
+import { CreditScheduleModal } from '../../shared/payments/CreditScheduleModal';
+import type { CreditInstallmentDefinition } from '../../../../shared/payments/paymentTerms';
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+
+const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
+  items.map((item) => ({ ...item }));
 
 const PuntoVenta = () => {
   const navigate = useNavigate();
@@ -37,6 +44,7 @@ const PuntoVenta = () => {
   // Obtener establecimiento y empresa del usuario actual
   const currentEstablishmentId = useCurrentEstablishmentId();
   const currentCompanyId = useCurrentCompanyId();
+  const { state } = useConfigurationContext();
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { cartItems, addToCart, removeFromCart, updateCartQuantity, updateCartItemPrice, clearCart } = useCart();
@@ -47,6 +55,7 @@ const PuntoVenta = () => {
   // Estado consolidado (SIN CAMBIOS)
   const {
     formaPago,
+    setFormaPago,
     isProcessing, setIsProcessing,
     isCajaOpen, cajaStatus,
     resetForm
@@ -65,7 +74,9 @@ const PuntoVenta = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
+  const [showCreditScheduleModal, setShowCreditScheduleModal] = useState(false);
   const [fechaEmision] = useState(() => new Date().toISOString().split('T')[0]);
+  const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
 
   // Estado para cliente seleccionado (nuevo flujo)
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null);
@@ -91,6 +102,50 @@ const PuntoVenta = () => {
   // Calculate totals (SIN CAMBIOS)
   const totals = calculateTotals(cartItems);
 
+  const {
+    paymentMethod: selectedPaymentMethod,
+    isCreditMethod,
+    templates: creditTemplates,
+    setTemplates: setCreditTemplates,
+    errors: creditTemplateErrors,
+    creditTerms,
+    restoreDefaults: restoreCreditTemplates,
+  } = useCreditTermsConfigurator({
+    paymentMethodId: formaPago,
+    total: totals.total,
+    issueDate: fechaEmision,
+  });
+  const paymentMethodCode = selectedPaymentMethod?.code?.toUpperCase() ?? '';
+  const isCreditPaymentSelection = paymentMethodCode === 'CREDITO';
+
+  useEffect(() => {
+    if (!isCreditMethod && showCreditScheduleModal) {
+      setShowCreditScheduleModal(false);
+      creditTemplatesBackupRef.current = null;
+    }
+  }, [isCreditMethod, showCreditScheduleModal]);
+
+  const handleOpenCreditScheduleModal = () => {
+    if (!isCreditMethod) {
+      return;
+    }
+    creditTemplatesBackupRef.current = cloneCreditTemplates(creditTemplates);
+    setShowCreditScheduleModal(true);
+  };
+
+  const handleCancelCreditScheduleModal = () => {
+    if (creditTemplatesBackupRef.current) {
+      setCreditTemplates(cloneCreditTemplates(creditTemplatesBackupRef.current));
+    }
+    creditTemplatesBackupRef.current = null;
+    setShowCreditScheduleModal(false);
+  };
+
+  const handleSaveCreditScheduleModal = () => {
+    creditTemplatesBackupRef.current = null;
+    setShowCreditScheduleModal(false);
+  };
+
   const buildCobranzaValidationInput = useCallback(() => ({
     tipoComprobante,
     serieSeleccionada,
@@ -102,19 +157,63 @@ const PuntoVenta = () => {
     totals,
   }), [cartItems, clienteDraftData, currentCurrency, fechaEmision, formaPago, serieSeleccionada, tipoComprobante, totals]);
 
-  const ensureDataBeforeCobranza = useCallback((toastTitle: string) => {
+  const ensureDataBeforeCobranza = useCallback((toastTitle: string, paymentMode?: PaymentCollectionMode) => {
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
       onError: (validationError) => warning(toastTitle, validationError.message),
+      paymentMode,
     });
     return validation.isValid;
   }, [buildCobranzaValidationInput, warning]);
 
   // Handlers (SIN CAMBIOS - exactamente igual que antes)
   const handleConfirmSale = () => {
-    if (!ensureDataBeforeCobranza('Faltan datos para procesar la venta')) {
+    if (!ensureDataBeforeCobranza('Faltan datos para procesar la venta', isCreditPaymentSelection ? 'credito' : undefined)) {
       return;
     }
+    if (isCreditMethod) {
+      if (creditTemplateErrors.length > 0) {
+        creditTemplateErrors.forEach((validationError) =>
+          warning('Cronograma de crédito incompleto', validationError),
+        );
+        return;
+      }
+      if (!creditTerms) {
+        warning('Cronograma no disponible', 'No se pudo generar el cronograma de crédito para esta venta.');
+        return;
+      }
+    }
     setShowCobranzaModal(true);
+  };
+
+  const handleEmitirSinCobranza = () => {
+    if (!ensureDataBeforeCobranza('Faltan datos para emitir sin cobrar')) {
+      return;
+    }
+    void handleCrearComprobante();
+  };
+
+  const handleEmitirCreditoDirecto = () => {
+    if (!isCreditPaymentSelection) {
+      handleConfirmSale();
+      return;
+    }
+    if (!ensureDataBeforeCobranza('Faltan datos para emitir a crédito', 'credito')) {
+      return;
+    }
+    if (creditTemplateErrors.length > 0) {
+      creditTemplateErrors.forEach((validationError) =>
+        warning('Cronograma de crédito incompleto', validationError),
+      );
+      return;
+    }
+    if (!creditTerms) {
+      warning('Cronograma no disponible', 'No se pudo generar el cronograma de crédito para esta venta.');
+      return;
+    }
+    void handleCrearComprobante({
+      mode: 'credito',
+      lines: [],
+    });
   };
 
   const handleCrearComprobante = async (paymentPayload?: PaymentCollectionPayload): Promise<boolean> => {
@@ -128,6 +227,23 @@ const PuntoVenta = () => {
     if (!isCredito && !isCajaOpen) {
       error('Caja cerrada', 'Abre una caja para registrar pagos al contado. También puedes emitir a crédito.');
       return false;
+    }
+
+    if (isCredito) {
+      if (!isCreditMethod) {
+        error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito para emitir en cuotas.');
+        return false;
+      }
+      if (creditTemplateErrors.length > 0) {
+        creditTemplateErrors.forEach((validationError) =>
+          error('Cronograma de crédito incompleto', validationError),
+        );
+        return false;
+      }
+      if (!creditTerms) {
+        error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Configúralo nuevamente.');
+        return false;
+      }
     }
 
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
@@ -157,6 +273,7 @@ const PuntoVenta = () => {
         clientDoc: clienteDraftData?.documento,
         fechaEmision,
         paymentDetails: paymentPayload,
+        creditTerms: isCredito ? creditTerms : undefined,
         registrarPago: paymentPayload?.mode !== 'credito'
       });
 
@@ -279,6 +396,16 @@ const PuntoVenta = () => {
             setClienteSeleccionado={setClienteSeleccionado}
             cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
             isProcessing={isProcessing}
+            paymentMethods={state.paymentMethods}
+            formaPagoId={formaPago}
+            onFormaPagoChange={setFormaPago}
+            isCreditMethod={isCreditMethod}
+            onConfigureCreditSchedule={handleOpenCreditScheduleModal}
+            creditTerms={creditTerms}
+            creditScheduleErrors={creditTemplateErrors}
+            creditPaymentMethodName={selectedPaymentMethod?.name}
+            onEmitWithoutPayment={handleEmitirSinCobranza}
+            onEmitCreditDirect={handleEmitirCreditoDirecto}
           />
         </div>
 
@@ -305,6 +432,19 @@ const PuntoVenta = () => {
           formaPago={formaPago}
           onComplete={handleCobranzaComplete}
           isProcessing={isProcessing}
+          creditTerms={creditTerms}
+          creditPaymentMethodLabel={selectedPaymentMethod?.name}
+        />
+
+        <CreditScheduleModal
+          isOpen={showCreditScheduleModal}
+          templates={creditTemplates}
+          onChange={setCreditTemplates}
+          onSave={handleSaveCreditScheduleModal}
+          onCancel={handleCancelCreditScheduleModal}
+          onRestoreDefaults={restoreCreditTemplates}
+          errors={creditTemplateErrors}
+          paymentMethodName={selectedPaymentMethod?.name}
         />
 
         {/* Modal de éxito con acciones de compartir */}

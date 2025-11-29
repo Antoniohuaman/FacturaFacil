@@ -3,7 +3,7 @@
 // Preserva 100% la funcionalidad, mejora UX y apariencia
 // ===================================================================
 
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { Eye, X, Save, CreditCard, ShoppingCart } from 'lucide-react';
 
 interface ActionButtonsSectionProps {
@@ -13,6 +13,20 @@ interface ActionButtonsSectionProps {
   onCrearComprobante?: () => void;
   isCartEmpty?: boolean;
   productsCount?: number;
+  primaryAction?: {
+    label: string;
+    onClick: () => void;
+    icon?: ReactNode;
+    disabled?: boolean;
+    title?: string;
+  };
+  secondaryAction?: {
+    label: string;
+    onClick: () => void;
+    icon?: ReactNode;
+    disabled?: boolean;
+    title?: string;
+  };
 }
 
 const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
@@ -22,7 +36,19 @@ const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
   onCrearComprobante,
   isCartEmpty = false,
   productsCount = 0,
+  primaryAction,
+  secondaryAction,
 }) => {
+  const effectivePrimary = primaryAction ?? (onCrearComprobante
+    ? {
+        label: 'Crear comprobante',
+        onClick: onCrearComprobante,
+        icon: <CreditCard className="h-4 w-4" />,
+        disabled: isCartEmpty,
+        title: isCartEmpty ? 'Agregue productos primero' : 'Proceder al pago y crear comprobante (Ctrl+Enter)',
+      }
+    : null);
+
   return (
     <div className="sticky bottom-0 z-40 bg-white/90 backdrop-blur p-3 shadow-[0_-1px_6px_rgba(0,0,0,0.06)] border-t border-slate-200">
       <div className="max-w-7xl mx-auto">
@@ -72,16 +98,29 @@ const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
               </button>
             )}
 
-            {onCrearComprobante && (
+            {secondaryAction && (
+              <button
+                type="button"
+                className="flex items-center gap-1.5 px-3 py-2 h-9 text-[13px] font-semibold text-violet-700 bg-transparent rounded-xl hover:bg-violet-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={secondaryAction.onClick}
+                disabled={secondaryAction.disabled}
+                title={secondaryAction.title}
+              >
+                {secondaryAction.icon}
+                {secondaryAction.label}
+              </button>
+            )}
+
+            {effectivePrimary && (
               <button
                 className="flex items-center gap-2 px-4 py-2 h-9 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-[13px]"
-                onClick={onCrearComprobante}
-                disabled={isCartEmpty}
-                title={isCartEmpty ? 'Agregue productos primero' : 'Proceder al pago y crear comprobante (Ctrl+Enter)'}
-                aria-label="Crear comprobante"
+                onClick={effectivePrimary.onClick}
+                disabled={effectivePrimary.disabled}
+                title={effectivePrimary.title}
+                aria-label="Acción principal"
               >
-                <CreditCard className="h-4 w-4" />
-                Crear comprobante
+                {effectivePrimary.icon ?? <CreditCard className="h-4 w-4" />}
+                {effectivePrimary.label}
               </button>
             )}
           </div>

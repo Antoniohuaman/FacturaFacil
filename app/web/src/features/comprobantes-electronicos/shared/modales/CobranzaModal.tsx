@@ -71,6 +71,16 @@ interface PaymentLineForm extends PaymentLineInput {
   operationNumber?: string;
 }
 
+interface InstallmentPlanRow {
+  numeroCuota: number;
+  fechaVencimiento: string;
+  importe: number;
+  saldo: number;
+  pagado: number;
+  estado?: 'pendiente' | 'parcial' | 'cancelado';
+  plannedPayment: number;
+}
+
 const DEFAULT_PAYMENT_OPTIONS: PaymentOptionMeta[] = [
   { id: 'efectivo', label: 'Efectivo', badge: 'bg-green-100 text-green-700', icon: Wallet },
   { id: 'yape', label: 'Yape', badge: 'bg-purple-100 text-purple-700', icon: Smartphone },
@@ -250,6 +260,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const [notas, setNotas] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [plannerRows, setPlannerRows] = useState<InstallmentPlanRow[]>([]);
+  const [hasManualAllocations, setHasManualAllocations] = useState(false);
 
   const currencyCode = typeof moneda === 'string' ? moneda : moneda?.code ?? 'PEN';
   const normalizedCurrencyCode = (currencyCode || 'PEN').toUpperCase();
@@ -262,11 +274,101 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     return { slice, restantes };
   }, [cartItems]);
 
-  const creditInstallments = creditTerms?.schedule ?? [];
+  const creditInstallments = useMemo(() => creditTerms?.schedule ?? [], [creditTerms]);
   const creditScheduleLabel = creditPaymentMethodLabel || 'Pago a crédito';
 
+  const basePlannerRows = useMemo<InstallmentPlanRow[]>(() => creditInstallments.map((cuota) => {
+    const pagado = Number(cuota.pagado ?? 0);
+    const saldoCalculado = Math.max(0, (cuota.saldo ?? cuota.importe - pagado));
+    return {
+      numeroCuota: cuota.numeroCuota,
+      fechaVencimiento: cuota.fechaVencimiento,
+      importe: cuota.importe,
+      saldo: saldoCalculado,
+      pagado,
+      estado: cuota.estado,
+      plannedPayment: 0,
+    };
+  }), [creditInstallments]);
+
+  const autoDistributePlanner = useCallback((rows: InstallmentPlanRow[], amount: number): InstallmentPlanRow[] => {
+    let remaining = Math.max(0, Number(amount) || 0);
+    return rows.map((row) => {
+      if (remaining <= tolerance) {
+        return { ...row, plannedPayment: 0 };
+      }
+      const toApply = Math.min(row.saldo, remaining);
+      remaining = Math.max(0, remaining - toApply);
+      return { ...row, plannedPayment: Number(toApply.toFixed(2)) };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPlannerRows([]);
+      setHasManualAllocations(false);
+      return;
+    }
+    if (!basePlannerRows.length) {
+      setPlannerRows([]);
+      setHasManualAllocations(false);
+      return;
+    }
+    setPlannerRows(basePlannerRows.map((row) => ({ ...row })));
+    setHasManualAllocations(false);
+  }, [basePlannerRows, isOpen]);
+
+  const handlePlannerInputChange = (numeroCuota: number, value: number) => {
+    setPlannerRows((rows) =>
+      rows.map((row) =>
+        row.numeroCuota === numeroCuota
+          ? { ...row, plannedPayment: Math.min(Math.max(0, Number(value) || 0), row.saldo) }
+          : row,
+      ),
+    );
+    setHasManualAllocations(true);
+  };
+
+  const handleAutoDistributePlanner = () => {
+    setHasManualAllocations(false);
+    setPlannerRows((rows) => autoDistributePlanner(rows.length ? rows : basePlannerRows, totalRecibido));
+  };
+
+  const handleResetPlanner = () => {
+    setHasManualAllocations(false);
+    setPlannerRows(basePlannerRows.map((row) => ({ ...row })));
+  };
+
+  const totalPlannedPayment = useMemo(
+    () => plannerRows.reduce((sum, row) => sum + (Number(row.plannedPayment) || 0), 0),
+    [plannerRows],
+  );
+
+  const pendingInstallments = useMemo(
+    () => basePlannerRows.filter((row) => row.saldo > tolerance).length,
+    [basePlannerRows],
+  );
+
   const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
+  useEffect(() => {
+    if (!isOpen || !basePlannerRows.length || hasManualAllocations) {
+      return;
+    }
+    setPlannerRows((rows) => autoDistributePlanner(rows.length ? rows : basePlannerRows, totalRecibido));
+  }, [autoDistributePlanner, basePlannerRows, hasManualAllocations, isOpen, totalRecibido]);
   const diferencia = useMemo(() => totals.total - totalRecibido, [totals.total, totalRecibido]);
+  const showInstallmentPlanner = mode === 'contado' && basePlannerRows.length > 0;
+  const plannerHasDistribution = useMemo(
+    () => plannerRows.some((row) => (Number(row.plannedPayment) || 0) > tolerance),
+    [plannerRows],
+  );
+  const plannerDelta = useMemo(
+    () => Number((totalRecibido - totalPlannedPayment).toFixed(2)),
+    [totalPlannedPayment, totalRecibido],
+  );
+  const plannerRequiresDistribution = showInstallmentPlanner && totalRecibido > tolerance && !plannerHasDistribution;
+  const plannerMismatch = showInstallmentPlanner && totalRecibido > tolerance && Math.abs(plannerDelta) > tolerance;
+  const plannerBlocksSubmission = plannerRequiresDistribution || plannerMismatch;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -381,6 +483,19 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       return false;
     }
 
+    if (targetMode === 'contado' && basePlannerRows.length > 0 && totalRecibido > tolerance) {
+      const hasAllocated = plannerRows.some((row) => (Number(row.plannedPayment) || 0) > tolerance);
+      if (!hasAllocated) {
+        setErrorMessage('Distribuye el monto recibido entre las cuotas para registrar el adelanto.');
+        return false;
+      }
+
+      if (Math.abs(totalPlannedPayment - totalRecibido) > tolerance) {
+        setErrorMessage('La distribución en cuotas debe coincidir con el monto recibido.');
+        return false;
+      }
+    }
+
     setErrorMessage(null);
     return true;
   };
@@ -443,6 +558,22 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
     setMode(enforcedMode);
 
+    const plannerAllocations =
+      enforcedMode === 'contado' && basePlannerRows.length
+        ? plannerRows
+            .filter((row) => (Number(row.plannedPayment) || 0) > tolerance)
+            .map((row) => {
+              const remaining = Math.max(0, Number((row.saldo - row.plannedPayment).toFixed(2)));
+              const status: InstallmentPlanRow['estado'] = remaining <= tolerance ? 'cancelado' : 'parcial';
+              return {
+                installmentNumber: row.numeroCuota,
+                amount: Number(row.plannedPayment.toFixed(2)),
+                remaining,
+                status,
+              };
+            })
+        : [];
+
     const payload: PaymentCollectionPayload = {
       mode: enforcedMode,
       lines:
@@ -466,6 +597,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
               issuedAt: fechaCobranza || new Date().toISOString().split('T')[0],
             }
           : undefined,
+      allocations: plannerAllocations.length ? plannerAllocations : undefined,
     };
 
     try {
@@ -497,7 +629,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     isProcessing ||
     submitting ||
     (mode === 'contado' && (!isCajaOpen || !collectionDocumentPreview)) ||
-    (mode === 'credito' && creditInstallments.length === 0);
+    (mode === 'credito' && creditInstallments.length === 0) ||
+    plannerBlocksSubmission;
   const handleConfirm = () => {
     void handleSubmit(mode);
   };
@@ -834,6 +967,100 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                   >
                     <Plus className="h-4 w-4" /> Añadir método de pago
                   </button>
+
+                  {showInstallmentPlanner && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Aplicar adelanto a cuotas</p>
+                          <p className="text-sm text-emerald-900">
+                            {pendingInstallments > 0
+                              ? `Distribuye el monto recibido entre ${pendingInstallments} cuota${pendingInstallments === 1 ? '' : 's'} pendiente${pendingInstallments === 1 ? '' : 's'}.`
+                              : 'Distribuye el monto recibido entre el cronograma vigente.'}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                          <button
+                            type="button"
+                            onClick={handleAutoDistributePlanner}
+                            className="rounded-full border border-emerald-200 bg-white/80 px-3 py-1 text-emerald-700 transition hover:border-emerald-300 hover:text-emerald-900"
+                          >
+                            Recalcular
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleResetPlanner}
+                            className="rounded-full border border-slate-200 bg-white/60 px-3 py-1 text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                        {plannerRows.map((row) => {
+                          const isSettled = row.saldo <= tolerance;
+                          const statusClass =
+                            row.estado === 'cancelado'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : row.estado === 'parcial'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-slate-100 text-slate-600';
+                          const statusLabel = row.estado === 'cancelado' ? 'Cancelada' : row.estado === 'parcial' ? 'Parcial' : 'Pendiente';
+                          return (
+                            <div key={row.numeroCuota} className="rounded-xl border border-emerald-100 bg-white/80 p-3 space-y-3">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-900">Cuota {row.numeroCuota}</p>
+                                  <p className="text-xs text-slate-500">Vence {row.fechaVencimiento}</p>
+                                </div>
+                                <div className="text-right text-xs text-slate-500">
+                                  <p>Saldo: {formatCurrency(row.saldo)}</p>
+                                  {row.pagado > 0 && <p>Pagado: {formatCurrency(row.pagado)}</p>}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide">
+                                <span className="text-emerald-700">Estado</span>
+                                <span className={`rounded-full px-2 py-0.5 ${statusClass}`}>{statusLabel}</span>
+                              </div>
+                              <label className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                                Monto a aplicar
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="mt-1 w-full rounded-lg border border-emerald-200 px-3 py-2 text-sm text-emerald-900 focus:border-emerald-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100"
+                                  value={Number.isNaN(row.plannedPayment) ? '' : row.plannedPayment}
+                                  onChange={(event) => handlePlannerInputChange(row.numeroCuota, Number(event.target.value))}
+                                  disabled={isSettled}
+                                />
+                              </label>
+                              {isSettled && <p className="text-[11px] text-slate-500">Cuota cancelada en su totalidad.</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-emerald-900">
+                        <span className="rounded-full bg-white/70 px-3 py-1">Recibido: {formatCurrency(totalRecibido)}</span>
+                        <span className="rounded-full bg-white/70 px-3 py-1">Distribuido: {formatCurrency(totalPlannedPayment)}</span>
+                        <span className={`rounded-full px-3 py-1 ${plannerMismatch ? 'bg-amber-100 text-amber-700' : 'bg-white/70'}`}>
+                          Diferencia: {formatCurrency(Math.abs(plannerDelta))}
+                        </span>
+                      </div>
+
+                      {plannerRequiresDistribution && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                          Distribuye el adelanto entre las cuotas pendientes para registrar el movimiento en caja.
+                        </div>
+                      )}
+                      {plannerMismatch && !plannerRequiresDistribution && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                          Ajusta los montos: el total aplicado debe coincidir con el monto recibido.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 px-4 py-3 text-sm text-indigo-900">

@@ -7,10 +7,24 @@ export interface CreditInstallmentTemplate {
 
 export type CreditInstallmentDefinition = CreditInstallmentTemplate;
 
+export type CreditInstallmentStatus = 'pendiente' | 'parcial' | 'cancelado';
+
+export interface CreditInstallmentPaymentTrace {
+  id: string;
+  amount: number;
+  date: string;
+  method?: string;
+  reference?: string;
+}
+
 export interface CreditInstallment extends CreditInstallmentTemplate {
   numeroCuota: number;
   fechaVencimiento: string;
   importe: number;
+  pagado?: number;
+  saldo?: number;
+  estado?: CreditInstallmentStatus;
+  pagos?: CreditInstallmentPaymentTrace[];
 }
 
 export interface CreditSchedule {
@@ -109,7 +123,7 @@ export const buildCreditScheduleFromTemplate = ({
   const schedule = sortByDays(normalizeCreditTemplates(templates));
 
   let allocated = 0;
-  const cuotas = schedule.map((template, index) => {
+  const cuotas: CreditInstallment[] = schedule.map((template, index): CreditInstallment => {
     const isLast = index === schedule.length - 1;
     const rawAmount = roundTwo((safeTotal * template.porcentaje) / PERCENT_TOTAL);
     const amount = isLast ? roundTwo(safeTotal - allocated) : rawAmount;
@@ -123,6 +137,10 @@ export const buildCreditScheduleFromTemplate = ({
       porcentaje: template.porcentaje,
       fechaVencimiento: dueDate,
       importe: amount,
+      pagado: 0,
+      saldo: amount,
+      estado: 'pendiente',
+      pagos: [],
     };
   });
 

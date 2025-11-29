@@ -1,4 +1,8 @@
-import type { CreditInstallment, PaymentTermsPayload } from '../../../shared/payments/paymentTerms';
+import type {
+  CreditInstallment,
+  CreditInstallmentStatus,
+  PaymentTermsPayload,
+} from '../../../shared/payments/paymentTerms';
 
 // ===================================================================
 // TIPOS DE DATOS PARA EL SISTEMA DE COMPROBANTES ELECTRÓNICOS
@@ -138,6 +142,13 @@ export interface PaymentLineInput {
   operationNumber?: string;
 }
 
+export interface CreditInstallmentAllocation {
+  installmentNumber: number;
+  amount: number;
+  remaining?: number;
+  status?: CreditInstallmentStatus;
+}
+
 export interface CollectionDocumentPayload {
   seriesId: string;
   seriesCode: string;
@@ -153,6 +164,7 @@ export interface PaymentCollectionPayload {
   cajaDestino?: string;
   fechaCobranza?: string;
   collectionDocument?: CollectionDocumentPayload;
+  allocations?: CreditInstallmentAllocation[];
 }
 
 export type ComprobantePaymentTerms = PaymentTermsPayload;
@@ -162,6 +174,10 @@ export interface ComprobanteCreditTerms {
   schedule: ComprobanteCreditInstallment[];
   fechaVencimientoGlobal: string;
   totalPorcentaje?: number;
+  saldoPendiente?: number;
+  adelanto?: number;
+  cuotasPendientes?: number;
+  cuotasCanceladas?: number;
 }
 
 // Tipos para configuración de caja temporal
