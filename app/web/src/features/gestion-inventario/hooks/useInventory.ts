@@ -173,7 +173,7 @@ export const useInventory = () => {
       console.error('Error al registrar ajuste:', error);
       alert(`❌ Error: ${error instanceof Error ? error.message : 'No se pudo registrar el ajuste'}`);
     }
-  }, [allProducts, warehouses, updateProduct]);
+  }, [allProducts, warehouses, updateProduct, session?.userName, user?.nombre]);
 
   /**
    * Maneja la transferencia de stock
@@ -212,7 +212,7 @@ export const useInventory = () => {
       console.error('Error al registrar transferencia:', error);
       alert(`❌ Error: ${error instanceof Error ? error.message : 'No se pudo realizar la transferencia'}`);
     }
-  }, [allProducts, warehouses, updateProduct]);
+  }, [allProducts, warehouses, updateProduct, session?.userName, user?.nombre]);
 
   /**
    * Maneja actualización masiva de stock
@@ -242,7 +242,7 @@ export const useInventory = () => {
       console.error('Error en actualización masiva:', error);
       alert(`❌ Error: ${error instanceof Error ? error.message : 'No se pudo completar la actualización masiva'}`);
     }
-  }, [allProducts, warehouses, updateProduct]);
+  }, [allProducts, warehouses, updateProduct, session?.userName, user?.nombre]);
 
   /**
    * Abre modal de ajuste para un producto específico

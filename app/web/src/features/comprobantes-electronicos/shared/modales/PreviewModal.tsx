@@ -3,7 +3,7 @@ import { X, Download, Printer, FileText, Receipt, Eye } from 'lucide-react';
 import { PreviewDocument } from '../ui/PreviewDocument';
 import { PreviewTicket } from '../ui/PreviewTicket';
 import { usePreview } from '../../hooks/usePreview';
-import type { CartItem, TipoComprobante, PaymentTotals, Currency } from '../../models/comprobante.types';
+import type { CartItem, TipoComprobante, PaymentTotals, Currency, ComprobanteCreditTerms } from '../../models/comprobante.types';
 
 interface PreviewModalProps {
   isOpen: boolean;
@@ -16,6 +16,7 @@ interface PreviewModalProps {
   currency?: Currency;
   observations?: string;
   internalNotes?: string;
+  creditTerms?: ComprobanteCreditTerms;
   onCreateDocument?: () => void;
 }
 
@@ -30,6 +31,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
   currency = "PEN",
   observations,
   internalNotes,
+  creditTerms,
   onCreateDocument
 }) => {
   const {
@@ -49,7 +51,9 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
     paymentMethod,
     currency,
     observations,
-    internalNotes
+    internalNotes,
+    undefined,
+    creditTerms
   );
 
   const handlePrint = () => {

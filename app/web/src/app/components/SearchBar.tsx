@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Trash2 } from 'lucide-react';
@@ -57,7 +57,7 @@ const SearchBar = () => {
   };
 
   // Comandos para el Command Palette
-  const baseCommands: SystemCommand[] = [
+  const baseCommands: SystemCommand[] = useMemo(() => ([
     // ACCIONES PRINCIPALES
     { id: 'nueva-factura', nombre: 'Nueva Factura', icono: FileText, categoria: 'acciones', atajo: 'Ctrl+F' },
     { id: 'nueva-boleta', nombre: 'Nueva Boleta', icono: Receipt, categoria: 'acciones', atajo: 'Ctrl+B' },
@@ -73,7 +73,7 @@ const SearchBar = () => {
     { id: 'ir-indicadores', nombre: 'Indicadores de Negocio', icono: BarChart3, categoria: 'navegacion', atajo: 'Ctrl+5' },
     { id: 'ir-configuracion', nombre: 'Configuración del Sistema', icono: Settings, categoria: 'navegacion', atajo: 'Ctrl+6' },
     { id: 'ir-precios', nombre: 'Lista de Precios', icono: DollarSign, categoria: 'navegacion', atajo: 'Ctrl+7' },
-  ];
+  ]), []);
 
   // Atajos predefinidos del sistema y navegador
   const predefinedShortcuts = [
@@ -143,7 +143,7 @@ const SearchBar = () => {
     handleStorageChange();
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  }, [baseCommands]);
 
   // Filtrar comandos según búsqueda
   const filteredCommands = allCommands.filter(cmd => 

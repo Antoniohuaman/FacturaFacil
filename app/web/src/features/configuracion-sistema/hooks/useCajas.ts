@@ -1,7 +1,7 @@
 // Custom hook for managing Cajas (Cash Registers)
 // Scoped by empresaId and establecimientoId from ConfigurationContext
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import type { Caja, CreateCajaInput, UpdateCajaInput } from '../models/Caja';
 import { cajasDataSource } from '../api/cajasDataSource';
@@ -46,7 +46,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
   const [error, setError] = useState<string | null>(null);
 
   // Get cajas from context state
-  const cajas = state.cajas || [];
+  const cajas = useMemo(() => state.cajas || [], [state.cajas]);
 
   /**
    * Load cajas for current company and establishment
@@ -100,7 +100,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     } finally {
       setLoading(false);
     }
-  }, [empresaId, establecimientoId, cajas, dispatch]);
+  }, [empresaId, establecimientoId, cajas, dispatch, state.employees]);
 
   /**
    * Update an existing caja
@@ -130,7 +130,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     } finally {
       setLoading(false);
     }
-  }, [empresaId, establecimientoId, cajas, dispatch]);
+  }, [empresaId, establecimientoId, cajas, dispatch, state.employees]);
 
   /**
    * Toggle enabled/disabled state of a caja
@@ -238,7 +238,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     if (empresaId && establecimientoId) {
       void loadCajas();
     }
-  }, [empresaId, establecimientoId]); // Only re-run when these change, not loadCajas
+  }, [empresaId, establecimientoId, loadCajas]);
 
   return {
     cajas,

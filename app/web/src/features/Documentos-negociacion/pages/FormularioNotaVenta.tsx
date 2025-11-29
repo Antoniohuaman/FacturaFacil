@@ -180,7 +180,7 @@ const FormularioNotaVenta = () => {
       if (documentoToEdit.direccionEnvio) optFields.direccionEnvio = documentoToEdit.direccionEnvio;
       setOptionalFields(optFields);
     }
-  }, [isEditMode, documentoToEdit]);
+  }, [isEditMode, documentoToEdit, addProductsFromSelector, changeCurrency, clearCart]);
 
   // Calcular totales
   const totals = calculateTotals(cartItems);

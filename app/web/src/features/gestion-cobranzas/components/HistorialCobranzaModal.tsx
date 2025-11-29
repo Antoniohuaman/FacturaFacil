@@ -32,7 +32,40 @@ export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, for
             <X className="w-5 h-5" />
           </button>
         </header>
-        <div className="px-6 py-5 text-sm">
+        <div className="px-6 py-5 text-sm space-y-5">
+          {cuenta.creditTerms && cuenta.creditTerms.schedule.length > 0 && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-800">
+                <p className="font-semibold">
+                  {cuenta.creditTerms.schedule.length} cuota{cuenta.creditTerms.schedule.length === 1 ? '' : 's'} programada{cuenta.creditTerms.schedule.length === 1 ? '' : 's'}
+                </p>
+                <span>Vencimiento global: {cuenta.creditTerms.fechaVencimientoGlobal}</span>
+              </div>
+              <div className="mt-3 max-h-48 overflow-y-auto rounded-xl border border-emerald-100 bg-white">
+                <table className="w-full text-xs text-emerald-900">
+                  <thead className="bg-emerald-50 text-emerald-700">
+                    <tr>
+                      <th className="px-3 py-1 text-left">#</th>
+                      <th className="px-3 py-1 text-left">Vence</th>
+                      <th className="px-3 py-1 text-left">% total</th>
+                      <th className="px-3 py-1 text-right">Importe</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cuenta.creditTerms.schedule.map((cuota) => (
+                      <tr key={cuota.numeroCuota} className="border-t border-emerald-50">
+                        <td className="px-3 py-1 font-semibold">{cuota.numeroCuota}</td>
+                        <td className="px-3 py-1">{cuota.fechaVencimiento}</td>
+                        <td className="px-3 py-1">{cuota.porcentaje}%</td>
+                        <td className="px-3 py-1 text-right font-semibold">{formatMoney(cuota.importe, cuenta.moneda)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {related.length === 0 ? (
             <div className="text-center text-slate-500 dark:text-gray-400 py-10">
               Aún no existen cobranzas registradas para este comprobante.
@@ -56,7 +89,7 @@ export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, for
                       <td className="px-3 py-2">{item.fechaCobranza}</td>
                       <td className="px-3 py-2 capitalize">{item.medioPago}</td>
                       <td className="px-3 py-2">{item.cajaDestino}</td>
-                      <td className="px-3 py-2 text-right font-semibold">{formatMoney(item.monto)}</td>
+                      <td className="px-3 py-2 text-right font-semibold">{formatMoney(item.monto, item.moneda)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -65,7 +98,7 @@ export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, for
           )}
         </div>
         <footer className="px-6 py-4 border-t border-slate-100 dark:border-gray-800 text-right text-xs text-slate-500">
-          Saldo actual: <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(cuenta.saldo)}</span>
+          Saldo actual: <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(cuenta.saldo, cuenta.moneda)}</span>
         </footer>
       </div>
     </div>

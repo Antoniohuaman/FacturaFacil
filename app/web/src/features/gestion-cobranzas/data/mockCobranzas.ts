@@ -17,6 +17,15 @@ export const cuentasPorCobrarMock: CuentaPorCobrarSummary[] = [
     cobrado: 3500,
     saldo: 9000.45,
     cuotas: 3,
+    creditTerms: {
+      schedule: [
+        { numeroCuota: 1, diasCredito: 30, porcentaje: 40, fechaVencimiento: '2025-12-15', importe: 5000.18 },
+        { numeroCuota: 2, diasCredito: 60, porcentaje: 30, fechaVencimiento: '2026-01-14', importe: 3750.14 },
+        { numeroCuota: 3, diasCredito: 90, porcentaje: 30, fechaVencimiento: '2026-02-13', importe: 3750.13 },
+      ],
+      fechaVencimientoGlobal: '2026-02-13',
+      totalPorcentaje: 100,
+    },
     estado: 'parcial',
     vencido: false,
     sucursal: 'Principal',
@@ -57,6 +66,15 @@ export const cuentasPorCobrarMock: CuentaPorCobrarSummary[] = [
     total: 3200,
     cobrado: 0,
     saldo: 3200,
+    cuotas: 2,
+    creditTerms: {
+      schedule: [
+        { numeroCuota: 1, diasCredito: 45, porcentaje: 50, fechaVencimiento: '2025-12-16', importe: 1600 },
+        { numeroCuota: 2, diasCredito: 90, porcentaje: 50, fechaVencimiento: '2026-01-30', importe: 1600 },
+      ],
+      fechaVencimientoGlobal: '2026-01-30',
+      totalPorcentaje: 100,
+    },
     estado: 'pendiente',
     vencido: false,
     sucursal: 'Principal',

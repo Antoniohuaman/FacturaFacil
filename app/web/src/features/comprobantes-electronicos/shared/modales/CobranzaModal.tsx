@@ -24,6 +24,7 @@ import type {
   PaymentCollectionPayload,
   PaymentLineInput,
   PaymentTotals,
+  ComprobanteCreditTerms,
   TipoComprobante,
 } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
@@ -57,6 +58,8 @@ interface CobranzaModalProps {
   onComplete: (payload: PaymentCollectionPayload) => Promise<boolean> | boolean;
   isProcessing?: boolean;
   establishmentId?: string;
+  creditTerms?: ComprobanteCreditTerms;
+  creditPaymentMethodLabel?: string;
 }
 
 interface PaymentLineForm extends PaymentLineInput {
@@ -152,6 +155,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   onComplete,
   isProcessing = false,
   establishmentId,
+  creditTerms,
+  creditPaymentMethodLabel,
 }) => {
   const { formatPrice } = useCurrency();
   const { state } = useConfigurationContext();
@@ -256,6 +261,9 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     const restantes = cartItems.length - slice.length;
     return { slice, restantes };
   }, [cartItems]);
+
+  const creditInstallments = creditTerms?.schedule ?? [];
+  const creditScheduleLabel = creditPaymentMethodLabel || 'Pago a crédito';
 
   const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
   const diferencia = useMemo(() => totals.total - totalRecibido, [totals.total, totalRecibido]);
@@ -488,7 +496,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const confirmDisabled =
     isProcessing ||
     submitting ||
-    (mode === 'contado' && (!isCajaOpen || !collectionDocumentPreview));
+    (mode === 'contado' && (!isCajaOpen || !collectionDocumentPreview)) ||
+    (mode === 'credito' && creditInstallments.length === 0);
   const handleConfirm = () => {
     void handleSubmit(mode);
   };
@@ -602,6 +611,37 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {creditInstallments.length > 0 && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{creditScheduleLabel}</p>
+                    <h3 className="text-base font-semibold text-emerald-900">
+                      {creditInstallments.length} cuota{creditInstallments.length === 1 ? '' : 's'} programada{creditInstallments.length === 1 ? '' : 's'}
+                    </h3>
+                  </div>
+                  <div className="text-right text-xs text-emerald-700">
+                    <p className="font-semibold">Vence:</p>
+                    <p>{creditTerms?.fechaVencimientoGlobal}</p>
+                  </div>
+                </div>
+                <ul className="space-y-2">
+                  {creditInstallments.slice(0, 3).map((cuota) => (
+                    <li key={cuota.numeroCuota} className="flex items-center justify-between rounded-lg bg-white/70 px-3 py-2 text-sm text-emerald-900">
+                      <div>
+                        <p className="font-semibold">Cuota {cuota.numeroCuota}</p>
+                        <p className="text-xs text-emerald-700">{cuota.fechaVencimiento} • {cuota.porcentaje}%</p>
+                      </div>
+                      <span className="text-sm font-semibold">{formatCurrency(cuota.importe)}</span>
+                    </li>
+                  ))}
+                </ul>
+                {creditInstallments.length > 3 && (
+                  <p className="text-xs text-emerald-700">+{creditInstallments.length - 3} cuota{creditInstallments.length - 3 === 1 ? '' : 's'} adicionales</p>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="space-y-4">
@@ -799,6 +839,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                 <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 px-4 py-3 text-sm text-indigo-900">
                   <p className="font-semibold">Se emitirá a crédito</p>
                   <p className="text-xs text-indigo-900/80">No registraremos movimientos de caja ahora. Podrás registrar el pago cuando se realice la cobranza.</p>
+                  {creditInstallments.length > 0 && (
+                    <p className="mt-1 text-xs text-indigo-900/80">
+                      Cronograma: {creditInstallments.length} cuota{creditInstallments.length === 1 ? '' : 's'} hasta {creditTerms?.fechaVencimientoGlobal}
+                    </p>
+                  )}
                 </div>
               )}
 

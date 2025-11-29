@@ -89,7 +89,7 @@ const ImagenesInput: React.FC<ImagenesInputProps> = ({
         reader.readAsDataURL(file);
       }
     });
-  }, [imagenes]);
+  }, [imagenes, previews]);
 
   return (
     <div className="space-y-2">

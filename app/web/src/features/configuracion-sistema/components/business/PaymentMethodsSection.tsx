@@ -6,7 +6,7 @@ import { DefaultSelector } from '../common/DefaultSelector';
 import { ConfigurationCard } from '../common/ConfigurationCard';
 import CreditScheduleEditor from './CreditScheduleEditor';
 import type { CreditInstallmentDefinition } from '../../../../shared/payments/paymentTerms';
-import { buildCreditPaymentMethodName, validateCreditDefinitionSchedule } from '../../../../shared/payments/paymentTerms';
+import { buildCreditPaymentMethodName, validateCreditScheduleTemplate } from '../../../../shared/payments/paymentTerms';
 
 interface PaymentMethodsSectionProps {
   paymentMethods: PaymentMethod[];
@@ -102,7 +102,7 @@ export function PaymentMethodsSection({
     }
 
     if (formData.code === 'CREDITO' && formData.creditSchedule.length > 0) {
-      const scheduleErrors = validateCreditDefinitionSchedule(formData.creditSchedule);
+      const scheduleErrors = validateCreditScheduleTemplate(formData.creditSchedule);
       if (scheduleErrors.length > 0) {
         setFormErrors(scheduleErrors);
         return;

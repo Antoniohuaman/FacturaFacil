@@ -19,6 +19,32 @@ interface ExportProductsModalProps {
   currentFilters: any;
 }
 
+const AVAILABLE_COLUMNS: ExportColumn[] = [
+  { key: 'codigo', label: 'Código', type: 'text', required: true },
+  { key: 'nombre', label: 'Nombre', type: 'text', required: true },
+  { key: 'precio', label: 'Precio de Venta', type: 'currency' },
+  { key: 'unidad', label: 'Unidad', type: 'text' },
+  { key: 'categoria', label: 'Categoría', type: 'text' },
+  { key: 'impuesto', label: 'Tipo de Impuesto', type: 'text' },
+  { key: 'descripcion', label: 'Descripción', type: 'text' },
+  // Campos avanzados
+  { key: 'alias', label: 'Alias del Producto', type: 'text' },
+  { key: 'precioCompra', label: 'Precio de Compra', type: 'currency' },
+  { key: 'porcentajeGanancia', label: 'Porcentaje de Ganancia (%)', type: 'number' },
+  { key: 'descuentoProducto', label: 'Descuento (%)', type: 'number' },
+  { key: 'codigoBarras', label: 'Código de Barras', type: 'text' },
+  { key: 'codigoFabrica', label: 'Código de Fábrica', type: 'text' },
+  { key: 'codigoSunat', label: 'Código SUNAT', type: 'text' },
+  { key: 'marca', label: 'Marca', type: 'text' },
+  { key: 'modelo', label: 'Modelo', type: 'text' },
+  { key: 'peso', label: 'Peso (KG)', type: 'number' },
+  { key: 'tipoExistencia', label: 'Tipo de Existencia', type: 'text' },
+  { key: 'fechaCreacion', label: 'Fecha de Creación', type: 'date' },
+  { key: 'fechaActualizacion', label: 'Última Actualización', type: 'date' }
+];
+
+const BASIC_COLUMNS = ['codigo', 'nombre', 'precio', 'unidad', 'categoria'];
+
 const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
   isOpen,
   onClose,
@@ -32,39 +58,11 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  // Definir todas las columnas disponibles
-  const availableColumns: ExportColumn[] = [
-    { key: 'codigo', label: 'Código', type: 'text', required: true },
-    { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-    { key: 'precio', label: 'Precio de Venta', type: 'currency' },
-    { key: 'unidad', label: 'Unidad', type: 'text' },
-    { key: 'categoria', label: 'Categoría', type: 'text' },
-    { key: 'impuesto', label: 'Tipo de Impuesto', type: 'text' },
-    { key: 'descripcion', label: 'Descripción', type: 'text' },
-    // Campos avanzados
-    { key: 'alias', label: 'Alias del Producto', type: 'text' },
-    { key: 'precioCompra', label: 'Precio de Compra', type: 'currency' },
-    { key: 'porcentajeGanancia', label: 'Porcentaje de Ganancia (%)', type: 'number' },
-    { key: 'descuentoProducto', label: 'Descuento (%)', type: 'number' },
-    { key: 'codigoBarras', label: 'Código de Barras', type: 'text' },
-    { key: 'codigoFabrica', label: 'Código de Fábrica', type: 'text' },
-    { key: 'codigoSunat', label: 'Código SUNAT', type: 'text' },
-    { key: 'marca', label: 'Marca', type: 'text' },
-    { key: 'modelo', label: 'Modelo', type: 'text' },
-    { key: 'peso', label: 'Peso (KG)', type: 'number' },
-    { key: 'tipoExistencia', label: 'Tipo de Existencia', type: 'text' },
-    { key: 'fechaCreacion', label: 'Fecha de Creación', type: 'date' },
-    { key: 'fechaActualizacion', label: 'Última Actualización', type: 'date' }
-  ];
-
-  // Columnas básicas (las más importantes)
-  const basicColumns = ['codigo', 'nombre', 'precio', 'unidad', 'categoria'];
-
   useEffect(() => {
     if (columnSet === 'basic') {
-      setSelectedColumns(basicColumns);
+      setSelectedColumns([...BASIC_COLUMNS]);
     } else if (columnSet === 'all') {
-      setSelectedColumns(availableColumns.map(col => col.key));
+      setSelectedColumns(AVAILABLE_COLUMNS.map(col => col.key));
     }
   }, [columnSet]);
 
@@ -72,13 +70,13 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
     if (isOpen) {
       setSelectedFormat('excel');
       setColumnSet('basic');
-      setSelectedColumns(basicColumns);
+      setSelectedColumns([...BASIC_COLUMNS]);
       setShowPreview(false);
     }
   }, [isOpen]);
 
   const handleColumnToggle = (columnKey: string) => {
-    const column = availableColumns.find(col => col.key === columnKey);
+    const column = AVAILABLE_COLUMNS.find(col => col.key === columnKey);
     if (column?.required) return; // No permitir desmarcar columnas requeridas
 
     setSelectedColumns(prev => 
@@ -90,9 +88,9 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
 
   const handleSelectAllColumns = (checked: boolean) => {
     if (checked) {
-      setSelectedColumns(availableColumns.map(col => col.key));
+      setSelectedColumns(AVAILABLE_COLUMNS.map(col => col.key));
     } else {
-      const requiredColumns = availableColumns.filter(col => col.required).map(col => col.key);
+      const requiredColumns = AVAILABLE_COLUMNS.filter(col => col.required).map(col => col.key);
       setSelectedColumns(requiredColumns);
     }
   };
@@ -118,7 +116,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
   };
 
   const generateExportData = () => {
-    const selectedColumnObjects = availableColumns.filter(col => 
+    const selectedColumnObjects = AVAILABLE_COLUMNS.filter(col => 
       selectedColumns.includes(col.key)
     );
 
@@ -302,7 +300,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
                       <label className="flex items-center text-sm text-gray-600">
                         <input
                           type="checkbox"
-                          checked={selectedColumns.length === availableColumns.length}
+                          checked={selectedColumns.length === AVAILABLE_COLUMNS.length}
                           onChange={(e) => handleSelectAllColumns(e.target.checked)}
                           className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded mr-2"
                         />
@@ -311,7 +309,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
-                      {availableColumns.map((column) => (
+                      {AVAILABLE_COLUMNS.map((column) => (
                         <label
                           key={column.key}
                           className={`flex items-center px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
@@ -371,7 +369,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            {availableColumns
+                            {AVAILABLE_COLUMNS
                               .filter(col => selectedColumns.includes(col.key))
                               .slice(0, 4)
                               .map((column) => (
@@ -389,7 +387,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
                         <tbody className="bg-white divide-y divide-gray-200">
                           {products.slice(0, 3).map((product, index) => (
                             <tr key={index}>
-                              {availableColumns
+                              {AVAILABLE_COLUMNS
                                 .filter(col => selectedColumns.includes(col.key))
                                 .slice(0, 4)
                                 .map((column) => (

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/autenticacion/pages/TwoFactorPage.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
@@ -45,14 +45,7 @@ export function TwoFactorPage() {
     }
   }, [cooldown]);
 
-  // Auto-submit cuando se completan 6 dígitos
-  useEffect(() => {
-    if (otp?.length === 6 && !isLoading) {
-      handleSubmit(onSubmit)();
-    }
-  }, [otp]);
-
-  const onSubmit = async (data: TwoFactorFormData) => {
+  const onSubmit = useCallback(async (data: TwoFactorFormData) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -74,7 +67,14 @@ export function TwoFactorPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [navigate, requiresContext, verify2FA]);
+
+  // Auto-submit cuando se completan 6 dígitos
+  useEffect(() => {
+    if (otp?.length === 6 && !isLoading) {
+      handleSubmit(onSubmit)();
+    }
+  }, [otp, isLoading, handleSubmit, onSubmit]);
 
   const handleResend = () => {
     // TODO: Implementar reenvío de OTP

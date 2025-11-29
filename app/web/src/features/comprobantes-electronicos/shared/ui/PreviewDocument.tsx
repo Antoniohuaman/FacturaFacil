@@ -20,7 +20,8 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
     paymentMethod,
     cartItems,
     totals,
-    observations
+    observations,
+    creditTerms,
   } = data;
 
   const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
@@ -250,6 +251,38 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
             </div>
           </div>
         </div>
+
+        {creditTerms && creditTerms.schedule.length > 0 && (
+          <div className="mb-6">
+            <h4 className="font-semibold text-xs mb-2">Cronograma de cuotas</h4>
+            <div className="overflow-hidden rounded-lg border border-emerald-200">
+              <table className="w-full text-xs text-gray-700">
+                <thead className="bg-emerald-50 text-emerald-700">
+                  <tr>
+                    <th className="px-2 py-1 text-left">#</th>
+                    <th className="px-2 py-1 text-left">Vencimiento</th>
+                    <th className="px-2 py-1 text-left">% del total</th>
+                    <th className="px-2 py-1 text-right">Importe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {creditTerms.schedule.map((cuota) => (
+                    <tr key={cuota.numeroCuota} className="border-t border-emerald-100">
+                      <td className="px-2 py-1 font-semibold">{cuota.numeroCuota}</td>
+                      <td className="px-2 py-1">{cuota.fechaVencimiento}</td>
+                      <td className="px-2 py-1">{cuota.porcentaje}%</td>
+                      <td className="px-2 py-1 text-right">{currencySymbol} {cuota.importe.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="flex items-center justify-between border-t border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[11px] text-emerald-800">
+                <span>Total cuotas: {creditTerms.schedule.length}</span>
+                <span>Vencimiento global: {creditTerms.fechaVencimientoGlobal}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Observaciones - SIEMPRE DESPUÉS DE LA TABLA */}
         {config.documentFields.observaciones.visible && observations && (

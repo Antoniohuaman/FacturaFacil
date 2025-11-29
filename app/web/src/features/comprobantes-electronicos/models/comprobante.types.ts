@@ -156,6 +156,13 @@ export interface PaymentCollectionPayload {
 }
 
 export type ComprobantePaymentTerms = PaymentTermsPayload;
+export type ComprobanteCreditInstallment = CreditInstallment;
+
+export interface ComprobanteCreditTerms {
+  schedule: ComprobanteCreditInstallment[];
+  fechaVencimientoGlobal: string;
+  totalPorcentaje?: number;
+}
 
 // Tipos para configuración de caja temporal
 export interface CajaIntegrationConfig {
@@ -183,7 +190,7 @@ export interface DraftData {
   totals?: PaymentTotals;
   currency?: Currency;
   vendedor?: string;
-  creditSchedule?: CreditInstallment[];
+  creditTerms?: ComprobanteCreditTerms;
   createdAt: string;
 }
 
@@ -355,6 +362,7 @@ export interface PreviewData {
   totals: PaymentTotals;
   observations?: string;
   internalNotes?: string;
+  creditTerms?: ComprobanteCreditTerms;
 }
 
 export interface DetailedTotals extends PaymentTotals {

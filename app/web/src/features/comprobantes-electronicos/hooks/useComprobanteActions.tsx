@@ -1,8 +1,13 @@
-import type { CreditInstallment } from '../../../shared/payments/paymentTerms';
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import { useCallback } from 'react';
-import type { CartItem, ComprobantePaymentTerms, PaymentCollectionPayload, Currency } from '../models/comprobante.types';
+import type {
+  CartItem,
+  ComprobanteCreditTerms,
+  ComprobantePaymentTerms,
+  PaymentCollectionPayload,
+  Currency,
+} from '../models/comprobante.types';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { lsKey } from '../../../shared/tenant';
 import { mapPaymentMethodToMedioPago } from '../../../shared/payments/paymentMapping';
@@ -45,7 +50,7 @@ interface ComprobanteData {
   currency?: string;
   paymentDetails?: PaymentCollectionPayload;
   paymentTerms?: ComprobantePaymentTerms;
-  creditSchedule?: CreditInstallment[];
+  creditTerms?: ComprobanteCreditTerms;
   registrarPago?: boolean;
 }
 
@@ -177,7 +182,7 @@ export const useComprobanteActions = () => {
       const sucursalNombre = session?.currentEstablishment?.name;
       const cajeroNombre = session?.userName || 'Usuario';
       const fechaEmisionIso = data.fechaEmision || new Date().toISOString().split('T')[0];
-      const fechaVencimientoIso = data.fechaVencimiento;
+      const fechaVencimientoIso = data.creditTerms?.fechaVencimientoGlobal || data.fechaVencimiento;
 
       if (data.paymentDetails?.mode === 'credito') {
         const hoy = new Date();
@@ -198,7 +203,8 @@ export const useComprobanteActions = () => {
           total: data.totals.total,
           cobrado: 0,
           saldo: data.totals.total,
-          cuotas: undefined,
+          cuotas: data.creditTerms?.schedule.length,
+          creditTerms: data.creditTerms,
           estado: 'pendiente',
           vencido: Boolean(vence && vence.getTime() < hoy.getTime()),
           sucursal: sucursalNombre,
@@ -384,7 +390,7 @@ export const useComprobanteActions = () => {
           statusColor: 'blue' as const,
           // Optional fields
           email: data.email,
-          dueDate: data.fechaVencimiento,
+          dueDate: fechaVencimientoIso,
           address: data.address,
           shippingAddress: data.shippingAddress,
           purchaseOrder: data.purchaseOrder,

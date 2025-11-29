@@ -17,7 +17,9 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
     currency,
     paymentMethod,
     cartItems,
-    totals
+    totals,
+    observations,
+    creditTerms,
   } = data;
 
   const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRONICA' : 'FACTURA ELECTRONICA';
@@ -141,10 +143,10 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         </div>
 
         {/* Observaciones - después de productos */}
-        {config.documentFields.observaciones.visible && data.observations && (
+        {config.documentFields.observaciones.visible && observations && (
           <div className="mb-4 pb-4 border-b border-dashed border-gray-400">
             <p className="font-bold text-xs mb-1">{config.documentFields.observaciones.label}:</p>
-            <p className="text-xs">{truncateText(data.observations, 50)}</p>
+            <p className="text-xs">{truncateText(observations, 50)}</p>
           </div>
         )}
 
@@ -175,6 +177,24 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
             </div>
           </div>
         </div>
+
+        {creditTerms && creditTerms.schedule.length > 0 && (
+          <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
+            <p className="font-bold text-xs mb-2">Cronograma de cuotas</p>
+            <div className="space-y-1">
+              {creditTerms.schedule.slice(0, 4).map((cuota) => (
+                <div key={cuota.numeroCuota} className="flex items-center justify-between text-xs">
+                  <span># {cuota.numeroCuota} • {cuota.fechaVencimiento}</span>
+                  <span>{cuota.porcentaje}% / {currencySymbol} {cuota.importe.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            {creditTerms.schedule.length > 4 && (
+              <p className="mt-1 text-[10px] text-gray-500">+{creditTerms.schedule.length - 4} cuota(s) adicionales</p>
+            )}
+            <p className="mt-2 text-[11px] text-gray-600">Vence: {creditTerms.fechaVencimientoGlobal}</p>
+          </div>
+        )}
 
         {/* QR Code */}
         <div className="text-center mb-4">

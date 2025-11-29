@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings2, AlertCircle, ExternalLink, Banknote, Clock } from 'lucide-react';

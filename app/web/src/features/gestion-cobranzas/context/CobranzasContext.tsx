@@ -76,7 +76,8 @@ function computeEstadoCuenta(cuenta: CuentaPorCobrarSummary, newSaldo: number): 
     return 'cancelado';
   }
 
-  const dueDate = cuenta.fechaVencimiento ? new Date(cuenta.fechaVencimiento) : null;
+  const rawDueDate = cuenta.fechaVencimiento || cuenta.creditTerms?.fechaVencimientoGlobal;
+  const dueDate = rawDueDate ? new Date(`${rawDueDate}T00:00:00`) : null;
   const today = new Date();
   if (dueDate && dueDate < today) {
     return 'vencido';

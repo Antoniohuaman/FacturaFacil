@@ -136,7 +136,8 @@ export const SidePreviewPane: React.FC<SidePreviewPaneProps> = ({
       debouncedViewModel.currency as 'PEN' | 'USD',
       debouncedViewModel.observaciones,
       debouncedViewModel.notaInterna,
-      clientData
+      clientData,
+      debouncedViewModel.creditTerms
     );
   }, [debouncedViewModel, generatePreviewData]);
 

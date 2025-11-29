@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components -- archivo de inicialización con helpers; split diferido */
 import { useEffect, useRef } from 'react';
 import { useUserSession } from './UserSessionContext';
 import { useConfigurationContext } from '../features/configuracion-sistema/context/ConfigurationContext';
@@ -65,7 +64,14 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
         }
       }
     }
-  }, [state.establishments.length, state.company?.id]); // Solo dependencias primitivas
+  }, [
+    session,
+    setSession,
+    setCurrentEstablishment,
+    updateAvailableEstablishments,
+    state.company,
+    state.establishments,
+  ]);
 
   return <>{children}</>;
 }

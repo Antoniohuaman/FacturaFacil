@@ -167,10 +167,11 @@ export function useConfiguration(): UseConfigurationReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      setConfiguration(MOCK_CONFIGURATION);
+      const nextConfiguration = MOCK_CONFIGURATION;
+      setConfiguration(nextConfiguration);
       
       // Update modules based on configuration
-      const updatedModules = modules.map(module => {
+      setModules(prevModules => prevModules.map(module => {
         let isConfigured = false;
         let progress = 0;
         
@@ -202,7 +203,7 @@ export function useConfiguration(): UseConfigurationReturn {
             break;
             
           case 'voucher-design':
-            isConfigured = configuration?.billing.voucherDesign !== undefined;
+            isConfigured = nextConfiguration.billing.voucherDesign !== undefined;
             progress = isConfigured ? 100 : 0;
             break;
             
@@ -217,16 +218,14 @@ export function useConfiguration(): UseConfigurationReturn {
           status: isConfigured ? 'CONFIGURED' as const : 'PENDING' as const,
           lastUpdated: isConfigured ? new Date() : undefined,
         };
-      });
-      
-      setModules(updatedModules);
+      }));
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading configuration');
     } finally {
       setLoading(false);
     }
-  }, [state, modules]);
+  }, [state]);
 
   // Update configuration
   const updateConfiguration = useCallback(async (updates: Partial<Configuration>) => {
@@ -361,7 +360,7 @@ export function useConfiguration(): UseConfigurationReturn {
   // Load configuration on mount
   useEffect(() => {
     loadConfiguration();
-  }, []);
+  }, [loadConfiguration]);
 
   return {
     configuration,

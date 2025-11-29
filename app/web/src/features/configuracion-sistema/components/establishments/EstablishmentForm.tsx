@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/establishments/EstablishmentForm.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Building2, Hash, ToggleLeft, ToggleRight, X } from 'lucide-react';
 import type { Establishment } from '../../models/Establishment';
 
@@ -38,6 +38,14 @@ export function EstablishmentForm({
   const [errors, setErrors] = useState<Partial<EstablishmentFormData>>({});
   const [touchedFields, setTouchedFields] = useState<Set<keyof EstablishmentFormData>>(new Set());
 
+  const generateNextCode = useCallback((): string => {
+    let nextNumber = 1;
+    while (existingCodes.includes(`EST${nextNumber.toString().padStart(3, '0')}`)) {
+      nextNumber++;
+    }
+    return `EST${nextNumber.toString().padStart(3, '0')}`;
+  }, [existingCodes]);
+
   // Load existing establishment data
   useEffect(() => {
     if (establishment) {
@@ -53,15 +61,7 @@ export function EstablishmentForm({
       const nextCode = generateNextCode();
       setFormData(prev => ({ ...prev, code: nextCode }));
     }
-  }, [establishment, existingCodes]);
-
-  const generateNextCode = (): string => {
-    let nextNumber = 1;
-    while (existingCodes.includes(`EST${nextNumber.toString().padStart(3, '0')}`)) {
-      nextNumber++;
-    }
-    return `EST${nextNumber.toString().padStart(3, '0')}`;
-  };
+  }, [establishment, generateNextCode]);
 
   const validateField = (field: keyof EstablishmentFormData, value: any): string | undefined => {
     switch (field) {

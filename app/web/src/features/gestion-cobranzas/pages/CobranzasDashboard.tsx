@@ -180,6 +180,8 @@ export const CobranzasDashboard = () => {
         moneda={selectedCuenta?.moneda || 'PEN'}
         formaPago={selectedCuenta?.formaPago}
         onComplete={handleCobranzaComplete}
+        creditTerms={selectedCuenta?.creditTerms}
+        creditPaymentMethodLabel={selectedCuenta?.formaPago === 'credito' ? 'Crédito del comprobante' : selectedCuenta?.formaPago}
       />
 
       <CobranzaDetailModal

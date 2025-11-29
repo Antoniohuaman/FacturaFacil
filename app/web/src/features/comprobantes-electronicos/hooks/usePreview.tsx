@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import type { 
-  CartItem, 
-  TipoComprobante, 
-  PaymentTotals, 
+import type {
+  CartItem,
+  TipoComprobante,
+  PaymentTotals,
   PreviewFormat,
   CompanyData,
   ClientData,
   PreviewData,
-  Currency
+  Currency,
+  ComprobanteCreditTerms,
 } from '../models/comprobante.types';
 
 export const usePreview = () => {
@@ -60,7 +61,8 @@ export const usePreview = () => {
     currency: Currency = "PEN",
     observations?: string,
     internalNotes?: string,
-    clientData?: ClientData
+    clientData?: ClientData,
+    creditTerms?: ComprobanteCreditTerms,
   ): PreviewData => {
     // En vista previa no asignamos correlativo, solo mostramos la serie
     const mockNumber = null; // No correlativo en preview
@@ -80,12 +82,14 @@ export const usePreview = () => {
       series,
       number: mockNumber,
       issueDate,
+      dueDate: creditTerms?.fechaVencimientoGlobal,
       currency,
       paymentMethod,
       cartItems,
       totals,
       observations,
-      internalNotes
+      internalNotes,
+      creditTerms,
     };
   };
 

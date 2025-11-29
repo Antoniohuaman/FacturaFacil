@@ -74,7 +74,17 @@ export const CuentasPorCobrarTable = ({
               <td className="px-4 py-3 text-center text-xs">
                 <span className={cuenta.vencido ? 'text-red-600 font-semibold' : ''}>{cuenta.fechaVencimiento || '-'}</span>
               </td>
-              <td className="px-4 py-3 text-center text-xs capitalize">{cuenta.formaPago}</td>
+              <td className="px-4 py-3 text-center text-xs capitalize">
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="font-medium text-slate-900 dark:text-white">{cuenta.formaPago}</span>
+                  {cuenta.creditTerms && (
+                    <span className="text-[11px] text-slate-500">
+                      {cuenta.creditTerms.schedule.length} cuota{cuenta.creditTerms.schedule.length === 1 ? '' : 's'} ·
+                      vence {cuenta.creditTerms.fechaVencimientoGlobal}
+                    </span>
+                  )}
+                </div>
+              </td>
               <td className="px-4 py-3 text-right font-medium">{formatMoney(cuenta.total)}</td>
               <td className="px-4 py-3 text-right text-slate-500">{formatMoney(cuenta.cobrado)}</td>
               <td className={`px-4 py-3 text-right font-semibold ${cuenta.saldo > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}`}>

@@ -1,7 +1,7 @@
 /* eslint-disable no-case-declarations -- switch con declaraciones; refactor diferido */
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/series/SeriesForm.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, FileText, Receipt, Clipboard, MessageSquare, Building2, Hash, AlertCircle, CheckCircle, Info, NotebookPen } from 'lucide-react';
 import type { Series } from '../../models/Series';
 import type { Establishment } from '../../models/Establishment';
@@ -97,24 +97,7 @@ export function SeriesForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (series) {
-      setFormData({
-        type: series.documentType.category as VoucherType,
-        series: series.series,
-        establishmentId: series.establishmentId,
-        initialNumber: series.configuration.startNumber,
-        currentNumber: series.correlativeNumber,
-        isDefault: series.isDefault,
-        isActive: series.isActive
-      });
-    } else {
-      // Auto-generate series code for new series
-      handleTypeChange('INVOICE');
-    }
-  }, [series, existingSeries]);
-
-  const generateSeriesCode = (type: VoucherType): string => {
+  const generateSeriesCode = useCallback((type: VoucherType): string => {
     const config = voucherTypeConfig[type];
     
     if (!config.prefix) {
@@ -141,7 +124,28 @@ export function SeriesForm({
     
     const nextNumber = Math.max(0, ...existingNumbers) + 1;
     return `${config.prefix}${nextNumber.toString().padStart(3, '0')}`;
-  };
+  }, [existingSeries]);
+
+  useEffect(() => {
+    if (series) {
+      setFormData({
+        type: series.documentType.category as VoucherType,
+        series: series.series,
+        establishmentId: series.establishmentId,
+        initialNumber: series.configuration.startNumber,
+        currentNumber: series.correlativeNumber,
+        isDefault: series.isDefault,
+        isActive: series.isActive
+      });
+    } else {
+      // Auto-generate series code for new series
+      setFormData(prev => ({
+        ...prev,
+        type: 'INVOICE',
+        series: generateSeriesCode('INVOICE'),
+      }));
+    }
+  }, [series, generateSeriesCode]);
 
   const handleTypeChange = (type: VoucherType) => {
     const newSeries = generateSeriesCode(type);

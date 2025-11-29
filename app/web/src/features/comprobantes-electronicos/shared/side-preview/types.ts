@@ -4,6 +4,8 @@
 // Tipos mínimos para el panel lateral de previsualización
 // ===================================================================
 
+import type { ComprobanteCreditTerms } from '../../models/comprobante.types';
+
 export interface SidePreviewPaneProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,6 +26,7 @@ export interface SidePreviewPaneProps {
     clientDoc?: string;
     fechaEmision?: string;
     optionalFields?: Record<string, any>;
+    creditTerms?: ComprobanteCreditTerms;
   };
   
   // Validación y errores

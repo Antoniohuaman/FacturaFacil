@@ -38,7 +38,7 @@ import { SuccessModal } from '../shared/modales/SuccessModal';
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
@@ -46,6 +46,13 @@ import type { ClientData, PaymentCollectionPayload } from '../models/comprobante
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { validateComprobanteNormativa, validateComprobanteReadyForCobranza } from '../shared/core/comprobanteValidation';
 import { CobranzaModal } from '../shared/modales/CobranzaModal';
+import { useCreditTermsConfigurator } from '../hooks/useCreditTermsConfigurator';
+import { CreditScheduleSummaryCard } from '../shared/payments/CreditScheduleSummaryCard';
+import { CreditScheduleModal } from '../shared/payments/CreditScheduleModal';
+import type { CreditInstallmentDefinition } from '../../../shared/payments/paymentTerms';
+
+const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
+  items.map((item) => ({ ...item }));
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
@@ -122,10 +129,26 @@ const EmisionTradicional = () => {
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
   const [lookupClient, setLookupClient] = useState<{ data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' } | null>(null);
+  const [showCreditScheduleModal, setShowCreditScheduleModal] = useState(false);
+  const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
   const { createCliente } = useClientes();
 
   // Calculate totals
   const totals = calculateTotals(cartItems);
+
+  const {
+    paymentMethod: selectedPaymentMethod,
+    isCreditMethod,
+    templates: creditTemplates,
+    setTemplates: setCreditTemplates,
+    errors: creditTemplateErrors,
+    creditTerms,
+    restoreDefaults: restoreCreditTemplates,
+  } = useCreditTermsConfigurator({
+    paymentMethodId: formaPago,
+    total: totals.total,
+    issueDate: fechaEmision,
+  });
 
   // ✅ View model para side preview
   const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {
@@ -140,7 +163,8 @@ const EmisionTradicional = () => {
     client: clienteSeleccionadoGlobal?.nombre,
     clientDoc: clienteSeleccionadoGlobal?.dni,
     fechaEmision,
-    optionalFields
+    optionalFields,
+    creditTerms,
   } : null;
 
   const hasMinimumDataForPreview = ENABLE_SIDE_PREVIEW_EMISION &&
@@ -169,6 +193,34 @@ const EmisionTradicional = () => {
     cartItems,
     totals,
   }), [cartItems, currentCurrency, draftClientData, fechaEmision, formaPago, serieSeleccionada, tipoComprobante, totals]);
+
+  useEffect(() => {
+    if (!isCreditMethod && showCreditScheduleModal) {
+      setShowCreditScheduleModal(false);
+      creditTemplatesBackupRef.current = null;
+    }
+  }, [isCreditMethod, showCreditScheduleModal]);
+
+  const handleOpenCreditScheduleModal = () => {
+    if (!isCreditMethod) {
+      return;
+    }
+    creditTemplatesBackupRef.current = cloneCreditTemplates(creditTemplates);
+    setShowCreditScheduleModal(true);
+  };
+
+  const handleCancelCreditScheduleModal = () => {
+    if (creditTemplatesBackupRef.current) {
+      setCreditTemplates(cloneCreditTemplates(creditTemplatesBackupRef.current));
+    }
+    creditTemplatesBackupRef.current = null;
+    setShowCreditScheduleModal(false);
+  };
+
+  const handleSaveCreditScheduleModal = () => {
+    creditTemplatesBackupRef.current = null;
+    setShowCreditScheduleModal(false);
+  };
 
 
   // Handler para abrir modal de nueva forma de pago
@@ -206,6 +258,12 @@ const EmisionTradicional = () => {
     if (!ensureDataBeforeCobranza()) {
       return;
     }
+    if (isCreditMethod && creditTemplateErrors.length > 0) {
+      creditTemplateErrors.forEach((validationError) =>
+        error('Cronograma de crédito incompleto', validationError),
+      );
+      return;
+    }
     setShowCobranzaModal(true);
   };
 
@@ -220,6 +278,23 @@ const EmisionTradicional = () => {
     if (!isCredito && !isCajaOpen) {
       error('Caja cerrada', 'Abre una caja para registrar cobranzas al contado. También puedes emitir a crédito.');
       return false;
+    }
+
+    if (isCredito) {
+      if (!isCreditMethod) {
+        error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito para emitir en cuotas.');
+        return false;
+      }
+      if (creditTemplateErrors.length > 0) {
+        creditTemplateErrors.forEach((validationError) =>
+          error('Cronograma de crédito incompleto', validationError),
+        );
+        return false;
+      }
+      if (!creditTerms) {
+        error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
+        return false;
+      }
     }
 
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
@@ -256,6 +331,7 @@ const EmisionTradicional = () => {
         costCenter: optionalFields.centroCosto,
         waybill: optionalFields.guiaRemision,
         paymentDetails: paymentPayload,
+        creditTerms: isCredito ? creditTerms : undefined,
         registrarPago: paymentPayload?.mode !== 'credito'
       });
 
@@ -405,6 +481,19 @@ const EmisionTradicional = () => {
               refreshKey={productSelectorKey}
             />
 
+            {isCreditMethod && (
+              <div className="mt-6">
+                <CreditScheduleSummaryCard
+                  creditTerms={creditTerms}
+                  currency={currentCurrency}
+                  total={totals.total}
+                  onConfigure={handleOpenCreditScheduleModal}
+                  errors={creditTemplateErrors}
+                  paymentMethodName={selectedPaymentMethod?.name}
+                />
+              </div>
+            )}
+
             {/* Notes Section - ✅ Renderizado condicional según configuración */}
             {fieldsConfig.notesSection && (
               <NotesSection
@@ -496,6 +585,8 @@ const EmisionTradicional = () => {
           onComplete={handleCobranzaComplete}
           isProcessing={isProcessing}
           establishmentId={session?.currentEstablishmentId}
+          creditTerms={creditTerms}
+          creditPaymentMethodLabel={selectedPaymentMethod?.name}
         />
 
         <PreviewModal
@@ -509,6 +600,7 @@ const EmisionTradicional = () => {
           currency={currentCurrency}
           observations={observaciones}
           internalNotes={notaInterna}
+          creditTerms={creditTerms}
         />
 
         {/* Modal de éxito con acciones de compartir */}
@@ -521,6 +613,17 @@ const EmisionTradicional = () => {
             onNewSale={handleNewSale}
           />
         )}
+
+        <CreditScheduleModal
+          isOpen={showCreditScheduleModal}
+          templates={creditTemplates}
+          onChange={setCreditTemplates}
+          onSave={handleSaveCreditScheduleModal}
+          onCancel={handleCancelCreditScheduleModal}
+          onRestoreDefaults={restoreCreditTemplates}
+          errors={creditTemplateErrors}
+          paymentMethodName={selectedPaymentMethod?.name}
+        />
 
         {/* Modal para crear nueva forma de pago */}
         <PaymentMethodFormModal

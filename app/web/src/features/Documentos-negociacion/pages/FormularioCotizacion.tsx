@@ -203,7 +203,7 @@ const FormularioCotizacion = () => {
         });
       }
     }
-  }, [isEditMode, documentoToEdit]);
+  }, [isEditMode, documentoToEdit, addProductsFromSelector, changeCurrency, clearCart]);
 
   // ===================================================================
   // GUARDAR BORRADOR
