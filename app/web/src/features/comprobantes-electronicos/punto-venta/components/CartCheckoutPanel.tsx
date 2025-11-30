@@ -46,7 +46,6 @@ interface CartCheckoutPanelProps extends CartSidebarProps {
   creditScheduleErrors?: string[];
   creditPaymentMethodName?: string;
   onEmitWithoutPayment?: () => void;
-  onEmitCreditDirect?: () => void;
 }
 
 interface ClientePOS {
@@ -83,7 +82,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   creditScheduleErrors,
   creditPaymentMethodName,
   onEmitWithoutPayment,
-  onEmitCreditDirect,
 }) => {
   const { formatPrice, changeCurrency } = useCurrency();
 
@@ -173,31 +171,23 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   // Estado de la caja
   const isCashBoxClosed = cashBoxStatus === 'closed';
   const canProcessSale = !isProcessing && cartItems.length > 0;
-  const primaryDisabled = !canProcessSale || (isCreditPaymentSelection ? !onEmitCreditDirect : false);
-  const secondaryDisabled = !canProcessSale || (isCreditPaymentSelection ? !onConfirmSale : !onEmitWithoutPayment);
-  const primaryLabel = isCreditPaymentSelection ? 'Emitir a crédito' : 'Registrar pago y emitir';
-  const secondaryLabel = isCreditPaymentSelection ? 'Emitir y registrar abono' : 'Emitir sin cobrar';
+  const primaryDisabled = !canProcessSale || !onConfirmSale;
+  const secondaryDisabled = !canProcessSale || !onEmitWithoutPayment;
+  const primaryLabel = 'Emitir y cobrar';
+  const secondaryLabel = 'Emitir sin cobrar';
 
   const handlePrimaryAction = () => {
-    if (primaryDisabled) {
-      return;
-    }
-    if (isCreditPaymentSelection) {
-      onEmitCreditDirect?.();
+    if (primaryDisabled || !onConfirmSale) {
       return;
     }
     onConfirmSale();
   };
 
   const handleSecondaryAction = () => {
-    if (secondaryDisabled) {
+    if (secondaryDisabled || !onEmitWithoutPayment) {
       return;
     }
-    if (isCreditPaymentSelection) {
-      onConfirmSale();
-      return;
-    }
-    onEmitWithoutPayment?.();
+    onEmitWithoutPayment();
   };
 
   // Calcular descuento aplicado
@@ -836,7 +826,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               )}
             </button>
 
-            {(isCreditPaymentSelection ? onConfirmSale : onEmitWithoutPayment) && (
+            {onEmitWithoutPayment && (
               <button
                 onClick={handleSecondaryAction}
                 disabled={secondaryDisabled}

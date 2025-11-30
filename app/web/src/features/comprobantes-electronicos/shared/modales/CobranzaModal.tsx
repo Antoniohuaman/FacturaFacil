@@ -55,13 +55,14 @@ interface ValidateCollectedAmountInput {
   totalRecibido: number;
   totalDocumento: number;
   tolerance: number;
+  allowPartial?: boolean;
 }
 
-const validateCollectedAmount = ({ context, totalRecibido, totalDocumento, tolerance: amountTolerance }: ValidateCollectedAmountInput): string | null => {
+const validateCollectedAmount = ({ context, totalRecibido, totalDocumento, tolerance: amountTolerance, allowPartial = false }: ValidateCollectedAmountInput): string | null => {
   const received = clampCurrency(totalRecibido);
   const documentTotal = clampCurrency(totalDocumento);
 
-  if (context === 'cobranzas') {
+  if (context === 'cobranzas' || allowPartial) {
     if (received <= amountTolerance) {
       return 'Ingresa un monto mayor a 0.';
     }
@@ -149,6 +150,7 @@ interface CobranzaModalProps {
   modeIntent?: PaymentCollectionMode;
   installmentsState?: CobranzaInstallmentState[];
   context?: CobranzaModalContextType;
+  onIssueWithoutPayment?: () => Promise<boolean> | boolean;
 }
 
 interface PaymentLineForm extends PaymentLineInput {
@@ -287,6 +289,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   modeIntent,
   installmentsState,
   context = 'emision',
+  onIssueWithoutPayment,
 }) => {
   const { formatPrice } = useCurrency();
   const { state } = useConfigurationContext();
@@ -461,10 +464,23 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   }, [cartItems]);
 
   const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
-  const diferencia = useMemo(() => totals.total - totalRecibido, [totals.total, totalRecibido]);
+  const allowAllocations = mode === 'contado' && hasCreditSchedule;
+  const totalAllocationAmount = useMemo(
+    () => allocationDrafts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0),
+    [allocationDrafts],
+  );
+
+  const effectiveTotalRecibido = useMemo(() => {
+    if (allowAllocations && isCobranzasContext) {
+      return totalAllocationAmount;
+    }
+    return totalRecibido;
+  }, [allowAllocations, isCobranzasContext, totalAllocationAmount, totalRecibido]);
+
+  const diferencia = useMemo(() => totals.total - effectiveTotalRecibido, [effectiveTotalRecibido, totals.total]);
   const differenceValue = isCobranzasContext ? Math.max(0, diferencia) : Math.abs(diferencia);
-  const formattedDifference = formatCurrency(differenceValue);
   const differenceStatus = diferencia > tolerance ? 'faltante' : diferencia < -tolerance ? 'vuelto' : 'ajustado';
+  const formattedDifference = formatCurrency(differenceValue);
   const differenceChipClass = isCobranzasContext
     ? 'bg-slate-100 text-slate-700'
     : differenceStatus === 'ajustado'
@@ -474,8 +490,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     : 'bg-sky-100 text-sky-700';
   const differenceChipLabel = isCobranzasContext ? 'Saldo restante' : 'Diferencia';
 
-  const allowAllocations = mode === 'contado' && hasCreditSchedule;
-
   const handleAllocationChange = useCallback((allocations: CreditInstallmentAllocationInput[]) => {
     setAllocationDrafts(allocations);
   }, []);
@@ -484,31 +498,110 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     setAllocationDrafts([]);
   }, []);
 
-  const totalAllocationAmount = useMemo(
-    () => allocationDrafts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0),
-    [allocationDrafts],
-  );
-  const allocationDelta = useMemo(
-    () => clampCurrency(totalRecibido - totalAllocationAmount),
-    [totalAllocationAmount, totalRecibido],
+  const alignPaymentLinesWithTarget = useCallback((lines: PaymentLineForm[], targetAmount: number): PaymentLineForm[] => {
+    if (!lines.length) {
+      return lines;
+    }
+
+    const sanitizedTarget = clampCurrency(targetAmount);
+    const baseTotal = lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+
+    if (baseTotal <= tolerance) {
+      return lines.map((line, index) => ({
+        ...line,
+        amount: index === 0 ? sanitizedTarget : 0,
+      }));
+    }
+
+    let remaining = sanitizedTarget;
+    const adjusted = lines.map((line, index) => {
+      if (index === lines.length - 1) {
+        const amount = clampCurrency(remaining);
+        remaining = clampCurrency(remaining - amount);
+        return { ...line, amount };
+      }
+      const proportion = (Number(line.amount) || 0) / baseTotal;
+      const amount = clampCurrency(sanitizedTarget * proportion);
+      remaining = clampCurrency(remaining - amount);
+      return { ...line, amount };
+    });
+
+    if (Math.abs(remaining) > tolerance && adjusted.length) {
+      const lastIndex = adjusted.length - 1;
+      adjusted[lastIndex] = {
+        ...adjusted[lastIndex],
+        amount: clampCurrency(adjusted[lastIndex].amount + remaining),
+      };
+    }
+
+    return adjusted;
+  }, []);
+
+  const buildPaymentLinesPayload = useCallback(
+    (modeToSend: PaymentCollectionMode, targetAmountOverride?: number): PaymentLineInput[] => {
+      if (modeToSend !== 'contado') {
+        return [];
+      }
+
+      let workingLines = paymentLines.map((line) => ({
+        ...line,
+        amount: clampCurrency(Number(line.amount) || 0),
+      }));
+
+      const targetAmount = typeof targetAmountOverride === 'number' ? clampCurrency(targetAmountOverride) : undefined;
+      const requiresAlignment =
+        isCobranzasContext &&
+        allowAllocations &&
+        typeof targetAmount === 'number' &&
+        Math.abs(workingLines.reduce((sum, line) => sum + (line.amount || 0), 0) - targetAmount) > tolerance;
+
+      if (requiresAlignment && typeof targetAmount === 'number') {
+        workingLines = alignPaymentLinesWithTarget(workingLines, targetAmount);
+      }
+
+      return workingLines.map((line) => ({
+        id: line.id,
+        method: line.method,
+        amount: line.amount,
+        bank: line.bank,
+        reference: line.reference,
+        operationNumber: line.operationNumber,
+      }));
+    },
+    [alignPaymentLinesWithTarget, allowAllocations, isCobranzasContext, paymentLines],
   );
 
-  const allocationsReady = !allowAllocations || (allocationDrafts.length > 0 && Math.abs(allocationDelta) <= tolerance);
+  const allocationMismatch = useMemo(() => {
+    if (!allowAllocations) {
+      return false;
+    }
+    return Math.abs(clampCurrency(totalAllocationAmount - effectiveTotalRecibido)) > tolerance;
+  }, [allowAllocations, effectiveTotalRecibido, totalAllocationAmount]);
+
+  const allocationsReady = !allowAllocations || (allocationDrafts.length > 0 && !allocationMismatch);
+
+  const allocationDifferenceDisplay = useMemo(
+    () => clampCurrency(effectiveTotalRecibido - totalAllocationAmount),
+    [effectiveTotalRecibido, totalAllocationAmount],
+  );
 
   const allocationStatus = useMemo(() => {
     if (!allowAllocations) {
       return null;
     }
     if (allocationDrafts.length === 0) {
-      return totalRecibido > tolerance
+      return effectiveTotalRecibido > tolerance
         ? ({ tone: 'warn', text: 'Selecciona al menos una cuota para aplicar el cobro.' } as const)
         : null;
     }
-    if (Math.abs(allocationDelta) > tolerance) {
+    if (allocationMismatch) {
       return { tone: 'warn', text: 'El monto distribuido debe coincidir con el monto recibido.' } as const;
     }
-    return { tone: 'ok', text: 'El adelanto se aplicará a las cuotas seleccionadas.' } as const;
-  }, [allowAllocations, allocationDelta, allocationDrafts.length, totalRecibido]);
+    return {
+      tone: 'ok',
+      text: isCobranzasContext ? 'El cobro se aplicará a las cuotas seleccionadas.' : 'El adelanto se aplicará a las cuotas seleccionadas.',
+    } as const;
+  }, [allowAllocations, allocationDrafts.length, allocationMismatch, effectiveTotalRecibido, isCobranzasContext]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -548,6 +641,13 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   }, [cobranzasSeries, isOpen]);
 
   useEffect(() => {
+    if (!isOpen || !cajaAbiertaNombre) {
+      return;
+    }
+    setCajaDestino(cajaAbiertaNombre);
+  }, [cajaAbiertaNombre, isOpen]);
+
+  useEffect(() => {
     if (!isOpen) {
       return;
     }
@@ -555,6 +655,27 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       setAllocationDrafts([]);
     }
   }, [allowAllocations, allocationDrafts.length, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !isCobranzasContext || !allowAllocations) {
+      return;
+    }
+    setPaymentLines((prev) => {
+      if (prev.length !== 1) {
+        return prev;
+      }
+      const currentAmount = Number(prev[0].amount) || 0;
+      if (Math.abs(currentAmount - totalAllocationAmount) <= tolerance) {
+        return prev;
+      }
+      return [
+        {
+          ...prev[0],
+          amount: clampCurrency(totalAllocationAmount),
+        },
+      ];
+    });
+  }, [allowAllocations, isCobranzasContext, isOpen, totalAllocationAmount]);
 
   const handleAddLine = useCallback(() => {
     setPaymentLines((prev) => {
@@ -609,9 +730,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       const amountValidationError = validateCollectedAmount({
         context,
-        totalRecibido,
+        totalRecibido: effectiveTotalRecibido,
         totalDocumento: totals.total,
         tolerance,
+        allowPartial: allowAllocations && !isCobranzasContext,
       });
       if (amountValidationError) {
         setErrorMessage(amountValidationError);
@@ -624,7 +746,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           return false;
         }
 
-        if (Math.abs(totalAllocationAmount - totalRecibido) > tolerance) {
+        if (Math.abs(totalAllocationAmount - effectiveTotalRecibido) > tolerance) {
           setErrorMessage('La distribución debe coincidir con el monto recibido.');
           return false;
         }
@@ -642,7 +764,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       setErrorMessage(null);
       return true;
     },
-    [allowAllocations, allocationDrafts, cobranzaInstallmentsSnapshot, context, mode, paymentLines, totalAllocationAmount, totalRecibido, totals.total],
+    [allowAllocations, allocationDrafts, cobranzaInstallmentsSnapshot, context, effectiveTotalRecibido, isCobranzasContext, mode, paymentLines, totalAllocationAmount, totals.total],
   );
 
   const buildAllocationPayload = useCallback((): CreditInstallmentAllocation[] => {
@@ -674,7 +796,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     async (targetMode: PaymentCollectionMode) => {
       setErrorMessage(null);
 
-      const enforcedMode: PaymentCollectionMode = esBoleta ? 'contado' : targetMode;
+      const enforcedMode: PaymentCollectionMode = targetMode;
 
       if (enforcedMode === 'contado' && !isCajaOpen) {
         setErrorMessage('Abre una caja para registrar el cobro.');
@@ -693,17 +815,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       const payload: PaymentCollectionPayload = {
         mode: enforcedMode,
-        lines:
-          enforcedMode === 'contado'
-            ? paymentLines.map((line) => ({
-                id: line.id,
-                method: line.method,
-                amount: Number(line.amount),
-                bank: line.bank,
-                reference: line.reference,
-                operationNumber: line.operationNumber,
-              }))
-            : [],
+        lines: enforcedMode === 'contado' ? buildPaymentLinesPayload(enforcedMode, effectiveTotalRecibido) : [],
         cajaDestino: enforcedMode === 'contado' ? cajaDestino || undefined : undefined,
         fechaCobranza: enforcedMode === 'contado' ? fechaCobranza || undefined : undefined,
         notes: notas || undefined,
@@ -735,25 +847,50 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         setSubmitting(false);
       }
     },
-    [buildAllocationPayload, cajaDestino, collectionDocumentPreview, esBoleta, fechaCobranza, incrementSeriesCorrelative, isCajaOpen, notas, onComplete, paymentLines, validatePayment],
+    [buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionDocumentPreview, effectiveTotalRecibido, fechaCobranza, incrementSeriesCorrelative, isCajaOpen, notas, onComplete, validatePayment],
   );
 
   const supportMessage =
     mode === 'contado'
       ? 'Registra el cobro ahora para actualizar el saldo pendiente.'
       : 'Emitirás la venta a crédito sin mover caja por ahora.';
-  const confirmLabel = mode === 'contado' ? 'Registrar pago y emitir' : 'Emitir a crédito';
-  const confirmDisabled =
+  const documentLabel = tipoComprobante === 'factura' ? 'factura' : 'boleta';
+  const cobrarButtonLabel = `Emitir ${documentLabel} y Cobrar`;
+  const cobrarDisabled =
     isProcessing ||
     submitting ||
-    (mode === 'contado' && (!isCajaOpen || !collectionDocumentPreview)) ||
-    (mode === 'credito' && !hasCreditSchedule) ||
+    mode !== 'contado' ||
+    !isCajaOpen ||
+    !collectionDocumentPreview ||
     !allocationsReady;
+  const emitirSinCobrarDisabled = isProcessing || submitting || !onIssueWithoutPayment;
+  const showEmitirSinCobrar = context === 'emision' && Boolean(onIssueWithoutPayment);
   const disableBackdropClose = isProcessing || submitting;
 
-  const handleConfirm = useCallback(() => {
-    void handleSubmit(mode);
-  }, [handleSubmit, mode]);
+  const handleCobrar = useCallback(() => {
+    void handleSubmit('contado');
+  }, [handleSubmit]);
+
+  const handleIssueWithoutPayment = useCallback(() => {
+    if (!onIssueWithoutPayment || submitting) {
+      return;
+    }
+    setErrorMessage(null);
+    setSubmitting(true);
+    Promise.resolve(onIssueWithoutPayment())
+      .then((result) => {
+        if (!result) {
+          setErrorMessage('No se pudo emitir sin cobrar. Intenta nuevamente.');
+        }
+      })
+      .catch((issueError) => {
+        console.error('Error al emitir sin cobrar:', issueError);
+        setErrorMessage('Ocurrió un error al emitir sin cobrar. Intenta nuevamente.');
+      })
+      .finally(() => {
+        setSubmitting(false);
+      });
+  }, [onIssueWithoutPayment, submitting]);
 
   if (!isOpen) return null;
 
@@ -862,9 +999,9 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                     {allowAllocations && (
                       <div className="mt-4 space-y-3">
                         <div className="flex flex-wrap gap-3 text-xs font-semibold text-emerald-900">
-                          <span className="rounded-full bg-emerald-50 px-3 py-1">Recibido: {formatCurrency(totalRecibido)}</span>
+                          <span className="rounded-full bg-emerald-50 px-3 py-1">Recibido: {formatCurrency(effectiveTotalRecibido)}</span>
                           <span className="rounded-full bg-emerald-50 px-3 py-1">Distribuido: {formatCurrency(totalAllocationAmount)}</span>
-                          <span className="rounded-full bg-emerald-50 px-3 py-1">Diferencia: {formatCurrency(Math.abs(allocationDelta))}</span>
+                          <span className="rounded-full bg-emerald-50 px-3 py-1">Diferencia: {formatCurrency(Math.abs(allocationDifferenceDisplay))}</span>
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
                           {allocationStatus && (
@@ -968,17 +1105,28 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                         <div className="grid gap-3 sm:grid-cols-2">
                           <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             Caja destino / banco
-                            <select
-                              value={cajaDestino}
-                              onChange={(event) => setCajaDestino(event.target.value)}
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                            >
-                              {cajaOptions.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
+                            {cajaAbiertaNombre ? (
+                              <>
+                                <input
+                                  value={cajaDestino}
+                                  readOnly
+                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                                />
+                                <span className="mt-1 block text-[11px] font-medium text-emerald-700">Este cobro irá a tu caja abierta.</span>
+                              </>
+                            ) : (
+                              <select
+                                value={cajaDestino}
+                                onChange={(event) => setCajaDestino(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                              >
+                                {cajaOptions.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </label>
                           <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             Concepto
@@ -1034,7 +1182,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                             </div>
                             <div className="space-y-3 text-[13px] text-slate-600">
                               <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                Forma de pago
+                                Método de pago
                                 <select
                                   className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
                                   value={line.method}
@@ -1115,36 +1263,48 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
               <span className="rounded-full bg-slate-100 px-3 py-1">Total: {formatCurrency(totals.total)}</span>
               {mode === 'contado' && (
                 <>
-                  <span className="rounded-full bg-slate-100 px-3 py-1">Recibido: {formatCurrency(totalRecibido)}</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1">Recibido: {formatCurrency(effectiveTotalRecibido)}</span>
                   <span className={`rounded-full px-3 py-1 ${differenceChipClass}`}>
                     {differenceChipLabel}: {formattedDifference}
                   </span>
                 </>
               )}
             </div>
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={disableBackdropClose}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={confirmDisabled}
-                className={`rounded-full px-5 py-2 text-sm font-semibold text-white transition ${
-                  confirmDisabled
-                    ? 'bg-slate-300 cursor-not-allowed'
-                    : mode === 'contado'
-                    ? 'bg-indigo-600 hover:bg-indigo-700'
-                    : 'bg-emerald-600 hover:bg-emerald-700'
-                }`}
-              >
-                {confirmLabel}
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {showEmitirSinCobrar && (
+                  <button
+                    type="button"
+                    onClick={handleIssueWithoutPayment}
+                    disabled={emitirSinCobrarDisabled}
+                    className={`rounded-full border px-5 py-2 text-sm font-semibold transition ${
+                      emitirSinCobrarDisabled
+                        ? 'border-slate-200 text-slate-400 cursor-not-allowed'
+                        : 'border-slate-300 text-slate-700 hover:border-slate-400 hover:text-indigo-600'
+                    }`}
+                  >
+                    Emitir sin cobrar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleCobrar}
+                  disabled={cobrarDisabled}
+                  className={`rounded-full px-5 py-2 text-sm font-semibold text-white transition ${
+                    cobrarDisabled ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
+                >
+                  {cobrarButtonLabel}
+                </button>
+              </div>
             </div>
           </div>
         </footer>

@@ -166,89 +166,74 @@ const PuntoVenta = () => {
   }, [buildCobranzaValidationInput, warning]);
 
   // Handlers (SIN CAMBIOS - exactamente igual que antes)
+  const validateCreditSchedule = (notify: (title: string, message: string) => void = warning) => {
+    if (!isCreditMethod) {
+      notify('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
+      return false;
+    }
+    if (creditTemplateErrors.length > 0) {
+      creditTemplateErrors.forEach((validationError) =>
+        notify('Cronograma de crédito incompleto', validationError),
+      );
+      return false;
+    }
+    if (!creditTerms) {
+      notify('Cronograma no disponible', 'No se pudo generar el cronograma de crédito para esta venta.');
+      return false;
+    }
+    return true;
+  };
+
   const handleConfirmSale = () => {
     if (!ensureDataBeforeCobranza('Faltan datos para procesar la venta', isCreditPaymentSelection ? 'credito' : undefined)) {
       return;
     }
-    if (isCreditMethod) {
-      if (creditTemplateErrors.length > 0) {
-        creditTemplateErrors.forEach((validationError) =>
-          warning('Cronograma de crédito incompleto', validationError),
-        );
-        return;
-      }
-      if (!creditTerms) {
-        warning('Cronograma no disponible', 'No se pudo generar el cronograma de crédito para esta venta.');
-        return;
-      }
+    if (isCreditPaymentSelection && !validateCreditSchedule()) {
+      return;
+    }
+    if (!isCajaOpen) {
+      warning('Caja cerrada', 'Abre una caja para registrar el cobro o emite sin cobrar.');
+      return;
     }
     setShowCobranzaModal(true);
   };
 
-  const handleEmitirSinCobranza = () => {
-    if (!ensureDataBeforeCobranza('Faltan datos para emitir sin cobrar')) {
-      return;
+  const handleEmitirSinCobranza = async () => {
+    const paymentModeForValidation: PaymentCollectionMode | undefined = isCreditPaymentSelection ? 'credito' : undefined;
+    if (!ensureDataBeforeCobranza('Faltan datos para emitir sin cobrar', paymentModeForValidation)) {
+      return false;
     }
-    void handleCrearComprobante();
-  };
-
-  const handleEmitirCreditoDirecto = () => {
-    if (!isCreditPaymentSelection) {
-      handleConfirmSale();
-      return;
+    if (isCreditPaymentSelection && !validateCreditSchedule()) {
+      return false;
     }
-    if (!ensureDataBeforeCobranza('Faltan datos para emitir a crédito', 'credito')) {
-      return;
+    const success = await handleCrearComprobante();
+    if (success) {
+      setShowCobranzaModal(false);
     }
-    if (creditTemplateErrors.length > 0) {
-      creditTemplateErrors.forEach((validationError) =>
-        warning('Cronograma de crédito incompleto', validationError),
-      );
-      return;
-    }
-    if (!creditTerms) {
-      warning('Cronograma no disponible', 'No se pudo generar el cronograma de crédito para esta venta.');
-      return;
-    }
-    void handleCrearComprobante({
-      mode: 'credito',
-      lines: [],
-    });
+    return success;
   };
 
   const handleCrearComprobante = async (paymentPayload?: PaymentCollectionPayload): Promise<boolean> => {
-    const isCredito = paymentPayload?.mode === 'credito';
+    const isCreditSale = isCreditPaymentSelection || paymentPayload?.mode === 'credito';
+    const isRegisteringCobro = paymentPayload?.mode === 'contado';
 
     if (isProcessing) {
       error('Proceso en ejecución', 'Espera a que termine la operación anterior antes de continuar');
       return false;
     }
 
-    if (!isCredito && !isCajaOpen) {
-      error('Caja cerrada', 'Abre una caja para registrar pagos al contado. También puedes emitir a crédito.');
+    if (isRegisteringCobro && !isCajaOpen) {
+      error('Caja cerrada', 'Abre una caja para registrar pagos al contado. También puedes emitir sin cobrar.');
       return false;
     }
 
-    if (isCredito) {
-      if (!isCreditMethod) {
-        error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito para emitir en cuotas.');
-        return false;
-      }
-      if (creditTemplateErrors.length > 0) {
-        creditTemplateErrors.forEach((validationError) =>
-          error('Cronograma de crédito incompleto', validationError),
-        );
-        return false;
-      }
-      if (!creditTerms) {
-        error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Configúralo nuevamente.');
-        return false;
-      }
+    if (isCreditSale && !validateCreditSchedule(error)) {
+      return false;
     }
 
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
       onError: (validationError) => error('No se puede procesar', validationError.message),
-      paymentMode: paymentPayload?.mode,
+      paymentMode: isCreditSale ? 'credito' : paymentPayload?.mode,
     });
 
     if (!validation.isValid) {
@@ -272,9 +257,9 @@ const PuntoVenta = () => {
         client: clienteDraftData?.nombre,
         clientDoc: clienteDraftData?.documento,
         fechaEmision,
-        paymentDetails: paymentPayload,
-        creditTerms: isCredito ? creditTerms : undefined,
-        registrarPago: paymentPayload?.mode !== 'credito'
+        paymentDetails: isRegisteringCobro ? paymentPayload : undefined,
+        creditTerms: isCreditSale ? creditTerms : undefined,
+        registrarPago: Boolean(isRegisteringCobro && paymentPayload?.lines.length)
       });
 
       if (success) {
@@ -404,8 +389,9 @@ const PuntoVenta = () => {
             creditTerms={creditTerms}
             creditScheduleErrors={creditTemplateErrors}
             creditPaymentMethodName={selectedPaymentMethod?.name}
-            onEmitWithoutPayment={handleEmitirSinCobranza}
-            onEmitCreditDirect={handleEmitirCreditoDirecto}
+            onEmitWithoutPayment={() => {
+              void handleEmitirSinCobranza();
+            }}
           />
         </div>
 
@@ -434,6 +420,7 @@ const PuntoVenta = () => {
           isProcessing={isProcessing}
           creditTerms={creditTerms}
           creditPaymentMethodLabel={selectedPaymentMethod?.name}
+          onIssueWithoutPayment={handleEmitirSinCobranza}
         />
 
         <CreditScheduleModal

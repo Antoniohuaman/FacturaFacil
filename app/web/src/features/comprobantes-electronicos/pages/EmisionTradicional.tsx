@@ -259,12 +259,13 @@ const EmisionTradicional = () => {
     return validation.isValid;
   };
 
-  const handleOpenCobranzaModal = (targetMode: PaymentCollectionMode) => {
-    if (!ensureDataBeforeCobranza(targetMode)) {
+  const handleOpenCobranzaModal = () => {
+    const paymentModeForValidation: PaymentCollectionMode | undefined = isCreditPaymentSelection ? 'credito' : undefined;
+    if (!ensureDataBeforeCobranza(paymentModeForValidation)) {
       return;
     }
 
-    if (targetMode === 'credito') {
+    if (isCreditPaymentSelection) {
       if (!isCreditMethod) {
         error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
         return;
@@ -281,52 +282,68 @@ const EmisionTradicional = () => {
       }
     }
 
-    if (targetMode === 'contado' && !isCajaOpen) {
+    if (!isCajaOpen) {
       error('Caja cerrada', 'Abre una caja para registrar cobranzas al contado o emite a crédito.');
       return;
     }
 
-    setCobranzaMode(targetMode === 'credito' ? 'credito' : 'contado');
+    setCobranzaMode('contado');
     setShowCobranzaModal(true);
   };
 
-  const handleEmitirSinCobrar = async () => {
-    if (!ensureDataBeforeCobranza()) {
-      return;
+  const handleEmitirSinCobrar = async (): Promise<boolean> => {
+    const paymentModeForValidation: PaymentCollectionMode | undefined = isCreditPaymentSelection ? 'credito' : undefined;
+    if (!ensureDataBeforeCobranza(paymentModeForValidation)) {
+      return false;
     }
-    await handleCrearComprobante();
+
+    if (isCreditPaymentSelection) {
+      if (!isCreditMethod) {
+        error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
+        return false;
+      }
+      if (creditTemplateErrors.length > 0) {
+        creditTemplateErrors.forEach((validationError) =>
+          error('Cronograma de crédito incompleto', validationError),
+        );
+        return false;
+      }
+      if (!creditTerms) {
+        error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
+        return false;
+      }
+    }
+
+    const success = await handleCrearComprobante();
+    if (success) {
+      setShowCobranzaModal(false);
+    }
+    return Boolean(success);
   };
 
   const handlePrimaryAction = () => {
-    if (isCreditPaymentSelection) {
-      handleOpenCobranzaModal('credito');
-      return;
-    }
-    handleOpenCobranzaModal('contado');
+    handleOpenCobranzaModal();
   };
 
   const handleSecondaryAction = () => {
-    if (isCreditPaymentSelection) {
-      handleOpenCobranzaModal('contado');
-      return;
-    }
     void handleEmitirSinCobrar();
   };
 
   const handleCrearComprobante = async (paymentPayload?: PaymentCollectionPayload): Promise<boolean> => {
-    const isCredito = paymentPayload?.mode === 'credito';
+    const isCreditSale = isCreditPaymentSelection || paymentPayload?.mode === 'credito';
+    const isRegisteringCobro = paymentPayload?.mode === 'contado';
 
     if (isProcessing) {
       error('Proceso en ejecución', 'Espera a que termine la operación anterior antes de continuar');
       return false;
     }
 
-    if (!isCredito && !isCajaOpen) {
-      error('Caja cerrada', 'Abre una caja para registrar cobranzas al contado. También puedes emitir a crédito.');
+    if (isRegisteringCobro && !isCajaOpen) {
+      error('Caja cerrada', 'Abre una caja para registrar cobranzas al contado. También puedes emitir sin cobrar.');
       return false;
     }
 
-    if (isCredito) {
+    if (isCreditSale) {
       if (!isCreditMethod) {
         error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito para emitir en cuotas.');
         return false;
@@ -345,7 +362,7 @@ const EmisionTradicional = () => {
 
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
       onError: (validationError) => error('No se puede procesar', validationError.message),
-      paymentMode: paymentPayload?.mode,
+      paymentMode: isCreditSale ? 'credito' : paymentPayload?.mode,
     });
 
     if (!validation.isValid) {
@@ -376,9 +393,9 @@ const EmisionTradicional = () => {
         purchaseOrder: optionalFields.ordenCompra,
         costCenter: optionalFields.centroCosto,
         waybill: optionalFields.guiaRemision,
-        paymentDetails: paymentPayload,
-        creditTerms: isCredito ? creditTerms : undefined,
-        registrarPago: paymentPayload?.mode !== 'credito'
+        paymentDetails: isRegisteringCobro ? paymentPayload : undefined,
+        creditTerms: isCreditSale ? creditTerms : undefined,
+        registrarPago: Boolean(isRegisteringCobro && paymentPayload?.lines.length)
       });
 
       if (success) {
@@ -558,16 +575,16 @@ const EmisionTradicional = () => {
               isCartEmpty={cartItems.length === 0}
               productsCount={cartItems.length}
               primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
-                label: isCreditPaymentSelection ? 'Emitir a crédito' : 'Registrar pago y emitir',
+                label: 'Emitir y cobrar',
                 onClick: handlePrimaryAction,
                 disabled: isProcessing || cartItems.length === 0,
-                title: isCreditPaymentSelection ? 'Generar el comprobante sin registrar cobro' : 'Ir al cobro para registrar el pago',
+                title: 'Abrir el modal de cobranza para registrar este pago',
               } : undefined}
               secondaryAction={fieldsConfig.actionButtons.crearComprobante ? {
-                label: isCreditPaymentSelection ? 'Emitir y registrar abono' : 'Emitir sin cobrar',
+                label: 'Emitir sin cobrar',
                 onClick: handleSecondaryAction,
                 disabled: isProcessing || cartItems.length === 0,
-                title: isCreditPaymentSelection ? 'Registrar un abono inicial antes de cerrar la venta' : 'Emitir el comprobante dejando el cobro pendiente',
+                title: 'Emitir el comprobante dejando el saldo pendiente',
               } : undefined}
             />
             </div>
@@ -645,6 +662,7 @@ const EmisionTradicional = () => {
           creditTerms={creditTerms}
           creditPaymentMethodLabel={selectedPaymentMethod?.name}
           modeIntent={cobranzaMode}
+          onIssueWithoutPayment={handleEmitirSinCobrar}
         />
 
         <PreviewModal
