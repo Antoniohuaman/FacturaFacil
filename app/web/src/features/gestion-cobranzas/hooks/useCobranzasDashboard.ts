@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useCobranzasContext } from '../context/CobranzasContext';
 import type {
+  CobranzaDocumento,
   CobranzaFilters,
   CobranzaTabKey,
   CobranzasSummary,
+  CobranzaStatus,
+  CuentaPorCobrarSummary,
 } from '../models/cobranzas.types';
 import { DEFAULT_COBRANZA_FILTERS } from '../utils/constants';
 
@@ -16,6 +19,43 @@ const inRange = (date: string, from: string, to: string) => {
   const fromTime = from ? new Date(from).getTime() : Number.NEGATIVE_INFINITY;
   const toTime = to ? new Date(to).getTime() : Number.POSITIVE_INFINITY;
   return time >= fromTime && time <= toTime;
+};
+
+const ALLOWED_ACCOUNT_STATES: CobranzaStatus[] = ['pendiente', 'parcial', 'vencido'];
+const INSTALLMENT_TOLERANCE = 0.01;
+
+const hasPendingInstallments = (cuenta: CuentaPorCobrarSummary) => {
+  if (typeof cuenta.pendingInstallmentsCount === 'number') {
+    return cuenta.pendingInstallmentsCount > 0;
+  }
+
+  if (cuenta.installments?.length) {
+    return cuenta.installments.some((installment) => installment.remaining > INSTALLMENT_TOLERANCE);
+  }
+
+  return false;
+};
+
+const hasOutstandingBalance = (cuenta: CuentaPorCobrarSummary) => cuenta.saldo > INSTALLMENT_TOLERANCE;
+
+const shouldDisplayCuenta = (cuenta: CuentaPorCobrarSummary) => {
+  if (!ALLOWED_ACCOUNT_STATES.includes(cuenta.estado)) {
+    return false;
+  }
+
+  return hasPendingInstallments(cuenta) || hasOutstandingBalance(cuenta);
+};
+
+const isFullyPaidCobranza = (cobranza: CobranzaDocumento) => {
+  if (cobranza.estado === 'cancelado') {
+    return true;
+  }
+
+  if (typeof cobranza.installmentsInfo?.pending === 'number') {
+    return cobranza.installmentsInfo.pending <= 0;
+  }
+
+  return false;
 };
 
 export const useCobranzasDashboard = () => {
@@ -41,6 +81,10 @@ export const useCobranzasDashboard = () => {
 
   const filteredCuentas = useMemo(() => {
     return cuentas.filter((cuenta) => {
+      if (!shouldDisplayCuenta(cuenta)) {
+        return false;
+      }
+
       if (!inRange(cuenta.fechaEmision, filters.rangoFechas.from, filters.rangoFechas.to)) {
         return false;
       }
@@ -71,6 +115,10 @@ export const useCobranzasDashboard = () => {
 
   const filteredCobranzas = useMemo(() => {
     return cobranzas.filter((cobranza) => {
+      if (!isFullyPaidCobranza(cobranza)) {
+        return false;
+      }
+
       if (!inRange(cobranza.fechaCobranza, filters.rangoFechas.from, filters.rangoFechas.to)) {
         return false;
       }

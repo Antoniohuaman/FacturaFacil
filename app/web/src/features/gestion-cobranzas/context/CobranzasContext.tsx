@@ -263,6 +263,22 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         ? computeAccountStateFromInstallments(installmentsAfterPayment)
         : null;
 
+      const totalInstallmentsAfterPayment = installmentsSummary?.totalInstallments
+        ?? input.cuenta.totalInstallments
+        ?? input.cuenta.creditTerms?.schedule?.length
+        ?? 0;
+      const pendingInstallmentsAfterPayment = installmentsSummary?.pendingInstallmentsCount
+        ?? input.cuenta.pendingInstallmentsCount
+        ?? (totalInstallmentsAfterPayment > 0 ? totalInstallmentsAfterPayment : 0);
+      const paidInstallmentsAfterPayment = Math.max(0, totalInstallmentsAfterPayment - pendingInstallmentsAfterPayment);
+      const documentInstallmentsInfo = totalInstallmentsAfterPayment > 0
+        ? {
+            total: totalInstallmentsAfterPayment,
+            pending: pendingInstallmentsAfterPayment,
+            paid: paidInstallmentsAfterPayment,
+          }
+        : undefined;
+
       const nuevoCobrado = installmentsSummary
         ? installmentsSummary.cobrado
         : Math.min(input.cuenta.total, input.cuenta.cobrado + montoRedondeado);
@@ -273,7 +289,13 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
       const estadoPorCuotas: CobranzaStatus = installmentsSummary?.accountStatus ?? (nuevoSaldo <= 0 ? 'cancelado' : 'parcial');
       const estadoPorFecha = computeEstadoCuenta(input.cuenta, nuevoSaldo);
       const estadoCuenta = estadoPorFecha === 'vencido' ? 'vencido' : estadoPorCuotas;
-      const estadoDocumento: CobranzaStatus = nuevoSaldo <= 0 ? 'cancelado' : 'parcial';
+      const estadoDocumento: CobranzaStatus = documentInstallmentsInfo
+        ? documentInstallmentsInfo.pending === 0
+          ? 'cancelado'
+          : 'parcial'
+        : nuevoSaldo <= 0
+          ? 'cancelado'
+          : 'parcial';
 
       const collectionDocument = input.payload.collectionDocument;
       const numeroDocumento = collectionDocument?.fullNumber || fallbackCollectionNumber();
@@ -299,6 +321,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         referencia: collectionDocument?.fullNumber,
         notas: input.payload.notes,
         collectionSeriesId: collectionDocument?.seriesId,
+        installmentsInfo: documentInstallmentsInfo,
       };
 
       const cuentaUpdate: Partial<CuentaPorCobrarSummary> = {

@@ -852,10 +852,12 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
   const supportMessage =
     mode === 'contado'
-      ? 'Registra el cobro ahora para actualizar el saldo pendiente.'
+      ? isCobranzasContext
+        ? 'Registra la cobranza para actualizar el saldo pendiente.'
+        : 'Registra el cobro ahora para actualizar el saldo pendiente.'
       : 'Emitirás la venta a crédito sin mover caja por ahora.';
   const documentLabel = tipoComprobante === 'factura' ? 'factura' : 'boleta';
-  const cobrarButtonLabel = `Emitir ${documentLabel} y Cobrar`;
+  const cobrarButtonLabel = isCobranzasContext ? 'Registrar Cobranza' : `Emitir ${documentLabel} y Cobrar`;
   const cobrarDisabled =
     isProcessing ||
     submitting ||

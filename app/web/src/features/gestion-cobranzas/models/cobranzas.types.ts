@@ -68,6 +68,11 @@ export interface CobranzaDocumento {
   referencia?: string;
   notas?: string;
   collectionSeriesId?: string;
+  installmentsInfo?: {
+    total: number;
+    pending: number;
+    paid: number;
+  };
 }
 
 export interface CobranzaFilters {

@@ -209,6 +209,13 @@ const PuntoVenta = () => {
     const success = await handleCrearComprobante();
     if (success) {
       setShowCobranzaModal(false);
+      const highlightedCuentaId = sessionStorage.getItem('lastCreatedReceivableId') || undefined;
+      navigate('/cobranzas', {
+        state: {
+          defaultTab: 'cuentas',
+          highlightCuentaId: highlightedCuentaId,
+        },
+      });
     }
     return success;
   };

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Coins, NotebookPen } from 'lucide-react';
 import type {
   Currency,
@@ -22,7 +22,7 @@ import { CobranzaDetailModal } from '../components/CobranzaDetailModal';
 import { HistorialCobranzaModal } from '../components/HistorialCobranzaModal';
 import { SeleccionarCuentaModal } from '../components/SeleccionarCuentaModal';
 import { useCobranzasDashboard } from '../hooks/useCobranzasDashboard';
-import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../models/cobranzas.types';
+import type { CobranzaDocumento, CuentaPorCobrarSummary, CobranzaTabKey } from '../models/cobranzas.types';
 
 const resolveTipoComprobante = (label?: string): TipoComprobante => {
   if (!label) {
@@ -33,6 +33,8 @@ const resolveTipoComprobante = (label?: string): TipoComprobante => {
 
 export const CobranzasDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = (location.state as { defaultTab?: CobranzaTabKey; highlightCuentaId?: string } | null) ?? null;
   const { toasts, removeToast, success } = useToast();
   const { formatPrice } = useCurrency();
   const {
@@ -49,6 +51,53 @@ export const CobranzasDashboard = () => {
     cuentas,
     cobranzas,
   } = useCobranzasDashboard();
+  const [highlightCuentaId, setHighlightCuentaId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!locationState) {
+      return;
+    }
+    if (locationState.defaultTab) {
+      setActiveTab(locationState.defaultTab);
+    }
+    if (locationState.highlightCuentaId) {
+      setHighlightCuentaId(locationState.highlightCuentaId);
+    }
+    navigate(location.pathname, { replace: true, state: null });
+  }, [locationState, navigate, location.pathname, setActiveTab]);
+
+  useEffect(() => {
+    if (highlightCuentaId || locationState?.highlightCuentaId) {
+      return;
+    }
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const storedId = window.sessionStorage.getItem('lastCreatedReceivableId');
+    if (storedId) {
+      setHighlightCuentaId(storedId);
+      window.sessionStorage.removeItem('lastCreatedReceivableId');
+      setActiveTab('cuentas');
+    }
+  }, [highlightCuentaId, locationState, setActiveTab]);
+
+  useEffect(() => {
+    if (!highlightCuentaId) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => setHighlightCuentaId(null), 6000);
+    return () => window.clearTimeout(timeoutId);
+  }, [highlightCuentaId]);
+
+  useEffect(() => {
+    if (!highlightCuentaId) {
+      return;
+    }
+    const exists = filteredCuentas.some((cuenta) => cuenta.id === highlightCuentaId);
+    if (!exists) {
+      setHighlightCuentaId(null);
+    }
+  }, [filteredCuentas, highlightCuentaId]);
 
   const [selectedCuenta, setSelectedCuenta] = useState<CuentaPorCobrarSummary | null>(null);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
@@ -135,7 +184,7 @@ export const CobranzasDashboard = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700"
             >
               <NotebookPen className="w-4 h-4" />
-              Registrar cobranza
+              Registrar Cobranza
             </button>
           </div>
         </div>
@@ -157,6 +206,7 @@ export const CobranzasDashboard = () => {
           onRegistrarCobranza={handleRegistrarCobranza}
           onVerComprobante={(cuenta) => handleVerComprobante(cuenta.comprobanteId)}
           onVerHistorial={(cuenta) => setHistorialCuenta(cuenta)}
+          highlightId={highlightCuentaId}
         />
       ) : (
         <CobranzasTable

@@ -317,6 +317,13 @@ const EmisionTradicional = () => {
     const success = await handleCrearComprobante();
     if (success) {
       setShowCobranzaModal(false);
+      const highlightedCuentaId = sessionStorage.getItem('lastCreatedReceivableId') || undefined;
+      navigate('/cobranzas', {
+        state: {
+          defaultTab: 'cuentas',
+          highlightCuentaId: highlightedCuentaId,
+        },
+      });
     }
     return Boolean(success);
   };

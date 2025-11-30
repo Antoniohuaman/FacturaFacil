@@ -7,6 +7,7 @@ interface CuentasPorCobrarTableProps {
   onRegistrarCobranza: (cuenta: CuentaPorCobrarSummary) => void;
   onVerComprobante: (cuenta: CuentaPorCobrarSummary) => void;
   onVerHistorial: (cuenta: CuentaPorCobrarSummary) => void;
+  highlightId?: string | null;
 }
 
 const statusBadgeClass = (estado: CuentaPorCobrarSummary['estado']) => {
@@ -24,13 +25,21 @@ const statusBadgeClass = (estado: CuentaPorCobrarSummary['estado']) => {
 };
 
 const resolveInstallmentStats = (cuenta: CuentaPorCobrarSummary) => {
-  if (typeof cuenta.totalInstallments !== 'number' || typeof cuenta.pendingInstallmentsCount !== 'number') {
-    return null;
+  let total = cuenta.totalInstallments;
+  let pending = cuenta.pendingInstallmentsCount;
+  const partial = cuenta.partialInstallmentsCount ?? 0;
+
+  if (typeof total !== 'number' && cuenta.creditTerms?.schedule?.length) {
+    total = cuenta.creditTerms.schedule.length;
   }
 
-  const total = cuenta.totalInstallments;
-  const pending = cuenta.pendingInstallmentsCount;
-  const partial = cuenta.partialInstallmentsCount ?? 0;
+  if (typeof pending !== 'number' && typeof total === 'number') {
+    pending = total;
+  }
+
+  if (typeof total !== 'number' || typeof pending !== 'number') {
+    return null;
+  }
 
   return {
     total,
@@ -46,14 +55,9 @@ export const CuentasPorCobrarTable = ({
   onRegistrarCobranza,
   onVerComprobante,
   onVerHistorial,
+  highlightId,
 }: CuentasPorCobrarTableProps) => {
-  if (!data.length) {
-    return (
-      <div className="mt-6 bg-white dark:bg-gray-800 border border-dashed border-slate-300 dark:border-gray-700 rounded-xl p-8 text-center text-sm text-slate-500 dark:text-gray-400">
-        No hay cuentas pendientes con los filtros seleccionados.
-      </div>
-    );
-  }
+  const hasData = data.length > 0;
 
   return (
     <div className="mt-6 overflow-x-auto bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-sm">
@@ -74,10 +78,16 @@ export const CuentasPorCobrarTable = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-slate-700 dark:text-gray-100">
-          {data.map((cuenta) => {
+          {hasData ? data.map((cuenta) => {
             const installmentStats = resolveInstallmentStats(cuenta);
+            const isHighlighted = Boolean(highlightId && highlightId === cuenta.id);
             return (
-              <tr key={cuenta.id} className="hover:bg-slate-50/70 dark:hover:bg-gray-900/40 transition-colors">
+              <tr
+                key={cuenta.id}
+                className={`hover:bg-slate-50/70 dark:hover:bg-gray-900/40 transition-colors ${
+                  isHighlighted ? 'bg-blue-50/80 dark:bg-blue-900/30 ring-2 ring-blue-200 dark:ring-blue-800' : ''
+                }`}
+              >
               <td className="px-4 py-3">
                 <div className="flex flex-col gap-0.5">
                   <span className="font-medium text-slate-900 dark:text-white">{cuenta.clienteNombre}</span>
@@ -106,11 +116,12 @@ export const CuentasPorCobrarTable = ({
                 </div>
               </td>
               <td className="px-4 py-3 text-center text-xs">
-                {installmentStats ? (
+                {installmentStats && installmentStats.total > 0 ? (
                   <div className="flex flex-col items-center gap-0.5 text-slate-600">
                     <span className="font-semibold text-slate-900 dark:text-white">
-                      Pendientes {installmentStats.pending}/{installmentStats.total}
+                      {installmentStats.pending}/{installmentStats.total}
                     </span>
+                    <span className="text-[11px] text-slate-500">Cuotas pendientes</span>
                     {installmentStats.partial > 0 && (
                       <span className="text-[11px] text-amber-600">{installmentStats.partial} en parcial</span>
                     )}
@@ -139,9 +150,10 @@ export const CuentasPorCobrarTable = ({
                     type="button"
                     onClick={() => onRegistrarCobranza(cuenta)}
                     className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
+                    title="Registrar Cobranza"
                   >
                     <Wallet className="w-3.5 h-3.5" />
-                    Cobrar
+                    Registrar Cobranza
                   </button>
                   <button
                     type="button"
@@ -163,7 +175,13 @@ export const CuentasPorCobrarTable = ({
               </td>
               </tr>
             );
-          })}
+          }) : (
+            <tr>
+              <td colSpan={11} className="px-4 py-10 text-center text-sm text-slate-500">
+                No hay cuentas pendientes con los filtros seleccionados.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
       <footer className="px-4 py-3 text-xs text-slate-500 flex items-center justify-between border-t border-slate-100 dark:border-gray-700">

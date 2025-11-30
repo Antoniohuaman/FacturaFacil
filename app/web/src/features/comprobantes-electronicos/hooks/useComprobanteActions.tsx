@@ -19,6 +19,11 @@ import { useToast } from '../shared/ui/Toast/useToast';
 import { devLocalIndicadoresStore, mapCartItemsToVentaProductos } from '../../indicadores-negocio/integration/devLocalStore';
 import { useCobranzasContext } from '../../gestion-cobranzas/context/CobranzasContext';
 import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../../gestion-cobranzas/models/cobranzas.types';
+import {
+  computeAccountStateFromInstallments,
+  normalizeCreditTermsToInstallments,
+  updateInstallmentsWithAllocations,
+} from '../../gestion-cobranzas/utils/installments';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -183,11 +188,51 @@ export const useComprobanteActions = () => {
       const cajeroNombre = session?.userName || 'Usuario';
       const fechaEmisionIso = data.fechaEmision || new Date().toISOString().split('T')[0];
       const fechaVencimientoIso = data.creditTerms?.fechaVencimientoGlobal || data.fechaVencimiento;
+      const isCreditSale = Boolean(data.creditTerms);
+      let createdCuenta: CuentaPorCobrarSummary | null = null;
 
-      if (data.paymentDetails?.mode === 'credito') {
+      if (isCreditSale) {
         const hoy = new Date();
         const vence = fechaVencimientoIso ? new Date(`${fechaVencimientoIso}T00:00:00`) : null;
-        const cuenta: CuentaPorCobrarSummary = {
+        const installmentsSnapshot = normalizeCreditTermsToInstallments(data.creditTerms);
+        const initialSummary = installmentsSnapshot.length
+          ? computeAccountStateFromInstallments(installmentsSnapshot)
+          : {
+              saldo: data.totals.total,
+              cobrado: 0,
+              totalInstallments: installmentsSnapshot.length,
+              pendingInstallmentsCount: installmentsSnapshot.length,
+              partialInstallmentsCount: 0,
+              accountStatus: 'pendiente' as const,
+            };
+        const initialAllocations =
+          data.paymentDetails?.mode === 'contado' && Array.isArray(data.paymentDetails.allocations)
+            ? data.paymentDetails.allocations
+            : [];
+        const installmentsAfterIssue = initialAllocations.length
+          ? updateInstallmentsWithAllocations(installmentsSnapshot, initialAllocations)
+          : installmentsSnapshot;
+        const summaryAfterIssue = installmentsAfterIssue.length
+          ? computeAccountStateFromInstallments(installmentsAfterIssue)
+          : initialSummary;
+        const collectedOnIssue = data.paymentDetails?.mode === 'contado'
+          ? data.paymentDetails.lines.reduce((acc, line) => acc + (Number(line.amount) || 0), 0)
+          : 0;
+        let saldoInicial = summaryAfterIssue.saldo;
+        let cobradoInicial = summaryAfterIssue.cobrado;
+
+        if (collectedOnIssue > 0 && initialAllocations.length === 0) {
+          cobradoInicial = Math.min(data.totals.total, cobradoInicial + collectedOnIssue);
+          saldoInicial = Math.max(0, data.totals.total - cobradoInicial);
+        }
+
+        const totalInstallments = installmentsAfterIssue.length || summaryAfterIssue.totalInstallments || data.creditTerms?.schedule.length || 0;
+        const pendingInstallmentsCount = summaryAfterIssue.pendingInstallmentsCount ?? (totalInstallments || 0);
+        const partialInstallmentsCount = summaryAfterIssue.partialInstallmentsCount ?? 0;
+        const estadoBase = saldoInicial <= 0 ? 'cancelado' : cobradoInicial > 0 ? 'parcial' : 'pendiente';
+        const estadoCuenta = vence && saldoInicial > 0 && vence.getTime() < hoy.getTime() ? 'vencido' : estadoBase;
+
+        createdCuenta = {
           id: numeroComprobante,
           comprobanteId: numeroComprobante,
           comprobanteSerie: serieCode || data.serieSeleccionada,
@@ -201,17 +246,26 @@ export const useComprobanteActions = () => {
           formaPago: 'credito',
           moneda: resolvedCurrency,
           total: data.totals.total,
-          cobrado: 0,
-          saldo: data.totals.total,
+          cobrado: Number(cobradoInicial.toFixed(2)),
+          saldo: Number(saldoInicial.toFixed(2)),
           cuotas: data.creditTerms?.schedule.length,
           creditTerms: data.creditTerms,
-          estado: 'pendiente',
-          vencido: Boolean(vence && vence.getTime() < hoy.getTime()),
+          installments: installmentsAfterIssue,
+          totalInstallments,
+          pendingInstallmentsCount,
+          partialInstallmentsCount,
+          estado: estadoCuenta,
+          vencido: estadoCuenta === 'vencido',
           sucursal: sucursalNombre,
           cajero: cajeroNombre,
         };
-        upsertCuenta(cuenta);
-      } else if (
+        upsertCuenta(createdCuenta);
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem('lastCreatedReceivableId', createdCuenta.id);
+        }
+      }
+
+      if (
         data.paymentDetails?.mode === 'contado' &&
         data.paymentDetails.collectionDocument
       ) {
@@ -219,6 +273,24 @@ export const useComprobanteActions = () => {
           (acc, line) => acc + (Number(line.amount) || 0),
           0
         );
+        const installmentsInfo = createdCuenta
+          ? (() => {
+              const totalCuotas = createdCuenta.totalInstallments ?? createdCuenta.installments?.length ?? createdCuenta.creditTerms?.schedule.length ?? 0;
+              const pendingCuotas = createdCuenta.pendingInstallmentsCount ?? totalCuotas;
+              return totalCuotas > 0
+                ? {
+                    total: totalCuotas,
+                    pending: pendingCuotas,
+                    paid: Math.max(0, totalCuotas - pendingCuotas),
+                  }
+                : undefined;
+            })()
+          : undefined;
+        const estadoCobranza = installmentsInfo
+          ? installmentsInfo.pending === 0
+            ? 'cancelado'
+            : 'parcial'
+          : 'cancelado';
         const cobranzaDocumento: CobranzaDocumento = {
           id: `cbza-${Date.now()}`,
           numero: data.paymentDetails.collectionDocument.fullNumber,
@@ -235,10 +307,11 @@ export const useComprobanteActions = () => {
           cajaDestino: data.paymentDetails.cajaDestino || 'Caja Principal',
           moneda: resolvedCurrency,
           monto: montoCobrado,
-          estado: 'cancelado',
+          estado: estadoCobranza,
           referencia: numeroComprobante,
           notas: data.paymentDetails.notes,
           collectionSeriesId: data.paymentDetails.collectionDocument.seriesId,
+          installmentsInfo,
         };
         addCobranzaDocument(cobranzaDocumento);
       }

@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../models/cobranzas.types';
+import type { CobranzaDocumento, CobranzaInstallmentState, CuentaPorCobrarSummary } from '../models/cobranzas.types';
 import { normalizeCreditTermsToInstallments } from '../utils/installments';
 
 interface HistorialCobranzaModalProps {
@@ -11,12 +11,40 @@ interface HistorialCobranzaModalProps {
 }
 
 const INSTALLMENT_TOLERANCE = 0.01;
+const clampCurrency = (value: number) => Number(Number(value ?? 0).toFixed(2));
+
+const resolveInstallmentStatus = (amountOriginal: number, amountPaid: number, remaining: number): CobranzaInstallmentState['status'] => {
+  if (Math.abs(remaining) <= INSTALLMENT_TOLERANCE || amountPaid >= amountOriginal - INSTALLMENT_TOLERANCE) {
+    return 'CANCELADA';
+  }
+
+  if (amountPaid > INSTALLMENT_TOLERANCE && remaining > INSTALLMENT_TOLERANCE) {
+    return 'PARCIAL';
+  }
+
+  return 'PENDIENTE';
+};
+
+const normalizeInstallmentsForDisplay = (installments: CobranzaInstallmentState[]) =>
+  installments.map((installment) => {
+    const amountOriginal = clampCurrency(installment.amountOriginal);
+    const amountPaid = clampCurrency(installment.amountPaid);
+    const remaining = Math.max(0, clampCurrency(installment.remaining));
+    return {
+      ...installment,
+      amountOriginal,
+      amountPaid,
+      remaining,
+      status: resolveInstallmentStatus(amountOriginal, amountPaid, remaining),
+    };
+  });
 
 export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, formatMoney }: HistorialCobranzaModalProps) => {
   if (!isOpen || !cuenta) return null;
 
   const related = cobranzas.filter((item) => item.comprobanteId === cuenta.comprobanteId);
-  const installments = cuenta.installments?.length ? cuenta.installments : normalizeCreditTermsToInstallments(cuenta.creditTerms);
+  const baseInstallments = cuenta.installments?.length ? cuenta.installments : normalizeCreditTermsToInstallments(cuenta.creditTerms);
+  const installments = normalizeInstallmentsForDisplay(baseInstallments);
   const totalInstallments = installments.length;
   const pendingInstallments = installments.filter((installment) => installment.remaining > INSTALLMENT_TOLERANCE).length;
   const partialInstallments = installments.filter((installment) => installment.status === 'PARCIAL').length;

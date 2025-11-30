@@ -115,7 +115,7 @@ export const computeAccountStateFromInstallments = (
   const partialInstallmentsCount = installments.filter((installment) => installment.status === 'PARCIAL').length;
 
   let accountStatus: CobranzaStatus = 'pendiente';
-  if (saldo <= TOLERANCE) {
+  if (pendingInstallmentsCount === 0 || saldo <= TOLERANCE) {
     accountStatus = 'cancelado';
   } else if (cobrado > TOLERANCE) {
     accountStatus = 'parcial';
