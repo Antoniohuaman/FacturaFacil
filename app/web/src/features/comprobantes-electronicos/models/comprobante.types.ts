@@ -4,6 +4,8 @@ import type {
   PaymentTermsPayload,
 } from '../../../shared/payments/paymentTerms';
 
+export type { CreditInstallmentStatus };
+
 // ===================================================================
 // TIPOS DE DATOS PARA EL SISTEMA DE COMPROBANTES ELECTRÓNICOS
 // ===================================================================

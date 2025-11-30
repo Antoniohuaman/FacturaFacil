@@ -182,6 +182,8 @@ export const CobranzasDashboard = () => {
         onComplete={handleCobranzaComplete}
         creditTerms={selectedCuenta?.creditTerms}
         creditPaymentMethodLabel={selectedCuenta?.formaPago === 'credito' ? 'Crédito del comprobante' : selectedCuenta?.formaPago}
+        installmentsState={selectedCuenta?.installments}
+        context="cobranzas"
       />
 
       <CobranzaDetailModal

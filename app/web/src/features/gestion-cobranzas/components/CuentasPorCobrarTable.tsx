@@ -23,6 +23,23 @@ const statusBadgeClass = (estado: CuentaPorCobrarSummary['estado']) => {
   }
 };
 
+const resolveInstallmentStats = (cuenta: CuentaPorCobrarSummary) => {
+  if (typeof cuenta.totalInstallments !== 'number' || typeof cuenta.pendingInstallmentsCount !== 'number') {
+    return null;
+  }
+
+  const total = cuenta.totalInstallments;
+  const pending = cuenta.pendingInstallmentsCount;
+  const partial = cuenta.partialInstallmentsCount ?? 0;
+
+  return {
+    total,
+    pending,
+    partial,
+    canceled: Math.max(0, total - pending),
+  };
+};
+
 export const CuentasPorCobrarTable = ({
   data,
   formatMoney,
@@ -48,6 +65,7 @@ export const CuentasPorCobrarTable = ({
             <th className="px-4 py-3 text-center font-semibold">F. emisión</th>
             <th className="px-4 py-3 text-center font-semibold">F. vencimiento</th>
             <th className="px-4 py-3 text-center font-semibold">Forma</th>
+            <th className="px-4 py-3 text-center font-semibold">Cuotas</th>
             <th className="px-4 py-3 text-right font-semibold">Total</th>
             <th className="px-4 py-3 text-right font-semibold">Cobrado</th>
             <th className="px-4 py-3 text-right font-semibold">Saldo</th>
@@ -56,8 +74,10 @@ export const CuentasPorCobrarTable = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-slate-700 dark:text-gray-100">
-          {data.map((cuenta) => (
-            <tr key={cuenta.id} className="hover:bg-slate-50/70 dark:hover:bg-gray-900/40 transition-colors">
+          {data.map((cuenta) => {
+            const installmentStats = resolveInstallmentStats(cuenta);
+            return (
+              <tr key={cuenta.id} className="hover:bg-slate-50/70 dark:hover:bg-gray-900/40 transition-colors">
               <td className="px-4 py-3">
                 <div className="flex flex-col gap-0.5">
                   <span className="font-medium text-slate-900 dark:text-white">{cuenta.clienteNombre}</span>
@@ -84,6 +104,23 @@ export const CuentasPorCobrarTable = ({
                     </span>
                   )}
                 </div>
+              </td>
+              <td className="px-4 py-3 text-center text-xs">
+                {installmentStats ? (
+                  <div className="flex flex-col items-center gap-0.5 text-slate-600">
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      Pendientes {installmentStats.pending}/{installmentStats.total}
+                    </span>
+                    {installmentStats.partial > 0 && (
+                      <span className="text-[11px] text-amber-600">{installmentStats.partial} en parcial</span>
+                    )}
+                    {installmentStats.canceled > 0 && (
+                      <span className="text-[11px] text-emerald-600">{installmentStats.canceled} cancelada{installmentStats.canceled === 1 ? '' : 's'}</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
               </td>
               <td className="px-4 py-3 text-right font-medium">{formatMoney(cuenta.total)}</td>
               <td className="px-4 py-3 text-right text-slate-500">{formatMoney(cuenta.cobrado)}</td>
@@ -124,8 +161,9 @@ export const CuentasPorCobrarTable = ({
                   </button>
                 </div>
               </td>
-            </tr>
-          ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <footer className="px-4 py-3 text-xs text-slate-500 flex items-center justify-between border-t border-slate-100 dark:border-gray-700">

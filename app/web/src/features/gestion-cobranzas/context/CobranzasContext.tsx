@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import type { ReactNode } from 'react';
 import type {
   CobranzaDocumento,
+  CobranzaInstallmentState,
   CobranzaStatus,
   CuentaPorCobrarSummary,
   RegistrarCobranzaInput,
@@ -11,6 +12,11 @@ import { useCaja } from '../../control-caja/context/CajaContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { mapPaymentMethodToMedioPago } from '../../../shared/payments/paymentMapping';
 import { lsKey } from '../../../shared/tenant';
+import {
+  computeAccountStateFromInstallments,
+  normalizeCreditTermsToInstallments,
+  updateInstallmentsWithAllocations,
+} from '../utils/installments';
 
 interface CobranzasState {
   cuentas: CuentaPorCobrarSummary[];
@@ -21,7 +27,15 @@ type CobranzasAction =
   | { type: 'SET_DATA'; payload: CobranzasState }
   | { type: 'UPSERT_CUENTA'; payload: CuentaPorCobrarSummary }
   | { type: 'ADD_COBRANZA'; payload: CobranzaDocumento }
-  | { type: 'REGISTER_COBRANZA'; payload: { cuentaId: string; documento: CobranzaDocumento; monto: number } };
+  | {
+      type: 'REGISTER_COBRANZA';
+      payload: {
+        cuentaId: string;
+        documento: CobranzaDocumento;
+        monto: number;
+        cuentaUpdate?: Partial<CuentaPorCobrarSummary>;
+      };
+    };
 
 const INITIAL_STATE: CobranzasState = {
   cuentas: [],
@@ -90,6 +104,16 @@ function computeEstadoCuenta(cuenta: CuentaPorCobrarSummary, newSaldo: number): 
   return 'pendiente';
 }
 
+const cloneInstallments = (installments?: CobranzaInstallmentState[]) =>
+  installments?.map((installment) => ({ ...installment })) ?? [];
+
+const getInstallmentsSnapshot = (cuenta: CuentaPorCobrarSummary) => {
+  if (cuenta.installments?.length) {
+    return cloneInstallments(cuenta.installments);
+  }
+  return normalizeCreditTermsToInstallments(cuenta.creditTerms);
+};
+
 function cobranzasReducer(state: CobranzasState, action: CobranzasAction): CobranzasState {
   switch (action.type) {
     case 'SET_DATA':
@@ -110,6 +134,13 @@ function cobranzasReducer(state: CobranzasState, action: CobranzasAction): Cobra
       const updatedCuentas = state.cuentas.map((cuenta) => {
         if (cuenta.id !== action.payload.cuentaId) {
           return cuenta;
+        }
+
+        if (action.payload.cuentaUpdate) {
+          return {
+            ...cuenta,
+            ...action.payload.cuentaUpdate,
+          };
         }
 
         const nuevoCobrado = Math.min(cuenta.total, cuenta.cobrado + action.payload.monto);
@@ -222,9 +253,27 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
     (input: RegistrarCobranzaInput): CobranzaDocumento => {
       const monto = input.payload.lines.reduce((acc, line) => acc + (Number(line.amount) || 0), 0);
       const montoRedondeado = Number(monto.toFixed(2));
-      const nuevoCobrado = Math.min(input.cuenta.total, input.cuenta.cobrado + montoRedondeado);
-      const nuevoSaldo = Math.max(0, input.cuenta.total - nuevoCobrado);
-      const estadoCobranza: CobranzaStatus = nuevoSaldo <= 0 ? 'cancelado' : 'parcial';
+      const allocations = input.payload.allocations ?? [];
+      const hasAllocations = allocations.length > 0;
+      const baseInstallments = hasAllocations ? getInstallmentsSnapshot(input.cuenta) : [];
+      const installmentsAfterPayment = hasAllocations
+        ? updateInstallmentsWithAllocations(baseInstallments, allocations)
+        : baseInstallments;
+      const installmentsSummary = hasAllocations && installmentsAfterPayment.length
+        ? computeAccountStateFromInstallments(installmentsAfterPayment)
+        : null;
+
+      const nuevoCobrado = installmentsSummary
+        ? installmentsSummary.cobrado
+        : Math.min(input.cuenta.total, input.cuenta.cobrado + montoRedondeado);
+      const nuevoSaldo = installmentsSummary
+        ? installmentsSummary.saldo
+        : Math.max(0, input.cuenta.total - nuevoCobrado);
+
+      const estadoPorCuotas: CobranzaStatus = installmentsSummary?.accountStatus ?? (nuevoSaldo <= 0 ? 'cancelado' : 'parcial');
+      const estadoPorFecha = computeEstadoCuenta(input.cuenta, nuevoSaldo);
+      const estadoCuenta = estadoPorFecha === 'vencido' ? 'vencido' : estadoPorCuotas;
+      const estadoDocumento: CobranzaStatus = nuevoSaldo <= 0 ? 'cancelado' : 'parcial';
 
       const collectionDocument = input.payload.collectionDocument;
       const numeroDocumento = collectionDocument?.fullNumber || fallbackCollectionNumber();
@@ -246,11 +295,25 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         cajaDestino: input.payload.cajaDestino || input.payload.lines[0]?.bank || 'Caja Principal',
         moneda: input.cuenta.moneda,
         monto: montoRedondeado,
-        estado: estadoCobranza,
+        estado: estadoDocumento,
         referencia: collectionDocument?.fullNumber,
         notas: input.payload.notes,
         collectionSeriesId: collectionDocument?.seriesId,
       };
+
+      const cuentaUpdate: Partial<CuentaPorCobrarSummary> = {
+        cobrado: Number(nuevoCobrado.toFixed(2)),
+        saldo: Number(nuevoSaldo.toFixed(2)),
+        estado: estadoCuenta,
+        vencido: estadoCuenta === 'vencido',
+      };
+
+      if (installmentsSummary) {
+        cuentaUpdate.installments = installmentsAfterPayment;
+        cuentaUpdate.totalInstallments = installmentsSummary.totalInstallments;
+        cuentaUpdate.pendingInstallmentsCount = installmentsSummary.pendingInstallmentsCount;
+        cuentaUpdate.partialInstallmentsCount = installmentsSummary.partialInstallmentsCount;
+      }
 
       dispatch({
         type: 'REGISTER_COBRANZA',
@@ -258,6 +321,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
           cuentaId: input.cuenta.id,
           documento,
           monto: montoRedondeado,
+          cuentaUpdate,
         },
       });
 

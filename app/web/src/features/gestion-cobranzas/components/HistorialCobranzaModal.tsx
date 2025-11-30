@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../models/cobranzas.types';
+import { normalizeCreditTermsToInstallments } from '../utils/installments';
 
 interface HistorialCobranzaModalProps {
   cuenta: CuentaPorCobrarSummary | null;
@@ -9,10 +10,16 @@ interface HistorialCobranzaModalProps {
   formatMoney: (value: number, currency?: string) => string;
 }
 
+const INSTALLMENT_TOLERANCE = 0.01;
+
 export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, formatMoney }: HistorialCobranzaModalProps) => {
   if (!isOpen || !cuenta) return null;
 
   const related = cobranzas.filter((item) => item.comprobanteId === cuenta.comprobanteId);
+  const installments = cuenta.installments?.length ? cuenta.installments : normalizeCreditTermsToInstallments(cuenta.creditTerms);
+  const totalInstallments = installments.length;
+  const pendingInstallments = installments.filter((installment) => installment.remaining > INSTALLMENT_TOLERANCE).length;
+  const partialInstallments = installments.filter((installment) => installment.status === 'PARCIAL').length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4">
@@ -33,31 +40,61 @@ export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, for
           </button>
         </header>
         <div className="px-6 py-5 text-sm space-y-5">
-          {cuenta.creditTerms && cuenta.creditTerms.schedule.length > 0 && (
+          {totalInstallments > 0 && (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-800">
                 <p className="font-semibold">
-                  {cuenta.creditTerms.schedule.length} cuota{cuenta.creditTerms.schedule.length === 1 ? '' : 's'} programada{cuenta.creditTerms.schedule.length === 1 ? '' : 's'}
+                  {totalInstallments} cuota{totalInstallments === 1 ? '' : 's'} registradas
                 </p>
-                <span>Vencimiento global: {cuenta.creditTerms.fechaVencimientoGlobal}</span>
+                <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
+                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-emerald-700">
+                    Pendientes {pendingInstallments}/{totalInstallments}
+                  </span>
+                  {partialInstallments > 0 && (
+                    <span className="rounded-full bg-amber-100/80 px-2 py-0.5 text-amber-700">
+                      {partialInstallments} en parcial
+                    </span>
+                  )}
+                  {cuenta.creditTerms?.fechaVencimientoGlobal && (
+                    <span className="rounded-full bg-white/60 px-2 py-0.5 text-emerald-700">
+                      Vence: {cuenta.creditTerms.fechaVencimientoGlobal}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="mt-3 max-h-48 overflow-y-auto rounded-xl border border-emerald-100 bg-white">
+              <div className="mt-3 max-h-56 overflow-y-auto rounded-xl border border-emerald-100 bg-white">
                 <table className="w-full text-xs text-emerald-900">
                   <thead className="bg-emerald-50 text-emerald-700">
                     <tr>
                       <th className="px-3 py-1 text-left">#</th>
                       <th className="px-3 py-1 text-left">Vence</th>
-                      <th className="px-3 py-1 text-left">% total</th>
                       <th className="px-3 py-1 text-right">Importe</th>
+                      <th className="px-3 py-1 text-right">Pagado</th>
+                      <th className="px-3 py-1 text-right">Saldo</th>
+                      <th className="px-3 py-1 text-center">Estado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {cuenta.creditTerms.schedule.map((cuota) => (
-                      <tr key={cuota.numeroCuota} className="border-t border-emerald-50">
-                        <td className="px-3 py-1 font-semibold">{cuota.numeroCuota}</td>
-                        <td className="px-3 py-1">{cuota.fechaVencimiento}</td>
-                        <td className="px-3 py-1">{cuota.porcentaje}%</td>
-                        <td className="px-3 py-1 text-right font-semibold">{formatMoney(cuota.importe, cuenta.moneda)}</td>
+                    {installments.map((cuota) => (
+                      <tr key={cuota.installmentNumber} className="border-t border-emerald-50">
+                        <td className="px-3 py-1 font-semibold">{cuota.installmentNumber}</td>
+                        <td className="px-3 py-1">{cuota.dueDate || '—'}</td>
+                        <td className="px-3 py-1 text-right font-semibold">{formatMoney(cuota.amountOriginal, cuenta.moneda)}</td>
+                        <td className="px-3 py-1 text-right">{formatMoney(cuota.amountPaid, cuenta.moneda)}</td>
+                        <td className="px-3 py-1 text-right font-semibold">{formatMoney(cuota.remaining, cuenta.moneda)}</td>
+                        <td className="px-3 py-1 text-center">
+                          <span
+                            className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              cuota.status === 'CANCELADA'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : cuota.status === 'PARCIAL'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {cuota.status}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

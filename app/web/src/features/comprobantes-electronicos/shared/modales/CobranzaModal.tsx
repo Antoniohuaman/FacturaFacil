@@ -15,6 +15,7 @@ import type {
   ComprobanteCreditInstallment,
   ComprobanteCreditTerms,
   CreditInstallmentAllocation,
+  CreditInstallmentStatus,
   Currency,
   CurrencyInfo,
   PaymentCollectionMode,
@@ -30,6 +31,8 @@ import { useCurrentEstablishmentId } from '../../../../contexts/UserSessionConte
 import { filterCollectionSeries, getNextCollectionDocument } from '../../../../shared/series/collectionSeries';
 import { useSeriesCommands } from '../../../configuracion-sistema/hooks/useSeriesCommands';
 import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '../payments/CreditInstallmentsTable';
+import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models/cobranzas.types';
+import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
 
 const DEFAULT_PAYMENT_OPTIONS = [
   { id: 'efectivo', label: 'Efectivo', badge: 'bg-green-100 text-green-700', icon: Wallet },
@@ -43,6 +46,79 @@ const DEFAULT_PAYMENT_OPTIONS = [
 
 const DEFAULT_CAJAS = ['Caja general', 'Caja chica', 'BCP', 'BBVA', 'Interbank'];
 const tolerance = 0.01;
+type CobranzaModalContextType = 'emision' | 'cobranzas';
+
+const clampCurrency = (value: number) => Number(Number(value ?? 0).toFixed(2));
+
+interface ValidateCollectedAmountInput {
+  context: CobranzaModalContextType;
+  totalRecibido: number;
+  totalDocumento: number;
+  tolerance: number;
+}
+
+const validateCollectedAmount = ({ context, totalRecibido, totalDocumento, tolerance: amountTolerance }: ValidateCollectedAmountInput): string | null => {
+  const received = clampCurrency(totalRecibido);
+  const documentTotal = clampCurrency(totalDocumento);
+
+  if (context === 'cobranzas') {
+    if (received <= amountTolerance) {
+      return 'Ingresa un monto mayor a 0.';
+    }
+    if (received - documentTotal > amountTolerance) {
+      return 'No puedes cobrar más que el saldo pendiente.';
+    }
+    return null;
+  }
+
+  if (Math.abs(documentTotal - received) > amountTolerance) {
+    return 'La suma de los montos debe coincidir con el total.';
+  }
+
+  return null;
+};
+
+interface AllocationValidationInput {
+  installments: CobranzaInstallmentState[];
+  allocations: CreditInstallmentAllocationInput[];
+}
+
+const validateAllocationsLimits = ({ installments, allocations }: AllocationValidationInput): string | null => {
+  if (!allocations.length) {
+    return null;
+  }
+
+  if (!installments.length) {
+    return 'Configura un cronograma de cuotas antes de distribuir el pago.';
+  }
+
+  const normalizedAllocations: CreditInstallmentAllocation[] = allocations.map((allocation) => ({
+    installmentNumber: allocation.installmentNumber,
+    amount: clampCurrency(allocation.amount),
+  }));
+
+  const beforeMap = new Map<number, number>(
+    installments.map((installment) => [installment.installmentNumber, clampCurrency(installment.remaining)]),
+  );
+  const updatedInstallments = updateInstallmentsWithAllocations(
+    installments.map((installment) => ({ ...installment })),
+    normalizedAllocations,
+  );
+  const afterMap = new Map<number, number>(
+    updatedInstallments.map((installment) => [installment.installmentNumber, clampCurrency(installment.remaining)]),
+  );
+
+  for (const allocation of normalizedAllocations) {
+    const before = beforeMap.get(allocation.installmentNumber) ?? 0;
+    const after = afterMap.get(allocation.installmentNumber) ?? before;
+    const applied = clampCurrency(before - after);
+    if (allocation.amount - applied > tolerance) {
+      return `El monto aplicado a la cuota ${allocation.installmentNumber} supera el saldo disponible.`;
+    }
+  }
+
+  return null;
+};
 
 type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
@@ -71,6 +147,8 @@ interface CobranzaModalProps {
   creditTerms?: ComprobanteCreditTerms;
   creditPaymentMethodLabel?: string;
   modeIntent?: PaymentCollectionMode;
+  installmentsState?: CobranzaInstallmentState[];
+  context?: CobranzaModalContextType;
 }
 
 interface PaymentLineForm extends PaymentLineInput {
@@ -139,6 +217,56 @@ const sanitizeInstallment = (installment: ComprobanteCreditInstallment) => {
   };
 };
 
+const computeDiasCreditoFromDates = (issueDate: string, dueDate?: string) => {
+  if (!issueDate || !dueDate) {
+    return 0;
+  }
+  const issue = new Date(`${issueDate}T00:00:00`);
+  const due = new Date(`${dueDate}T00:00:00`);
+  if (Number.isNaN(issue.getTime()) || Number.isNaN(due.getTime())) {
+    return 0;
+  }
+  const diff = Math.round((due.getTime() - issue.getTime()) / (1000 * 60 * 60 * 24));
+  return diff < 0 ? 0 : diff;
+};
+
+const normalizeInstallmentStatus = (status?: CobranzaInstallmentState['status']): CreditInstallmentStatus => {
+  switch (status) {
+    case 'CANCELADA':
+      return 'cancelado';
+    case 'PARCIAL':
+      return 'parcial';
+    default:
+      return 'pendiente';
+  }
+};
+
+const mapCobranzaInstallmentToSchedule = (
+  installment: CobranzaInstallmentState,
+  options: {
+    reference?: ComprobanteCreditInstallment;
+    totalOriginalAmount: number;
+    issueDate: string;
+  },
+): ComprobanteCreditInstallment => {
+  const { reference, totalOriginalAmount, issueDate } = options;
+  const importe = Number(installment.amountOriginal.toFixed(2));
+  const porcentajeBase = reference?.porcentaje ?? (totalOriginalAmount > 0 ? Number(((importe / totalOriginalAmount) * 100).toFixed(2)) : 0);
+  const fechaVencimiento = installment.dueDate || reference?.fechaVencimiento || '';
+  const diasCredito = reference?.diasCredito ?? computeDiasCreditoFromDates(issueDate, fechaVencimiento);
+
+  return {
+    numeroCuota: installment.installmentNumber,
+    diasCredito,
+    porcentaje: porcentajeBase,
+    fechaVencimiento,
+    importe,
+    pagado: Number(installment.amountPaid.toFixed(2)),
+    saldo: Number(installment.remaining.toFixed(2)),
+    estado: reference?.estado ?? normalizeInstallmentStatus(installment.status),
+  };
+};
+
 export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   isOpen,
   onClose,
@@ -157,6 +285,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   creditTerms,
   creditPaymentMethodLabel,
   modeIntent,
+  installmentsState,
+  context = 'emision',
 }) => {
   const { formatPrice } = useCurrency();
   const { state } = useConfigurationContext();
@@ -167,6 +297,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const currentEstablishmentId = useCurrentEstablishmentId();
   const effectiveEstablishmentId = establishmentId || currentEstablishmentId;
   const esBoleta = tipoComprobante === 'boleta';
+  const isCobranzasContext = context === 'cobranzas';
 
   const cobranzasSeries = useMemo(
     () => filterCollectionSeries(state.series, effectiveEstablishmentId || undefined),
@@ -244,14 +375,62 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     return availablePaymentOptions[0].id;
   }, [availablePaymentOptions, formaPago]);
 
-  const normalizedInstallments = useMemo(
-    () => (creditTerms?.schedule ?? []).map(sanitizeInstallment),
-    [creditTerms],
-  );
+  const cobranzaInstallmentsSnapshot = useMemo<CobranzaInstallmentState[]>(() => {
+    if (installmentsState?.length) {
+      return installmentsState.map((installment) => ({ ...installment }));
+    }
+    return normalizeCreditTermsToInstallments(creditTerms);
+  }, [creditTerms, installmentsState]);
+
+  const referenceInstallmentsMap = useMemo(() => {
+    if (!creditTerms?.schedule?.length) {
+      return new Map<number, ComprobanteCreditInstallment>();
+    }
+    return new Map(creditTerms.schedule.map((installment) => [installment.numeroCuota, sanitizeInstallment(installment)]));
+  }, [creditTerms]);
+
+  const normalizedInstallments = useMemo(() => {
+    if (cobranzaInstallmentsSnapshot.length) {
+      const totalFromState = cobranzaInstallmentsSnapshot.reduce((sum, installment) => sum + Number(installment.amountOriginal || 0), 0);
+      const totalFromReference = referenceInstallmentsMap.size
+        ? Array.from(referenceInstallmentsMap.values()).reduce((sum, installment) => sum + Number(installment.importe || 0), 0)
+        : 0;
+      const totalOriginalAmount = totalFromState || totalFromReference || totals.total || 1;
+
+      return cobranzaInstallmentsSnapshot.map((installment) =>
+        mapCobranzaInstallmentToSchedule(installment, {
+          reference: referenceInstallmentsMap.get(installment.installmentNumber),
+          totalOriginalAmount,
+          issueDate: fechaEmision,
+        }),
+      );
+    }
+
+    return (creditTerms?.schedule ?? []).map(sanitizeInstallment);
+  }, [cobranzaInstallmentsSnapshot, creditTerms?.schedule, fechaEmision, referenceInstallmentsMap, totals.total]);
   const hasCreditSchedule = normalizedInstallments.length > 0;
-  const creditScheduleLabel = creditPaymentMethodLabel || (hasCreditSchedule ? 'Pago a crédito' : 'Sin cronograma definido');
+  const installmentsCounters = useMemo(() => {
+    if (!cobranzaInstallmentsSnapshot.length) {
+      return null;
+    }
+    const pending = cobranzaInstallmentsSnapshot.filter((installment) => installment.remaining > tolerance).length;
+    const partial = cobranzaInstallmentsSnapshot.filter((installment) => installment.status === 'PARCIAL').length;
+    return {
+      pending,
+      partial,
+      total: cobranzaInstallmentsSnapshot.length,
+      canceled: cobranzaInstallmentsSnapshot.length - pending,
+    };
+  }, [cobranzaInstallmentsSnapshot]);
+  const creditScheduleLabel = installmentsCounters
+    ? `${creditPaymentMethodLabel || 'Pago a crédito'} · Cuotas pendientes ${installmentsCounters.pending}/${installmentsCounters.total}`
+    : creditPaymentMethodLabel || (hasCreditSchedule ? 'Pago a crédito' : 'Sin cronograma definido');
 
   const resolveInitialMode = useCallback(() => {
+    if (isCobranzasContext) {
+      return 'contado';
+    }
+
     if (esBoleta || !hasCreditSchedule) {
       return 'contado';
     }
@@ -265,7 +444,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     }
 
     return 'contado';
-  }, [esBoleta, hasCreditSchedule, isCajaOpen, modeIntent]);
+  }, [esBoleta, hasCreditSchedule, isCajaOpen, isCobranzasContext, modeIntent]);
 
   const [mode, setMode] = useState<PaymentCollectionMode>('contado');
   const [paymentLines, setPaymentLines] = useState<PaymentLineForm[]>([]);
@@ -290,14 +469,17 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
   const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
   const diferencia = useMemo(() => totals.total - totalRecibido, [totals.total, totalRecibido]);
-  const formattedDifference = formatCurrency(Math.abs(diferencia));
+  const differenceValue = isCobranzasContext ? Math.max(0, diferencia) : Math.abs(diferencia);
+  const formattedDifference = formatCurrency(differenceValue);
   const differenceStatus = diferencia > tolerance ? 'faltante' : diferencia < -tolerance ? 'vuelto' : 'ajustado';
-  const differenceChipClass =
-    differenceStatus === 'ajustado'
-      ? 'bg-emerald-100 text-emerald-700'
-      : differenceStatus === 'faltante'
-      ? 'bg-amber-100 text-amber-800'
-      : 'bg-sky-100 text-sky-700';
+  const differenceChipClass = isCobranzasContext
+    ? 'bg-slate-100 text-slate-700'
+    : differenceStatus === 'ajustado'
+    ? 'bg-emerald-100 text-emerald-700'
+    : differenceStatus === 'faltante'
+    ? 'bg-amber-100 text-amber-800'
+    : 'bg-sky-100 text-sky-700';
+  const differenceChipLabel = isCobranzasContext ? 'Saldo restante' : 'Diferencia';
 
   const showAllocationSection = mode === 'contado' && hasCreditSchedule && totalRecibido > tolerance;
 
@@ -313,10 +495,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           return;
         }
         const saldo = Number(installment.saldo ?? 0);
-        const toApply = Math.min(saldo, remaining);
+        const toApply = clampCurrency(Math.min(saldo, remaining));
         if (toApply > tolerance) {
-          plan.push({ installmentNumber: installment.numeroCuota, amount: Number(toApply.toFixed(2)) });
-          remaining = Math.max(0, Number((remaining - toApply).toFixed(2)));
+          plan.push({ installmentNumber: installment.numeroCuota, amount: toApply });
+          remaining = Math.max(0, clampCurrency(remaining - toApply));
         }
       });
       return plan;
@@ -479,8 +661,14 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         return false;
       }
 
-      if (Math.abs(diferencia) > tolerance) {
-        setErrorMessage('La suma de los montos debe coincidir con el total.');
+      const amountValidationError = validateCollectedAmount({
+        context,
+        totalRecibido,
+        totalDocumento: totals.total,
+        tolerance,
+      });
+      if (amountValidationError) {
+        setErrorMessage(amountValidationError);
         return false;
       }
 
@@ -494,16 +682,29 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           setErrorMessage('La distribución debe coincidir con el monto recibido.');
           return false;
         }
+
+        const allocationLimitError = validateAllocationsLimits({
+          installments: cobranzaInstallmentsSnapshot,
+          allocations: allocationDrafts,
+        });
+        if (allocationLimitError) {
+          setErrorMessage(allocationLimitError);
+          return false;
+        }
       }
 
       setErrorMessage(null);
       return true;
     },
-    [allocationDrafts.length, diferencia, mode, paymentLines, showAllocationSection, totalAllocationAmount, totalRecibido],
+    [allocationDrafts, cobranzaInstallmentsSnapshot, context, mode, paymentLines, showAllocationSection, totalAllocationAmount, totalRecibido, totals.total],
   );
 
   const handleModeChange = useCallback(
     (target: PaymentCollectionMode) => {
+      if (isCobranzasContext) {
+        return;
+      }
+
       if (target === mode) {
         return;
       }
@@ -527,7 +728,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       setErrorMessage(null);
       setMode('contado');
     },
-    [esBoleta, hasCreditSchedule, isCajaOpen, mode],
+    [esBoleta, hasCreditSchedule, isCajaOpen, isCobranzasContext, mode],
   );
 
   const buildAllocationPayload = useCallback((): CreditInstallmentAllocation[] => {
@@ -542,11 +743,12 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           return null;
         }
         const saldo = Number(installment.saldo ?? 0);
-        const remaining = Number(Math.max(0, saldo - entry.amount).toFixed(2));
+        const amountToApply = clampCurrency(Math.min(saldo, entry.amount));
+        const remaining = clampCurrency(Math.max(0, saldo - amountToApply));
         const status: CreditInstallmentAllocation['status'] = remaining <= tolerance ? 'cancelado' : 'parcial';
         return {
           installmentNumber: entry.installmentNumber,
-          amount: Number(entry.amount.toFixed(2)),
+          amount: amountToApply,
           remaining,
           status,
         };
@@ -642,7 +844,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
   if (!isOpen) return null;
 
-  const canShowModeSelector = !esBoleta && hasCreditSchedule;
+  const canShowModeSelector = !isCobranzasContext && !esBoleta && hasCreditSchedule;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -724,6 +926,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                         ? `${normalizedInstallments.length} cuota${normalizedInstallments.length === 1 ? '' : 's'} programada${normalizedInstallments.length === 1 ? '' : 's'}`
                         : 'Sin cronograma definido'}
                     </h3>
+                    {installmentsCounters && (
+                      <p className="text-xs text-slate-500">
+                        Pendientes {installmentsCounters.pending} · Parciales {installmentsCounters.partial} · Canceladas {installmentsCounters.canceled}
+                      </p>
+                    )}
                     {creditTerms?.fechaVencimientoGlobal && <p className="text-sm text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
                   </div>
                 </div>
@@ -1035,7 +1242,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                 <>
                   <span className="rounded-full bg-slate-100 px-3 py-1">Recibido: {formatCurrency(totalRecibido)}</span>
                   <span className={`rounded-full px-3 py-1 ${differenceChipClass}`}>
-                    Diferencia: {formattedDifference}
+                    {differenceChipLabel}: {formattedDifference}
                   </span>
                 </>
               )}

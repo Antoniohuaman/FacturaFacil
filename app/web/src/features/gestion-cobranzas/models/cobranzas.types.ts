@@ -1,4 +1,8 @@
-import type { Currency, PaymentCollectionPayload, ComprobanteCreditTerms } from '../../comprobantes-electronicos/models/comprobante.types';
+import type {
+  Currency,
+  PaymentCollectionPayload,
+  ComprobanteCreditTerms,
+} from '../../comprobantes-electronicos/models/comprobante.types';
 
 export type CobranzaTabKey = 'cuentas' | 'cobranzas';
 export type FormaPagoKey = 'contado' | 'credito';
@@ -28,10 +32,23 @@ export interface CuentaPorCobrarSummary {
   saldo: number;
   cuotas?: number;
   creditTerms?: ComprobanteCreditTerms;
+  installments?: CobranzaInstallmentState[];
+  totalInstallments?: number;
+  pendingInstallmentsCount?: number;
+  partialInstallmentsCount?: number;
   estado: CobranzaStatus;
   vencido?: boolean;
   sucursal?: string;
   cajero?: string;
+}
+
+export interface CobranzaInstallmentState {
+  installmentNumber: number;
+  dueDate?: string;
+  amountOriginal: number;
+  amountPaid: number;
+  remaining: number;
+  status: 'PENDIENTE' | 'PARCIAL' | 'CANCELADA';
 }
 
 export interface CobranzaDocumento {
