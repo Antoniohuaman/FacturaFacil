@@ -1,30 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  X,
-  CreditCard,
-  Wallet,
-  User,
-  FileText,
-  ChevronRight,
-  Layers,
-  AlertTriangle,
-  Plus,
-  Trash2,
-  Calendar,
   Building2,
-  NotebookPen,
+  CreditCard,
+  Plus,
   Smartphone,
+  Trash2,
+  User,
+  Wallet,
+  X,
 } from 'lucide-react';
 import type {
   CartItem,
   ClientData,
+  ComprobanteCreditInstallment,
+  ComprobanteCreditTerms,
+  CreditInstallmentAllocation,
   Currency,
   CurrencyInfo,
   PaymentCollectionMode,
   PaymentCollectionPayload,
   PaymentLineInput,
   PaymentTotals,
-  ComprobanteCreditTerms,
   TipoComprobante,
 } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
@@ -33,6 +29,20 @@ import { useCaja } from '../../../control-caja/context/CajaContext';
 import { useCurrentEstablishmentId } from '../../../../contexts/UserSessionContext';
 import { filterCollectionSeries, getNextCollectionDocument } from '../../../../shared/series/collectionSeries';
 import { useSeriesCommands } from '../../../configuracion-sistema/hooks/useSeriesCommands';
+import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '../payments/CreditInstallmentsTable';
+
+const DEFAULT_PAYMENT_OPTIONS = [
+  { id: 'efectivo', label: 'Efectivo', badge: 'bg-green-100 text-green-700', icon: Wallet },
+  { id: 'yape', label: 'Yape', badge: 'bg-purple-100 text-purple-700', icon: Smartphone },
+  { id: 'plin', label: 'Plin', badge: 'bg-indigo-100 text-indigo-700', icon: Smartphone },
+  { id: 'transferencia', label: 'Transferencia', badge: 'bg-blue-100 text-blue-700', icon: Building2 },
+  { id: 'tarjeta_credito', label: 'Tarjeta crédito', badge: 'bg-orange-100 text-orange-700', icon: CreditCard },
+  { id: 'tarjeta_debito', label: 'Tarjeta débito', badge: 'bg-cyan-100 text-cyan-700', icon: CreditCard },
+  { id: 'deposito', label: 'Depósito', badge: 'bg-teal-100 text-teal-700', icon: Building2 },
+];
+
+const DEFAULT_CAJAS = ['Caja general', 'Caja chica', 'BCP', 'BBVA', 'Interbank'];
+const tolerance = 0.01;
 
 type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
@@ -60,48 +70,14 @@ interface CobranzaModalProps {
   establishmentId?: string;
   creditTerms?: ComprobanteCreditTerms;
   creditPaymentMethodLabel?: string;
+  modeIntent?: PaymentCollectionMode;
 }
 
 interface PaymentLineForm extends PaymentLineInput {
-  id: string;
-  method: string;
-  amount: number;
   bank?: string;
   reference?: string;
   operationNumber?: string;
 }
-
-interface InstallmentPlanRow {
-  numeroCuota: number;
-  fechaVencimiento: string;
-  importe: number;
-  saldo: number;
-  pagado: number;
-  estado?: 'pendiente' | 'parcial' | 'cancelado';
-  plannedPayment: number;
-}
-
-const DEFAULT_PAYMENT_OPTIONS: PaymentOptionMeta[] = [
-  { id: 'efectivo', label: 'Efectivo', badge: 'bg-green-100 text-green-700', icon: Wallet },
-  { id: 'yape', label: 'Yape', badge: 'bg-purple-100 text-purple-700', icon: Smartphone },
-  { id: 'plin', label: 'Plin', badge: 'bg-indigo-100 text-indigo-700', icon: Smartphone },
-  { id: 'transferencia', label: 'Transferencia', badge: 'bg-blue-100 text-blue-700', icon: Building2 },
-  { id: 'tarjeta_credito', label: 'Tarjeta crédito', badge: 'bg-orange-100 text-orange-700', icon: CreditCard },
-  { id: 'tarjeta_debito', label: 'Tarjeta débito', badge: 'bg-cyan-100 text-cyan-700', icon: CreditCard },
-  { id: 'deposito', label: 'Depósito', badge: 'bg-teal-100 text-teal-700', icon: Building2 },
-];
-
-const DEFAULT_CAJAS = [
-  'Caja general',
-  'Caja chica',
-  'BCP',
-  'BBVA',
-  'Interbank',
-  'Scotiabank',
-  'Banco de la Nación',
-];
-
-const tolerance = 0.01;
 
 const normalizeFormaPagoId = (value?: string) => value?.replace(/^pm-/, '').toLowerCase() ?? '';
 
@@ -150,6 +126,19 @@ const getIconByType = (type?: string, label?: string): IconComponent => {
   }
 };
 
+const sanitizeInstallment = (installment: ComprobanteCreditInstallment) => {
+  const pagado = Number(installment.pagado ?? 0);
+  const importe = Number(installment.importe ?? 0);
+  const saldoBase = typeof installment.saldo === 'number' ? installment.saldo : importe - pagado;
+  const saldo = Number(Math.max(0, saldoBase).toFixed(2));
+  return {
+    ...installment,
+    pagado,
+    importe,
+    saldo,
+  };
+};
+
 export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   isOpen,
   onClose,
@@ -167,6 +156,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   establishmentId,
   creditTerms,
   creditPaymentMethodLabel,
+  modeIntent,
 }) => {
   const { formatPrice } = useCurrency();
   const { state } = useConfigurationContext();
@@ -177,9 +167,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const currentEstablishmentId = useCurrentEstablishmentId();
   const effectiveEstablishmentId = establishmentId || currentEstablishmentId;
   const esBoleta = tipoComprobante === 'boleta';
+
   const cobranzasSeries = useMemo(
     () => filterCollectionSeries(state.series, effectiveEstablishmentId || undefined),
-    [state.series, effectiveEstablishmentId]
+    [state.series, effectiveEstablishmentId],
   );
   const [collectionSeriesId, setCollectionSeriesId] = useState('');
 
@@ -220,7 +211,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     if (!collectionSeriesId) {
       return null;
     }
-    return cobranzasSeries.find((series) => series.id === collectionSeriesId) || null;
+    return cobranzasSeries.find((seriesItem) => seriesItem.id === collectionSeriesId) || null;
   }, [collectionSeriesId, cobranzasSeries]);
 
   const collectionDocumentPreview = useMemo(() => {
@@ -253,14 +244,37 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     return availablePaymentOptions[0].id;
   }, [availablePaymentOptions, formaPago]);
 
+  const normalizedInstallments = useMemo(
+    () => (creditTerms?.schedule ?? []).map(sanitizeInstallment),
+    [creditTerms],
+  );
+  const hasCreditSchedule = normalizedInstallments.length > 0;
+  const creditScheduleLabel = creditPaymentMethodLabel || (hasCreditSchedule ? 'Pago a crédito' : 'Sin cronograma definido');
+
+  const resolveInitialMode = useCallback(() => {
+    if (esBoleta || !hasCreditSchedule) {
+      return 'contado';
+    }
+
+    if (!isCajaOpen) {
+      return 'credito';
+    }
+
+    if (modeIntent === 'credito') {
+      return 'credito';
+    }
+
+    return 'contado';
+  }, [esBoleta, hasCreditSchedule, isCajaOpen, modeIntent]);
+
   const [mode, setMode] = useState<PaymentCollectionMode>('contado');
   const [paymentLines, setPaymentLines] = useState<PaymentLineForm[]>([]);
-  const [fechaCobranza, setFechaCobranza] = useState(() => new Date().toISOString().split('T')[0]);
+  const [fechaCobranza, setFechaCobranza] = useState(() => fechaEmision || new Date().toISOString().split('T')[0]);
   const [cajaDestino, setCajaDestino] = useState(defaultCajaDestino);
   const [notas, setNotas] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [plannerRows, setPlannerRows] = useState<InstallmentPlanRow[]>([]);
+  const [allocationDrafts, setAllocationDrafts] = useState<CreditInstallmentAllocationInput[]>([]);
   const [hasManualAllocations, setHasManualAllocations] = useState(false);
 
   const currencyCode = typeof moneda === 'string' ? moneda : moneda?.code ?? 'PEN';
@@ -268,115 +282,96 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const currencyForFormat: Currency = ['PEN', 'USD'].includes(normalizedCurrencyCode) ? (normalizedCurrencyCode as Currency) : 'PEN';
   const formatCurrency = useCallback((amount?: number) => formatPrice(Number(amount ?? 0), currencyForFormat), [currencyForFormat, formatPrice]);
 
-  const resumenProductos = useMemo(() => {
-    const slice = cartItems.slice(0, 3);
-    const restantes = cartItems.length - slice.length;
-    return { slice, restantes };
+  const productsSummary = useMemo(() => {
+    const highlighted = cartItems.slice(0, 3);
+    const remaining = cartItems.length - highlighted.length;
+    return { highlighted, remaining };
   }, [cartItems]);
 
-  const creditInstallments = useMemo(() => creditTerms?.schedule ?? [], [creditTerms]);
-  const creditScheduleLabel = creditPaymentMethodLabel || 'Pago a crédito';
+  const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
+  const diferencia = useMemo(() => totals.total - totalRecibido, [totals.total, totalRecibido]);
+  const formattedDifference = formatCurrency(Math.abs(diferencia));
+  const differenceStatus = diferencia > tolerance ? 'faltante' : diferencia < -tolerance ? 'vuelto' : 'ajustado';
+  const differenceChipClass =
+    differenceStatus === 'ajustado'
+      ? 'bg-emerald-100 text-emerald-700'
+      : differenceStatus === 'faltante'
+      ? 'bg-amber-100 text-amber-800'
+      : 'bg-sky-100 text-sky-700';
 
-  const basePlannerRows = useMemo<InstallmentPlanRow[]>(() => creditInstallments.map((cuota) => {
-    const pagado = Number(cuota.pagado ?? 0);
-    const saldoCalculado = Math.max(0, (cuota.saldo ?? cuota.importe - pagado));
-    return {
-      numeroCuota: cuota.numeroCuota,
-      fechaVencimiento: cuota.fechaVencimiento,
-      importe: cuota.importe,
-      saldo: saldoCalculado,
-      pagado,
-      estado: cuota.estado,
-      plannedPayment: 0,
-    };
-  }), [creditInstallments]);
+  const showAllocationSection = mode === 'contado' && hasCreditSchedule && totalRecibido > tolerance;
 
-  const autoDistributePlanner = useCallback((rows: InstallmentPlanRow[], amount: number): InstallmentPlanRow[] => {
-    let remaining = Math.max(0, Number(amount) || 0);
-    return rows.map((row) => {
-      if (remaining <= tolerance) {
-        return { ...row, plannedPayment: 0 };
+  const autoDistributeAllocations = useCallback(
+    (amount: number) => {
+      if (!hasCreditSchedule) {
+        return [];
       }
-      const toApply = Math.min(row.saldo, remaining);
-      remaining = Math.max(0, remaining - toApply);
-      return { ...row, plannedPayment: Number(toApply.toFixed(2)) };
-    });
+      let remaining = Math.max(0, Number(amount) || 0);
+      const plan: CreditInstallmentAllocationInput[] = [];
+      normalizedInstallments.forEach((installment) => {
+        if (remaining <= tolerance) {
+          return;
+        }
+        const saldo = Number(installment.saldo ?? 0);
+        const toApply = Math.min(saldo, remaining);
+        if (toApply > tolerance) {
+          plan.push({ installmentNumber: installment.numeroCuota, amount: Number(toApply.toFixed(2)) });
+          remaining = Math.max(0, Number((remaining - toApply).toFixed(2)));
+        }
+      });
+      return plan;
+    },
+    [hasCreditSchedule, normalizedInstallments],
+  );
+
+  const handleAutoDistributeAllocations = useCallback(() => {
+    setHasManualAllocations(false);
+    setAllocationDrafts(autoDistributeAllocations(totalRecibido));
+  }, [autoDistributeAllocations, totalRecibido]);
+
+  const handleResetAllocations = useCallback(() => {
+    setHasManualAllocations(false);
+    setAllocationDrafts([]);
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setPlannerRows([]);
-      setHasManualAllocations(false);
-      return;
-    }
-    if (!basePlannerRows.length) {
-      setPlannerRows([]);
-      setHasManualAllocations(false);
-      return;
-    }
-    setPlannerRows(basePlannerRows.map((row) => ({ ...row })));
-    setHasManualAllocations(false);
-  }, [basePlannerRows, isOpen]);
-
-  const handlePlannerInputChange = (numeroCuota: number, value: number) => {
-    setPlannerRows((rows) =>
-      rows.map((row) =>
-        row.numeroCuota === numeroCuota
-          ? { ...row, plannedPayment: Math.min(Math.max(0, Number(value) || 0), row.saldo) }
-          : row,
-      ),
-    );
+  const handleAllocationChange = useCallback((allocations: CreditInstallmentAllocationInput[]) => {
     setHasManualAllocations(true);
-  };
+    setAllocationDrafts(allocations);
+  }, []);
 
-  const handleAutoDistributePlanner = () => {
-    setHasManualAllocations(false);
-    setPlannerRows((rows) => autoDistributePlanner(rows.length ? rows : basePlannerRows, totalRecibido));
-  };
-
-  const handleResetPlanner = () => {
-    setHasManualAllocations(false);
-    setPlannerRows(basePlannerRows.map((row) => ({ ...row })));
-  };
-
-  const totalPlannedPayment = useMemo(
-    () => plannerRows.reduce((sum, row) => sum + (Number(row.plannedPayment) || 0), 0),
-    [plannerRows],
+  const totalAllocationAmount = useMemo(
+    () => allocationDrafts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0),
+    [allocationDrafts],
   );
-
-  const pendingInstallments = useMemo(
-    () => basePlannerRows.filter((row) => row.saldo > tolerance).length,
-    [basePlannerRows],
+  const allocationDelta = useMemo(
+    () => Number((totalRecibido - totalAllocationAmount).toFixed(2)),
+    [totalAllocationAmount, totalRecibido],
   );
+  const allocationRequiresDistribution = showAllocationSection && totalRecibido > tolerance && allocationDrafts.length === 0;
+  const allocationMismatch = showAllocationSection && totalRecibido > tolerance && Math.abs(allocationDelta) > tolerance;
+  const allocationBlocksSubmission = allocationRequiresDistribution || allocationMismatch;
 
-  const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
-  useEffect(() => {
-    if (!isOpen || !basePlannerRows.length || hasManualAllocations) {
-      return;
+  const allocationStatus = useMemo(() => {
+    if (!showAllocationSection) {
+      return null;
     }
-    setPlannerRows((rows) => autoDistributePlanner(rows.length ? rows : basePlannerRows, totalRecibido));
-  }, [autoDistributePlanner, basePlannerRows, hasManualAllocations, isOpen, totalRecibido]);
-  const diferencia = useMemo(() => totals.total - totalRecibido, [totals.total, totalRecibido]);
-  const showInstallmentPlanner = mode === 'contado' && basePlannerRows.length > 0;
-  const plannerHasDistribution = useMemo(
-    () => plannerRows.some((row) => (Number(row.plannedPayment) || 0) > tolerance),
-    [plannerRows],
-  );
-  const plannerDelta = useMemo(
-    () => Number((totalRecibido - totalPlannedPayment).toFixed(2)),
-    [totalPlannedPayment, totalRecibido],
-  );
-  const plannerRequiresDistribution = showInstallmentPlanner && totalRecibido > tolerance && !plannerHasDistribution;
-  const plannerMismatch = showInstallmentPlanner && totalRecibido > tolerance && Math.abs(plannerDelta) > tolerance;
-  const plannerBlocksSubmission = plannerRequiresDistribution || plannerMismatch;
+    if (allocationRequiresDistribution) {
+      return { tone: 'warn', text: 'Distribuye el adelanto entre las cuotas para registrar el movimiento en caja.' } as const;
+    }
+    if (allocationMismatch) {
+      return { tone: 'warn', text: 'El monto distribuido debe coincidir con el monto recibido.' } as const;
+    }
+    if (allocationDrafts.length > 0) {
+      return { tone: 'ok', text: 'El adelanto se aplicará a las cuotas seleccionadas.' } as const;
+    }
+    return null;
+  }, [allocationDrafts.length, allocationMismatch, allocationRequiresDistribution, showAllocationSection]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const initialMethodId = resolveInitialMethod();
-    const initialMode: PaymentCollectionMode = esBoleta
-      ? 'contado'
-      : (isCajaOpen ? 'contado' : 'credito');
+    const initialMode = resolveInitialMode();
 
     setMode(initialMode);
     setPaymentLines([
@@ -390,8 +385,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     setFechaCobranza(fechaEmision || new Date().toISOString().split('T')[0]);
     setCajaDestino(defaultCajaDestino);
     setNotas('');
+    setAllocationDrafts([]);
+    setHasManualAllocations(false);
     setErrorMessage(null);
-  }, [defaultCajaDestino, esBoleta, fechaEmision, isCajaOpen, isOpen, resolveInitialMethod, totals.total]);
+  }, [defaultCajaDestino, fechaEmision, isOpen, resolveInitialMethod, resolveInitialMode, totals.total]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -404,7 +401,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     }
 
     setCollectionSeriesId((current) => {
-      if (current && cobranzasSeries.some((series) => series.id === current)) {
+      if (current && cobranzasSeries.some((seriesItem) => seriesItem.id === current)) {
         return current;
       }
       return cobranzasSeries[0]?.id || '';
@@ -412,21 +409,24 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   }, [cobranzasSeries, isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    if (esBoleta) return;
-    if (!isCajaOpen && mode === 'contado') {
+    if (!isOpen) {
+      return;
+    }
+    if (esBoleta && mode !== 'contado') {
+      setMode('contado');
+      return;
+    }
+    if (!esBoleta && !isCajaOpen && mode === 'contado') {
       setMode('credito');
     }
   }, [esBoleta, isCajaOpen, isOpen, mode]);
 
   useEffect(() => {
-    if (!isOpen || !esBoleta) {
+    if (!isOpen || !showAllocationSection || hasManualAllocations) {
       return;
     }
-    if (mode !== 'contado') {
-      setMode('contado');
-    }
-  }, [esBoleta, isOpen, mode]);
+    setAllocationDrafts(autoDistributeAllocations(totalRecibido));
+  }, [autoDistributeAllocations, hasManualAllocations, isOpen, showAllocationSection, totalRecibido]);
 
   const handleAddLine = useCallback(() => {
     setPaymentLines((prev) => {
@@ -445,11 +445,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     });
   }, [defaultCajaDestino, resolveInitialMethod, totals.total]);
 
-  const handleRemoveLine = (id: string) => {
+  const handleRemoveLine = useCallback((id: string) => {
     setPaymentLines((prev) => (prev.length === 1 ? prev : prev.filter((line) => line.id !== id)));
-  };
+  }, []);
 
-  const updateLine = (id: string, field: keyof PaymentLineForm, value: string | number) => {
+  const updateLine = useCallback((id: string, field: keyof PaymentLineForm, value: string | number) => {
     setPaymentLines((prev) =>
       prev.map((line) =>
         line.id === id
@@ -460,718 +460,611 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           : line,
       ),
     );
-  };
+  }, []);
 
-  const validatePayment = (targetMode: PaymentCollectionMode = mode) => {
-    if (targetMode === 'credito') {
+  const validatePayment = useCallback(
+    (targetMode: PaymentCollectionMode = mode) => {
+      if (targetMode === 'credito') {
+        return true;
+      }
+
+      if (paymentLines.length === 0) {
+        setErrorMessage('Agrega al menos un método de pago.');
+        return false;
+      }
+
+      const invalidLine = paymentLines.find((line) => !line.method || !line.amount || line.amount <= 0);
+      if (invalidLine) {
+        setErrorMessage('Cada método necesita un monto mayor a 0.');
+        return false;
+      }
+
+      if (Math.abs(diferencia) > tolerance) {
+        setErrorMessage('La suma de los montos debe coincidir con el total.');
+        return false;
+      }
+
+      if (showAllocationSection) {
+        if (!allocationDrafts.length) {
+          setErrorMessage('Distribuye el monto recibido entre las cuotas.');
+          return false;
+        }
+
+        if (Math.abs(totalAllocationAmount - totalRecibido) > tolerance) {
+          setErrorMessage('La distribución debe coincidir con el monto recibido.');
+          return false;
+        }
+      }
+
+      setErrorMessage(null);
       return true;
-    }
-
-    if (paymentLines.length === 0) {
-      setErrorMessage('Agregar al menos un método de pago.');
-      return false;
-    }
-
-    const invalidLine = paymentLines.find((line) => !line.method || !line.amount || line.amount <= 0);
-    if (invalidLine) {
-      setErrorMessage('Cada método necesita un monto mayor a 0.');
-      return false;
-    }
-
-    if (Math.abs(diferencia) > tolerance) {
-      setErrorMessage('La suma de los montos debe ser igual al total a cobrar.');
-      return false;
-    }
-
-    if (targetMode === 'contado' && basePlannerRows.length > 0 && totalRecibido > tolerance) {
-      const hasAllocated = plannerRows.some((row) => (Number(row.plannedPayment) || 0) > tolerance);
-      if (!hasAllocated) {
-        setErrorMessage('Distribuye el monto recibido entre las cuotas para registrar el adelanto.');
-        return false;
-      }
-
-      if (Math.abs(totalPlannedPayment - totalRecibido) > tolerance) {
-        setErrorMessage('La distribución en cuotas debe coincidir con el monto recibido.');
-        return false;
-      }
-    }
-
-    setErrorMessage(null);
-    return true;
-  };
+    },
+    [allocationDrafts.length, diferencia, mode, paymentLines, showAllocationSection, totalAllocationAmount, totalRecibido],
+  );
 
   const handleModeChange = useCallback(
     (target: PaymentCollectionMode) => {
-      if (esBoleta && target === 'credito') {
-        setMode('contado');
-        setErrorMessage('Las boletas solo se pueden emitir al contado.');
+      if (target === mode) {
         return;
       }
 
-      if (target === 'contado' && !isCajaOpen) {
-        if (esBoleta) {
+      if (target === 'credito') {
+        if (!hasCreditSchedule || esBoleta) {
+          setErrorMessage('Esta venta solo puede emitirse al contado.');
           setMode('contado');
-          setErrorMessage('Abre una caja para registrar boletas al contado.');
-        } else {
-          setMode('credito');
-          setErrorMessage('No hay caja abierta. Selecciona Crédito o abre una caja para registrar el cobro.');
+          return;
         }
+        setMode('credito');
+        setErrorMessage(null);
+        return;
+      }
+
+      if (!isCajaOpen) {
+        setErrorMessage('Abre una caja para registrar cobros al contado.');
         return;
       }
 
       setErrorMessage(null);
-      setMode(target);
+      setMode('contado');
     },
-    [esBoleta, isCajaOpen],
+    [esBoleta, hasCreditSchedule, isCajaOpen, mode],
   );
 
-  const handleSubmit = async (targetMode: PaymentCollectionMode) => {
-    setErrorMessage(null);
-
-    const enforcedMode: PaymentCollectionMode = esBoleta ? 'contado' : targetMode;
-
-    if (esBoleta && targetMode === 'credito') {
-      setMode('contado');
-      setErrorMessage('Las boletas solo se pueden emitir al contado.');
+  const buildAllocationPayload = useCallback((): CreditInstallmentAllocation[] => {
+    if (!allocationDrafts.length) {
+      return [];
     }
 
-    if (enforcedMode === 'contado' && !isCajaOpen) {
-      if (esBoleta) {
-        setMode('contado');
-        setErrorMessage('Abre una caja para registrar boletas al contado.');
-      } else {
+    return allocationDrafts
+      .map((entry) => {
+        const installment = normalizedInstallments.find((item) => item.numeroCuota === entry.installmentNumber);
+        if (!installment) {
+          return null;
+        }
+        const saldo = Number(installment.saldo ?? 0);
+        const remaining = Number(Math.max(0, saldo - entry.amount).toFixed(2));
+        const status: CreditInstallmentAllocation['status'] = remaining <= tolerance ? 'cancelado' : 'parcial';
+        return {
+          installmentNumber: entry.installmentNumber,
+          amount: Number(entry.amount.toFixed(2)),
+          remaining,
+          status,
+        };
+      })
+      .filter(Boolean) as CreditInstallmentAllocation[];
+  }, [allocationDrafts, normalizedInstallments]);
+
+  const handleSubmit = useCallback(
+    async (targetMode: PaymentCollectionMode) => {
+      setErrorMessage(null);
+
+      const enforcedMode: PaymentCollectionMode = esBoleta ? 'contado' : targetMode;
+
+      if (enforcedMode === 'contado' && !isCajaOpen) {
+        setErrorMessage('Abre una caja para registrar el cobro.');
         setMode('credito');
-        setErrorMessage('No hay caja abierta. Selecciona Crédito o abre una caja para registrar el cobro.');
-      }
-      return;
-    }
-
-    if (enforcedMode === 'contado' && !validatePayment(enforcedMode)) {
-      return;
-    }
-
-    const requiresCollectionDocument = enforcedMode === 'contado';
-    if (requiresCollectionDocument && !collectionDocumentPreview) {
-      setErrorMessage('Configura una serie de cobranza activa para este establecimiento antes de registrar pagos.');
-      return;
-    }
-
-    setMode(enforcedMode);
-
-    const plannerAllocations =
-      enforcedMode === 'contado' && basePlannerRows.length
-        ? plannerRows
-            .filter((row) => (Number(row.plannedPayment) || 0) > tolerance)
-            .map((row) => {
-              const remaining = Math.max(0, Number((row.saldo - row.plannedPayment).toFixed(2)));
-              const status: InstallmentPlanRow['estado'] = remaining <= tolerance ? 'cancelado' : 'parcial';
-              return {
-                installmentNumber: row.numeroCuota,
-                amount: Number(row.plannedPayment.toFixed(2)),
-                remaining,
-                status,
-              };
-            })
-        : [];
-
-    const payload: PaymentCollectionPayload = {
-      mode: enforcedMode,
-      lines:
-        enforcedMode === 'contado'
-          ? paymentLines.map((line) => ({
-              id: line.id,
-              method: line.method,
-              amount: Number(line.amount),
-              bank: line.bank,
-              reference: line.reference,
-              operationNumber: line.operationNumber,
-            }))
-          : [],
-      cajaDestino: enforcedMode === 'contado' ? cajaDestino || undefined : undefined,
-      fechaCobranza: enforcedMode === 'contado' ? fechaCobranza || undefined : undefined,
-      notes: notas || undefined,
-      collectionDocument:
-        enforcedMode === 'contado' && collectionDocumentPreview
-          ? {
-              ...collectionDocumentPreview,
-              issuedAt: fechaCobranza || new Date().toISOString().split('T')[0],
-            }
-          : undefined,
-      allocations: plannerAllocations.length ? plannerAllocations : undefined,
-    };
-
-    try {
-      setSubmitting(true);
-      const result = await Promise.resolve(onComplete(payload));
-      if (!result) {
-        setErrorMessage('No se pudo completar la operación. Intenta nuevamente.');
         return;
       }
 
-      if (enforcedMode === 'contado' && payload.collectionDocument) {
-        incrementSeriesCorrelative(
-          payload.collectionDocument.seriesId,
-          payload.collectionDocument.correlative
-        );
+      if (enforcedMode === 'contado' && !validatePayment(enforcedMode)) {
+        return;
       }
-    } catch (submitError) {
-      console.error('Error al registrar cobranza:', submitError);
-      setErrorMessage('Ocurrió un error al registrar el pago. Intenta nuevamente.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
-  const formattedDifference = formatCurrency(Math.abs(diferencia));
-  const differenceStatus = diferencia > tolerance ? 'faltante' : diferencia < -tolerance ? 'vuelto' : 'ajustado';
+      const requiresCollectionDocument = enforcedMode === 'contado';
+      if (requiresCollectionDocument && !collectionDocumentPreview) {
+        setErrorMessage('Configura una serie de cobranza activa antes de registrar pagos.');
+        return;
+      }
+
+      const payload: PaymentCollectionPayload = {
+        mode: enforcedMode,
+        lines:
+          enforcedMode === 'contado'
+            ? paymentLines.map((line) => ({
+                id: line.id,
+                method: line.method,
+                amount: Number(line.amount),
+                bank: line.bank,
+                reference: line.reference,
+                operationNumber: line.operationNumber,
+              }))
+            : [],
+        cajaDestino: enforcedMode === 'contado' ? cajaDestino || undefined : undefined,
+        fechaCobranza: enforcedMode === 'contado' ? fechaCobranza || undefined : undefined,
+        notes: notas || undefined,
+        collectionDocument:
+          enforcedMode === 'contado' && collectionDocumentPreview
+            ? {
+                ...collectionDocumentPreview,
+                issuedAt: fechaCobranza || new Date().toISOString().split('T')[0],
+              }
+            : undefined,
+        allocations: enforcedMode === 'contado' ? buildAllocationPayload() : undefined,
+      };
+
+      try {
+        setSubmitting(true);
+        const result = await Promise.resolve(onComplete(payload));
+        if (!result) {
+          setErrorMessage('No se pudo completar la operación. Intenta nuevamente.');
+          return;
+        }
+
+        if (payload.collectionDocument) {
+          incrementSeriesCorrelative(payload.collectionDocument.seriesId, payload.collectionDocument.correlative);
+        }
+      } catch (submitError) {
+        console.error('Error al registrar cobranza:', submitError);
+        setErrorMessage('Ocurrió un error al registrar el pago. Intenta nuevamente.');
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [buildAllocationPayload, cajaDestino, collectionDocumentPreview, esBoleta, fechaCobranza, incrementSeriesCorrelative, isCajaOpen, notas, onComplete, paymentLines, validatePayment],
+  );
+
+  const supportMessage =
+    mode === 'contado'
+      ? 'Registra el cobro ahora para actualizar el saldo pendiente.'
+      : 'Emitirás la venta a crédito sin mover caja por ahora.';
   const confirmLabel = mode === 'contado' ? 'Registrar pago y emitir' : 'Emitir a crédito';
   const confirmDisabled =
     isProcessing ||
     submitting ||
     (mode === 'contado' && (!isCajaOpen || !collectionDocumentPreview)) ||
-    (mode === 'credito' && creditInstallments.length === 0) ||
-    plannerBlocksSubmission;
-  const handleConfirm = () => {
+    (mode === 'credito' && !hasCreditSchedule) ||
+    allocationBlocksSubmission;
+  const disableBackdropClose = isProcessing || submitting;
+
+  const handleConfirm = useCallback(() => {
     void handleSubmit(mode);
-  };
+  }, [handleSubmit, mode]);
 
   if (!isOpen) return null;
 
+  const canShowModeSelector = !esBoleta && hasCreditSchedule;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={isProcessing || submitting ? undefined : onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={disableBackdropClose ? undefined : onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 max-h-[92vh] flex flex-col">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <div className="relative mx-4 flex max-h-[94vh] w-full max-w-6xl flex-col rounded-2xl bg-white shadow-2xl">
+        <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cobranza de {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'}</p>
-            <h2 className="text-xl font-semibold text-slate-900">Confirma el pago antes de emitir</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Cobranza de {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'}
+            </p>
+            <h2 className="text-xl font-semibold text-slate-900">Revisa el cronograma antes de emitir</h2>
           </div>
-          <button
-            type="button"
-            className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
-            onClick={onClose}
-            disabled={isProcessing || submitting}
-            aria-label="Cerrar"
-          >
-            <X className="w-5 h-5" />
+          <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" onClick={onClose} disabled={disableBackdropClose} aria-label="Cerrar">
+            <X className="h-5 w-5" />
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
-          <section className="space-y-4">
-            <div className="rounded-xl border border-slate-200 p-4 bg-slate-50/60">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 rounded-lg bg-indigo-100 text-indigo-600">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Documento</p>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} • Serie {serie}{' '}
-                    {numeroTemporal && <span className="text-slate-500">({numeroTemporal})</span>}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm text-slate-700">
-                <div>
-                  <p className="text-xs text-slate-500">Fecha emisión</p>
-                  <p className="font-medium">{fechaEmision}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Moneda</p>
-                  <p className="font-medium">{currencyCode}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Cliente</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <User className="w-3.5 h-3.5 text-slate-400" />
-                    {cliente?.nombre || 'Sin cliente'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Documento cliente</p>
-                  <p className="font-medium">{cliente?.documento || '—'}</p>
-                </div>
-              </div>
+        {errorMessage && (
+          <div className="mx-6 mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</div>
+        )}
 
-              <div className="mt-4 border-t border-dashed border-slate-200 pt-4">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Detalle rápido</span>
-                </div>
-                {resumenProductos.slice.length > 0 ? (
-                  <ul className="mt-3 space-y-2">
-                    {resumenProductos.slice.map((item) => {
-                      const itemTotal = item.total ?? item.subtotal ?? item.price * item.quantity;
-                      return (
-                        <li key={item.id} className="flex items-center justify-between rounded-lg bg-white/70 px-3 py-2 text-sm">
-                          <div>
-                            <p className="font-semibold text-slate-900">{item.name}</p>
-                            <p className="text-xs text-slate-500">
-                              Cant. {item.quantity} • {formatCurrency(item.price)} c/u
-                            </p>
-                          </div>
-                          <span className="text-sm font-semibold text-slate-900">{formatCurrency(itemTotal)}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <p className="mt-3 text-sm text-slate-500">No hay productos en el carrito.</p>
-                )}
-                {resumenProductos.restantes > 0 && (
-                  <p className="mt-2 text-xs text-slate-500">
-                    +{resumenProductos.restantes} productos adicionales en esta venta
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 p-4">
-              <div className="space-y-2 text-sm text-slate-600">
-                <div className="flex items-center justify-between">
-                  <span>Subtotal</span>
-                  <span className="font-semibold text-slate-900">{formatCurrency(totals.subtotal ?? totals.total)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>IGV</span>
-                  <span className="font-semibold text-slate-900">{formatCurrency(totals.igv ?? 0)}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-dashed border-slate-200 pt-3 text-base font-semibold text-slate-900">
-                  <span>Total a cobrar</span>
-                  <span>{formatCurrency(totals.total)}</span>
-                </div>
-              </div>
-            </div>
-
-            {creditInstallments.length > 0 && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+            <section className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{creditScheduleLabel}</p>
-                    <h3 className="text-base font-semibold text-emerald-900">
-                      {creditInstallments.length} cuota{creditInstallments.length === 1 ? '' : 's'} programada{creditInstallments.length === 1 ? '' : 's'}
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Documento</p>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} · Serie {serie}
+                      {numeroTemporal && <span className="ml-1 text-sm text-slate-500">({numeroTemporal})</span>}
                     </h3>
                   </div>
-                  <div className="text-right text-xs text-emerald-700">
-                    <p className="font-semibold">Vence:</p>
-                    <p>{creditTerms?.fechaVencimientoGlobal}</p>
+                  <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700 shadow">Total {formatCurrency(totals.total)}</div>
+                </div>
+                <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-slate-500">Fecha emisión</p>
+                    <p className="font-medium">{fechaEmision}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Moneda</p>
+                    <p className="font-medium">{currencyCode}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Cliente</p>
+                    <p className="flex items-center gap-1 font-medium text-slate-900">
+                      <User className="h-4 w-4 text-slate-400" />
+                      {cliente?.nombre || 'Sin cliente'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Documento del cliente</p>
+                    <p className="font-medium">{cliente?.documento || '—'}</p>
                   </div>
                 </div>
-                <ul className="space-y-2">
-                  {creditInstallments.slice(0, 3).map((cuota) => (
-                    <li key={cuota.numeroCuota} className="flex items-center justify-between rounded-lg bg-white/70 px-3 py-2 text-sm text-emerald-900">
-                      <div>
-                        <p className="font-semibold">Cuota {cuota.numeroCuota}</p>
-                        <p className="text-xs text-emerald-700">{cuota.fechaVencimiento} • {cuota.porcentaje}%</p>
-                      </div>
-                      <span className="text-sm font-semibold">{formatCurrency(cuota.importe)}</span>
-                    </li>
-                  ))}
-                </ul>
-                {creditInstallments.length > 3 && (
-                  <p className="text-xs text-emerald-700">+{creditInstallments.length - 3} cuota{creditInstallments.length - 3 === 1 ? '' : 's'} adicionales</p>
+                {productsSummary.highlighted.length > 0 && (
+                  <div className="mt-4 space-y-1 text-sm text-slate-600">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Productos recientes</p>
+                    {productsSummary.highlighted.map((item) => (
+                      <p key={item.id} className="truncate">
+                        {item.quantity} × {item.name}
+                      </p>
+                    ))}
+                    {productsSummary.remaining > 0 && (
+                      <p className="text-xs text-slate-500">+ {productsSummary.remaining} ítem(s) adicionales</p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </section>
 
-          <section className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Serie de cobranza</p>
-                  <h3 className="text-base font-semibold text-slate-900">Elige la serie que emitirá el recibo</h3>
-                </div>
-              </div>
-              {cobranzasSeries.length === 0 ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                  Necesitas configurar una serie de cobranza activa para este establecimiento antes de registrar pagos.
-                  Ve a Configuración &gt; Series y crea una con prefijo "C".
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Serie</label>
-                    <select
-                      value={collectionSeriesId}
-                      onChange={(event) => setCollectionSeriesId(event.target.value)}
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    >
-                      {cobranzasSeries.map((seriesOption) => (
-                        <option key={seriesOption.id} value={seriesOption.id}>
-                          {seriesOption.series}
-                        </option>
-                      ))}
-                    </select>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{creditScheduleLabel}</p>
+                    <h3 className="text-base font-semibold text-slate-900">
+                      {hasCreditSchedule
+                        ? `${normalizedInstallments.length} cuota${normalizedInstallments.length === 1 ? '' : 's'} programada${normalizedInstallments.length === 1 ? '' : 's'}`
+                        : 'Sin cronograma definido'}
+                    </h3>
+                    {creditTerms?.fechaVencimientoGlobal && <p className="text-sm text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
                   </div>
-                  {collectionDocumentPreview && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Próximo recibo</p>
-                      <p className="text-lg font-semibold text-slate-900">{collectionDocumentPreview.fullNumber}</p>
+                </div>
+                {hasCreditSchedule ? (
+                  <CreditInstallmentsTable
+                    installments={normalizedInstallments}
+                    currency={currencyForFormat}
+                    mode="readonly"
+                    scrollMaxHeight={320}
+                    showDaysOverdue
+                    compact
+                  />
+                ) : (
+                  <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    Configura un cronograma de crédito para poder distribuir adelantos entre las cuotas.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Gestión de cobranza</p>
+                    <h3 className="text-base font-semibold text-slate-900">{mode === 'contado' ? 'Registrar pago' : 'Emitir sin cobro'}</h3>
+                  </div>
+                  {canShowModeSelector && (
+                    <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 p-1 text-xs font-semibold text-slate-600">
+                      {(['contado', 'credito'] as PaymentCollectionMode[]).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => handleModeChange(option)}
+                          disabled={option === 'contado' && !isCajaOpen}
+                          className={`rounded-full px-3 py-1 transition ${
+                            mode === option ? 'bg-white text-slate-900 shadow' : 'hover:text-slate-900'
+                          } ${option === 'contado' && !isCajaOpen ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {option === 'contado' ? 'Pago al contado' : 'Pago a crédito'}
+                        </button>
+                      ))}
                     </div>
                   )}
-                </>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Modalidad</p>
-                  <h3 className="text-base font-semibold text-slate-900">Selecciona cómo registrarás este cobro</h3>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-slate-500">
-                  <ChevronRight className="w-3 h-3" />
-                  <span>Paso 1</span>
-                </div>
+                <p className="text-sm text-slate-600">{supportMessage}</p>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleModeChange('contado')}
-                  disabled={!isCajaOpen && mode !== 'contado'}
-                  className={`rounded-xl border px-4 py-3 text-left text-sm transition focus:outline-none ${
-                    mode === 'contado' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm' : 'border-slate-200 hover:border-slate-300'
-                  } ${!isCajaOpen ? 'disabled:cursor-not-allowed disabled:opacity-60' : ''}`}
-                >
-                  <p className="font-semibold">Pago al contado</p>
-                  <p className="text-xs text-slate-500">Registra métodos y montos ahora</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleModeChange('credito')}
-                  disabled={esBoleta}
-                  className={`rounded-xl border px-4 py-3 text-left text-sm transition focus:outline-none ${
-                    mode === 'credito' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' : 'border-slate-200 hover:border-slate-300'
-                  } disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  <p className="font-semibold">Pago a crédito</p>
-                  <p className="text-xs text-slate-500">Registra la cobranza después</p>
-                </button>
-              </div>
-
-              {!isCajaOpen && (
-                <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-amber-800">
-                  <AlertTriangle className="mt-0.5 h-5 w-5" />
-                  <div>
-                    <p className="text-sm font-semibold">Caja cerrada</p>
-                    <p className="text-xs text-amber-900/80">Abre una caja para registrar pagos al contado o selecciona la modalidad crédito.</p>
-                  </div>
-                </div>
-              )}
 
               {mode === 'contado' ? (
                 <>
-                  <div className="space-y-4">
-                    {paymentLines.map((line, index) => {
-                      const optionMeta = availablePaymentOptions.find((option) => option.id === line.method) ?? availablePaymentOptions[0];
-                      const LineIcon = optionMeta?.icon ?? CreditCard;
-                      return (
-                        <div key={line.id} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-                          <div className="mb-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-600 shadow">
-                                <LineIcon className="h-4 w-4" />
-                              </span>
-                              <div>
-                                <p className="text-sm font-semibold text-slate-900">Método #{index + 1}</p>
-                                <span className={`mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${optionMeta?.badge ?? 'bg-slate-100 text-slate-600'}`}>
-                                  {optionMeta?.label ?? 'Método personalizado'}
-                                </span>
-                              </div>
-                            </div>
-                            {paymentLines.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveLine(line.id)}
-                                className="rounded-full p-2 text-slate-400 transition hover:bg-white hover:text-slate-600"
-                                aria-label="Eliminar método"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-slate-800">Documento de cobranza</h4>
+                      {!isCajaOpen && <span className="text-xs font-semibold uppercase tracking-wide text-amber-600">Caja cerrada</span>}
+                    </div>
+                    {cobranzasSeries.length === 0 ? (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                        Configura una serie de cobranza activa antes de registrar pagos.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Serie
+                            <select
+                              value={collectionSeriesId}
+                              onChange={(event) => setCollectionSeriesId(event.target.value)}
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                            >
+                              {cobranzasSeries.map((seriesOption) => (
+                                <option key={seriesOption.id} value={seriesOption.id}>
+                                  {seriesOption.series}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Próximo número
+                            <input
+                              value={collectionDocumentPreview?.fullNumber ?? '—'}
+                              readOnly
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                            />
+                          </label>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Moneda
+                            <input
+                              value={currencyCode}
+                              readOnly
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                            />
+                          </label>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Fecha de cobranza
+                            <input
+                              type="date"
+                              value={fechaCobranza}
+                              onChange={(event) => setFechaCobranza(event.target.value)}
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                            />
+                          </label>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Caja destino / banco
+                            <select
+                              value={cajaDestino}
+                              onChange={(event) => setCajaDestino(event.target.value)}
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                            >
+                              {cajaOptions.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Concepto
+                            <input
+                              type="text"
+                              placeholder="Cobranza de venta"
+                              value={notas}
+                              onChange={(event) => setNotas(event.target.value)}
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              Forma de pago
-                              <select
-                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
-                                value={line.method}
-                                onChange={(event) => updateLine(line.id, 'method', event.target.value)}
-                              >
-                                {availablePaymentOptions.map((option) => (
-                                  <option key={option.id} value={option.id}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              Monto
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
-                                value={Number.isNaN(line.amount) ? '' : line.amount}
-                                onChange={(event) => updateLine(line.id, 'amount', Number(event.target.value))}
-                              />
-                            </label>
-                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              Destino / banco
-                              <input
-                                type="text"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
-                                value={line.bank ?? ''}
-                                onChange={(event) => updateLine(line.id, 'bank', event.target.value)}
-                                placeholder="Caja o banco"
-                              />
-                            </label>
-                            <div className="grid gap-3 sm:grid-cols-2 sm:col-span-2">
-                              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Referencia
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-slate-800">Métodos de pago</h4>
+                      <button
+                        type="button"
+                        onClick={handleAddLine}
+                        className="inline-flex items-center gap-2 rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
+                        disabled={isProcessing}
+                      >
+                        <Plus className="h-4 w-4" /> Nuevo método
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {paymentLines.map((line, index) => {
+                        const optionMeta = availablePaymentOptions.find((option) => option.id === line.method) ?? availablePaymentOptions[0];
+                        const LineIcon = optionMeta?.icon ?? CreditCard;
+                        return (
+                          <div key={line.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                            <div className="mb-2 flex items-center justify-between text-sm text-slate-700">
+                              <div className="flex items-center gap-2 font-semibold text-slate-900">
+                                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 shadow">
+                                  <LineIcon className="h-4 w-4" />
+                                </span>
+                                Método #{index + 1}
+                              </div>
+                              {paymentLines.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveLine(line.id)}
+                                  className="rounded-full p-2 text-slate-400 transition hover:bg-white hover:text-slate-600"
+                                  aria-label="Eliminar método"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                            <div className="space-y-3 text-[13px] text-slate-600">
+                              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Forma de pago
+                                <select
+                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
+                                  value={line.method}
+                                  onChange={(event) => updateLine(line.id, 'method', event.target.value)}
+                                >
+                                  {availablePaymentOptions.map((option) => (
+                                    <option key={option.id} value={option.id}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Monto
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
+                                  value={Number.isNaN(line.amount) ? '' : line.amount}
+                                  onChange={(event) => updateLine(line.id, 'amount', Number(event.target.value))}
+                                />
+                              </label>
+                              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Destino / banco
                                 <input
                                   type="text"
                                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
-                                  value={line.reference ?? ''}
-                                  onChange={(event) => updateLine(line.id, 'reference', event.target.value)}
-                                  placeholder="Voucher, número de operación, etc"
+                                  value={line.bank ?? ''}
+                                  onChange={(event) => updateLine(line.id, 'bank', event.target.value)}
+                                  placeholder="Caja o banco"
                                 />
                               </label>
-                              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                                 N° operación
                                 <input
                                   type="text"
                                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
                                   value={line.operationNumber ?? ''}
                                   onChange={(event) => updateLine(line.id, 'operationNumber', event.target.value)}
-                                  placeholder="Código opcional"
+                                  placeholder="Referencia opcional"
+                                />
+                              </label>
+                              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Referencia
+                                <input
+                                  type="text"
+                                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
+                                  value={line.reference ?? ''}
+                                  onChange={(event) => updateLine(line.id, 'reference', event.target.value)}
+                                  placeholder="Voucher o comentario"
                                 />
                               </label>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleAddLine}
-                    className="inline-flex items-center gap-2 rounded-full border border-dashed border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
-                    disabled={isProcessing}
-                  >
-                    <Plus className="h-4 w-4" /> Añadir método de pago
-                  </button>
-
-                  {showInstallmentPlanner && (
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-4">
+                  {showAllocationSection && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 space-y-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Aplicar adelanto a cuotas</p>
-                          <p className="text-sm text-emerald-900">
-                            {pendingInstallments > 0
-                              ? `Distribuye el monto recibido entre ${pendingInstallments} cuota${pendingInstallments === 1 ? '' : 's'} pendiente${pendingInstallments === 1 ? '' : 's'}.`
-                              : 'Distribuye el monto recibido entre el cronograma vigente.'}
-                          </p>
+                          <p className="text-sm text-emerald-900">Selecciona las cuotas a cancelar y distribuye el monto recibido.</p>
                         </div>
                         <div className="flex flex-wrap gap-2 text-xs font-semibold">
                           <button
                             type="button"
-                            onClick={handleAutoDistributePlanner}
-                            className="rounded-full border border-emerald-200 bg-white/80 px-3 py-1 text-emerald-700 transition hover:border-emerald-300 hover:text-emerald-900"
+                            onClick={handleAutoDistributeAllocations}
+                            className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-emerald-700 hover:border-emerald-300 hover:text-emerald-900"
                           >
                             Recalcular
                           </button>
                           <button
                             type="button"
-                            onClick={handleResetPlanner}
-                            className="rounded-full border border-slate-200 bg-white/60 px-3 py-1 text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                            onClick={handleResetAllocations}
+                            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-600 hover:border-slate-300 hover:text-slate-800"
                           >
                             Limpiar
                           </button>
                         </div>
                       </div>
-
-                      <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-                        {plannerRows.map((row) => {
-                          const isSettled = row.saldo <= tolerance;
-                          const statusClass =
-                            row.estado === 'cancelado'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : row.estado === 'parcial'
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-slate-100 text-slate-600';
-                          const statusLabel = row.estado === 'cancelado' ? 'Cancelada' : row.estado === 'parcial' ? 'Parcial' : 'Pendiente';
-                          return (
-                            <div key={row.numeroCuota} className="rounded-xl border border-emerald-100 bg-white/80 p-3 space-y-3">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div>
-                                  <p className="text-sm font-semibold text-slate-900">Cuota {row.numeroCuota}</p>
-                                  <p className="text-xs text-slate-500">Vence {row.fechaVencimiento}</p>
-                                </div>
-                                <div className="text-right text-xs text-slate-500">
-                                  <p>Saldo: {formatCurrency(row.saldo)}</p>
-                                  {row.pagado > 0 && <p>Pagado: {formatCurrency(row.pagado)}</p>}
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide">
-                                <span className="text-emerald-700">Estado</span>
-                                <span className={`rounded-full px-2 py-0.5 ${statusClass}`}>{statusLabel}</span>
-                              </div>
-                              <label className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
-                                Monto a aplicar
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  className="mt-1 w-full rounded-lg border border-emerald-200 px-3 py-2 text-sm text-emerald-900 focus:border-emerald-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100"
-                                  value={Number.isNaN(row.plannedPayment) ? '' : row.plannedPayment}
-                                  onChange={(event) => handlePlannerInputChange(row.numeroCuota, Number(event.target.value))}
-                                  disabled={isSettled}
-                                />
-                              </label>
-                              {isSettled && <p className="text-[11px] text-slate-500">Cuota cancelada en su totalidad.</p>}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-emerald-900">
-                        <span className="rounded-full bg-white/70 px-3 py-1">Recibido: {formatCurrency(totalRecibido)}</span>
-                        <span className="rounded-full bg-white/70 px-3 py-1">Distribuido: {formatCurrency(totalPlannedPayment)}</span>
-                        <span className={`rounded-full px-3 py-1 ${plannerMismatch ? 'bg-amber-100 text-amber-700' : 'bg-white/70'}`}>
-                          Diferencia: {formatCurrency(Math.abs(plannerDelta))}
+                      <CreditInstallmentsTable
+                        installments={normalizedInstallments}
+                        currency={currencyForFormat}
+                        mode="allocation"
+                        allocations={allocationDrafts}
+                        onChangeAllocations={handleAllocationChange}
+                        disabled={submitting || isProcessing}
+                        showDaysOverdue
+                        showRemainingResult
+                        compact
+                        scrollMaxHeight={260}
+                      />
+                      <div className="flex flex-wrap gap-3 text-xs font-semibold text-emerald-900">
+                        <span className="rounded-full bg-white/80 px-3 py-1">Recibido: {formatCurrency(totalRecibido)}</span>
+                        <span className="rounded-full bg-white/80 px-3 py-1">Distribuido: {formatCurrency(totalAllocationAmount)}</span>
+                        <span className={`rounded-full px-3 py-1 ${allocationMismatch ? 'bg-amber-100 text-amber-700' : 'bg-white/80'}`}>
+                          Diferencia: {formatCurrency(Math.abs(allocationDelta))}
                         </span>
                       </div>
-
-                      {plannerRequiresDistribution && (
-                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                          Distribuye el adelanto entre las cuotas pendientes para registrar el movimiento en caja.
-                        </div>
-                      )}
-                      {plannerMismatch && !plannerRequiresDistribution && (
-                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                          Ajusta los montos: el total aplicado debe coincidir con el monto recibido.
+                      {allocationStatus && (
+                        <div
+                          className={`rounded-xl px-3 py-2 text-xs font-medium ${
+                            allocationStatus.tone === 'ok'
+                              ? 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+                              : 'border border-amber-200 bg-amber-50 text-amber-800'
+                          }`}
+                        >
+                          {allocationStatus.text}
                         </div>
                       )}
                     </div>
                   )}
                 </>
               ) : (
-                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 px-4 py-3 text-sm text-indigo-900">
-                  <p className="font-semibold">Se emitirá a crédito</p>
-                  <p className="text-xs text-indigo-900/80">No registraremos movimientos de caja ahora. Podrás registrar el pago cuando se realice la cobranza.</p>
-                  {creditInstallments.length > 0 && (
-                    <p className="mt-1 text-xs text-indigo-900/80">
-                      Cronograma: {creditInstallments.length} cuota{creditInstallments.length === 1 ? '' : 's'} hasta {creditTerms?.fechaVencimientoGlobal}
-                    </p>
-                  )}
+                <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 p-5 text-sm text-indigo-900">
+                  <p className="font-semibold">Esta venta se emitirá completamente a crédito.</p>
+                  <p className="mt-2 text-indigo-900/80">
+                    No se generará ningún recibo de cobranza ahora. Podrás registrar pagos desde el módulo de cobranzas cuando recibas abonos del cliente.
+                  </p>
                 </div>
               )}
-
-              {mode === 'contado' && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span>Total del documento</span>
-                    <span className="font-semibold text-slate-900">{formatCurrency(totals.total)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Monto recibido</span>
-                    <span className="font-semibold text-slate-900">{formatCurrency(totalRecibido)}</span>
-                  </div>
-                  <div
-                    className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
-                      differenceStatus === 'faltante'
-                        ? 'border-amber-200 bg-amber-50 text-amber-700'
-                        : differenceStatus === 'vuelto'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-slate-200 bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    {differenceStatus === 'faltante' && `Faltan ${formattedDifference} para completar el cobro.`}
-                    {differenceStatus === 'vuelto' && `Se devolverá ${formattedDifference} de vuelto al cliente.`}
-                    {differenceStatus === 'ajustado' && 'Montos equilibrados. Puedes continuar.'}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Caja / destino</label>
-                  <div className="mt-1 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 focus-within:border-indigo-400">
-                    <Building2 className="h-4 w-4 text-slate-400" />
-                    <select
-                      className="w-full bg-transparent text-sm text-slate-700 focus:outline-none"
-                      value={cajaDestino}
-                      onChange={(event) => setCajaDestino(event.target.value)}
-                    >
-                      {cajaOptions.map((caja) => (
-                        <option key={caja} value={caja}>
-                          {caja}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fecha de cobranza</label>
-                  <div className="mt-1 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 focus-within:border-indigo-400">
-                    <Calendar className="h-4 w-4 text-slate-400" />
-                    <input
-                      type="date"
-                      className="w-full bg-transparent text-sm text-slate-700 focus:outline-none"
-                      value={fechaCobranza}
-                      onChange={(event) => setFechaCobranza(event.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notas internas</label>
-                <div className="mt-1 flex gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 focus-within:border-indigo-400">
-                  <NotebookPen className="mt-1 h-4 w-4 text-slate-400" />
-                  <textarea
-                    className="min-h-[72px] w-full resize-none border-0 bg-transparent text-sm text-slate-700 outline-none"
-                    placeholder="Agregar instrucciones o recordatorios para la caja"
-                    value={notas}
-                    onChange={(event) => setNotas(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              {errorMessage && (
-                <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
-            </div>
-          </section>
+            </section>
+          </div>
         </div>
 
-        <footer className="flex items-center justify-between gap-3 border-t border-slate-200 px-6 py-4">
-          <button
-            type="button"
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
-            onClick={onClose}
-            disabled={isProcessing}
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-60"
-            onClick={handleConfirm}
-            disabled={confirmDisabled}
-          >
-            {isProcessing ? 'Procesando...' : confirmLabel}
-          </button>
+        <footer className="border-t border-slate-200 bg-white px-6 py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-3 text-sm font-semibold text-slate-700">
+              <span className="rounded-full bg-slate-100 px-3 py-1">Total: {formatCurrency(totals.total)}</span>
+              {mode === 'contado' && (
+                <>
+                  <span className="rounded-full bg-slate-100 px-3 py-1">Recibido: {formatCurrency(totalRecibido)}</span>
+                  <span className={`rounded-full px-3 py-1 ${differenceChipClass}`}>
+                    Diferencia: {formattedDifference}
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={disableBackdropClose}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={confirmDisabled}
+                className={`rounded-full px-5 py-2 text-sm font-semibold text-white transition ${
+                  confirmDisabled
+                    ? 'bg-slate-300 cursor-not-allowed'
+                    : mode === 'contado'
+                    ? 'bg-indigo-600 hover:bg-indigo-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                {confirmLabel}
+              </button>
+            </div>
+          </div>
         </footer>
       </div>
     </div>

@@ -128,6 +128,7 @@ const EmisionTradicional = () => {
   const [lastComprobante, setLastComprobante] = useState<any>(null);
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
+  const [cobranzaMode, setCobranzaMode] = useState<PaymentCollectionMode>('contado');
   const [lookupClient, setLookupClient] = useState<{ data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' } | null>(null);
   const [showCreditScheduleModal, setShowCreditScheduleModal] = useState(false);
   const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
@@ -258,16 +259,34 @@ const EmisionTradicional = () => {
     return validation.isValid;
   };
 
-  const handleOpenCobranzaModal = () => {
-    if (!ensureDataBeforeCobranza(isCreditPaymentSelection ? 'credito' : undefined)) {
+  const handleOpenCobranzaModal = (targetMode: PaymentCollectionMode) => {
+    if (!ensureDataBeforeCobranza(targetMode)) {
       return;
     }
-    if (isCreditMethod && creditTemplateErrors.length > 0) {
-      creditTemplateErrors.forEach((validationError) =>
-        error('Cronograma de crédito incompleto', validationError),
-      );
+
+    if (targetMode === 'credito') {
+      if (!isCreditMethod) {
+        error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
+        return;
+      }
+      if (creditTemplateErrors.length > 0) {
+        creditTemplateErrors.forEach((validationError) =>
+          error('Cronograma de crédito incompleto', validationError),
+        );
+        return;
+      }
+      if (!creditTerms) {
+        error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
+        return;
+      }
+    }
+
+    if (targetMode === 'contado' && !isCajaOpen) {
+      error('Caja cerrada', 'Abre una caja para registrar cobranzas al contado o emite a crédito.');
       return;
     }
+
+    setCobranzaMode(targetMode === 'credito' ? 'credito' : 'contado');
     setShowCobranzaModal(true);
   };
 
@@ -278,41 +297,17 @@ const EmisionTradicional = () => {
     await handleCrearComprobante();
   };
 
-  const handleEmitirCreditoDirecto = async () => {
-    if (!isCreditPaymentSelection) {
-      handleOpenCobranzaModal();
-      return;
-    }
-    if (!ensureDataBeforeCobranza('credito')) {
-      return;
-    }
-    if (creditTemplateErrors.length > 0) {
-      creditTemplateErrors.forEach((validationError) =>
-        error('Cronograma de crédito incompleto', validationError),
-      );
-      return;
-    }
-    if (!creditTerms) {
-      error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
-      return;
-    }
-    await handleCrearComprobante({
-      mode: 'credito',
-      lines: [],
-    });
-  };
-
   const handlePrimaryAction = () => {
     if (isCreditPaymentSelection) {
-      void handleEmitirCreditoDirecto();
+      handleOpenCobranzaModal('credito');
       return;
     }
-    handleOpenCobranzaModal();
+    handleOpenCobranzaModal('contado');
   };
 
   const handleSecondaryAction = () => {
     if (isCreditPaymentSelection) {
-      handleOpenCobranzaModal();
+      handleOpenCobranzaModal('contado');
       return;
     }
     void handleEmitirSinCobrar();
@@ -649,6 +644,7 @@ const EmisionTradicional = () => {
           establishmentId={session?.currentEstablishmentId}
           creditTerms={creditTerms}
           creditPaymentMethodLabel={selectedPaymentMethod?.name}
+          modeIntent={cobranzaMode}
         />
 
         <PreviewModal

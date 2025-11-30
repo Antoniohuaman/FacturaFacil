@@ -1,6 +1,7 @@
-import { Calendar, Clock, Edit3 } from 'lucide-react';
+import { Calendar, Edit3 } from 'lucide-react';
 import type { ComprobanteCreditTerms, Currency } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
+import { CreditInstallmentsTable } from './CreditInstallmentsTable';
 
 interface CreditScheduleSummaryCardProps {
   creditTerms?: ComprobanteCreditTerms;
@@ -23,16 +24,25 @@ export const CreditScheduleSummaryCard = ({
   const cuotas = creditTerms?.schedule ?? [];
   const totalCuotas = cuotas.length;
   const resumenLabel = paymentMethodName || 'Pago a crédito';
-  const resolvedCurrency = (currency as Currency | undefined);
+  const resolvedCurrency = (currency as Currency | undefined) ?? 'PEN';
+  const orderedDays = cuotas.map((cuota) => cuota.diasCredito).filter((day) => typeof day === 'number');
+  const daysLabel = orderedDays.length ? `Crédito ${orderedDays.join('-')} días` : resumenLabel;
+  const headline = totalCuotas > 0
+    ? `${daysLabel.toUpperCase()} · ${totalCuotas} cuota${totalCuotas === 1 ? '' : 's'}`
+    : resumenLabel;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{resumenLabel}</p>
-          <h4 className="text-base font-semibold text-slate-900">
-            {totalCuotas > 0 ? `${totalCuotas} cuota${totalCuotas === 1 ? '' : 's'}` : 'Sin cronograma definido'}
-          </h4>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">{resumenLabel}</p>
+          <h4 className="text-lg font-semibold text-slate-900">{headline}</h4>
+          {creditTerms?.fechaVencimientoGlobal && (
+            <p className="mt-1 flex items-center gap-2 text-sm text-slate-600">
+              <Calendar className="h-4 w-4 text-slate-400" />
+              Vence: <span className="font-semibold text-slate-900">{creditTerms.fechaVencimientoGlobal}</span>
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -45,35 +55,26 @@ export const CreditScheduleSummaryCard = ({
       </div>
 
       {totalCuotas > 0 ? (
-        <div className="mt-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <Calendar className="h-4 w-4 text-slate-400" />
-            <span>Vence: <strong className="text-slate-900">{creditTerms?.fechaVencimientoGlobal}</strong></span>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-slate-50/80">
-            <ul className="divide-y divide-slate-100 text-sm text-slate-700">
-              {cuotas.slice(0, 3).map((cuota) => (
-                <li key={cuota.numeroCuota} className="flex items-center justify-between px-3 py-2">
-                  <div>
-                    <p className="font-semibold text-slate-900">Cuota {cuota.numeroCuota}</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {cuota.diasCredito} días • {cuota.fechaVencimiento}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-slate-900">{formatPrice(cuota.importe, resolvedCurrency)}</p>
-                    <p className="text-xs text-slate-500">{cuota.porcentaje}%</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            {totalCuotas > 3 && (
-              <p className="px-3 py-2 text-xs text-slate-500">+{totalCuotas - 3} cuota{totalCuotas - 3 === 1 ? '' : 's'} adicionales</p>
-            )}
-          </div>
-          <div className="text-xs text-slate-500">
-            Total financiado: <span className="font-semibold text-slate-900">{formatPrice(total, resolvedCurrency)}</span>
+        <div className="mt-4 space-y-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Cronograma completo
+          </p>
+          <CreditInstallmentsTable
+            installments={cuotas}
+            currency={resolvedCurrency as Currency}
+            mode="readonly"
+            className="border-none"
+            scrollMaxHeight={undefined}
+            showDaysOverdue
+            compact
+          />
+          <div className="flex flex-wrap gap-4 text-xs text-slate-600">
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-800">
+              Total financiado: {formatPrice(total, resolvedCurrency)}
+            </span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-800">
+              Moneda: {resolvedCurrency}
+            </span>
           </div>
         </div>
       ) : (
