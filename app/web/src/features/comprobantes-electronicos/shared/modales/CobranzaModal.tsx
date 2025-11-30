@@ -426,27 +426,21 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     ? `${creditPaymentMethodLabel || 'Pago a crédito'} · Cuotas pendientes ${installmentsCounters.pending}/${installmentsCounters.total}`
     : creditPaymentMethodLabel || (hasCreditSchedule ? 'Pago a crédito' : 'Sin cronograma definido');
 
-  const resolveInitialMode = useCallback(() => {
+  const mode: PaymentCollectionMode = useMemo(() => {
     if (isCobranzasContext) {
       return 'contado';
     }
-
     if (esBoleta || !hasCreditSchedule) {
       return 'contado';
     }
-
     if (!isCajaOpen) {
       return 'credito';
     }
-
     if (modeIntent === 'credito') {
       return 'credito';
     }
-
     return 'contado';
   }, [esBoleta, hasCreditSchedule, isCajaOpen, isCobranzasContext, modeIntent]);
-
-  const [mode, setMode] = useState<PaymentCollectionMode>('contado');
   const [paymentLines, setPaymentLines] = useState<PaymentLineForm[]>([]);
   const [fechaCobranza, setFechaCobranza] = useState(() => fechaEmision || new Date().toISOString().split('T')[0]);
   const [cajaDestino, setCajaDestino] = useState(defaultCajaDestino);
@@ -454,7 +448,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [allocationDrafts, setAllocationDrafts] = useState<CreditInstallmentAllocationInput[]>([]);
-  const [hasManualAllocations, setHasManualAllocations] = useState(false);
 
   const currencyCode = typeof moneda === 'string' ? moneda : moneda?.code ?? 'PEN';
   const normalizedCurrencyCode = (currencyCode || 'PEN').toUpperCase();
@@ -481,44 +474,14 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     : 'bg-sky-100 text-sky-700';
   const differenceChipLabel = isCobranzasContext ? 'Saldo restante' : 'Diferencia';
 
-  const showAllocationSection = mode === 'contado' && hasCreditSchedule && totalRecibido > tolerance;
-
-  const autoDistributeAllocations = useCallback(
-    (amount: number) => {
-      if (!hasCreditSchedule) {
-        return [];
-      }
-      let remaining = Math.max(0, Number(amount) || 0);
-      const plan: CreditInstallmentAllocationInput[] = [];
-      normalizedInstallments.forEach((installment) => {
-        if (remaining <= tolerance) {
-          return;
-        }
-        const saldo = Number(installment.saldo ?? 0);
-        const toApply = clampCurrency(Math.min(saldo, remaining));
-        if (toApply > tolerance) {
-          plan.push({ installmentNumber: installment.numeroCuota, amount: toApply });
-          remaining = Math.max(0, clampCurrency(remaining - toApply));
-        }
-      });
-      return plan;
-    },
-    [hasCreditSchedule, normalizedInstallments],
-  );
-
-  const handleAutoDistributeAllocations = useCallback(() => {
-    setHasManualAllocations(false);
-    setAllocationDrafts(autoDistributeAllocations(totalRecibido));
-  }, [autoDistributeAllocations, totalRecibido]);
-
-  const handleResetAllocations = useCallback(() => {
-    setHasManualAllocations(false);
-    setAllocationDrafts([]);
-  }, []);
+  const allowAllocations = mode === 'contado' && hasCreditSchedule;
 
   const handleAllocationChange = useCallback((allocations: CreditInstallmentAllocationInput[]) => {
-    setHasManualAllocations(true);
     setAllocationDrafts(allocations);
+  }, []);
+
+  const handleClearAllocations = useCallback(() => {
+    setAllocationDrafts([]);
   }, []);
 
   const totalAllocationAmount = useMemo(
@@ -526,36 +489,31 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     [allocationDrafts],
   );
   const allocationDelta = useMemo(
-    () => Number((totalRecibido - totalAllocationAmount).toFixed(2)),
+    () => clampCurrency(totalRecibido - totalAllocationAmount),
     [totalAllocationAmount, totalRecibido],
   );
-  const allocationRequiresDistribution = showAllocationSection && totalRecibido > tolerance && allocationDrafts.length === 0;
-  const allocationMismatch = showAllocationSection && totalRecibido > tolerance && Math.abs(allocationDelta) > tolerance;
-  const allocationBlocksSubmission = allocationRequiresDistribution || allocationMismatch;
+
+  const allocationsReady = !allowAllocations || (allocationDrafts.length > 0 && Math.abs(allocationDelta) <= tolerance);
 
   const allocationStatus = useMemo(() => {
-    if (!showAllocationSection) {
+    if (!allowAllocations) {
       return null;
     }
-    if (allocationRequiresDistribution) {
-      return { tone: 'warn', text: 'Distribuye el adelanto entre las cuotas para registrar el movimiento en caja.' } as const;
+    if (allocationDrafts.length === 0) {
+      return totalRecibido > tolerance
+        ? ({ tone: 'warn', text: 'Selecciona al menos una cuota para aplicar el cobro.' } as const)
+        : null;
     }
-    if (allocationMismatch) {
+    if (Math.abs(allocationDelta) > tolerance) {
       return { tone: 'warn', text: 'El monto distribuido debe coincidir con el monto recibido.' } as const;
     }
-    if (allocationDrafts.length > 0) {
-      return { tone: 'ok', text: 'El adelanto se aplicará a las cuotas seleccionadas.' } as const;
-    }
-    return null;
-  }, [allocationDrafts.length, allocationMismatch, allocationRequiresDistribution, showAllocationSection]);
+    return { tone: 'ok', text: 'El adelanto se aplicará a las cuotas seleccionadas.' } as const;
+  }, [allowAllocations, allocationDelta, allocationDrafts.length, totalRecibido]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const initialMethodId = resolveInitialMethod();
-    const initialMode = resolveInitialMode();
-
-    setMode(initialMode);
     setPaymentLines([
       {
         id: 'line-1',
@@ -568,9 +526,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     setCajaDestino(defaultCajaDestino);
     setNotas('');
     setAllocationDrafts([]);
-    setHasManualAllocations(false);
     setErrorMessage(null);
-  }, [defaultCajaDestino, fechaEmision, isOpen, resolveInitialMethod, resolveInitialMode, totals.total]);
+  }, [defaultCajaDestino, fechaEmision, isOpen, resolveInitialMethod, totals.total]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -594,21 +551,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     if (!isOpen) {
       return;
     }
-    if (esBoleta && mode !== 'contado') {
-      setMode('contado');
-      return;
+    if (!allowAllocations && allocationDrafts.length) {
+      setAllocationDrafts([]);
     }
-    if (!esBoleta && !isCajaOpen && mode === 'contado') {
-      setMode('credito');
-    }
-  }, [esBoleta, isCajaOpen, isOpen, mode]);
-
-  useEffect(() => {
-    if (!isOpen || !showAllocationSection || hasManualAllocations) {
-      return;
-    }
-    setAllocationDrafts(autoDistributeAllocations(totalRecibido));
-  }, [autoDistributeAllocations, hasManualAllocations, isOpen, showAllocationSection, totalRecibido]);
+  }, [allowAllocations, allocationDrafts.length, isOpen]);
 
   const handleAddLine = useCallback(() => {
     setPaymentLines((prev) => {
@@ -672,7 +618,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         return false;
       }
 
-      if (showAllocationSection) {
+      if (allowAllocations) {
         if (!allocationDrafts.length) {
           setErrorMessage('Distribuye el monto recibido entre las cuotas.');
           return false;
@@ -696,39 +642,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       setErrorMessage(null);
       return true;
     },
-    [allocationDrafts, cobranzaInstallmentsSnapshot, context, mode, paymentLines, showAllocationSection, totalAllocationAmount, totalRecibido, totals.total],
-  );
-
-  const handleModeChange = useCallback(
-    (target: PaymentCollectionMode) => {
-      if (isCobranzasContext) {
-        return;
-      }
-
-      if (target === mode) {
-        return;
-      }
-
-      if (target === 'credito') {
-        if (!hasCreditSchedule || esBoleta) {
-          setErrorMessage('Esta venta solo puede emitirse al contado.');
-          setMode('contado');
-          return;
-        }
-        setMode('credito');
-        setErrorMessage(null);
-        return;
-      }
-
-      if (!isCajaOpen) {
-        setErrorMessage('Abre una caja para registrar cobros al contado.');
-        return;
-      }
-
-      setErrorMessage(null);
-      setMode('contado');
-    },
-    [esBoleta, hasCreditSchedule, isCajaOpen, isCobranzasContext, mode],
+    [allowAllocations, allocationDrafts, cobranzaInstallmentsSnapshot, context, mode, paymentLines, totalAllocationAmount, totalRecibido, totals.total],
   );
 
   const buildAllocationPayload = useCallback((): CreditInstallmentAllocation[] => {
@@ -764,7 +678,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       if (enforcedMode === 'contado' && !isCajaOpen) {
         setErrorMessage('Abre una caja para registrar el cobro.');
-        setMode('credito');
         return;
       }
 
@@ -835,7 +748,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     submitting ||
     (mode === 'contado' && (!isCajaOpen || !collectionDocumentPreview)) ||
     (mode === 'credito' && !hasCreditSchedule) ||
-    allocationBlocksSubmission;
+    !allocationsReady;
   const disableBackdropClose = isProcessing || submitting;
 
   const handleConfirm = useCallback(() => {
@@ -843,8 +756,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   }, [handleSubmit, mode]);
 
   if (!isOpen) return null;
-
-  const canShowModeSelector = !isCobranzasContext && !esBoleta && hasCreditSchedule;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -935,14 +846,50 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                   </div>
                 </div>
                 {hasCreditSchedule ? (
-                  <CreditInstallmentsTable
-                    installments={normalizedInstallments}
-                    currency={currencyForFormat}
-                    mode="readonly"
-                    scrollMaxHeight={320}
-                    showDaysOverdue
-                    compact
-                  />
+                  <>
+                    <CreditInstallmentsTable
+                      installments={normalizedInstallments}
+                      currency={currencyForFormat}
+                      mode={allowAllocations ? 'allocation' : 'readonly'}
+                      allocations={allowAllocations ? allocationDrafts : undefined}
+                      onChangeAllocations={allowAllocations ? handleAllocationChange : undefined}
+                      disabled={!allowAllocations || submitting || isProcessing}
+                      scrollMaxHeight={320}
+                      showDaysOverdue
+                      showRemainingResult={allowAllocations}
+                      compact
+                    />
+                    {allowAllocations && (
+                      <div className="mt-4 space-y-3">
+                        <div className="flex flex-wrap gap-3 text-xs font-semibold text-emerald-900">
+                          <span className="rounded-full bg-emerald-50 px-3 py-1">Recibido: {formatCurrency(totalRecibido)}</span>
+                          <span className="rounded-full bg-emerald-50 px-3 py-1">Distribuido: {formatCurrency(totalAllocationAmount)}</span>
+                          <span className="rounded-full bg-emerald-50 px-3 py-1">Diferencia: {formatCurrency(Math.abs(allocationDelta))}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                          {allocationStatus && (
+                            <div
+                              className={`rounded-xl px-3 py-2 font-semibold ${
+                                allocationStatus.tone === 'ok'
+                                  ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : 'border border-amber-200 bg-amber-50 text-amber-700'
+                              }`}
+                            >
+                              {allocationStatus.text}
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleClearAllocations}
+                            className="ml-auto text-xs font-semibold text-slate-500 hover:text-slate-900"
+                            disabled={allocationDrafts.length === 0}
+                          >
+                            Limpiar selección
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                     Configura un cronograma de crédito para poder distribuir adelantos entre las cuotas.
@@ -958,23 +905,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Gestión de cobranza</p>
                     <h3 className="text-base font-semibold text-slate-900">{mode === 'contado' ? 'Registrar pago' : 'Emitir sin cobro'}</h3>
                   </div>
-                  {canShowModeSelector && (
-                    <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 p-1 text-xs font-semibold text-slate-600">
-                      {(['contado', 'credito'] as PaymentCollectionMode[]).map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => handleModeChange(option)}
-                          disabled={option === 'contado' && !isCajaOpen}
-                          className={`rounded-full px-3 py-1 transition ${
-                            mode === option ? 'bg-white text-slate-900 shadow' : 'hover:text-slate-900'
-                          } ${option === 'contado' && !isCajaOpen ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          {option === 'contado' ? 'Pago al contado' : 'Pago a crédito'}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 <p className="text-sm text-slate-600">{supportMessage}</p>
               </div>
@@ -1165,62 +1095,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                     </div>
                   </div>
 
-                  {showAllocationSection && (
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 space-y-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Aplicar adelanto a cuotas</p>
-                          <p className="text-sm text-emerald-900">Selecciona las cuotas a cancelar y distribuye el monto recibido.</p>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                          <button
-                            type="button"
-                            onClick={handleAutoDistributeAllocations}
-                            className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-emerald-700 hover:border-emerald-300 hover:text-emerald-900"
-                          >
-                            Recalcular
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleResetAllocations}
-                            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-600 hover:border-slate-300 hover:text-slate-800"
-                          >
-                            Limpiar
-                          </button>
-                        </div>
-                      </div>
-                      <CreditInstallmentsTable
-                        installments={normalizedInstallments}
-                        currency={currencyForFormat}
-                        mode="allocation"
-                        allocations={allocationDrafts}
-                        onChangeAllocations={handleAllocationChange}
-                        disabled={submitting || isProcessing}
-                        showDaysOverdue
-                        showRemainingResult
-                        compact
-                        scrollMaxHeight={260}
-                      />
-                      <div className="flex flex-wrap gap-3 text-xs font-semibold text-emerald-900">
-                        <span className="rounded-full bg-white/80 px-3 py-1">Recibido: {formatCurrency(totalRecibido)}</span>
-                        <span className="rounded-full bg-white/80 px-3 py-1">Distribuido: {formatCurrency(totalAllocationAmount)}</span>
-                        <span className={`rounded-full px-3 py-1 ${allocationMismatch ? 'bg-amber-100 text-amber-700' : 'bg-white/80'}`}>
-                          Diferencia: {formatCurrency(Math.abs(allocationDelta))}
-                        </span>
-                      </div>
-                      {allocationStatus && (
-                        <div
-                          className={`rounded-xl px-3 py-2 text-xs font-medium ${
-                            allocationStatus.tone === 'ok'
-                              ? 'border border-emerald-200 bg-emerald-50 text-emerald-800'
-                              : 'border border-amber-200 bg-amber-50 text-amber-800'
-                          }`}
-                        >
-                          {allocationStatus.text}
-                        </div>
-                      )}
-                    </div>
-                  )}
+
                 </>
               ) : (
                 <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 p-5 text-sm text-indigo-900">
