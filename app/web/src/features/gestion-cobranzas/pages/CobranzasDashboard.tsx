@@ -249,6 +249,7 @@ export const CobranzasDashboard = () => {
         isOpen={Boolean(historialCuenta)}
         onClose={() => setHistorialCuenta(null)}
         formatMoney={formatMoney}
+        onVerConstancia={(doc) => setDetalleCobranza(doc)}
       />
 
       <SeleccionarCuentaModal

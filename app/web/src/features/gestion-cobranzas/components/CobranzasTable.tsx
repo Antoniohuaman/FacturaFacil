@@ -2,7 +2,7 @@ import { Eye, FileText, Receipt } from 'lucide-react';
 import type { CobranzaDocumento } from '../models/cobranzas.types';
 
 interface CobranzasTableProps {
-  data: CobranzaDocumento[];
+  data: Array<CobranzaDocumento & { displayAmount?: number }>;
   formatMoney: (value: number, currency?: string) => string;
   onVerDetalle: (cobranza: CobranzaDocumento) => void;
   onVerComprobante: (cobranza: CobranzaDocumento) => void;
@@ -88,7 +88,7 @@ export const CobranzasTable = ({ data, formatMoney, onVerDetalle, onVerComproban
               <td className="px-4 py-3 text-xs font-medium">{cobranza.medioPago}</td>
               <td className="px-4 py-3 text-xs">{cobranza.cajaDestino}</td>
               <td className="px-4 py-3 text-center text-xs">{renderInstallmentsSnapshot(cobranza)}</td>
-              <td className="px-4 py-3 text-right font-semibold">{formatMoney(cobranza.monto)}</td>
+              <td className="px-4 py-3 text-right font-semibold">{formatMoney(cobranza.displayAmount ?? cobranza.monto)}</td>
               <td className="px-4 py-3">
                 <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${estadoBadge(cobranza.estado)}`}>
                   {cobranza.estado}
@@ -101,7 +101,7 @@ export const CobranzasTable = ({ data, formatMoney, onVerDetalle, onVerComproban
                     onClick={() => onVerDetalle(cobranza)}
                     className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900"
                   >
-                    <Eye className="w-3.5 h-3.5" /> Detalle
+                    <Eye className="w-3.5 h-3.5" /> Constancia
                   </button>
                   <button
                     type="button"

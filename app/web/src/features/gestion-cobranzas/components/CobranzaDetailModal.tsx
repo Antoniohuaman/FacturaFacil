@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Printer, X } from 'lucide-react';
 import type { CobranzaDocumento } from '../models/cobranzas.types';
 
 interface CobranzaDetailModalProps {
@@ -10,6 +10,55 @@ interface CobranzaDetailModalProps {
 
 export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: CobranzaDetailModalProps) => {
   if (!isOpen || !cobranza) return null;
+
+  const handlePrintConstancia = () => {
+    if (typeof window === 'undefined' || !cobranza) {
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=720,height=900');
+    if (!printWindow) {
+      return;
+    }
+
+    const formattedAmount = formatMoney(cobranza.monto, cobranza.moneda);
+    const template = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charSet="utf-8" />
+    <title>Constancia ${cobranza.numero}</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; margin-bottom: 8px; font-size: 16px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+      .summary { margin-top: 20px; padding: 16px; border: 1px solid #cbd5f5; border-radius: 8px; background: #f8fafc; }
+      .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #d1fae5; color: #065f46; font-size: 12px; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <h1>Constancia de Cobranza</h1>
+    <p>Número: <strong>${cobranza.numero}</strong></p>
+    <p>Fecha: <strong>${cobranza.fechaCobranza}</strong></p>
+    <div class="summary">
+      <p>Comprobante relacionado: <strong>${cobranza.comprobanteSerie}-${cobranza.comprobanteNumero}</strong></p>
+      <p>Cliente: <strong>${cobranza.clienteNombre}</strong></p>
+      <p>Medio de pago: <strong>${cobranza.medioPago}</strong></p>
+      <p>Caja: <strong>${cobranza.cajaDestino}</strong></p>
+      <p>Importe registrado: <strong>${formattedAmount}</strong></p>
+      <p>Estado: <span class="badge">${cobranza.estado}</span></p>
+    </div>
+    ${cobranza.notas ? `<h2>Notas</h2><p>${cobranza.notas}</p>` : ''}
+    <p style="margin-top:32px;font-size:12px;color:#475569;">Documento emitido automáticamente por FacturaFácil.</p>
+  </body>
+</html>`;
+
+    printWindow.document.write(template);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4">
@@ -60,7 +109,14 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
             </div>
           )}
         </div>
-        <footer className="px-5 py-4 border-t border-slate-100 dark:border-gray-800 flex justify-end">
+        <footer className="px-5 py-4 border-t border-slate-100 dark:border-gray-800 flex justify-between">
+          <button
+            type="button"
+            onClick={handlePrintConstancia}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-600 hover:text-blue-800"
+          >
+            <Printer className="w-4 h-4" /> Imprimir constancia
+          </button>
           <button
             type="button"
             onClick={onClose}

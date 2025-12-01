@@ -8,6 +8,7 @@ interface HistorialCobranzaModalProps {
   isOpen: boolean;
   onClose: () => void;
   formatMoney: (value: number, currency?: string) => string;
+  onVerConstancia?: (cobranza: CobranzaDocumento) => void;
 }
 
 const INSTALLMENT_TOLERANCE = 0.01;
@@ -39,7 +40,7 @@ const normalizeInstallmentsForDisplay = (installments: CobranzaInstallmentState[
     };
   });
 
-export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, formatMoney }: HistorialCobranzaModalProps) => {
+export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, formatMoney, onVerConstancia }: HistorialCobranzaModalProps) => {
   if (!isOpen || !cuenta) return null;
 
   const related = cobranzas.filter((item) => item.comprobanteId === cuenta.comprobanteId);
@@ -145,6 +146,7 @@ export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, for
                     <th className="px-3 py-2 text-left font-semibold">Medio</th>
                     <th className="px-3 py-2 text-left font-semibold">Caja</th>
                     <th className="px-3 py-2 text-right font-semibold">Importe</th>
+                    <th className="px-3 py-2 text-center font-semibold">Constancia</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-slate-700 dark:text-gray-100">
@@ -155,6 +157,15 @@ export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, for
                       <td className="px-3 py-2 capitalize">{item.medioPago}</td>
                       <td className="px-3 py-2">{item.cajaDestino}</td>
                       <td className="px-3 py-2 text-right font-semibold">{formatMoney(item.monto, item.moneda)}</td>
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => onVerConstancia?.(item)}
+                          className="text-xs font-semibold text-blue-600 hover:underline"
+                        >
+                          Ver constancia
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

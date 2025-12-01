@@ -317,55 +317,41 @@ export const useComprobanteActions = () => {
       }
 
       // Registrar movimiento en caja si está abierta
-      if (cajaStatus === 'abierta') {
-        try {
-          const registrarCobranza = Boolean(
-            data.paymentDetails &&
-            data.paymentDetails.mode === 'contado' &&
-            (data.registrarPago ?? true) &&
-            data.paymentDetails.lines.length > 0
-          );
+      const registrarCobranzaEnCaja = Boolean(
+        cajaStatus === 'abierta' &&
+          data.paymentDetails &&
+          data.paymentDetails.mode === 'contado' &&
+          (data.registrarPago ?? true) &&
+          data.paymentDetails.lines.length > 0
+      );
 
+      if (registrarCobranzaEnCaja && data.paymentDetails) {
+        try {
           // Obtener usuario actual desde sesión
           const userId = session?.userId || 'temp-user-id';
           const userName = session?.userName || 'Usuario';
 
-          if (registrarCobranza && data.paymentDetails) {
-            for (const line of data.paymentDetails.lines) {
-              const medioPago = mapPaymentMethodToMedioPago(line.method);
-              const observaciones = [
-                line.bank ? `Caja: ${line.bank}` : null,
-                line.reference ? `Ref: ${line.reference}` : null,
-                line.operationNumber ? `Op: ${line.operationNumber}` : null,
-                data.paymentDetails?.notes,
-              ]
-                .filter(Boolean)
-                .join(' | ') || undefined;
-
-              await agregarMovimiento({
-                tipo: 'Ingreso',
-                concepto: `${data.tipoComprobante} ${numeroComprobante}`,
-                medioPago,
-                monto: line.amount,
-                referencia: line.reference || numeroComprobante,
-                usuarioId: userId,
-                usuarioNombre: userName,
-                comprobante: numeroComprobante,
-                observaciones,
-              });
-            }
-          } else {
-            const medioPago = mapPaymentMethodToMedioPago(data.formaPago || 'contado');
+          for (const line of data.paymentDetails.lines) {
+            const medioPago = mapPaymentMethodToMedioPago(line.method);
+            const observaciones = [
+              line.bank ? `Caja: ${line.bank}` : null,
+              line.reference ? `Ref: ${line.reference}` : null,
+              line.operationNumber ? `Op: ${line.operationNumber}` : null,
+              data.paymentDetails?.notes,
+            ]
+              .filter(Boolean)
+              .join(' | ') || undefined;
 
             await agregarMovimiento({
               tipo: 'Ingreso',
               concepto: `${data.tipoComprobante} ${numeroComprobante}`,
               medioPago,
-              monto: data.totals.total,
-              referencia: numeroComprobante,
+              monto: line.amount,
+              referencia: line.reference || numeroComprobante,
               usuarioId: userId,
               usuarioNombre: userName,
               comprobante: numeroComprobante,
+              observaciones,
             });
           }
         } catch (cajaError) {

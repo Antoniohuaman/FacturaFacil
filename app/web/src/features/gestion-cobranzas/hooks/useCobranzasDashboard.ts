@@ -58,6 +58,8 @@ const isFullyPaidCobranza = (cobranza: CobranzaDocumento) => {
   return false;
 };
 
+type CobranzaWithDisplayAmount = CobranzaDocumento & { displayAmount: number };
+
 export const useCobranzasDashboard = () => {
   const { cuentas, cobranzas, registerCobranza } = useCobranzasContext();
   const [activeTab, setActiveTab] = useState<CobranzaTabKey>('cuentas');
@@ -78,6 +80,13 @@ export const useCobranzasDashboard = () => {
   };
 
   const resetFilters = () => setFilters(DEFAULT_COBRANZA_FILTERS);
+
+  const cuentasPorComprobante = useMemo(() => {
+    return cuentas.reduce<Record<string, CuentaPorCobrarSummary>>((acc, cuenta) => {
+      acc[cuenta.comprobanteId] = cuenta;
+      return acc;
+    }, {});
+  }, [cuentas]);
 
   const filteredCuentas = useMemo(() => {
     return cuentas.filter((cuenta) => {
@@ -113,35 +122,50 @@ export const useCobranzasDashboard = () => {
     });
   }, [cuentas, filters.cajero, filters.cliente, filters.estado, filters.formaPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
 
-  const filteredCobranzas = useMemo(() => {
-    return cobranzas.filter((cobranza) => {
-      if (!isFullyPaidCobranza(cobranza)) {
-        return false;
+  const filteredCobranzas = useMemo<CobranzaWithDisplayAmount[]>(() => {
+    const resolveDisplayAmount = (cobranza: CobranzaDocumento) => {
+      if (cobranza.estado === 'cancelado') {
+        const cuentaRelacionada = cuentasPorComprobante[cobranza.comprobanteId];
+        if (cuentaRelacionada?.total) {
+          return cuentaRelacionada.total;
+        }
       }
+      return cobranza.monto;
+    };
 
-      if (!inRange(cobranza.fechaCobranza, filters.rangoFechas.from, filters.rangoFechas.to)) {
-        return false;
-      }
+    return cobranzas
+      .filter((cobranza) => {
+        if (!isFullyPaidCobranza(cobranza)) {
+          return false;
+        }
 
-      if (filters.cliente && !textIncludes(cobranza.clienteNombre, filters.cliente)) {
-        return false;
-      }
+        if (!inRange(cobranza.fechaCobranza, filters.rangoFechas.from, filters.rangoFechas.to)) {
+          return false;
+        }
 
-      if (filters.estado !== 'todos' && cobranza.estado !== filters.estado) {
-        return false;
-      }
+        if (filters.cliente && !textIncludes(cobranza.clienteNombre, filters.cliente)) {
+          return false;
+        }
 
-      if (filters.medioPago !== 'todos' && cobranza.medioPago.toLowerCase() !== filters.medioPago) {
-        return false;
-      }
+        if (filters.estado !== 'todos' && cobranza.estado !== filters.estado) {
+          return false;
+        }
 
-      if (filters.sucursal && filters.sucursal !== 'todos' && cobranza.cajaDestino !== filters.sucursal) {
-        return false;
-      }
+        if (filters.medioPago !== 'todos' && cobranza.medioPago.toLowerCase() !== filters.medioPago) {
+          return false;
+        }
 
-      return true;
-    });
-  }, [cobranzas, filters.cliente, filters.estado, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
+        if (filters.sucursal && filters.sucursal !== 'todos' && cobranza.cajaDestino !== filters.sucursal) {
+          return false;
+        }
+
+        return true;
+      })
+      .map((cobranza) => ({
+        ...cobranza,
+        displayAmount: resolveDisplayAmount(cobranza),
+      }));
+  }, [cobranzas, cuentasPorComprobante, filters.cliente, filters.estado, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
 
   const resumen = useMemo<CobranzasSummary>(() => {
     const totalDocumentosPendientes = filteredCuentas.length;
@@ -150,7 +174,7 @@ export const useCobranzasDashboard = () => {
       .filter((cuenta) => cuenta.estado === 'vencido')
       .reduce((acc, cuenta) => acc + cuenta.saldo, 0);
     const totalCobranzas = filteredCobranzas.length;
-    const totalCobrado = filteredCobranzas.reduce((acc, item) => acc + item.monto, 0);
+    const totalCobrado = filteredCobranzas.reduce((acc, item) => acc + item.displayAmount, 0);
 
     return {
       totalDocumentosPendientes,
