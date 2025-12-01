@@ -35,6 +35,7 @@ import { DraftModal } from '../shared/modales/DraftModal';
 import { PreviewModal } from '../shared/modales/PreviewModal';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../shared/modales/SuccessModal';
+import { PostIssueOptionsModal } from '../shared/modales/PostIssueOptionsModal';
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
@@ -128,6 +129,7 @@ const EmisionTradicional = () => {
   const [lastComprobante, setLastComprobante] = useState<any>(null);
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
+  const [showPostIssueOptionsModal, setShowPostIssueOptionsModal] = useState(false);
   const [cobranzaMode, setCobranzaMode] = useState<PaymentCollectionMode>('contado');
   const [lookupClient, setLookupClient] = useState<{ data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' } | null>(null);
   const [showCreditScheduleModal, setShowCreditScheduleModal] = useState(false);
@@ -314,16 +316,10 @@ const EmisionTradicional = () => {
       }
     }
 
-    const success = await handleCrearComprobante();
+    const success = await handleCrearComprobante(undefined, { suppressSuccessModal: true });
     if (success) {
       setShowCobranzaModal(false);
-      const highlightedCuentaId = sessionStorage.getItem('lastCreatedReceivableId') || undefined;
-      navigate('/cobranzas', {
-        state: {
-          defaultTab: 'cuentas',
-          highlightCuentaId: highlightedCuentaId,
-        },
-      });
+      setShowPostIssueOptionsModal(true);
     }
     return Boolean(success);
   };
@@ -336,7 +332,10 @@ const EmisionTradicional = () => {
     void handleEmitirSinCobrar();
   };
 
-  const handleCrearComprobante = async (paymentPayload?: PaymentCollectionPayload): Promise<boolean> => {
+  const handleCrearComprobante = async (
+    paymentPayload?: PaymentCollectionPayload,
+    options?: { suppressSuccessModal?: boolean }
+  ): Promise<boolean> => {
     const isCreditSale = isCreditPaymentSelection || paymentPayload?.mode === 'credito';
     const isRegisteringCobro = paymentPayload?.mode === 'contado';
 
@@ -438,7 +437,9 @@ const EmisionTradicional = () => {
         });
         
         // Mostrar modal de éxito
-        setShowSuccessModal(true);
+        if (!options?.suppressSuccessModal) {
+          setShowSuccessModal(true);
+        }
         
         // NO limpiar el carrito todavía - se hará cuando el usuario haga clic en "Nueva venta"
       }
@@ -458,11 +459,34 @@ const EmisionTradicional = () => {
     window.print();
   };
 
+  const handleDownloadPdf = () => {
+    if (!lastComprobante) {
+      return;
+    }
+    const simulatedContent = [
+      `Comprobante: ${lastComprobante.tipo} ${lastComprobante.serie}-${lastComprobante.numero}`,
+      `Cliente: ${lastComprobante.cliente ?? 'Sin especificar'}`,
+      `Total: S/ ${Number(lastComprobante.total || 0).toFixed(2)}`,
+    ].join('\n');
+    const blob = new Blob([simulatedContent], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${lastComprobante.serie}-${lastComprobante.numero}.pdf`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleNewSale = () => {
     clearCart();
     resetForm();
     setShowSuccessModal(false);
+    setShowPostIssueOptionsModal(false);
     setProductSelectorKey(prev => prev + 1); // ✅ Incrementar para remontar ProductSelector
+  };
+
+  const handleClosePostIssueOptions = () => {
+    setShowPostIssueOptionsModal(false);
   };
 
   return (
@@ -696,6 +720,15 @@ const EmisionTradicional = () => {
             onNewSale={handleNewSale}
           />
         )}
+
+        <PostIssueOptionsModal
+          isOpen={showPostIssueOptionsModal}
+          onClose={handleClosePostIssueOptions}
+          comprobante={lastComprobante}
+          onContinue={handleNewSale}
+          onPrint={handlePrint}
+          onDownload={handleDownloadPdf}
+        />
 
         <CreditScheduleModal
           isOpen={showCreditScheduleModal}

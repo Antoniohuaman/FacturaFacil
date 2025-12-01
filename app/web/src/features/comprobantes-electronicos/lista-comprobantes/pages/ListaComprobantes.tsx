@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /* eslint-disable no-empty -- bloques de captura intencionales; logging diferido */
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
 import { devLocalIndicadoresStore } from '../../../indicadores-negocio/integration/devLocalStore';
@@ -17,6 +17,16 @@ import {
 import { FilterPanel, type FilterValues } from '../components/FilterPanel';
 import { PreviewModal } from '../../shared/modales/PreviewModal';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
+import { CobranzaModal } from '../../shared/modales/CobranzaModal';
+import type {
+  CartItem,
+  ClientData,
+  PaymentCollectionPayload,
+  PaymentTotals,
+  TipoComprobante,
+} from '../../models/comprobante.types';
+import { useCobranzasContext } from '../../../gestion-cobranzas/context/CobranzasContext';
+import type { CuentaPorCobrarSummary } from '../../../gestion-cobranzas/models/cobranzas.types';
 import { parseDateSpanish, filterByDateRange, getTodayISO, formatDateShortSpanish, DATE_PRESETS } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
 import { StatsCards } from '../components/StatsCards';
@@ -33,10 +43,18 @@ function parseInvoiceDate(dateStr?: string): Date {
   return parseDateSpanish(dateStr) || new Date(0);
 }
 
+const resolveTipoComprobante = (label?: string): TipoComprobante => {
+  if (!label) {
+    return 'factura';
+  }
+  return label.toLowerCase().includes('boleta') ? 'boleta' : 'factura';
+};
+
 const InvoiceListDashboard = () => {
   // ✅ Obtener comprobantes del contexto global
   const { state, dispatch } = useComprobanteContext();
   const invoices = state.comprobantes;
+  const { cuentas, registerCobranza } = useCobranzasContext();
 
   // Hook de selección masiva
   const selection = useSelection();
@@ -88,6 +106,8 @@ const InvoiceListDashboard = () => {
   const [showVoidModal, setShowVoidModal] = useState(false);
   const [selectedInvoiceForVoid, setSelectedInvoiceForVoid] = useState<any>(null);
   const [voidReason, setVoidReason] = useState('');
+  const [selectedCuentaCobranza, setSelectedCuentaCobranza] = useState<CuentaPorCobrarSummary | null>(null);
+  const [showCobranzaModal, setShowCobranzaModal] = useState(false);
 
   // --------------------
   // Column manager (config local)
@@ -202,6 +222,86 @@ const InvoiceListDashboard = () => {
       tipos: Array.from(tipos).sort()
     };
   }, [invoices]);
+
+  const cuentasPorComprobante = useMemo(() => {
+    return cuentas.reduce<Record<string, CuentaPorCobrarSummary>>((acc, cuenta) => {
+      acc[cuenta.comprobanteId] = cuenta;
+      return acc;
+    }, {});
+  }, [cuentas]);
+
+  const canGenerateCobranza = useCallback((invoice: Comprobante) => {
+    const cuenta = cuentasPorComprobante[invoice.id];
+    if (!cuenta) {
+      return false;
+    }
+    return cuenta.estado !== 'cancelado';
+  }, [cuentasPorComprobante]);
+
+  const handleGenerateCobranza = useCallback((invoice: Comprobante) => {
+    const cuenta = cuentasPorComprobante[invoice.id];
+    if (!cuenta) {
+      return;
+    }
+    setSelectedCuentaCobranza(cuenta);
+    setShowCobranzaModal(true);
+  }, [cuentasPorComprobante]);
+
+  const cartItemsForCobranza = useMemo<CartItem[]>(() => {
+    if (!selectedCuentaCobranza) {
+      return [];
+    }
+    return [
+      {
+        id: selectedCuentaCobranza.comprobanteId,
+        code: selectedCuentaCobranza.comprobanteSerie,
+        name: `Saldo pendiente ${selectedCuentaCobranza.comprobanteSerie}-${selectedCuentaCobranza.comprobanteNumero}`,
+        price: selectedCuentaCobranza.saldo,
+        quantity: 1,
+        subtotal: selectedCuentaCobranza.saldo,
+        total: selectedCuentaCobranza.saldo,
+        stock: 1,
+        requiresStockControl: false,
+      },
+    ];
+  }, [selectedCuentaCobranza]);
+
+  const totalsForCobranza = useMemo<PaymentTotals>(() => ({
+    subtotal: selectedCuentaCobranza?.saldo ?? 0,
+    igv: 0,
+    total: selectedCuentaCobranza?.saldo ?? 0,
+    currency: selectedCuentaCobranza?.moneda ?? 'PEN',
+  }), [selectedCuentaCobranza]);
+
+  const clienteCobranza = useMemo<ClientData | undefined>(() => {
+    if (!selectedCuentaCobranza) {
+      return undefined;
+    }
+    return {
+      nombre: selectedCuentaCobranza.clienteNombre,
+      tipoDocumento: selectedCuentaCobranza.clienteDocumento.length === 11 ? 'RUC' : 'DNI',
+      documento: selectedCuentaCobranza.clienteDocumento,
+    };
+  }, [selectedCuentaCobranza]);
+
+  const tipoComprobanteCobranza: TipoComprobante = selectedCuentaCobranza
+    ? resolveTipoComprobante(selectedCuentaCobranza.tipoComprobante)
+    : 'factura';
+
+  const handleCobranzaComplete = useCallback(async (payload: PaymentCollectionPayload) => {
+    if (!selectedCuentaCobranza) {
+      return false;
+    }
+    registerCobranza({ cuenta: selectedCuentaCobranza, payload });
+    setShowCobranzaModal(false);
+    setSelectedCuentaCobranza(null);
+    return true;
+  }, [registerCobranza, selectedCuentaCobranza]);
+
+  const handleCloseCobranzaModal = () => {
+    setShowCobranzaModal(false);
+    setSelectedCuentaCobranza(null);
+  };
 
   // Handler para aplicar filtros avanzados
   const handleApplyAdvancedFilters = (filters: FilterValues) => {
@@ -756,6 +856,8 @@ const InvoiceListDashboard = () => {
           onEdit={(invoice) => navigate('/comprobantes/emision', { state: { edit: invoice } })}
           onVoid={handleVoid}
           onNavigateToDocuments={() => navigate('/documentos')}
+          onGenerateCobranza={handleGenerateCobranza}
+          canGenerateCobranza={canGenerateCobranza}
           onCreateInvoice={() => navigate('/comprobantes/emision')}
           hasDateFilter={Boolean(dateFrom || dateTo)}
         />
@@ -870,6 +972,24 @@ const InvoiceListDashboard = () => {
             onNewSale={() => {}}
           />
         )}
+
+        <CobranzaModal
+          isOpen={showCobranzaModal && Boolean(selectedCuentaCobranza)}
+          onClose={handleCloseCobranzaModal}
+          cartItems={cartItemsForCobranza}
+          totals={totalsForCobranza}
+          cliente={clienteCobranza}
+          tipoComprobante={tipoComprobanteCobranza}
+          serie={selectedCuentaCobranza?.comprobanteSerie || ''}
+          numeroTemporal={selectedCuentaCobranza?.comprobanteNumero}
+          fechaEmision={selectedCuentaCobranza?.fechaEmision || ''}
+          moneda={selectedCuentaCobranza?.moneda || 'PEN'}
+          formaPago={selectedCuentaCobranza?.formaPago}
+          onComplete={handleCobranzaComplete}
+          creditTerms={selectedCuentaCobranza?.creditTerms}
+          installmentsState={selectedCuentaCobranza?.installments}
+          context="cobranzas"
+        />
 
         <VoidInvoiceModal
           isOpen={showVoidModal && Boolean(selectedInvoiceForVoid)}

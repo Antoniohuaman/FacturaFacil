@@ -5,6 +5,7 @@ import {
 	AlertTriangle,
 	Ban,
 	CheckCircle2,
+	Coins,
 	Copy,
 	Edit2,
 	Eye,
@@ -42,6 +43,8 @@ interface InvoiceListTableProps {
 	onEdit: (invoice: Comprobante) => void;
 	onVoid: (invoice: Comprobante) => void;
 	onNavigateToDocuments: () => void;
+	onGenerateCobranza?: (invoice: Comprobante) => void;
+	canGenerateCobranza?: (invoice: Comprobante) => boolean;
 	onCreateInvoice: () => void;
 	hasDateFilter: boolean;
 }
@@ -97,6 +100,8 @@ export const InvoiceListTable = ({
 	onEdit,
 	onVoid,
 	onNavigateToDocuments,
+	onGenerateCobranza,
+	canGenerateCobranza,
 	onCreateInvoice,
 	hasDateFilter
 }: InvoiceListTableProps) => {
@@ -332,6 +337,8 @@ export const InvoiceListTable = ({
 											onDuplicate={() => onDuplicate(invoice)}
 											onEdit={() => onEdit(invoice)}
 											onVoid={() => onVoid(invoice)}
+											onGenerateCobranza={() => onGenerateCobranza?.(invoice)}
+											canGenerateCobranza={canGenerateCobranza?.(invoice) ?? false}
 											onNavigateToDocuments={onNavigateToDocuments}
 											openMenuId={openMenuId}
 											menuPosition={menuPosition}
@@ -362,6 +369,8 @@ interface InvoiceCellProps {
 	onEdit: () => void;
 	onVoid: () => void;
 	onNavigateToDocuments: () => void;
+	onGenerateCobranza?: () => void;
+	canGenerateCobranza?: boolean;
 	openMenuId: string | null;
 	menuPosition: { top: number; left: number } | null;
 	toggleMenu: (invoiceId: string | null, anchor?: DOMRect) => void;
@@ -393,6 +402,7 @@ const InvoiceCell = ({
 		column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : 'text-left';
 
 	if (column.key === 'actions') {
+		const showGenerateCobranza = Boolean(onGenerateCobranza && canGenerateCobranza);
 		return (
 			<td
 				className={`px-4 ${rowPadding} whitespace-nowrap ${widthClass} ${
@@ -434,6 +444,16 @@ const InvoiceCell = ({
 										<MenuButton label="Ver detalles" icon={<Eye className="w-4 h-4 flex-shrink-0" />} onClick={onViewDetails} />
 										<MenuButton label="Imprimir" icon={<Printer className="w-4 h-4 flex-shrink-0" />} onClick={onPrint} />
 										<MenuButton label="Compartir" icon={<Share2 className="w-4 h-4 flex-shrink-0" />} onClick={onShare} />
+										{showGenerateCobranza && (
+											<MenuButton
+												label="Generar cobranza"
+												icon={<Coins className="w-4 h-4 flex-shrink-0" />}
+												onClick={() => {
+													toggleMenu(null);
+													onGenerateCobranza?.();
+												}}
+											/>
+										)}
 										<MenuButton label="Duplicar" icon={<Copy className="w-4 h-4 flex-shrink-0" />} onClick={onDuplicate} />
 										<MenuButton label="Editar" icon={<Edit2 className="w-4 h-4 flex-shrink-0" />} onClick={onEdit} variant="warning" />
 										<div className="border-t border-gray-200 dark:border-gray-700 my-1" />
