@@ -29,7 +29,6 @@ import { useConfigurationContext } from '../../../configuracion-sistema/context/
 import { useCaja } from '../../../control-caja/context/CajaContext';
 import { useCurrentEstablishmentId } from '../../../../contexts/UserSessionContext';
 import { filterCollectionSeries, getNextCollectionDocument } from '../../../../shared/series/collectionSeries';
-import { useSeriesCommands } from '../../../configuracion-sistema/hooks/useSeriesCommands';
 import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '../payments/CreditInstallmentsTable';
 import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models/cobranzas.types';
 import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
@@ -296,7 +295,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const { paymentMethods, cajas } = state;
   const { status: cajaStatus, aperturaActual } = useCaja();
   const isCajaOpen = cajaStatus === 'abierta';
-  const { incrementSeriesCorrelative } = useSeriesCommands();
   const currentEstablishmentId = useCurrentEstablishmentId();
   const effectiveEstablishmentId = establishmentId || currentEstablishmentId;
   const esBoleta = tipoComprobante === 'boleta';
@@ -837,9 +835,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           return;
         }
 
-        if (payload.collectionDocument) {
-          incrementSeriesCorrelative(payload.collectionDocument.seriesId, payload.collectionDocument.correlative);
-        }
       } catch (submitError) {
         console.error('Error al registrar cobranza:', submitError);
         setErrorMessage('Ocurrió un error al registrar el pago. Intenta nuevamente.');
@@ -847,7 +842,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         setSubmitting(false);
       }
     },
-    [buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionDocumentPreview, effectiveTotalRecibido, fechaCobranza, incrementSeriesCorrelative, isCajaOpen, notas, onComplete, validatePayment],
+    [buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionDocumentPreview, effectiveTotalRecibido, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
   );
 
   const supportMessage =

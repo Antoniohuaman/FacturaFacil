@@ -35,7 +35,7 @@ export const CobranzasDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = (location.state as { defaultTab?: CobranzaTabKey; highlightCuentaId?: string } | null) ?? null;
-  const { toasts, removeToast, success } = useToast();
+  const { toasts, removeToast, success, error } = useToast();
   const { formatPrice } = useCurrency();
   const {
     activeTab,
@@ -150,10 +150,19 @@ export const CobranzasDashboard = () => {
 
   const handleCobranzaComplete = async (payload: PaymentCollectionPayload) => {
     if (!selectedCuenta) return false;
-    const documento = registerCobranza({ cuenta: selectedCuenta, payload });
-    setShowCobranzaModal(false);
-    success('Cobranza registrada', `${documento.numero} por ${formatMoney(documento.monto, documento.moneda)}`);
-    return true;
+    try {
+      const documento = await registerCobranza({ cuenta: selectedCuenta, payload });
+      setShowCobranzaModal(false);
+      success('Cobranza registrada', `${documento.numero} por ${formatMoney(documento.monto, documento.moneda)}`);
+      return true;
+    } catch (registerError) {
+      console.error('No se pudo registrar la cobranza desde el dashboard:', registerError);
+      error(
+        'Error al registrar cobranza',
+        registerError instanceof Error ? registerError.message : 'Intenta nuevamente.'
+      );
+      return false;
+    }
   };
 
   const handleVerComprobante = (id: string) => {

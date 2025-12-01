@@ -17,6 +17,7 @@ import {
   normalizeCreditTermsToInstallments,
   updateInstallmentsWithAllocations,
 } from '../utils/installments';
+import { useSeriesCommands } from '../../configuracion-sistema/hooks/useSeriesCommands';
 
 interface CobranzasState {
   cuentas: CuentaPorCobrarSummary[];
@@ -26,7 +27,6 @@ interface CobranzasState {
 type CobranzasAction =
   | { type: 'SET_DATA'; payload: CobranzasState }
   | { type: 'UPSERT_CUENTA'; payload: CuentaPorCobrarSummary }
-  | { type: 'ADD_COBRANZA'; payload: CobranzaDocumento }
   | {
       type: 'REGISTER_COBRANZA';
       payload: {
@@ -127,9 +127,6 @@ function cobranzasReducer(state: CobranzasState, action: CobranzasAction): Cobra
       return { ...state, cuentas: cuentasActualizadas };
     }
 
-    case 'ADD_COBRANZA':
-      return { ...state, cobranzas: [action.payload, ...state.cobranzas] };
-
     case 'REGISTER_COBRANZA': {
       const updatedCuentas = state.cuentas.map((cuenta) => {
         if (cuenta.id !== action.payload.cuentaId) {
@@ -168,9 +165,8 @@ function cobranzasReducer(state: CobranzasState, action: CobranzasAction): Cobra
 }
 
 interface CobranzasContextType extends CobranzasState {
-  registerCobranza: (input: RegistrarCobranzaInput) => CobranzaDocumento;
+  registerCobranza: (input: RegistrarCobranzaInput) => Promise<CobranzaDocumento>;
   upsertCuenta: (cuenta: CuentaPorCobrarSummary) => void;
-  addCobranzaDocument: (documento: CobranzaDocumento) => void;
 }
 
 const CobranzasContext = createContext<CobranzasContextType | undefined>(undefined);
@@ -185,6 +181,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const { status: cajaStatus, agregarMovimiento } = useCaja();
   const { session } = useUserSession();
+  const { incrementSeriesCorrelative } = useSeriesCommands();
 
   useEffect(() => {
     const stored = loadStateFromStorage();
@@ -200,18 +197,22 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
   }, [state, isHydrated]);
 
   const registrarEnCaja = useCallback(
-    (documento: CobranzaDocumento, payload: RegistrarCobranzaInput['payload']) => {
-      if (cajaStatus !== 'abierta' || payload.mode !== 'contado' || payload.lines.length === 0) {
+    async (documento: CobranzaDocumento, payload: RegistrarCobranzaInput['payload']) => {
+      if (payload.mode !== 'contado' || payload.lines.length === 0) {
         return;
+      }
+
+      if (cajaStatus !== 'abierta') {
+        throw new Error('Abre una caja para registrar el cobro.');
       }
 
       const usuarioId = session?.userId || 'usuario-desconocido';
       const usuarioNombre = session?.userName || 'Usuario';
 
-      payload.lines.forEach((line) => {
+      for (const line of payload.lines) {
         const monto = Number(line.amount) || 0;
         if (monto <= 0) {
-          return;
+          continue;
         }
 
         const observaciones = [
@@ -223,20 +224,23 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
           .filter(Boolean)
           .join(' | ') || undefined;
 
-        void agregarMovimiento({
-          tipo: 'Ingreso',
-          concepto: `Cobranza ${documento.numero}`,
-          medioPago: mapPaymentMethodToMedioPago(line.method),
-          monto,
-          referencia: line.reference || documento.numero,
-          usuarioId,
-          usuarioNombre,
-          comprobante: documento.comprobanteId,
-          observaciones,
-        }).catch((error) => {
+        try {
+          await agregarMovimiento({
+            tipo: 'Ingreso',
+            concepto: `Cobranza ${documento.numero}`,
+            medioPago: mapPaymentMethodToMedioPago(line.method),
+            monto,
+            referencia: line.reference || documento.numero,
+            usuarioId,
+            usuarioNombre,
+            comprobante: documento.comprobanteId,
+            observaciones,
+          });
+        } catch (error) {
           console.error('Error registrando movimiento en caja para cobranza:', error);
-        });
-      });
+          throw new Error('No se pudo registrar el movimiento en caja. Intenta nuevamente.');
+        }
+      }
     },
     [agregarMovimiento, cajaStatus, session?.userId, session?.userName]
   );
@@ -245,14 +249,24 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'UPSERT_CUENTA', payload: cuenta });
   }, []);
 
-  const addCobranzaDocument = useCallback((documento: CobranzaDocumento) => {
-    dispatch({ type: 'ADD_COBRANZA', payload: documento });
-  }, []);
-
   const registerCobranza = useCallback(
-    (input: RegistrarCobranzaInput): CobranzaDocumento => {
+    async (input: RegistrarCobranzaInput): Promise<CobranzaDocumento> => {
+      if (!input.cuenta) {
+        throw new Error('Debes proporcionar la cuenta por cobrar que se está cobrando.');
+      }
+
       const monto = input.payload.lines.reduce((acc, line) => acc + (Number(line.amount) || 0), 0);
       const montoRedondeado = Number(monto.toFixed(2));
+      if (montoRedondeado <= 0) {
+        throw new Error('El monto cobrado debe ser mayor a cero.');
+      }
+
+      const requiereDocumento = input.payload.mode === 'contado';
+      const collectionDocument = input.payload.collectionDocument;
+      if (requiereDocumento && !collectionDocument) {
+        throw new Error('Configura una serie de cobranza activa antes de registrar pagos.');
+      }
+
       const allocations = input.payload.allocations ?? [];
       const hasAllocations = allocations.length > 0;
       const baseInstallments = hasAllocations ? getInstallmentsSnapshot(input.cuenta) : [];
@@ -297,7 +311,6 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
           ? 'cancelado'
           : 'parcial';
 
-      const collectionDocument = input.payload.collectionDocument;
       const numeroDocumento = collectionDocument?.fullNumber || fallbackCollectionNumber();
       const fechaCobranza = collectionDocument?.issuedAt || input.payload.fechaCobranza || new Date().toISOString().split('T')[0];
 
@@ -311,9 +324,11 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         comprobanteNumero: input.cuenta.comprobanteNumero,
         clienteNombre: input.cuenta.clienteNombre,
         medioPago:
-          input.payload.lines.length === 1
-            ? mapPaymentMethodToMedioPago(input.payload.lines[0].method)
-            : 'Mixto',
+          input.payload.lines.length === 0
+            ? 'Sin definir'
+            : input.payload.lines.length === 1
+              ? mapPaymentMethodToMedioPago(input.payload.lines[0].method)
+              : 'Mixto',
         cajaDestino: input.payload.cajaDestino || input.payload.lines[0]?.bank || 'Caja Principal',
         moneda: input.cuenta.moneda,
         monto: montoRedondeado,
@@ -338,6 +353,8 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         cuentaUpdate.partialInstallmentsCount = installmentsSummary.partialInstallmentsCount;
       }
 
+      await registrarEnCaja(documento, input.payload);
+
       dispatch({
         type: 'REGISTER_COBRANZA',
         payload: {
@@ -348,11 +365,13 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      registrarEnCaja(documento, input.payload);
+      if (collectionDocument) {
+        incrementSeriesCorrelative(collectionDocument.seriesId, collectionDocument.correlative);
+      }
 
       return documento;
     },
-    [registrarEnCaja]
+    [incrementSeriesCorrelative, registrarEnCaja]
   );
 
   const value = useMemo(
@@ -361,9 +380,8 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
       cobranzas: state.cobranzas,
       registerCobranza,
       upsertCuenta,
-      addCobranzaDocument,
     }),
-    [addCobranzaDocument, registerCobranza, state.cobranzas, state.cuentas, upsertCuenta]
+    [registerCobranza, state.cobranzas, state.cuentas, upsertCuenta]
   );
 
   return <CobranzasContext.Provider value={value}>{children}</CobranzasContext.Provider>;

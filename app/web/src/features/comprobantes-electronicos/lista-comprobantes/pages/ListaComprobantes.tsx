@@ -292,10 +292,15 @@ const InvoiceListDashboard = () => {
     if (!selectedCuentaCobranza) {
       return false;
     }
-    registerCobranza({ cuenta: selectedCuentaCobranza, payload });
-    setShowCobranzaModal(false);
-    setSelectedCuentaCobranza(null);
-    return true;
+    try {
+      await registerCobranza({ cuenta: selectedCuentaCobranza, payload });
+      setShowCobranzaModal(false);
+      setSelectedCuentaCobranza(null);
+      return true;
+    } catch (cobranzaError) {
+      console.error('No se pudo registrar la cobranza desde la lista de comprobantes:', cobranzaError);
+      return false;
+    }
   }, [registerCobranza, selectedCuentaCobranza]);
 
   const handleCloseCobranzaModal = () => {

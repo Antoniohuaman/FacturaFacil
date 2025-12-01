@@ -8,7 +8,6 @@ import type {
   PaymentCollectionPayload,
   Currency,
 } from '../models/comprobante.types';
-import { useCaja } from '../../control-caja/context/CajaContext';
 import { lsKey } from '../../../shared/tenant';
 import { mapPaymentMethodToMedioPago } from '../../../shared/payments/paymentMapping';
 // Reemplazamos el uso de addMovimiento desde el store del catálogo por la fachada de inventario
@@ -18,7 +17,7 @@ import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useToast } from '../shared/ui/Toast/useToast';
 import { devLocalIndicadoresStore, mapCartItemsToVentaProductos } from '../../indicadores-negocio/integration/devLocalStore';
 import { useCobranzasContext } from '../../gestion-cobranzas/context/CobranzasContext';
-import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../../gestion-cobranzas/models/cobranzas.types';
+import type { CuentaPorCobrarSummary } from '../../gestion-cobranzas/models/cobranzas.types';
 import {
   computeAccountStateFromInstallments,
   normalizeCreditTermsToInstallments,
@@ -61,11 +60,10 @@ interface ComprobanteData {
 
 export const useComprobanteActions = () => {
   const toast = useToast();
-  const { agregarMovimiento, status: cajaStatus } = useCaja();
   const { addMovimiento: addMovimientoStock } = useInventoryFacade();
   const { addComprobante } = useComprobanteContext();
   const { session } = useUserSession();
-  const { upsertCuenta, addCobranzaDocument } = useCobranzasContext();
+  const { upsertCuenta, registerCobranza } = useCobranzasContext();
 
   const buildPaymentLabel = useCallback((paymentDetails?: PaymentCollectionPayload, fallbackFormaPago?: string) => {
     if (paymentDetails?.mode === 'credito') {
@@ -265,108 +263,45 @@ export const useComprobanteActions = () => {
         }
       }
 
-      if (
-        data.paymentDetails?.mode === 'contado' &&
-        data.paymentDetails.collectionDocument
-      ) {
-        const montoCobrado = data.paymentDetails.lines.reduce(
-          (acc, line) => acc + (Number(line.amount) || 0),
-          0
-        );
-        const installmentsInfo = createdCuenta
-          ? (() => {
-              const totalCuotas = createdCuenta.totalInstallments ?? createdCuenta.installments?.length ?? createdCuenta.creditTerms?.schedule.length ?? 0;
-              const pendingCuotas = createdCuenta.pendingInstallmentsCount ?? totalCuotas;
-              return totalCuotas > 0
-                ? {
-                    total: totalCuotas,
-                    pending: pendingCuotas,
-                    paid: Math.max(0, totalCuotas - pendingCuotas),
-                  }
-                : undefined;
-            })()
-          : undefined;
-        const estadoCobranza = installmentsInfo
-          ? installmentsInfo.pending === 0
-            ? 'cancelado'
-            : 'parcial'
-          : 'cancelado';
-        const cobranzaDocumento: CobranzaDocumento = {
-          id: `cbza-${Date.now()}`,
-          numero: data.paymentDetails.collectionDocument.fullNumber,
-          tipo: 'Cobranza',
-          fechaCobranza:
-            data.paymentDetails.fechaCobranza ||
-            data.paymentDetails.collectionDocument.issuedAt ||
-            fechaEmisionIso,
-          comprobanteId: numeroComprobante,
-          comprobanteSerie: serieCode || data.serieSeleccionada,
-          comprobanteNumero: correlativoParte || '',
-          clienteNombre,
-          medioPago: buildPaymentLabel(data.paymentDetails, data.formaPago),
-          cajaDestino: data.paymentDetails.cajaDestino || 'Caja Principal',
-          moneda: resolvedCurrency,
-          monto: montoCobrado,
-          estado: estadoCobranza,
-          referencia: numeroComprobante,
-          notas: data.paymentDetails.notes,
-          collectionSeriesId: data.paymentDetails.collectionDocument.seriesId,
-          installmentsInfo,
-        };
-        addCobranzaDocument(cobranzaDocumento);
-      }
-
-      // Registrar movimiento en caja si está abierta
-      const registrarCobranzaEnCaja = Boolean(
-        cajaStatus === 'abierta' &&
-          data.paymentDetails &&
+      const debeRegistrarCobranzaInmediata = Boolean(
+        data.paymentDetails &&
           data.paymentDetails.mode === 'contado' &&
           (data.registrarPago ?? true) &&
           data.paymentDetails.lines.length > 0
       );
 
-      if (registrarCobranzaEnCaja && data.paymentDetails) {
+      if (debeRegistrarCobranzaInmediata && data.paymentDetails) {
+        const cuentaParaCobranza = createdCuenta ?? {
+          id: numeroComprobante,
+          comprobanteId: numeroComprobante,
+          comprobanteSerie: serieCode || data.serieSeleccionada,
+          comprobanteNumero: correlativoParte || '',
+          tipoComprobante: tipoComprobanteDisplay,
+          establishmentId: establecimientoId,
+          clienteNombre,
+          clienteDocumento,
+          fechaEmision: fechaEmisionIso,
+          fechaVencimiento: fechaVencimientoIso,
+          formaPago: 'contado',
+          moneda: resolvedCurrency,
+          total: data.totals.total,
+          cobrado: 0,
+          saldo: data.totals.total,
+          estado: 'pendiente',
+          vencido: false,
+          sucursal: sucursalNombre,
+          cajero: cajeroNombre,
+        } as CuentaPorCobrarSummary;
+
         try {
-          // Obtener usuario actual desde sesión
-          const userId = session?.userId || 'temp-user-id';
-          const userName = session?.userName || 'Usuario';
-
-          for (const line of data.paymentDetails.lines) {
-            const medioPago = mapPaymentMethodToMedioPago(line.method);
-            const observaciones = [
-              line.bank ? `Caja: ${line.bank}` : null,
-              line.reference ? `Ref: ${line.reference}` : null,
-              line.operationNumber ? `Op: ${line.operationNumber}` : null,
-              data.paymentDetails?.notes,
-            ]
-              .filter(Boolean)
-              .join(' | ') || undefined;
-
-            await agregarMovimiento({
-              tipo: 'Ingreso',
-              concepto: `${data.tipoComprobante} ${numeroComprobante}`,
-              medioPago,
-              monto: line.amount,
-              referencia: line.reference || numeroComprobante,
-              usuarioId: userId,
-              usuarioNombre: userName,
-              comprobante: numeroComprobante,
-              observaciones,
-            });
-          }
-        } catch (cajaError) {
-          console.error('Error registrando movimiento en caja:', cajaError);
-          // No lanzar error, el comprobante ya se creó exitosamente
-          toast.warning(
-            'Comprobante creado',
-            'El comprobante se creó pero no se pudo registrar en caja. Registre manualmente.',
-            {
-              action: {
-                label: 'Entendido',
-                onClick: () => {}
-              }
-            }
+          await registerCobranza({ cuenta: cuentaParaCobranza, payload: data.paymentDetails });
+        } catch (cobranzaError) {
+          console.error('Error registrando cobranza inmediata:', cobranzaError);
+          toast.error(
+            'No se pudo registrar el cobro',
+            cobranzaError instanceof Error ? cobranzaError.message : 'Intenta nuevamente.'
           );
+          throw cobranzaError;
         }
       }
 
@@ -591,7 +526,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, cajaStatus, agregarMovimiento, buildPaymentLabel, addMovimientoStock, addComprobante, session, addCobranzaDocument, upsertCuenta]);
+  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {
