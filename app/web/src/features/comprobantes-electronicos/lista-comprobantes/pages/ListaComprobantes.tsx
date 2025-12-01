@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
+import type { Comprobante } from '../contexts/ComprobantesListContext';
 import { devLocalIndicadoresStore } from '../../../indicadores-negocio/integration/devLocalStore';
 import {
   SelectionProvider,

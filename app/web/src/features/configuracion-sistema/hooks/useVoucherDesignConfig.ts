@@ -1,146 +1,211 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // ===================================================================
 // HOOK: useVoucherDesignConfig
 // Hook centralizado para gestionar la configuración de diseño de comprobantes
 // ===================================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type {
   VoucherDesignConfigurationExtended,
   LogoConfiguration,
   WatermarkConfiguration,
   FooterConfiguration,
   DocumentFieldsConfiguration,
-  ProductFieldsConfiguration
-} from '../models/VoucherDesignExtended';
+  DesignType,
+  VoucherDesignConfig,
+} from '../models/VoucherDesignUnified';
 import {
   DEFAULT_LOGO_CONFIG,
   DEFAULT_WATERMARK_CONFIG,
   DEFAULT_FOOTER_CONFIG,
-  DEFAULT_DOCUMENT_FIELDS_CONFIG,
-  DEFAULT_PRODUCT_FIELDS_CONFIG
-} from '../models/VoucherDesignExtended';
-
-type DesignType = 'A4' | 'TICKET';
-
-const STORAGE_KEY_PREFIX = 'voucher_design_extended_';
+  DEFAULT_DOCUMENT_FIELDS,
+  DEFAULT_PRODUCT_FIELDS_A4,
+  DEFAULT_PRODUCT_FIELDS_TICKET,
+} from '../models/VoucherDesignUnified';
+import { VoucherDesignStorageFactory } from '../services/VoucherDesignStorage';
 
 /**
  * Hook para gestionar la configuración de diseño de comprobantes
- * Maneja persistencia en localStorage y sincronización en tiempo real
+ * Maneja persistencia y sincronización en tiempo real
  */
 export const useVoucherDesignConfig = (designType: DesignType) => {
-  const storageKey = `${STORAGE_KEY_PREFIX}${designType.toLowerCase()}`;
+  const storage = useMemo(() => VoucherDesignStorageFactory.create(), []);
 
   // Estado de configuración
   const [config, setConfig] = useState<VoucherDesignConfigurationExtended>(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error loading voucher design config:', e);
-      }
-    }
-    return {
-      logo: DEFAULT_LOGO_CONFIG,
-      watermark: DEFAULT_WATERMARK_CONFIG,
-      footer: DEFAULT_FOOTER_CONFIG,
-      documentFields: DEFAULT_DOCUMENT_FIELDS_CONFIG,
-      productFields: DEFAULT_PRODUCT_FIELDS_CONFIG
-    };
+    return getDefaultConfig(designType);
   });
 
-  // Guardar en localStorage cuando cambia la configuración
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Cargar configuración al montar
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(config));
-      // Disparar evento personalizado para sincronización entre componentes
-      window.dispatchEvent(new CustomEvent('voucherDesignConfigChanged', {
-        detail: { designType, config }
-      }));
-    } catch (e) {
-      console.error('Error saving voucher design config:', e);
-    }
-  }, [config, storageKey, designType]);
+    const loadConfig = async () => {
+      try {
+        setIsLoading(true);
+        const loaded = await storage.load(designType);
+
+        if (loaded) {
+          const extracted =
+            designType === 'A4' ? loaded.a4Config : loaded.ticketConfig;
+
+          if (extracted) {
+            const watermark = designType === 'A4' && 'watermark' in extracted
+              ? extracted.watermark
+              : DEFAULT_WATERMARK_CONFIG;
+
+            setConfig({
+              logo: extracted.logo,
+              watermark,
+              footer: extracted.footer,
+              documentFields: extracted.documentFields,
+              productFields: extracted.productFields,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[useVoucherDesignConfig] Load error:', err);
+        setError('Error al cargar la configuración');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadConfig();
+  }, [designType, storage]);
+
+  // Guardar cuando cambia la configuración
+  useEffect(() => {
+    if (isLoading) return; // No guardar durante carga inicial
+
+    const saveConfig = async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fullConfig: any = {
+          id: `design-${designType.toLowerCase()}-${Date.now()}`,
+          name: `Diseño ${designType} Personalizado`,
+          type: designType,
+          version: '2.0',
+          isDefault: false,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        if (designType === 'A4') {
+          fullConfig.a4Config = config;
+        } else {
+          fullConfig.ticketConfig = config;
+        }
+
+        await storage.save(designType, fullConfig as VoucherDesignConfig);
+        setError(null);
+      } catch (err) {
+        console.error('[useVoucherDesignConfig] Save error:', err);
+        setError('Error al guardar la configuración');
+      }
+    };
+
+    const timeoutId = setTimeout(saveConfig, 300); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [config, designType, storage, isLoading]);
 
   // Actualizar configuración de logo
   const updateLogo = useCallback((logo: LogoConfiguration) => {
-    setConfig(prev => ({ ...prev, logo }));
+    setConfig((prev) => ({ ...prev, logo }));
   }, []);
 
   // Actualizar configuración de marca de agua
   const updateWatermark = useCallback((watermark: WatermarkConfiguration) => {
-    setConfig(prev => ({ ...prev, watermark }));
+    setConfig((prev) => ({ ...prev, watermark }));
   }, []);
 
   // Actualizar configuración de pie de página
   const updateFooter = useCallback((footer: FooterConfiguration) => {
-    setConfig(prev => ({ ...prev, footer }));
+    setConfig((prev) => ({ ...prev, footer }));
   }, []);
 
   // Actualizar configuración de campos de documento
-  const updateDocumentFields = useCallback((documentFields: DocumentFieldsConfiguration) => {
-    setConfig(prev => ({ ...prev, documentFields }));
-  }, []);
+  const updateDocumentFields = useCallback(
+    (documentFields: DocumentFieldsConfiguration) => {
+      setConfig((prev) => ({ ...prev, documentFields }));
+    },
+    []
+  );
 
   // Actualizar configuración de campos de productos
-  const updateProductFields = useCallback((productFields: ProductFieldsConfiguration) => {
-    setConfig(prev => ({ ...prev, productFields }));
-  }, []);
+  const updateProductFields = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (productFields: any) => {
+      setConfig((prev) => ({ ...prev, productFields }));
+    },
+    []
+  );
 
   // Restaurar valores por defecto
   const resetToDefault = useCallback(() => {
-    const defaultConfig: VoucherDesignConfigurationExtended = {
-      logo: DEFAULT_LOGO_CONFIG,
-      watermark: DEFAULT_WATERMARK_CONFIG,
-      footer: DEFAULT_FOOTER_CONFIG,
-      documentFields: DEFAULT_DOCUMENT_FIELDS_CONFIG,
-      productFields: DEFAULT_PRODUCT_FIELDS_CONFIG
-    };
+    const defaultConfig = getDefaultConfig(designType);
     setConfig(defaultConfig);
-  }, []);
+  }, [designType]);
 
   // Exportar configuración
-  const exportConfig = useCallback(() => {
-    const dataStr = JSON.stringify({ designType, config }, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
+  const exportConfig = useCallback(async () => {
+    try {
+      const blob = await storage.exportToBlob(designType);
+      const url = URL.createObjectURL(blob);
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `voucher-design-${designType.toLowerCase()}-${Date.now()}.json`;
-    link.click();
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `voucher-design-${designType.toLowerCase()}-${Date.now()}.json`;
+      link.click();
 
-    URL.revokeObjectURL(url);
-  }, [config, designType]);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('[useVoucherDesignConfig] Export error:', err);
+      throw new Error('Error al exportar la configuración');
+    }
+  }, [designType, storage]);
 
   // Importar configuración
-  const importConfig = useCallback((file: File) => {
-    return new Promise<void>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const result = e.target?.result as string;
-          const imported = JSON.parse(result);
+  const importConfig = useCallback(
+    async (file: File) => {
+      try {
+        const imported = await storage.importFromFile(file);
 
-          if (imported.designType === designType) {
-            setConfig(imported.config);
-            resolve();
-          } else {
-            reject(new Error('El archivo no corresponde al tipo de diseño seleccionado'));
-          }
-        } catch (error) {
-          reject(new Error('Error al importar el archivo. Verifica que sea un archivo válido.'));
+        if (imported.type !== designType) {
+          throw new Error(
+            `El archivo es para diseño ${imported.type}, pero estás en ${designType}`
+          );
         }
-      };
-      reader.onerror = () => reject(new Error('Error al leer el archivo'));
-      reader.readAsText(file);
-    });
-  }, [designType]);
+
+        const extracted =
+          designType === 'A4' ? imported.a4Config : imported.ticketConfig;
+
+        if (extracted) {
+          const watermark = designType === 'A4' && 'watermark' in extracted
+            ? extracted.watermark
+            : DEFAULT_WATERMARK_CONFIG;
+
+          setConfig({
+            logo: extracted.logo,
+            watermark,
+            footer: extracted.footer,
+            documentFields: extracted.documentFields,
+            productFields: extracted.productFields,
+          });
+        }
+      } catch (err) {
+        console.error('[useVoucherDesignConfig] Import error:', err);
+        throw err;
+      }
+    },
+    [designType, storage]
+  );
 
   return {
     config,
+    isLoading,
+    error,
     updateLogo,
     updateWatermark,
     updateFooter,
@@ -148,7 +213,7 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
     updateProductFields,
     resetToDefault,
     exportConfig,
-    importConfig
+    importConfig,
   };
 };
 
@@ -157,40 +222,86 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
  * Útil para componentes que solo necesitan leer la configuración
  */
 export const useVoucherDesignConfigReader = (designType: DesignType) => {
-  const storageKey = `${STORAGE_KEY_PREFIX}${designType.toLowerCase()}`;
+  const storage = useMemo(() => VoucherDesignStorageFactory.create(), []);
 
   const [config, setConfig] = useState<VoucherDesignConfigurationExtended>(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error loading voucher design config:', e);
-      }
-    }
-    return {
-      logo: DEFAULT_LOGO_CONFIG,
-      watermark: DEFAULT_WATERMARK_CONFIG,
-      footer: DEFAULT_FOOTER_CONFIG,
-      documentFields: DEFAULT_DOCUMENT_FIELDS_CONFIG,
-      productFields: DEFAULT_PRODUCT_FIELDS_CONFIG
-    };
+    return getDefaultConfig(designType);
   });
+
+  // Cargar configuración inicial
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const loaded = await storage.load(designType);
+
+        if (loaded) {
+          const extracted =
+            designType === 'A4' ? loaded.a4Config : loaded.ticketConfig;
+
+          if (extracted) {
+            const watermark = designType === 'A4' && 'watermark' in extracted
+              ? extracted.watermark
+              : DEFAULT_WATERMARK_CONFIG;
+
+            setConfig({
+              logo: extracted.logo,
+              watermark,
+              footer: extracted.footer,
+              documentFields: extracted.documentFields,
+              productFields: extracted.productFields,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[useVoucherDesignConfigReader] Load error:', err);
+      }
+    };
+
+    loadConfig();
+  }, [designType, storage]);
 
   // Escuchar cambios en la configuración
   useEffect(() => {
-    const handleConfigChange = (event: CustomEvent) => {
-      if (event.detail.designType === designType) {
-        setConfig(event.detail.config);
+    const handleConfigChange = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail?.designType === designType && customEvent.detail?.config) {
+        const loaded = customEvent.detail.config;
+        const extracted =
+          designType === 'A4' ? loaded.a4Config : loaded.ticketConfig;
+
+        if (extracted) {
+          setConfig({
+            logo: extracted.logo,
+            watermark: extracted.watermark || DEFAULT_WATERMARK_CONFIG,
+            footer: extracted.footer,
+            documentFields: extracted.documentFields,
+            productFields: extracted.productFields,
+          });
+        }
       }
     };
 
-    window.addEventListener('voucherDesignConfigChanged', handleConfigChange as EventListener);
+    window.addEventListener('voucherDesignConfigChanged', handleConfigChange);
 
     return () => {
-      window.removeEventListener('voucherDesignConfigChanged', handleConfigChange as EventListener);
+      window.removeEventListener('voucherDesignConfigChanged', handleConfigChange);
     };
   }, [designType]);
 
   return config;
 };
+
+// ===================================================================
+// UTILIDADES
+// ===================================================================
+
+function getDefaultConfig(designType: DesignType): VoucherDesignConfigurationExtended {
+  return {
+    logo: DEFAULT_LOGO_CONFIG,
+    watermark: DEFAULT_WATERMARK_CONFIG,
+    footer: DEFAULT_FOOTER_CONFIG,
+    documentFields: DEFAULT_DOCUMENT_FIELDS,
+    productFields:
+      designType === 'A4' ? DEFAULT_PRODUCT_FIELDS_A4 : DEFAULT_PRODUCT_FIELDS_TICKET,
+  };
+}

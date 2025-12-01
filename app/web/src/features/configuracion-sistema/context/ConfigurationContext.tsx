@@ -10,7 +10,7 @@ import type { Currency } from '../models/Currency';
 import type { Unit } from '../models/Unit';
 import type { Tax } from '../models/Tax';
 import type { VoucherDesign } from '../models/VoucherDesign';
-import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesign';
+import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesignUnified';
 import { SUNAT_UNITS } from '../models/Unit';
 import type { Warehouse } from '../models/Warehouse';
 import type { Caja } from '../models/Caja';
@@ -803,10 +803,38 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
       payload: []  // Start empty - users can create their own employees
     });
 
-    // Default voucher designs
+    // Default voucher designs - convertir de modelo unificado a legacy
+    const convertToLegacy = (unified: typeof DEFAULT_A4_DESIGN | typeof DEFAULT_TICKET_DESIGN): VoucherDesign => {
+      const config = unified.type === 'A4' ? unified.a4Config : unified.ticketConfig;
+      return {
+        id: unified.id,
+        name: unified.name,
+        type: unified.type,
+        settings: {
+          showLogo: config?.logo.enabled ?? true,
+          showCompanyInfo: true,
+          showFooter: config?.footer.enabled ?? true,
+          footerText: config?.footer.customText ?? 'Gracias por su preferencia',
+          headerColor: '#2563eb',
+          textColor: '#374151',
+          borderColor: '#e5e7eb',
+          fontSize: 'medium',
+          fontFamily: 'Arial',
+          showBorder: true,
+          showWatermark: config && 'watermark' in config ? config.watermark.enabled : false,
+          watermarkText: config && 'watermark' in config ? config.watermark.text ?? '' : '',
+          watermarkOpacity: config && 'watermark' in config ? config.watermark.opacity : 0.1,
+        },
+        isDefault: unified.isDefault,
+        isActive: unified.isActive,
+        createdAt: unified.createdAt,
+        updatedAt: unified.updatedAt,
+      };
+    };
+
     dispatch({
       type: 'SET_VOUCHER_DESIGNS',
-      payload: [DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN]
+      payload: [convertToLegacy(DEFAULT_A4_DESIGN), convertToLegacy(DEFAULT_TICKET_DESIGN)]
     });
 
     // No se inicializan warehouses por defecto

@@ -25,14 +25,16 @@ import { WatermarkConfigPanel } from '../components/voucher-design/WatermarkConf
 import { FooterConfigPanel } from '../components/voucher-design/FooterConfigPanel';
 import { DocumentFieldsConfigPanel } from '../components/voucher-design/DocumentFieldsConfigPanel';
 import { ProductFieldsConfigPanel } from '../components/voucher-design/ProductFieldsConfigPanel';
+import { NotificationProvider, useNotifications } from '../components/shared/NotificationSystem';
+import type { DesignType } from '../models/VoucherDesignUnified';
 
-type DesignType = 'A4' | 'TICKET';
 type ActiveTab = 'logo' | 'watermark' | 'footer' | 'documentFields' | 'productFields' | 'general';
 
-export function VoucherDesignConfigurationNew() {
+function VoucherDesignConfigurationContent() {
   const navigate = useNavigate();
   const [activeDesign, setActiveDesign] = useState<DesignType>('A4');
   const [activeTab, setActiveTab] = useState<ActiveTab>('logo');
+  const { showSuccess, showError } = useNotifications();
 
   const {
     config,
@@ -46,18 +48,31 @@ export function VoucherDesignConfigurationNew() {
     importConfig
   } = useVoucherDesignConfig(activeDesign);
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      importConfig(file)
-        .then(() => {
-          alert('Configuración importada exitosamente');
-        })
-        .catch((error) => {
-          alert(error.message);
-        });
+      try {
+        await importConfig(file);
+        showSuccess('Configuración importada', 'El diseño se ha cargado correctamente');
+      } catch (error) {
+        showError('Error al importar', error instanceof Error ? error.message : 'Archivo inválido');
+      }
     }
     event.target.value = '';
+  };
+
+  const handleExport = async () => {
+    try {
+      await exportConfig();
+      showSuccess('Configuración exportada', 'El archivo se ha descargado correctamente');
+    } catch (error) {
+      showError('Error al exportar', 'No se pudo exportar la configuración');
+    }
+  };
+
+  const handleReset = () => {
+    resetToDefault();
+    showSuccess('Configuración restaurada', 'Se han restaurado los valores predeterminados');
   };
 
   const tabs = [
@@ -103,7 +118,7 @@ export function VoucherDesignConfigurationNew() {
             {/* Actions */}
             <div className="flex items-center gap-3">
               <button
-                onClick={exportConfig}
+                onClick={handleExport}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
               >
                 <Download className="w-4 h-4" />
@@ -122,7 +137,7 @@ export function VoucherDesignConfigurationNew() {
               </label>
 
               <button
-                onClick={resetToDefault}
+                onClick={handleReset}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
@@ -223,7 +238,7 @@ export function VoucherDesignConfigurationNew() {
                   <DocumentFieldsConfigPanel config={config.documentFields} onChange={updateDocumentFields} />
                 )}
                 {activeTab === 'productFields' && (
-                  <ProductFieldsConfigPanel config={config.productFields} onChange={updateProductFields} />
+                  <ProductFieldsConfigPanel config={config.productFields as any} onChange={updateProductFields} />
                 )}
               </div>
             </div>
@@ -236,5 +251,13 @@ export function VoucherDesignConfigurationNew() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function VoucherDesignConfigurationNew() {
+  return (
+    <NotificationProvider>
+      <VoucherDesignConfigurationContent />
+    </NotificationProvider>
   );
 }

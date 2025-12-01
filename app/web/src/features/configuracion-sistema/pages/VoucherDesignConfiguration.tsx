@@ -483,7 +483,7 @@ export function VoucherDesignConfiguration() {
             {expandedSections.includes('productFields') && (
               <div className="px-6 pb-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="pt-4">
-                  <ProductFieldsConfigPanel config={extendedConfig.productFields} onChange={updateProductFieldsConfig} />
+                  <ProductFieldsConfigPanel config={extendedConfig.productFields as any} onChange={updateProductFieldsConfig} />
                 </div>
               </div>
             )}
