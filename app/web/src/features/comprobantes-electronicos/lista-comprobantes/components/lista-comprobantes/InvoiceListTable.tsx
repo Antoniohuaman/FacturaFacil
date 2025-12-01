@@ -390,6 +390,8 @@ const InvoiceCell = ({
 	onEdit,
 	onVoid,
 	onNavigateToDocuments,
+	onGenerateCobranza,
+	canGenerateCobranza,
 	openMenuId,
 	menuPosition,
 	toggleMenu,
