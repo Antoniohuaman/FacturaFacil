@@ -110,8 +110,12 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
                 <p className="text-xs text-gray-700">Email: {sampleData.company.email}</p>
               </div>
 
-              {/* Columna 2: Logo (centrado) */}
-              <div className="flex items-center justify-center">
+              {/* Columna 2: Logo (respeta posición configurada) */}
+              <div className={`flex items-center ${
+                logo.position === 'left' ? 'justify-start' :
+                logo.position === 'right' ? 'justify-end' :
+                'justify-center'
+              }`}>
                 {logo.enabled && (
                   logo.url ? (
                     <img
@@ -187,61 +191,63 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
               </div>
             </div>
 
-            {/* Tabla de productos */}
-            <div className="border border-gray-400 mb-4">
-              {/* Header de la tabla */}
-              <div className="bg-gray-800 text-white px-2 py-2 text-[10px] font-medium flex gap-1">
-                {visibleProductFields.map(([key, field]) => (
-                  <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="text-center">
-                    {field.label}
+            {/* Tabla de productos con scroll horizontal */}
+            <div className="border border-gray-400 mb-4 overflow-x-auto">
+              <div style={{ minWidth: 'fit-content' }}>
+                {/* Header de la tabla */}
+                <div className="bg-gray-800 text-white px-2 py-2 text-[10px] font-medium flex gap-1">
+                  {visibleProductFields.map(([key, field]) => (
+                    <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="text-center">
+                      {field.label}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Productos */}
+                {sampleData.items.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className={`px-2 py-2 text-[10px] border-b border-gray-300 flex gap-1 ${
+                      index % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+                    }`}
+                  >
+                    {visibleProductFields.map(([key, field]) => {
+                      let content = '';
+                      switch (key) {
+                        case 'imagen': content = '🖼️'; break;
+                        case 'descripcion': content = item.name; break;
+                        case 'cantidad': content = item.quantity.toString(); break;
+                        case 'precioUnitario': content = `S/ ${item.price.toFixed(2)}`; break;
+                        case 'total': content = `S/ ${(item.price * item.quantity).toFixed(2)}`; break;
+                        case 'marca': content = item.brand; break;
+                        case 'codigoBarras': content = item.barcode; break;
+                        case 'alias': content = item.alias; break;
+                        case 'modelo': content = item.model; break;
+                        case 'codigoFabrica': content = item.factoryCode; break;
+                        case 'descuento': content = `${item.discount}%`; break;
+                        case 'tipo': content = item.type; break;
+                        case 'codigoSunat': content = item.sunatCode; break;
+                        case 'peso': content = item.weight; break;
+                        case 'categoria': content = item.category; break;
+                        case 'tipoExistencia': content = item.existenceType; break;
+                        default: content = item.code;
+                      }
+                      return (
+                        <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="truncate text-center">
+                          {content}
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
-              </div>
 
-              {/* Productos */}
-              {sampleData.items.map((item, index) => (
-                <div
-                  key={item.id}
-                  className={`px-2 py-2 text-[10px] border-b border-gray-300 flex gap-1 ${
-                    index % 2 === 0 ? 'bg-gray-50' : 'bg-white'
-                  }`}
-                >
-                  {visibleProductFields.map(([key, field]) => {
-                    let content = '';
-                    switch (key) {
-                      case 'imagen': content = '🖼️'; break;
-                      case 'descripcion': content = item.name; break;
-                      case 'cantidad': content = item.quantity.toString(); break;
-                      case 'precioUnitario': content = `S/ ${item.price.toFixed(2)}`; break;
-                      case 'total': content = `S/ ${(item.price * item.quantity).toFixed(2)}`; break;
-                      case 'marca': content = item.brand; break;
-                      case 'codigoBarras': content = item.barcode; break;
-                      case 'alias': content = item.alias; break;
-                      case 'modelo': content = item.model; break;
-                      case 'codigoFabrica': content = item.factoryCode; break;
-                      case 'descuento': content = `${item.discount}%`; break;
-                      case 'tipo': content = item.type; break;
-                      case 'codigoSunat': content = item.sunatCode; break;
-                      case 'peso': content = item.weight; break;
-                      case 'categoria': content = item.category; break;
-                      case 'tipoExistencia': content = item.existenceType; break;
-                      default: content = item.code;
-                    }
-                    return (
-                      <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="truncate text-center">
-                        {content}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-
-              {/* Totales */}
-              <div className="bg-gray-100 px-2 py-2 flex justify-end">
-                <div className="text-right">
-                  <p className="text-xs font-semibold">Subtotal: S/ 200.00</p>
-                  <p className="text-xs font-semibold">IGV (18%): S/ 36.00</p>
-                  <p className="text-sm font-bold">TOTAL: S/ 236.00</p>
+                {/* Totales */}
+                <div className="bg-gray-100 px-2 py-2 flex justify-end">
+                  <div className="text-right">
+                    <p className="text-xs font-semibold">Subtotal: S/ 200.00</p>
+                    <p className="text-xs font-semibold">IGV (18%): S/ 36.00</p>
+                    <p className="text-sm font-bold">TOTAL: S/ 236.00</p>
+                  </div>
                 </div>
               </div>
             </div>

@@ -20,11 +20,22 @@ export const ProductFieldsConfigPanel: React.FC<ProductFieldsConfigPanelProps> =
   const fields = Object.keys(config) as Array<keyof ProductFieldsConfiguration>;
 
   const toggleField = (fieldKey: keyof ProductFieldsConfiguration) => {
+    const newVisible = !config[fieldKey].visible;
+
+    // Validación: al menos una columna debe estar visible
+    if (!newVisible) {
+      const visibleCount = fields.filter(k => config[k].visible).length;
+      if (visibleCount <= 1) {
+        alert('Debe haber al menos una columna visible en la tabla de productos');
+        return;
+      }
+    }
+
     onChange({
       ...config,
       [fieldKey]: {
         ...config[fieldKey],
-        visible: !config[fieldKey].visible,
+        visible: newVisible,
       },
     });
   };
@@ -203,13 +214,11 @@ export const ProductFieldsConfigPanel: React.FC<ProductFieldsConfigPanelProps> =
         </button>
         <button
           onClick={() => {
-            const allHidden: ProductFieldsConfiguration = {} as any;
-            fields.forEach((key) => {
-              allHidden[key] = { ...config[key], visible: false };
-            });
-            onChange(allHidden);
+            alert('Debe haber al menos una columna visible. Use "Solo Esenciales" para minimizar columnas.');
           }}
-          className="flex-1 px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium text-sm"
+          disabled
+          className="flex-1 px-4 py-2.5 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed font-medium text-sm"
+          title="No se puede ocultar todas las columnas"
         >
           Ocultar Todas
         </button>

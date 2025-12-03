@@ -17,7 +17,8 @@ import {
   DEFAULT_LOGO_CONFIG,
   DEFAULT_WATERMARK_CONFIG,
   DEFAULT_FOOTER_CONFIG,
-  DEFAULT_DOCUMENT_FIELDS,
+  DEFAULT_DOCUMENT_FIELDS_A4,
+  DEFAULT_DOCUMENT_FIELDS_TICKET,
   DEFAULT_PRODUCT_FIELDS_A4,
   DEFAULT_PRODUCT_FIELDS_TICKET,
 } from '../models/VoucherDesignUnified';
@@ -300,7 +301,7 @@ function getDefaultConfig(designType: DesignType): VoucherDesignConfigurationExt
     logo: DEFAULT_LOGO_CONFIG,
     watermark: DEFAULT_WATERMARK_CONFIG,
     footer: DEFAULT_FOOTER_CONFIG,
-    documentFields: DEFAULT_DOCUMENT_FIELDS,
+    documentFields: designType === 'A4' ? DEFAULT_DOCUMENT_FIELDS_A4 : DEFAULT_DOCUMENT_FIELDS_TICKET,
     productFields:
       designType === 'A4' ? DEFAULT_PRODUCT_FIELDS_A4 : DEFAULT_PRODUCT_FIELDS_TICKET,
   };

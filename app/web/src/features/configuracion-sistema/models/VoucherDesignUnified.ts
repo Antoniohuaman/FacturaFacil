@@ -206,9 +206,23 @@ export const DEFAULT_FOOTER_CONFIG: FooterConfiguration = {
   padding: 10,
 };
 
-export const DEFAULT_DOCUMENT_FIELDS: DocumentFieldsConfiguration = {
+// Configuraciones independientes para A4 y Ticket
+export const DEFAULT_DOCUMENT_FIELDS_A4: DocumentFieldsConfiguration = {
   establecimiento: { visible: true, label: 'Establecimiento' },
   observaciones: { visible: true, label: 'Observaciones' },
+  direccion: { visible: true, label: 'Dirección' },
+  fechaVencimiento: { visible: true, label: 'Fecha de Vencimiento' },
+  direccionEnvio: { visible: false, label: 'Dirección de Envío' },
+  ordenCompra: { visible: false, label: 'Orden de Compra' },
+  guiaRemision: { visible: false, label: 'N° de Guía de Remisión' },
+  correoElectronico: { visible: false, label: 'Correo Electrónico' },
+  centroCosto: { visible: false, label: 'Centro de Costo' },
+  vendedor: { visible: false, label: 'Vendedor' },
+};
+
+export const DEFAULT_DOCUMENT_FIELDS_TICKET: DocumentFieldsConfiguration = {
+  establecimiento: { visible: false, label: 'Establecimiento' },
+  observaciones: { visible: false, label: 'Observaciones' },
   direccion: { visible: false, label: 'Dirección' },
   fechaVencimiento: { visible: false, label: 'Fecha de Vencimiento' },
   direccionEnvio: { visible: false, label: 'Dirección de Envío' },
@@ -218,6 +232,9 @@ export const DEFAULT_DOCUMENT_FIELDS: DocumentFieldsConfiguration = {
   centroCosto: { visible: false, label: 'Centro de Costo' },
   vendedor: { visible: false, label: 'Vendedor' },
 };
+
+// Mantener DEFAULT_DOCUMENT_FIELDS por compatibilidad (deprecado)
+export const DEFAULT_DOCUMENT_FIELDS = DEFAULT_DOCUMENT_FIELDS_A4;
 
 export const DEFAULT_PRODUCT_FIELDS_A4: ProductFieldsConfiguration = {
   imagen: { visible: false, label: 'Imagen', width: 60 },
@@ -252,7 +269,7 @@ export const DEFAULT_A4_CONFIG: VoucherDesignA4Config = {
   logo: DEFAULT_LOGO_CONFIG,
   watermark: DEFAULT_WATERMARK_CONFIG,
   footer: DEFAULT_FOOTER_CONFIG,
-  documentFields: DEFAULT_DOCUMENT_FIELDS,
+  documentFields: DEFAULT_DOCUMENT_FIELDS_A4,
   productFields: DEFAULT_PRODUCT_FIELDS_A4,
 };
 
@@ -272,7 +289,7 @@ export const DEFAULT_TICKET_CONFIG: VoucherDesignTicketConfig = {
     fontWeight: 'normal',
     padding: 5,
   },
-  documentFields: DEFAULT_DOCUMENT_FIELDS,
+  documentFields: DEFAULT_DOCUMENT_FIELDS_TICKET,
   productFields: DEFAULT_PRODUCT_FIELDS_TICKET,
   general: {
     paperWidth: 80,

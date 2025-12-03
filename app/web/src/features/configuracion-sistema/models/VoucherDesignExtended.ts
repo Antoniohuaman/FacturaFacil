@@ -33,6 +33,8 @@ export {
   DEFAULT_A4_DESIGN,
   DEFAULT_TICKET_DESIGN,
   DEFAULT_PRODUCT_FIELDS_TICKET,
+  DEFAULT_DOCUMENT_FIELDS_A4,
+  DEFAULT_DOCUMENT_FIELDS_TICKET,
 } from './VoucherDesignUnified';
 
 // Aliases únicos para compatibilidad
