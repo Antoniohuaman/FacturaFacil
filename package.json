@@ -7,6 +7,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.0",
-    "@types/recharts": "^1.8.29"
+    "@types/recharts": "^1.8.29",
+    "baseline-browser-mapping": "^2.8.32"
   }
 }
