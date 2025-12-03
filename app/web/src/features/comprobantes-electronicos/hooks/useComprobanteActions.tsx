@@ -17,7 +17,7 @@ import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useToast } from '../shared/ui/Toast/useToast';
 import { devLocalIndicadoresStore, mapCartItemsToVentaProductos } from '../../indicadores-negocio/integration/devLocalStore';
 import { useCobranzasContext } from '../../gestion-cobranzas/context/CobranzasContext';
-import type { CuentaPorCobrarSummary } from '../../gestion-cobranzas/models/cobranzas.types';
+import type { CobranzaStatus, CuentaPorCobrarSummary } from '../../gestion-cobranzas/models/cobranzas.types';
 import {
   computeAccountStateFromInstallments,
   normalizeCreditTermsToInstallments,
@@ -260,6 +260,51 @@ export const useComprobanteActions = () => {
         upsertCuenta(createdCuenta);
         if (typeof window !== 'undefined') {
           window.sessionStorage.setItem('lastCreatedReceivableId', createdCuenta.id);
+        }
+      } else {
+        const registroCobranzaInmediata = Boolean(
+          data.paymentDetails &&
+            data.paymentDetails.mode === 'contado' &&
+            data.paymentDetails.lines.length > 0,
+        );
+
+        if (!registroCobranzaInmediata) {
+          const paymentTermsDueDate = data.paymentTerms?.creditSchedule?.fechaVencimientoGlobal
+            || data.paymentTerms?.installments?.[data.paymentTerms.installments.length - 1]?.fechaVencimiento;
+          const dueDateCandidate =
+            data.fechaVencimiento ||
+            paymentTermsDueDate ||
+            fechaEmisionIso;
+          const dueDateObj = dueDateCandidate ? new Date(`${dueDateCandidate}T00:00:00`) : null;
+          const now = new Date();
+          const estadoCuenta: CobranzaStatus = dueDateObj && dueDateObj < now ? 'vencido' : 'pendiente';
+
+          createdCuenta = {
+            id: numeroComprobante,
+            comprobanteId: numeroComprobante,
+            comprobanteSerie: serieCode || data.serieSeleccionada,
+            comprobanteNumero: correlativoParte || '',
+            tipoComprobante: tipoComprobanteDisplay,
+            establishmentId: establecimientoId,
+            clienteNombre,
+            clienteDocumento,
+            fechaEmision: fechaEmisionIso,
+            fechaVencimiento: dueDateCandidate,
+            formaPago: 'contado',
+            moneda: resolvedCurrency,
+            total: data.totals.total,
+            cobrado: 0,
+            saldo: data.totals.total,
+            estado: estadoCuenta,
+            vencido: estadoCuenta === 'vencido',
+            sucursal: sucursalNombre,
+            cajero: cajeroNombre,
+          };
+          upsertCuenta(createdCuenta);
+
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.setItem('lastCreatedReceivableId', createdCuenta.id);
+          }
         }
       }
 
