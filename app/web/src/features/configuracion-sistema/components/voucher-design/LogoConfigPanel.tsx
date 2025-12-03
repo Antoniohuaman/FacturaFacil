@@ -82,6 +82,60 @@ export const LogoConfigPanel: React.FC<LogoConfigPanelProps> = ({ config, onChan
 
       {config.enabled && (
         <>
+          {/* Layout Selector */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Diseño del Encabezado
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={() => onChange({ ...config, layout: 'horizontal' })}
+                className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                  (config.layout || 'horizontal') === 'horizontal'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 hover:border-blue-300 text-gray-700'
+                }`}
+              >
+                <div className="text-center">
+                  <p className="text-sm font-medium">Horizontal</p>
+                  <p className="text-xs text-gray-500 mt-1">3 columnas</p>
+                </div>
+              </button>
+              <button
+                onClick={() => onChange({ ...config, layout: 'vertical-logo-top' })}
+                className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                  config.layout === 'vertical-logo-top'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 hover:border-blue-300 text-gray-700'
+                }`}
+              >
+                <div className="text-center">
+                  <p className="text-sm font-medium">Logo Arriba</p>
+                  <p className="text-xs text-gray-500 mt-1">Logo + Empresa</p>
+                </div>
+              </button>
+              <button
+                onClick={() => onChange({ ...config, layout: 'vertical-logo-bottom' })}
+                className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                  config.layout === 'vertical-logo-bottom'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 hover:border-blue-300 text-gray-700'
+                }`}
+              >
+                <div className="text-center">
+                  <p className="text-sm font-medium">Logo Abajo</p>
+                  <p className="text-xs text-gray-500 mt-1">Empresa + Logo</p>
+                </div>
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {(config.layout || 'horizontal') === 'horizontal'
+                ? 'El logo se coloca en una de las tres columnas del encabezado'
+                : 'El logo y la información de la empresa se apilan verticalmente ocupando más espacio horizontal'
+              }
+            </p>
+          </div>
+
           {/* Upload Image */}
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">
@@ -193,7 +247,10 @@ export const LogoConfigPanel: React.FC<LogoConfigPanelProps> = ({ config, onChan
           {/* Position */}
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">
-              Posición Horizontal
+              {(config.layout || 'horizontal') === 'horizontal'
+                ? 'Posición del Logo'
+                : 'Posición del Bloque'
+              }
             </label>
             <div className="grid grid-cols-3 gap-3">
               {(['left', 'center', 'right'] as const).map((position) => {
@@ -214,6 +271,12 @@ export const LogoConfigPanel: React.FC<LogoConfigPanelProps> = ({ config, onChan
                 );
               })}
             </div>
+            <p className="text-xs text-gray-500">
+              {(config.layout || 'horizontal') === 'horizontal'
+                ? 'En modo horizontal, determina en qué columna aparece el logo'
+                : 'En modo vertical, determina si el bloque aparece a la izquierda o derecha del documento'
+              }
+            </p>
           </div>
 
           {/* Preview */}

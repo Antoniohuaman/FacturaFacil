@@ -17,6 +17,7 @@ export interface LogoConfiguration {
   width: number;
   height: number;
   position: 'left' | 'center' | 'right';
+  layout?: 'horizontal' | 'vertical-logo-top' | 'vertical-logo-bottom'; // Layout del header
   url?: string;
 }
 
@@ -183,6 +184,7 @@ export const DEFAULT_LOGO_CONFIG: LogoConfiguration = {
   width: 100,
   height: 100,
   position: 'left',
+  layout: 'horizontal', // Layout por defecto
 };
 
 export const DEFAULT_WATERMARK_CONFIG: WatermarkConfiguration = {

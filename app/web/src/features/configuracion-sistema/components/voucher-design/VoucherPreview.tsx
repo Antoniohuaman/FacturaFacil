@@ -69,74 +69,132 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
         <div className="bg-white shadow-md relative aspect-[210/297]">
           {/* Contenido del comprobante */}
           <div className="relative p-6" style={{ zIndex: 1 }}>
-            {/* HEADER DINÁMICO: Orden cambia según logo.position */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              {(() => {
-                // Componente: Datos de la empresa
-                const companyInfoSection = (
-                  <div key="company" className="flex flex-col justify-center">
-                    <h1 className="font-bold text-base text-gray-900">{sampleData.company.name}</h1>
-                    <p className="text-xs text-gray-700 mt-1">{sampleData.company.address}</p>
-                    <p className="text-xs text-gray-700">Tel: {sampleData.company.phone}</p>
-                    <p className="text-xs text-gray-700">Email: {sampleData.company.email}</p>
-                  </div>
-                );
+            {/* HEADER DINÁMICO: Layout cambia según logo.layout */}
+            {(() => {
+              const currentLayout = logo.layout || 'horizontal';
 
-                // Componente: Logo
-                const logoSection = logo.enabled ? (
-                  <div key="logo" className="flex items-center justify-center">
-                    {logo.url ? (
-                      <img
-                        src={logo.url}
-                        alt="Logo"
-                        style={{
-                          width: `${logo.width}px`,
-                          height: `${logo.height}px`,
-                          objectFit: 'contain'
-                        }}
-                      />
+              // Componente: Logo (solo visual)
+              const logoVisual = logo.enabled && logo.url ? (
+                <img
+                  src={logo.url}
+                  alt="Logo"
+                  style={{
+                    width: `${logo.width}px`,
+                    height: `${logo.height}px`,
+                    objectFit: 'contain'
+                  }}
+                />
+              ) : logo.enabled ? (
+                <div
+                  style={{
+                    width: `${logo.width}px`,
+                    height: `${logo.height}px`
+                  }}
+                  className="bg-gray-200 border border-gray-300 flex items-center justify-center rounded"
+                >
+                  <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                </div>
+              ) : null;
+
+              // Componente: RUC y tipo de documento (igual para ambos modos)
+              const documentSection = (
+                <div className="border-2 border-gray-800 p-3 text-center flex flex-col justify-center">
+                  <div className="bg-gray-800 text-white px-2 py-1 mb-2">
+                    <span className="font-bold text-xs">R.U.C. {sampleData.company.ruc}</span>
+                  </div>
+                  <h2 className="font-bold text-sm text-gray-900">{sampleData.document.type}</h2>
+                  <p className="font-bold text-base text-gray-900">{sampleData.document.series}-{sampleData.document.number}</p>
+                </div>
+              );
+
+              // MODO VERTICAL: Logo y empresa apilados (Grid de 2 columnas)
+              if (currentLayout === 'vertical-logo-top' || currentLayout === 'vertical-logo-bottom') {
+                const verticalBlock = (
+                  <div className="flex flex-col items-center justify-center gap-3 px-4">
+                    {currentLayout === 'vertical-logo-top' ? (
+                      <>
+                        {logoVisual && <div className="flex items-center justify-center">{logoVisual}</div>}
+                        <div className="flex flex-col items-center text-center w-full">
+                          <h1 className="font-bold text-base text-gray-900">{sampleData.company.name}</h1>
+                          <p className="text-xs text-gray-700 mt-1">{sampleData.company.address}</p>
+                          <p className="text-xs text-gray-700">Tel: {sampleData.company.phone}</p>
+                          <p className="text-xs text-gray-700">Email: {sampleData.company.email}</p>
+                        </div>
+                      </>
                     ) : (
-                      <div
-                        style={{
-                          width: `${logo.width}px`,
-                          height: `${logo.height}px`
-                        }}
-                        className="bg-gray-200 border border-gray-300 flex items-center justify-center rounded"
-                      >
-                        <span className="text-xs font-semibold text-gray-600">LOGO</span>
-                      </div>
+                      <>
+                        <div className="flex flex-col items-center text-center w-full">
+                          <h1 className="font-bold text-base text-gray-900">{sampleData.company.name}</h1>
+                          <p className="text-xs text-gray-700 mt-1">{sampleData.company.address}</p>
+                          <p className="text-xs text-gray-700">Tel: {sampleData.company.phone}</p>
+                          <p className="text-xs text-gray-700">Email: {sampleData.company.email}</p>
+                        </div>
+                        {logoVisual && <div className="flex items-center justify-center">{logoVisual}</div>}
+                      </>
                     )}
                   </div>
-                ) : (
-                  <div key="logo" className="flex items-center justify-center">
-                    {/* Espacio vacío cuando logo está deshabilitado */}
-                  </div>
                 );
 
-                // Componente: RUC y tipo de documento
-                const documentSection = (
-                  <div key="document" className="border-2 border-gray-800 p-3 text-center flex flex-col justify-center">
-                    <div className="bg-gray-800 text-white px-2 py-1 mb-2">
-                      <span className="font-bold text-xs">R.U.C. {sampleData.company.ruc}</span>
-                    </div>
-                    <h2 className="font-bold text-sm text-gray-900">{sampleData.document.type}</h2>
-                    <p className="font-bold text-base text-gray-900">{sampleData.document.series}-{sampleData.document.number}</p>
+                // Layout de 2 columnas para modo vertical
+                return (
+                  <div className="grid grid-cols-[2fr_1fr] gap-4 mb-6">
+                    {logo.position === 'right' ? (
+                      <>
+                        {documentSection}
+                        {verticalBlock}
+                      </>
+                    ) : (
+                      <>
+                        {verticalBlock}
+                        {documentSection}
+                      </>
+                    )}
                   </div>
                 );
+              }
 
-                // Ordenar secciones según logo.position
-                if (logo.position === 'left') {
-                  // Logo Izquierda: [LOGO] [EMPRESA] [DOCUMENTO]
-                  return [logoSection, companyInfoSection, documentSection];
-                } else if (logo.position === 'right') {
-                  // Logo Derecha: [EMPRESA] [DOCUMENTO] [LOGO]
-                  return [companyInfoSection, documentSection, logoSection];
-                } else {
-                  // Logo Centro (default): [EMPRESA] [LOGO] [DOCUMENTO]
-                  return [companyInfoSection, logoSection, documentSection];
-                }
-              })()}
-            </div>
+              // MODO HORIZONTAL: 3 columnas separadas
+              const companyInfoSection = (
+                <div className="flex flex-col justify-center">
+                  <h1 className="font-bold text-base text-gray-900">{sampleData.company.name}</h1>
+                  <p className="text-xs text-gray-700 mt-1">{sampleData.company.address}</p>
+                  <p className="text-xs text-gray-700">Tel: {sampleData.company.phone}</p>
+                  <p className="text-xs text-gray-700">Email: {sampleData.company.email}</p>
+                </div>
+              );
+
+              const logoSection = (
+                <div className="flex items-center justify-center">
+                  {logoVisual || <div />}
+                </div>
+              );
+
+              return (
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  {logo.position === 'left' && (
+                    <>
+                      {logoSection}
+                      {companyInfoSection}
+                      {documentSection}
+                    </>
+                  )}
+                  {logo.position === 'right' && (
+                    <>
+                      {companyInfoSection}
+                      {documentSection}
+                      {logoSection}
+                    </>
+                  )}
+                  {logo.position === 'center' && (
+                    <>
+                      {companyInfoSection}
+                      {logoSection}
+                      {documentSection}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Información del cliente y documento */}
             <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
