@@ -39,7 +39,7 @@ export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
   async load(type: DesignType): Promise<VoucherDesignConfig | null> {
     try {
       const key = this.getKey(type);
-      let data = localStorage.getItem(key);
+      const data = localStorage.getItem(key);
 
       // Si no existe en formato nuevo, intentar cargar del formato antiguo
       if (!data) {

@@ -25,8 +25,9 @@ import { WatermarkConfigPanel } from '../components/voucher-design/WatermarkConf
 import { FooterConfigPanel } from '../components/voucher-design/FooterConfigPanel';
 import { DocumentFieldsConfigPanel } from '../components/voucher-design/DocumentFieldsConfigPanel';
 import { ProductFieldsConfigPanel } from '../components/voucher-design/ProductFieldsConfigPanel';
-import { NotificationProvider, useNotifications } from '../components/shared/NotificationSystem';
-import type { DesignType } from '../models/VoucherDesignUnified';
+import { NotificationProvider } from '../components/shared/NotificationSystem';
+import { useNotifications } from '../components/shared/NotificationSystem.context';
+import type { DesignType, ProductFieldsConfiguration } from '../models/VoucherDesignUnified';
 
 type ActiveTab = 'logo' | 'watermark' | 'footer' | 'documentFields' | 'productFields' | 'general';
 
@@ -65,7 +66,7 @@ function VoucherDesignConfigurationContent() {
     try {
       await exportConfig();
       showSuccess('Configuración exportada', 'El archivo se ha descargado correctamente');
-    } catch (error) {
+    } catch {
       showError('Error al exportar', 'No se pudo exportar la configuración');
     }
   };
@@ -238,7 +239,10 @@ function VoucherDesignConfigurationContent() {
                   <DocumentFieldsConfigPanel config={config.documentFields} onChange={updateDocumentFields} />
                 )}
                 {activeTab === 'productFields' && (
-                  <ProductFieldsConfigPanel config={config.productFields as any} onChange={updateProductFields} />
+                  <ProductFieldsConfigPanel
+                    config={config.productFields as ProductFieldsConfiguration}
+                    onChange={updateProductFields}
+                  />
                 )}
               </div>
             </div>
