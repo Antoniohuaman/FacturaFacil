@@ -25,9 +25,14 @@ import { WatermarkConfigPanel } from '../components/voucher-design/WatermarkConf
 import { FooterConfigPanel } from '../components/voucher-design/FooterConfigPanel';
 import { DocumentFieldsConfigPanel } from '../components/voucher-design/DocumentFieldsConfigPanel';
 import { ProductFieldsConfigPanel } from '../components/voucher-design/ProductFieldsConfigPanel';
+import { TicketProductFieldsConfigPanel } from '../components/voucher-design/TicketProductFieldsConfigPanel';
 import { NotificationProvider } from '../components/shared/NotificationSystem';
 import { useNotifications } from '../components/shared/NotificationSystem.context';
-import type { DesignType, ProductFieldsConfiguration } from '../models/VoucherDesignUnified';
+import type {
+  DesignType,
+  ProductFieldsConfiguration,
+  VoucherDesignTicketConfig,
+} from '../models/VoucherDesignUnified';
 
 type ActiveTab = 'logo' | 'watermark' | 'footer' | 'documentFields' | 'productFields' | 'general';
 
@@ -238,10 +243,16 @@ function VoucherDesignConfigurationContent() {
                 {activeTab === 'documentFields' && (
                   <DocumentFieldsConfigPanel config={config.documentFields} onChange={updateDocumentFields} />
                 )}
-                {activeTab === 'productFields' && (
+                {activeTab === 'productFields' && activeDesign === 'A4' && (
                   <ProductFieldsConfigPanel
                     config={config.productFields as ProductFieldsConfiguration}
                     onChange={updateProductFields}
+                  />
+                )}
+                {activeTab === 'productFields' && activeDesign === 'TICKET' && (
+                  <TicketProductFieldsConfigPanel
+                    config={config.productFields as VoucherDesignTicketConfig['productFields']}
+                    onChange={updateProductFields as (value: VoucherDesignTicketConfig['productFields']) => void}
                   />
                 )}
               </div>

@@ -12,6 +12,8 @@ import type {
   DocumentFieldsConfiguration,
   DesignType,
   VoucherDesignConfig,
+  VoucherDesignA4Config,
+  VoucherDesignTicketConfig,
 } from '../models/VoucherDesignUnified';
 import {
   DEFAULT_LOGO_CONFIG,
@@ -81,12 +83,15 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
 
     const saveConfig = async () => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fullConfig: any = {
+        type DesignSpecificConfig = VoucherDesignA4Config | VoucherDesignTicketConfig;
+
+        const fullConfig: VoucherDesignConfig = {
           id: `design-${designType.toLowerCase()}-${Date.now()}`,
           name: `Diseño ${designType} Personalizado`,
           type: designType,
           version: '2.0',
+          a4Config: undefined,
+          ticketConfig: undefined,
           isDefault: false,
           isActive: true,
           createdAt: new Date(),
@@ -94,12 +99,12 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
         };
 
         if (designType === 'A4') {
-          fullConfig.a4Config = config;
+          fullConfig.a4Config = config as DesignSpecificConfig as VoucherDesignA4Config;
         } else {
-          fullConfig.ticketConfig = config;
+          fullConfig.ticketConfig = config as DesignSpecificConfig as VoucherDesignTicketConfig;
         }
 
-        await storage.save(designType, fullConfig as VoucherDesignConfig);
+        await storage.save(designType, fullConfig);
         setError(null);
       } catch (err) {
         console.error('[useVoucherDesignConfig] Save error:', err);
@@ -136,8 +141,11 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
 
   // Actualizar configuración de campos de productos
   const updateProductFields = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (productFields: any) => {
+    (
+      productFields:
+        | VoucherDesignA4Config['productFields']
+        | VoucherDesignTicketConfig['productFields'],
+    ) => {
       setConfig((prev) => ({ ...prev, productFields }));
     },
     []
