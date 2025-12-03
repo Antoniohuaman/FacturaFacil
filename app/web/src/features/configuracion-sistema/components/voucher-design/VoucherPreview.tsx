@@ -100,55 +100,73 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
 
           {/* Contenido del comprobante */}
           <div className="relative p-6" style={{ zIndex: 1 }}>
-            {/* HEADER: EMPRESA | LOGO | RUC/DOC */}
+            {/* HEADER DINÁMICO: Orden cambia según logo.position */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              {/* Columna 1: Datos de la empresa */}
-              <div className="flex flex-col justify-center">
-                <h1 className="font-bold text-base text-gray-900">{sampleData.company.name}</h1>
-                <p className="text-xs text-gray-700 mt-1">{sampleData.company.address}</p>
-                <p className="text-xs text-gray-700">Tel: {sampleData.company.phone}</p>
-                <p className="text-xs text-gray-700">Email: {sampleData.company.email}</p>
-              </div>
+              {(() => {
+                // Componente: Datos de la empresa
+                const companyInfoSection = (
+                  <div key="company" className="flex flex-col justify-center">
+                    <h1 className="font-bold text-base text-gray-900">{sampleData.company.name}</h1>
+                    <p className="text-xs text-gray-700 mt-1">{sampleData.company.address}</p>
+                    <p className="text-xs text-gray-700">Tel: {sampleData.company.phone}</p>
+                    <p className="text-xs text-gray-700">Email: {sampleData.company.email}</p>
+                  </div>
+                );
 
-              {/* Columna 2: Logo (respeta posición configurada) */}
-              <div className={`flex items-center ${
-                logo.position === 'left' ? 'justify-start' :
-                logo.position === 'right' ? 'justify-end' :
-                'justify-center'
-              }`}>
-                {logo.enabled && (
-                  logo.url ? (
-                    <img
-                      src={logo.url}
-                      alt="Logo"
-                      style={{
-                        width: `${logo.width}px`,
-                        height: `${logo.height}px`,
-                        objectFit: 'contain'
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: `${logo.width}px`,
-                        height: `${logo.height}px`
-                      }}
-                      className="bg-gray-200 border border-gray-300 flex items-center justify-center rounded"
-                    >
-                      <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                // Componente: Logo
+                const logoSection = logo.enabled ? (
+                  <div key="logo" className="flex items-center justify-center">
+                    {logo.url ? (
+                      <img
+                        src={logo.url}
+                        alt="Logo"
+                        style={{
+                          width: `${logo.width}px`,
+                          height: `${logo.height}px`,
+                          objectFit: 'contain'
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: `${logo.width}px`,
+                          height: `${logo.height}px`
+                        }}
+                        className="bg-gray-200 border border-gray-300 flex items-center justify-center rounded"
+                      >
+                        <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div key="logo" className="flex items-center justify-center">
+                    {/* Espacio vacío cuando logo está deshabilitado */}
+                  </div>
+                );
+
+                // Componente: RUC y tipo de documento
+                const documentSection = (
+                  <div key="document" className="border-2 border-gray-800 p-3 text-center flex flex-col justify-center">
+                    <div className="bg-gray-800 text-white px-2 py-1 mb-2">
+                      <span className="font-bold text-xs">R.U.C. {sampleData.company.ruc}</span>
                     </div>
-                  )
-                )}
-              </div>
+                    <h2 className="font-bold text-sm text-gray-900">{sampleData.document.type}</h2>
+                    <p className="font-bold text-base text-gray-900">{sampleData.document.series}-{sampleData.document.number}</p>
+                  </div>
+                );
 
-              {/* Columna 3: RUC y tipo de documento */}
-              <div className="border-2 border-gray-800 p-3 text-center flex flex-col justify-center">
-                <div className="bg-gray-800 text-white px-2 py-1 mb-2">
-                  <span className="font-bold text-xs">R.U.C. {sampleData.company.ruc}</span>
-                </div>
-                <h2 className="font-bold text-sm text-gray-900">{sampleData.document.type}</h2>
-                <p className="font-bold text-base text-gray-900">{sampleData.document.series}-{sampleData.document.number}</p>
-              </div>
+                // Ordenar secciones según logo.position
+                if (logo.position === 'left') {
+                  // Logo Izquierda: [LOGO] [EMPRESA] [DOCUMENTO]
+                  return [logoSection, companyInfoSection, documentSection];
+                } else if (logo.position === 'right') {
+                  // Logo Derecha: [EMPRESA] [DOCUMENTO] [LOGO]
+                  return [companyInfoSection, documentSection, logoSection];
+                } else {
+                  // Logo Centro (default): [EMPRESA] [LOGO] [DOCUMENTO]
+                  return [companyInfoSection, logoSection, documentSection];
+                }
+              })()}
             </div>
 
             {/* Información del cliente y documento */}
