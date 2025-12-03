@@ -85,8 +85,8 @@ const A4Preview: React.FC<A4PreviewProps> = ({
   sampleData,
 }) => {
   return (
-    <div className="bg-white rounded-lg border-2 border-gray-200 shadow-lg overflow-hidden">
-      <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 flex items-center justify-between">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+      <div className="px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Eye className="w-4 h-4 text-blue-600" />
           <h4 className="font-semibold text-gray-900 text-sm">
@@ -96,9 +96,9 @@ const A4Preview: React.FC<A4PreviewProps> = ({
         <span className="text-xs text-gray-500">Actualización en tiempo real</span>
       </div>
 
-      <div className="p-3 bg-gray-50 max-h-[calc(100vh-200px)] overflow-y-auto">
-        <div className="bg-white shadow-md relative aspect-[210/297] mx-auto">
-          <div className="relative px-6 pt-5 pb-4" style={{ zIndex: 1 }}>
+      <div className="p-3 bg-gray-50 max-h-[calc(100vh-220px)] overflow-y-auto">
+        <div className="bg-white shadow-sm relative aspect-[210/297] mx-auto rounded-lg border border-gray-100">
+          <div className="relative px-5 pt-4 pb-3" style={{ zIndex: 1 }}>
             <A4Header logo={logo} sampleData={sampleData} />
             <A4Body
               documentFields={documentFields}
@@ -242,7 +242,7 @@ const A4Header: React.FC<A4HeaderProps> = ({ logo, sampleData }) => {
   );
 
   return (
-    <div className="grid grid-cols-[1.1fr_1.6fr_1.1fr] gap-3 mb-4 items-stretch">
+    <div className="grid grid-cols-[1.1fr_1.6fr_1.1fr] gap-3 mb-3 items-stretch">
       {logo.position === 'left' && (
         <>
           {logoSection}
@@ -282,7 +282,7 @@ const A4Body: React.FC<A4BodyProps> = ({
 }) => {
   return (
     <>
-      <div className="grid grid-cols-2 gap-4 mb-3 text-xs">
+      <div className="grid grid-cols-2 gap-3 mb-3 text-[11px] leading-snug">
         <div>
           <h3 className="font-semibold mb-1.5 text-gray-900">DATOS DEL CLIENTE:</h3>
           <p>
@@ -349,9 +349,9 @@ const A4Body: React.FC<A4BodyProps> = ({
         </div>
       </div>
 
-      <div className="border border-gray-400 mb-3 overflow-x-auto">
+      <div className="border border-gray-300 mb-3 overflow-x-auto rounded-md">
         <div style={{ minWidth: 'fit-content' }}>
-          <div className="bg-gray-800 text-white px-1 py-1.5 text-[10px] font-medium flex gap-0.5">
+          <div className="bg-gray-800 text-white px-1 py-1.5 text-[10px] font-medium flex gap-0.5 rounded-t-md">
             {visibleProductFields.map(([key, field]) => (
               <div
                 key={key}
@@ -366,7 +366,7 @@ const A4Body: React.FC<A4BodyProps> = ({
           {sampleData.items.map((item: any, index: number) => (
             <div
               key={item.id}
-              className={`px-1 py-1.5 text-[10px] border-b border-gray-300 flex gap-0.5 ${
+              className={`px-1 py-1.5 text-[10px] border-b border-gray-200 flex gap-0.5 ${
                 index % 2 === 0 ? 'bg-gray-50' : 'bg-white'
               }`}
             >
@@ -406,7 +406,7 @@ const A4Body: React.FC<A4BodyProps> = ({
             </div>
           ))}
 
-          <div className="bg-gray-100 px-2 py-2 flex justify-end">
+          <div className="bg-gray-50 px-2.5 py-2 flex justify-end rounded-b-md border-t border-gray-200">
             <div className="text-right">
               <p className="text-xs font-semibold">Subtotal: S/ 200.00</p>
               <p className="text-xs font-semibold">IGV (18%): S/ 36.00</p>
@@ -428,15 +428,15 @@ const A4Footer: React.FC<A4FooterProps> = ({ documentFields, footer }) => {
   return (
     <>
       {documentFields.observaciones.visible && (
-        <div className="mb-3 text-xs">
+        <div className="mb-2.5 text-[11px] leading-snug">
           <h4 className="font-semibold mb-1">{documentFields.observaciones.label}:</h4>
           <p className="text-gray-700">Entrega inmediata. Producto de alta calidad.</p>
         </div>
       )}
 
-      <div className="flex justify-center mb-3">
-        <div className="w-20 h-20 bg-gray-200 rounded flex items-center justify-center">
-          <QrCode className="w-16 h-16 text-gray-400" />
+      <div className="flex justify-center mb-2.5">
+        <div className="w-18 h-18 bg-gray-100 rounded-md flex items-center justify-center border border-dashed border-gray-300">
+          <QrCode className="w-12 h-12 text-gray-400" />
         </div>
       </div>
 
