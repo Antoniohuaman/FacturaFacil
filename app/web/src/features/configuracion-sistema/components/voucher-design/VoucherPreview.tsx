@@ -67,37 +67,6 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
       {/* Área de preview con scroll */}
       <div className="p-4 bg-gray-50 max-h-[calc(100vh-200px)] overflow-y-auto">
         <div className="bg-white shadow-md relative aspect-[210/297]">
-          {/* Marca de agua */}
-          {watermark.enabled && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-              {watermark.type === 'text' && watermark.text && (
-                <div
-                  className="text-6xl font-bold select-none"
-                  style={{
-                    opacity: watermark.opacity,
-                    color: watermark.color || '#e5e7eb',
-                    transform: `rotate(${watermark.rotation}deg)`,
-                    fontSize: watermark.size === 'small' ? '3rem' : watermark.size === 'large' ? '5rem' : '4rem'
-                  }}
-                >
-                  {watermark.text}
-                </div>
-              )}
-              {watermark.type === 'image' && watermark.imageUrl && (
-                <img
-                  src={watermark.imageUrl}
-                  alt="Watermark"
-                  className="select-none"
-                  style={{
-                    opacity: watermark.opacity,
-                    transform: `rotate(${watermark.rotation}deg)`,
-                    maxWidth: watermark.size === 'small' ? '150px' : watermark.size === 'large' ? '350px' : '250px'
-                  }}
-                />
-              )}
-            </div>
-          )}
-
           {/* Contenido del comprobante */}
           <div className="relative p-6" style={{ zIndex: 1 }}>
             {/* HEADER DINÁMICO: Orden cambia según logo.position */}
@@ -299,7 +268,11 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
                   style={{
                     fontSize: footer.fontSize === 'small' ? '10px' : footer.fontSize === 'large' ? '14px' : '12px',
                     fontWeight: footer.fontWeight,
-                    color: footer.textColor || '#374151'
+                    color: footer.textColor || '#374151',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    maxWidth: '100%',
+                    margin: 0
                   }}
                 >
                   {footer.customText}
@@ -307,6 +280,92 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
               </div>
             )}
           </div>
+
+          {/* Marca de agua - SOBRE TODO EL CONTENIDO */}
+          {watermark.enabled && (
+            <div
+              className="absolute inset-0 pointer-events-none overflow-hidden flex"
+              style={{
+                zIndex: 10,
+                alignItems: watermark.position === 'center' || watermark.position === 'diagonal' ? 'center' : 'flex-start',
+                justifyContent: watermark.position === 'center' || watermark.position === 'diagonal' ? 'center' : 'flex-start'
+              }}
+            >
+              {watermark.type === 'text' && watermark.text && (
+                <>
+                  {watermark.position === 'repeat' ? (
+                    // Marca de agua repetida
+                    <div className="w-full h-full grid grid-cols-3 grid-rows-4 gap-4 p-8">
+                      {Array.from({ length: 12 }).map((_, index) => (
+                        <div key={index} className="flex items-center justify-center">
+                          <div
+                            className="font-bold select-none"
+                            style={{
+                              opacity: watermark.opacity,
+                              color: watermark.color || '#e5e7eb',
+                              transform: `rotate(${watermark.rotation}deg)`,
+                              fontSize: watermark.size === 'small' ? '1.5rem' : watermark.size === 'large' ? '2.5rem' : '2rem'
+                            }}
+                          >
+                            {watermark.text}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    // Marca de agua única (center o diagonal)
+                    <div
+                      className="font-bold select-none"
+                      style={{
+                        opacity: watermark.opacity,
+                        color: watermark.color || '#e5e7eb',
+                        transform: `rotate(${watermark.rotation}deg)`,
+                        fontSize: watermark.size === 'small' ? '3rem' : watermark.size === 'large' ? '6rem' : '4.5rem'
+                      }}
+                    >
+                      {watermark.text}
+                    </div>
+                  )}
+                </>
+              )}
+              {watermark.type === 'image' && watermark.imageUrl && (
+                <>
+                  {watermark.position === 'repeat' ? (
+                    // Imagen repetida
+                    <div className="w-full h-full grid grid-cols-3 grid-rows-4 gap-4 p-8">
+                      {Array.from({ length: 12 }).map((_, index) => (
+                        <div key={index} className="flex items-center justify-center">
+                          <img
+                            src={watermark.imageUrl}
+                            alt="Watermark"
+                            className="select-none"
+                            style={{
+                              opacity: watermark.opacity,
+                              transform: `rotate(${watermark.rotation}deg)`,
+                              maxWidth: watermark.size === 'small' ? '60px' : watermark.size === 'large' ? '120px' : '90px',
+                              maxHeight: watermark.size === 'small' ? '60px' : watermark.size === 'large' ? '120px' : '90px'
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    // Imagen única
+                    <img
+                      src={watermark.imageUrl}
+                      alt="Watermark"
+                      className="select-none"
+                      style={{
+                        opacity: watermark.opacity,
+                        transform: `rotate(${watermark.rotation}deg)`,
+                        maxWidth: watermark.size === 'small' ? '150px' : watermark.size === 'large' ? '350px' : '250px'
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
