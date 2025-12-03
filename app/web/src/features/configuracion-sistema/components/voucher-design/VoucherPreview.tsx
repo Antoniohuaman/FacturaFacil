@@ -240,9 +240,9 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
             <div className="border border-gray-400 mb-4 overflow-x-auto">
               <div style={{ minWidth: 'fit-content' }}>
                 {/* Header de la tabla */}
-                <div className="bg-gray-800 text-white px-2 py-2 text-[10px] font-medium flex gap-1">
+                <div className="bg-gray-800 text-white px-1 py-2 text-[10px] font-medium flex gap-0.5">
                   {visibleProductFields.map(([key, field]) => (
-                    <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="text-center">
+                    <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="text-center px-1">
                       {field.label}
                     </div>
                   ))}
@@ -252,16 +252,18 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
                 {sampleData.items.map((item, index) => (
                   <div
                     key={item.id}
-                    className={`px-2 py-2 text-[10px] border-b border-gray-300 flex gap-1 ${
+                    className={`px-1 py-2 text-[10px] border-b border-gray-300 flex gap-0.5 ${
                       index % 2 === 0 ? 'bg-gray-50' : 'bg-white'
                     }`}
                   >
                     {visibleProductFields.map(([key, field]) => {
                       let content = '';
                       switch (key) {
+                        case 'numero': content = (index + 1).toString(); break;
                         case 'imagen': content = '🖼️'; break;
                         case 'descripcion': content = item.name; break;
                         case 'cantidad': content = item.quantity.toString(); break;
+                        case 'unidadMedida': content = 'UND'; break;
                         case 'precioUnitario': content = `S/ ${item.price.toFixed(2)}`; break;
                         case 'total': content = `S/ ${(item.price * item.quantity).toFixed(2)}`; break;
                         case 'marca': content = item.brand; break;
@@ -278,7 +280,7 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
                         default: content = item.code;
                       }
                       return (
-                        <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="truncate text-center">
+                        <div key={key} style={{ width: `${field.width}px`, flexShrink: 0 }} className="truncate text-center px-1">
                           {content}
                         </div>
                       );

@@ -21,14 +21,18 @@ export const ProductFieldsConfigPanel: React.FC<ProductFieldsConfigPanelProps> =
 
   const toggleField = (fieldKey: keyof ProductFieldsConfiguration) => {
     const newVisible = !config[fieldKey].visible;
+    const visibleCount = fields.filter(k => config[k].visible).length;
 
     // Validación: al menos una columna debe estar visible
-    if (!newVisible) {
-      const visibleCount = fields.filter(k => config[k].visible).length;
-      if (visibleCount <= 1) {
-        alert('Debe haber al menos una columna visible en la tabla de productos');
-        return;
-      }
+    if (!newVisible && visibleCount <= 1) {
+      alert('Debe haber al menos una columna visible en la tabla de productos');
+      return;
+    }
+
+    // Validación: máximo 7 columnas visibles
+    if (newVisible && visibleCount >= 7) {
+      alert('Máximo 7 columnas visibles permitidas. Desactiva una columna antes de activar otra.');
+      return;
     }
 
     onChange({
@@ -80,8 +84,8 @@ export const ProductFieldsConfigPanel: React.FC<ProductFieldsConfigPanelProps> =
         <p className="text-xs text-emerald-800 flex items-start gap-2">
           <Eye className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>
-            Selecciona las columnas a mostrar y ajusta sus anchos. Las columnas básicas
-            (Descripción, Cantidad, P. Unitario, Total) se recomiendan mantener siempre visibles.
+            <strong>Máximo 7 columnas visibles.</strong> Las columnas por defecto (N°, Cantidad, Descripción, U.M., P. Unitario, Total) mantienen el orden óptimo.
+            Puedes agregar 1 columna adicional desactivando otra.
           </span>
         </p>
       </div>
@@ -91,7 +95,8 @@ export const ProductFieldsConfigPanel: React.FC<ProductFieldsConfigPanelProps> =
         {fields.map((fieldKey) => {
           const field = config[fieldKey];
           const isVisible = field.visible;
-          const isEssential = ['descripcion', 'cantidad', 'precioUnitario', 'total'].includes(fieldKey);
+          const isDefault = ['numero', 'cantidad', 'descripcion', 'unidadMedida', 'precioUnitario', 'total'].includes(fieldKey);
+          const visibleCount = fields.filter(k => config[k].visible).length;
 
           return (
             <div
@@ -136,9 +141,14 @@ export const ProductFieldsConfigPanel: React.FC<ProductFieldsConfigPanelProps> =
                     />
                     <p className="text-xs text-gray-500 mt-0.5">
                       Campo: {fieldKey}
-                      {isEssential && (
-                        <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-medium">
-                          Recomendado
+                      {isDefault && (
+                        <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-medium">
+                          Por Defecto
+                        </span>
+                      )}
+                      {visibleCount >= 7 && !isVisible && (
+                        <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-medium">
+                          Límite alcanzado
                         </span>
                       )}
                     </p>
@@ -201,20 +211,20 @@ export const ProductFieldsConfigPanel: React.FC<ProductFieldsConfigPanelProps> =
         </button>
         <button
           onClick={() => {
-            const onlyEssential: ProductFieldsConfiguration = {} as any;
+            const onlyDefaults: ProductFieldsConfiguration = {} as any;
             fields.forEach((key) => {
-              const isEssential = ['descripcion', 'cantidad', 'precioUnitario', 'total'].includes(key);
-              onlyEssential[key] = { ...config[key], visible: isEssential };
+              const isDefault = ['numero', 'cantidad', 'descripcion', 'unidadMedida', 'precioUnitario', 'total'].includes(key);
+              onlyDefaults[key] = { ...config[key], visible: isDefault };
             });
-            onChange(onlyEssential);
+            onChange(onlyDefaults);
           }}
-          className="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium text-sm"
+          className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
         >
-          Solo Esenciales
+          Restaurar Por Defecto
         </button>
         <button
           onClick={() => {
-            alert('Debe haber al menos una columna visible. Use "Solo Esenciales" para minimizar columnas.');
+            alert('Debe haber al menos una columna visible. Use "Restaurar Por Defecto" para volver a la configuración inicial.');
           }}
           disabled
           className="flex-1 px-4 py-2.5 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed font-medium text-sm"

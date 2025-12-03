@@ -71,6 +71,12 @@ export interface DocumentFieldsConfiguration {
 // PRODUCT FIELDS CONFIGURATION
 // ===================================================================
 export interface ProductFieldsConfiguration {
+  numero: { visible: boolean; label: string; width: number };
+  cantidad: { visible: boolean; label: string; width: number };
+  descripcion: { visible: boolean; label: string; width: number };
+  unidadMedida: { visible: boolean; label: string; width: number };
+  precioUnitario: { visible: boolean; label: string; width: number };
+  total: { visible: boolean; label: string; width: number };
   imagen: { visible: boolean; label: string; width: number };
   marca: { visible: boolean; label: string; width: number };
   codigoBarras: { visible: boolean; label: string; width: number };
@@ -78,15 +84,11 @@ export interface ProductFieldsConfiguration {
   modelo: { visible: boolean; label: string; width: number };
   codigoFabrica: { visible: boolean; label: string; width: number };
   descuento: { visible: boolean; label: string; width: number };
-  descripcion: { visible: boolean; label: string; width: number };
   tipo: { visible: boolean; label: string; width: number };
   codigoSunat: { visible: boolean; label: string; width: number };
   peso: { visible: boolean; label: string; width: number };
   categoria: { visible: boolean; label: string; width: number };
   tipoExistencia: { visible: boolean; label: string; width: number };
-  cantidad: { visible: boolean; label: string; width: number };
-  precioUnitario: { visible: boolean; label: string; width: number };
-  total: { visible: boolean; label: string; width: number };
 }
 
 // ===================================================================
@@ -239,22 +241,26 @@ export const DEFAULT_DOCUMENT_FIELDS_TICKET: DocumentFieldsConfiguration = {
 export const DEFAULT_DOCUMENT_FIELDS = DEFAULT_DOCUMENT_FIELDS_A4;
 
 export const DEFAULT_PRODUCT_FIELDS_A4: ProductFieldsConfiguration = {
+  // Columnas por defecto (6 visibles) - ORDEN OBLIGATORIO
+  numero: { visible: true, label: 'N°', width: 50 },
+  cantidad: { visible: true, label: 'Cant.', width: 70 },
+  descripcion: { visible: true, label: 'Descripción', width: 280 },
+  unidadMedida: { visible: true, label: 'U.M.', width: 70 },
+  precioUnitario: { visible: true, label: 'P. Unit.', width: 90 },
+  total: { visible: true, label: 'Total', width: 90 },
+  // Columnas opcionales (ocultas por defecto)
   imagen: { visible: false, label: 'Imagen', width: 60 },
-  marca: { visible: false, label: 'Marca', width: 100 },
-  codigoBarras: { visible: false, label: 'Cód. Barras', width: 120 },
-  alias: { visible: false, label: 'Alias', width: 100 },
-  modelo: { visible: false, label: 'Modelo', width: 100 },
+  marca: { visible: false, label: 'Marca', width: 90 },
+  codigoBarras: { visible: false, label: 'Cód. Barras', width: 110 },
+  alias: { visible: false, label: 'Alias', width: 90 },
+  modelo: { visible: false, label: 'Modelo', width: 90 },
   codigoFabrica: { visible: false, label: 'Cód. Fábrica', width: 100 },
-  descuento: { visible: true, label: 'Descuento', width: 80 },
-  descripcion: { visible: true, label: 'Descripción', width: 300 },
+  descuento: { visible: false, label: 'Desc.', width: 70 },
   tipo: { visible: false, label: 'Tipo', width: 80 },
   codigoSunat: { visible: false, label: 'Cód. SUNAT', width: 100 },
-  peso: { visible: false, label: 'Peso', width: 80 },
+  peso: { visible: false, label: 'Peso', width: 70 },
   categoria: { visible: false, label: 'Categoría', width: 100 },
-  tipoExistencia: { visible: false, label: 'Tipo Existencia', width: 120 },
-  cantidad: { visible: true, label: 'Cantidad', width: 80 },
-  precioUnitario: { visible: true, label: 'P. Unitario', width: 100 },
-  total: { visible: true, label: 'Total', width: 100 },
+  tipoExistencia: { visible: false, label: 'Tipo Exist.', width: 100 },
 };
 
 export const DEFAULT_PRODUCT_FIELDS_TICKET: VoucherDesignTicketConfig['productFields'] = {
