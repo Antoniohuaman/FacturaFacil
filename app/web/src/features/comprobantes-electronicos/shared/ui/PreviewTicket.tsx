@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { PreviewData } from '../../models/comprobante.types';
 import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useVoucherDesignConfig';
+import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/models/VoucherDesignUnified';
 
 interface PreviewTicketProps {
   data: PreviewData;
@@ -22,7 +23,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
     creditTerms,
   } = data;
 
-  const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRONICA' : 'FACTURA ELECTRONICA';
+  const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
   const currencySymbol = currency === 'USD' ? '$' : 'S/';
   const currentDateTime = new Date().toLocaleString('es-PE', {
     day: '2-digit',
@@ -36,9 +37,33 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
   const subtotalGravado = cartItems.filter(item => item.igvType === 'igv18').reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const subtotalExonerado = cartItems.filter(item => item.igvType === 'exonerado').reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+  const productFields = config.productFields as VoucherDesignTicketConfig['productFields'];
+
+  const descriptionMaxLength = productFields.descripcion?.maxLength ?? 30;
+
   const truncateText = (text: string, maxLength: number) => {
-    return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text;
+    return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
   };
+
+  const amountInWords = useMemo(() => {
+    // TODO: reutilizar utilidad genérica de importe en letras si existe
+    try {
+      // Búsqueda dinámica opcional de función global (mantener sin dependencia fuerte)
+      const anyWindow = window as unknown as { formatAmountInWords?: (amount: number, currency: string) => string };
+      if (typeof anyWindow.formatAmountInWords === 'function') {
+        return anyWindow.formatAmountInWords(totals.total, currency);
+      }
+    } catch {
+      // ignore
+    }
+
+    const integerPart = Math.floor(totals.total);
+    const cents = Math.round((totals.total - integerPart) * 100);
+    const centsStr = cents.toString().padStart(2, '0');
+    const currencyLabel = currency === 'USD' ? 'DÓLARES' : 'SOLES';
+
+    return `Son: ${integerPart.toFixed(0)} CON ${centsStr}/100 ${currencyLabel}`;
+  }, [totals.total, currency]);
 
   return (
     <div className="w-full max-w-xs mx-auto bg-white p-4 font-mono text-xs leading-tight relative" style={{ fontFamily: 'Courier, monospace' }}>
@@ -98,48 +123,106 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         </div>
 
         {/* Document info */}
-        <div className="text-center mb-4 border-b border-dashed border-gray-400 pb-4">
-          <div className="border border-black p-2 mb-2">
+        <div className="mb-4 border-b border-dashed border-gray-400 pb-4 text-left">
+          <div className="border border-black p-2 mb-2 text-center">
             <p className="font-bold text-sm">{documentTitle}</p>
             <p className="font-bold text-lg">{series}-</p>
           </div>
-          <p className="text-xs">Fecha: {currentDateTime}</p>
-          <p className="text-xs">Cliente: {truncateText(clientData.nombre, 25)}</p>
-          <p className="text-xs">{clientData.tipoDocumento.toUpperCase()}: {clientData.documento}</p>
-          {config.documentFields.direccion.visible && (
-            <p className="text-xs">{config.documentFields.direccion.label}: {clientData.direccion || 'No especificada'}</p>
-          )}
-          <p className="text-xs">Forma de pago: {paymentMethod}</p>
-          {config.documentFields.vendedor.visible && (
-            <p className="text-xs">{config.documentFields.vendedor.label}: -</p>
-          )}
+
+          <div className="space-y-0.5 text-xs">
+            <p><span className="font-semibold">Cliente:</span> {truncateText(clientData.nombre, 32)}</p>
+            <p><span className="font-semibold">{clientData.tipoDocumento.toUpperCase()}:</span> {clientData.documento}</p>
+            <p><span className="font-semibold">Forma de pago:</span> {paymentMethod}</p>
+            {config.documentFields.establecimiento.visible && (
+              <p><span className="font-semibold">{config.documentFields.establecimiento.label}:</span> Principal</p>
+            )}
+            {config.documentFields.direccion.visible && (
+              <p><span className="font-semibold">{config.documentFields.direccion.label}:</span> {clientData.direccion || 'No especificada'}</p>
+            )}
+            {config.documentFields.direccionEnvio.visible && (
+              <p><span className="font-semibold">{config.documentFields.direccionEnvio.label}:</span> {clientData.direccion || 'No especificada'}</p>
+            )}
+            {config.documentFields.correoElectronico.visible && (
+              <p><span className="font-semibold">{config.documentFields.correoElectronico.label}:</span> {clientData.email || '-'}</p>
+            )}
+            {config.documentFields.ordenCompra.visible && (
+              <p><span className="font-semibold">{config.documentFields.ordenCompra.label}:</span> -</p>
+            )}
+            {config.documentFields.guiaRemision.visible && (
+              <p><span className="font-semibold">{config.documentFields.guiaRemision.label}:</span> -</p>
+            )}
+            {config.documentFields.centroCosto.visible && (
+              <p><span className="font-semibold">{config.documentFields.centroCosto.label}:</span> -</p>
+            )}
+            {config.documentFields.fechaVencimiento.visible && (
+              <p><span className="font-semibold">{config.documentFields.fechaVencimiento.label}:</span> {currentDateTime.split(' ')[0]}</p>
+            )}
+            {config.documentFields.vendedor.visible && (
+              <p><span className="font-semibold">{config.documentFields.vendedor.label}:</span> -</p>
+            )}
+          </div>
         </div>
 
         {/* Products */}
         <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
-          <div className="grid grid-cols-3 gap-1 text-xs font-bold mb-2">
-            <span>CANT</span>
-            <span>DESCRIPCION</span>
-            <span className="text-right">PRECIO</span>
+          <div className="grid grid-cols-[auto_auto_auto_auto_auto_auto_auto] gap-x-1 text-xs font-bold mb-2">
+            {productFields.numero.visible && <span className="text-left">N°</span>}
+            {productFields.codigo.visible && <span className="text-left">CÓD.</span>}
+            {productFields.descripcion.visible && <span className="flex-1 text-left">DESC.</span>}
+            {productFields.cantidad.visible && <span className="text-right">CANT</span>}
+            {productFields.precioUnitario.visible && <span className="text-right">P.UNIT</span>}
+            {productFields.descuento.visible && <span className="text-right">DSCTO.</span>}
+            {productFields.total.visible && <span className="text-right">TOTAL</span>}
           </div>
 
-          {cartItems.map((item) => (
-            <div key={item.id} className="mb-2">
-              <div className="grid grid-cols-3 gap-1 text-xs">
-                <span>{item.quantity}</span>
-                <span>{truncateText(item.name, 15)}</span>
-                <span className="text-right">{currencySymbol} {item.price.toFixed(2)}</span>
-              </div>
-              {item.code && (
-                <div className="text-xs text-gray-600">
-                  <span>Código: {item.code}</span>
+          {cartItems.map((item, index) => {
+            const lineTotal = item.price * item.quantity;
+            const discountValue = 0; // TODO: mapear al modelo real de descuento por ítem
+
+            return (
+              <div key={item.id} className="mb-2 text-xs">
+                <div className="grid grid-cols-[auto_auto_auto_auto_auto_auto_auto] gap-x-1 items-start">
+                  {productFields.numero.visible && (
+                    <span className="text-left">{index + 1}</span>
+                  )}
+                  {productFields.codigo.visible && (
+                    <span className="text-left truncate max-w-[48px]">{item.code || '-'}</span>
+                  )}
+                  {productFields.descripcion.visible && (
+                    <span className="flex-1 break-words">
+                      {truncateText(item.name, descriptionMaxLength)}
+                    </span>
+                  )}
+                  {productFields.cantidad.visible && (
+                    <span className="text-right whitespace-nowrap">{item.quantity}</span>
+                  )}
+                  {productFields.precioUnitario.visible && (
+                    <span className="text-right whitespace-nowrap">{currencySymbol} {item.price.toFixed(2)}</span>
+                  )}
+                  {productFields.descuento.visible && (
+                    <span className="text-right whitespace-nowrap">{currencySymbol} {discountValue.toFixed(2)}</span>
+                  )}
+                  {productFields.total.visible && (
+                    <span className="text-right whitespace-nowrap">{currencySymbol} {lineTotal.toFixed(2)}</span>
+                  )}
                 </div>
-              )}
-              <div className="text-xs text-right">
-                <span>Subtotal: {currencySymbol} {(item.price * item.quantity).toFixed(2)}</span>
+
+                {(productFields.marca.visible || productFields.codigoBarras.visible) && (
+                  <div className="mt-0.5 text-[10px] text-gray-600">
+                    {productFields.marca.visible && item.marca && (
+                      <span>Marca: {truncateText(item.marca, 16)} </span>
+                    )}
+                    {productFields.codigoBarras.visible && item.codigoBarras && (
+                      <span>
+                        {productFields.marca.visible && item.marca ? ' / ' : ''}
+                        C.Barras: {truncateText(item.codigoBarras, 16)}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Observaciones - después de productos */}
@@ -196,18 +279,25 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
           </div>
         )}
 
-        {/* QR Code */}
-        <div className="text-center mb-4">
-          <img src={qrUrl} alt="QR Code" className="w-24 h-24 mx-auto border border-gray-300 mb-2" />
-          <p className="text-xs text-gray-600 leading-tight">
-            Consulta tu comprobante en<br />
-            https://comprobantes.facturafacil.com/
-          </p>
+        {/* Importe en letras */}
+        <div className="mb-3 text-xs">
+          <p className="font-semibold break-words">{amountInWords}</p>
         </div>
 
-        {/* Final message */}
+        {/* QR Code y bloque legal */}
+        <div className="text-center mb-4">
+          <img src={qrUrl} alt="QR Code" className="w-24 h-24 mx-auto border border-gray-300 mb-2" />
+          <div className="text-xs text-gray-600 leading-tight">
+            <p>Representación impresa de la {documentTitle.toLowerCase()}</p>
+            <p>Consulta tu comprobante en nuestra web</p>
+            <p>{(config as unknown as VoucherDesignTicketConfig).metadata?.consultationUrl ?? 'https://comprobantes.facturafacil.com/'}</p>
+            <p>Fecha de impresión: {currentDateTime}</p>
+          </div>
+        </div>
+
+        {/* Final message configurable */}
         <div className="text-center text-xs leading-tight">
-          <p>¡Gracias por su compra!</p>
+          <p>{(config as unknown as VoucherDesignTicketConfig).metadata?.thankYouMessage ?? '¡Gracias por su compra!'}</p>
           <p>Conserve este comprobante</p>
         </div>
 

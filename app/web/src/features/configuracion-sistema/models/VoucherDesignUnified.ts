@@ -110,6 +110,8 @@ export interface VoucherDesignTicketConfig {
   footer: Omit<FooterConfiguration, 'textAlignment'> & { textAlignment: 'center' };
   documentFields: DocumentFieldsConfiguration;
   productFields: {
+    numero: { visible: boolean };
+    codigo: { visible: boolean };
     descripcion: { visible: boolean; maxLength: number };
     cantidad: { visible: boolean };
     precioUnitario: { visible: boolean };
@@ -147,6 +149,10 @@ export interface VoucherDesignTicketConfig {
   separators: {
     useSeparators: boolean;
     character: string;
+  };
+  metadata?: {
+    thankYouMessage?: string;
+    consultationUrl?: string;
   };
 }
 
@@ -264,6 +270,8 @@ export const DEFAULT_PRODUCT_FIELDS_A4: ProductFieldsConfiguration = {
 };
 
 export const DEFAULT_PRODUCT_FIELDS_TICKET: VoucherDesignTicketConfig['productFields'] = {
+  numero: { visible: false },
+  codigo: { visible: true },
   descripcion: { visible: true, maxLength: 30 },
   cantidad: { visible: true },
   precioUnitario: { visible: true },
@@ -328,6 +336,10 @@ export const DEFAULT_TICKET_CONFIG: VoucherDesignTicketConfig = {
   separators: {
     useSeparators: true,
     character: '=',
+  },
+  metadata: {
+    thankYouMessage: '¡Gracias por su compra!',
+    consultationUrl: 'https://comprobantes.facturafacil.com/',
   },
 };
 

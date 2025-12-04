@@ -373,12 +373,12 @@ export default function TicketDesign({ onDesignChange, initialDesign }: TicketDe
   const renderTicketPreview = () => {
     const ticketWidth = `${design.paperSettings.width}mm`;
     const charCount = design.paperSettings.characterWidth;
-    
+
     return (
       <div className="bg-white shadow-lg mx-auto font-mono text-black" style={{ width: ticketWidth }}>
-        <div 
+        <div
           className="p-2"
-          style={{ 
+          style={{
             marginLeft: `${design.paperSettings.marginLeft}mm`,
             marginRight: `${design.paperSettings.marginRight}mm`,
             marginTop: `${design.paperSettings.marginTop}mm`,
@@ -439,18 +439,35 @@ export default function TicketDesign({ onDesignChange, initialDesign }: TicketDe
             </div>
           )}
 
-          {/* Items */}
+          {/* Items - tabla alineada */}
           {design.items.enabled && (
             <div className="mb-2">
               {design.items.showHeader && (
-                <div className={`text-${design.items.headerAlignment} ${design.items.headerFontWeight === 'bold' ? 'font-bold' : ''}`}>
-                  PRODUCTOS
+                <div className={`mb-1 text-${design.items.headerAlignment} ${design.items.headerFontWeight === 'bold' ? 'font-bold' : ''}`}>
+                  <div className="grid grid-cols-[auto_auto_auto_auto_auto] gap-x-1 text-xs">
+                    <span className="text-left">N°</span>
+                    <span className="text-left">CÓD.</span>
+                    <span className="text-left">DESC.</span>
+                    <span className="text-right">CANT</span>
+                    <span className="text-right">P.UNIT / TOTAL</span>
+                  </div>
                 </div>
               )}
-              <div className={`${getFontSizeClass(design.items.fontSize)}`}>
-                <div>1 PRODUCTO DEMO - S/ 10.00</div>
-                <div>2 PRODUCTO EJEMPLO - S/ 31.00</div>
+
+              <div className={`${getFontSizeClass(design.items.fontSize)} leading-relaxed`}>
+                {[1, 2].map((itemIndex) => (
+                  <div key={itemIndex} className="mb-1">
+                    <div className="grid grid-cols-[auto_auto_auto_auto_auto] gap-x-1 items-start">
+                      <span className="text-left">{itemIndex}</span>
+                      <span className="text-left">PRD-000{itemIndex}</span>
+                      <span className="text-left break-words">Producto ejemplo {itemIndex}</span>
+                      <span className="text-right whitespace-nowrap">1</span>
+                      <span className="text-right whitespace-nowrap">50.00 / 50.00</span>
+                    </div>
+                  </div>
+                ))}
               </div>
+
               {design.items.separatorAfter && (
                 <div className="text-center">
                   {'-'.repeat(Math.min(42, charCount))}
