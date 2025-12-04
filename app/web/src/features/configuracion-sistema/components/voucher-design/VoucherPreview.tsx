@@ -7,6 +7,7 @@
 import React, { useMemo } from 'react';
 import { Eye, QrCode } from 'lucide-react';
 import type { VoucherDesignConfigurationExtended } from '../../models/VoucherDesignExtended';
+import { useConfigurationContext } from '../../context/ConfigurationContext';
 
 interface VoucherPreviewProps {
   config: VoucherDesignConfigurationExtended;
@@ -15,33 +16,38 @@ interface VoucherPreviewProps {
 
 export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designType }) => {
   const { logo, watermark, footer, documentFields, productFields } = config;
+  const { state } = useConfigurationContext();
 
-  // Datos de ejemplo para la vista previa
-  const sampleData = {
-    company: {
-      name: 'MI EMPRESA S.A.C.',
-      ruc: '20123456789',
-      address: 'Jr. Los Ejemplos 123, Lima, Lima',
-      phone: '+51 987 654 321',
-      email: 'ventas@miempresa.com'
-    },
-    client: {
-      name: 'Juan Pérez García',
-      document: '12345678',
-      address: 'Av. Principal 456, Lima'
-    },
-    document: {
-      type: 'FACTURA ELECTRÓNICA',
-      series: 'F001',
-      number: '00000123',
-      date: '25/10/2025',
-      time: '14:30'
-    },
-    items: [
-      { id: 1, name: 'Producto Ejemplo 1', code: 'PROD001', quantity: 2, price: 50.00, brand: 'Marca A', barcode: '7501234567890', alias: 'Prod1', model: 'MOD-001', factoryCode: 'FAB-001', discount: 5, type: 'Bien', sunatCode: '12345678', weight: '1.5kg', category: 'Categoría A', existenceType: 'Mercadería' },
-      { id: 2, name: 'Producto Ejemplo 2', code: 'PROD002', quantity: 1, price: 100.00, brand: 'Marca B', barcode: '7501234567891', alias: 'Prod2', model: 'MOD-002', factoryCode: 'FAB-002', discount: 10, type: 'Servicio', sunatCode: '87654321', weight: '2.0kg', category: 'Categoría B', existenceType: 'Servicios' }
-    ]
-  };
+  // Datos de ejemplo para la vista previa - usa datos reales de la empresa si están disponibles
+  const sampleData = useMemo(() => {
+    const company = state.company;
+
+    return {
+      company: {
+        name: company?.businessName || 'MI EMPRESA S.A.C. [Datos de Ejemplo]',
+        ruc: company?.ruc || '20123456789',
+        address: company?.address || 'Jr. Los Ejemplos 123, Lima, Lima',
+        phone: company?.phones?.[0] || '+51 987 654 321',
+        email: company?.emails?.[0] || 'ventas@miempresa.com'
+      },
+      client: {
+        name: 'Juan Pérez García [Ejemplo]',
+        document: '12345678',
+        address: 'Av. Principal 456, Lima'
+      },
+      document: {
+        type: 'FACTURA ELECTRÓNICA',
+        series: 'F001',
+        number: '00000123',
+        date: '25/10/2025',
+        time: '14:30'
+      },
+      items: [
+        { id: 1, name: 'Producto Ejemplo 1', code: 'PROD001', quantity: 2, price: 50.00, brand: 'Marca A', barcode: '7501234567890', alias: 'Prod1', model: 'MOD-001', factoryCode: 'FAB-001', discount: 5, type: 'Bien', sunatCode: '12345678', weight: '1.5kg', category: 'Categoría A', existenceType: 'Mercadería' },
+        { id: 2, name: 'Producto Ejemplo 2', code: 'PROD002', quantity: 1, price: 100.00, brand: 'Marca B', barcode: '7501234567891', alias: 'Prod2', model: 'MOD-002', factoryCode: 'FAB-002', discount: 10, type: 'Servicio', sunatCode: '87654321', weight: '2.0kg', category: 'Categoría B', existenceType: 'Servicios' }
+      ]
+    };
+  }, [state.company]);
 
   const a4VisibleProductFields = useMemo(
     () => Object.entries(productFields).filter(([_, value]) => value.visible),

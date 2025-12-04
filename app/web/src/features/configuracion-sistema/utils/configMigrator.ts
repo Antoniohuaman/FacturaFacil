@@ -87,6 +87,7 @@ export class VoucherDesignMigrator {
         height: 60,
         position: 'center',
       },
+      watermark: DEFAULT_WATERMARK_CONFIG, // Agregado: watermark por defecto
       footer: {
         enabled: settings.showFooter,
         showCustomText: settings.showFooter,
@@ -110,6 +111,10 @@ export class VoucherDesignMigrator {
       },
       qrCode: { enabled: true, size: 'medium' },
       separators: { useSeparators: true, character: '=' },
+      metadata: {
+        thankYouMessage: '¡Gracias por su compra!',
+        consultationUrl: 'https://comprobantes.facturafacil.com/',
+      },
     };
   }
 

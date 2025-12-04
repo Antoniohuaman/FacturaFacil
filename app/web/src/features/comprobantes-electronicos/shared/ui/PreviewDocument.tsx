@@ -35,6 +35,8 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
   // Obtener columnas visibles
   const visibleColumns = Object.entries(config.productFields).filter(([_, value]) => value.visible);
 
+  const currentLayout = config.logo.layout || 'horizontal';
+
   return (
     <div className="w-full p-8 bg-white text-sm leading-relaxed print:p-4 relative">
       {/* Marca de agua */}
@@ -70,52 +72,225 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
 
       {/* Contenido */}
       <div className="relative" style={{ zIndex: 1 }}>
-        {/* HEADER: EMPRESA | LOGO | RUC/DOC */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {/* Columna 1: Datos de la empresa */}
-          <div className="flex flex-col justify-center">
-            <h1 className="font-bold text-lg text-gray-900">{companyData.name}</h1>
-            <p className="text-xs text-gray-700 max-w-xs leading-tight mt-1">{companyData.address}</p>
-            <p className="text-xs text-gray-700">Telf: {companyData.phone}</p>
-            <p className="text-xs text-gray-700">E-mail: {companyData.email}</p>
-          </div>
-
-          {/* Columna 2: Logo (centrado) */}
-          <div className="flex items-center justify-center">
-            {config.logo.enabled && (
-              config.logo.url ? (
-                <img
-                  src={config.logo.url}
-                  alt="Logo"
-                  style={{
-                    width: `${config.logo.width}px`,
-                    height: `${config.logo.height}px`,
-                    objectFit: 'contain'
-                  }}
-                />
+        {/* HEADER: Con soporte para layout vertical */}
+        {(currentLayout === 'vertical-logo-top' || currentLayout === 'vertical-logo-bottom') ? (
+          <div className="grid grid-cols-[2fr_1.1fr] gap-4 mb-8 items-stretch">
+            {/* Bloque vertical empresa + logo */}
+            <div className="flex flex-col justify-center gap-2 px-3 py-1">
+              {currentLayout === 'vertical-logo-top' ? (
+                <>
+                  {config.logo.enabled && (
+                    <div className="flex items-center justify-center mb-2">
+                      {config.logo.url ? (
+                        <img
+                          src={config.logo.url}
+                          alt="Logo"
+                          style={{
+                            width: `${config.logo.width}px`,
+                            height: `${config.logo.height}px`,
+                            objectFit: 'contain'
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: `${config.logo.width}px`,
+                            height: `${config.logo.height}px`
+                          }}
+                          className="bg-gray-200 border border-gray-300 flex items-center justify-center"
+                        >
+                          <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-col items-center text-center w-full">
+                    <h1 className="font-bold text-lg text-gray-900">{companyData.name}</h1>
+                    <p className="text-xs text-gray-700 mt-1">{companyData.address}</p>
+                    <p className="text-xs text-gray-700">Telf: {companyData.phone}</p>
+                    <p className="text-xs text-gray-700">E-mail: {companyData.email}</p>
+                  </div>
+                </>
               ) : (
-                <div
-                  style={{
-                    width: `${config.logo.width}px`,
-                    height: `${config.logo.height}px`
-                  }}
-                  className="bg-gray-200 border border-gray-300 flex items-center justify-center"
-                >
-                  <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                <>
+                  <div className="flex flex-col items-center text-center w-full mb-2">
+                    <h1 className="font-bold text-lg text-gray-900">{companyData.name}</h1>
+                    <p className="text-xs text-gray-700 mt-1">{companyData.address}</p>
+                    <p className="text-xs text-gray-700">Telf: {companyData.phone}</p>
+                    <p className="text-xs text-gray-700">E-mail: {companyData.email}</p>
+                  </div>
+                  {config.logo.enabled && (
+                    <div className="flex items-center justify-center mt-2">
+                      {config.logo.url ? (
+                        <img
+                          src={config.logo.url}
+                          alt="Logo"
+                          style={{
+                            width: `${config.logo.width}px`,
+                            height: `${config.logo.height}px`,
+                            objectFit: 'contain'
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: `${config.logo.width}px`,
+                            height: `${config.logo.height}px`
+                          }}
+                          className="bg-gray-200 border border-gray-300 flex items-center justify-center"
+                        >
+                          <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Bloque RUC / Documento */}
+            <div className="border-2 border-gray-800 p-4 text-center flex flex-col justify-center min-w-[280px]">
+              <div className="bg-gray-800 text-white px-3 py-1 mb-3">
+                <span className="font-bold text-sm">R.U.C. {companyData.ruc}</span>
+              </div>
+              <h2 className="font-bold text-base mb-2 text-gray-900">{documentTitle}</h2>
+              {/* Serie sin correlativo */}
+              <p className="font-bold text-lg text-gray-900">{series}-</p>
+            </div>
+          </div>
+        ) : (
+          /* Layout horizontal (por defecto) */
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            {/* Columna 1: Datos de la empresa */}
+            {(config.logo.position === 'left' || !config.logo.position) && (
+              <>
+                {config.logo.enabled && (
+                  <div className="flex items-center justify-center">
+                    {config.logo.url ? (
+                      <img
+                        src={config.logo.url}
+                        alt="Logo"
+                        style={{
+                          width: `${config.logo.width}px`,
+                          height: `${config.logo.height}px`,
+                          objectFit: 'contain'
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: `${config.logo.width}px`,
+                          height: `${config.logo.height}px`
+                        }}
+                        className="bg-gray-200 border border-gray-300 flex items-center justify-center"
+                      >
+                        <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="flex flex-col justify-center">
+                  <h1 className="font-bold text-lg text-gray-900">{companyData.name}</h1>
+                  <p className="text-xs text-gray-700 max-w-xs leading-tight mt-1">{companyData.address}</p>
+                  <p className="text-xs text-gray-700">Telf: {companyData.phone}</p>
+                  <p className="text-xs text-gray-700">E-mail: {companyData.email}</p>
                 </div>
-              )
+              </>
+            )}
+
+            {config.logo.position === 'center' && (
+              <>
+                <div className="flex flex-col justify-center">
+                  <h1 className="font-bold text-lg text-gray-900">{companyData.name}</h1>
+                  <p className="text-xs text-gray-700 max-w-xs leading-tight mt-1">{companyData.address}</p>
+                  <p className="text-xs text-gray-700">Telf: {companyData.phone}</p>
+                  <p className="text-xs text-gray-700">E-mail: {companyData.email}</p>
+                </div>
+                {config.logo.enabled && (
+                  <div className="flex items-center justify-center">
+                    {config.logo.url ? (
+                      <img
+                        src={config.logo.url}
+                        alt="Logo"
+                        style={{
+                          width: `${config.logo.width}px`,
+                          height: `${config.logo.height}px`,
+                          objectFit: 'contain'
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: `${config.logo.width}px`,
+                          height: `${config.logo.height}px`
+                        }}
+                        className="bg-gray-200 border border-gray-300 flex items-center justify-center"
+                      >
+                        <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {config.logo.position === 'right' && (
+              <>
+                <div className="flex flex-col justify-center">
+                  <h1 className="font-bold text-lg text-gray-900">{companyData.name}</h1>
+                  <p className="text-xs text-gray-700 max-w-xs leading-tight mt-1">{companyData.address}</p>
+                  <p className="text-xs text-gray-700">Telf: {companyData.phone}</p>
+                  <p className="text-xs text-gray-700">E-mail: {companyData.email}</p>
+                </div>
+                <div className="border-2 border-gray-800 p-4 text-center flex flex-col justify-center min-w-[280px]">
+                  <div className="bg-gray-800 text-white px-3 py-1 mb-3">
+                    <span className="font-bold text-sm">R.U.C. {companyData.ruc}</span>
+                  </div>
+                  <h2 className="font-bold text-base mb-2 text-gray-900">{documentTitle}</h2>
+                  {/* Serie sin correlativo */}
+                  <p className="font-bold text-lg text-gray-900">{series}-</p>
+                </div>
+                {config.logo.enabled && (
+                  <div className="flex items-center justify-center">
+                    {config.logo.url ? (
+                      <img
+                        src={config.logo.url}
+                        alt="Logo"
+                        style={{
+                          width: `${config.logo.width}px`,
+                          height: `${config.logo.height}px`,
+                          objectFit: 'contain'
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: `${config.logo.width}px`,
+                          height: `${config.logo.height}px`
+                        }}
+                        className="bg-gray-200 border border-gray-300 flex items-center justify-center"
+                      >
+                        <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Columna 3: RUC y tipo de documento (siempre al final en horizontal) */}
+            {config.logo.position !== 'right' && (
+              <div className="border-2 border-gray-800 p-4 text-center flex flex-col justify-center min-w-[280px]">
+                <div className="bg-gray-800 text-white px-3 py-1 mb-3">
+                  <span className="font-bold text-sm">R.U.C. {companyData.ruc}</span>
+                </div>
+                <h2 className="font-bold text-base mb-2 text-gray-900">{documentTitle}</h2>
+                {/* Serie sin correlativo */}
+                <p className="font-bold text-lg text-gray-900">{series}-</p>
+              </div>
             )}
           </div>
-
-          {/* Columna 3: RUC y tipo de documento */}
-          <div className="border-2 border-gray-800 p-4 text-center flex flex-col justify-center min-w-[280px]">
-            <div className="bg-gray-800 text-white px-3 py-1 mb-3">
-              <span className="font-bold text-sm">R.U.C. {companyData.ruc}</span>
-            </div>
-            <h2 className="font-bold text-base mb-2 text-gray-900">{documentTitle}</h2>
-            <p className="font-bold text-lg text-gray-900">{series}-</p>
-          </div>
-        </div>
+        )}
 
         {/* Información del cliente y documento */}
         <div className="grid grid-cols-2 gap-8 mb-6">
@@ -148,14 +323,14 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
               {config.documentFields.guiaRemision.visible && (
                 <p><span className="font-medium">{config.documentFields.guiaRemision.label}:</span> -</p>
               )}
-              {config.documentFields.correoElectronico.visible && (
-                <p><span className="font-medium">{config.documentFields.correoElectronico.label}:</span> {clientData.email || '-'}</p>
+              {config.documentFields.correoElectronico.visible && clientData.email && (
+                <p><span className="font-medium">{config.documentFields.correoElectronico.label}:</span> {clientData.email}</p>
               )}
               {config.documentFields.centroCosto.visible && (
                 <p><span className="font-medium">{config.documentFields.centroCosto.label}:</span> -</p>
               )}
-              {config.documentFields.direccionEnvio.visible && (
-                <p><span className="font-medium">{config.documentFields.direccionEnvio.label}:</span> {clientData.direccion || '-'}</p>
+              {config.documentFields.direccionEnvio.visible && clientData.direccion && (
+                <p><span className="font-medium">{config.documentFields.direccionEnvio.label}:</span> {clientData.direccion}</p>
               )}
               {config.documentFields.vendedor.visible && (
                 <p><span className="font-medium">{config.documentFields.vendedor.label}:</span> -</p>
@@ -186,9 +361,11 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
               {visibleColumns.map(([key, field]) => {
                 let content = '';
                 switch (key) {
+                  case 'numero': content = (index + 1).toString(); break;
                   case 'imagen': content = '🖼️'; break;
                   case 'descripcion': content = item.name; break;
                   case 'cantidad': content = item.quantity.toString(); break;
+                  case 'unidadMedida': content = item.unidad || item.unidadMedida || 'UND'; break;
                   case 'precioUnitario': content = `${currencySymbol} ${item.price.toFixed(2)}`; break;
                   case 'total': content = `${currencySymbol} ${(item.price * item.quantity).toFixed(2)}`; break;
                   case 'marca': content = item.marca || '-'; break;
@@ -252,6 +429,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
           </div>
         </div>
 
+        {/* Cronograma de cuotas */}
         {creditTerms && creditTerms.schedule.length > 0 && (
           <div className="mb-6">
             <h4 className="font-semibold text-xs mb-2">Cronograma de cuotas</h4>

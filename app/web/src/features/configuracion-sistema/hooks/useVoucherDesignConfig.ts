@@ -53,7 +53,8 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
             designType === 'A4' ? loaded.a4Config : loaded.ticketConfig;
 
           if (extracted) {
-            const watermark = designType === 'A4' && 'watermark' in extracted
+            // Watermark ahora está disponible tanto en A4 como en TICKET
+            const watermark = 'watermark' in extracted
               ? extracted.watermark
               : DEFAULT_WATERMARK_CONFIG;
 
@@ -191,7 +192,8 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
           designType === 'A4' ? imported.a4Config : imported.ticketConfig;
 
         if (extracted) {
-          const watermark = designType === 'A4' && 'watermark' in extracted
+          // Watermark ahora está disponible tanto en A4 como en TICKET
+          const watermark = 'watermark' in extracted
             ? extracted.watermark
             : DEFAULT_WATERMARK_CONFIG;
 
@@ -248,7 +250,8 @@ export const useVoucherDesignConfigReader = (designType: DesignType) => {
             designType === 'A4' ? loaded.a4Config : loaded.ticketConfig;
 
           if (extracted) {
-            const watermark = designType === 'A4' && 'watermark' in extracted
+            // Watermark ahora está disponible tanto en A4 como en TICKET
+            const watermark = 'watermark' in extracted
               ? extracted.watermark
               : DEFAULT_WATERMARK_CONFIG;
 

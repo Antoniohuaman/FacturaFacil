@@ -107,6 +107,7 @@ export interface VoucherDesignA4Config {
 // ===================================================================
 export interface VoucherDesignTicketConfig {
   logo: Omit<LogoConfiguration, 'position'> & { position: 'center' };
+  watermark: WatermarkConfiguration; // Agregado: soporte para watermark en ticket
   footer: Omit<FooterConfiguration, 'textAlignment'> & { textAlignment: 'center' };
   documentFields: DocumentFieldsConfiguration;
   productFields: {
@@ -150,9 +151,9 @@ export interface VoucherDesignTicketConfig {
     useSeparators: boolean;
     character: string;
   };
-  metadata?: {
-    thankYouMessage?: string;
-    consultationUrl?: string;
+  metadata: {
+    thankYouMessage: string;
+    consultationUrl: string;
   };
 }
 
@@ -269,13 +270,14 @@ export const DEFAULT_PRODUCT_FIELDS_A4: ProductFieldsConfiguration = {
   tipoExistencia: { visible: false, label: 'Tipo Exist.', width: 100 },
 };
 
+// Columnas por defecto para TICKET: CÓDIGO | DESCRIPCIÓN | CANT | P.UNIT | DSCTO. | TOTAL
 export const DEFAULT_PRODUCT_FIELDS_TICKET: VoucherDesignTicketConfig['productFields'] = {
-  numero: { visible: false },
+  numero: { visible: false }, // N° desactivado por defecto, pero disponible
   codigo: { visible: true },
   descripcion: { visible: true, maxLength: 30 },
   cantidad: { visible: true },
   precioUnitario: { visible: true },
-  descuento: { visible: false },
+  descuento: { visible: true }, // DSCTO. visible por defecto
   total: { visible: true },
   codigoBarras: { visible: false },
   marca: { visible: false },
@@ -296,6 +298,7 @@ export const DEFAULT_TICKET_CONFIG: VoucherDesignTicketConfig = {
     height: 60,
     position: 'center',
   },
+  watermark: DEFAULT_WATERMARK_CONFIG, // Agregado: watermark para ticket
   footer: {
     enabled: true,
     showCustomText: true,

@@ -10,6 +10,7 @@ interface PreviewTicketProps {
 
 export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => {
   const config = useVoucherDesignConfigReader('TICKET');
+
   const {
     companyData,
     clientData,
@@ -38,7 +39,6 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
   const subtotalExonerado = cartItems.filter(item => item.igvType === 'exonerado').reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   const productFields = config.productFields as VoucherDesignTicketConfig['productFields'];
-
   const descriptionMaxLength = productFields.descripcion?.maxLength ?? 30;
 
   const truncateText = (text: string, maxLength: number) => {
@@ -46,17 +46,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
   };
 
   const amountInWords = useMemo(() => {
-    // TODO: reutilizar utilidad genérica de importe en letras si existe
-    try {
-      // Búsqueda dinámica opcional de función global (mantener sin dependencia fuerte)
-      const anyWindow = window as unknown as { formatAmountInWords?: (amount: number, currency: string) => string };
-      if (typeof anyWindow.formatAmountInWords === 'function') {
-        return anyWindow.formatAmountInWords(totals.total, currency);
-      }
-    } catch {
-      // ignore
-    }
-
+    // Conversión básica de número a letras en castellano
     const integerPart = Math.floor(totals.total);
     const cents = Math.round((totals.total - integerPart) * 100);
     const centsStr = cents.toString().padStart(2, '0');
@@ -67,20 +57,35 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
 
   return (
     <div className="w-full max-w-xs mx-auto bg-white p-4 font-mono text-xs leading-tight relative" style={{ fontFamily: 'Courier, monospace' }}>
-      {/* Marca de agua */}
-      {config.watermark.enabled && config.watermark.type === 'text' && config.watermark.text && (
+      {/* Marca de agua - soporte para texto e imagen */}
+      {config.watermark.enabled && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-          <div
-            className="text-4xl font-bold select-none"
-            style={{
-              opacity: config.watermark.opacity,
-              color: config.watermark.color || '#e5e7eb',
-              transform: `rotate(${config.watermark.rotation}deg)`,
-              fontSize: config.watermark.size === 'small' ? '1.5rem' : config.watermark.size === 'large' ? '2.5rem' : '2rem'
-            }}
-          >
-            {config.watermark.text}
-          </div>
+          {config.watermark.type === 'text' && config.watermark.text && (
+            <div
+              className="text-4xl font-bold select-none"
+              style={{
+                opacity: config.watermark.opacity,
+                color: config.watermark.color || '#e5e7eb',
+                transform: `rotate(${config.watermark.rotation}deg)`,
+                fontSize: config.watermark.size === 'small' ? '1.5rem' : config.watermark.size === 'large' ? '2.5rem' : '2rem'
+              }}
+            >
+              {config.watermark.text}
+            </div>
+          )}
+          {config.watermark.type === 'image' && config.watermark.imageUrl && (
+            <img
+              src={config.watermark.imageUrl}
+              alt="Watermark"
+              className="select-none"
+              style={{
+                opacity: config.watermark.opacity,
+                transform: `rotate(${config.watermark.rotation}deg)`,
+                maxWidth: config.watermark.size === 'small' ? '80px' : config.watermark.size === 'large' ? '160px' : '120px',
+                maxHeight: config.watermark.size === 'small' ? '80px' : config.watermark.size === 'large' ? '160px' : '120px'
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -126,6 +131,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         <div className="mb-4 border-b border-dashed border-gray-400 pb-4 text-left">
           <div className="border border-black p-2 mb-2 text-center">
             <p className="font-bold text-sm">{documentTitle}</p>
+            {/* Serie sin correlativo - solo muestra la serie */}
             <p className="font-bold text-lg">{series}-</p>
           </div>
 
@@ -136,14 +142,14 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
             {config.documentFields.establecimiento.visible && (
               <p><span className="font-semibold">{config.documentFields.establecimiento.label}:</span> Principal</p>
             )}
-            {config.documentFields.direccion.visible && (
-              <p><span className="font-semibold">{config.documentFields.direccion.label}:</span> {clientData.direccion || 'No especificada'}</p>
+            {config.documentFields.direccion.visible && clientData.direccion && (
+              <p><span className="font-semibold">{config.documentFields.direccion.label}:</span> {truncateText(clientData.direccion, 35)}</p>
             )}
-            {config.documentFields.direccionEnvio.visible && (
-              <p><span className="font-semibold">{config.documentFields.direccionEnvio.label}:</span> {clientData.direccion || 'No especificada'}</p>
+            {config.documentFields.direccionEnvio.visible && clientData.direccion && (
+              <p><span className="font-semibold">{config.documentFields.direccionEnvio.label}:</span> {truncateText(clientData.direccion, 35)}</p>
             )}
-            {config.documentFields.correoElectronico.visible && (
-              <p><span className="font-semibold">{config.documentFields.correoElectronico.label}:</span> {clientData.email || '-'}</p>
+            {config.documentFields.correoElectronico.visible && clientData.email && (
+              <p><span className="font-semibold">{config.documentFields.correoElectronico.label}:</span> {clientData.email}</p>
             )}
             {config.documentFields.ordenCompra.visible && (
               <p><span className="font-semibold">{config.documentFields.ordenCompra.label}:</span> -</p>
@@ -163,30 +169,31 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
           </div>
         </div>
 
-        {/* Products */}
+        {/* Products - tabla con columnas configurables */}
         <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
-          <div className="grid grid-cols-[auto_auto_auto_auto_auto_auto_auto] gap-x-1 text-xs font-bold mb-2">
-            {productFields.numero.visible && <span className="text-left">N°</span>}
-            {productFields.codigo.visible && <span className="text-left">CÓD.</span>}
-            {productFields.descripcion.visible && <span className="flex-1 text-left">DESC.</span>}
-            {productFields.cantidad.visible && <span className="text-right">CANT</span>}
-            {productFields.precioUnitario.visible && <span className="text-right">P.UNIT</span>}
-            {productFields.descuento.visible && <span className="text-right">DSCTO.</span>}
-            {productFields.total.visible && <span className="text-right">TOTAL</span>}
+          {/* Header de tabla */}
+          <div className="flex gap-1 text-[9px] font-bold mb-2">
+            {productFields.numero.visible && <span className="w-8">N°</span>}
+            {productFields.codigo.visible && <span className="w-16">CÓD.</span>}
+            {productFields.descripcion.visible && <span className="flex-1">DESC.</span>}
+            {productFields.cantidad.visible && <span className="w-10 text-right">CANT</span>}
+            {productFields.precioUnitario.visible && <span className="w-16 text-right">P.UNIT</span>}
+            {productFields.descuento.visible && <span className="w-12 text-right">DSCTO.</span>}
+            {productFields.total.visible && <span className="w-16 text-right">TOTAL</span>}
           </div>
 
           {cartItems.map((item, index) => {
             const lineTotal = item.price * item.quantity;
-            const discountValue = 0; // TODO: mapear al modelo real de descuento por ítem
 
             return (
-              <div key={item.id} className="mb-2 text-xs">
-                <div className="grid grid-cols-[auto_auto_auto_auto_auto_auto_auto] gap-x-1 items-start">
+              <div key={item.id} className="mb-2">
+                {/* Línea principal de producto */}
+                <div className="flex gap-1 text-[9px]">
                   {productFields.numero.visible && (
-                    <span className="text-left">{index + 1}</span>
+                    <span className="w-8">{index + 1}</span>
                   )}
                   {productFields.codigo.visible && (
-                    <span className="text-left truncate max-w-[48px]">{item.code || '-'}</span>
+                    <span className="w-16 truncate">{item.code || '-'}</span>
                   )}
                   {productFields.descripcion.visible && (
                     <span className="flex-1 break-words">
@@ -194,29 +201,27 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
                     </span>
                   )}
                   {productFields.cantidad.visible && (
-                    <span className="text-right whitespace-nowrap">{item.quantity}</span>
+                    <span className="w-10 text-right">{item.quantity}</span>
                   )}
                   {productFields.precioUnitario.visible && (
-                    <span className="text-right whitespace-nowrap">{currencySymbol} {item.price.toFixed(2)}</span>
+                    <span className="w-16 text-right">{currencySymbol} {item.price.toFixed(2)}</span>
                   )}
                   {productFields.descuento.visible && (
-                    <span className="text-right whitespace-nowrap">{currencySymbol} {discountValue.toFixed(2)}</span>
+                    <span className="w-12 text-right">{item.descuentoProducto || 0}%</span>
                   )}
                   {productFields.total.visible && (
-                    <span className="text-right whitespace-nowrap">{currencySymbol} {lineTotal.toFixed(2)}</span>
+                    <span className="w-16 text-right">{currencySymbol} {lineTotal.toFixed(2)}</span>
                   )}
                 </div>
 
-                {(productFields.marca.visible || productFields.codigoBarras.visible) && (
-                  <div className="mt-0.5 text-[10px] text-gray-600">
+                {/* Línea secundaria para marca y código de barras */}
+                {(productFields.marca.visible || productFields.codigoBarras.visible) && (item.marca || item.codigoBarras) && (
+                  <div className="mt-0.5 text-[8px] text-gray-600 flex gap-2">
                     {productFields.marca.visible && item.marca && (
-                      <span>Marca: {truncateText(item.marca, 16)} </span>
+                      <span>Marca: {truncateText(item.marca, 16)}</span>
                     )}
                     {productFields.codigoBarras.visible && item.codigoBarras && (
-                      <span>
-                        {productFields.marca.visible && item.marca ? ' / ' : ''}
-                        C.Barras: {truncateText(item.codigoBarras, 16)}
-                      </span>
+                      <span>C.Barras: {truncateText(item.codigoBarras, 16)}</span>
                     )}
                   </div>
                 )}
@@ -229,7 +234,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         {config.documentFields.observaciones.visible && observations && (
           <div className="mb-4 pb-4 border-b border-dashed border-gray-400">
             <p className="font-bold text-xs mb-1">{config.documentFields.observaciones.label}:</p>
-            <p className="text-xs">{truncateText(observations, 50)}</p>
+            <p className="text-xs">{truncateText(observations, 80)}</p>
           </div>
         )}
 
@@ -261,6 +266,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
           </div>
         </div>
 
+        {/* Cronograma de cuotas si es crédito */}
         {creditTerms && creditTerms.schedule.length > 0 && (
           <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
             <p className="font-bold text-xs mb-2">Cronograma de cuotas</p>
@@ -284,29 +290,30 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
           <p className="font-semibold break-words">{amountInWords}</p>
         </div>
 
-        {/* QR Code y bloque legal */}
+        {/* QR Code */}
         <div className="text-center mb-4">
           <img src={qrUrl} alt="QR Code" className="w-24 h-24 mx-auto border border-gray-300 mb-2" />
-          <div className="text-xs text-gray-600 leading-tight">
-            <p>Representación impresa de la {documentTitle.toLowerCase()}</p>
-            <p>Consulta tu comprobante en nuestra web</p>
-            <p>{(config as unknown as VoucherDesignTicketConfig).metadata?.consultationUrl ?? 'https://comprobantes.facturafacil.com/'}</p>
-            <p>Fecha de impresión: {currentDateTime}</p>
-          </div>
         </div>
 
-        {/* Final message configurable */}
-        <div className="text-center text-xs leading-tight">
-          <p>{(config as unknown as VoucherDesignTicketConfig).metadata?.thankYouMessage ?? '¡Gracias por su compra!'}</p>
-          <p>Conserve este comprobante</p>
+        {/* Bloque legal configurable */}
+        <div className="text-center text-[10px] text-gray-600 leading-tight mb-4">
+          <p>Representación impresa de la {documentTitle.toLowerCase()}</p>
+          <p className="mt-1">Consulta tu comprobante en nuestra web</p>
+          <p className="mt-0.5">https://comprobantes.facturafacil.com/</p>
+          <p className="mt-1">Fecha de impresión: {currentDateTime}</p>
         </div>
 
-        {/* Footer personalizado */}
+        {/* Mensaje final configurable */}
+        <div className="text-center text-xs leading-tight mb-3">
+          <p className="font-semibold">¡Gracias por su compra!</p>
+          <p className="text-[10px] text-gray-600">Conserve este comprobante</p>
+        </div>
+
+        {/* Footer personalizado si está configurado */}
         {config.footer.enabled && config.footer.showCustomText && config.footer.customText && (
           <div
-            className="mt-4 pt-3 border-t border-dashed border-gray-400"
+            className="mt-4 pt-3 border-t border-dashed border-gray-400 text-center"
             style={{
-              textAlign: config.footer.textAlignment,
               backgroundColor: config.footer.backgroundColor,
               padding: `${config.footer.padding}px 8px`
             }}
