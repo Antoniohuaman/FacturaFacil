@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { FileText } from 'lucide-react';
-import type { FooterConfiguration } from '../../models/VoucherDesignExtended';
+import type { FooterConfiguration } from '../../models/VoucherDesignUnified';
 
 interface FooterConfigPanelProps {
   config: FooterConfiguration;

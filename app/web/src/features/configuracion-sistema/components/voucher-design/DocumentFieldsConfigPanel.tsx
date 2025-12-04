@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { FileText, Eye, EyeOff } from 'lucide-react';
-import type { DocumentFieldsConfiguration } from '../../models/VoucherDesignExtended';
+import type { DocumentFieldsConfiguration } from '../../models/VoucherDesignUnified';
 
 interface DocumentFieldsConfigPanelProps {
   config: DocumentFieldsConfiguration;

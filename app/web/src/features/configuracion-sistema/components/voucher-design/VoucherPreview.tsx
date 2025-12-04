@@ -6,7 +6,7 @@
 
 import React, { useMemo } from 'react';
 import { Eye, QrCode } from 'lucide-react';
-import type { VoucherDesignConfigurationExtended } from '../../models/VoucherDesignExtended';
+import type { VoucherDesignConfigurationExtended } from '../../models/VoucherDesignUnified';
 import { useConfigurationContext } from '../../context/ConfigurationContext';
 
 interface VoucherPreviewProps {

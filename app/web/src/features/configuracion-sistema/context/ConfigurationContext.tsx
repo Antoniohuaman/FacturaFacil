@@ -9,8 +9,6 @@ import type { PaymentMethod } from '../models/PaymentMethod';
 import type { Currency } from '../models/Currency';
 import type { Unit } from '../models/Unit';
 import type { Tax } from '../models/Tax';
-import type { VoucherDesign } from '../models/VoucherDesign';
-import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesignUnified';
 import { SUNAT_UNITS } from '../models/Unit';
 import type { Warehouse } from '../models/Warehouse';
 import type { Caja } from '../models/Caja';
@@ -54,7 +52,6 @@ interface ConfigurationState {
   taxes: Tax[];
   taxAffectations: TaxAffectations;
   categories: Category[];
-  voucherDesigns: VoucherDesign[];
   cajas: Caja[];
   isLoading: boolean;
   error: string | null;
@@ -146,8 +143,6 @@ type ConfigurationAction =
   | { type: 'SET_TAXES'; payload: Tax[] }
   | { type: 'SET_TAX_AFFECTATIONS'; payload: TaxAffectations }
   | { type: 'SET_CATEGORIES'; payload: Category[] }
-  | { type: 'SET_VOUCHER_DESIGNS'; payload: VoucherDesign[] }
-  | { type: 'UPDATE_VOUCHER_DESIGN'; payload: VoucherDesign }
   | { type: 'SET_CAJAS'; payload: Caja[] }
   | { type: 'ADD_CAJA'; payload: Caja }
   | { type: 'UPDATE_CAJA'; payload: Caja }
@@ -164,7 +159,6 @@ const initialState: ConfigurationState = {
   units: [],
   taxes: [],
   categories: [],
-  voucherDesigns: [],
   cajas: [],
   taxAffectations: {
     igv: {
@@ -307,17 +301,6 @@ function configurationReducer(
 
     case 'SET_CATEGORIES':
       return { ...state, categories: action.payload };
-
-    case 'SET_VOUCHER_DESIGNS':
-      return { ...state, voucherDesigns: action.payload };
-
-    case 'UPDATE_VOUCHER_DESIGN':
-      return {
-        ...state,
-        voucherDesigns: state.voucherDesigns.map(design =>
-          design.id === action.payload.id ? action.payload : design
-        )
-      };
 
     case 'SET_CAJAS':
       return { ...state, cajas: action.payload };
@@ -801,40 +784,6 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
     dispatch({
       type: 'SET_EMPLOYEES',
       payload: []  // Start empty - users can create their own employees
-    });
-
-    // Default voucher designs - convertir de modelo unificado a legacy
-    const convertToLegacy = (unified: typeof DEFAULT_A4_DESIGN | typeof DEFAULT_TICKET_DESIGN): VoucherDesign => {
-      const config = unified.type === 'A4' ? unified.a4Config : unified.ticketConfig;
-      return {
-        id: unified.id,
-        name: unified.name,
-        type: unified.type,
-        settings: {
-          showLogo: config?.logo.enabled ?? true,
-          showCompanyInfo: true,
-          showFooter: config?.footer.enabled ?? true,
-          footerText: config?.footer.customText ?? 'Gracias por su preferencia',
-          headerColor: '#2563eb',
-          textColor: '#374151',
-          borderColor: '#e5e7eb',
-          fontSize: 'medium',
-          fontFamily: 'Arial',
-          showBorder: true,
-          showWatermark: config && 'watermark' in config ? config.watermark.enabled : false,
-          watermarkText: config && 'watermark' in config ? config.watermark.text ?? '' : '',
-          watermarkOpacity: config && 'watermark' in config ? config.watermark.opacity : 0.1,
-        },
-        isDefault: unified.isDefault,
-        isActive: unified.isActive,
-        createdAt: unified.createdAt,
-        updatedAt: unified.updatedAt,
-      };
-    };
-
-    dispatch({
-      type: 'SET_VOUCHER_DESIGNS',
-      payload: [convertToLegacy(DEFAULT_A4_DESIGN), convertToLegacy(DEFAULT_TICKET_DESIGN)]
     });
 
     // No se inicializan warehouses por defecto

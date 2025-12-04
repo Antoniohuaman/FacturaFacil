@@ -5,7 +5,7 @@
 
 import React, { useRef } from 'react';
 import { Droplet, Upload, X, Type, Image } from 'lucide-react';
-import type { WatermarkConfiguration } from '../../models/VoucherDesignExtended';
+import type { WatermarkConfiguration } from '../../models/VoucherDesignUnified';
 
 interface WatermarkConfigPanelProps {
   config: WatermarkConfiguration;

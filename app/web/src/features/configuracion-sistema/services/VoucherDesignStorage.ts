@@ -1,10 +1,10 @@
 // ===================================================================
-// CAPA DE ABSTRACCIÓN DE STORAGE
-// Abstrae la persistencia de configuraciones de diseño
+// CAPA DE ABSTRACCIÓN DE STORAGE (v2)
+// Persistencia de configuraciones de diseño usando solo el formato unificado
 // ===================================================================
 
 import type { VoucherDesignConfig, DesignType } from '../models/VoucherDesignUnified';
-import { configMigrator } from '../utils/configMigrator';
+import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesignUnified';
 
 export class StorageError extends Error {
   originalError?: unknown;
@@ -17,65 +17,41 @@ export class StorageError extends Error {
 }
 
 export interface IVoucherDesignStorage {
-  load(type: DesignType): Promise<VoucherDesignConfig | null>;
+  load(type: DesignType): Promise<VoucherDesignConfig>;
   save(type: DesignType, config: VoucherDesignConfig): Promise<void>;
   clear(type: DesignType): Promise<void>;
   exportToBlob(type: DesignType): Promise<Blob>;
   importFromFile(file: File): Promise<VoucherDesignConfig>;
 }
 
+const STORAGE_KEY = (type: DesignType): string => `voucher_design_v2_${type}`;
+
 export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
-  private readonly KEY_PREFIX = 'voucher_design_v2_';
-  private readonly LEGACY_KEY_PREFIX = 'voucher_design_extended_';
+  async load(type: DesignType): Promise<VoucherDesignConfig> {
+    const key = STORAGE_KEY(type);
 
-  private getKey(type: DesignType): string {
-    return `${this.KEY_PREFIX}${type.toLowerCase()}`;
-  }
-
-  private getLegacyKey(type: DesignType): string {
-    return `${this.LEGACY_KEY_PREFIX}${type.toLowerCase()}`;
-  }
-
-  async load(type: DesignType): Promise<VoucherDesignConfig | null> {
     try {
-      const key = this.getKey(type);
       const data = localStorage.getItem(key);
 
-      // Si no existe en formato nuevo, intentar cargar del formato antiguo
       if (!data) {
-        const legacyKey = this.getLegacyKey(type);
-        const legacyData = localStorage.getItem(legacyKey);
-
-        if (legacyData) {
-          const parsed = JSON.parse(legacyData);
-          const migrated = configMigrator.autoMigrate(parsed);
-
-          if (migrated) {
-            // Guardar en nuevo formato
-            await this.save(type, migrated);
-            return migrated;
-          }
-        }
-
-        return null;
+        return this.getDefaultConfig(type);
       }
 
-      const parsed = JSON.parse(data);
+      const parsed = JSON.parse(data) as VoucherDesignConfig;
 
-      // Revivir fechas
       if (parsed.createdAt) parsed.createdAt = new Date(parsed.createdAt);
       if (parsed.updatedAt) parsed.updatedAt = new Date(parsed.updatedAt);
 
-      return parsed as VoucherDesignConfig;
+      return parsed;
     } catch (error) {
-      console.error('[VoucherDesignStorage] Error loading config:', error);
-      throw new StorageError('Failed to load design configuration', error);
+      console.error('[VoucherDesignStorage] Error loading config, using defaults:', error);
+      return this.getDefaultConfig(type);
     }
   }
 
   async save(type: DesignType, config: VoucherDesignConfig): Promise<void> {
     try {
-      const key = this.getKey(type);
+      const key = STORAGE_KEY(type);
       const toSave = {
         ...config,
         updatedAt: new Date(),
@@ -93,12 +69,8 @@ export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
 
   async clear(type: DesignType): Promise<void> {
     try {
-      const key = this.getKey(type);
+      const key = STORAGE_KEY(type);
       localStorage.removeItem(key);
-
-      // También limpiar versión legacy si existe
-      const legacyKey = this.getLegacyKey(type);
-      localStorage.removeItem(legacyKey);
 
       this.dispatchChangeEvent(type, null);
     } catch (error) {
@@ -175,6 +147,10 @@ export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
         detail: { designType: type, config },
       })
     );
+  }
+
+  private getDefaultConfig(type: DesignType): VoucherDesignConfig {
+    return type === 'A4' ? DEFAULT_A4_DESIGN : DEFAULT_TICKET_DESIGN;
   }
 }
 

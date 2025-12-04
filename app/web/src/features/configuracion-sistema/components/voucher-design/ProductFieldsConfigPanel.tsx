@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Package, Eye, EyeOff, ChevronRight } from 'lucide-react';
-import type { ProductFieldsConfiguration } from '../../models/VoucherDesignExtended';
+import type { ProductFieldsConfiguration } from '../../models/VoucherDesignUnified';
 
 interface ProductFieldsConfigPanelProps {
   config: ProductFieldsConfiguration;

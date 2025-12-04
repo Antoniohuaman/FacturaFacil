@@ -4,7 +4,7 @@
 
 import React, { useRef } from 'react';
 import { ImageIcon, Upload, X } from 'lucide-react';
-import type { LogoConfiguration } from '../../models/VoucherDesignExtended';
+import type { LogoConfiguration } from '../../models/VoucherDesignUnified';
 
 interface LogoConfigPanelProps {
   config: LogoConfiguration;
