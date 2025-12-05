@@ -80,6 +80,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         code: product.codigo,
         name: product.nombre,
         price: resolvedPrice,
+        basePrice: resolvedPrice,
         priceColumnId: baseColumn?.id,
         priceColumnLabel: baseColumn?.name,
         category: product.categoria,
@@ -88,6 +89,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         barcode: product.codigoBarras,
         image: product.imagen,
         unit: mappedUnit,
+        unidadMedida: mappedUnit,
         requiresStockControl: product.cantidad !== undefined,
         // Datos adicionales del catálogo
         catalogData: {

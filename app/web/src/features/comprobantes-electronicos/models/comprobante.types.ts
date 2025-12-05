@@ -65,7 +65,13 @@ export interface Product {
   image?: string;
   barcode?: string;
   unit?: string;
+  unidadMedida?: string;
   impuesto?: string;
+  priceColumnId?: string;
+  priceColumnLabel?: string;
+  basePrice?: number;
+  minAllowedPrice?: number;
+  isManualPrice?: boolean;
   // Datos adicionales del catálogo (opcional)
   catalogData?: {
     impuesto?: string;

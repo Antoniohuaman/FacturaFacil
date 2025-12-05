@@ -14,6 +14,7 @@ import { CartItemsList } from './cart/CartItemsList';
 import { ClientSection } from './client/ClientSection';
 import { PaymentSection } from './payment/PaymentSection';
 import { DiscountSection } from './discount/DiscountSection';
+import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
 
 export interface CartCheckoutPanelProps extends CartSidebarProps {
   onAddProduct?: (product: Product) => void;
@@ -50,6 +51,9 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   notaInterna?: string;
   onObservacionesChange: (value: string) => void;
   onNotaInternaChange?: (value: string) => void;
+  onCartItemUnitChange: (id: string, unitCode: string) => void;
+  getUnitOptionsForProduct: (sku: string) => ProductUnitOption[];
+  formatUnitLabel: (code?: string) => string;
 }
 
 export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
@@ -82,6 +86,9 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   notaInterna = '',
   onObservacionesChange,
   onNotaInternaChange,
+  onCartItemUnitChange,
+  getUnitOptionsForProduct,
+  formatUnitLabel,
 }) => {
   const { formatPrice, changeCurrency } = useCurrency();
   const [showNotes, setShowNotes] = useState(false);
@@ -172,6 +179,9 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           onUpdateQuantity={onUpdateQuantity}
           onUpdatePrice={onUpdatePrice}
           onRemoveItem={onRemoveItem}
+          onUpdateUnit={onCartItemUnitChange}
+          getUnitOptionsForProduct={getUnitOptionsForProduct}
+          formatUnitLabel={formatUnitLabel}
         />
 
         {isCreditMethod && (

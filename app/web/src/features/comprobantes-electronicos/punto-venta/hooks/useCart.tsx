@@ -125,13 +125,16 @@ export const useCart = (): UseCartReturn => {
 
   const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
     const price = Number.isFinite(product.price) ? product.price : 0;
+    const resolvedUnit = product.unidadMedida || product.unit;
     const igvConfig = resolveIgvConfigFromLabel(product.impuesto);
     return {
       ...product,
+      unidadMedida: resolvedUnit,
+      unit: resolvedUnit ?? product.unit,
       quantity,
       subtotal: stripTaxFromPrice(price, igvConfig.igvPercent),
       total: price,
-      basePrice: price,
+      basePrice: Number.isFinite(product.basePrice) ? Number(product.basePrice) : price,
       igv: igvConfig.igvPercent,
       igvType: igvConfig.igvType,
       impuesto: igvConfig.impuestoLabel
@@ -256,7 +259,8 @@ export const useCart = (): UseCartReturn => {
               price: newPrice,
               subtotal: stripTaxFromPrice(newPrice, inferIgvPercent(item)),
               total: newPrice,
-              basePrice: newPrice // Actualizar también el precio base
+              basePrice: newPrice, // Actualizar también el precio base
+              isManualPrice: true
             }
           : item
       )

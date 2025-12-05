@@ -1,6 +1,31 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CartItem } from '../../models/comprobante.types';
+import { roundCurrency } from '../../../lista-precios/utils/price-helpers/pricing';
 import { useCart } from '../hooks/useCart';
 import { usePayment } from '../../shared/form-core/hooks/usePayment';
+import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
+
+export interface PosPriceListOption {
+  id: string;
+  label: string;
+  isBase: boolean;
+}
+
+type PricingNotifier = (title: string, message: string) => void;
+
+const PRICE_COLUMN_STORAGE_KEY = 'pos_price_column';
+
+const readStoredPriceColumn = (validIds: string[], fallbackId?: string): string => {
+  try {
+    const stored = localStorage.getItem(PRICE_COLUMN_STORAGE_KEY);
+    if (stored && validIds.includes(stored)) {
+      return stored;
+    }
+  } catch (error) {
+    console.warn('[POS] No se pudo leer la lista de precios guardada', error);
+  }
+  return fallbackId || validIds[0] || '';
+};
 
 export const usePosCartAndTotals = () => {
   const {
@@ -8,11 +33,142 @@ export const usePosCartAndTotals = () => {
     addToCart,
     removeFromCart,
     updateCartQuantity,
+    updateCartItem,
     updateCartItemPrice,
     clearCart,
   } = useCart();
 
   const { calculateTotals } = usePayment();
+  const {
+    priceColumns,
+    baseColumnId,
+    getPriceOptionsFor,
+    getUnitOptionsForSku,
+    getPreferredUnitForSku,
+    formatUnitLabel,
+  } = usePriceBook();
+
+  const priceListOptions: PosPriceListOption[] = useMemo(() => (
+    priceColumns.map((column) => ({
+      id: column.id,
+      label: column.name,
+      isBase: column.isBase,
+    }))
+  ), [priceColumns]);
+
+  const columnLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    priceListOptions.forEach(option => map.set(option.id, option.label));
+    return map;
+  }, [priceListOptions]);
+
+  const [selectedPriceListId, setSelectedPriceListId] = useState('');
+  const hasHydratedSelectionRef = useRef(false);
+
+  useEffect(() => {
+    if (!priceListOptions.length || hasHydratedSelectionRef.current) {
+      return;
+    }
+    const initial = readStoredPriceColumn(priceListOptions.map(option => option.id), baseColumnId);
+    setSelectedPriceListId(initial);
+    hasHydratedSelectionRef.current = true;
+  }, [priceListOptions, baseColumnId]);
+
+  useEffect(() => {
+    if (!selectedPriceListId) {
+      return;
+    }
+    try {
+      localStorage.setItem(PRICE_COLUMN_STORAGE_KEY, selectedPriceListId);
+    } catch (error) {
+      console.warn('[POS] No se pudo guardar la lista de precios seleccionada', error);
+    }
+  }, [selectedPriceListId]);
+
+  const pricingNotifierRef = useRef<PricingNotifier | null>(null);
+  const missingPriceWarningsRef = useRef<Set<string>>(new Set());
+
+  const registerPricingNotifier = useCallback((notifier?: PricingNotifier) => {
+    pricingNotifierRef.current = notifier ?? null;
+  }, []);
+
+  const activePriceListLabel = columnLabelById.get(selectedPriceListId) || columnLabelById.get(baseColumnId || '') || '';
+
+  const resolveSku = useCallback((item: Pick<CartItem, 'code' | 'id'>) => {
+    return item.code || String(item.id);
+  }, []);
+
+  const getPriceForProduct = useCallback((sku: string, unitCode?: string, columnId?: string): number | undefined => {
+    if (!sku) return undefined;
+    const targetColumn = columnId || selectedPriceListId || baseColumnId;
+    if (!targetColumn) return undefined;
+    const options = getPriceOptionsFor(sku, unitCode);
+    const match = options.find(option => option.columnId === targetColumn);
+    return match?.price;
+  }, [baseColumnId, getPriceOptionsFor, selectedPriceListId]);
+
+  const applyPriceToItem = useCallback((item: CartItem, unitCode?: string) => {
+    if (item.isManualPrice) {
+      return;
+    }
+    const sku = resolveSku(item);
+    if (!sku) {
+      return;
+    }
+    const normalizedUnit = getPreferredUnitForSku(sku, unitCode || item.unidadMedida || item.unit);
+    const updates: Partial<CartItem> = {};
+    if (normalizedUnit && normalizedUnit !== item.unidadMedida) {
+      updates.unidadMedida = normalizedUnit;
+      updates.unit = normalizedUnit;
+    }
+
+    const price = getPriceForProduct(sku, normalizedUnit, selectedPriceListId);
+    if (typeof price === 'number') {
+      const rounded = roundCurrency(price);
+      if (rounded !== item.price) {
+        updates.price = rounded;
+        updates.basePrice = rounded;
+      }
+      if (item.priceColumnId !== selectedPriceListId) {
+        updates.priceColumnId = selectedPriceListId;
+        updates.priceColumnLabel = activePriceListLabel;
+      }
+    } else if (selectedPriceListId) {
+      const warningKey = `${sku}:${normalizedUnit || 'default'}:${selectedPriceListId}`;
+      if (!missingPriceWarningsRef.current.has(warningKey)) {
+        pricingNotifierRef.current?.(
+          'Precio no configurado',
+          `El producto ${item.name || sku} no tiene precio para ${activePriceListLabel}.`
+        );
+        missingPriceWarningsRef.current.add(warningKey);
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updateCartItem(item.id, updates);
+    }
+  }, [activePriceListLabel, getPreferredUnitForSku, getPriceForProduct, resolveSku, selectedPriceListId, updateCartItem]);
+
+  useEffect(() => {
+    missingPriceWarningsRef.current.clear();
+  }, [selectedPriceListId]);
+
+  useEffect(() => {
+    if (!selectedPriceListId) {
+      return;
+    }
+    cartItems.forEach(item => {
+      applyPriceToItem(item);
+    });
+  }, [applyPriceToItem, cartItems, selectedPriceListId]);
+
+  const handleItemUnitChange = useCallback((itemId: string, nextUnit: string) => {
+    const target = cartItems.find(item => item.id === itemId);
+    if (!target) {
+      return;
+    }
+    applyPriceToItem(target, nextUnit);
+  }, [applyPriceToItem, cartItems]);
 
   const totals = useMemo(() => calculateTotals(cartItems), [cartItems, calculateTotals]);
 
@@ -24,6 +180,16 @@ export const usePosCartAndTotals = () => {
   return {
     cartItems,
     totals,
+    priceListOptions,
+    selectedPriceListId,
+    setSelectedPriceListId,
+    registerPricingNotifier,
+    getUnitOptionsForProduct: getUnitOptionsForSku,
+    formatUnitLabel,
+    getPreferredUnitForSku,
+    getPriceForProduct,
+    onCartItemUnitChange: handleItemUnitChange,
+    activePriceListLabel,
     ...cartActions,
   };
 };

@@ -358,5 +358,6 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     handleCobranzaComplete,
     handlePrint,
     handleNewSale,
+    warning,
   };
 };

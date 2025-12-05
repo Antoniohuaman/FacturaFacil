@@ -3,6 +3,8 @@
 // Preserva toda la funcionalidad original con mejor UX
 // ===================================================================
 
+import { useEffect } from 'react';
+
 // Hooks POS orquestadores
 import { usePosCartAndTotals } from '../hooks/usePosCartAndTotals';
 import { usePosComprobanteFlow } from '../hooks/usePosComprobanteFlow';
@@ -29,6 +31,16 @@ const PuntoVenta = () => {
     updateCartQuantity,
     updateCartItemPrice,
     clearCart,
+    priceListOptions,
+    selectedPriceListId,
+    setSelectedPriceListId,
+    registerPricingNotifier,
+    getUnitOptionsForProduct,
+    formatUnitLabel,
+    getPreferredUnitForSku,
+    getPriceForProduct,
+    onCartItemUnitChange,
+    activePriceListLabel,
   } = usePosCartAndTotals();
 
   const {
@@ -74,7 +86,13 @@ const PuntoVenta = () => {
     handlePrint,
     handleNewSale,
     paymentMethods,
+    warning,
   } = usePosComprobanteFlow({ cartItems, totals });
+
+  useEffect(() => {
+    registerPricingNotifier(warning);
+    return () => registerPricingNotifier(undefined);
+  }, [registerPricingNotifier, warning]);
 
   return (
     <ErrorBoundary>
@@ -131,6 +149,15 @@ const PuntoVenta = () => {
               products={availableProducts}
               cartItems={cartItems}
               onAddToCart={addToCart}
+              currency={currentCurrency}
+              priceListOptions={priceListOptions}
+              selectedPriceListId={selectedPriceListId}
+              onPriceListChange={setSelectedPriceListId}
+              getUnitOptionsForProduct={getUnitOptionsForProduct}
+              formatUnitLabel={formatUnitLabel}
+              getPreferredUnitForSku={getPreferredUnitForSku}
+              getPriceForProduct={getPriceForProduct}
+              activePriceListLabel={activePriceListLabel}
             />
           </div>
 
@@ -141,6 +168,9 @@ const PuntoVenta = () => {
             onRemoveItem={removeFromCart}
             onUpdateQuantity={updateCartQuantity}
             onUpdatePrice={updateCartItemPrice}
+            onCartItemUnitChange={onCartItemUnitChange}
+            getUnitOptionsForProduct={getUnitOptionsForProduct}
+            formatUnitLabel={formatUnitLabel}
             onConfirmSale={handleConfirmSale}
             onClearCart={clearCart}
             onViewFullForm={() => navigate('/comprobantes/emision')}

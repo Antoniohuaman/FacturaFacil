@@ -248,6 +248,7 @@ export const usePriceBook = () => {
   return {
     hasSelectableColumns: selectableColumns.length > 0,
     baseColumnId,
+    priceColumns: selectableColumns,
     globalDiscountColumn,
     globalIncreaseColumn,
     getUnitOptionsForSku,

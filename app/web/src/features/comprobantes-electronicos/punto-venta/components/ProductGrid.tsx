@@ -2,7 +2,7 @@
 // COMPONENTE GRID DE PRODUCTOS PARA MODO POS - VERSIÓN MEJORADA
 // ===================================================================
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Search, Scan, Plus, Filter, Package, X } from 'lucide-react';
 import type { Product, CartItem, Currency } from '../../models/comprobante.types';
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
@@ -12,6 +12,8 @@ import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogoProduct } from '../../../catalogo-articulos/models/types';
+import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
+import type { PosPriceListOption } from '../hooks/usePosCartAndTotals';
 
 export interface ProductGridProps {
   // Lista de productos disponibles
@@ -41,6 +43,14 @@ export interface ProductGridProps {
   
   // Nuevas props para funcionalidades mejoradas
   currency?: Currency;
+  priceListOptions: PosPriceListOption[];
+  selectedPriceListId: string;
+  onPriceListChange: (id: string) => void;
+  getUnitOptionsForProduct: (sku: string) => ProductUnitOption[];
+  formatUnitLabel: (code?: string) => string;
+  getPreferredUnitForSku: (sku: string, requestedUnit?: string) => string;
+  getPriceForProduct: (sku: string, unitCode?: string, columnId?: string) => number | undefined;
+  activePriceListLabel?: string;
 }
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
@@ -57,7 +67,15 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   showCategory = false,
   isLoading = false,
   emptyStateMessage = 'No hay productos disponibles',
-  currency = 'PEN'
+  currency = 'PEN',
+  priceListOptions,
+  selectedPriceListId,
+  onPriceListChange,
+  getUnitOptionsForProduct,
+  formatUnitLabel,
+  getPreferredUnitForSku,
+  getPriceForProduct,
+  activePriceListLabel,
 }) => {
   const { formatPrice } = useCurrency();
   const { addProduct, categories: catalogoCategories } = useProductStore();
@@ -80,6 +98,52 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const [showProductModal, setShowProductModal] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [unitSelections, setUnitSelections] = useState<Record<string, string>>({});
+
+  const resolveSku = useCallback((product: Product) => product.code || product.id, []);
+
+  useEffect(() => {
+    setUnitSelections((prev) => {
+      const next: Record<string, string> = {};
+      products.forEach((product) => {
+        const sku = resolveSku(product);
+        if (!sku) {
+          return;
+        }
+        const preferredUnit = getPreferredUnitForSku(sku, product.unidadMedida || product.unit);
+        next[sku] = prev[sku] || preferredUnit;
+      });
+      return next;
+    });
+  }, [getPreferredUnitForSku, products, resolveSku]);
+
+  const resolveProductPrice = useCallback((product: Product, unitCode?: string) => {
+    const sku = resolveSku(product);
+    const computed = getPriceForProduct(sku, unitCode, selectedPriceListId);
+    if (typeof computed === 'number') {
+      return computed;
+    }
+    return Number.isFinite(product.price) ? product.price : 0;
+  }, [getPriceForProduct, resolveSku, selectedPriceListId]);
+
+  const buildProductForSale = useCallback((product: Product, forcedUnit?: string): Product => {
+    const sku = resolveSku(product);
+    const selectedUnit = forcedUnit || unitSelections[sku] || getPreferredUnitForSku(sku, product.unidadMedida || product.unit);
+    const resolvedPrice = resolveProductPrice(product, selectedUnit);
+    return {
+      ...product,
+      price: resolvedPrice,
+      basePrice: resolvedPrice,
+      unidadMedida: selectedUnit,
+      unit: selectedUnit || product.unit,
+      priceColumnId: selectedPriceListId,
+      priceColumnLabel: activePriceListLabel,
+    };
+  }, [activePriceListLabel, getPreferredUnitForSku, resolveProductPrice, resolveSku, selectedPriceListId, unitSelections]);
+
+  const handleUnitSelectionChange = useCallback((sku: string, unitCode: string) => {
+    setUnitSelections((prev) => ({ ...prev, [sku]: unitCode }));
+  }, []);
 
   // ===================================================================
   // FUNCIONES DE UTILIDAD
@@ -95,9 +159,11 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   };
 
   const handleProductClick = (product: Product) => {
-    if (!isLoading) {
-      onAddToCart(product);
+    if (isLoading) {
+      return;
     }
+    const preparedProduct = buildProductForSale(product);
+    onAddToCart(preparedProduct);
   };
 
   const getGridClasses = (): string => {
@@ -122,7 +188,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   };
 
   const handleProductSelect = (product: Product) => {
-    onAddToCart(product);
+    const preparedProduct = buildProductForSale(product);
+    onAddToCart(preparedProduct);
     setShowResults(false);
     setSearchQuery('');
   };
@@ -130,7 +197,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const handleScanBarcode = (barcode: string) => {
     searchByBarcode(barcode).then(product => {
       if (product) {
-        onAddToCart(product);
+        const preparedProduct = buildProductForSale(product);
+        onAddToCart(preparedProduct);
         setShowResults(false);
       }
     });
@@ -170,6 +238,28 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
   const renderSearchHeader = () => (
     <div className="bg-white border-b border-gray-200 p-3 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Catálogo disponible</p>
+          <p className="text-xs text-gray-400">Selecciona productos y ajusta unidades sin salir del grid</p>
+        </div>
+        {priceListOptions.length > 0 && (
+          <div className="flex items-center gap-2 text-[11px] text-gray-600">
+            <span className="uppercase tracking-wide">Lista de precios</span>
+            <select
+              value={selectedPriceListId}
+              onChange={(event) => onPriceListChange(event.target.value)}
+              className="bg-white border border-gray-200 rounded-md px-2 py-1 text-[11px] font-semibold text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-0"
+            >
+              {priceListOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
       {/* Barra de búsqueda principal */}
       <div className="flex items-center gap-3 mb-3">
         
@@ -212,25 +302,33 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
               {hasResults ? (
                 <div className="p-2">
-                  {searchResults.slice(0, 6).map(product => (
-                    <button
-                      key={product.id}
-                      onClick={() => handleProductSelect(product)}
-                      className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-100 last:border-b-0"
-                    >
-                      <div className="flex justify-between items-center">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-900 truncate">{product.name}</div>
-                          <div className="text-sm text-gray-500">{product.code}</div>
-                        </div>
-                        <div className="ml-3 text-right">
-                          <div className="font-bold text-blue-600">
-                            {formatPrice(product.price, currency)}
+                  {searchResults.slice(0, 6).map(product => {
+                    const sku = resolveSku(product);
+                    const previewUnit = unitSelections[sku] || getPreferredUnitForSku(sku, product.unidadMedida || product.unit);
+                    const previewPrice = resolveProductPrice(product, previewUnit);
+                    return (
+                      <button
+                        key={product.id}
+                        onClick={() => handleProductSelect(product)}
+                        className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                            <div className="text-sm text-gray-500">{product.code}</div>
+                          </div>
+                          <div className="ml-3 text-right">
+                            <div className="font-bold text-blue-600">
+                              {formatPrice(previewPrice, currency)}
+                            </div>
+                            <div className="text-[10px] text-gray-500">
+                              {activePriceListLabel || 'Lista de precios'}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="p-6 text-center text-gray-500">
@@ -396,6 +494,18 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             {displayProducts.map((product) => {
               const quantityInCart = getProductQuantityInCart(product.id);
               const inCart = isProductInCart(product.id);
+              const sku = resolveSku(product);
+              const selectedUnit = unitSelections[sku] || getPreferredUnitForSku(sku, product.unidadMedida || product.unit);
+              const unitOptions = getUnitOptionsForProduct(sku);
+              const fallbackUnitCode = selectedUnit || product.unidadMedida || product.unit || '';
+              const normalizedOptions = unitOptions.length > 0
+                ? unitOptions
+                : fallbackUnitCode
+                  ? [{ code: fallbackUnitCode, label: formatUnitLabel(fallbackUnitCode) || fallbackUnitCode, isBase: true }]
+                  : [];
+              const currentUnit = normalizedOptions[0]?.code || '';
+              const resolvedPrice = resolveProductPrice(product, currentUnit);
+              const formattedPrice = formatPrice(resolvedPrice, currency);
 
               return (
                 <div 
@@ -435,9 +545,31 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                       {product.name}
                     </h3>
                     
-                    <p className="text-lg font-bold text-blue-600">
-                      {formatPrice(product.price, currency)}
-                    </p>
+                    <div className="text-lg font-bold text-blue-600">
+                      {formattedPrice}
+                    </div>
+                    {activePriceListLabel && (
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{activePriceListLabel}</p>
+                    )}
+
+                    <div className="mt-2">
+                      <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Unidad</label>
+                      <select
+                        value={currentUnit}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => {
+                          event.stopPropagation();
+                          handleUnitSelectionChange(sku, event.target.value);
+                        }}
+                        className="mt-1 w-full text-xs border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-blue-500"
+                      >
+                        {normalizedOptions.map(option => (
+                          <option key={`${sku}-${option.code}`} value={option.code}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     
                     <p className="text-xs text-gray-500">
                       {product.code}
