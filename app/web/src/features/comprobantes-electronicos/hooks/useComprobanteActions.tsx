@@ -23,6 +23,7 @@ import {
   normalizeCreditTermsToInstallments,
   updateInstallmentsWithAllocations,
 } from '../../gestion-cobranzas/utils/installments';
+import type { PaymentMethod as ConfigPaymentMethod } from '../../configuracion-sistema/models/PaymentMethod';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -64,6 +65,8 @@ export const useComprobanteActions = () => {
   const { addComprobante } = useComprobanteContext();
   const { session } = useUserSession();
   const { upsertCuenta, registerCobranza } = useCobranzasContext();
+
+  const paymentMethods: ConfigPaymentMethod[] = [];
 
   const buildPaymentLabel = useCallback((paymentDetails?: PaymentCollectionPayload, fallbackFormaPago?: string) => {
     if (paymentDetails?.mode === 'credito') {
@@ -718,5 +721,6 @@ export const useComprobanteActions = () => {
     info: toast.info,
     toasts: toast.toasts,
     removeToast: toast.removeToast,
+    paymentMethods,
   };
 };

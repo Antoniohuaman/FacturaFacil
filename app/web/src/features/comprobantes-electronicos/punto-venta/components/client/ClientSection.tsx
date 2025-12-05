@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Search, Edit, User, X } from 'lucide-react';
 import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
 
-interface ClientePOS {
+export interface ClientePOS {
   id: number;
   nombre: string;
   tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
@@ -10,11 +10,9 @@ interface ClientePOS {
   direccion: string;
 }
 
-type ClientSelectionData = ClientePOS;
-
 interface ClientSectionProps {
-  clienteSeleccionado: any | null;
-  setClienteSeleccionado: (cliente: ClientSelectionData | null) => void;
+  clienteSeleccionado: ClientePOS | null;
+  setClienteSeleccionado: (cliente: ClientePOS | null) => void;
 }
 
 export const ClientSection: React.FC<ClientSectionProps> = ({
@@ -181,6 +179,8 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     setSearchQuery('');
   };
 
+  const selectedClientName: string = clienteSeleccionado ? clienteSeleccionado.nombre : '';
+
   return (
     <div className="p-2.5 bg-white border-b border-gray-200">
       {!clienteSeleccionado ? (
@@ -206,7 +206,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
             />
             <input
               type="text"
-              value={clienteSeleccionado?.nombre || ''}
+              value={selectedClientName}
               readOnly
               placeholder="NOMBRE DEL CLIENTE"
               className="px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-[11px] text-gray-600 uppercase"

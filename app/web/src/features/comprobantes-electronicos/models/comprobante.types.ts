@@ -113,6 +113,7 @@ export interface CartItem {
   imagen?: string;
   codigoSunat?: string;
   unidad?: string; // ✅ Nombre de la unidad del producto (ej: "UNIDAD", "KILOGRAMO")
+  unit?: string; // ✅ Alias usado por el POS para mostrar la unidad
 }
 
 // ===================================================================

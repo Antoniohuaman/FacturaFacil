@@ -48,6 +48,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     removeToast,
     error,
     warning,
+    paymentMethods,
   } = useComprobanteActions();
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -68,9 +69,9 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     | {
         id: number;
         nombre: string;
-        tipoDocumento: string;
+        tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
         documento: string;
-        direccion?: string;
+        direccion: string;
       }
     | null
   >(null);
@@ -318,6 +319,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     cajaStatus,
     toasts,
     removeToast,
+    paymentMethods,
     availableProducts,
     selectedPaymentMethod,
     isCreditMethod,

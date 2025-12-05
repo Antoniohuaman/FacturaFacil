@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // ===================================================================
 // COMPONENTE UNIFICADO: CARRITO + CONFIGURACIÓN DE DOCUMENTO
 // Fusiona CartSidebar con selección de Boleta/Factura y Cliente
@@ -23,8 +22,20 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   tipoComprobante: 'boleta' | 'factura';
   setTipoComprobante: (tipo: 'boleta' | 'factura') => void;
   onCurrencyChange?: (currency: 'PEN' | 'USD') => void;
-  clienteSeleccionado: any | null;
-  setClienteSeleccionado: (cliente: any | null) => void;
+  clienteSeleccionado: {
+    id: number;
+    nombre: string;
+    tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
+    documento: string;
+    direccion: string;
+  } | null;
+  setClienteSeleccionado: (cliente: {
+    id: number;
+    nombre: string;
+    tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
+    documento: string;
+    direccion: string;
+  } | null) => void;
   paymentMethods: PaymentMethod[];
   formaPagoId: string;
   onFormaPagoChange: (paymentMethodId: string) => void;

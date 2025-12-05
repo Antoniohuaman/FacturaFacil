@@ -46,7 +46,7 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                     {item.name}
                   </h4>
                   <p className="text-[9px] text-gray-500">
-                    {String((item as any).unit ?? 'Und.')}
+                    {item.unidad ?? item.unit ?? 'Und.'}
                   </p>
                 </div>
               </div>

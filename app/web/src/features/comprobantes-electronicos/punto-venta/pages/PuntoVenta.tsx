@@ -12,7 +12,7 @@ import { ProductGrid } from '../components/products/ProductGrid';
 import { CartCheckoutPanel } from '../components/cart/CartCheckoutPanel';
 
 // Importar componentes compartidos
-import { ToastContainer, type ToastMessage } from '../../shared/ui/Toast/ToastContainer';
+import { ToastContainer } from '../../shared/ui/Toast/ToastContainer';
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
 import { CobranzaModal } from '../../shared/modales/CobranzaModal';
@@ -69,6 +69,7 @@ const PuntoVenta = () => {
     handleCobranzaComplete,
     handlePrint,
     handleNewSale,
+    paymentMethods,
   } = usePosComprobanteFlow({ cartItems, totals });
 
   return (
@@ -148,7 +149,7 @@ const PuntoVenta = () => {
             setClienteSeleccionado={setClienteSeleccionado}
             cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
             isProcessing={isProcessing}
-            paymentMethods={[]}
+            paymentMethods={paymentMethods}
             formaPagoId={formaPago}
             onFormaPagoChange={setFormaPago}
             isCreditMethod={isCreditMethod}
@@ -164,7 +165,7 @@ const PuntoVenta = () => {
 
         {/* Toast Container - Sin cambios */}
         <ToastContainer
-          toasts={toasts as ToastMessage[]}
+          toasts={toasts}
           onRemove={removeToast}
         />
 
