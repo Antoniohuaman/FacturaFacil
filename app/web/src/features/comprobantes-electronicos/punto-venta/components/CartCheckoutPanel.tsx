@@ -194,11 +194,11 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           discountValueState={discountValueState}
         />
 
-        <div className="px-3 pb-4">
+        <div className="px-2 pb-2">
           <button
             type="button"
             onClick={() => setShowNotes((prev) => !prev)}
-            className="w-full flex items-center justify-between px-1 py-2 bg-transparent hover:text-blue-700 transition"
+            className="w-full flex items-center justify-between px-1 py-1.5 bg-transparent hover:text-blue-700 transition"
           >
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
               <FileText className="h-4 w-4 text-blue-600" />
@@ -211,7 +211,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           </button>
 
           {showNotes && (
-            <div className="mt-3 space-y-4 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+            <div className="mt-2 space-y-3 rounded-2xl border border-gray-100 bg-white p-2.5 shadow-sm">
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-gray-700">Observaciones (se imprime)</label>
