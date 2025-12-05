@@ -39,6 +39,10 @@ const PuntoVenta = () => {
     serieSeleccionada,
     formaPago,
     setFormaPago,
+    observaciones,
+    setObservaciones,
+    notaInterna,
+    setNotaInterna,
     isProcessing,
     cajaStatus,
     toasts,
@@ -160,6 +164,10 @@ const PuntoVenta = () => {
             onEmitWithoutPayment={() => {
               void handleEmitirSinCobranza();
             }}
+            observaciones={observaciones}
+            notaInterna={notaInterna}
+            onObservacionesChange={setObservaciones}
+            onNotaInternaChange={setNotaInterna}
           />
         </div>
 

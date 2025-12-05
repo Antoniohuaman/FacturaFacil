@@ -4,7 +4,7 @@
 // ===================================================================
 
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, FileText, Trash2 } from 'lucide-react';
 import type { CartSidebarProps, Product, ComprobanteCreditTerms } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { UI_MESSAGES } from '../../models/constants';
@@ -46,6 +46,10 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   creditScheduleErrors?: string[];
   creditPaymentMethodName?: string;
   onEmitWithoutPayment?: () => void;
+  observaciones: string;
+  notaInterna?: string;
+  onObservacionesChange: (value: string) => void;
+  onNotaInternaChange?: (value: string) => void;
 }
 
 export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
@@ -74,8 +78,14 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   creditScheduleErrors,
   creditPaymentMethodName,
   onEmitWithoutPayment,
+  observaciones,
+  notaInterna = '',
+  onObservacionesChange,
+  onNotaInternaChange,
 }) => {
   const { formatPrice, changeCurrency } = useCurrency();
+  const [showNotes, setShowNotes] = useState(false);
+  const MAX_NOTES_CHARS = 500;
 
   const availablePaymentMethods = useMemo(() => (
     paymentMethods
@@ -183,6 +193,59 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           discountTypeState={discountState}
           discountValueState={discountValueState}
         />
+
+        <div className="px-3 pb-4">
+          <button
+            type="button"
+            onClick={() => setShowNotes((prev) => !prev)}
+            className="w-full flex items-center justify-between px-1 py-2 bg-transparent hover:text-blue-700 transition"
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+              <FileText className="h-4 w-4 text-blue-600" />
+              <span>Observaciones</span>
+              <span className="text-[11px] font-normal text-gray-400">Opcional</span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-gray-500 transition-transform ${showNotes ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {showNotes && (
+            <div className="mt-3 space-y-4 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-gray-700">Observaciones (se imprime)</label>
+                  <span className="text-[11px] text-gray-500">{observaciones.length}/{MAX_NOTES_CHARS}</span>
+                </div>
+                <textarea
+                  rows={3}
+                  maxLength={MAX_NOTES_CHARS}
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition resize-none"
+                  placeholder="Ej: Entrega coordinada, indicar puerta lateral"
+                  value={observaciones}
+                  onChange={(e) => onObservacionesChange(e.target.value)}
+                />
+              </div>
+
+              {onNotaInternaChange && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-gray-700">Nota interna (no se imprime)</label>
+                    <span className="text-[11px] text-gray-500">{notaInterna.length}/{MAX_NOTES_CHARS}</span>
+                  </div>
+                  <textarea
+                    rows={2}
+                    maxLength={MAX_NOTES_CHARS}
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition resize-none"
+                    placeholder="Ej: Cliente prefiere pagar el día 15"
+                    value={notaInterna}
+                    onChange={(e) => onNotaInternaChange(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Sección de Total - Compacta y Profesional */}
