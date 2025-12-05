@@ -284,16 +284,6 @@ export interface ComprobantHeaderProps {
   onNavigateBack: () => void;
 }
 
-export interface ProductGridProps {
-  products: Product[];
-  cartItems: CartItem[];
-  onAddToCart: (product: Product) => void;
-  columns?: number;
-  showQuantityBadge?: boolean;
-  showCategory?: boolean;
-  isLoading?: boolean;
-}
-
 export interface CartSidebarProps {
   cartItems: CartItem[];
   totals: PaymentTotals;
@@ -392,17 +382,5 @@ export interface DetailedTotals extends PaymentTotals {
 }
 
 // Nuevos tipos para búsqueda
-export interface ProductSearchBarProps {
-  onSearch: (query: string) => void;
-  onScanBarcode?: (code: string) => void;
-  onCreateProduct?: () => void;
-  placeholder?: string;
-  isLoading?: boolean;
-}
-
-export interface QuickProductModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onProductCreated: (product: Product) => void;
-  currency?: Currency;
-}
+// TIPOS LEGACY POS (ProductGridProps, ProductSearchBarProps, QuickProductModalProps)
+// se han eliminado al no tener ya componentes activos asociados.
