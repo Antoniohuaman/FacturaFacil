@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogoProduct } from '../../catalogo-articulos/models/types';
 import type { Product as POSProduct } from '../models/comprobante.types';
+import { usePriceCalculator } from '../../lista-precios/hooks/usePriceCalculator';
 
 interface UseAvailableProductsOptions {
   /**
@@ -32,6 +33,7 @@ interface UseAvailableProductsOptions {
 export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) => {
   const { establecimientoId, soloConStock = false } = options;
   const { allProducts } = useProductStore();
+  const { getUnitPrice, baseColumn } = usePriceCalculator();
 
   const availableProducts = useMemo(() => {
     // Filtrar productos según las reglas de negocio
@@ -68,30 +70,38 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
     });
 
     // Convertir productos del catálogo al formato POS
-    const posProducts: POSProduct[] = filtered.map(product => ({
-      id: product.id,
-      code: product.codigo,
-      name: product.nombre,
-      price: product.precio,
-      category: product.categoria,
-      description: product.descripcion || '',
-      stock: getStockForEstablishment(product, establecimientoId),
-      barcode: product.codigoBarras,
-      image: product.imagen,
-      unit: mapUnitToPOS(product.unidad),
-      requiresStockControl: product.cantidad !== undefined,
-      // Datos adicionales del catálogo
-      catalogData: {
-        impuesto: product.impuesto,
-        precioCompra: product.precioCompra,
-        descuento: product.descuentoProducto,
-        marca: product.marca,
-        modelo: product.modelo
-      }
-    }));
+    const posProducts: POSProduct[] = filtered.map(product => {
+      const mappedUnit = mapUnitToPOS(product.unidad);
+      const priceFromList = getUnitPrice(product.codigo, undefined, mappedUnit);
+      const resolvedPrice = priceFromList ?? product.precio ?? 0;
+
+      return {
+        id: product.id,
+        code: product.codigo,
+        name: product.nombre,
+        price: resolvedPrice,
+        priceColumnId: baseColumn?.id,
+        priceColumnLabel: baseColumn?.name,
+        category: product.categoria,
+        description: product.descripcion || '',
+        stock: getStockForEstablishment(product, establecimientoId),
+        barcode: product.codigoBarras,
+        image: product.imagen,
+        unit: mappedUnit,
+        requiresStockControl: product.cantidad !== undefined,
+        // Datos adicionales del catálogo
+        catalogData: {
+          impuesto: product.impuesto,
+          precioCompra: product.precioCompra,
+          descuento: product.descuentoProducto,
+          marca: product.marca,
+          modelo: product.modelo
+        }
+      };
+    });
 
     return posProducts;
-  }, [allProducts, establecimientoId, soloConStock]);
+  }, [allProducts, establecimientoId, soloConStock, baseColumn?.id, baseColumn?.name, getUnitPrice]);
 
   return availableProducts;
 };
