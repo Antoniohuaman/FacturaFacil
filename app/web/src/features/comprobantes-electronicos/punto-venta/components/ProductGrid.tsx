@@ -70,6 +70,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     hasSearchQuery,
     availableCategories,
     selectedCategory,
+    searchFilters,
     setSearchQuery,
     searchByBarcode,
     searchByCategory,
@@ -159,22 +160,24 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
 
   // Usar productos filtrados o todos los productos
-  const displayProducts = hasSearchQuery ? searchResults : products;
+  const displayProducts = (hasSearchQuery || selectedCategory || searchFilters.category)
+    ? searchResults
+    : products;
 
   // ===================================================================
   // RENDERIZADO DEL HEADER DE BÚSQUEDA
   // ===================================================================
 
   const renderSearchHeader = () => (
-    <div className="bg-white border-b border-gray-200 p-4 mb-6">
+    <div className="bg-white border-b border-gray-200 p-3 mb-4">
       {/* Barra de búsqueda principal */}
-      <div className="flex items-center gap-4 mb-4">
+      <div className="flex items-center gap-3 mb-3">
         
         {/* Barra de búsqueda */}
         <div className="flex-1 relative">
           <div className="relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2">
-              <Search className="h-5 w-5 text-gray-400" />
+              <Search className="h-4 w-4 text-gray-400" />
             </div>
             
             <input
@@ -182,7 +185,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Buscar por nombre, código o categoría..."
-              className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base placeholder-gray-500 transition-all duration-200"
+              className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm placeholder-gray-500 transition-all duration-200"
             />
 
             {isSearching && (
@@ -240,25 +243,25 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         </div>
 
         {/* Botones de acción */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           
           {/* Escanear */}
           <button
             onClick={() => handleScanBarcode('00168822')}
-            className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors font-medium shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-semibold shadow-sm"
             title="Escanear código de barras"
           >
-            <Scan className="h-5 w-5" />
+            <Scan className="h-4 w-4" />
             <span className="hidden sm:inline">Escanear</span>
           </button>
 
           {/* Crear producto */}
           <button
             onClick={handleCreateProduct}
-            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white rounded-xl transition-all font-medium shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors text-sm font-semibold shadow-sm"
             title="Crear nuevo producto"
           >
-            <Plus className="h-5 w-5" />
+            <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nuevo</span>
           </button>
 
@@ -266,13 +269,13 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
           {/* Filtros */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-colors font-medium ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${
               showFilters 
                 ? 'bg-orange-100 text-orange-700' 
                 : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
             }`}
           >
-            <Filter className="h-5 w-5" />
+            <Filter className="h-4 w-4" />
             <span className="hidden lg:inline">Filtros</span>
           </button>
         </div>
@@ -280,7 +283,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
       {/* Filtros expandibles */}
       {showFilters && (
-        <div className="bg-gray-50 rounded-lg p-4">
+        <div className="bg-gray-50 rounded-lg px-3 py-3">
           <div className="flex items-center gap-4 flex-wrap">
             <span className="text-sm font-medium text-gray-700">Categorías:</span>
             
