@@ -33,10 +33,6 @@ export interface ProductGridProps {
     xl?: number;
   };
   
-  // Configuración de apariencia
-  showQuantityBadge?: boolean;
-  showCategory?: boolean;
-  
   // Estados
   isLoading?: boolean;
   emptyStateMessage?: string;
@@ -51,6 +47,7 @@ export interface ProductGridProps {
   getPreferredUnitForSku: (sku: string, requestedUnit?: string) => string;
   getPriceForProduct: (sku: string, unitCode?: string, columnId?: string) => number | undefined;
   activePriceListLabel?: string;
+  showQuantityBadge?: boolean;
 }
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
@@ -64,7 +61,6 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     xl: 5
   },
   showQuantityBadge = true,
-  showCategory = false,
   isLoading = false,
   emptyStateMessage = 'No hay productos disponibles',
   currency = 'PEN',
@@ -140,10 +136,6 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       priceColumnLabel: activePriceListLabel,
     };
   }, [activePriceListLabel, getPreferredUnitForSku, resolveProductPrice, resolveSku, selectedPriceListId, unitSelections]);
-
-  const handleUnitSelectionChange = useCallback((sku: string, unitCode: string) => {
-    setUnitSelections((prev) => ({ ...prev, [sku]: unitCode }));
-  }, []);
 
   // ===================================================================
   // FUNCIONES DE UTILIDAD
@@ -503,9 +495,15 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                 : fallbackUnitCode
                   ? [{ code: fallbackUnitCode, label: formatUnitLabel(fallbackUnitCode) || fallbackUnitCode, isBase: true }]
                   : [];
-              const currentUnit = normalizedOptions[0]?.code || '';
+              const baseUnitOption = normalizedOptions[0];
+              const currentUnit = baseUnitOption?.code || fallbackUnitCode || product.unidadMedida || product.unit || '';
               const resolvedPrice = resolveProductPrice(product, currentUnit);
               const formattedPrice = formatPrice(resolvedPrice, currency);
+              const unitLabel = baseUnitOption?.label
+                || (currentUnit ? formatUnitLabel(currentUnit) : undefined)
+                || currentUnit
+                || 'Unidad';
+              const stockValue = Number.isFinite(product.stock) ? Math.max(0, product.stock) : 0;
 
               return (
                 <div 
@@ -548,53 +546,13 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                     <div className="text-lg font-bold text-blue-600">
                       {formattedPrice}
                     </div>
-                    {activePriceListLabel && (
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{activePriceListLabel}</p>
-                    )}
-
-                    <div className="mt-2">
-                      <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Unidad</label>
-                      <select
-                        value={currentUnit}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => {
-                          event.stopPropagation();
-                          handleUnitSelectionChange(sku, event.target.value);
-                        }}
-                        className="mt-1 w-full text-xs border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-blue-500"
-                      >
-                        {normalizedOptions.map(option => (
-                          <option key={`${sku}-${option.code}`} value={option.code}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <p className="text-xs text-gray-500">
-                      {product.code}
+                    <p className="text-xs text-gray-500 mt-1" title="Unidad base">
+                      {unitLabel}
                     </p>
 
-                    {/* Badge de stock */}
-                    {product.requiresStockControl && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
-                          product.stock <= 0 
-                            ? 'bg-red-100 text-red-700' 
-                            : product.stock <= 10 
-                            ? 'bg-yellow-100 text-yellow-700' 
-                            : 'bg-green-100 text-green-700'
-                        }`}>
-                          {product.stock <= 0 ? '⚠️ Sin stock' : `📦 Stock: ${product.stock}`}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {showCategory && product.category && (
-                      <span className="inline-block text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md mt-1">
-                        {product.category}
-                      </span>
-                    )}
+                    <p className="text-xs text-gray-600 font-semibold">
+                      Stock: {stockValue}
+                    </p>
                   </div>
 
                   {/* Indicador de selección */}
