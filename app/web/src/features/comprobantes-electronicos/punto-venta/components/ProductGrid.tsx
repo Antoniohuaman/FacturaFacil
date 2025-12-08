@@ -503,7 +503,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                 || (currentUnit ? formatUnitLabel(currentUnit) : undefined)
                 || currentUnit
                 || 'Unidad';
-              const stockValue = Number.isFinite(product.stock) ? Math.max(0, product.stock) : 0;
+              const stockValue = Math.max(0, typeof product.stock === 'number' ? product.stock : 0);
 
               return (
                 <div 
