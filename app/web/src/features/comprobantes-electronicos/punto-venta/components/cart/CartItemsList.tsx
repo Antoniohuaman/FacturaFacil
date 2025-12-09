@@ -35,8 +35,8 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
 
   return (
     <div className="p-3">
-      <div className="space-y-2">
-        {cartItems.map((item, index) => {
+      <div className="space-y-1.5">
+        {cartItems.map((item) => {
           const sku = item.code || String(item.id);
           const unitOptions = getUnitOptionsForProduct(sku);
           const fallbackUnit = item.unidadMedida || item.unit;
@@ -50,23 +50,15 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
           return (
             <div
               key={item.id}
-              className="group bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition-all duration-150 p-2.5 relative"
+              className="group bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition-all duration-150 p-2 relative"
             >
               <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity rounded-l-lg" />
 
-              <div className="flex items-center justify-between mb-2 gap-2 pl-1">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="flex-shrink-0 w-5 h-5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-white">{index + 1}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-[11px] text-gray-900 truncate leading-tight">
-                      {item.name}
-                    </h4>
-                    <p className="text-[9px] text-gray-500">
-                      {item.code}
-                    </p>
-                  </div>
+              <div className="flex items-center justify-between mb-1.5 gap-1.5 pl-0">
+                <div className="flex flex-1 min-w-0">
+                  <h4 className="font-semibold text-[11px] text-gray-900 truncate leading-snug">
+                    {item.name}
+                  </h4>
                 </div>
                 <button
                   onClick={() => onRemoveItem(item.id)}
@@ -78,12 +70,13 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-4 gap-2 items-end">
-                <div className="space-y-1">
-                  <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wide">
-                    Cant.
-                  </label>
-                  <div className="flex items-center bg-gray-50 rounded border border-gray-200 overflow-hidden h-7">
+              <div className="grid grid-cols-4 gap-1.5 items-center">
+                <div>
+                  <div
+                    className="flex items-center bg-gray-50 rounded border border-gray-200 overflow-hidden h-7"
+                    role="group"
+                    aria-label="Cantidad"
+                  >
                     <button
                       onClick={() => onUpdateQuantity(item.id, -1)}
                       className="flex-1 h-full flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-30 border-r border-gray-200"
@@ -106,15 +99,13 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wide">
-                    Unidad
-                  </label>
+                <div>
                   <select
                     className="w-full h-7 border border-gray-200 rounded bg-white text-[11px] font-semibold text-gray-900 px-1.5 focus:outline-none focus:border-blue-500"
                     value={currentUnit}
                     onChange={(event) => onUpdateUnit(item.id, event.target.value)}
                     disabled={isProcessing || normalizedOptions.length === 0}
+                    aria-label="Unidad"
                   >
                     {normalizedOptions.length === 0 ? (
                       <option value="">Sin unidades</option>
@@ -128,10 +119,7 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                   </select>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wide">
-                    Precio
-                  </label>
+                <div>
                   {onUpdatePrice ? (
                     <div className="relative h-7">
                       <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400 z-10">
@@ -150,6 +138,7 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                         className="w-full h-full pl-6 pr-1 text-[11px] font-semibold text-right bg-white border border-gray-200 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all"
                         disabled={isProcessing}
                         placeholder="0.00"
+                        aria-label="Precio"
                       />
                     </div>
                   ) : (
@@ -159,11 +148,11 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wide">
-                    Total
-                  </label>
-                  <div className="h-7 px-1.5 flex items-center justify-end bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-300 rounded">
+                <div>
+                  <div
+                    className="h-7 px-1.5 flex items-center justify-end bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-300 rounded"
+                    aria-label="Total"
+                  >
                     <span className="text-[11px] font-bold text-blue-900">
                       {formatPrice(item.price * item.quantity, currency)}
                     </span>
