@@ -10,7 +10,6 @@ const ENABLE_SIDE_PREVIEW_EMISION = true; // ✅ ACTIVADO para ver el panel
 
 // Importar hooks del form-core y hooks específicos
 import { useCart } from '../punto-venta/hooks/useCart';
-import { usePayment } from '../shared/form-core/hooks/usePayment';
 import { useCurrency } from '../shared/form-core/hooks/useCurrency';
 import { useDrafts } from '../hooks/useDrafts';
 import { useDocumentType } from '../shared/form-core/hooks/useDocumentType';
@@ -51,9 +50,49 @@ import { useCreditTermsConfigurator } from '../hooks/useCreditTermsConfigurator'
 import { CreditScheduleSummaryCard } from '../shared/payments/CreditScheduleSummaryCard';
 import { CreditScheduleModal } from '../shared/payments/CreditScheduleModal';
 import type { CreditInstallmentDefinition } from '../../../shared/payments/paymentTerms';
+import { calculateLineaComprobante, type LinePricingInput } from '../shared/core/comprobantePricing';
+import type { CartItem } from '../models/comprobante.types';
 
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
+
+const IGV_RATE_BY_TYPE: Record<string, number> = {
+  igv18: 0.18,
+  igv10: 0.10,
+  exonerado: 0,
+  inafecto: 0,
+};
+
+const deriveIgvRate = (item: CartItem): number => {
+  if (item.igvType && item.igvType in IGV_RATE_BY_TYPE) {
+    return IGV_RATE_BY_TYPE[item.igvType];
+  }
+  if (typeof item.igv === 'number' && Number.isFinite(item.igv)) {
+    return item.igv / 100;
+  }
+  return IGV_RATE_BY_TYPE.igv18;
+};
+
+const mapCartItemToPricingInput = (item: CartItem): LinePricingInput => {
+  const unitCode = item.unidadMedida || item.unit || '';
+  const basePrice = Number.isFinite(item.basePrice)
+    ? (item.basePrice as number)
+    : Number.isFinite(item.price)
+      ? (item.price as number)
+      : 0;
+
+  return {
+    unidadMinimaCode: unitCode, // TODO: reemplazar con unidad mínima real cuando esté disponible
+    unidadSeleccionadaCode: unitCode,
+    factorToUnidadMinima: 1, // TODO: reemplazar con factor real cuando el modelo lo provea
+    cantidad: Number.isFinite(item.quantity) ? (item.quantity as number) : 0,
+    precioBaseUnidadMinima: basePrice, // TODO: usar precio base en unidad mínima real cuando exista
+    precioPresentacionOpcional: null,
+    igvRate: deriveIgvRate(item),
+    precioIncluyeIgv: true, // TODO: hacer configurable cuando el modelo indique precio neto
+    currencyPrecision: 2,
+  };
+};
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
@@ -71,7 +110,6 @@ const EmisionTradicional = () => {
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { session } = useUserSession();
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
-  const { calculateTotals } = usePayment();
   const { currentCurrency, currencyInfo, changeCurrency } = useCurrency();
   const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
@@ -137,7 +175,23 @@ const EmisionTradicional = () => {
   const { createCliente } = useClientes();
 
   // Calculate totals
-  const totals = calculateTotals(cartItems);
+  const totals = useMemo(() => {
+    if (!cartItems || cartItems.length === 0) {
+      return { subtotal: 0, igv: 0, total: 0, currency: currentCurrency };
+    }
+
+    const lineResults = cartItems.map((item) => calculateLineaComprobante(mapCartItemToPricingInput(item)));
+    const subtotal = lineResults.reduce((sum, line) => sum + line.subtotal, 0);
+    const igv = lineResults.reduce((sum, line) => sum + line.igv, 0);
+    const total = lineResults.reduce((sum, line) => sum + line.total, 0);
+
+    return {
+      subtotal: Number(subtotal.toFixed(2)),
+      igv: Number(igv.toFixed(2)),
+      total: Number(total.toFixed(2)),
+      currency: currentCurrency,
+    };
+  }, [cartItems, currentCurrency]);
 
   const {
     paymentMethod: selectedPaymentMethod,

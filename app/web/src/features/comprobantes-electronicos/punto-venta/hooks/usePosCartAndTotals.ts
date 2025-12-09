@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CartItem } from '../../models/comprobante.types';
 import { roundCurrency } from '../../../lista-precios/utils/price-helpers/pricing';
 import { useCart } from '../hooks/useCart';
-import { usePayment } from '../../shared/form-core/hooks/usePayment';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
+import { calculateLineaComprobante, type LinePricingInput } from '../../shared/core/comprobantePricing';
 
 export interface PosPriceListOption {
   id: string;
@@ -14,6 +14,63 @@ export interface PosPriceListOption {
 type PricingNotifier = (title: string, message: string) => void;
 
 const PRICE_COLUMN_STORAGE_KEY = 'pos_price_column';
+
+const IGV_RATE_BY_TYPE: Record<string, number> = {
+  igv18: 0.18,
+  igv10: 0.10,
+  exonerado: 0,
+  inafecto: 0,
+};
+
+const deriveIgvRate = (item: CartItem): number => {
+  if (item.igvType && item.igvType in IGV_RATE_BY_TYPE) {
+    return IGV_RATE_BY_TYPE[item.igvType];
+  }
+  if (typeof item.igv === 'number' && Number.isFinite(item.igv)) {
+    return item.igv / 100;
+  }
+  return IGV_RATE_BY_TYPE.igv18;
+};
+
+const mapCartItemToPricingInput = (item: CartItem): LinePricingInput => {
+  const unitCode = item.unidadMedida || item.unit || '';
+  const basePrice = Number.isFinite(item.basePrice)
+    ? (item.basePrice as number)
+    : Number.isFinite(item.price)
+      ? (item.price as number)
+      : 0;
+
+  return {
+    unidadMinimaCode: unitCode, // TODO: reemplazar con unidad mínima real cuando esté disponible
+    unidadSeleccionadaCode: unitCode,
+    factorToUnidadMinima: 1, // TODO: reemplazar con factor real cuando el modelo lo provea
+    cantidad: Number.isFinite(item.quantity) ? (item.quantity as number) : 0,
+    precioBaseUnidadMinima: basePrice, // TODO: usar precio base en unidad mínima real cuando exista
+    precioPresentacionOpcional: null,
+    igvRate: deriveIgvRate(item),
+    precioIncluyeIgv: true, // TODO: hacer configurable cuando el modelo indique precio neto
+    currencyPrecision: 2,
+  };
+};
+
+const calculateTotalsFromCart = (items: CartItem[]) => {
+  if (!items || items.length === 0) {
+    return { subtotal: 0, igv: 0, total: 0, currency: 'PEN' as const };
+  }
+
+  const lineResults = items.map((item) => calculateLineaComprobante(mapCartItemToPricingInput(item)));
+
+  const subtotal = lineResults.reduce((sum, line) => sum + line.subtotal, 0);
+  const igv = lineResults.reduce((sum, line) => sum + line.igv, 0);
+  const total = lineResults.reduce((sum, line) => sum + line.total, 0);
+
+  return {
+    subtotal: Number(subtotal.toFixed(2)),
+    igv: Number(igv.toFixed(2)),
+    total: Number(total.toFixed(2)),
+    currency: 'PEN' as const,
+  };
+};
 
 const readStoredPriceColumn = (validIds: string[], fallbackId?: string): string => {
   try {
@@ -37,8 +94,6 @@ export const usePosCartAndTotals = () => {
     updateCartItemPrice,
     clearCart,
   } = useCart();
-
-  const { calculateTotals } = usePayment();
   const {
     priceColumns,
     baseColumnId,
@@ -170,7 +225,7 @@ export const usePosCartAndTotals = () => {
     applyPriceToItem(target, nextUnit);
   }, [applyPriceToItem, cartItems]);
 
-  const totals = useMemo(() => calculateTotals(cartItems), [cartItems, calculateTotals]);
+  const totals = useMemo(() => calculateTotalsFromCart(cartItems), [cartItems]);
 
   const cartActions = useMemo(
     () => ({ addToCart, removeFromCart, updateCartQuantity, updateCartItemPrice, clearCart }),
