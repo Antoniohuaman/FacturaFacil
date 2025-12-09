@@ -140,65 +140,69 @@ const PuntoVenta = () => {
         </div>
 
         {/* Main Content - Layout EXACTAMENTE igual que antes */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(500px,1fr)]">
 
-          {/* POS View - PRESERVADO COMPLETAMENTE */}
-          <div className="flex-1 overflow-hidden">
-            {/* Products Grid - SIN CAMBIOS */}
-            <ProductGrid
-              products={availableProducts}
-              cartItems={cartItems}
-              onAddToCart={addToCart}
-              currency={currentCurrency}
-              priceListOptions={priceListOptions}
-              selectedPriceListId={selectedPriceListId}
-              onPriceListChange={setSelectedPriceListId}
-              getUnitOptionsForProduct={getUnitOptionsForProduct}
-              formatUnitLabel={formatUnitLabel}
-              getPreferredUnitForSku={getPreferredUnitForSku}
-              getPriceForProduct={getPriceForProduct}
-              activePriceListLabel={activePriceListLabel}
-            />
+            {/* POS View - PRESERVADO COMPLETAMENTE */}
+            <div className="overflow-hidden">
+              {/* Products Grid - SIN CAMBIOS */}
+              <ProductGrid
+                products={availableProducts}
+                cartItems={cartItems}
+                onAddToCart={addToCart}
+                currency={currentCurrency}
+                priceListOptions={priceListOptions}
+                selectedPriceListId={selectedPriceListId}
+                onPriceListChange={setSelectedPriceListId}
+                getUnitOptionsForProduct={getUnitOptionsForProduct}
+                formatUnitLabel={formatUnitLabel}
+                getPreferredUnitForSku={getPreferredUnitForSku}
+                getPriceForProduct={getPriceForProduct}
+                activePriceListLabel={activePriceListLabel}
+              />
+            </div>
+
+            {/* Cart Checkout Panel - NUEVO COMPONENTE UNIFICADO */}
+            <div className="xl:min-w-[500px]">
+              <CartCheckoutPanel
+                cartItems={cartItems}
+                totals={totals}
+                onRemoveItem={removeFromCart}
+                onUpdateQuantity={updateCartQuantity}
+                onUpdatePrice={updateCartItemPrice}
+                onCartItemUnitChange={onCartItemUnitChange}
+                getUnitOptionsForProduct={getUnitOptionsForProduct}
+                formatUnitLabel={formatUnitLabel}
+                onConfirmSale={handleConfirmSale}
+                onClearCart={clearCart}
+                onViewFullForm={() => navigate('/comprobantes/emision')}
+                onAddProduct={addToCart}
+                currency={currentCurrency}
+                tipoComprobante={tipoComprobante}
+                setTipoComprobante={setTipoComprobante}
+                onCurrencyChange={undefined}
+                clienteSeleccionado={clienteSeleccionado}
+                setClienteSeleccionado={setClienteSeleccionado}
+                cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
+                isProcessing={isProcessing}
+                paymentMethods={paymentMethods}
+                formaPagoId={formaPago}
+                onFormaPagoChange={setFormaPago}
+                isCreditMethod={isCreditMethod}
+                onConfigureCreditSchedule={handleOpenCreditScheduleModal}
+                creditTerms={creditTerms}
+                creditScheduleErrors={creditTemplateErrors}
+                creditPaymentMethodName={selectedPaymentMethod?.name}
+                onEmitWithoutPayment={() => {
+                  void handleEmitirSinCobranza();
+                }}
+                observaciones={observaciones}
+                notaInterna={notaInterna}
+                onObservacionesChange={setObservaciones}
+                onNotaInternaChange={setNotaInterna}
+              />
+            </div>
           </div>
-
-          {/* Cart Checkout Panel - NUEVO COMPONENTE UNIFICADO */}
-          <CartCheckoutPanel
-            cartItems={cartItems}
-            totals={totals}
-            onRemoveItem={removeFromCart}
-            onUpdateQuantity={updateCartQuantity}
-            onUpdatePrice={updateCartItemPrice}
-            onCartItemUnitChange={onCartItemUnitChange}
-            getUnitOptionsForProduct={getUnitOptionsForProduct}
-            formatUnitLabel={formatUnitLabel}
-            onConfirmSale={handleConfirmSale}
-            onClearCart={clearCart}
-            onViewFullForm={() => navigate('/comprobantes/emision')}
-            onAddProduct={addToCart}
-            currency={currentCurrency}
-            tipoComprobante={tipoComprobante}
-            setTipoComprobante={setTipoComprobante}
-            onCurrencyChange={undefined}
-            clienteSeleccionado={clienteSeleccionado}
-            setClienteSeleccionado={setClienteSeleccionado}
-            cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
-            isProcessing={isProcessing}
-            paymentMethods={paymentMethods}
-            formaPagoId={formaPago}
-            onFormaPagoChange={setFormaPago}
-            isCreditMethod={isCreditMethod}
-            onConfigureCreditSchedule={handleOpenCreditScheduleModal}
-            creditTerms={creditTerms}
-            creditScheduleErrors={creditTemplateErrors}
-            creditPaymentMethodName={selectedPaymentMethod?.name}
-            onEmitWithoutPayment={() => {
-              void handleEmitirSinCobranza();
-            }}
-            observaciones={observaciones}
-            notaInterna={notaInterna}
-            onObservacionesChange={setObservaciones}
-            onNotaInternaChange={setNotaInterna}
-          />
         </div>
 
         {/* Toast Container - Sin cambios */}
