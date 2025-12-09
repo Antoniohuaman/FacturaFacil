@@ -4,7 +4,7 @@
 // ===================================================================
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, SlidersHorizontal } from 'lucide-react';
+import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, SlidersHorizontal, ShoppingCart } from 'lucide-react';
 import type { CartSidebarProps, Product, ComprobanteCreditTerms } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { UI_MESSAGES } from '../../models/constants';
@@ -105,7 +105,8 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
   // Estado de la caja
   const isCashBoxClosed = cashBoxStatus === 'closed';
-  const canProcessSale = !isProcessing && cartItems.length > 0;
+  const hasItems = cartItems.length > 0;
+  const canProcessSale = !isProcessing && hasItems;
   const primaryDisabled = !canProcessSale || !onConfirmSale;
   const secondaryDisabled = !canProcessSale || !onEmitWithoutPayment;
   const primaryLabel = 'Emitir y cobrar';
@@ -165,7 +166,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const currentDocLabel = docOptions.find(option => option.value === tipoComprobante)?.label || 'Documento';
 
   return (
-    <div className="w-[480px] bg-white border-l border-gray-200 flex flex-col h-full shadow-lg">
+    <div className="bg-white border-l border-gray-200 flex h-full w-full flex-col">
       <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between" ref={docMenuRef}>
         <div className="relative">
           <button
@@ -246,103 +247,126 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
         </div>
       )}
 
-      {/* Contenido scrollable */}
-      <div className="flex-1 overflow-y-auto bg-gray-50">
-        <ClientSection
-          clienteSeleccionado={clienteSeleccionado}
-          setClienteSeleccionado={setClienteSeleccionado}
-        />
-
-        <CartItemsList
-          cartItems={cartItems}
-          currency={currency}
-          isProcessing={isProcessing}
-          onUpdateQuantity={onUpdateQuantity}
-          onUpdatePrice={onUpdatePrice}
-          onRemoveItem={onRemoveItem}
-          onUpdateUnit={onCartItemUnitChange}
-          getUnitOptionsForProduct={getUnitOptionsForProduct}
-          formatUnitLabel={formatUnitLabel}
-        />
-
-        {isCreditMethod && (
-          <div className="px-3 pb-3">
-            <CreditScheduleSummaryCard
-              creditTerms={creditTerms}
-              currency={currency}
-              total={totals.total}
-              onConfigure={onConfigureCreditSchedule}
-              errors={creditScheduleErrors}
-              paymentMethodName={creditPaymentMethodName || selectedPaymentMethod?.name}
+      {/* Contenido estructurado: header + lista scrollable + acciones */}
+      <div className="flex-1 min-h-0 bg-gray-50">
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="shrink-0">
+            <ClientSection
+              clienteSeleccionado={clienteSeleccionado}
+              setClienteSeleccionado={setClienteSeleccionado}
             />
           </div>
-        )}
 
-        <DiscountSection
-          currency={currency}
-          totals={totals}
-          discountTypeState={discountState}
-          discountValueState={discountValueState}
-        />
-
-        <div className="px-2 pb-2">
-          <button
-            type="button"
-            onClick={() => setShowNotes((prev) => !prev)}
-            className="w-full flex items-center justify-between px-1 py-1.5 bg-transparent hover:text-blue-700 transition"
-          >
-            <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-              <FileText className="h-4 w-4 text-blue-600" />
-              <span>Observaciones</span>
-              <span className="text-[11px] font-normal text-gray-400">Opcional</span>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-gray-500 transition-transform ${showNotes ? 'rotate-180' : ''}`}
-            />
-          </button>
-
-          {showNotes && (
-            <div className="mt-2 space-y-3 rounded-2xl border border-gray-100 bg-white p-2.5 shadow-sm">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-gray-700">Observaciones (se imprime)</label>
-                  <span className="text-[11px] text-gray-500">{observaciones.length}/{MAX_NOTES_CHARS}</span>
-                </div>
-                <textarea
-                  rows={3}
-                  maxLength={MAX_NOTES_CHARS}
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition resize-none"
-                  placeholder="Ej: Entrega coordinada, indicar puerta lateral"
-                  value={observaciones}
-                  onChange={(e) => onObservacionesChange(e.target.value)}
-                />
-              </div>
-
-              {onNotaInternaChange && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-gray-700">Nota interna (no se imprime)</label>
-                    <span className="text-[11px] text-gray-500">{notaInterna.length}/{MAX_NOTES_CHARS}</span>
-                  </div>
-                  <textarea
-                    rows={2}
-                    maxLength={MAX_NOTES_CHARS}
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition resize-none"
-                    placeholder="Ej: Cliente prefiere pagar el día 15"
-                    value={notaInterna}
-                    onChange={(e) => onNotaInternaChange(e.target.value)}
+          <div className="flex-1 min-h-0 px-3 pb-3">
+            {hasItems ? (
+              <div className="h-full overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                <div className="h-full min-h-0 overflow-y-auto">
+                  <CartItemsList
+                    cartItems={cartItems}
+                    currency={currency}
+                    isProcessing={isProcessing}
+                    onUpdateQuantity={onUpdateQuantity}
+                    onUpdatePrice={onUpdatePrice}
+                    onRemoveItem={onRemoveItem}
+                    onUpdateUnit={onCartItemUnitChange}
+                    getUnitOptionsForProduct={getUnitOptionsForProduct}
+                    formatUnitLabel={formatUnitLabel}
                   />
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full min-h-[260px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white text-center text-sm text-gray-500">
+                <div className="mb-3 rounded-full bg-gray-100 p-3">
+                  <ShoppingCart className="h-6 w-6 text-gray-400" />
+                </div>
+                <p className="font-semibold text-gray-700">Tu carrito está vacío</p>
+                <p className="text-xs text-gray-500">Agrega productos desde el catálogo para verlos aquí</p>
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 space-y-3 px-3 pb-3">
+            {isCreditMethod && (
+              <CreditScheduleSummaryCard
+                creditTerms={creditTerms}
+                currency={currency}
+                total={totals.total}
+                onConfigure={onConfigureCreditSchedule}
+                errors={creditScheduleErrors}
+                paymentMethodName={creditPaymentMethodName || selectedPaymentMethod?.name}
+              />
+            )}
+
+            <DiscountSection
+              currency={currency}
+              totals={totals}
+              discountTypeState={discountState}
+              discountValueState={discountValueState}
+            />
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowNotes((prev) => !prev)}
+                className="w-full flex items-center justify-between px-1 py-1.5 bg-transparent hover:text-blue-700 transition"
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <span>Observaciones</span>
+                  <span className="text-[11px] font-normal text-gray-400">Opcional</span>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-500 transition-transform ${showNotes ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {showNotes && (
+                <div className="mt-2 space-y-3 rounded-2xl border border-gray-100 bg-white p-2.5 shadow-sm">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-gray-700">Observaciones (se imprime)</label>
+                      <span className="text-[11px] text-gray-500">{observaciones.length}/{MAX_NOTES_CHARS}</span>
+                    </div>
+                    <textarea
+                      rows={3}
+                      maxLength={MAX_NOTES_CHARS}
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition resize-none"
+                      placeholder="Ej: Entrega coordinada, indicar puerta lateral"
+                      value={observaciones}
+                      onChange={(e) => onObservacionesChange(e.target.value)}
+                    />
+                  </div>
+
+                  {onNotaInternaChange && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-gray-700">Nota interna (no se imprime)</label>
+                        <span className="text-[11px] text-gray-500">{notaInterna.length}/{MAX_NOTES_CHARS}</span>
+                      </div>
+                      <textarea
+                        rows={2}
+                        maxLength={MAX_NOTES_CHARS}
+                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition resize-none"
+                        placeholder="Ej: Cliente prefiere pagar el día 15"
+                        value={notaInterna}
+                        onChange={(e) => onNotaInternaChange(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Footer Totals sticky */}
-      {cartItems.length > 0 && (
-        <div className="sticky bottom-0 border-t border-gray-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
-          <div className="p-3 space-y-3">
+      {/* Footer Totals fijo */}
+      <div
+        className={`shrink-0 border-t border-gray-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)] transition-opacity ${
+          hasItems ? 'opacity-100' : 'opacity-70'
+        }`}
+      >
+        <div className="p-3 space-y-3">
             <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-inner">
               <div className="flex items-center justify-between text-[11px] text-gray-500">
                 <span>Subtotal</span>
@@ -399,16 +423,14 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               </span>
               <button
                 onClick={onClearCart}
-                className="text-teal-600 hover:text-teal-700"
-                disabled={isProcessing}
+                className={`text-teal-600 hover:text-teal-700 ${!hasItems ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isProcessing || !hasItems}
               >
                 Borrar todo
               </button>
             </div>
-          </div>
         </div>
-      )}
-
+      </div>
     </div>
   );
 };

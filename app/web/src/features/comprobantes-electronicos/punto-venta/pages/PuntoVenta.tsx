@@ -139,11 +139,11 @@ const PuntoVenta = () => {
         </div>
 
         {/* Main Content - Layout EXACTAMENTE igual que antes */}
-        <div className="flex-1 overflow-hidden">
-          <div className="h-full grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(500px,1fr)]">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full min-h-0 flex flex-col gap-6 xl:flex-row">
 
             {/* POS View - PRESERVADO COMPLETAMENTE */}
-            <div className="overflow-hidden">
+            <div className="flex h-full min-h-0 flex-1 flex-col">
               {/* Products Grid - SIN CAMBIOS */}
               <ProductGrid
                 products={availableProducts}
@@ -162,7 +162,7 @@ const PuntoVenta = () => {
             </div>
 
             {/* Cart Checkout Panel - NUEVO COMPONENTE UNIFICADO */}
-            <div className="xl:min-w-[500px]">
+            <div className="flex h-full min-h-0 flex-col xl:w-[520px] xl:flex-shrink-0">
               <CartCheckoutPanel
                 cartItems={cartItems}
                 totals={totals}
