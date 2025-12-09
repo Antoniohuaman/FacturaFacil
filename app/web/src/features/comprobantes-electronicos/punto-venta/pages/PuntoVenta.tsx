@@ -50,7 +50,6 @@ const PuntoVenta = () => {
     setTipoComprobante,
     serieSeleccionada,
     formaPago,
-    setFormaPago,
     observaciones,
     setObservaciones,
     notaInterna,
@@ -187,7 +186,6 @@ const PuntoVenta = () => {
                 isProcessing={isProcessing}
                 paymentMethods={paymentMethods}
                 formaPagoId={formaPago}
-                onFormaPagoChange={setFormaPago}
                 isCreditMethod={isCreditMethod}
                 onConfigureCreditSchedule={handleOpenCreditScheduleModal}
                 creditTerms={creditTerms}

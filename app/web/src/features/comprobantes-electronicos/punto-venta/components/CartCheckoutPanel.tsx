@@ -12,7 +12,6 @@ import type { PaymentMethod } from '../../../configuracion-sistema/models/Paymen
 import { CreditScheduleSummaryCard } from '../../shared/payments/CreditScheduleSummaryCard';
 import { CartItemsList } from './cart/CartItemsList';
 import { ClientSection } from './client/ClientSection';
-import { PaymentSection } from './payment/PaymentSection';
 import { DiscountSection } from './discount/DiscountSection';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
 
@@ -39,8 +38,6 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   } | null) => void;
   paymentMethods: PaymentMethod[];
   formaPagoId: string;
-  onFormaPagoChange: (paymentMethodId: string) => void;
-  onNuevaFormaPago?: () => void;
   isCreditMethod?: boolean;
   onConfigureCreditSchedule?: () => void;
   creditTerms?: ComprobanteCreditTerms;
@@ -74,8 +71,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   setClienteSeleccionado,
   paymentMethods,
   formaPagoId,
-  onFormaPagoChange,
-  onNuevaFormaPago,
   isCreditMethod,
   onConfigureCreditSchedule,
   creditTerms,
@@ -253,15 +248,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
       {/* Contenido scrollable */}
       <div className="flex-1 overflow-y-auto bg-gray-50">
-        <PaymentSection
-          availablePaymentMethods={availablePaymentMethods}
-          selectedPaymentMethod={selectedPaymentMethod}
-          onFormaPagoChange={onFormaPagoChange}
-          onNuevaFormaPago={onNuevaFormaPago}
-          isCreditMethod={isCreditMethod}
-          onConfigureCreditSchedule={onConfigureCreditSchedule}
-        />
-
         <ClientSection
           clienteSeleccionado={clienteSeleccionado}
           setClienteSeleccionado={setClienteSeleccionado}

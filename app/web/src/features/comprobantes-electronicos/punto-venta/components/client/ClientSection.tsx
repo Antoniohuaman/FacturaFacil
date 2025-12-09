@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, Edit, User, X } from 'lucide-react';
+import { Search, Edit, User, X } from 'lucide-react';
 import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
 
 export interface ClientePOS {
@@ -176,111 +176,122 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
 
   const handleSeleccionarCliente = (cliente: ClientePOS) => {
     setClienteSeleccionado(cliente);
-    setSearchQuery('');
+    setSearchQuery(cliente.documento);
   };
 
   const selectedClientName: string = clienteSeleccionado ? clienteSeleccionado.nombre : '';
 
+  const handleDocumentInputChange = (value: string) => {
+    if (clienteSeleccionado) {
+      setClienteSeleccionado(null);
+    }
+    setSearchQuery(value);
+  };
+
+  const handleQuickSearch = () => {
+    if (clientesFiltrados.length === 1) {
+      handleSeleccionarCliente(clientesFiltrados[0]);
+    }
+  };
+
+  const handleEditAction = () => {
+    if (clienteSeleccionado) {
+      handleEditarCliente();
+    } else {
+      handleNuevoCliente();
+    }
+  };
+
   return (
     <div className="p-2.5 bg-white border-b border-gray-200">
-      {!clienteSeleccionado ? (
-        <div className="space-y-2">
-          <div className="grid grid-cols-[120px_1fr] gap-2">
-            <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide">
-              <User className="h-2.5 w-2.5" />
-              DNI / RUC
-            </label>
-            <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide">
-              <User className="h-2.5 w-2.5" />
-              Nombre
-            </label>
-          </div>
+      <div className="space-y-1.5">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide">
+            <User className="h-2.5 w-2.5" />
+            Número de documento
+          </label>
+          <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide">
+            <User className="h-2.5 w-2.5" />
+            Nombre
+          </label>
+        </div>
 
-          <div className="grid grid-cols-[120px_1fr_auto] gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex rounded-full border border-slate-200 bg-white shadow-sm overflow-hidden">
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="08661829"
-              className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-[11px] font-medium"
+              onChange={(e) => handleDocumentInputChange(e.target.value)}
+              placeholder="08661874"
+              className="flex-1 px-3 py-1.5 text-[12px] font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none"
             />
+            <button
+              type="button"
+              onClick={handleQuickSearch}
+              className="w-10 flex items-center justify-center bg-slate-200/40 text-slate-600 hover:text-slate-900 transition"
+              title="Buscar cliente"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="flex rounded-full border border-slate-200 bg-white shadow-sm overflow-hidden">
             <input
               type="text"
               value={selectedClientName}
               readOnly
-              placeholder="NOMBRE DEL CLIENTE"
-              className="px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-[11px] text-gray-600 uppercase"
+              placeholder="Nombre del cliente"
+              className="flex-1 px-3 py-1.5 text-[12px] font-semibold text-slate-800 uppercase placeholder:normal-case placeholder:text-slate-400 bg-transparent"
             />
             <button
-              className="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0"
-              title="Buscar cliente"
+              type="button"
+              onClick={handleEditAction}
+              className="w-10 flex items-center justify-center bg-indigo-200/60 text-indigo-700 hover:bg-indigo-200 transition"
+              title={clienteSeleccionado ? 'Editar cliente' : 'Crear cliente'}
             >
-              <Search className="h-3.5 w-3.5" />
+              <Edit className="h-4 w-4" />
             </button>
           </div>
-
-          {searchQuery && (
-            <div className="border border-blue-200 rounded max-h-28 overflow-y-auto bg-white">
-              {clientesFiltrados.length > 0 ? (
-                clientesFiltrados.map((cliente) => (
-                  <button
-                    key={cliente.id}
-                    onClick={() => handleSeleccionarCliente(cliente)}
-                    className="w-full text-left p-1.5 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="font-semibold text-[10px] text-gray-900">{cliente.nombre}</div>
-                    <div className="text-[9px] text-gray-600">
-                      {cliente.tipoDocumento}: {cliente.documento}
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="p-2 text-center text-[10px] text-gray-500">Sin resultados</div>
-              )}
-            </div>
-          )}
-
-          <button
-            onClick={handleNuevoCliente}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded hover:from-teal-600 hover:to-cyan-700 transition-all text-[11px] font-bold shadow-sm"
-          >
-            <Plus className="h-3 w-3" />
-            Nuevo
-          </button>
         </div>
-      ) : (
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-300 rounded p-2 space-y-1.5">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-[11px] text-gray-900 truncate">{clienteSeleccionado.nombre}</div>
-              <div className="text-[10px] text-gray-700 font-medium">
-                {clienteSeleccionado.tipoDocumento}: {clienteSeleccionado.documento}
-              </div>
-            </div>
-            <button
-              onClick={() => setClienteSeleccionado(null)}
-              className="p-0.5 text-red-500 hover:bg-red-100 rounded transition-colors flex-shrink-0"
-              title="Quitar"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-          <div className="flex gap-1.5">
-            <button
-              onClick={handleEditarCliente}
-              className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-bold text-blue-600 bg-white hover:bg-blue-50 rounded border border-blue-200 transition-colors"
-            >
-              <Edit className="h-2.5 w-2.5" />
-              Editar
-            </button>
-            <button
-              onClick={() => setClienteSeleccionado(null)}
-              className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-bold text-gray-600 bg-white hover:bg-gray-100 rounded border border-gray-300 transition-colors"
-            >
-              <Search className="h-2.5 w-2.5" />
-              Cambiar
-            </button>
-          </div>
+      </div>
+
+      {searchQuery && !clienteSeleccionado && (
+        <div className="mt-2 border border-slate-200 rounded-xl max-h-28 overflow-y-auto bg-white shadow-sm">
+          {clientesFiltrados.length > 0 ? (
+            clientesFiltrados.map((cliente) => (
+              <button
+                key={cliente.id}
+                onClick={() => handleSeleccionarCliente(cliente)}
+                className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-b-0"
+              >
+                <div className="font-semibold text-[11px] text-slate-900 truncate">{cliente.nombre}</div>
+                <div className="text-[10px] text-slate-600">
+                  {cliente.tipoDocumento}: {cliente.documento}
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="p-2 text-center text-[10px] text-slate-500">Sin resultados</div>
+          )}
+        </div>
+      )}
+
+      {clienteSeleccionado && (
+        <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500">
+          <span className="font-semibold text-slate-600">
+            {clienteSeleccionado.tipoDocumento}: {clienteSeleccionado.documento}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setClienteSeleccionado(null);
+              setSearchQuery('');
+            }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 text-[10px] font-semibold text-slate-600 hover:text-red-600 hover:border-red-200 transition"
+          >
+            <X className="h-3 w-3" />
+            Limpiar
+          </button>
         </div>
       )}
 
