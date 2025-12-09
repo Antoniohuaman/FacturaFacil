@@ -3,8 +3,8 @@
 // Fusiona CartSidebar con selección de Boleta/Factura y Cliente
 // ===================================================================
 
-import React, { useMemo, useState } from 'react';
-import { AlertTriangle, ChevronDown, FileText } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, SlidersHorizontal } from 'lucide-react';
 import type { CartSidebarProps, Product, ComprobanteCreditTerms } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { UI_MESSAGES } from '../../models/constants';
@@ -92,6 +92,8 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 }) => {
   const { formatPrice, changeCurrency } = useCurrency();
   const [showNotes, setShowNotes] = useState(false);
+  const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
+  const docMenuRef = useRef<HTMLDivElement>(null);
   const MAX_NOTES_CHARS = 500;
 
   const availablePaymentMethods = useMemo(() => (
@@ -130,6 +132,11 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
   const discountState = useState<'amount' | 'percentage'>('amount');
   const discountValueState = useState<string>('');
+  const docOptions = [
+    { value: 'boleta', label: 'Boleta' },
+    { value: 'factura', label: 'Factura' },
+  ] as const;
+
   const igvPercentageLabel = useMemo(() => {
     if (!totals?.subtotal || totals.subtotal <= 0) {
       return null;
@@ -141,11 +148,78 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
     return `${rawValue.toFixed(2)}%`;
   }, [totals.igv, totals.subtotal]);
 
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (!docMenuRef.current) {
+        return;
+      }
+      if (!docMenuRef.current.contains(event.target as Node)) {
+        setIsDocMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const currentDocLabel = docOptions.find(option => option.value === tipoComprobante)?.label || 'Documento';
+
   return (
     <div className="w-[480px] bg-white border-l border-gray-200 flex flex-col h-full shadow-lg">
-      {/* Header Simplificado - Sin información redundante */}
-      <div className="p-2.5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <h3 className="font-bold text-sm text-gray-900 text-center">Carrito de Venta</h3>
+      <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between" ref={docMenuRef}>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setIsDocMenuOpen(prev => !prev)}
+            className="flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition"
+            aria-haspopup="listbox"
+            aria-expanded={isDocMenuOpen}
+          >
+            <span>{currentDocLabel}</span>
+            <span className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-600">
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isDocMenuOpen ? 'rotate-180' : ''}`} />
+            </span>
+          </button>
+          {isDocMenuOpen && (
+            <div className="absolute left-0 mt-2 w-40 rounded-2xl border border-slate-100 bg-white shadow-xl z-10 overflow-hidden">
+              {docOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    setTipoComprobante(option.value);
+                    setIsDocMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm font-medium transition ${
+                    option.value === tipoComprobante
+                      ? 'bg-slate-50 text-slate-900'
+                      : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 text-slate-400">
+          {[
+            { icon: Percent, label: 'Aplicar descuento' },
+            { icon: Printer, label: 'Imprimir' },
+            { icon: Wallet2, label: 'Moneda' },
+            { icon: SlidersHorizontal, label: 'Configuración' },
+          ].map(({ icon: Icon, label }) => (
+            <button
+              key={label}
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-400 hover:text-slate-700 hover:border-slate-200 transition"
+              title={label}
+              aria-label={label}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Warning de caja cerrada */}
