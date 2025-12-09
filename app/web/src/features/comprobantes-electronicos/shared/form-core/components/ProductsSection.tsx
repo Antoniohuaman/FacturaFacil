@@ -6,6 +6,63 @@ import { CheckSquare, Square, Sliders, Settings2 } from 'lucide-react';
 import { usePriceBook } from '../hooks/usePriceBook';
 import type { PriceColumnOption } from '../hooks/usePriceBook';
 import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
+import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
+import type { Product } from '../../../../catalogo-articulos/models/types';
+
+type UnitOption = {
+  code: string;
+  label: string;
+  isBase?: boolean;
+};
+
+const buildCatalogUnitOptions = (
+  products: Product[] | undefined,
+  sku: string,
+  formatUnitLabel: (unitCode: string, isBase?: boolean) => string
+): UnitOption[] => {
+  if (!products?.length) return [];
+
+  const product = products.find((p) => p.codigo === sku);
+  if (!product) return [];
+
+  const options: UnitOption[] = [];
+
+  if (product.unidad) {
+    const code = product.unidad ?? '';
+    if (code) {
+      options.push({ code, label: formatUnitLabel(code, true), isBase: true });
+    }
+  }
+
+  const presentationUnits = product?.unidadesMedidaAdicionales ?? [];
+  presentationUnits.forEach((u) => {
+    if (!u?.unidadCodigo) return;
+    const code = u.unidadCodigo;
+    const exists = options.some((opt) => opt.code === code);
+    if (!exists) {
+      options.push({ code, label: formatUnitLabel(code, false) });
+    }
+  });
+
+  return options;
+};
+
+const mergeUnitOptions = (
+  products: Product[] | undefined,
+  sku: string,
+  formatUnitLabel: (unitCode: string, isBase?: boolean) => string,
+  priceBookUnitOptions: UnitOption[]
+): UnitOption[] => {
+  const catalogOptions = buildCatalogUnitOptions(products, sku, formatUnitLabel);
+  const combined = [...catalogOptions];
+
+  priceBookUnitOptions.forEach((pbUnit) => {
+    if (combined.some((opt) => opt.code === pbUnit.code)) return;
+    combined.push({ ...pbUnit, label: formatUnitLabel(pbUnit.code, pbUnit.isBase) });
+  });
+
+  return combined;
+};
 
 interface ProductsSectionProps {
   cartItems: CartItem[];
@@ -118,6 +175,16 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     getPriceOptionsFor,
     resolveMinPrice
   } = usePriceBook();
+
+  const { allProducts: catalogProducts } = useProductStore();
+
+  const getUnitOptionsForProduct = useCallback(
+    (sku: string) => {
+      const priceBookUnits = getUnitOptionsForSku(sku);
+      return mergeUnitOptions(catalogProducts, sku, formatUnitLabel, priceBookUnits);
+    },
+    [catalogProducts, formatUnitLabel, getUnitOptionsForSku]
+  );
 
   const normalizedDiscountDefault = useMemo(() => {
     if (globalDiscountColumn?.globalRuleType !== 'percent') return 0;
@@ -262,8 +329,20 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
   const resolveUnitCode = useCallback((item: CartItem) => {
     const sku = resolveSku(item);
-    return getPreferredUnitForSku(sku, item.unidadMedida || item.unidad);
-  }, [getPreferredUnitForSku, resolveSku]);
+    const requestedUnit = item.unidadMedida || item.unidad;
+    const unitOptions = getUnitOptionsForProduct(sku);
+
+    if (requestedUnit && unitOptions.some(option => option.code === requestedUnit)) {
+      return requestedUnit;
+    }
+
+    const baseOption = unitOptions.find(option => option.isBase);
+    if (baseOption) return baseOption.code;
+
+    if (unitOptions.length > 0) return unitOptions[0].code;
+
+    return getPreferredUnitForSku(sku, requestedUnit);
+  }, [getPreferredUnitForSku, getUnitOptionsForProduct, resolveSku]);
 
   useEffect(() => {
     const validIds = new Set(cartItems.map(item => String(item.id)));
@@ -426,11 +505,22 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     const itemKey = String(item.id);
     clearDraftForItem(itemKey);
     clearErrorForItem(itemKey);
+    const priceOptions = hasSelectableColumns ? getPriceOptionsFor(resolveSku(item), unitCode) : [];
+    const hasPrice = priceOptions.length > 0;
+
     updateCartItem(item.id, {
       unidadMedida: unitCode,
-      isManualPrice: false
+      isManualPrice: hasPrice ? false : true,
+      ...(hasPrice
+        ? {}
+        : {
+            basePrice: 0,
+            price: 0,
+            priceColumnId: undefined,
+            priceColumnLabel: undefined
+          })
     });
-  }, [clearDraftForItem, clearErrorForItem, updateCartItem]);
+  }, [clearDraftForItem, clearErrorForItem, getPriceOptionsFor, hasSelectableColumns, resolveSku, updateCartItem]);
 
   const handlePriceOptionChange = useCallback((item: CartItem, columnId: string, options: PriceColumnOption[]) => {
     const option = options.find(entry => entry.columnId === columnId);
@@ -741,10 +831,14 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       case 'unidad': {
         const sku = resolveSku(item);
         const resolvedUnit = resolveUnitCode(item);
-        const priceBookUnits = getUnitOptionsForSku(sku);
-        const availableUnits = priceBookUnits.length > 0
-          ? priceBookUnits
+        const unitOptions = getUnitOptionsForProduct(sku);
+        const normalizedUnits = unitOptions.length > 0
+          ? unitOptions
           : [{ code: resolvedUnit, label: formatUnitLabel(resolvedUnit) || (item.unidad ?? resolvedUnit), isBase: true }];
+
+        const availableUnits = normalizedUnits.some(option => option.code === resolvedUnit)
+          ? normalizedUnits
+          : [...normalizedUnits, { code: resolvedUnit, label: formatUnitLabel(resolvedUnit) || resolvedUnit }];
 
         return (
           <td className="px-4 py-4">

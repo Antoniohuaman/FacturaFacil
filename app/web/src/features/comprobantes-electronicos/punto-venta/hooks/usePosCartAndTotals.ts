@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CartItem } from '../../models/comprobante.types';
+import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
 import { roundCurrency } from '../../../lista-precios/utils/price-helpers/pricing';
 import { useCart } from '../hooks/useCart';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
 import { calculateLineaComprobante, type LinePricingInput } from '../../shared/core/comprobantePricing';
+import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
+import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
 
 export interface PosPriceListOption {
   id: string;
@@ -21,6 +24,8 @@ const IGV_RATE_BY_TYPE: Record<string, number> = {
   exonerado: 0,
   inafecto: 0,
 };
+
+type CatalogUnit = { code: string; isBase: boolean; label?: string };
 
 const deriveIgvRate = (item: CartItem): number => {
   if (item.igvType && item.igvType in IGV_RATE_BY_TYPE) {
@@ -72,6 +77,71 @@ const calculateTotalsFromCart = (items: CartItem[]) => {
   };
 };
 
+const buildCatalogUnitOptions = (
+  products: CatalogProduct[],
+  sku: string,
+  formatUnitLabel: (code?: string) => string,
+) => {
+  const product = products.find((p: CatalogProduct) => p.codigo === sku);
+  if (!product) return [] as CatalogUnit[];
+
+  const options: CatalogUnit[] = [];
+  const baseCode = product.unidad || '';
+  if (baseCode) {
+    options.push({ code: baseCode, isBase: true });
+  }
+
+  product.unidadesMedidaAdicionales?.forEach((u: NonNullable<CatalogProduct['unidadesMedidaAdicionales']>[number]) => {
+    if (u?.unidadCodigo) {
+      options.push({ code: u.unidadCodigo, isBase: false });
+    }
+  });
+
+  const dedup = new Map<string, CatalogUnit>();
+  options.forEach((opt) => {
+    const existing = dedup.get(opt.code);
+    if (!existing) {
+      dedup.set(opt.code, opt);
+    } else if (opt.isBase && !existing.isBase) {
+      dedup.set(opt.code, opt);
+    }
+  });
+
+  return Array.from(dedup.values()).map((opt) => ({ ...opt, label: formatUnitLabel(opt.code) || opt.code }));
+};
+
+const mergeUnitOptions = (
+  catalogProducts: CatalogProduct[],
+  sku: string,
+  formatUnitLabel: (code?: string) => string,
+  priceBookUnits: (sku: string) => ProductUnitOption[],
+): ProductUnitOption[] => {
+  const catalog = buildCatalogUnitOptions(catalogProducts, sku, formatUnitLabel).map((opt: CatalogUnit) => ({
+    code: opt.code,
+    label: opt.label || formatUnitLabel(opt.code) || opt.code,
+    isBase: opt.isBase,
+  }));
+  const priceUnits = priceBookUnits(sku);
+
+  const registry = new Map<string, ProductUnitOption>();
+  [...catalog, ...priceUnits].forEach((opt: ProductUnitOption) => {
+    if (!opt.code) return;
+    const existing = registry.get(opt.code);
+    if (!existing) {
+      registry.set(opt.code, { ...opt });
+      return;
+    }
+    if (!existing.isBase && opt.isBase) {
+      registry.set(opt.code, { ...existing, isBase: true });
+    }
+    if (!existing.label && opt.label) {
+      registry.set(opt.code, { ...existing, label: opt.label });
+    }
+  });
+
+  return Array.from(registry.values());
+};
+
 const readStoredPriceColumn = (validIds: string[], fallbackId?: string): string => {
   try {
     const stored = localStorage.getItem(PRICE_COLUMN_STORAGE_KEY);
@@ -94,6 +164,8 @@ export const usePosCartAndTotals = () => {
     updateCartItemPrice,
     clearCart,
   } = useCart();
+
+  const { allProducts: catalogProducts } = useProductStore();
   const {
     priceColumns,
     baseColumnId,
@@ -110,10 +182,9 @@ export const usePosCartAndTotals = () => {
       isBase: column.isBase,
     }))
   ), [priceColumns]);
-
   const columnLabelById = useMemo(() => {
     const map = new Map<string, string>();
-    priceListOptions.forEach(option => map.set(option.id, option.label));
+    priceListOptions.forEach((option) => map.set(option.id, option.label));
     return map;
   }, [priceListOptions]);
 
@@ -147,6 +218,14 @@ export const usePosCartAndTotals = () => {
     pricingNotifierRef.current = notifier ?? null;
   }, []);
 
+  const getUnitOptionsForProduct = useCallback(
+    (sku: string): ProductUnitOption[] => {
+      if (!sku) return [];
+      return mergeUnitOptions(catalogProducts, sku, formatUnitLabel, getUnitOptionsForSku);
+    },
+    [catalogProducts, formatUnitLabel, getUnitOptionsForSku],
+  );
+
   const activePriceListLabel = columnLabelById.get(selectedPriceListId) || columnLabelById.get(baseColumnId || '') || '';
 
   const resolveSku = useCallback((item: Pick<CartItem, 'code' | 'id'>) => {
@@ -163,9 +242,6 @@ export const usePosCartAndTotals = () => {
   }, [baseColumnId, getPriceOptionsFor, selectedPriceListId]);
 
   const applyPriceToItem = useCallback((item: CartItem, unitCode?: string) => {
-    if (item.isManualPrice) {
-      return;
-    }
     const sku = resolveSku(item);
     if (!sku) {
       return;
@@ -197,6 +273,11 @@ export const usePosCartAndTotals = () => {
         );
         missingPriceWarningsRef.current.add(warningKey);
       }
+      updates.price = 0;
+      updates.basePrice = 0;
+      updates.isManualPrice = true;
+      updates.priceColumnId = selectedPriceListId;
+      updates.priceColumnLabel = activePriceListLabel;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -239,7 +320,7 @@ export const usePosCartAndTotals = () => {
     selectedPriceListId,
     setSelectedPriceListId,
     registerPricingNotifier,
-    getUnitOptionsForProduct: getUnitOptionsForSku,
+    getUnitOptionsForProduct,
     formatUnitLabel,
     getPreferredUnitForSku,
     getPriceForProduct,

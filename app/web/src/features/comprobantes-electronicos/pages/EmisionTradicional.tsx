@@ -94,6 +94,7 @@ const mapCartItemToPricingInput = (item: CartItem): LinePricingInput => {
   };
 };
 
+
 const EmisionTradicional = () => {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
