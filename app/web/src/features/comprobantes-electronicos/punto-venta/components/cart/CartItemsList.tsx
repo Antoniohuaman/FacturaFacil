@@ -45,7 +45,17 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
             : fallbackUnit
               ? [{ code: fallbackUnit, label: formatUnitLabel(fallbackUnit) || fallbackUnit, isBase: true }]
               : [];
-          const currentUnit = normalizedOptions[0]?.code || '';
+          const currentUnitCode = fallbackUnit || normalizedOptions[0]?.code || '';
+          const optionsWithSelection = currentUnitCode && normalizedOptions.every(option => option.code !== currentUnitCode)
+            ? [
+                {
+                  code: currentUnitCode,
+                  label: formatUnitLabel(currentUnitCode) || currentUnitCode,
+                  isBase: true,
+                },
+                ...normalizedOptions,
+              ]
+            : normalizedOptions;
 
           return (
             <div
@@ -102,15 +112,15 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                 <div>
                   <select
                     className="w-full h-7 border border-gray-200 rounded bg-white text-[11px] font-semibold text-gray-900 px-1.5 focus:outline-none focus:border-blue-500"
-                    value={currentUnit}
+                    value={currentUnitCode}
                     onChange={(event) => onUpdateUnit(item.id, event.target.value)}
-                    disabled={isProcessing || normalizedOptions.length === 0}
+                    disabled={isProcessing || optionsWithSelection.length === 0}
                     aria-label="Unidad"
                   >
-                    {normalizedOptions.length === 0 ? (
+                    {optionsWithSelection.length === 0 ? (
                       <option value="">Sin unidades</option>
                     ) : (
-                      normalizedOptions.map(option => (
+                      optionsWithSelection.map(option => (
                         <option key={`${sku}-${option.code}`} value={option.code}>
                           {option.label}
                         </option>
