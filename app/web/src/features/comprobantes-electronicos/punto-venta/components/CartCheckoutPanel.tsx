@@ -4,7 +4,7 @@
 // ===================================================================
 
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, ChevronDown, FileText, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, FileText } from 'lucide-react';
 import type { CartSidebarProps, Product, ComprobanteCreditTerms } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { UI_MESSAGES } from '../../models/constants';
@@ -130,6 +130,16 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
   const discountState = useState<'amount' | 'percentage'>('amount');
   const discountValueState = useState<string>('');
+  const igvPercentageLabel = useMemo(() => {
+    if (!totals?.subtotal || totals.subtotal <= 0) {
+      return null;
+    }
+    const rawValue = (totals.igv / totals.subtotal) * 100;
+    if (!Number.isFinite(rawValue) || rawValue <= 0) {
+      return null;
+    }
+    return `${rawValue.toFixed(2)}%`;
+  }, [totals.igv, totals.subtotal]);
 
   return (
     <div className="w-[480px] bg-white border-l border-gray-200 flex flex-col h-full shadow-lg">
@@ -258,19 +268,29 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
         </div>
       </div>
 
-      {/* Sección de Total - Compacta y Profesional */}
+      {/* Footer Totals sticky */}
       {cartItems.length > 0 && (
-        <div className="border-t border-gray-300 bg-gradient-to-b from-white to-gray-50">
-          <div className="p-3 space-y-2">
-            
-            {/* Botón Principal Compacto */}
+        <div className="sticky bottom-0 border-t border-gray-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
+          <div className="p-3 space-y-3">
+            <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-inner">
+              <div className="flex items-center justify-between text-[11px] text-gray-500">
+                <span>Subtotal</span>
+                <span className="font-semibold text-gray-900">{formatPrice(totals.subtotal, currency)}</span>
+              </div>
+              <div className="my-2 border-t border-dashed border-gray-200" />
+              <div className="flex items-center justify-between text-[11px] text-gray-500">
+                <span>{`IGV${igvPercentageLabel ? ` (${igvPercentageLabel})` : ''}`}</span>
+                <span className="font-semibold text-gray-900">{formatPrice(totals.igv, currency)}</span>
+              </div>
+            </div>
+
             <button
               onClick={handlePrimaryAction}
               disabled={primaryDisabled}
-              className={`w-full py-3 rounded-lg font-bold text-base shadow-md transition-all ${
+              className={`w-full py-3 rounded-xl font-bold text-base shadow-lg transition-all ${
                 !primaryDisabled
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg transform hover:scale-[1.01] active:scale-[0.99]'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
+                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700'
+                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
               }`}
             >
               {isProcessing ? (
@@ -279,8 +299,8 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                   <span className="text-sm">{UI_MESSAGES.CART_LOADING}</span>
                 </span>
               ) : (
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-xs font-semibold opacity-90">{primaryLabel}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">{primaryLabel}</span>
                   {!isCreditPaymentSelection && (
                     <span className="text-lg font-black">
                       {formatPrice(totals.total, currency)}
@@ -294,29 +314,24 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               <button
                 onClick={handleSecondaryAction}
                 disabled={secondaryDisabled}
-                className={`w-full py-2 rounded-lg text-sm font-semibold transition ${
-                  !secondaryDisabled ? 'text-blue-700 hover:bg-blue-50' : 'text-gray-400 cursor-not-allowed'
+                className={`w-full text-xs font-semibold tracking-wide ${
+                  !secondaryDisabled ? 'text-indigo-600 hover:text-indigo-700' : 'text-gray-400'
                 }`}
               >
                 {secondaryLabel}
               </button>
             )}
-            
-            {/* Footer Compacto */}
-            <div className="flex items-center justify-between text-xs pt-1">
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                <span className="font-semibold text-gray-700">
-                  {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
-                </span>
-              </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600">
+              <span>
+                {cartItems.length} {cartItems.length === 1 ? 'Producto' : 'Productos'}
+              </span>
               <button
                 onClick={onClearCart}
-                className="group flex items-center gap-1 px-2 py-1 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded font-semibold transition-all"
+                className="text-teal-600 hover:text-teal-700"
                 disabled={isProcessing}
               >
-                <Trash2 className="h-3 w-3" />
-                <span className="text-[10px]">Vaciar</span>
+                Borrar todo
               </button>
             </div>
           </div>
