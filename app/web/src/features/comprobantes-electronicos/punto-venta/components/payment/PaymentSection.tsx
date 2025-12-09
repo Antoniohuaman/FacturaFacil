@@ -1,14 +1,8 @@
 import React from 'react';
-import { CreditCard as CreditCardIcon, CalendarClock, FileText, Receipt } from 'lucide-react';
-import type { TipoComprobante } from '../../../models/comprobante.types';
+import { CreditCard as CreditCardIcon, CalendarClock } from 'lucide-react';
 import type { PaymentMethod } from '../../../../configuracion-sistema/models/PaymentMethod';
 
 interface PaymentSectionProps {
-  currency: 'PEN' | 'USD';
-  tipoComprobante: TipoComprobante;
-  setTipoComprobante: (tipo: TipoComprobante) => void;
-  onCurrencyChange?: (currency: 'PEN' | 'USD') => void;
-  changeCurrency: (currency: 'PEN' | 'USD') => void;
   availablePaymentMethods: PaymentMethod[];
   selectedPaymentMethod?: PaymentMethod;
   onFormaPagoChange: (paymentMethodId: string) => void;
@@ -18,11 +12,6 @@ interface PaymentSectionProps {
 }
 
 export const PaymentSection: React.FC<PaymentSectionProps> = ({
-  currency,
-  tipoComprobante,
-  setTipoComprobante,
-  onCurrencyChange,
-  changeCurrency,
   availablePaymentMethods,
   selectedPaymentMethod,
   onFormaPagoChange,
@@ -34,69 +23,9 @@ export const PaymentSection: React.FC<PaymentSectionProps> = ({
     ? 'bg-emerald-100 text-emerald-700'
     : 'bg-slate-100 text-slate-600';
 
-  const handleTipoComprobanteChange = (nuevoTipo: TipoComprobante) => {
-    setTipoComprobante(nuevoTipo);
-  };
-
-  const handleCurrencyChange = (newCurrency: 'PEN' | 'USD') => {
-    changeCurrency(newCurrency);
-    if (onCurrencyChange) {
-      onCurrencyChange(newCurrency);
-    }
-  };
-
   return (
     <div className="p-2.5 bg-white border-b border-gray-200">
-      <div className="grid grid-cols-3 gap-2 mb-2">
-        <div className="col-span-2">
-          <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 mb-1 uppercase tracking-wide">
-            <FileText className="h-2.5 w-2.5" />
-            Comprobante
-          </label>
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={() => handleTipoComprobanteChange('factura')}
-              className={`flex-1 px-2 py-1.5 rounded border text-[11px] font-semibold flex items-center gap-1.5 justify-center ${
-                tipoComprobante === 'factura'
-                  ? 'bg-purple-50 border-purple-300 text-purple-800'
-                  : 'bg-white border-gray-300 text-gray-700 hover:border-purple-400'
-              }`}
-            >
-              <FileText className="h-2.5 w-2.5" />
-              <span>Factura</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTipoComprobanteChange('boleta')}
-              className={`flex-1 px-2 py-1.5 rounded border text-[11px] font-semibold flex items-center gap-1.5 justify-center ${
-                tipoComprobante === 'boleta'
-                  ? 'bg-blue-50 border-blue-300 text-blue-800'
-                  : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
-              }`}
-            >
-              <Receipt className="h-2.5 w-2.5" />
-              <span>Boleta</span>
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 mb-1 uppercase tracking-wide">
-            Moneda
-          </label>
-          <select
-            value={currency}
-            onChange={(e) => handleCurrencyChange(e.target.value as 'PEN' | 'USD')}
-            className="w-full px-1.5 py-1.5 bg-white border border-gray-300 rounded text-[11px] font-semibold text-gray-900 hover:border-blue-400 transition-all focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="PEN">S/.</option>
-            <option value="USD">$</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="mt-2 space-y-1.5">
+      <div className="space-y-1.5">
         <label
           className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide"
           htmlFor="pos-payment-method"
@@ -147,7 +76,7 @@ export const PaymentSection: React.FC<PaymentSectionProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-2 py-1 bg-gray-50 rounded border border-gray-200">
+      <div className="flex items-center justify-between px-2 py-1 bg-gray-50 rounded border border-gray-200 mt-2">
         <span className="text-[10px] text-gray-600 font-semibold">IGV:</span>
         <span className="text-[11px] font-bold text-gray-900">18%</span>
       </div>

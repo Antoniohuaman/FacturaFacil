@@ -136,6 +136,12 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
     { value: 'boleta', label: 'Boleta' },
     { value: 'factura', label: 'Factura' },
   ] as const;
+  const handleCurrencyChange = (newCurrency: 'PEN' | 'USD') => {
+    changeCurrency(newCurrency);
+    if (onCurrencyChange) {
+      onCurrencyChange(newCurrency);
+    }
+  };
 
   const igvPercentageLabel = useMemo(() => {
     if (!totals?.subtotal || totals.subtotal <= 0) {
@@ -203,10 +209,20 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 text-slate-400">
+          <div className="relative">
+            <select
+              value={currency}
+              onChange={(event) => handleCurrencyChange(event.target.value as 'PEN' | 'USD')}
+              className="appearance-none rounded-full border border-slate-200 bg-white px-4 py-1.5 pr-7 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+            >
+              <option value="PEN">S/.</option>
+              <option value="USD">$</option>
+            </select>
+            <Wallet2 className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          </div>
           {[
             { icon: Percent, label: 'Aplicar descuento' },
             { icon: Printer, label: 'Imprimir' },
-            { icon: Wallet2, label: 'Moneda' },
             { icon: SlidersHorizontal, label: 'Configuración' },
           ].map(({ icon: Icon, label }) => (
             <button
@@ -238,11 +254,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
       {/* Contenido scrollable */}
       <div className="flex-1 overflow-y-auto bg-gray-50">
         <PaymentSection
-          currency={currency}
-          tipoComprobante={tipoComprobante}
-          setTipoComprobante={setTipoComprobante}
-          onCurrencyChange={onCurrencyChange}
-          changeCurrency={changeCurrency}
           availablePaymentMethods={availablePaymentMethods}
           selectedPaymentMethod={selectedPaymentMethod}
           onFormaPagoChange={onFormaPagoChange}
