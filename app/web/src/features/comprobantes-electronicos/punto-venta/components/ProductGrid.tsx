@@ -319,7 +319,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
               {isSearching && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="h-4 w-4 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin" />
+                  <div className="h-4 w-4 rounded-full border-2 border-[#2f70b4]/30 border-t-[#2f70b4] animate-spin" />
                 </div>
               )}
             </div>
@@ -346,7 +346,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                             <div className="text-sm text-gray-500">{product.code}</div>
                           </div>
                           <div className="ml-3 text-right">
-                            <div className="font-bold text-blue-600">
+                            <div className="font-bold text-[#2f70b4]">
                               {formatPrice(previewPrice, currency)}
                             </div>
                             <div className="text-[10px] text-gray-500">
@@ -438,7 +438,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
               }}
               className={`px-3 py-1 rounded-full text-sm transition-colors ${
                 !selectedCategory 
-                  ? 'bg-blue-100 text-blue-700' 
+                  ? 'bg-[#2f70b4]/10 text-[#2f70b4]' 
                   : 'bg-white text-gray-600 hover:bg-gray-100'
               }`}
             >
@@ -451,7 +451,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                 onClick={() => category && handleCategorySelect(category)}
                 className={`px-3 py-1 rounded-full text-sm transition-colors ${
                   selectedCategory === category 
-                    ? 'bg-blue-100 text-blue-700' 
+                    ? 'bg-[#2f70b4]/10 text-[#2f70b4]' 
                     : 'bg-white text-gray-600 hover:bg-gray-100'
                 }`}
               >
@@ -473,7 +473,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
               clearSearch();
               setShowResults(false);
             }}
-            className="text-blue-600 hover:text-blue-700 font-medium"
+            className="text-[#2f70b4] hover:text-[#2f70b4]/80 font-medium"
           >
             Limpiar
           </button>
@@ -500,7 +500,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         {renderSearchHeader()}
         <div className="flex items-center justify-center p-12">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2f70b4] mx-auto mb-4"></div>
             <p className="text-gray-500">Cargando productos...</p>
           </div>
         </div>
@@ -528,7 +528,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                     clearSearch();
                     setShowResults(false);
                   }}
-                  className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  className="mt-2 text-[#2f70b4] hover:text-[#2f70b4]/80 text-sm font-medium"
                 >
                   Ver todos los productos
                 </button>
@@ -566,7 +566,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                   className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer hover:scale-105 relative group"
                 >
                   {/* Imagen/Placeholder del producto */}
-                  <div className="aspect-square bg-blue-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
+                  <div className="aspect-square bg-[#2f70b4]/10 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
                     {product.image ? (
                       <img
                         src={product.image}
@@ -579,7 +579,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                         }}
                       />
                     ) : null}
-                    <div className={`w-12 h-12 bg-blue-300 rounded-full flex items-center justify-center ${product.image ? 'hidden' : ''}`}>
+                    <div className={`w-12 h-12 bg-[#2f70b4]/40 rounded-full flex items-center justify-center ${product.image ? 'hidden' : ''}`}>
                       <div className="w-6 h-6 border-2 border-white rounded-full"></div>
                     </div>
 
@@ -593,11 +593,11 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
                   {/* Información del producto */}
                   <div className="space-y-1">
-                    <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                    <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2 group-hover:text-[#2f70b4] transition-colors">
                       {product.name}
                     </h3>
                     
-                    <div className="text-lg font-bold text-blue-600">
+                    <div className="text-lg font-bold text-[#2f70b4]">
                       {formattedPrice}
                     </div>
                     <p className="text-xs text-gray-500 mt-1" title="Unidad base">

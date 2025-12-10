@@ -96,7 +96,7 @@ const PuntoVenta = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-emerald-50/20 to-gray-50 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-[#2ccdb0]/10 to-gray-50 flex flex-col">
 
         {/* Header Mejorado con mejor diseño */}
         <div className="bg-white border-b border-gray-200 shadow-sm">
@@ -104,13 +104,13 @@ const PuntoVenta = () => {
             <div className="flex items-center justify-between">
               {/* Left side */}
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#2f70b4] to-[#2ccdb0] rounded-xl flex items-center justify-center shadow-lg">
                   <ShoppingCart className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                     Punto de Venta
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#2ccdb0]/15 text-[#2f70b4]">
                       POS
                     </span>
                   </h1>
@@ -121,7 +121,7 @@ const PuntoVenta = () => {
               <div className="flex items-center space-x-3">
                 <button
                   onClick={() => navigate('/punto-venta/dashboard')}
-                  className="rounded-full border border-gray-200 p-2 text-gray-500 transition-colors hover:border-teal-200 hover:text-teal-600 focus-visible:ring-2 focus-visible:ring-teal-100"
+                  className="rounded-full border border-gray-200 p-2 text-gray-500 transition-colors hover:border-[#2ccdb0] hover:text-[#2f70b4] focus-visible:ring-2 focus-visible:ring-[#2f70b4]/20"
                   title="Ir al dashboard de Punto de Venta"
                 >
                   <LayoutDashboard className="h-4 w-4" />

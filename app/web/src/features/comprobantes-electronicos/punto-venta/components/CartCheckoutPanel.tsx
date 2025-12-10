@@ -206,7 +206,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 text-slate-400">
+      <div className="flex items-center gap-1.5 text-slate-400">
           <div className="relative">
             <select
               value={currency}
@@ -311,10 +311,10 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               <button
                 type="button"
                 onClick={() => setShowNotes((prev) => !prev)}
-                className="w-full flex items-center justify-between px-1 py-1.5 bg-transparent hover:text-blue-700 transition"
+                className="w-full flex items-center justify-between px-1 py-1.5 bg-transparent hover:text-[#2f70b4] transition"
               >
                 <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-                  <FileText className="h-4 w-4 text-blue-600" />
+                  <FileText className="h-4 w-4 text-[#2f70b4]" />
                   <span>Observaciones</span>
                   <span className="text-[11px] font-normal text-gray-400">Opcional</span>
                 </div>
@@ -387,7 +387,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               disabled={primaryDisabled}
               className={`w-full py-3 rounded-xl font-bold text-base shadow-lg transition-all ${
                 !primaryDisabled
-                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700'
+                  ? 'bg-[#2ccdb0] text-white hover:bg-[#26b79c] active:bg-[#1f9a83]'
                   : 'bg-gray-200 text-gray-500 cursor-not-allowed'
               }`}
             >
@@ -413,7 +413,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                 onClick={handleSecondaryAction}
                 disabled={secondaryDisabled}
                 className={`w-full text-xs font-semibold tracking-wide ${
-                  !secondaryDisabled ? 'text-indigo-600 hover:text-indigo-700' : 'text-gray-400'
+                  !secondaryDisabled ? 'text-[#2f70b4] hover:text-[#265a91]' : 'text-gray-400'
                 }`}
               >
                 {secondaryLabel}
@@ -426,7 +426,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               </span>
               <button
                 onClick={onClearCart}
-                className={`text-teal-600 hover:text-teal-700 ${!hasItems ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`text-[#2ccdb0] hover:text-[#26b79c] ${!hasItems ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={isProcessing || !hasItems}
               >
                 Borrar todo
