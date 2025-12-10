@@ -25,6 +25,13 @@ export class InventoryService {
   }
 
   /**
+   * Obtener stock reservado de un producto en un almacén específico
+   */
+  static getReservedStock(product: Product, warehouseId: string): number {
+    return Math.max(0, product.stockReservadoPorAlmacen?.[warehouseId] ?? 0);
+  }
+
+  /**
    * Obtener stock total de un producto en todos los almacenes
    */
   static getTotalStock(product: Product): number {

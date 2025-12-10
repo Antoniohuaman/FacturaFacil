@@ -71,11 +71,11 @@ export const useInventarioDisponibilidad = () => {
       // Stock real del almacén seleccionado
       const real = InventoryService.getStock(product, filtros.almacenId);
 
-      // Simular stock reservado (10% del stock real o 0)
-      // TODO: En producción, esto debe venir de órdenes/pedidos pendientes
-      const reservado = Math.floor(real * 0.1);
+      // Stock reservado sólo si existe información explícita, nunca simulado
+      const rawReservado = InventoryService.getReservedStock(product, filtros.almacenId);
+      const reservado = Math.min(rawReservado, Math.max(real, 0));
 
-      // Disponible = Real - Reservado
+      // Disponible = Real - Reservado (garantiza relación consistente)
       const disponible = Math.max(0, real - reservado);
 
       // Stock mínimo y máximo configurados

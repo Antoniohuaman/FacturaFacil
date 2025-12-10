@@ -43,6 +43,7 @@ export interface Product {
   cantidad?: number; // Stock general opcional
   stockPorEstablecimiento?: Record<string, number>; // Stock por establecimiento (compat)
   stockPorAlmacen?: Record<string, number>; // Stock por almacén (compat)
+  stockReservadoPorAlmacen?: Record<string, number>; // Stock reservado por almacén (compat)
   stockMinimoPorAlmacen?: Record<string, number>; // Umbral mínimo por almacén (compat)
   stockMaximoPorAlmacen?: Record<string, number>; // Umbral máximo por almacén (compat)
   fechaCreacion: Date;
