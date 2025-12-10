@@ -230,65 +230,61 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
   const renderSearchHeader = () => (
     <div className="bg-white border-b border-gray-200 p-3 mb-4">
-      <div className="flex items-center justify-between mb-3">
-        <div />
-        {priceListOptions.length > 0 && (
-          <div className="flex items-center gap-2 text-[11px] text-gray-600">
-            <span className="uppercase tracking-wide">Lista de precios</span>
-            <select
-              value={selectedPriceListId}
-              onChange={(event) => onPriceListChange(event.target.value)}
-              className="bg-white border border-gray-200 rounded-md px-2 py-1 text-[11px] font-semibold text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-0"
-            >
-              {priceListOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-      {/* Barra de búsqueda principal */}
-      <div className="flex items-center gap-3 mb-3">
-        
-        {/* Barra de búsqueda */}
-        <div className="flex-1 relative">
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
-            
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Buscar por nombre, código o categoría..."
-              className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm placeholder-gray-500 transition-all duration-200"
-            />
-
-            {isSearching && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-              </div>
-            )}
-
-            {searchQuery && (
+      <div className="flex w-full flex-wrap items-center gap-3">
+        {/* Barra de búsqueda y escáner */}
+        <div className="relative flex-1 min-w-[260px]">
+          <div className="flex items-stretch rounded-lg border border-gray-200 bg-white shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-100">
+            <div className="flex overflow-hidden rounded-l-lg">
               <button
-                onClick={() => {
-                  clearSearch();
-                  setShowResults(false);
-                }}
-                className="absolute right-12 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+                type="button"
+                className="flex items-center justify-center bg-teal-600 px-3 text-white"
+                title="Buscar productos"
               >
-                <X className="h-4 w-4 text-gray-400" />
+                <Search className="h-4 w-4" />
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => handleScanBarcode('00168822')}
+                className="flex items-center justify-center bg-teal-500 px-3 text-white border-l border-teal-400 hover:bg-teal-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-200"
+                title="Escanear código de barras"
+              >
+                <Scan className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Buscar por nombre, código o categoría..."
+                className="w-full border-0 bg-transparent py-2.5 pl-3 pr-16 text-sm placeholder-gray-500 focus:outline-none"
+              />
+
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearSearch();
+                    setShowResults(false);
+                  }}
+                  className="absolute right-8 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:text-gray-600"
+                  aria-label="Limpiar búsqueda"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="h-4 w-4 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin" />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Resultados de búsqueda dropdown */}
           {showResults && hasSearchQuery && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+            <div className="absolute top-full left-0 right-0 mt-2 z-50 max-h-80 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl">
               {hasResults ? (
                 <div className="p-2">
                   {searchResults.slice(0, 6).map(product => {
@@ -299,11 +295,11 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                       <button
                         key={product.id}
                         onClick={() => handleProductSelect(product)}
-                        className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-100 last:border-b-0"
+                        className="w-full rounded-lg border-b border-gray-100 p-3 text-left transition-colors hover:bg-gray-50 last:border-b-0"
                       >
-                        <div className="flex justify-between items-center">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-medium text-gray-900">{product.name}</div>
                             <div className="text-sm text-gray-500">{product.code}</div>
                           </div>
                           <div className="ml-3 text-right">
@@ -321,7 +317,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                 </div>
               ) : (
                 <div className="p-6 text-center text-gray-500">
-                  <Package className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <Package className="mx-auto mb-2 h-8 w-8 text-gray-300" />
                   <div>No se encontraron productos</div>
                 </div>
               )}
@@ -329,42 +325,45 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
           )}
         </div>
 
-        {/* Botones de acción */}
-        <div className="flex items-center gap-1.5">
-          
-          {/* Escanear */}
+        {/* Acciones */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => handleScanBarcode('00168822')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-semibold shadow-sm"
-            title="Escanear código de barras"
-          >
-            <Scan className="h-4 w-4" />
-            <span className="hidden sm:inline">Escanear</span>
-          </button>
-
-          {/* Crear producto */}
-          <button
+            type="button"
             onClick={handleCreateProduct}
-            className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors text-sm font-semibold shadow-sm"
+            className="flex items-center gap-1.5 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 focus-visible:ring-2 focus-visible:ring-teal-200"
             title="Crear nuevo producto"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Nuevo</span>
+            <span>Nuevo</span>
           </button>
 
-
-          {/* Filtros */}
           <button
+            type="button"
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${
-              showFilters 
-                ? 'bg-orange-100 text-orange-700' 
-                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+            className={`rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-blue-200 ${
+              showFilters ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:text-blue-600'
             }`}
+            title="Mostrar filtros"
           >
             <Filter className="h-4 w-4" />
-            <span className="hidden lg:inline">Filtros</span>
           </button>
+
+          {priceListOptions.length > 0 && (
+            <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              <span>Lista de precios</span>
+              <select
+                value={selectedPriceListId}
+                onChange={(event) => onPriceListChange(event.target.value)}
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-800 focus:border-blue-500 focus:outline-none"
+              >
+                {priceListOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
