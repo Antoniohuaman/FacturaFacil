@@ -96,10 +96,10 @@ const PuntoVenta = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-[#2ccdb0]/10 to-gray-50 flex flex-col">
+      <div className="h-full bg-gradient-to-br from-gray-50 via-[#2ccdb0]/10 to-gray-50 flex flex-col overflow-hidden">
 
         {/* Header Mejorado con mejor diseño */}
-        <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="bg-white border-b border-gray-200 shadow-sm shrink-0">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               {/* Left side */}
@@ -134,11 +134,11 @@ const PuntoVenta = () => {
         </div>
 
         {/* Main Content - Layout EXACTAMENTE igual que antes */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full min-h-0 flex flex-col gap-6 xl:flex-row xl:gap-0">
+        <div className="flex-1 min-h-0 overflow-hidden px-0 py-0">
+          <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_520px] lg:gap-0">
 
             {/* POS View - PRESERVADO COMPLETAMENTE */}
-            <div className="flex h-full min-h-0 flex-1 flex-col">
+            <div className="flex h-full min-h-0 flex-col bg-white lg:border-r lg:border-slate-200">
               {/* Products Grid - SIN CAMBIOS */}
               <ProductGrid
                 products={availableProducts}
@@ -157,44 +157,48 @@ const PuntoVenta = () => {
             </div>
 
             {/* Cart Checkout Panel - NUEVO COMPONENTE UNIFICADO */}
-            <div className="flex h-full min-h-0 flex-col xl:w-[520px] xl:flex-shrink-0">
-              <CartCheckoutPanel
-                cartItems={cartItems}
-                totals={totals}
-                onRemoveItem={removeFromCart}
-                onUpdateQuantity={updateCartQuantity}
-                onSetQuantity={setCartItemQuantity}
-                onUpdatePrice={updateCartItemPrice}
-                onCartItemUnitChange={onCartItemUnitChange}
-                getUnitOptionsForProduct={getUnitOptionsForProduct}
-                formatUnitLabel={formatUnitLabel}
-                onConfirmSale={handleConfirmSale}
-                onClearCart={clearCart}
-                onViewFullForm={() => navigate('/comprobantes/emision')}
-                onAddProduct={addToCart}
-                currency={currentCurrency}
-                tipoComprobante={tipoComprobante}
-                setTipoComprobante={setTipoComprobante}
-                onCurrencyChange={undefined}
-                clienteSeleccionado={clienteSeleccionado}
-                setClienteSeleccionado={setClienteSeleccionado}
-                cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
-                isProcessing={isProcessing}
-                paymentMethods={paymentMethods}
-                formaPagoId={formaPago}
-                isCreditMethod={isCreditMethod}
-                onConfigureCreditSchedule={handleOpenCreditScheduleModal}
-                creditTerms={creditTerms}
-                creditScheduleErrors={creditTemplateErrors}
-                creditPaymentMethodName={selectedPaymentMethod?.name}
-                onEmitWithoutPayment={() => {
-                  void handleEmitirSinCobranza();
-                }}
-                observaciones={observaciones}
-                notaInterna={notaInterna}
-                onObservacionesChange={setObservaciones}
-                onNotaInternaChange={setNotaInterna}
-              />
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="h-full xl:sticky xl:top-4 xl:h-[calc(100vh-5.5rem)] xl:max-h-[calc(100vh-5.5rem)]">
+                <div className="h-full">
+                  <CartCheckoutPanel
+                    cartItems={cartItems}
+                    totals={totals}
+                    onRemoveItem={removeFromCart}
+                    onUpdateQuantity={updateCartQuantity}
+                    onSetQuantity={setCartItemQuantity}
+                    onUpdatePrice={updateCartItemPrice}
+                    onCartItemUnitChange={onCartItemUnitChange}
+                    getUnitOptionsForProduct={getUnitOptionsForProduct}
+                    formatUnitLabel={formatUnitLabel}
+                    onConfirmSale={handleConfirmSale}
+                    onClearCart={clearCart}
+                    onViewFullForm={() => navigate('/comprobantes/emision')}
+                    onAddProduct={addToCart}
+                    currency={currentCurrency}
+                    tipoComprobante={tipoComprobante}
+                    setTipoComprobante={setTipoComprobante}
+                    onCurrencyChange={undefined}
+                    clienteSeleccionado={clienteSeleccionado}
+                    setClienteSeleccionado={setClienteSeleccionado}
+                    cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
+                    isProcessing={isProcessing}
+                    paymentMethods={paymentMethods}
+                    formaPagoId={formaPago}
+                    isCreditMethod={isCreditMethod}
+                    onConfigureCreditSchedule={handleOpenCreditScheduleModal}
+                    creditTerms={creditTerms}
+                    creditScheduleErrors={creditTemplateErrors}
+                    creditPaymentMethodName={selectedPaymentMethod?.name}
+                    onEmitWithoutPayment={() => {
+                      void handleEmitirSinCobranza();
+                    }}
+                    observaciones={observaciones}
+                    notaInterna={notaInterna}
+                    onObservacionesChange={setObservaciones}
+                    onNotaInternaChange={setNotaInterna}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>

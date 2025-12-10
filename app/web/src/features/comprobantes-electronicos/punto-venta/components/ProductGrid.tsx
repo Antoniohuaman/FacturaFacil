@@ -2,7 +2,7 @@
 // COMPONENTE GRID DE PRODUCTOS PARA MODO POS - VERSIÓN MEJORADA
 // ===================================================================
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Search, Scan, Plus, Filter, Package, X } from 'lucide-react';
 import type { Product, CartItem, Currency } from '../../models/comprobante.types';
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
@@ -49,6 +49,9 @@ export interface ProductGridProps {
   activePriceListLabel?: string;
   showQuantityBadge?: boolean;
 }
+
+const GRID_SCROLL_MIN_HEIGHT = 240;
+const GRID_SCROLL_BOTTOM_OFFSET = 24;
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
   products,
@@ -97,6 +100,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const [unitSelections, setUnitSelections] = useState<Record<string, string>>({});
   const [searchMode, setSearchMode] = useState<'text' | 'barcode'>('text');
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const [gridScrollMaxHeight, setGridScrollMaxHeight] = useState<string>('auto');
 
   const resolveSku = useCallback((product: Product) => product.code || product.id, []);
 
@@ -114,6 +119,31 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       return next;
     });
   }, [getPreferredUnitForSku, products, resolveSku]);
+
+  const recalcGridScrollArea = useCallback(() => {
+    if (!scrollAreaRef.current) {
+      return;
+    }
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const { top } = scrollAreaRef.current.getBoundingClientRect();
+    const available = viewportHeight - top - GRID_SCROLL_BOTTOM_OFFSET;
+    setGridScrollMaxHeight(`${Math.max(available, GRID_SCROLL_MIN_HEIGHT)}px`);
+  }, []);
+
+  useLayoutEffect(() => {
+    recalcGridScrollArea();
+    const handleResize = () => recalcGridScrollArea();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleResize);
+    };
+  }, [recalcGridScrollArea]);
+
+  useEffect(() => {
+    recalcGridScrollArea();
+  }, [recalcGridScrollArea, showFilters, hasSearchQuery, selectedCategory, searchFilters.category]);
 
   const resolveProductPrice = useCallback((product: Product, unitCode?: string) => {
     const sku = resolveSku(product);
@@ -242,7 +272,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
   const renderSearchHeader = () => (
     <div className="bg-white border-b border-gray-200 p-3 mb-4">
-      <div className="flex w-full flex-wrap items-center gap-3">
+      <div className="flex w-full flex-wrap items-center gap-3 xl:flex-nowrap">
         {/* Barra de búsqueda y escáner */}
         <div className="relative flex-1 min-w-[260px]">
           <div className="flex items-stretch rounded-lg border border-gray-200 bg-white shadow-sm focus-within:border-[#2f70b4] focus-within:ring-1 focus-within:ring-[#2f70b4]/10">
@@ -369,7 +399,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         </div>
 
         {/* Acciones */}
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-2 flex-wrap justify-end xl:flex-nowrap">
           <button
             type="button"
             onClick={handleCreateProduct}
@@ -509,35 +539,40 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Header de búsqueda */}
       {renderSearchHeader()}
 
       {/* Grid de productos */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {!displayProducts || displayProducts.length === 0 ? (
-          <div className="flex items-center justify-center p-12">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Package className="w-8 h-8 text-gray-400" />
+      <div
+        ref={scrollAreaRef}
+        className="flex-1 min-h-0 overflow-y-auto pb-4 thin-scrollbar"
+        style={{ maxHeight: gridScrollMaxHeight }}
+      >
+        <div className="h-full w-full px-2 sm:px-3 lg:px-4">
+          {!displayProducts || displayProducts.length === 0 ? (
+            <div className="flex items-center justify-center p-12">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Package className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500">{emptyStateMessage}</p>
+                {hasSearchQuery && (
+                  <button
+                    onClick={() => {
+                      clearSearch();
+                      setShowResults(false);
+                    }}
+                    className="mt-2 text-[#2f70b4] hover:text-[#2f70b4]/80 text-sm font-medium"
+                  >
+                    Ver todos los productos
+                  </button>
+                )}
               </div>
-              <p className="text-gray-500">{emptyStateMessage}</p>
-              {hasSearchQuery && (
-                <button
-                  onClick={() => {
-                    clearSearch();
-                    setShowResults(false);
-                  }}
-                  className="mt-2 text-[#2f70b4] hover:text-[#2f70b4]/80 text-sm font-medium"
-                >
-                  Ver todos los productos
-                </button>
-              )}
             </div>
-          </div>
-        ) : (
-          <div className={getGridClasses()}>
-            {displayProducts.map((product) => {
+          ) : (
+            <div className={getGridClasses()}>
+              {displayProducts.map((product) => {
               const quantityInCart = getProductQuantityInCart(product.id);
               const inCart = isProductInCart(product.id);
               const sku = resolveSku(product);
@@ -616,8 +651,9 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                 </div>
               );
             })}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal de creación de productos - USANDO EL MODAL REAL DEL CATÁLOGO */}

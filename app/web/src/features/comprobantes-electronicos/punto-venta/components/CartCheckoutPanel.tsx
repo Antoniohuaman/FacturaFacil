@@ -3,7 +3,7 @@
 // Fusiona CartSidebar con selección de Boleta/Factura y Cliente
 // ===================================================================
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, SlidersHorizontal, ShoppingCart } from 'lucide-react';
 import type { CartSidebarProps, Product, ComprobanteCreditTerms } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
@@ -54,6 +54,9 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   formatUnitLabel: (code?: string) => string;
 }
 
+const CART_LIST_MIN_HEIGHT = 260;
+const CART_LIST_BOTTOM_OFFSET = 32;
+
 export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   cartItems,
   totals,
@@ -91,6 +94,8 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const [showNotes, setShowNotes] = useState(false);
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
   const docMenuRef = useRef<HTMLDivElement>(null);
+  const itemsScrollRef = useRef<HTMLDivElement>(null);
+  const [cartItemsMaxHeight, setCartItemsMaxHeight] = useState<string>('auto');
   const MAX_NOTES_CHARS = 500;
 
   const availablePaymentMethods = useMemo(() => (
@@ -167,8 +172,33 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
   const currentDocLabel = docOptions.find(option => option.value === tipoComprobante)?.label || 'Documento';
 
+  const recalcCartItemsHeight = useCallback(() => {
+    if (!itemsScrollRef.current) {
+      return;
+    }
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const { top } = itemsScrollRef.current.getBoundingClientRect();
+    const available = viewportHeight - top - CART_LIST_BOTTOM_OFFSET;
+    setCartItemsMaxHeight(`${Math.max(available, CART_LIST_MIN_HEIGHT)}px`);
+  }, []);
+
+  useLayoutEffect(() => {
+    recalcCartItemsHeight();
+    const handleResize = () => recalcCartItemsHeight();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleResize);
+    };
+  }, [recalcCartItemsHeight]);
+
+  useEffect(() => {
+    recalcCartItemsHeight();
+  }, [recalcCartItemsHeight, cashBoxStatus, clienteSeleccionado, hasItems]);
+
   return (
-    <div className="bg-white border-l border-gray-200 flex h-full w-full flex-col">
+    <div className="bg-white flex h-full w-full flex-col">
       <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between" ref={docMenuRef}>
         <div className="relative">
           <button
@@ -261,8 +291,12 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
           <div className="flex-1 min-h-0 px-3 pb-3">
             {hasItems ? (
-              <div className="h-full overflow-hidden rounded-2xl border border-gray-100 bg-white">
-                <div className="h-full min-h-0 overflow-y-auto">
+              <div
+                ref={itemsScrollRef}
+                className="h-full overflow-hidden rounded-2xl border border-gray-100 bg-white"
+                style={{ maxHeight: cartItemsMaxHeight }}
+              >
+                <div className="h-full min-h-0 overflow-y-auto thin-scrollbar pr-1">
                   <CartItemsList
                     cartItems={cartItems}
                     currency={currency}
