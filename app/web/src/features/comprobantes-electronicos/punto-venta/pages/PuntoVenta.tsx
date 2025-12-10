@@ -20,7 +20,7 @@ import { SuccessModal } from '../../shared/modales/SuccessModal';
 import { CobranzaModal } from '../../shared/modales/CobranzaModal';
 import { CreditScheduleModal } from '../../shared/payments/CreditScheduleModal';
 
-import { ArrowLeft, ShoppingCart } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart } from 'lucide-react';
 
 const PuntoVenta = () => {
   const {
@@ -103,32 +103,29 @@ const PuntoVenta = () => {
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               {/* Left side */}
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => navigate('/punto-venta/dashboard')}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Volver al punto de venta"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <ShoppingCart className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                      Punto de Venta
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                        POS
-                      </span>
-                    </h1>
-                  </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <ShoppingCart className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    Punto de Venta
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                      POS
+                    </span>
+                  </h1>
                 </div>
               </div>
 
               {/* Right side - Estado de caja mejorado */}
               <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => navigate('/punto-venta/dashboard')}
+                  className="rounded-full border border-gray-200 p-2 text-gray-500 transition-colors hover:border-teal-200 hover:text-teal-600 focus-visible:ring-2 focus-visible:ring-teal-100"
+                  title="Ir al dashboard de Punto de Venta"
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                </button>
                 {/* Status of cash box is now shown in the global Header; keep an accessible live region */}
                 <span className="sr-only" aria-live="polite">Caja {cajaStatus === 'abierta' ? 'abierta' : 'cerrada'}</span>
               </div>
@@ -138,7 +135,7 @@ const PuntoVenta = () => {
 
         {/* Main Content - Layout EXACTAMENTE igual que antes */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full min-h-0 flex flex-col gap-6 xl:flex-row">
+          <div className="h-full min-h-0 flex flex-col gap-6 xl:flex-row xl:gap-0">
 
             {/* POS View - PRESERVADO COMPLETAMENTE */}
             <div className="flex h-full min-h-0 flex-1 flex-col">

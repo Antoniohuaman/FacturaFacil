@@ -2,7 +2,7 @@
 // COMPONENTE GRID DE PRODUCTOS PARA MODO POS - VERSIÓN MEJORADA
 // ===================================================================
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, Scan, Plus, Filter, Package, X } from 'lucide-react';
 import type { Product, CartItem, Currency } from '../../models/comprobante.types';
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
@@ -95,6 +95,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const [showResults, setShowResults] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [unitSelections, setUnitSelections] = useState<Record<string, string>>({});
+  const [searchMode, setSearchMode] = useState<'text' | 'barcode'>('text');
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const resolveSku = useCallback((product: Product) => product.code || product.id, []);
 
@@ -174,9 +176,14 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   // FUNCIONES DE BÚSQUEDA
   // ===================================================================
 
-  const handleSearch = (query: string) => {
+  const handleSearch = (query: string, mode: 'text' | 'barcode' = searchMode) => {
     setSearchQuery(query);
-    setShowResults(query.length > 0);
+    const normalized = query.trim();
+    if (mode === 'text') {
+      setShowResults(normalized.length > 0);
+    } else {
+      setShowResults(false);
+    }
   };
 
   const handleProductSelect = (product: Product) => {
@@ -187,11 +194,16 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   };
 
   const handleScanBarcode = (barcode: string) => {
-    searchByBarcode(barcode).then(product => {
+    const normalized = barcode.trim();
+    if (!normalized) {
+      return;
+    }
+    searchByBarcode(normalized).then(product => {
       if (product) {
         const preparedProduct = buildProductForSale(product);
         onAddToCart(preparedProduct);
         setShowResults(false);
+        setSearchQuery('');
       }
     });
   };
@@ -237,16 +249,32 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             <div className="flex overflow-hidden rounded-l-lg">
               <button
                 type="button"
-                className="flex items-center justify-center bg-teal-600 px-3 text-white"
+                onClick={() => {
+                  setSearchMode('text');
+                  handleSearch(searchQuery, 'text');
+                  searchInputRef.current?.focus();
+                }}
+                className={`flex items-center justify-center px-3 transition-colors focus-visible:ring-2 focus-visible:ring-teal-200 ${
+                  searchMode === 'text' ? 'bg-teal-600 text-white' : 'bg-teal-50 text-teal-700'
+                }`}
                 title="Buscar productos"
+                aria-pressed={searchMode === 'text'}
               >
                 <Search className="h-4 w-4" />
               </button>
               <button
                 type="button"
-                onClick={() => handleScanBarcode('00168822')}
-                className="flex items-center justify-center bg-teal-500 px-3 text-white border-l border-teal-400 hover:bg-teal-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-200"
+                onClick={() => {
+                  setSearchMode('barcode');
+                  setShowResults(false);
+                  handleScanBarcode(searchQuery);
+                  searchInputRef.current?.focus();
+                }}
+                className={`flex items-center justify-center border-l border-white/30 px-3 transition-colors focus-visible:ring-2 focus-visible:ring-teal-200 ${
+                  searchMode === 'barcode' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'
+                }`}
                 title="Escanear código de barras"
+                aria-pressed={searchMode === 'barcode'}
               >
                 <Scan className="h-4 w-4" />
               </button>
@@ -254,9 +282,24 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             <div className="relative flex-1">
               <input
                 type="text"
+                ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Buscar por nombre, código o categoría..."
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    const normalized = searchQuery.trim();
+                    if (!normalized) {
+                      return;
+                    }
+                    if (searchMode === 'barcode') {
+                      handleScanBarcode(normalized);
+                    } else {
+                      handleSearch(searchQuery, 'text');
+                    }
+                  }
+                }}
+                placeholder={searchMode === 'barcode' ? 'Código de barras' : 'Buscar productos'}
                 className="w-full border-0 bg-transparent py-2.5 pl-3 pr-16 text-sm placeholder-gray-500 focus:outline-none"
               />
 
