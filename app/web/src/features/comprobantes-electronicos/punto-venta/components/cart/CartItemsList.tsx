@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Minus, Trash2 } from 'lucide-react';
 import type { CartItem, Currency } from '../../../models/comprobante.types';
 import { useCurrency } from '../../../shared/form-core/hooks/useCurrency';
 import type { ProductUnitOption } from '../../../../lista-precios/models/PriceTypes';
+import { SYSTEM_CONFIG } from '../../../models/constants';
 
 interface CartItemsListProps {
   cartItems: CartItem[];
@@ -10,6 +11,7 @@ interface CartItemsListProps {
   isProcessing: boolean;
   onUpdateQuantity: (id: string, change: number) => void;
   onUpdatePrice?: (id: string, newPrice: number) => void;
+  onSetQuantity?: (id: string, quantity: number) => void;
   onRemoveItem: (id: string) => void;
   onUpdateUnit: (id: string, unitCode: string) => void;
   getUnitOptionsForProduct: (sku: string) => ProductUnitOption[];
@@ -22,12 +24,86 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
   isProcessing,
   onUpdateQuantity,
   onUpdatePrice,
+  onSetQuantity,
   onRemoveItem,
   onUpdateUnit,
   getUnitOptionsForProduct,
   formatUnitLabel,
 }) => {
   const { formatPrice } = useCurrency();
+  const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+
+  const pruneDraftsByIds = (drafts: Record<string, string>, validIds: Set<string>) => {
+    const next = { ...drafts };
+    let changed = false;
+    Object.keys(next).forEach(key => {
+      if (!validIds.has(key)) {
+        delete next[key];
+        changed = true;
+      }
+    });
+    return changed ? next : drafts;
+  };
+
+  useEffect(() => {
+    const validIds = new Set(cartItems.map(item => String(item.id)));
+    setQuantityDrafts(prev => pruneDraftsByIds(prev, validIds));
+    setPriceDrafts(prev => pruneDraftsByIds(prev, validIds));
+  }, [cartItems]);
+
+  const clearQuantityDraft = (id: string) => {
+    setQuantityDrafts(prev => {
+      if (!(id in prev)) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const clearPriceDraft = (id: string) => {
+    setPriceDrafts(prev => {
+      if (!(id in prev)) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const commitQuantityChange = (itemId: string, fallbackQuantity: number) => {
+    if (!onSetQuantity) {
+      clearQuantityDraft(itemId);
+      return;
+    }
+    const raw = quantityDrafts[itemId];
+    const normalized = raw?.replace(',', '.');
+    const parsed = normalized !== undefined && normalized !== '' ? parseFloat(normalized) : NaN;
+    const safeQuantity = Number.isFinite(parsed) ? parsed : fallbackQuantity;
+    onSetQuantity(itemId, safeQuantity);
+    clearQuantityDraft(itemId);
+  };
+
+  const commitPriceChange = (itemId: string, fallbackPrice: number) => {
+    if (!onUpdatePrice) {
+      clearPriceDraft(itemId);
+      return;
+    }
+
+    const raw = priceDrafts[itemId];
+    if (raw === undefined) {
+      return;
+    }
+
+    const normalized = raw.replace(',', '.');
+    const parsed = normalized !== '' ? parseFloat(normalized) : NaN;
+    const safePrice = Number.isFinite(parsed) ? parsed : fallbackPrice;
+    onUpdatePrice(itemId, safePrice);
+    clearPriceDraft(itemId);
+  };
 
   if (cartItems.length === 0) {
     return null;
@@ -56,6 +132,16 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                 ...normalizedOptions,
               ]
             : normalizedOptions;
+          const itemId = String(item.id);
+          const draftQuantity = quantityDrafts[itemId];
+          const quantityDisplayValue = draftQuantity ?? (Number.isFinite(item.quantity) ? item.quantity.toString() : '');
+          const draftPrice = priceDrafts[itemId];
+          const priceDisplayValue = draftPrice ?? (Number.isFinite(item.price) ? item.price.toString() : '');
+          const fallbackPriceValue = Number.isFinite(item.price) ? item.price : 0;
+          const minQuantity = SYSTEM_CONFIG.MIN_CART_QUANTITY;
+          const maxQuantity = SYSTEM_CONFIG.MAX_CART_QUANTITY;
+          const isAtMinQuantity = item.quantity <= minQuantity;
+          const isAtMaxQuantity = item.quantity >= maxQuantity;
 
           return (
             <div
@@ -88,21 +174,53 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                     aria-label="Cantidad"
                   >
                     <button
-                      onClick={() => onUpdateQuantity(item.id, -1)}
+                      onClick={() => {
+                        clearQuantityDraft(itemId);
+                        onUpdateQuantity(item.id, -1);
+                      }}
                       className="flex-1 h-full flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-30 border-r border-gray-200"
-                      disabled={item.quantity <= 1 || isProcessing}
+                      disabled={isAtMinQuantity || isProcessing}
+                      aria-label="Disminuir cantidad"
+                      title="Disminuir"
                     >
                       <Minus className="h-2.5 w-2.5 text-gray-600" />
                     </button>
 
                     <div className="flex-1 h-full flex items-center justify-center bg-white">
-                      <span className="text-xs font-bold text-gray-900">{item.quantity}</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min={minQuantity}
+                        max={maxQuantity}
+                        value={quantityDisplayValue}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setQuantityDrafts(prev => ({ ...prev, [itemId]: value }));
+                        }}
+                        onBlur={() => commitQuantityChange(item.id, item.quantity)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            commitQuantityChange(item.id, item.quantity);
+                          }
+                        }}
+                        onFocus={(event) => event.target.select()}
+                        disabled={isProcessing || !onSetQuantity}
+                        className="w-full h-full text-center text-xs font-bold text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-300 no-number-spinner"
+                        aria-label="Editar cantidad"
+                      />
                     </div>
 
                     <button
-                      onClick={() => onUpdateQuantity(item.id, 1)}
+                      onClick={() => {
+                        clearQuantityDraft(itemId);
+                        onUpdateQuantity(item.id, 1);
+                      }}
                       className="flex-1 h-full flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors border-l border-gray-200"
-                      disabled={isProcessing}
+                      disabled={isProcessing || isAtMaxQuantity}
+                      aria-label="Aumentar cantidad"
+                      title="Aumentar"
                     >
                       <Plus className="h-2.5 w-2.5 text-gray-600" />
                     </button>
@@ -137,15 +255,23 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                       </span>
                       <input
                         type="number"
-                        value={item.price || ''}
-                        onChange={(e) => {
-                          const newPrice = parseFloat(e.target.value) || 0;
-                          onUpdatePrice(item.id, newPrice);
+                        inputMode="decimal"
+                        value={priceDisplayValue}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setPriceDrafts(prev => ({ ...prev, [itemId]: value }));
                         }}
-                        onFocus={(e) => e.target.select()}
+                        onBlur={() => commitPriceChange(item.id, fallbackPriceValue)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            commitPriceChange(item.id, fallbackPriceValue);
+                          }
+                        }}
+                        onFocus={(event) => event.target.select()}
                         step="0.01"
                         min="0"
-                        className="w-full h-full pl-6 pr-1 text-[11px] font-semibold text-right bg-white border border-gray-200 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all"
+                        className="w-full h-full pl-6 pr-1 text-[11px] font-semibold text-right bg-white border border-gray-200 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all no-number-spinner"
                         disabled={isProcessing}
                         placeholder="0.00"
                         aria-label="Precio"

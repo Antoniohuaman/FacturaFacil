@@ -14,6 +14,7 @@ export interface UseCartReturn {
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (id: string) => void;
   updateCartQuantity: (id: string, change: number) => void;
+  setCartItemQuantity: (id: string, quantity: number) => void;
   updateCartItem: (id: string, updates: Partial<CartItem>) => void;
   updateCartItemPrice: (id: string, newPrice: number) => void;
   clearCart: () => void;
@@ -208,7 +209,10 @@ export const useCart = (): UseCartReturn => {
       const item = prev.find(i => i.id === id);
       if (!item) return prev;
 
-      const newQuantity = Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, item.quantity + change);
+      const newQuantity = Math.min(
+        SYSTEM_CONFIG.MAX_CART_QUANTITY,
+        Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, item.quantity + change)
+      );
 
       // ✅ VALIDACIÓN DE STOCK al incrementar
       if (change > 0 && item.requiresStockControl && !allowNegativeStock) {
@@ -273,6 +277,30 @@ export const useCart = (): UseCartReturn => {
   const clearCart = useCallback(() => {
     setCartItems([]);
   }, []);
+
+  const setCartItemQuantity = useCallback((id: string, nextQuantity: number) => {
+    setCartItems(prev => {
+      const item = prev.find(i => i.id === id);
+      if (!item) return prev;
+
+      const sanitized = Number.isFinite(nextQuantity) ? nextQuantity : item.quantity;
+      const bounded = Math.min(
+        SYSTEM_CONFIG.MAX_CART_QUANTITY,
+        Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, sanitized)
+      );
+
+      if (item.requiresStockControl && !allowNegativeStock && bounded > item.stock) {
+        alert(`⚠️ Stock insuficiente\n\nProducto: ${item.name}\nStock disponible: ${item.stock}\nCantidad solicitada: ${bounded}`);
+        return prev;
+      }
+
+      return prev.map(cartItem =>
+        cartItem.id === id
+          ? { ...cartItem, quantity: bounded }
+          : cartItem
+      );
+    });
+  }, [allowNegativeStock]);
 
   // ===================================================================
   // FUNCIONES ESPECIALES
@@ -341,6 +369,7 @@ export const useCart = (): UseCartReturn => {
     addToCart,
     removeFromCart,
     updateCartQuantity,
+    setCartItemQuantity,
     updateCartItem,
     updateCartItemPrice,
     clearCart,

@@ -29,6 +29,7 @@ const PuntoVenta = () => {
     addToCart,
     removeFromCart,
     updateCartQuantity,
+    setCartItemQuantity,
     updateCartItemPrice,
     clearCart,
     priceListOptions,
@@ -168,6 +169,7 @@ const PuntoVenta = () => {
                 totals={totals}
                 onRemoveItem={removeFromCart}
                 onUpdateQuantity={updateCartQuantity}
+                onSetQuantity={setCartItemQuantity}
                 onUpdatePrice={updateCartItemPrice}
                 onCartItemUnitChange={onCartItemUnitChange}
                 getUnitOptionsForProduct={getUnitOptionsForProduct}

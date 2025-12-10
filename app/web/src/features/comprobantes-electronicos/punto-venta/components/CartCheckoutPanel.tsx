@@ -18,6 +18,7 @@ import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes
 export interface CartCheckoutPanelProps extends CartSidebarProps {
   onAddProduct?: (product: Product) => void;
   onUpdatePrice?: (id: string, newPrice: number) => void;
+  onSetQuantity?: (id: string, quantity: number) => void;
   currency?: 'PEN' | 'USD';
   tipoComprobante: 'boleta' | 'factura';
   setTipoComprobante: (tipo: 'boleta' | 'factura') => void;
@@ -58,6 +59,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   totals,
   onUpdateQuantity,
   onUpdatePrice,
+  onSetQuantity,
   onRemoveItem,
   onClearCart,
   onConfirmSale,
@@ -267,6 +269,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                     isProcessing={isProcessing}
                     onUpdateQuantity={onUpdateQuantity}
                     onUpdatePrice={onUpdatePrice}
+                    onSetQuantity={onSetQuantity}
                     onRemoveItem={onRemoveItem}
                     onUpdateUnit={onCartItemUnitChange}
                     getUnitOptionsForProduct={getUnitOptionsForProduct}

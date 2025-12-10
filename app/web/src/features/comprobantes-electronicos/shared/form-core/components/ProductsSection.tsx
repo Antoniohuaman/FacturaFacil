@@ -173,7 +173,8 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     getPreferredUnitForSku,
     formatUnitLabel,
     getPriceOptionsFor,
-    resolveMinPrice
+    resolveMinPrice,
+    getUnitPriceWithFallback
   } = usePriceBook();
 
   const { allProducts: catalogProducts } = useProductStore();
@@ -505,22 +506,38 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     const itemKey = String(item.id);
     clearDraftForItem(itemKey);
     clearErrorForItem(itemKey);
-    const priceOptions = hasSelectableColumns ? getPriceOptionsFor(resolveSku(item), unitCode) : [];
-    const hasPrice = priceOptions.length > 0;
 
-    updateCartItem(item.id, {
-      unidadMedida: unitCode,
-      isManualPrice: hasPrice ? false : true,
-      ...(hasPrice
-        ? {}
-        : {
-            basePrice: 0,
-            price: 0,
-            priceColumnId: undefined,
-            priceColumnLabel: undefined
-          })
+    const sku = resolveSku(item);
+    const targetColumnId = item.priceColumnId || baseColumnId;
+    const priceResult = getUnitPriceWithFallback({
+      sku,
+      selectedUnitCode: unitCode,
+      priceListId: targetColumnId
     });
-  }, [clearDraftForItem, clearErrorForItem, getPriceOptionsFor, hasSelectableColumns, resolveSku, updateCartItem]);
+
+    const updates: Partial<CartItem> = {
+      unidadMedida: unitCode,
+      unit: unitCode
+    };
+
+    if (priceResult.hasPrice) {
+      const roundedBase = roundCurrency(priceResult.price);
+      updates.basePrice = roundedBase;
+      updates.price = applyGlobalRuleValue(roundedBase);
+      updates.isManualPrice = false;
+      if (!item.priceColumnId && targetColumnId) {
+        updates.priceColumnId = targetColumnId;
+      }
+    } else {
+      updates.basePrice = 0;
+      updates.price = 0;
+      updates.isManualPrice = true;
+      updates.priceColumnId = undefined;
+      updates.priceColumnLabel = undefined;
+    }
+
+    updateCartItem(item.id, updates);
+  }, [applyGlobalRuleValue, baseColumnId, clearDraftForItem, clearErrorForItem, getUnitPriceWithFallback, resolveSku, updateCartItem]);
 
   const handlePriceOptionChange = useCallback((item: CartItem, columnId: string, options: PriceColumnOption[]) => {
     const option = options.find(entry => entry.columnId === columnId);

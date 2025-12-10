@@ -160,6 +160,7 @@ export const usePosCartAndTotals = () => {
     addToCart,
     removeFromCart,
     updateCartQuantity,
+    setCartItemQuantity,
     updateCartItem,
     updateCartItemPrice,
     clearCart,
@@ -169,10 +170,10 @@ export const usePosCartAndTotals = () => {
   const {
     priceColumns,
     baseColumnId,
-    getPriceOptionsFor,
     getUnitOptionsForSku,
     getPreferredUnitForSku,
     formatUnitLabel,
+    getUnitPriceWithFallback,
   } = usePriceBook();
 
   const priceListOptions: PosPriceListOption[] = useMemo(() => (
@@ -235,13 +236,11 @@ export const usePosCartAndTotals = () => {
   const getPriceForProduct = useCallback((sku: string, unitCode?: string, columnId?: string): number | undefined => {
     if (!sku) return undefined;
     const targetColumn = columnId || selectedPriceListId || baseColumnId;
-    if (!targetColumn) return undefined;
-    const options = getPriceOptionsFor(sku, unitCode);
-    const match = options.find(option => option.columnId === targetColumn);
-    return match?.price;
-  }, [baseColumnId, getPriceOptionsFor, selectedPriceListId]);
+    const result = getUnitPriceWithFallback({ sku, selectedUnitCode: unitCode, priceListId: targetColumn });
+    return result.hasPrice ? result.price : undefined;
+  }, [baseColumnId, getUnitPriceWithFallback, selectedPriceListId]);
 
-  const applyPriceToItem = useCallback((item: CartItem, unitCode?: string) => {
+  const applyPriceToItem = useCallback((item: CartItem, unitCode?: string, options?: { forceReprice?: boolean }) => {
     const sku = resolveSku(item);
     if (!sku) {
       return;
@@ -253,37 +252,58 @@ export const usePosCartAndTotals = () => {
       updates.unit = normalizedUnit;
     }
 
-    const price = getPriceForProduct(sku, normalizedUnit, selectedPriceListId);
-    if (typeof price === 'number') {
-      const rounded = roundCurrency(price);
+    const shouldSkipPricing = item.isManualPrice && !options?.forceReprice;
+    if (shouldSkipPricing) {
+      if (Object.keys(updates).length > 0) {
+        updateCartItem(item.id, updates);
+      }
+      return;
+    }
+
+    const targetColumn = selectedPriceListId || baseColumnId;
+    const priceResult = getUnitPriceWithFallback({
+      sku,
+      selectedUnitCode: normalizedUnit,
+      priceListId: targetColumn,
+    });
+
+    const resolvedColumnId = priceResult.usedColumnId || targetColumn;
+
+    if (priceResult.hasPrice) {
+      const rounded = roundCurrency(priceResult.price);
       if (rounded !== item.price) {
         updates.price = rounded;
         updates.basePrice = rounded;
+        if (item.isManualPrice) {
+          updates.isManualPrice = false;
+        }
       }
-      if (item.priceColumnId !== selectedPriceListId) {
-        updates.priceColumnId = selectedPriceListId;
+      if (item.priceColumnId !== resolvedColumnId) {
+        updates.priceColumnId = resolvedColumnId;
         updates.priceColumnLabel = activePriceListLabel;
       }
-    } else if (selectedPriceListId) {
-      const warningKey = `${sku}:${normalizedUnit || 'default'}:${selectedPriceListId}`;
-      if (!missingPriceWarningsRef.current.has(warningKey)) {
-        pricingNotifierRef.current?.(
-          'Precio no configurado',
-          `El producto ${item.name || sku} no tiene precio para ${activePriceListLabel}.`
-        );
-        missingPriceWarningsRef.current.add(warningKey);
+    } else {
+      if (resolvedColumnId) {
+        const warningKey = `${sku}:${normalizedUnit || 'default'}:${resolvedColumnId}`;
+        if (!missingPriceWarningsRef.current.has(warningKey)) {
+          pricingNotifierRef.current?.(
+            'Precio no configurado',
+            `El producto ${item.name || sku} no tiene precio para ${activePriceListLabel}.`
+          );
+          missingPriceWarningsRef.current.add(warningKey);
+        }
       }
       updates.price = 0;
       updates.basePrice = 0;
       updates.isManualPrice = true;
-      updates.priceColumnId = selectedPriceListId;
+      updates.priceColumnId = resolvedColumnId;
       updates.priceColumnLabel = activePriceListLabel;
     }
 
     if (Object.keys(updates).length > 0) {
       updateCartItem(item.id, updates);
     }
-  }, [activePriceListLabel, getPreferredUnitForSku, getPriceForProduct, resolveSku, selectedPriceListId, updateCartItem]);
+  }, [activePriceListLabel, baseColumnId, getPreferredUnitForSku, getUnitPriceWithFallback, resolveSku, selectedPriceListId, updateCartItem]);
 
   useEffect(() => {
     missingPriceWarningsRef.current.clear();
@@ -294,7 +314,8 @@ export const usePosCartAndTotals = () => {
       return;
     }
     cartItems.forEach(item => {
-      applyPriceToItem(item);
+      const shouldForce = item.isManualPrice && (!item.price || item.price === 0);
+      applyPriceToItem(item, undefined, { forceReprice: shouldForce });
     });
   }, [applyPriceToItem, cartItems, selectedPriceListId]);
 
@@ -303,14 +324,14 @@ export const usePosCartAndTotals = () => {
     if (!target) {
       return;
     }
-    applyPriceToItem(target, nextUnit);
+    applyPriceToItem(target, nextUnit, { forceReprice: true });
   }, [applyPriceToItem, cartItems]);
 
   const totals = useMemo(() => calculateTotalsFromCart(cartItems), [cartItems]);
 
   const cartActions = useMemo(
-    () => ({ addToCart, removeFromCart, updateCartQuantity, updateCartItemPrice, clearCart }),
-    [addToCart, removeFromCart, updateCartQuantity, updateCartItemPrice, clearCart],
+    () => ({ addToCart, removeFromCart, updateCartQuantity, setCartItemQuantity, updateCartItemPrice, clearCart }),
+    [addToCart, removeFromCart, setCartItemQuantity, updateCartQuantity, updateCartItemPrice, clearCart],
   );
 
   return {
