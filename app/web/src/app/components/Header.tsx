@@ -102,9 +102,9 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
         />
       </button>
       
-      {/* SearchBar - más a la izquierda y más notable */}
-      <div className="flex-1 flex justify-center">
-        <div className="mr-40 transform scale-105"> {/* Escala ligeramente más grande */}
+      {/* SearchBar */}
+      <div className="flex-1 flex justify-center px-8">
+        <div className="w-full max-w-3xl">
           <SearchBar />
         </div>
       </div>

@@ -51,25 +51,27 @@ export default function EstablishmentSelector() {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        className="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30 transition-all duration-200 cursor-pointer group"
+        className="group flex items-center gap-3 px-2 py-1 rounded-md transition-colors hover:bg-slate-50 dark:hover:bg-gray-800/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f70b4]"
         onClick={() => setShowDropdown(!showDropdown)}
         title={`Cambiar establecimiento (Actual: ${currentEstablishment.name})`}
       >
-        <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-        <div className="flex flex-col items-start">
-          <span className="text-xs font-semibold text-blue-900 dark:text-blue-100 leading-tight">
-            {currentEstablishment.name}
-          </span>
-          <span className="text-[10px] text-blue-600 dark:text-blue-400 leading-tight flex items-center gap-1">
-            <MapPin className="w-2.5 h-2.5" />
+        <Building2 className="w-5 h-5 text-[#2f70b4] dark:text-[#2ccdb0]" />
+        <div className="flex flex-col text-left leading-tight">
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-semibold text-slate-900 dark:text-white">
+              {currentEstablishment.name}
+            </span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-slate-400 dark:text-gray-500 transition-transform duration-200 ${
+                showDropdown ? 'rotate-180' : ''
+              }`}
+            />
+          </div>
+          <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-gray-400">
+            <MapPin className="w-3 h-3" />
             {currentEstablishment.address}
           </span>
         </div>
-        <ChevronDown
-          className={`w-3.5 h-3.5 text-blue-600 dark:text-blue-400 transition-transform duration-200 ${
-            showDropdown ? 'rotate-180' : ''
-          }`}
-        />
       </button>
 
       {/* Dropdown con lista de establecimientos */}

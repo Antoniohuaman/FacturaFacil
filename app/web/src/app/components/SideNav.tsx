@@ -154,9 +154,6 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       {/* Selector de empresa - MOVIDO MÁS ARRIBA */}
       {!collapsed ? (
         <div className="border-b border-gray-100/50 dark:border-gray-700/50">
-          <div className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-3 px-4 pt-3">
-            Mi empresa y sucursal
-          </div>
           <CompanySelector />
         </div>
       ) : (
@@ -177,12 +174,6 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       
       {/* Navegación principal */}
       <nav className="flex-1 flex flex-col p-2 overflow-y-auto overscroll-contain">
-        {!collapsed && (
-          <div className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-4 px-2 pt-4">
-            Módulos Principales
-          </div>
-        )}
-        
         <div className="space-y-1 mt-2">
           {mainItemsWithBadges.map(item => (
           <NavLink
