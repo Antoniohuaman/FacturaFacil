@@ -231,10 +231,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const renderSearchHeader = () => (
     <div className="bg-white border-b border-gray-200 p-3 mb-4">
       <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Catálogo disponible</p>
-          <p className="text-xs text-gray-400">Selecciona productos y ajusta unidades sin salir del grid</p>
-        </div>
+        <div />
         {priceListOptions.length > 0 && (
           <div className="flex items-center gap-2 text-[11px] text-gray-600">
             <span className="uppercase tracking-wide">Lista de precios</span>

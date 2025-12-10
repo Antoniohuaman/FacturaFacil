@@ -105,7 +105,7 @@ const PuntoVenta = () => {
               {/* Left side */}
               <div className="flex items-center space-x-4">
                 <button
-                  onClick={() => navigate('/punto-venta')}
+                  onClick={() => navigate('/punto-venta/dashboard')}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Volver al punto de venta"
                 >
@@ -123,9 +123,6 @@ const PuntoVenta = () => {
                         POS
                       </span>
                     </h1>
-                    <p className="text-sm text-gray-500">
-                      Ventas ágiles y eficientes
-                    </p>
                   </div>
                 </div>
               </div>

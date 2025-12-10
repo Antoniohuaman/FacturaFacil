@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, redirect } from "react-router-dom";
 import AppShell from "../layouts/AppShell";
 import { authRoutes } from "../../features/autenticacion/routes";
 
@@ -52,7 +52,15 @@ export const router = createBrowserRouter([
   { path: "/comprobantes/pos", element: <PuntoVenta /> },
 
   // Rutas del nuevo módulo Punto de Venta
-  { path: "/punto-venta", element: <PuntoVentaHome /> },
+  {
+    path: "/punto-venta",
+    loader: ({ request }) => {
+      const url = new URL(request.url);
+      const search = url.search;
+      return redirect(`/punto-venta/nueva-venta${search}`);
+    },
+  },
+  { path: "/punto-venta/dashboard", element: <PuntoVentaHome /> },
   { path: "/punto-venta/nueva-venta", element: <PuntoVenta /> },
       { path: "/catalogo", element: <CatalogoArticulosMain /> },
       { path: "/lista-precios", element: <ListaPrecios /> },
