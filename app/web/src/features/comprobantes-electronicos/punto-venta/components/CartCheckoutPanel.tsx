@@ -397,7 +397,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                   <span className="text-sm">{UI_MESSAGES.CART_LOADING}</span>
                 </span>
               ) : (
-                <div className="flex items-center justify-between">
+                <div className="flex w-full items-center justify-center gap-3 px-2">
                   <span className="text-sm font-semibold">{primaryLabel}</span>
                   {!isCreditPaymentSelection && (
                     <span className="text-lg font-black">

@@ -245,7 +245,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       <div className="flex w-full flex-wrap items-center gap-3">
         {/* Barra de búsqueda y escáner */}
         <div className="relative flex-1 min-w-[260px]">
-          <div className="flex items-stretch rounded-lg border border-gray-200 bg-white shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-100">
+          <div className="flex items-stretch rounded-lg border border-gray-200 bg-white shadow-sm focus-within:border-[#2f70b4] focus-within:ring-1 focus-within:ring-[#2f70b4]/10">
             <div className="flex overflow-hidden rounded-l-lg">
               <button
                 type="button"
@@ -254,8 +254,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                   handleSearch(searchQuery, 'text');
                   searchInputRef.current?.focus();
                 }}
-                className={`flex items-center justify-center px-3 transition-colors focus-visible:ring-2 focus-visible:ring-teal-200 ${
-                  searchMode === 'text' ? 'bg-teal-600 text-white' : 'bg-teal-50 text-teal-700'
+                className={`flex items-center justify-center px-3 transition-colors focus-visible:ring-2 focus-visible:ring-[#2f70b4]/40 ${
+                  searchMode === 'text' ? 'bg-[#2f70b4] text-white' : 'bg-white text-[#2f70b4]'
                 }`}
                 title="Buscar productos"
                 aria-pressed={searchMode === 'text'}
@@ -270,8 +270,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                   handleScanBarcode(searchQuery);
                   searchInputRef.current?.focus();
                 }}
-                className={`flex items-center justify-center border-l border-white/30 px-3 transition-colors focus-visible:ring-2 focus-visible:ring-teal-200 ${
-                  searchMode === 'barcode' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'
+                className={`flex items-center justify-center border-l border-gray-100 px-3 transition-colors focus-visible:ring-2 focus-visible:ring-[#2ccdb0]/40 ${
+                  searchMode === 'barcode' ? 'bg-[#2ccdb0] text-white' : 'bg-white text-[#2ccdb0]'
                 }`}
                 title="Escanear código de barras"
                 aria-pressed={searchMode === 'barcode'}
@@ -369,43 +369,58 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         </div>
 
         {/* Acciones */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <button
             type="button"
             onClick={handleCreateProduct}
-            className="flex items-center gap-1.5 rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 focus-visible:ring-2 focus-visible:ring-teal-200"
+            className="flex items-center gap-1.5 rounded-lg border border-[#2ccdb0] bg-white px-3 py-2 text-sm font-semibold text-[#2f70b4] transition-colors hover:bg-[#2ccdb0]/10 focus-visible:ring-2 focus-visible:ring-[#2ccdb0]/40"
             title="Crear nuevo producto"
           >
             <Plus className="h-4 w-4" />
             <span>Nuevo</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowFilters(!showFilters)}
-            className={`rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-blue-200 ${
-              showFilters ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:text-blue-600'
-            }`}
-            title="Mostrar filtros"
-          >
-            <Filter className="h-4 w-4" />
-          </button>
-
           {priceListOptions.length > 0 && (
-            <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-              <span>Lista de precios</span>
-              <select
-                value={selectedPriceListId}
-                onChange={(event) => onPriceListChange(event.target.value)}
-                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-800 focus:border-blue-500 focus:outline-none"
+            <>
+              <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                <span>Lista de precios</span>
+                <select
+                  value={selectedPriceListId}
+                  onChange={(event) => onPriceListChange(event.target.value)}
+                  className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-800 focus:border-[#2f70b4] focus:outline-none"
+                >
+                  {priceListOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowFilters(!showFilters)}
+                className={`rounded-full border border-transparent p-2 transition-colors focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${
+                  showFilters ? 'bg-[#2ccdb0]/15 text-[#2f70b4]' : 'text-[#2f70b4] hover:bg-slate-50'
+                }`}
+                title="Mostrar filtros"
               >
-                {priceListOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <Filter className="h-4 w-4" />
+              </button>
+            </>
+          )}
+
+          {priceListOptions.length === 0 && (
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`rounded-full border border-transparent p-2 transition-colors focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${
+                showFilters ? 'bg-[#2ccdb0]/15 text-[#2f70b4]' : 'text-[#2f70b4] hover:bg-slate-50'
+              }`}
+              title="Mostrar filtros"
+            >
+              <Filter className="h-4 w-4" />
+            </button>
           )}
         </div>
       </div>

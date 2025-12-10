@@ -11,7 +11,8 @@ export const useProductSearch = () => {
   const AVAILABLE_PRODUCTS: Product[] = useMemo(() => 
     catalogProducts.map(p => ({
       id: p.id,
-      code: p.codigo,
+      code: p.codigo || p.codigoBarras || p.id,
+      barcode: p.codigoBarras,
       name: p.nombre,
       price: p.precio,
       stock: p.cantidad ?? 0,
@@ -44,6 +45,7 @@ export const useProductSearch = () => {
         filteredProducts = filteredProducts.filter(product => 
           product.name.toLowerCase().includes(searchTerm) ||
           product.code.toLowerCase().includes(searchTerm) ||
+          product.barcode?.toLowerCase().includes(searchTerm) ||
           product.description?.toLowerCase().includes(searchTerm) ||
           product.category?.toLowerCase().includes(searchTerm)
         );
@@ -103,13 +105,19 @@ export const useProductSearch = () => {
 
   // Buscar por código de barras
   const searchByBarcode = useCallback(async (barcode: string): Promise<Product | null> => {
+    const normalized = barcode.trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
     setIsSearching(true);
     
     try {
       // Simular delay de escaneo
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const product = AVAILABLE_PRODUCTS.find(p => p.code === barcode);
+      const product = AVAILABLE_PRODUCTS.find(p => 
+        p.barcode?.toLowerCase() === normalized || p.code.toLowerCase() === normalized
+      );
       
       if (product) {
         // Agregar el producto encontrado al inicio de los resultados
@@ -117,7 +125,7 @@ export const useProductSearch = () => {
           const filtered = prev.filter(p => p.id !== product.id);
           return [product, ...filtered];
         });
-        setSearchQuery(product.name); // Actualizar query para mostrar el resultado
+        setSearchQuery(product.code || product.name || '');
       }
       
       return product || null;
