@@ -9,16 +9,36 @@ import type {
   CuentaPorCobrarSummary,
 } from '../models/cobranzas.types';
 import { DEFAULT_COBRANZA_FILTERS } from '../utils/constants';
+import { ensureBusinessDateIso } from '@/shared/time/businessTime';
 
 const textIncludes = (value: string, search: string) =>
   value.toLowerCase().includes(search.trim().toLowerCase());
 
-const inRange = (date: string, from: string, to: string) => {
-  if (!from && !to) return true;
-  const time = new Date(date).getTime();
-  const fromTime = from ? new Date(from).getTime() : Number.NEGATIVE_INFINITY;
-  const toTime = to ? new Date(to).getTime() : Number.POSITIVE_INFINITY;
-  return time >= fromTime && time <= toTime;
+const normalizeBusinessDate = (value?: string | null): string | undefined => {
+  if (!value || !value.trim()) {
+    return undefined;
+  }
+  return ensureBusinessDateIso(value);
+};
+
+const isInBusinessRange = (date?: string | null, from?: string | null, to?: string | null) => {
+  if (!date) {
+    return false;
+  }
+
+  const target = ensureBusinessDateIso(date);
+  const normalizedFrom = normalizeBusinessDate(from);
+  const normalizedTo = normalizeBusinessDate(to);
+
+  if (normalizedFrom && target < normalizedFrom) {
+    return false;
+  }
+
+  if (normalizedTo && target > normalizedTo) {
+    return false;
+  }
+
+  return true;
 };
 
 const ALLOWED_ACCOUNT_STATES: CobranzaStatus[] = ['pendiente', 'parcial', 'vencido'];
@@ -94,7 +114,7 @@ export const useCobranzasDashboard = () => {
         return false;
       }
 
-      if (!inRange(cuenta.fechaEmision, filters.rangoFechas.from, filters.rangoFechas.to)) {
+      if (!isInBusinessRange(cuenta.fechaEmision, filters.rangoFechas.from, filters.rangoFechas.to)) {
         return false;
       }
 
@@ -139,7 +159,7 @@ export const useCobranzasDashboard = () => {
           return false;
         }
 
-        if (!inRange(cobranza.fechaCobranza, filters.rangoFechas.from, filters.rangoFechas.to)) {
+        if (!isInBusinessRange(cobranza.fechaCobranza, filters.rangoFechas.from, filters.rangoFechas.to)) {
           return false;
         }
 

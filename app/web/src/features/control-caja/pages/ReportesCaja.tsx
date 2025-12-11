@@ -3,7 +3,42 @@ import React, { useState } from 'react';
 import { useCaja } from '../context/CajaContext';
 import { FileBarChart, Download, Filter, X, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { EmptyState } from '../components/common/EmptyState';
-import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import {
+  ensureBusinessDateIso,
+  formatBusinessDateTimeLocal,
+  formatDateToBusinessIso,
+  getBusinessDateParts,
+  getBusinessTodayISODate,
+} from '@/shared/time/businessTime';
+
+const pad = (value: number): string => value.toString().padStart(2, '0');
+
+const toBusinessDateIso = (value: Date | string): string | null => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return formatDateToBusinessIso(date);
+};
+
+const getBusinessTimeLabel = (value: Date | string): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const { hour, minute } = getBusinessDateParts(date);
+  return `${pad(hour)}:${pad(minute)}`;
+};
+
+const formatMovementDateTimeLabel = (value: Date | string): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return formatBusinessDateTimeLocal(date).replace('T', ' ');
+};
+
+const normalizeFilterDate = (value: string) => (value ? ensureBusinessDateIso(value) : undefined);
 
 const ReportesCaja: React.FC = () => {
   const { movimientos, showToast } = useCaja();
@@ -11,9 +46,17 @@ const ReportesCaja: React.FC = () => {
   const [fechaHasta, setFechaHasta] = useState('');
   const [usuarioFiltro, setUsuarioFiltro] = useState('');
 
+  const normalizedDesde = normalizeFilterDate(fechaDesde);
+  const normalizedHasta = normalizeFilterDate(fechaHasta);
+
   const reportesFiltrados = movimientos.filter(m => {
-    const desdeOk = !fechaDesde || m.fecha >= new Date(fechaDesde);
-    const hastaOk = !fechaHasta || m.fecha <= new Date(fechaHasta);
+    const movimientoDateIso = toBusinessDateIso(m.fecha);
+    if (!movimientoDateIso) {
+      return false;
+    }
+
+    const desdeOk = !normalizedDesde || movimientoDateIso >= normalizedDesde;
+    const hastaOk = !normalizedHasta || movimientoDateIso <= normalizedHasta;
     const usuarioOk = !usuarioFiltro || (m.usuarioNombre && m.usuarioNombre.toLowerCase().includes(usuarioFiltro.toLowerCase()));
     return desdeOk && hastaOk && usuarioOk;
   });
@@ -43,10 +86,11 @@ const ReportesCaja: React.FC = () => {
       const csvRows = [headers.join(',')];
 
       reportesFiltrados.forEach(m => {
-        const fecha = new Date(m.fecha);
+        const businessDate = toBusinessDateIso(m.fecha) ?? '';
+        const businessTime = getBusinessTimeLabel(m.fecha);
         const row = [
-          fecha.toLocaleDateString('es-PE'),
-          fecha.toLocaleTimeString('es-PE'),
+          businessDate,
+          businessTime,
           m.tipo,
           `"${m.concepto}"`,
           m.medioPago,
@@ -211,13 +255,7 @@ const ReportesCaja: React.FC = () => {
                 reportesFiltrados.map((m) => (
                   <tr key={m.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                      {new Date(m.fecha).toLocaleString('es-PE', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      {formatMovementDateTimeLabel(m.fecha)}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -272,15 +310,7 @@ const ReportesCaja: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-sm font-semibold text-gray-900 mb-1">{m.concepto}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(m.fecha).toLocaleString('es-PE', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
+                  <p className="text-xs text-gray-500">{formatMovementDateTimeLabel(m.fecha)}</p>
                 </div>
                 <div className="text-right">
                   <p className={`text-lg font-bold ${m.tipo === 'Ingreso' ? 'text-green-600' : 'text-red-600'}`}>

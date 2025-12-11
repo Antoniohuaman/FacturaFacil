@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useDocumentoContext } from '../../contexts/DocumentosContext';
 import { lsKey } from '../../../../shared/tenant';
-import { DATE_PRESETS as BUSINESS_DATE_PRESETS, getTodayISO, formatDateShortSpanish } from '../../utils/dateUtils';
+import { DATE_PRESETS as BUSINESS_DATE_PRESETS, getTodayISO, formatDateShortSpanish, filterByDateRange } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
 import { DrawerDetalleDocumento } from '../../components/DrawerDetalleDocumento';
 
@@ -49,36 +49,6 @@ const DATE_PRESET_LABELS: Record<DatePresetKey, string> = {
 // ===================================================================
 // UTILIDADES
 // ===================================================================
-
-function parseInvoiceDate(dateStr?: string): Date {
-  if (!dateStr) return new Date(0);
-  const monthMap: Record<string, number> = {
-    'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
-    'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
-  };
-  const match = dateStr.match(/(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+(\d{4})/i);
-  if (match) {
-    return new Date(parseInt(match[3]), monthMap[match[2].toLowerCase()], parseInt(match[1]));
-  }
-  return new Date(dateStr);
-}
-
-function filterByDateRange<T>(items: T[], getDate: (item: T) => string | undefined, from: string, to: string): T[] {
-  if (!from || !to) return items;
-  const dateFrom = new Date(from); dateFrom.setHours(0, 0, 0, 0);
-  const dateTo = new Date(to); dateTo.setHours(23, 59, 59, 999);
-  return items.filter(item => {
-    const dateStr = getDate(item);
-    if (!dateStr) return false;
-    const itemDate = parseInvoiceDate(dateStr);
-    return itemDate >= dateFrom && itemDate <= dateTo;
-  });
-}
-
-function getDatePresetRange(preset: DatePresetKey) {
-  const factory = BUSINESS_DATE_PRESETS[preset] ?? BUSINESS_DATE_PRESETS.today;
-  return factory();
-}
 
 // ===================================================================
 // COMPONENTE PRINCIPAL
@@ -187,7 +157,8 @@ const ListaNotasVenta = () => {
   };
 
   const applyDatePreset = (preset: DatePresetKey) => {
-    const { from, to } = getDatePresetRange(preset);
+    const factory = BUSINESS_DATE_PRESETS[preset] ?? BUSINESS_DATE_PRESETS.today;
+    const { from, to } = factory();
     setTempDateFrom(from);
     setTempDateTo(to);
   };

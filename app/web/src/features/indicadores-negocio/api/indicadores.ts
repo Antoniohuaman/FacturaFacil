@@ -3,14 +3,17 @@ import { resolveFallbackIndicadores } from './fixtures';
 import type { IndicadoresApiResponseDTO } from './types';
 import { mapIndicadoresResponse } from './mapper';
 import { resolveIndicadoresFromDevLocal } from '../integration/devLocalIndicadoresAdapter';
+import { getBusinessDayRangeUtc } from '@/shared/time/businessTime';
 
 const INDICADORES_API_URL = (import.meta.env.VITE_INDICADORES_API_URL ?? '').trim();
 
 const buildQueryParams = (filters: IndicadoresFilters) => {
+  const startRange = getBusinessDayRangeUtc(filters.dateRange.startDate);
+  const endRange = getBusinessDayRangeUtc(filters.dateRange.endDate);
   const params = new URLSearchParams({
-    startDate: filters.dateRange.startDate.toISOString(),
-    endDate: filters.dateRange.endDate.toISOString(),
-    establishmentId: filters.establishmentId ?? 'Todos'
+    startDate: startRange.startUtc,
+    endDate: endRange.endUtc,
+    establishmentId: filters.establishmentId ?? 'Todos',
   });
   return params.toString();
 };

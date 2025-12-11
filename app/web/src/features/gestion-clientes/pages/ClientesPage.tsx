@@ -11,7 +11,7 @@ import { ClientesModuleLayout } from '../components/ClientesModuleLayout';
 import { useClientes } from '../hooks';
 import { useClientesColumns } from '../hooks/useClientesColumns';
 import { useCaja } from '../../control-caja/context/CajaContext';
-import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { Cliente, ClienteFormData, DocumentType, ClientType } from '../models';
 import { serializeFiles, deserializeFiles } from '../utils/fileSerialization';
 import type { DocumentCode } from '../utils/documents';
@@ -363,6 +363,16 @@ function ClientesPage() {
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null);
 
+	const getBusinessTimestamp = (value?: string | null): string => {
+		if (value) {
+			const parsed = new Date(value);
+			if (!Number.isNaN(parsed.getTime())) {
+				return formatBusinessDateTimeLocal(parsed);
+			}
+		}
+		return formatBusinessDateTimeLocal(new Date());
+	};
+
 	const getInitialFormData = (): ClienteFormData => ({
 		// Identificación
 		tipoDocumento: '6',
@@ -427,8 +437,8 @@ function ClientesPage() {
 		imagenes: [],
 		
 		// Metadatos
-		fechaRegistro: new Date().toISOString(),
-		fechaUltimaModificacion: new Date().toISOString(),
+		fechaRegistro: getBusinessTimestamp(),
+		fechaUltimaModificacion: getBusinessTimestamp(),
 		
 		// Legacy
 		gender: '',
@@ -903,8 +913,11 @@ function ClientesPage() {
 				deserializeFiles(client.imagenes),
 			]);
 
-			const fechaRegistro = client.fechaRegistro || client.createdAt || new Date().toISOString();
-			const fechaUltimaModificacion = client.fechaUltimaModificacion || client.updatedAt || fechaRegistro;
+						const fechaRegistro = getBusinessTimestamp(client.fechaRegistro || client.createdAt);
+						const fechaUltimaModificacionOrigen = client.fechaUltimaModificacion || client.updatedAt;
+						const fechaUltimaModificacion = fechaUltimaModificacionOrigen
+							? getBusinessTimestamp(fechaUltimaModificacionOrigen)
+							: fechaRegistro;
 			const direccion = client.direccion ?? (client.address === 'Sin dirección' ? '' : client.address ?? '');
 			const tipoPersona = client.tipoPersona || (esRUC ? 'Juridica' : 'Natural');
 			const tipoCliente = client.tipoCliente === 'Juridica' || client.tipoCliente === 'Natural'

@@ -1,4 +1,5 @@
 import type { DateRange } from '../models/dateRange';
+import { BUSINESS_TIMEZONE, assertBusinessDate } from '@/shared/time/businessTime';
 
 const currencyFormatter = new Intl.NumberFormat('es-PE', {
   style: 'currency',
@@ -10,12 +11,14 @@ const currencyFormatter = new Intl.NumberFormat('es-PE', {
 const periodFormatter = new Intl.DateTimeFormat('es-PE', {
   day: '2-digit',
   month: 'short',
-  year: 'numeric'
+  year: 'numeric',
+  timeZone: BUSINESS_TIMEZONE,
 });
 
 const shortDateFormatter = new Intl.DateTimeFormat('es-PE', {
   day: '2-digit',
-  month: 'short'
+  month: 'short',
+  timeZone: BUSINESS_TIMEZONE,
 });
 
 const monthShortcuts: Record<string, string> = {
@@ -37,9 +40,11 @@ export const formatCurrency = (value: number) => currencyFormatter.format(value)
 
 export const formatShortLabelFromString = (value: string) => {
   if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) {
+    try {
+      const parsed = assertBusinessDate(value, 'mid');
       return shortDateFormatter.format(parsed);
+    } catch {
+      // fallthrough to legacy parsing
     }
   }
 
@@ -49,8 +54,8 @@ export const formatShortLabelFromString = (value: string) => {
 };
 
 export const formatRangeLabel = (range: DateRange) => {
-  const start = periodFormatter.format(range.startDate);
-  const end = periodFormatter.format(range.endDate);
+  const start = periodFormatter.format(assertBusinessDate(range.startDate, 'mid'));
+  const end = periodFormatter.format(assertBusinessDate(range.endDate, 'mid'));
   return `${start} – ${end}`;
 };
 

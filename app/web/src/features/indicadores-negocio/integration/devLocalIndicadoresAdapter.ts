@@ -1,21 +1,14 @@
 import type { ClientesInsights, FormaPagoDistribucionItem, IndicadoresData, IndicadoresFilters, KpiSummary, RankingItem, TopProductosConcentracion, VentaDiaria, VentasPorComprobanteItem, VentasPorEstablecimientoItem } from '../models/indicadores';
 import { createEmptyIndicadoresData } from '../models/defaults';
 import { devLocalIndicadoresStore, type DevVentaEstado, type DevVentaSnapshot } from './devLocalStore';
-import { ensureBusinessDateIso } from '@/shared/time/businessTime';
+import { assertBusinessDate, ensureBusinessDateIso, shiftBusinessDate } from '@/shared/time/businessTime';
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
-const startOfDay = (date: Date) => {
-  const normalized = new Date(date);
-  normalized.setHours(0, 0, 0, 0);
-  return normalized;
-};
-
-const endOfDay = (date: Date) => {
-  const normalized = new Date(date);
-  normalized.setHours(23, 59, 59, 999);
-  return normalized;
-};
+const getRangeBounds = (range: IndicadoresFilters['dateRange']) => ({
+  start: assertBusinessDate(range.startDate, 'start').getTime(),
+  end: assertBusinessDate(range.endDate, 'end').getTime(),
+});
 
 const convertToBaseCurrency = (venta: DevVentaSnapshot) => {
   if (!venta.moneda || venta.moneda === 'PEN') {
@@ -33,18 +26,17 @@ const convertAmount = (venta: DevVentaSnapshot, field: 'total' | 'subtotal' | 'i
 };
 
 const buildPreviousRange = (range: IndicadoresFilters['dateRange']) => {
-  const start = startOfDay(range.startDate).getTime();
-  const end = endOfDay(range.endDate).getTime();
+  const { start, end } = getRangeBounds(range);
   const durationDays = Math.max(1, Math.round((end - start) / MS_IN_DAY) + 1);
 
-  const previousEnd = new Date(start - MS_IN_DAY);
-  const previousStart = new Date(previousEnd.getTime() - (durationDays - 1) * MS_IN_DAY);
+  const previousEnd = shiftBusinessDate(range.startDate, -1);
+  const previousStart = shiftBusinessDate(previousEnd, -(durationDays - 1));
 
   return {
     startDate: previousStart,
     endDate: previousEnd,
     label: 'Periodo anterior'
-  };
+  } satisfies IndicadoresFilters['dateRange'];
 };
 
 const formatChangePercentage = (currentValue: number, previousValue: number) => {
@@ -69,8 +61,7 @@ const filterVentas = (
   establishmentId?: string,
   estado: DevVentaEstado = 'emitido'
 ) => {
-  const start = startOfDay(range.startDate).getTime();
-  const end = endOfDay(range.endDate).getTime();
+  const { start, end } = getRangeBounds(range);
   const normalizedEstablishment = (establishmentId && establishmentId !== 'Todos') ? establishmentId : null;
   return ventas.filter((venta) => {
     if (estado && venta.estado !== estado) {
@@ -89,7 +80,7 @@ const filterVentasHistoricasAntesDelRango = (
   range: IndicadoresFilters['dateRange'],
   establishmentId?: string
 ) => {
-  const start = startOfDay(range.startDate).getTime();
+  const { start } = getRangeBounds(range);
   const normalizedEstablishment = (establishmentId && establishmentId !== 'Todos') ? establishmentId : null;
   return ventas.filter((venta) => {
     if (venta.estado !== 'emitido') {
@@ -214,7 +205,9 @@ const aggregateVentasDiarias = (ventas: DevVentaSnapshot[]): VentaDiaria[] => {
     ticket: valores.count === 0 ? 0 : Number((valores.ventas / valores.count).toFixed(2)),
     boletas: valores.boletas,
     facturas: valores.facturas
-  })).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+  })).sort((a, b) => (
+    assertBusinessDate(a.fecha, 'start').getTime() - assertBusinessDate(b.fecha, 'start').getTime()
+  ));
 };
 
 const aggregateRanking = (ventas: DevVentaSnapshot[], previous: DevVentaSnapshot[]) => {

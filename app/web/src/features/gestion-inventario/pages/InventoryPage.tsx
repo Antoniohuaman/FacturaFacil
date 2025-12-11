@@ -12,7 +12,15 @@ import AlertsPanel from '../components/panels/AlertsPanel';
 import InventarioSituacionPage from '../components/disponibilidad/InventarioSituacionPage';
 import { PageHeader } from '../../../components/PageHeader';
 import * as XLSX from 'xlsx';
-import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/time/businessTime';
+
+const formatMovementTimestamp = (value: Date | string): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return formatBusinessDateTimeLocal(date).replace('T', ' ');
+};
 
 /**
  * Página principal del módulo de inventario
@@ -55,7 +63,7 @@ export const InventoryPage: React.FC = () => {
    */
   const handleExportToExcel = () => {
     const data = filteredMovements.map(mov => ({
-      'Fecha': new Date(mov.fecha).toLocaleString('es-PE'),
+      'Fecha': formatMovementTimestamp(mov.fecha),
       'Producto': mov.productoNombre,
       'Código': mov.productoCodigo,
       'Tipo': mov.tipo,

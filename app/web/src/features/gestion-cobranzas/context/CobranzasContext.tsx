@@ -12,7 +12,7 @@ import { useCaja } from '../../control-caja/context/CajaContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { mapPaymentMethodToMedioPago } from '../../../shared/payments/paymentMapping';
 import { lsKey } from '../../../shared/tenant';
-import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { assertBusinessDate, getBusinessTodayISODate, toBusinessDate } from '@/shared/time/businessTime';
 import {
   computeAccountStateFromInstallments,
   normalizeCreditTermsToInstallments,
@@ -92,9 +92,9 @@ function computeEstadoCuenta(cuenta: CuentaPorCobrarSummary, newSaldo: number): 
   }
 
   const rawDueDate = cuenta.fechaVencimiento || cuenta.creditTerms?.fechaVencimientoGlobal;
-  const dueDate = rawDueDate ? new Date(`${rawDueDate}T00:00:00`) : null;
-  const today = new Date();
-  if (dueDate && dueDate < today) {
+  const dueDate = rawDueDate ? toBusinessDate(rawDueDate, 'end') : null;
+  const todayCutoff = assertBusinessDate(getBusinessTodayISODate(), 'end');
+  if (dueDate && dueDate.getTime() < todayCutoff.getTime()) {
     return 'vencido';
   }
 
