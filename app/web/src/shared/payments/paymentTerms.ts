@@ -71,7 +71,7 @@ export const validateCreditScheduleTemplate = (
 ): string[] => {
   const errors: string[] = [];
   if (!templates.length) {
-    errors.push('Agrega al menos una cuota para configurar el crédito.');
+    errors.push('Agrega al menos una cuota para configurar el crï¿½dito.');
     return errors;
   }
 
@@ -184,7 +184,7 @@ export const buildCreditPaymentMethodName = (
   definitions?: CreditInstallmentDefinition[],
 ): string => {
   if (!definitions || definitions.length === 0) {
-    return 'Crédito';
+    return 'Crï¿½dito';
   }
 
   const orderedDays = Array.from(
@@ -198,13 +198,13 @@ export const buildCreditPaymentMethodName = (
   ).sort((a, b) => a - b);
 
   if (!orderedDays.length) {
-    return 'Crédito';
+    return 'Crï¿½dito';
   }
 
   if (orderedDays.length === 1) {
-    return `Crédito ${orderedDays[0]} días`;
+    return `Crï¿½dito ${orderedDays[0]} dï¿½as`;
   }
 
-  return `Crédito ${orderedDays.join('-')} días`;
+  return `Crï¿½dito ${orderedDays.join('-')} dï¿½as`;
 };
 
