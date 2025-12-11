@@ -1,4 +1,7 @@
 // features/comprobantes-electronicos/shared/core/comprobantePricing.ts
+import type { CartItem } from '../../models/comprobante.types';
+import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
+import { describeUnitConversion } from '../../../../shared/inventory/unitConversion';
 
 /**
  * Datos de entrada para calcular el precio de una línea de comprobante.
@@ -212,3 +215,47 @@ export function calculateLineaComprobante(input: LinePricingInput): LinePricingR
     usoPrecioPresentacion,
   };
 }
+
+const IGV_RATE_BY_TYPE: Record<string, number> = {
+  igv18: 0.18,
+  igv10: 0.10,
+  exonerado: 0,
+  inafecto: 0,
+};
+
+const deriveIgvRate = (item: CartItem): number => {
+  if (item.igvType && item.igvType in IGV_RATE_BY_TYPE) {
+    return IGV_RATE_BY_TYPE[item.igvType];
+  }
+  if (typeof item.igv === 'number' && Number.isFinite(item.igv)) {
+    return item.igv / 100;
+  }
+  return IGV_RATE_BY_TYPE.igv18;
+};
+
+export const buildLinePricingInputFromCartItem = (
+  item: CartItem,
+  catalogProduct?: CatalogProduct,
+): LinePricingInput => {
+  const unitCode = item.unidadMedida || item.unit || '';
+  const descriptor = describeUnitConversion(catalogProduct, unitCode);
+  const factor = descriptor.factorToUnidadMinima > 0 ? descriptor.factorToUnidadMinima : 1;
+  const selectedUnitPrice = Number.isFinite(item.price)
+    ? (item.price as number)
+    : Number.isFinite(item.basePrice)
+      ? (item.basePrice as number)
+      : 0;
+  const precioBaseUnidadMinima = factor > 0 ? selectedUnitPrice / factor : selectedUnitPrice;
+
+  return {
+    unidadMinimaCode: descriptor.unidadMinima,
+    unidadSeleccionadaCode: descriptor.unidadSeleccionada,
+    factorToUnidadMinima: factor,
+    cantidad: Number.isFinite(item.quantity) ? (item.quantity as number) : 0,
+    precioBaseUnidadMinima,
+    precioPresentacionOpcional: selectedUnitPrice,
+    igvRate: deriveIgvRate(item),
+    precioIncluyeIgv: true,
+    currencyPrecision: 2,
+  };
+};

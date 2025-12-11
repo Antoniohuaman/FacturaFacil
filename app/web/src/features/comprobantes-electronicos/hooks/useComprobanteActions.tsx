@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type {
   CartItem,
   ComprobanteCreditTerms,
@@ -24,6 +24,10 @@ import {
   updateInstallmentsWithAllocations,
 } from '../../gestion-cobranzas/utils/installments';
 import type { PaymentMethod as ConfigPaymentMethod } from '../../configuracion-sistema/models/PaymentMethod';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { calculateRequiredUnidadMinima, resolveWarehouseForSale } from '../../../shared/inventory/stockGateway';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -65,6 +69,19 @@ export const useComprobanteActions = () => {
   const { addComprobante } = useComprobanteContext();
   const { session } = useUserSession();
   const { upsertCuenta, registerCobranza } = useCobranzasContext();
+  const { allProducts: catalogProducts } = useProductStore();
+  const { state: { warehouses } } = useConfigurationContext();
+
+  const catalogLookup = useMemo(() => {
+    const map = new Map<string, CatalogProduct>();
+    catalogProducts.forEach(product => {
+      map.set(product.id, product);
+      if (product.codigo) {
+        map.set(product.codigo, product);
+      }
+    });
+    return map;
+  }, [catalogProducts]);
 
   const paymentMethods: ConfigPaymentMethod[] = [];
 
@@ -358,23 +375,39 @@ export const useComprobanteActions = () => {
         // Obtener datos del establecimiento desde la sesión o datos recibidos
         const establishmentId = data.establishmentId || session?.currentEstablishmentId;
         const establishment = session?.currentEstablishment;
+        const warehouse = resolveWarehouseForSale({ warehouses, establishmentId });
 
         for (const item of data.cartItems) {
-          // Solo descontar stock si el producto requiere control de stock
-          if (item.requiresStockControl) {
-            addMovimientoStock(
-              item.id,
-              'SALIDA',
-              'VENTA',
-              item.quantity,
-              `Venta en ${data.tipoComprobante} ${numeroComprobante}`,
-              numeroComprobante,
-              undefined, // ubicación
-              establishmentId,
-              establishment?.code,
-              establishment?.name
-            );
+          if (!item.requiresStockControl) {
+            continue;
           }
+
+          const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
+          const quantityInUnidadMinima = catalogProduct
+            ? calculateRequiredUnidadMinima({
+                product: catalogProduct,
+                quantity: item.quantity,
+                unitCode: item.unidadMedida || item.unit,
+              })
+            : (Number.isFinite(item.quantity) ? Number(item.quantity) : 0);
+
+          if (quantityInUnidadMinima <= 0) {
+            continue;
+          }
+
+          addMovimientoStock(
+            item.id,
+            'SALIDA',
+            'VENTA',
+            quantityInUnidadMinima,
+            `Venta en ${data.tipoComprobante} ${numeroComprobante}`,
+            numeroComprobante,
+            undefined,
+            establishmentId,
+            establishment?.code,
+            establishment?.name,
+            warehouse ? { warehouseId: warehouse.id } : undefined
+          );
         }
       } catch (stockError) {
         console.error('Error descontando stock:', stockError);
@@ -574,7 +607,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta]);
+  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta, catalogLookup, warehouses]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

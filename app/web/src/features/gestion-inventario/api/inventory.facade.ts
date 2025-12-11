@@ -1,11 +1,11 @@
 // src/features/gestion-inventario/api/inventory.facade.ts
-import { useMemo } from 'react';
 import { InventoryService } from '../services/inventory.service';
 import { StockRepository } from '../repositories/stock.repository';
 import type { MovimientoMotivo, MovimientoTipo, MovimientoStock } from '../models';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useUserSession } from '../../../contexts/UserSessionContext';
+import { resolveWarehouseForSale } from '../../../shared/inventory/stockGateway';
 
 /**
  * Fachada de inventario para mantener la separación de responsabilidades.
@@ -14,19 +14,8 @@ import { useUserSession } from '../../../contexts/UserSessionContext';
  */
 export function useInventoryFacade() {
   const { state: { warehouses } } = useConfigurationContext();
-  const { allProducts } = useProductStore();
+  const { allProducts, updateProduct } = useProductStore();
   const { session } = useUserSession();
-
-  const findMainWarehouse = useMemo(() => (
-    (establishmentId?: string) => {
-      if (!warehouses || warehouses.length === 0) return undefined;
-      if (establishmentId) {
-        const byEst = warehouses.filter(w => w.establishmentId === establishmentId);
-        return byEst.find(w => w.isMainWarehouse) || byEst[0];
-      }
-      return warehouses.find(w => w.isMainWarehouse) || warehouses[0];
-    }
-  ), [warehouses]);
 
   /**
    * API de compatibilidad: registra un movimiento de stock en el repositorio
@@ -42,7 +31,10 @@ export function useInventoryFacade() {
     ubicacion?: string,
     establecimientoId?: string,
     establecimientoCodigo?: string,
-    establecimientoNombre?: string
+    establecimientoNombre?: string,
+    options?: {
+      warehouseId?: string;
+    }
   ) => {
     const product = allProducts.find(p => p.id === productId);
     if (!product) {
@@ -50,18 +42,61 @@ export function useInventoryFacade() {
       return;
     }
 
-    // Resolver almacén: principal del establecimiento o el primero disponible
-    const wh = findMainWarehouse(establecimientoId);
+    const resolvedWarehouse = resolveWarehouseForSale({
+      warehouses,
+      establishmentId: establecimientoId,
+      preferredWarehouseId: options?.warehouseId,
+    });
+    const fallbackWarehouse = !resolvedWarehouse && options?.warehouseId
+      ? warehouses.find(w => w.id === options.warehouseId)
+      : undefined;
+    const warehouse = resolvedWarehouse || fallbackWarehouse;
 
-    // Stock actual desde el producto (por almacén si existe; si no, 0)
-    const warehouseId = wh?.id || 'N/A';
-    const warehouseCode = wh?.code || 'N/A';
-    const warehouseName = wh?.name || 'Sin almacén';
+    const warehouseId = warehouse?.id || options?.warehouseId || establecimientoId || 'SIN_ALMACEN';
+    const warehouseCode = warehouse?.code || 'N/A';
+    const warehouseName = warehouse?.name || 'Sin almacén';
     const stockActual = InventoryService.getStock(product, warehouseId);
 
     const isEntrada = tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION';
     const cantidadNuevaRaw = isEntrada ? stockActual + cantidad : stockActual - cantidad;
     const cantidadNueva = Math.max(0, cantidadNuevaRaw);
+    const delta = cantidadNueva - stockActual;
+
+    const updatedProductSnapshot = InventoryService.updateStock(product, warehouseId, cantidadNueva);
+    const totalStock = InventoryService.getTotalStock(updatedProductSnapshot);
+
+    const movementEstablishmentId = establecimientoId || warehouse?.establishmentId || '';
+    let nextStockPorEstablecimiento = product.stockPorEstablecimiento;
+    if (movementEstablishmentId) {
+      const prevValue = product.stockPorEstablecimiento?.[movementEstablishmentId];
+      let nextValue: number | undefined;
+      if (typeof prevValue === 'number') {
+        nextValue = Math.max(0, prevValue + delta);
+      } else if (warehouses && warehouses.length) {
+        nextValue = warehouses
+          .filter(w => w.establishmentId === movementEstablishmentId)
+          .reduce((sum, w) => sum + (updatedProductSnapshot.stockPorAlmacen?.[w.id] ?? 0), 0);
+      } else {
+        nextValue = Math.max(0, totalStock);
+      }
+
+      nextStockPorEstablecimiento = {
+        ...(product.stockPorEstablecimiento ?? {}),
+        [movementEstablishmentId]: nextValue,
+      };
+    }
+
+    const productUpdate: Partial<typeof product> = {
+      stockPorAlmacen: updatedProductSnapshot.stockPorAlmacen,
+      cantidad: totalStock,
+      fechaActualizacion: updatedProductSnapshot.fechaActualizacion,
+    };
+
+    if (nextStockPorEstablecimiento) {
+      productUpdate.stockPorEstablecimiento = nextStockPorEstablecimiento;
+    }
+
+    updateProduct(product.id, productUpdate);
 
     const mov: MovimientoStock = {
       id: `MOV-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -81,9 +116,9 @@ export function useInventoryFacade() {
       warehouseId,
       warehouseCodigo: warehouseCode,
       warehouseNombre: warehouseName,
-      establishmentId: establecimientoId || wh?.establishmentId || '',
-      establishmentCodigo: establecimientoCodigo || wh?.establishmentCode || '',
-      establishmentNombre: establecimientoNombre || wh?.establishmentName || ''
+      establishmentId: movementEstablishmentId,
+      establishmentCodigo: establecimientoCodigo || warehouse?.establishmentCode || '',
+      establishmentNombre: establecimientoNombre || warehouse?.establishmentName || ''
     };
 
     StockRepository.addMovement(mov);

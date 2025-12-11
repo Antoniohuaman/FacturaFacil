@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
+import { useUserSession } from '../../../../contexts/UserSessionContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { getAvailableStockForUnit } from '../../../../shared/inventory/stockGateway';
 
 interface Product {
   id: string;
@@ -52,6 +55,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   // Obtener productos del catálogo real
   const { allProducts: catalogProducts } = useProductStore();
   const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook();
+  const { session } = useUserSession();
+  const establishmentId = session?.currentEstablishmentId;
+  const { state: { warehouses } } = useConfigurationContext();
 
   const getBasePriceForProduct = useCallback((product: Product): number | null => {
     if (!hasSelectableColumns) {
@@ -86,32 +92,45 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   // ✅ Convertir productos del catálogo al formato esperado CON useMemo
   const allProducts: Product[] = useMemo(() =>
-    catalogProducts.map(p => ({
-      id: p.id,
-      code: p.codigo,
-      name: p.nombre,
-      price: p.precio,
-      stock: p.cantidad ?? 0,
-      requiresStockControl: p.tipoExistencia !== 'SERVICIOS', // Servicios no requieren stock
-      category: p.categoria || 'Sin categoría',
-      // ✅ Mapear todos los campos adicionales del catálogo
-      descripcion: p.descripcion,
-      alias: p.alias,
-      marca: p.marca,
-      modelo: p.modelo,
-      codigoBarras: p.codigoBarras,
-      codigoFabrica: p.codigoFabrica,
-      precioCompra: p.precioCompra,
-      descuentoProducto: p.descuentoProducto,
-      peso: p.peso,
-      tipoExistencia: p.tipoExistencia,
-      tipoProducto: p.tipoExistencia === 'SERVICIOS' ? 'SERVICIO' : 'BIEN', // ✅ Derivar tipo de producto
-      impuesto: p.impuesto,
-      imagen: p.imagen,
-      codigoSunat: p.codigoSunat,
-      unidad: p.unidad // ✅ Unidad del producto
-    })),
-    [catalogProducts] // ✅ Se actualiza cuando catalogProducts cambia
+    catalogProducts.map(p => {
+      const stockInfo = getAvailableStockForUnit({
+        product: p,
+        warehouses,
+        establishmentId,
+        unitCode: p.unidad,
+      });
+      const requiresStockControl = Boolean(
+        p.stockPorAlmacen ||
+        p.stockPorEstablecimiento ||
+        typeof p.cantidad === 'number'
+      );
+
+      return {
+        id: p.id,
+        code: p.codigo,
+        name: p.nombre,
+        price: p.precio,
+        stock: stockInfo.availableInUnidadSeleccionada,
+        requiresStockControl,
+        category: p.categoria || 'Sin categoría',
+        descripcion: p.descripcion,
+        alias: p.alias,
+        marca: p.marca,
+        modelo: p.modelo,
+        codigoBarras: p.codigoBarras,
+        codigoFabrica: p.codigoFabrica,
+        precioCompra: p.precioCompra,
+        descuentoProducto: p.descuentoProducto,
+        peso: p.peso,
+        tipoExistencia: p.tipoExistencia,
+        tipoProducto: p.tipoExistencia === 'SERVICIOS' ? 'SERVICIO' : 'BIEN',
+        impuesto: p.impuesto,
+        imagen: p.imagen,
+        codigoSunat: p.codigoSunat,
+        unidad: p.unidad,
+      };
+    }),
+    [catalogProducts, establishmentId, warehouses]
   );
 
   // Intelligent search with prioritization

@@ -8,6 +8,12 @@ import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore'
 import type { Product as CatalogoProduct } from '../../catalogo-articulos/models/types';
 import type { Product as POSProduct } from '../models/comprobante.types';
 import { usePriceCalculator } from '../../lista-precios/hooks/usePriceCalculator';
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import {
+  getAvailableStockForUnit,
+  summarizeProductStock,
+} from '../../../shared/inventory/stockGateway';
+import type { ProductStockSummary } from '../../../shared/inventory/stockGateway';
 
 interface UseAvailableProductsOptions {
   /**
@@ -34,36 +40,38 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
   const { establecimientoId, soloConStock = false } = options;
   const { allProducts } = useProductStore();
   const { getUnitPrice, baseColumn } = usePriceCalculator();
+  const { state: { warehouses } } = useConfigurationContext();
 
   const availableProducts = useMemo(() => {
+    const stockCache = new Map<string, ProductStockSummary>();
+
+    const getSummary = (product: CatalogoProduct): ProductStockSummary => {
+      const cached = stockCache.get(product.id);
+      if (cached) {
+        return cached;
+      }
+      const summary = summarizeProductStock({
+        product,
+        warehouses,
+        establishmentId: establecimientoId,
+      });
+      stockCache.set(product.id, summary);
+      return summary;
+    };
+
     // Filtrar productos según las reglas de negocio
     const filtered = allProducts.filter(product => {
-      // 1. Filtrar por establecimiento si se proporciona uno
-      if (establecimientoId) {
-        // Si el producto está disponible en todos los establecimientos, mostrarlo
-        if (product.disponibleEnTodos) {
-          return true;
-        }
-        // Si no, verificar que el establecimiento actual esté en la lista
-        if (!product.establecimientoIds.includes(establecimientoId)) {
+      const summary = getSummary(product);
+
+      if (establecimientoId && !product.disponibleEnTodos) {
+        const assigned = product.establecimientoIds || [];
+        if (assigned.length > 0 && !assigned.includes(establecimientoId)) {
           return false;
         }
       }
 
-      // 2. Filtrar por stock si se requiere
-      if (soloConStock) {
-        // Si hay control de stock por establecimiento
-        if (establecimientoId && product.stockPorEstablecimiento) {
-          const stockEnEstablecimiento = product.stockPorEstablecimiento[establecimientoId] || 0;
-          if (stockEnEstablecimiento <= 0) {
-            return false;
-          }
-        } else {
-          // Stock general (tratar undefined como 0)
-          if ((product.cantidad ?? 0) <= 0) {
-            return false;
-          }
-        }
+      if (soloConStock && summary.totalAvailable <= 0) {
+        return false;
       }
 
       return true;
@@ -74,6 +82,17 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
       const mappedUnit = mapUnitToPOS(product.unidad);
       const priceFromList = getUnitPrice(product.codigo, undefined, mappedUnit);
       const resolvedPrice = priceFromList ?? product.precio ?? 0;
+      const stockInfo = getAvailableStockForUnit({
+        product,
+        warehouses,
+        establishmentId: establecimientoId,
+        unitCode: mappedUnit,
+      });
+      const requiresStockControl = Boolean(
+        product.stockPorAlmacen ||
+        product.stockPorEstablecimiento ||
+        typeof product.cantidad === 'number'
+      );
 
       return {
         id: product.id,
@@ -85,12 +104,12 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         priceColumnLabel: baseColumn?.name,
         category: product.categoria,
         description: product.descripcion || '',
-        stock: getStockForEstablishment(product, establecimientoId),
+        stock: stockInfo.availableInUnidadSeleccionada,
         barcode: product.codigoBarras,
         image: product.imagen,
         unit: mappedUnit,
         unidadMedida: mappedUnit,
-        requiresStockControl: product.cantidad !== undefined,
+        requiresStockControl,
         // Datos adicionales del catálogo
         catalogData: {
           impuesto: product.impuesto,
@@ -103,26 +122,10 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
     });
 
     return posProducts;
-  }, [allProducts, establecimientoId, soloConStock, baseColumn?.id, baseColumn?.name, getUnitPrice]);
+  }, [allProducts, establecimientoId, soloConStock, baseColumn?.id, baseColumn?.name, getUnitPrice, warehouses]);
 
   return availableProducts;
 };
-
-/**
- * Obtiene el stock del producto para un establecimiento específico
- */
-function getStockForEstablishment(
-  product: CatalogoProduct,
-  establecimientoId?: string
-): number {
-  // Si hay un establecimiento específico y el producto tiene stock por establecimiento
-  if (establecimientoId && product.stockPorEstablecimiento) {
-    return product.stockPorEstablecimiento[establecimientoId] || 0;
-  }
-
-  // Retornar stock general
-  return product.cantidad ?? 0;
-}
 
 /**
  * Mapea las unidades del catálogo al formato POS

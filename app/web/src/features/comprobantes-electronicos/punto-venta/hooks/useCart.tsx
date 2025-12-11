@@ -5,6 +5,12 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { CartItem, Product, IgvType } from '../../models/comprobante.types';
 import { SYSTEM_CONFIG } from '../../models/constants';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useUserSession } from '../../../../contexts/UserSessionContext';
+import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
+import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
+import { summarizeProductStock, calculateRequiredUnidadMinima } from '../../../../shared/inventory/stockGateway';
+import { convertFromUnidadMinima } from '../../../../shared/inventory/unitConversion';
 
 export interface UseCartReturn {
   // Estado del carrito
@@ -104,6 +110,21 @@ const stripTaxFromPrice = (price: number, igvPercent: number): number => {
   return safePrice / (1 + igvPercent / 100);
 };
 
+const formatUnitLabel = (unit?: string): string => {
+  if (!unit) {
+    return 'UND';
+  }
+  const trimmed = unit.trim();
+  return trimmed || 'UND';
+};
+
+const formatQuantityDisplay = (value: number): string => {
+  if (!Number.isFinite(value)) {
+    return '0';
+  }
+  return Number(value.toFixed(4)).toString();
+};
+
 export const useCart = (): UseCartReturn => {
   // ===================================================================
   // CONFIGURACIÓN Y ESTADO
@@ -123,6 +144,67 @@ export const useCart = (): UseCartReturn => {
   })();
   
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const { state: { warehouses } } = useConfigurationContext();
+  const { session } = useUserSession();
+  const { allProducts: catalogProducts } = useProductStore();
+  const establishmentId = session?.currentEstablishmentId;
+
+  const catalogLookup = useMemo(() => {
+    const map = new Map<string, CatalogProduct>();
+    catalogProducts.forEach(product => {
+      map.set(product.id, product);
+      if (product.codigo) {
+        map.set(product.codigo, product);
+      }
+    });
+    return map;
+  }, [catalogProducts]);
+
+  const findCatalogProduct = useCallback((product: Product): CatalogProduct | undefined => {
+    return catalogLookup.get(product.id) || catalogLookup.get(product.code);
+  }, [catalogLookup]);
+
+  const validateStockAvailability = useCallback((product: Product, nextQuantity: number): boolean => {
+    if (!product.requiresStockControl) {
+      return true;
+    }
+    const catalogProduct = findCatalogProduct(product);
+    if (!catalogProduct) {
+      return true;
+    }
+
+    const summary = summarizeProductStock({
+      product: catalogProduct,
+      warehouses,
+      establishmentId,
+    });
+
+    const requiredUnidadMinima = calculateRequiredUnidadMinima({
+      product: catalogProduct,
+      quantity: nextQuantity,
+      unitCode: product.unidadMedida || product.unit,
+    });
+
+    if (requiredUnidadMinima <= summary.totalAvailable) {
+      return true;
+    }
+
+    const availableInUnit = convertFromUnidadMinima({
+      product: catalogProduct,
+      quantity: summary.totalAvailable,
+      unitCode: product.unidadMedida || product.unit,
+    });
+
+    const unitLabel = formatUnitLabel(product.unidadMedida || product.unit);
+    const message = `Producto: ${product.name}\nStock disponible: ${formatQuantityDisplay(availableInUnit)} ${unitLabel}\nCantidad solicitada: ${formatQuantityDisplay(nextQuantity)} ${unitLabel}`;
+
+    if (!allowNegativeStock) {
+      alert(`⚠️ Stock insuficiente\n\n${message}`);
+      return false;
+    }
+
+    return confirm(`⚠️ Advertencia de stock\n\n${message}\n\n¿Deseas continuar?`);
+  }, [allowNegativeStock, establishmentId, findCatalogProduct, warehouses]);
 
   const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
     const price = Number.isFinite(product.price) ? product.price : 0;
@@ -150,32 +232,11 @@ export const useCart = (): UseCartReturn => {
    * Agregar producto al carrito con validación de stock
    */
   const addToCart = useCallback((product: Product, quantity: number = 1) => {
-    // ✅ VALIDACIÓN DE STOCK
-    if (product.requiresStockControl) {
-      const existing = cartItems.find(item => item.id === product.id);
-      const currentQuantityInCart = existing?.quantity || 0;
-      const totalQuantity = currentQuantityInCart + quantity;
+    const existing = cartItems.find(item => item.id === product.id);
+    const nextQuantity = (existing?.quantity || 0) + quantity;
 
-      // Si el control de stock es estricto (allowNegativeStock = false)
-      if (!allowNegativeStock) {
-        if (product.stock <= 0) {
-          alert(`⚠️ Sin stock disponible\n\nProducto: ${product.name}\nStock actual: ${product.stock}\n\nNo se puede agregar al carrito.`);
-          return;
-        }
-        
-        if (totalQuantity > product.stock) {
-          alert(`⚠️ Stock insuficiente\n\nProducto: ${product.name}\nStock disponible: ${product.stock}\nCantidad en carrito: ${currentQuantityInCart}\nIntentando agregar: ${quantity}\n\nSolo hay ${product.stock} unidades disponibles.`);
-          return;
-        }
-      }
-      
-      // Si permite stock negativo pero queremos advertir al usuario
-      if (allowNegativeStock && totalQuantity > product.stock) {
-        const confirmed = confirm(
-          `⚠️ Advertencia de stock\n\nProducto: ${product.name}\nStock disponible: ${product.stock}\nCantidad total en carrito: ${totalQuantity}\n\nEstás agregando más cantidad del stock disponible.\n¿Deseas continuar?`
-        );
-        if (!confirmed) return;
-      }
+    if (!validateStockAvailability(product, nextQuantity)) {
+      return;
     }
 
     setCartItems(prev => {
@@ -191,7 +252,7 @@ export const useCart = (): UseCartReturn => {
       // Si no existe, agregar nuevo con cálculos
       return [...prev, createCartItem(product, quantity)];
     });
-  }, [cartItems, allowNegativeStock, createCartItem]);
+  }, [cartItems, createCartItem, validateStockAvailability]);
 
   /**
    * Remover producto del carrito
@@ -214,12 +275,12 @@ export const useCart = (): UseCartReturn => {
         Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, item.quantity + change)
       );
 
-      // ✅ VALIDACIÓN DE STOCK al incrementar
-      if (change > 0 && item.requiresStockControl && !allowNegativeStock) {
-        if (newQuantity > item.stock) {
-          alert(`⚠️ Stock insuficiente\n\nProducto: ${item.name}\nStock disponible: ${item.stock}\nCantidad actual en carrito: ${item.quantity}\n\nNo puedes agregar más unidades.`);
-          return prev;
-        }
+      if (newQuantity === item.quantity) {
+        return prev;
+      }
+
+      if (newQuantity > item.quantity && !validateStockAvailability(item, newQuantity)) {
+        return prev;
       }
 
       return prev.map(i => 
@@ -228,7 +289,7 @@ export const useCart = (): UseCartReturn => {
           : i
       );
     });
-  }, [allowNegativeStock]);
+  }, [validateStockAvailability]);
 
   /**
    * Actualizar cualquier propiedad de un item del carrito
@@ -289,8 +350,7 @@ export const useCart = (): UseCartReturn => {
         Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, sanitized)
       );
 
-      if (item.requiresStockControl && !allowNegativeStock && bounded > item.stock) {
-        alert(`⚠️ Stock insuficiente\n\nProducto: ${item.name}\nStock disponible: ${item.stock}\nCantidad solicitada: ${bounded}`);
+      if (bounded > item.quantity && !validateStockAvailability(item, bounded)) {
         return prev;
       }
 
@@ -300,7 +360,7 @@ export const useCart = (): UseCartReturn => {
           : cartItem
       );
     });
-  }, [allowNegativeStock]);
+  }, [validateStockAvailability]);
 
   // ===================================================================
   // FUNCIONES ESPECIALES
@@ -316,21 +376,26 @@ export const useCart = (): UseCartReturn => {
         const updated = [...prev];
         products.forEach(({ product, quantity }) => {
           const idx = updated.findIndex(item => item.id === product.id);
+          const referenceProduct = idx !== -1 ? updated[idx] : product;
+          const nextQuantity = (idx !== -1 ? updated[idx].quantity : 0) + quantity;
+
+          if (!validateStockAvailability(referenceProduct, nextQuantity)) {
+            return;
+          }
+
           if (idx !== -1) {
-            // Si ya existe, incrementar cantidad
             updated[idx] = {
               ...updated[idx],
-              quantity: updated[idx].quantity + quantity
+              quantity: nextQuantity
             };
           } else {
-            // Si no existe, agregar nuevo
             updated.push(createCartItem(product, quantity));
           }
         });
         return updated;
       });
     }
-  }, [createCartItem]);
+  }, [createCartItem, validateStockAvailability]);
 
   // ===================================================================
   // DATOS CALCULADOS

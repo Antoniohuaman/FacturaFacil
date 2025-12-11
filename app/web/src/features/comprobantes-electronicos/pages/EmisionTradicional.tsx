@@ -44,55 +44,18 @@ import { useConfigurationContext } from '../../configuracion-sistema/context/Con
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
 import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
 import { validateComprobanteNormativa, validateComprobanteReadyForCobranza } from '../shared/core/comprobanteValidation';
 import { CobranzaModal } from '../shared/modales/CobranzaModal';
 import { useCreditTermsConfigurator } from '../hooks/useCreditTermsConfigurator';
 import { CreditScheduleSummaryCard } from '../shared/payments/CreditScheduleSummaryCard';
 import { CreditScheduleModal } from '../shared/payments/CreditScheduleModal';
 import type { CreditInstallmentDefinition } from '../../../shared/payments/paymentTerms';
-import { calculateLineaComprobante, type LinePricingInput } from '../shared/core/comprobantePricing';
-import type { CartItem } from '../models/comprobante.types';
+import { buildLinePricingInputFromCartItem, calculateLineaComprobante } from '../shared/core/comprobantePricing';
 
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
-
-const IGV_RATE_BY_TYPE: Record<string, number> = {
-  igv18: 0.18,
-  igv10: 0.10,
-  exonerado: 0,
-  inafecto: 0,
-};
-
-const deriveIgvRate = (item: CartItem): number => {
-  if (item.igvType && item.igvType in IGV_RATE_BY_TYPE) {
-    return IGV_RATE_BY_TYPE[item.igvType];
-  }
-  if (typeof item.igv === 'number' && Number.isFinite(item.igv)) {
-    return item.igv / 100;
-  }
-  return IGV_RATE_BY_TYPE.igv18;
-};
-
-const mapCartItemToPricingInput = (item: CartItem): LinePricingInput => {
-  const unitCode = item.unidadMedida || item.unit || '';
-  const basePrice = Number.isFinite(item.basePrice)
-    ? (item.basePrice as number)
-    : Number.isFinite(item.price)
-      ? (item.price as number)
-      : 0;
-
-  return {
-    unidadMinimaCode: unitCode, // TODO: reemplazar con unidad mínima real cuando esté disponible
-    unidadSeleccionadaCode: unitCode,
-    factorToUnidadMinima: 1, // TODO: reemplazar con factor real cuando el modelo lo provea
-    cantidad: Number.isFinite(item.quantity) ? (item.quantity as number) : 0,
-    precioBaseUnidadMinima: basePrice, // TODO: usar precio base en unidad mínima real cuando exista
-    precioPresentacionOpcional: null,
-    igvRate: deriveIgvRate(item),
-    precioIncluyeIgv: true, // TODO: hacer configurable cuando el modelo indique precio neto
-    currencyPrecision: 2,
-  };
-};
 
 
 const EmisionTradicional = () => {
@@ -174,6 +137,17 @@ const EmisionTradicional = () => {
   const [showCreditScheduleModal, setShowCreditScheduleModal] = useState(false);
   const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
   const { createCliente } = useClientes();
+  const { allProducts: catalogProducts } = useProductStore();
+  const catalogLookup = useMemo(() => {
+    const map = new Map<string, CatalogProduct>();
+    catalogProducts.forEach(product => {
+      map.set(product.id, product);
+      if (product.codigo) {
+        map.set(product.codigo, product);
+      }
+    });
+    return map;
+  }, [catalogProducts]);
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -181,7 +155,10 @@ const EmisionTradicional = () => {
       return { subtotal: 0, igv: 0, total: 0, currency: currentCurrency };
     }
 
-    const lineResults = cartItems.map((item) => calculateLineaComprobante(mapCartItemToPricingInput(item)));
+    const lineResults = cartItems.map((item) => {
+      const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
+      return calculateLineaComprobante(buildLinePricingInputFromCartItem(item, catalogProduct));
+    });
     const subtotal = lineResults.reduce((sum, line) => sum + line.subtotal, 0);
     const igv = lineResults.reduce((sum, line) => sum + line.igv, 0);
     const total = lineResults.reduce((sum, line) => sum + line.total, 0);
@@ -192,7 +169,7 @@ const EmisionTradicional = () => {
       total: Number(total.toFixed(2)),
       currency: currentCurrency,
     };
-  }, [cartItems, currentCurrency]);
+  }, [cartItems, catalogLookup, currentCurrency]);
 
   const {
     paymentMethod: selectedPaymentMethod,

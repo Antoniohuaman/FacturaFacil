@@ -4,7 +4,7 @@ import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes
 import { roundCurrency } from '../../../lista-precios/utils/price-helpers/pricing';
 import { useCart } from '../hooks/useCart';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
-import { calculateLineaComprobante, type LinePricingInput } from '../../shared/core/comprobantePricing';
+import { buildLinePricingInputFromCartItem, calculateLineaComprobante } from '../../shared/core/comprobantePricing';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
 
@@ -18,52 +18,17 @@ type PricingNotifier = (title: string, message: string) => void;
 
 const PRICE_COLUMN_STORAGE_KEY = 'pos_price_column';
 
-const IGV_RATE_BY_TYPE: Record<string, number> = {
-  igv18: 0.18,
-  igv10: 0.10,
-  exonerado: 0,
-  inafecto: 0,
-};
-
 type CatalogUnit = { code: string; isBase: boolean; label?: string };
 
-const deriveIgvRate = (item: CartItem): number => {
-  if (item.igvType && item.igvType in IGV_RATE_BY_TYPE) {
-    return IGV_RATE_BY_TYPE[item.igvType];
-  }
-  if (typeof item.igv === 'number' && Number.isFinite(item.igv)) {
-    return item.igv / 100;
-  }
-  return IGV_RATE_BY_TYPE.igv18;
-};
-
-const mapCartItemToPricingInput = (item: CartItem): LinePricingInput => {
-  const unitCode = item.unidadMedida || item.unit || '';
-  const basePrice = Number.isFinite(item.basePrice)
-    ? (item.basePrice as number)
-    : Number.isFinite(item.price)
-      ? (item.price as number)
-      : 0;
-
-  return {
-    unidadMinimaCode: unitCode, // TODO: reemplazar con unidad mínima real cuando esté disponible
-    unidadSeleccionadaCode: unitCode,
-    factorToUnidadMinima: 1, // TODO: reemplazar con factor real cuando el modelo lo provea
-    cantidad: Number.isFinite(item.quantity) ? (item.quantity as number) : 0,
-    precioBaseUnidadMinima: basePrice, // TODO: usar precio base en unidad mínima real cuando exista
-    precioPresentacionOpcional: null,
-    igvRate: deriveIgvRate(item),
-    precioIncluyeIgv: true, // TODO: hacer configurable cuando el modelo indique precio neto
-    currencyPrecision: 2,
-  };
-};
-
-const calculateTotalsFromCart = (items: CartItem[]) => {
+const calculateTotalsFromCart = (items: CartItem[], catalogLookup: Map<string, CatalogProduct>) => {
   if (!items || items.length === 0) {
     return { subtotal: 0, igv: 0, total: 0, currency: 'PEN' as const };
   }
 
-  const lineResults = items.map((item) => calculateLineaComprobante(mapCartItemToPricingInput(item)));
+  const lineResults = items.map((item) => {
+    const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
+    return calculateLineaComprobante(buildLinePricingInputFromCartItem(item, catalogProduct));
+  });
 
   const subtotal = lineResults.reduce((sum, line) => sum + line.subtotal, 0);
   const igv = lineResults.reduce((sum, line) => sum + line.igv, 0);
@@ -167,6 +132,16 @@ export const usePosCartAndTotals = () => {
   } = useCart();
 
   const { allProducts: catalogProducts } = useProductStore();
+  const catalogLookup = useMemo(() => {
+    const map = new Map<string, CatalogProduct>();
+    catalogProducts.forEach(product => {
+      map.set(product.id, product);
+      if (product.codigo) {
+        map.set(product.codigo, product);
+      }
+    });
+    return map;
+  }, [catalogProducts]);
   const {
     priceColumns,
     baseColumnId,
@@ -327,7 +302,7 @@ export const usePosCartAndTotals = () => {
     applyPriceToItem(target, nextUnit, { forceReprice: true });
   }, [applyPriceToItem, cartItems]);
 
-  const totals = useMemo(() => calculateTotalsFromCart(cartItems), [cartItems]);
+  const totals = useMemo(() => calculateTotalsFromCart(cartItems, catalogLookup), [cartItems, catalogLookup]);
 
   const cartActions = useMemo(
     () => ({ addToCart, removeFromCart, updateCartQuantity, setCartItemQuantity, updateCartItemPrice, clearCart }),
