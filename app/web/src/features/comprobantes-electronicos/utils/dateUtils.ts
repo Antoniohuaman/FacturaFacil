@@ -3,6 +3,12 @@
  * Centraliza toda la lógica de parseo y formateo de fechas
  */
 
+import {
+  BUSINESS_TIMEZONE,
+  formatBusinessDateShort,
+  getBusinessTodayISODate
+} from '../../../shared/time/businessTime';
+
 /**
  * Mapeo de meses en español (formato corto con punto)
  */
@@ -30,6 +36,82 @@ const SPANISH_MONTHS_SHORT: Record<string, number> = {
 //   'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'
 // ];
 
+const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
+const BUSINESS_TZ_OFFSET = '-05:00';
+
+const businessIsoFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: BUSINESS_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
+const businessShortFormatter = new Intl.DateTimeFormat('es-PE', {
+  timeZone: BUSINESS_TIMEZONE,
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit'
+});
+
+const businessLongFormatter = new Intl.DateTimeFormat('es-PE', {
+  timeZone: BUSINESS_TIMEZONE,
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit'
+});
+
+const pad = (value: number) => value.toString().padStart(2, '0');
+
+const formatIsoFromDate = (date: Date): string => {
+  const parts = businessIsoFormatter.formatToParts(date);
+  const lookup = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value ?? '0';
+  return `${lookup('year')}-${lookup('month')}-${lookup('day')}`;
+};
+
+const toBusinessDate = (
+  businessDateIso: string,
+  boundary: 'start' | 'end' | 'mid' = 'mid'
+): Date | null => {
+  if (!ISO_DATE_REGEX.test(businessDateIso)) {
+    return null;
+  }
+  const suffix = boundary === 'end'
+    ? 'T23:59:59.999'
+    : boundary === 'start'
+    ? 'T00:00:00.000'
+    : 'T12:00:00.000';
+  return new Date(`${businessDateIso}${suffix}${BUSINESS_TZ_OFFSET}`);
+};
+
+const assertBusinessDate = (
+  businessDateIso: string,
+  boundary: 'start' | 'end' | 'mid' = 'mid'
+): Date => {
+  const parsed = toBusinessDate(businessDateIso, boundary);
+  if (!parsed) {
+    throw new Error(`Fecha de negocio inválida: ${businessDateIso}`);
+  }
+  return parsed;
+};
+
+const shiftBusinessDate = (businessDateIso: string, offsetDays: number): string => {
+  const baseDate = assertBusinessDate(businessDateIso, 'start');
+  baseDate.setUTCDate(baseDate.getUTCDate() + offsetDays);
+  return formatIsoFromDate(baseDate);
+};
+
+const normalizeDateInput = (value: Date | string): Date => {
+  if (value instanceof Date) {
+    return value;
+  }
+  if (ISO_DATE_REGEX.test(value)) {
+    return assertBusinessDate(value);
+  }
+  return new Date(value);
+};
+
 /**
  * Parsea una fecha en formato español "20 ago. 2025 19:17"
  * @param dateStr - String con la fecha en formato español
@@ -44,14 +126,13 @@ export function parseDateSpanish(dateStr?: string): Date | null {
 
     const day = parseInt(parts[0], 10);
     const monthKey = parts[1].replace('.', '').toLowerCase();
-    const month = SPANISH_MONTHS_SHORT[monthKey];
+    const monthIndex = SPANISH_MONTHS_SHORT[monthKey];
     const year = parseInt(parts[2], 10);
 
-    if (Number.isNaN(day) || Number.isNaN(year) || month === undefined) {
+    if (Number.isNaN(day) || Number.isNaN(year) || monthIndex === undefined) {
       return null;
     }
 
-    // Hora opcional (formato HH:mm)
     let hours = 0;
     let minutes = 0;
     if (parts[3]) {
@@ -61,7 +142,8 @@ export function parseDateSpanish(dateStr?: string): Date | null {
       minutes = parseInt(minutesRaw || '0', 10) || 0;
     }
 
-    return new Date(year, month, day, hours, minutes);
+    const iso = `${year}-${pad(monthIndex + 1)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00${BUSINESS_TZ_OFFSET}`;
+    return new Date(iso);
   } catch (e) {
     console.error('Error parsing spanish date:', dateStr, e);
     return null;
@@ -77,11 +159,18 @@ export function formatDateShortSpanish(date: Date | string): string {
   if (!date) return '';
 
   try {
-    const d = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(d.getTime())) return '';
+    if (typeof date === 'string' && ISO_DATE_REGEX.test(date)) {
+      return formatBusinessDateShort(date);
+    }
 
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
-    return `${d.getDate()} ${months[d.getMonth()]}. ${d.getFullYear()}`;
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (Number.isNaN(d.getTime())) return '';
+
+    return businessShortFormatter
+      .format(d)
+      .replace(',', '')
+      .replace(/\s+/g, ' ')
+      .trim();
   } catch (e) {
     console.error('Error formatting date:', date, e);
     return '';
@@ -98,13 +187,9 @@ export function formatDateLongSpanish(date: Date | string): string {
 
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(d.getTime())) return '';
+    if (Number.isNaN(d.getTime())) return '';
 
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-
-    return `${d.getDate()} ${months[d.getMonth()]}. ${d.getFullYear()} ${hours}:${minutes}`;
+    return businessLongFormatter.format(d);
   } catch (e) {
     console.error('Error formatting date:', date, e);
     return '';
@@ -118,10 +203,10 @@ export function formatDateLongSpanish(date: Date | string): string {
  * @returns Número de días de diferencia (positivo si date1 > date2)
  */
 export function daysBetween(date1: Date | string, date2: Date | string = new Date()): number {
-  const d1 = typeof date1 === 'string' ? new Date(date1) : date1;
-  const d2 = typeof date2 === 'string' ? new Date(date2) : date2;
+  const d1 = normalizeDateInput(date1);
+  const d2 = normalizeDateInput(date2);
 
-  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
+  if (Number.isNaN(d1.getTime()) || Number.isNaN(d2.getTime())) return 0;
 
   const diffTime = d1.getTime() - d2.getTime();
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -141,7 +226,7 @@ export function daysSince(date: Date | string): number {
  * @returns String con fecha de hoy
  */
 export function getTodayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getBusinessTodayISODate();
 }
 
 /**
@@ -160,8 +245,8 @@ export function filterByDateRange<T>(
 ): T[] {
   if (!fromDate && !toDate) return items;
 
-  const from = fromDate ? new Date(fromDate + 'T00:00:00') : null;
-  const to = toDate ? new Date(toDate + 'T23:59:59.999') : null;
+  const from = fromDate ? toBusinessDate(fromDate, 'start') : null;
+  const to = toDate ? toBusinessDate(toDate, 'end') : null;
 
   return items.filter(item => {
     const dateStr = dateGetter(item);
@@ -182,48 +267,53 @@ export function filterByDateRange<T>(
  */
 export const DATE_PRESETS = {
   today: () => {
-    const today = getTodayISO();
+    const today = getBusinessTodayISODate();
     return { from: today, to: today };
   },
   yesterday: () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const dateStr = yesterday.toISOString().slice(0, 10);
+    const today = getBusinessTodayISODate();
+    const dateStr = shiftBusinessDate(today, -1);
     return { from: dateStr, to: dateStr };
   },
   last7days: () => {
-    const today = new Date();
-    const last7 = new Date();
-    last7.setDate(last7.getDate() - 7);
+    const today = getBusinessTodayISODate();
+    const last7 = shiftBusinessDate(today, -7);
     return {
-      from: last7.toISOString().slice(0, 10),
-      to: today.toISOString().slice(0, 10)
+      from: last7,
+      to: today
     };
   },
   last30days: () => {
-    const today = new Date();
-    const last30 = new Date();
-    last30.setDate(last30.getDate() - 30);
+    const today = getBusinessTodayISODate();
+    const last30 = shiftBusinessDate(today, -30);
     return {
-      from: last30.toISOString().slice(0, 10),
-      to: today.toISOString().slice(0, 10)
+      from: last30,
+      to: today
     };
   },
   thisMonth: () => {
-    const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const todayIso = getBusinessTodayISODate();
+    const todayStart = assertBusinessDate(todayIso, 'start');
+    const firstDay = new Date(todayStart);
+    firstDay.setUTCDate(1);
     return {
-      from: firstDay.toISOString().slice(0, 10),
-      to: today.toISOString().slice(0, 10)
+      from: formatIsoFromDate(firstDay),
+      to: todayIso
     };
   },
   lastMonth: () => {
-    const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+    const todayIso = getBusinessTodayISODate();
+    const currentMonthStart = assertBusinessDate(todayIso, 'start');
+    currentMonthStart.setUTCDate(1);
+
+    const firstDay = new Date(currentMonthStart);
+    firstDay.setUTCMonth(firstDay.getUTCMonth() - 1);
+
+    const lastDay = new Date(currentMonthStart);
+    lastDay.setUTCDate(0);
     return {
-      from: firstDay.toISOString().slice(0, 10),
-      to: lastDay.toISOString().slice(0, 10)
+      from: formatIsoFromDate(firstDay),
+      to: formatIsoFromDate(lastDay)
     };
   }
 } as const;

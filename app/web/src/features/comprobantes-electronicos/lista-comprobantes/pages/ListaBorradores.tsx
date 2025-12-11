@@ -7,9 +7,10 @@ import { DraftsTable } from '../components/drafts/DraftsTable';
 import { DraftsBulkActionsBar } from '../components/drafts/DraftsBulkActionsBar';
 import { useDraftsList } from '../hooks/useDraftsList';
 import { useUserSession } from '../../../../contexts/UserSessionContext';
-import { filterByDateRange, getTodayISO, formatDateShortSpanish, DATE_PRESETS } from '../../utils/dateUtils';
+import { filterByDateRange, DATE_PRESETS } from '../../utils/dateUtils';
 import { validateDraftsForBulkEmit } from '../../utils/draftValidation';
 import { PAGINATION_CONFIG } from '../../models/constants';
+import { formatBusinessDateShort, getBusinessTodayISODate } from '../../../../shared/time/businessTime';
 
 type DraftInvoicesModuleProps = {
   hideSidebar?: boolean;
@@ -23,10 +24,10 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
 
   const { drafts, duplicateDraft, deleteDraft } = useDraftsList({ fallbackVendor: currentUserName });
 
-  const [dateFrom, setDateFrom] = useState(getTodayISO());
-  const [dateTo, setDateTo] = useState(getTodayISO());
-  const [tempDateFrom, setTempDateFrom] = useState(getTodayISO());
-  const [tempDateTo, setTempDateTo] = useState(getTodayISO());
+  const [dateFrom, setDateFrom] = useState(() => getBusinessTodayISODate());
+  const [dateTo, setDateTo] = useState(() => getBusinessTodayISODate());
+  const [tempDateFrom, setTempDateFrom] = useState(() => getBusinessTodayISODate());
+  const [tempDateTo, setTempDateTo] = useState(() => getBusinessTodayISODate());
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
   const [selectedDrafts, setSelectedDrafts] = useState<string[]>([]);
   const [showEmitPopup, setShowEmitPopup] = useState(false);
@@ -221,7 +222,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
           tempDateFrom={tempDateFrom}
           tempDateTo={tempDateTo}
           showDateRangePicker={showDateRangePicker}
-          formatDateShort={formatDateShortSpanish}
+          formatDateShort={formatBusinessDateShort}
           onTempDateFromChange={setTempDateFrom}
           onTempDateToChange={setTempDateTo}
           onToggleDatePicker={() => setShowDateRangePicker(!showDateRangePicker)}

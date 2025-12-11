@@ -28,7 +28,7 @@ import type {
 } from '../../models/comprobante.types';
 import { useCobranzasContext } from '../../../gestion-cobranzas/context/CobranzasContext';
 import type { CuentaPorCobrarSummary } from '../../../gestion-cobranzas/models/cobranzas.types';
-import { parseDateSpanish, filterByDateRange, getTodayISO, formatDateShortSpanish, DATE_PRESETS } from '../../utils/dateUtils';
+import { parseDateSpanish, filterByDateRange, DATE_PRESETS } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
 import { StatsCards } from '../components/StatsCards';
 import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
@@ -38,6 +38,7 @@ import { InvoiceListTable } from '../components/lista-comprobantes/InvoiceListTa
 import { ColumnFilterPopover } from '../components/lista-comprobantes/ColumnFilterPopover';
 import { VoidInvoiceModal } from '../components/lista-comprobantes/VoidInvoiceModal';
 import type { ColumnConfig } from '../types/columnConfig';
+import { formatBusinessDateShort, getBusinessTodayISODate } from '../../../../shared/time/businessTime';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -66,8 +67,8 @@ const InvoiceListDashboard = () => {
   const [showProgress, setShowProgress] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
-  const [dateFrom, setDateFrom] = useState(getTodayISO());
-  const [dateTo, setDateTo] = useState(getTodayISO());
+  const [dateFrom, setDateFrom] = useState(() => getBusinessTodayISODate());
+  const [dateTo, setDateTo] = useState(() => getBusinessTodayISODate());
   const [currentPage, setCurrentPage] = useState(1);
   const [showTotals, setShowTotals] = useState(false);
   const [recordsPerPage, setRecordsPerPage] = useState<number>(TABLE_CONFIG.DEFAULT_RECORDS_PER_PAGE);
@@ -79,8 +80,8 @@ const InvoiceListDashboard = () => {
   
   // Estados para Date Range
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
-  const [tempDateFrom, setTempDateFrom] = useState(dateFrom);
-  const [tempDateTo, setTempDateTo] = useState(dateTo);
+  const [tempDateFrom, setTempDateFrom] = useState(() => getBusinessTodayISODate());
+  const [tempDateTo, setTempDateTo] = useState(() => getBusinessTodayISODate());
   
   // Estados para filtros por columna
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -189,9 +190,12 @@ const InvoiceListDashboard = () => {
 
   // Limpiar todos los filtros
   const clearAllFilters = () => {
+    const today = getBusinessTodayISODate();
     setColumnFilters({});
-    setDateFrom(getTodayISO());
-    setDateTo(getTodayISO());
+    setDateFrom(today);
+    setDateTo(today);
+    setTempDateFrom(today);
+    setTempDateTo(today);
     setAdvancedFilters({
       estados: [],
       vendedores: [],
@@ -766,7 +770,7 @@ const InvoiceListDashboard = () => {
         tempDateFrom={tempDateFrom}
         tempDateTo={tempDateTo}
         showDateRangePicker={showDateRangePicker}
-        formatDateShort={formatDateShortSpanish}
+        formatDateShort={formatBusinessDateShort}
         onTempDateFromChange={setTempDateFrom}
         onTempDateToChange={setTempDateTo}
         onToggleDatePicker={() => setShowDateRangePicker(!showDateRangePicker)}
@@ -832,13 +836,16 @@ const InvoiceListDashboard = () => {
             columnFilters={columnFilters}
             dateFrom={dateFrom}
             dateTo={dateTo}
-            todayDate={getTodayISO()}
+            todayDate={getBusinessTodayISODate()}
             columnsConfig={columnsConfig}
-            formatDateShort={formatDateShortSpanish}
+            formatDateShort={formatBusinessDateShort}
             onClearColumnFilter={clearColumnFilter}
             onClearDateFilter={() => {
-              setDateFrom(getTodayISO());
-              setDateTo(getTodayISO());
+              const today = getBusinessTodayISODate();
+              setDateFrom(today);
+              setDateTo(today);
+              setTempDateFrom(today);
+              setTempDateTo(today);
             }}
             onClearAllFilters={clearAllFilters}
           />

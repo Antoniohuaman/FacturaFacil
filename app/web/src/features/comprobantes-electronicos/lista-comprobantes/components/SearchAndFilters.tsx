@@ -5,7 +5,8 @@
 
 import { Search, Calendar, Filter, RefreshCw, Download, ChevronDown, Plus } from 'lucide-react';
 import { useState } from 'react';
-import { formatDateShortSpanish, DATE_PRESETS } from '../../utils/dateUtils';
+import { DATE_PRESETS } from '../../utils/dateUtils';
+import { formatBusinessDateShort } from '../../../../shared/time/businessTime';
 
 interface SearchAndFiltersProps {
   globalSearch: string;
@@ -74,7 +75,7 @@ export const SearchAndFilters: React.FC<SearchAndFiltersProps> = ({
             >
               <Calendar className="w-4 h-4 text-gray-500" />
               <span className="font-medium">
-                {formatDateShortSpanish(dateFrom)} — {formatDateShortSpanish(dateTo)}
+                {formatBusinessDateShort(dateFrom)} — {formatBusinessDateShort(dateTo)}
               </span>
               <ChevronDown className="w-4 h-4 text-gray-400" />
             </button>
