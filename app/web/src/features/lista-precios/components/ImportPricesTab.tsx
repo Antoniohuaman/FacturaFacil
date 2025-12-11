@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { formatBusinessDateTimeIso, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { Column, Product, CatalogProduct } from '../models/PriceTypes';
 import type {
   BulkPriceImportEntry,
@@ -66,10 +66,8 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   const [isParsing, setIsParsing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(persistedState.selectedFileName ?? null);
-  const [lastResult, setLastResult] = useState<{ summary: BulkPriceImportResult; completedAt: Date } | null>(
-    persistedState.lastResult
-      ? { summary: persistedState.lastResult.summary, completedAt: new Date(persistedState.lastResult.completedAt) }
-      : null
+  const [lastResult, setLastResult] = useState<{ summary: BulkPriceImportResult; completedAt: string } | null>(
+    persistedState.lastResult ?? null
   );
 
   const tableColumns: ImportTableColumnConfig[] = useMemo(() => buildTableColumnConfigs(columns), [columns]);
@@ -90,9 +88,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     const payload: StoredImportState = {
       rows,
       selectedFileName,
-      lastResult: lastResult
-        ? { summary: lastResult.summary, completedAt: lastResult.completedAt.toISOString() }
-        : undefined
+      lastResult: lastResult ?? undefined
     };
     writeTenantJson(IMPORT_STORAGE_KEY, payload);
   }, [rows, selectedFileName, lastResult]);
@@ -241,7 +237,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
 
       const summary = await onApplyImport(payload);
       setRows(prev => prev.map(row => (row.status === 'ready' ? { ...row, status: 'applied' } : row)));
-      setLastResult({ summary, completedAt: new Date() });
+      setLastResult({ summary, completedAt: formatBusinessDateTimeIso() });
     } catch (error) {
       console.error('[ImportPricesTab] Error applying import:', error);
       setParseError(error instanceof Error ? error.message : 'Ocurrió un error al aplicar los precios.');

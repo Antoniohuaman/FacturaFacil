@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/inventario/components/tables/MovementsTable.tsx
 
 import React, { useState } from 'react';
 import type { MovimientoStock } from '../../models';
+import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 
 interface MovementsTableProps {
   movimientos: MovimientoStock[];
@@ -70,21 +70,10 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
   };
 
   const formatDate = (date: Date | string) => {
-    try {
-      const dateObj = date instanceof Date ? date : new Date(date);
-      if (isNaN(dateObj.getTime())) {
-        return 'Fecha inválida';
-      }
-      return new Intl.DateTimeFormat('es-PE', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(dateObj);
-    } catch (error) {
-      return 'Fecha inválida';
+    if (date instanceof Date) {
+      return formatBusinessDateTimeForTicket(date);
     }
+    return formatBusinessDateTimeForTicket(date);
   };
 
   const filteredMovimientos = movimientos.filter(mov => {

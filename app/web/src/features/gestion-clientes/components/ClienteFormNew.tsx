@@ -10,6 +10,7 @@ import ClienteAvatar from './ClienteAvatar';
 import ClienteFormFieldSelector from './ClienteFormFieldSelector';
 import { useClienteFormConfig } from '../hooks/useClienteFormConfig';
 import type { ClienteFieldId } from './clienteFormConfig';
+import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 
 type ClienteFormProps = {
   formData: ClienteFormData;
@@ -370,12 +371,12 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">
               {formData.fechaRegistro && (
                 <span>
-                  <strong className="font-medium">Creado:</strong> {new Date(formData.fechaRegistro).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
+                  <strong className="font-medium">Creado:</strong> {formatBusinessDateTimeForTicket(formData.fechaRegistro)}
                 </span>
               )}
               {formData.fechaUltimaModificacion && (
                 <span>
-                  <strong className="font-medium">Modificado:</strong> {new Date(formData.fechaUltimaModificacion).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
+                  <strong className="font-medium">Modificado:</strong> {formatBusinessDateTimeForTicket(formData.fechaUltimaModificacion)}
                 </span>
               )}
             </div>

@@ -28,7 +28,13 @@ import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore'
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { calculateRequiredUnidadMinima, resolveWarehouseForSale } from '../../../shared/inventory/stockGateway';
-import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import {
+  assertBusinessDate,
+  formatBusinessDateTimeForTicket,
+  formatBusinessDateTimeIso,
+  getBusinessNow,
+  getBusinessTodayISODate,
+} from '@/shared/time/businessTime';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -211,8 +217,8 @@ export const useComprobanteActions = () => {
       let createdCuenta: CuentaPorCobrarSummary | null = null;
 
       if (isCreditSale) {
-        const hoy = new Date();
-        const vence = fechaVencimientoIso ? new Date(`${fechaVencimientoIso}T00:00:00`) : null;
+        const hoy = getBusinessNow();
+        const vence = fechaVencimientoIso ? assertBusinessDate(fechaVencimientoIso, 'end') : null;
         const installmentsSnapshot = normalizeCreditTermsToInstallments(data.creditTerms);
         const initialSummary = installmentsSnapshot.length
           ? computeAccountStateFromInstallments(installmentsSnapshot)
@@ -296,8 +302,8 @@ export const useComprobanteActions = () => {
             data.fechaVencimiento ||
             paymentTermsDueDate ||
             fechaEmisionIso;
-          const dueDateObj = dueDateCandidate ? new Date(`${dueDateCandidate}T00:00:00`) : null;
-          const now = new Date();
+          const dueDateObj = dueDateCandidate ? assertBusinessDate(dueDateCandidate, 'end') : null;
+          const now = getBusinessNow();
           const estadoCuenta: CobranzaStatus = dueDateObj && dueDateObj < now ? 'vencido' : 'pendiente';
 
           createdCuenta = {
@@ -428,9 +434,8 @@ export const useComprobanteActions = () => {
       // ✅ AGREGAR COMPROBANTE A LA LISTA GLOBAL
       try {
         // Formatear fecha actual en el formato esperado por la lista
-        const now = new Date();
-        const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
-        const formattedDate = `${now.getDate()} ${months[now.getMonth()]}. ${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const now = getBusinessNow();
+        const formattedDate = formatBusinessDateTimeForTicket(now);
 
         // Determinar el tipo de comprobante para la lista
         // Obtener usuario actual
@@ -438,15 +443,16 @@ export const useComprobanteActions = () => {
 
         // Crear el objeto comprobante para la lista
         // Construir objeto usando los campos opcionales cuando estén presentes
-        const dateToUse = data.fechaEmision ? ((): string => {
-          try {
-            const d = new Date(data.fechaEmision + 'T00:00:00');
-            const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
-            return `${d.getDate()} ${months[d.getMonth()]}. ${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-          } catch (e) {
-            return formattedDate;
-          }
-        })() : formattedDate;
+        const dateToUse = data.fechaEmision
+          ? (() => {
+              try {
+                const d = assertBusinessDate(data.fechaEmision, 'start');
+                return formatBusinessDateTimeForTicket(d);
+              } catch (e) {
+                return formattedDate;
+              }
+            })()
+          : formattedDate;
 
         const paymentMethodLabel = paymentSummaryLabel;
 
@@ -509,7 +515,7 @@ export const useComprobanteActions = () => {
                     relatedDocumentId: numeroComprobante,
                     relatedDocumentType: tipoComprobanteDisplay,
                     convertedToInvoice: true,
-                    convertedDate: new Date().toISOString()
+                    convertedDate: formatBusinessDateTimeIso(getBusinessNow())
                   };
                 }
                 return doc;
@@ -536,9 +542,9 @@ export const useComprobanteActions = () => {
 
       // ✅ Registrar snapshot para indicadores locales
       try {
-        const now = new Date();
+        const now = getBusinessNow();
         const fechaEmisionDate = data.fechaEmision
-          ? new Date(`${data.fechaEmision}T00:00:00`)
+          ? assertBusinessDate(data.fechaEmision, 'start')
           : now;
         const targetEstablishmentId = data.establishmentId || session?.currentEstablishmentId;
         const establishment = targetEstablishmentId
@@ -562,7 +568,7 @@ export const useComprobanteActions = () => {
           total: data.totals.total,
           subtotal: data.totals.subtotal,
           igv: data.totals.igv,
-          fechaEmision: fechaEmisionDate.toISOString(),
+          fechaEmision: formatBusinessDateTimeIso(fechaEmisionDate),
           productos: mapCartItemsToVentaProductos(data.cartItems),
           formaPago: paymentSummaryLabel,
           source: data.source ?? 'otros'
@@ -632,8 +638,8 @@ export const useComprobanteActions = () => {
         const draftData = {
           id: draftId,
           ...data,
-          createdAt: new Date().toISOString(),
-          expiryDate: expiryDate?.toISOString(),
+          createdAt: formatBusinessDateTimeIso(getBusinessNow()),
+          expiryDate: expiryDate ? formatBusinessDateTimeIso(expiryDate) : undefined,
         };
 
         const existingDrafts = JSON.parse(localStorage.getItem('comprobante_drafts') || '[]');

@@ -1,5 +1,6 @@
 import type { DraftData } from '../../models/comprobante.types';
 import { SYSTEM_CONFIG } from '../../models/constants';
+import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 const STORAGE_KEY = SYSTEM_CONFIG.DRAFTS_STORAGE_KEY;
 
@@ -66,8 +67,8 @@ export const duplicateDraftInStorage = (draftId: string): DraftData | null => {
   const duplicate: DraftData = {
     ...original,
     id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    fechaEmision: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
+    fechaEmision: formatBusinessDateTimeIso(),
+    createdAt: formatBusinessDateTimeIso(),
   };
 
   drafts.push(duplicate);

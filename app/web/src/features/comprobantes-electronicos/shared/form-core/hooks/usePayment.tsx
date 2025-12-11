@@ -7,6 +7,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { CartItem, PaymentTotals, Currency } from '../../../models/comprobante.types';
 import { QUICK_PAYMENT_BASE_AMOUNTS } from '../../../models/constants';
 import { useCurrency } from './useCurrency';
+import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 interface CashBill {
   id: string;
@@ -245,7 +246,7 @@ export const usePayment = (currency: Currency = 'PEN') => {
       paymentSummary,
       tipoComprobante,
       clientData,
-      timestamp: new Date().toISOString()
+      timestamp: formatBusinessDateTimeIso()
     };
 
     // Simular procesamiento

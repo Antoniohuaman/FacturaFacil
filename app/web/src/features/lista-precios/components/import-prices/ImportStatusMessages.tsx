@@ -1,11 +1,12 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { BulkPriceImportResult } from '../../models/PriceImportTypes';
+import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 
 interface ImportStatusMessagesProps {
   parseError: string | null;
   isParsing: boolean;
-  lastResult: { summary: BulkPriceImportResult; completedAt: Date } | null;
+  lastResult: { summary: BulkPriceImportResult; completedAt: string } | null;
 }
 
 export const ImportStatusMessages: React.FC<ImportStatusMessagesProps> = ({
@@ -26,7 +27,7 @@ export const ImportStatusMessages: React.FC<ImportStatusMessagesProps> = ({
       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 text-sm text-green-800 dark:text-green-300 space-y-1">
         <div className="font-semibold flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" aria-hidden />
-          Importación aplicada el {lastResult.completedAt.toLocaleString('es-PE')}.
+          Importación aplicada el {formatBusinessDateTimeForTicket(lastResult.completedAt)}.
         </div>
         <div>
           {lastResult.summary.appliedPrices} precios actualizados en {lastResult.summary.appliedProducts} productos. Filas omitidas: {lastResult.summary.skippedRows}.

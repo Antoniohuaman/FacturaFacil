@@ -7,7 +7,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, FileText, Check, Settings, Save } from 'lucide-react';
-import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { formatBusinessDateTimeIso, getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 // Hooks reutilizables del sistema de comprobantes (solo para UI, no lógica)
 import { useCart } from '../../comprobantes-electronicos/punto-venta/hooks/useCart';
@@ -257,12 +257,12 @@ const FormularioNotaVenta = () => {
         isDraft: true,
         ...optionalFields,
         // Auditoría
-        editedDate: isEditMode ? new Date().toISOString() : undefined,
+        editedDate: isEditMode ? formatBusinessDateTimeIso() : undefined,
         editedBy: isEditMode ? (session?.userName ?? 'Usuario') : undefined,
         createdDate:
           isEditMode && documentoToEdit.createdDate
             ? documentoToEdit.createdDate
-            : new Date().toISOString(),
+            : formatBusinessDateTimeIso(),
         createdBy:
           isEditMode && documentoToEdit.createdBy
             ? documentoToEdit.createdBy
@@ -347,12 +347,12 @@ const FormularioNotaVenta = () => {
         isDraft: false,
         ...optionalFields,
         // Auditoría
-        editedDate: isEditMode ? new Date().toISOString() : undefined,
+        editedDate: isEditMode ? formatBusinessDateTimeIso() : undefined,
         editedBy: isEditMode ? (session?.userName ?? 'Usuario') : undefined,
         createdDate:
           isEditMode && documentoToEdit.createdDate
             ? documentoToEdit.createdDate
-            : new Date().toISOString(),
+            : formatBusinessDateTimeIso(),
         createdBy:
           isEditMode && documentoToEdit.createdBy
             ? documentoToEdit.createdBy

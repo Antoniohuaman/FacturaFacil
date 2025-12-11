@@ -5,6 +5,7 @@
 
 import type { VoucherDesignConfig, DesignType } from '../models/VoucherDesignUnified';
 import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../models/VoucherDesignUnified';
+import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 export class StorageError extends Error {
   originalError?: unknown;
@@ -89,7 +90,7 @@ export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
       const exportData = {
         version: '2.0',
         designType: type,
-        exportDate: new Date().toISOString(),
+        exportDate: formatBusinessDateTimeIso(),
         config,
       };
 

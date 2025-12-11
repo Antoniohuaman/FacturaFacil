@@ -4,6 +4,7 @@ import type {
   NotificacionIndicadorPayload
 } from '../models/notificaciones';
 import { createEmptyNotificacionConfig } from '../models/notificacionesDefaults';
+import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 const NOTIFICACIONES_API_URL = (import.meta.env.VITE_INDICADORES_NOTIFICACIONES_API_URL ?? '').trim();
 
@@ -82,7 +83,7 @@ const applyFilters = (items: NotificacionIndicadorConfig[], filters?: Notificaci
 const fallbackFetch = (filters?: NotificacionIndicadorFilters) => applyFilters(clone(fallbackStore), filters);
 
 const fallbackCreate = (payload: NotificacionIndicadorPayload): NotificacionIndicadorConfig => {
-  const now = new Date().toISOString();
+  const now = formatBusinessDateTimeIso();
   const config: NotificacionIndicadorConfig = {
     ...createEmptyNotificacionConfig(),
     ...clone(payload),
@@ -104,7 +105,7 @@ const fallbackUpdate = (id: string, updater: (current: NotificacionIndicadorConf
     ...fallbackStore[index],
     ...updated,
     id,
-    actualizadoEl: new Date().toISOString()
+    actualizadoEl: formatBusinessDateTimeIso()
   };
   return clone(fallbackStore[index]);
 };

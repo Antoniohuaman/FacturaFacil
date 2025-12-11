@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
+import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 import type { Configuration, ConfigurationModule } from '../models/Configuration';
 import { CONFIGURATION_MODULES } from '../models/Configuration';
 
@@ -296,7 +297,7 @@ export function useConfiguration(): UseConfigurationReturn {
     const exportData = {
       configuration,
       modules,
-      exportedAt: new Date().toISOString(),
+      exportedAt: formatBusinessDateTimeIso(),
       version: '1.0.0',
     };
     

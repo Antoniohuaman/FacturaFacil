@@ -6,6 +6,7 @@ import { useUserSession } from '../../../contexts/UserSessionContext';
 import { DollarSign, Save, AlertCircle } from 'lucide-react';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { calcularMontoInicialTotal } from '../utils';
+import { formatBusinessDateTimeIso, formatBusinessDateTimeLocal, parseBusinessDateTimeLocal } from '@/shared/time/businessTime';
 
 const AperturaCaja: React.FC = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const AperturaCaja: React.FC = () => {
   const [montoYapeTxt, setMontoYapeTxt] = useState('');
   
   const [notas, setNotas] = useState('');
-  const [fechaApertura, setFechaApertura] = useState(new Date().toISOString().slice(0, 16));
+  const [fechaApertura, setFechaApertura] = useState(() => formatBusinessDateTimeLocal());
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const { status, abrirCaja, isLoading } = useCaja();
@@ -53,11 +54,12 @@ const AperturaCaja: React.FC = () => {
   };
 
   const handleConfirmApertura = async () => {
+    const fechaHoraApertura = parseBusinessDateTimeLocal(fechaApertura) ?? new Date(formatBusinessDateTimeIso());
     const aperturaData = {
       cajaId: 'caja-1',
       usuarioId: usuarioId,
       usuarioNombre: usuarioActual,
-      fechaHoraApertura: new Date(fechaApertura),
+      fechaHoraApertura,
       montoInicialEfectivo: montoEfectivoNum,
       montoInicialTarjeta: montoTarjetaNum,
       montoInicialYape: montoYapeNum,

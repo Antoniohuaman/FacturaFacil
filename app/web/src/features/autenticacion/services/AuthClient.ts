@@ -7,6 +7,7 @@ import type {
   PasswordReset,
 } from '../types/auth.types';
 import { tokenService } from './TokenService';
+import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 /**
  * ============================================
@@ -139,7 +140,7 @@ class AuthClient {
         id: `user_${Date.now()}`,
         ...body,
         email: normalizedEmail,
-        createdAt: new Date().toISOString(),
+        createdAt: formatBusinessDateTimeIso(),
       };
       users.push(newUser);
       localStorage.setItem('dev_users', JSON.stringify(users));

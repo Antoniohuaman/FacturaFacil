@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import ClienteFormNew from './ClienteFormNew';
 import type { ClienteFormData } from '../models';
+import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
 
@@ -94,8 +95,8 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
     imagenes: [],
     
     // Metadatos
-    fechaRegistro: new Date().toISOString(),
-    fechaUltimaModificacion: new Date().toISOString(),
+    fechaRegistro: formatBusinessDateTimeIso(),
+    fechaUltimaModificacion: formatBusinessDateTimeIso(),
     
     // Legacy
     gender: props.formData.gender || '',

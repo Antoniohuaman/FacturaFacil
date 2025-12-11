@@ -15,6 +15,7 @@ import type {
 import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
 import { documentCodeFromType, normalizeDocumentNumber, parseLegacyDocumentString } from '../utils/documents';
 import { lsKey } from '../../../shared/tenant';
+import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true' || !import.meta.env.VITE_API_URL;
@@ -56,7 +57,7 @@ class ClientesClient {
     input: CreateClienteDTO | UpdateClienteDTO,
     base?: Cliente
   ): Cliente {
-    const now = new Date().toISOString();
+    const now = formatBusinessDateTimeIso();
 
     const legacyParts = this.extractDocumentParts(base?.document);
     const legacyType = (input.documentType || legacyParts.tipo || 'SIN_DOCUMENTO') as DocumentType;

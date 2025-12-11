@@ -19,7 +19,7 @@ import {
   readDraftsFromStorage
 } from '../shared/drafts/draftStorage';
 import { validateComprobanteNormativa } from '../shared/core/comprobanteValidation';
-import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { getBusinessTodayISODate, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 interface DraftSaveParams {
   tipoComprobante: TipoComprobante;
@@ -160,7 +160,7 @@ export const useDrafts = (): UseDraftsReturn => {
       totals,
       currency,
       vendedor,
-      createdAt: new Date().toISOString(),
+      createdAt: formatBusinessDateTimeIso(),
       // Aquí se pueden agregar más campos según necesidad
     };
     

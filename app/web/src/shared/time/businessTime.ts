@@ -18,6 +18,8 @@ export interface BusinessDateParts {
 
 export type BusinessDayBoundary = 'start' | 'end' | 'mid';
 
+const BUSINESS_LOCAL_DATETIME_REGEX = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
 const businessDateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: BUSINESS_TIMEZONE,
   year: 'numeric',
@@ -128,6 +130,11 @@ export function shiftBusinessDateByYears(businessDateIso: string, offsetYears: n
   return formatDateToBusinessIso(baseDate);
 }
 
+export function formatBusinessDateTimeIso(date: Date = new Date()): string {
+  const { year, month, day, hour, minute, second } = extractBusinessParts(date);
+  return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:${pad(second)}.000${BUSINESS_TIMEZONE_OFFSET}`;
+}
+
 export function getBusinessDefaultValidityRange(yearsAhead = 1): { validFrom: string; validUntil: string } {
   const validFrom = getBusinessTodayISODate();
   const validUntil = shiftBusinessDateByYears(validFrom, yearsAhead);
@@ -157,6 +164,17 @@ export function ensureBusinessDateIso(input?: string | Date): string {
 export function formatBusinessDateTimeLocal(date: Date = new Date()): string {
   const { year, month, day, hour, minute } = extractBusinessParts(date);
   return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}`;
+}
+
+export function parseBusinessDateTimeLocal(input: string): Date | null {
+  const match = BUSINESS_LOCAL_DATETIME_REGEX.exec(input);
+  if (!match) {
+    return null;
+  }
+  const [, year, month, day, hour, minute] = match;
+  const isoCandidate = `${year}-${month}-${day}T${hour}:${minute}:00.000${BUSINESS_TIMEZONE_OFFSET}`;
+  const parsed = new Date(isoCandidate);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 /**

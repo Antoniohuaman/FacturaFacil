@@ -31,6 +31,7 @@ import {
   onlyDigits,
 } from '../utils/documents';
 import { isValidEmail, mergeEmails, sanitizePhones } from '../utils/contact';
+import { formatBusinessDateTimeForTicket, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 type ValidationError = {
   rowNumber: number;
@@ -53,7 +54,7 @@ type ImportReport = {
   parseErrors: ValidationError[];
   backendSummary?: BulkImportSummary;
   backendErrors?: BulkImportSummary['errors'];
-  executedAt: Date;
+  executedAt: string;
 };
 
 const BASIC_TEMPLATE_PATH = '/plantillas/Plantilla_ImportacionClientes_basico.xlsx';
@@ -1038,8 +1039,7 @@ const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
 
 const formatNumber = (value: number): string => new Intl.NumberFormat('es-PE').format(value);
 
-const formatDateTime = (date: Date): string =>
-  date.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+const formatDateTime = (value: string): string => formatBusinessDateTimeForTicket(value);
 
 const ImportarClientesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -1137,7 +1137,7 @@ const ImportarClientesPage: React.FC = () => {
         totalRows: parseResult.totalRows,
         validRows: parseResult.validRows,
         parseErrors: parseResult.errors,
-        executedAt: new Date(),
+        executedAt: formatBusinessDateTimeIso(),
       };
 
       if (parseResult.totalRows === 0) {
@@ -1163,7 +1163,7 @@ const ImportarClientesPage: React.FC = () => {
         ...baseReport,
         backendSummary: response.summary,
         backendErrors: response.summary.errors,
-        executedAt: new Date(),
+        executedAt: formatBusinessDateTimeIso(),
       });
     } catch (error) {
       console.error('[ImportarClientes] Error durante la importación', error);
