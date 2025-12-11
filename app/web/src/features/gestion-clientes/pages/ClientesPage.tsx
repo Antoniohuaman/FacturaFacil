@@ -11,6 +11,7 @@ import { ClientesModuleLayout } from '../components/ClientesModuleLayout';
 import { useClientes } from '../hooks';
 import { useClientesColumns } from '../hooks/useClientesColumns';
 import { useCaja } from '../../control-caja/context/CajaContext';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { Cliente, ClienteFormData, DocumentType, ClientType } from '../models';
 import { serializeFiles, deserializeFiles } from '../utils/fileSerialization';
 import type { DocumentCode } from '../utils/documents';
@@ -586,7 +587,7 @@ function ClientesPage() {
 				});
 			});
 
-			const dateStamp = new Date().toISOString().split('T')[0];
+			const dateStamp = getBusinessTodayISODate();
 			const fileName = variant === 'BASICO' ? `Clientes_Basico_${dateStamp}.xlsx` : `Clientes_Completo_${dateStamp}.xlsx`;
 			const buffer = await workbook.xlsx.writeBuffer();
 			const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -1346,3 +1347,4 @@ function ClientesPage() {
 }
 
 export default ClientesPage;
+

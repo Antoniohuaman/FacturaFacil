@@ -1,6 +1,7 @@
 import type { ClientesInsights, FormaPagoDistribucionItem, IndicadoresData, IndicadoresFilters, KpiSummary, RankingItem, TopProductosConcentracion, VentaDiaria, VentasPorComprobanteItem, VentasPorEstablecimientoItem } from '../models/indicadores';
 import { createEmptyIndicadoresData } from '../models/defaults';
 import { devLocalIndicadoresStore, type DevVentaEstado, type DevVentaSnapshot } from './devLocalStore';
+import { ensureBusinessDateIso } from '@/shared/time/businessTime';
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
@@ -191,7 +192,7 @@ const aggregateVentasDiarias = (ventas: DevVentaSnapshot[]): VentaDiaria[] => {
   }>();
 
   ventas.forEach((venta) => {
-    const dateKey = new Date(venta.fechaEmision).toISOString().slice(0, 10);
+    const dateKey = ensureBusinessDateIso(venta.fechaEmision);
     const current = byDate.get(dateKey) ?? { ventas: 0, igv: 0, count: 0, boletas: 0, facturas: 0 };
     current.ventas += convertToBaseCurrency(venta);
     current.igv += convertAmount(venta, 'igv');
@@ -458,3 +459,4 @@ export const resolveIndicadoresFromDevLocal = async (filters: IndicadoresFilters
 };
 
 export const subscribeToDevLocalIndicadores = (listener: () => void) => devLocalIndicadoresStore.subscribe(listener);
+

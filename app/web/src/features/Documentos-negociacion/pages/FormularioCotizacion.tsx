@@ -7,6 +7,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, FileText, Check, Settings, Save } from 'lucide-react';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 // Hooks reutilizables del sistema de comprobantes (solo para UI, no lógica)
 import { useCart } from '../../comprobantes-electronicos/punto-venta/hooks/useCart';
@@ -68,9 +69,7 @@ const FormularioCotizacion = () => {
     email?: string;
   } | null>(null);
   
-  const [fechaEmision, setFechaEmision] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [fechaEmision, setFechaEmision] = useState<string>(getBusinessTodayISODate());
   const [fechaVencimiento, setFechaVencimiento] = useState<string>('');
   const [observaciones, setObservaciones] = useState<string>('');
   const [notaInterna, setNotaInterna] = useState<string>('');
@@ -527,3 +526,4 @@ const FormularioCotizacion = () => {
 };
 
 export default FormularioCotizacion;
+

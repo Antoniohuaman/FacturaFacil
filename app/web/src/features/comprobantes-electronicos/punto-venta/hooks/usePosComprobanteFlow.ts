@@ -17,6 +17,7 @@ import type {
 import type { CreditInstallmentDefinition } from '../../../../shared/payments/paymentTerms';
 import { useCurrentCompanyId, useCurrentEstablishmentId } from '../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 interface UsePosComprobanteFlowParams {
   cartItems: CartItem[];
@@ -66,7 +67,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
   } | null>(null);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
   const [showCreditScheduleModal, setShowCreditScheduleModal] = useState(false);
-  const [fechaEmision] = useState(() => new Date().toISOString().split('T')[0]);
+  const [fechaEmision] = useState(() => getBusinessTodayISODate());
   const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
 
   const [clienteSeleccionado, setClienteSeleccionado] = useState<
@@ -361,3 +362,4 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     warning,
   };
 };
+

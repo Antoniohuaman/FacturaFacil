@@ -12,6 +12,7 @@ import { useCaja } from '../../control-caja/context/CajaContext';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { mapPaymentMethodToMedioPago } from '../../../shared/payments/paymentMapping';
 import { lsKey } from '../../../shared/tenant';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import {
   computeAccountStateFromInstallments,
   normalizeCreditTermsToInstallments,
@@ -312,7 +313,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
           : 'parcial';
 
       const numeroDocumento = collectionDocument?.fullNumber || fallbackCollectionNumber();
-      const fechaCobranza = collectionDocument?.issuedAt || input.payload.fechaCobranza || new Date().toISOString().split('T')[0];
+      const fechaCobranza = collectionDocument?.issuedAt || input.payload.fechaCobranza || getBusinessTodayISODate();
 
       const documento: CobranzaDocumento = {
         id: `cbza-${Date.now()}`,
@@ -394,3 +395,4 @@ export function useCobranzasContext() {
   }
   return ctx;
 }
+

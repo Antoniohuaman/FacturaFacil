@@ -10,7 +10,7 @@ import { useUserSession } from '../../../../contexts/UserSessionContext';
 import { filterByDateRange, DATE_PRESETS } from '../../utils/dateUtils';
 import { validateDraftsForBulkEmit } from '../../utils/draftValidation';
 import { PAGINATION_CONFIG } from '../../models/constants';
-import { formatBusinessDateShort, getBusinessTodayISODate } from '../../../../shared/time/businessTime';
+import { formatBusinessDateShort, getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 type DraftInvoicesModuleProps = {
   hideSidebar?: boolean;
@@ -379,3 +379,4 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
 };
 
 export default DraftInvoicesModule;
+

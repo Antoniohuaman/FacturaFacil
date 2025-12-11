@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, Search } from 'lucide-react';
+import { getBusinessDefaultValidityRange } from '@/shared/time/businessTime';
 import type { Column, Product, PriceForm, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 import { isGlobalColumn } from '../../utils/priceHelpers';
@@ -134,10 +135,7 @@ export const PriceModal: React.FC<PriceModalProps> = ({
           validUntil: existingPrice.validUntil
         });
       } else {
-        const today = new Date().toISOString().split('T')[0];
-        const nextYear = new Date();
-        nextYear.setFullYear(nextYear.getFullYear() + 1);
-        const nextYearStr = nextYear.toISOString().split('T')[0];
+        const defaultValidity = getBusinessDefaultValidityRange();
 
         setFormData({
           type: 'fixed',
@@ -145,8 +143,8 @@ export const PriceModal: React.FC<PriceModalProps> = ({
           columnId: selectedColumn.id,
           unitCode: preferredUnit || '',
           value: '',
-          validFrom: today,
-          validUntil: nextYearStr
+          validFrom: defaultValidity.validFrom,
+          validUntil: defaultValidity.validUntil
         });
       }
     } else if (selectedProduct) {
@@ -269,15 +267,12 @@ export const PriceModal: React.FC<PriceModalProps> = ({
   // Set default dates
   useEffect(() => {
     if (isOpen && !formData.validFrom) {
-      const today = new Date().toISOString().split('T')[0];
-      const nextYear = new Date();
-      nextYear.setFullYear(nextYear.getFullYear() + 1);
-      const nextYearStr = nextYear.toISOString().split('T')[0];
+      const defaultValidity = getBusinessDefaultValidityRange();
       
       setFormData(prev => ({
         ...prev,
-        validFrom: today,
-        validUntil: nextYearStr
+        validFrom: defaultValidity.validFrom,
+        validUntil: defaultValidity.validUntil
       }));
     }
   }, [isOpen, formData.validFrom]);

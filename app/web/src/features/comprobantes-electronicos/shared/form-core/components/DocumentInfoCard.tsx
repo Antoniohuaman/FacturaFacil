@@ -8,6 +8,7 @@ import { FileText, ChevronDown, Calendar, Hash, DollarSign, CreditCard, User, Se
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
+import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
 
 interface DocumentInfoCardProps {
   serieSeleccionada: string;
@@ -40,6 +41,9 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
   const { state } = useConfigurationContext();
   const { paymentMethods } = state;
   const { config } = useFieldsConfiguration();
+
+  const todayIso = getBusinessTodayISODate();
+  const defaultDueIso = shiftBusinessDate(todayIso, 30);
 
   // Calcular si hay algún campo opcional visible
   const hasVisibleOptionalFields = useMemo(() => {
@@ -111,7 +115,7 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
           </label>
           <input
             type="date"
-            value={new Date().toISOString().split('T')[0]}
+            value={todayIso}
             className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-gray-900 transition-all duration-200 hover:border-gray-400"
           />
           <p className="mt-1 text-xs text-gray-500">
@@ -230,7 +234,7 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
                     type="date"
                     required={config.optionalFields.fechaVencimiento.required}
                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white transition-all duration-200"
-                    defaultValue={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                    defaultValue={defaultDueIso}
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Por defecto: 30 días desde emisión
@@ -340,3 +344,4 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
 };
 
 export default DocumentInfoCard;
+

@@ -28,6 +28,7 @@ import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore'
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { calculateRequiredUnidadMinima, resolveWarehouseForSale } from '../../../shared/inventory/stockGateway';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 interface ComprobanteData {
   tipoComprobante: string;
@@ -204,7 +205,7 @@ export const useComprobanteActions = () => {
       const establecimientoId = data.establishmentId || session?.currentEstablishmentId;
       const sucursalNombre = session?.currentEstablishment?.name;
       const cajeroNombre = session?.userName || 'Usuario';
-      const fechaEmisionIso = data.fechaEmision || new Date().toISOString().split('T')[0];
+      const fechaEmisionIso = data.fechaEmision || getBusinessTodayISODate();
       const fechaVencimientoIso = data.creditTerms?.fechaVencimientoGlobal || data.fechaVencimiento;
       const isCreditSale = Boolean(data.creditTerms);
       let createdCuenta: CuentaPorCobrarSummary | null = null;
@@ -757,3 +758,4 @@ export const useComprobanteActions = () => {
     paymentMethods,
   };
 };
+

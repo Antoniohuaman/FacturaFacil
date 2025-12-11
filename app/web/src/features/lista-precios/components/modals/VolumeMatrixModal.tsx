@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, Plus, Trash2, AlertCircle, Info, Search } from 'lucide-react';
+import { getBusinessDefaultValidityRange } from '@/shared/time/businessTime';
 import type { Column, Product, VolumePriceForm, VolumeRange, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
 import { generateDefaultVolumeRanges, validateVolumeRanges } from '../../utils/priceHelpers';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
@@ -102,10 +103,7 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const today = new Date().toISOString().split('T')[0];
-      const nextYear = new Date();
-      nextYear.setFullYear(nextYear.getFullYear() + 1);
-      const nextYearStr = nextYear.toISOString().split('T')[0];
+      const defaultValidity = getBusinessDefaultValidityRange();
 
       if (selectedProduct) {
         setSkuSearch(selectedProduct.sku);
@@ -139,8 +137,8 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
               maxQuantity: range.maxQuantity?.toString() || '',
               price: '0'
             })),
-            validFrom: today,
-            validUntil: nextYearStr
+            validFrom: defaultValidity.validFrom,
+            validUntil: defaultValidity.validUntil
           });
         }
       } else {
@@ -156,8 +154,8 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
             maxQuantity: range.maxQuantity?.toString() || '',
             price: '0'
           })),
-          validFrom: today,
-          validUntil: nextYearStr
+          validFrom: defaultValidity.validFrom,
+          validUntil: defaultValidity.validUntil
         });
       }
     }

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useDocumentoContext } from '../../contexts/DocumentosContext';
 import { lsKey } from '../../../../shared/tenant';
-import { getTodayISO, formatDateShortSpanish } from '../../utils/dateUtils';
+import { DATE_PRESETS as BUSINESS_DATE_PRESETS, getTodayISO, formatDateShortSpanish } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
 import { DrawerDetalleDocumento } from '../../components/DrawerDetalleDocumento';
 
@@ -35,7 +35,9 @@ interface ColumnConfig {
   width?: string;
 }
 
-const DATE_PRESETS = {
+type DatePresetKey = keyof typeof BUSINESS_DATE_PRESETS;
+
+const DATE_PRESET_LABELS: Record<DatePresetKey, string> = {
   today: 'Hoy',
   yesterday: 'Ayer',
   last7days: 'Últimos 7 días',
@@ -73,19 +75,9 @@ function filterByDateRange<T>(items: T[], getDate: (item: T) => string | undefin
   });
 }
 
-function getDatePresetRange(preset: string) {
-  const today = new Date();
-  const getISO = (d: Date) => d.toISOString().split('T')[0];
-  
-  switch (preset) {
-    case 'today': return { from: getISO(today), to: getISO(today) };
-    case 'yesterday': { const y = new Date(today); y.setDate(y.getDate() - 1); return { from: getISO(y), to: getISO(y) }; }
-    case 'last7days': { const f = new Date(today); f.setDate(f.getDate() - 6); return { from: getISO(f), to: getISO(today) }; }
-    case 'thisMonth': return { from: getISO(new Date(today.getFullYear(), today.getMonth(), 1)), to: getISO(new Date(today.getFullYear(), today.getMonth() + 1, 0)) };
-    case 'lastMonth': return { from: getISO(new Date(today.getFullYear(), today.getMonth() - 1, 1)), to: getISO(new Date(today.getFullYear(), today.getMonth(), 0)) };
-    case 'last30days': { const f = new Date(today); f.setDate(f.getDate() - 29); return { from: getISO(f), to: getISO(today) }; }
-    default: return { from: getISO(today), to: getISO(today) };
-  }
+function getDatePresetRange(preset: DatePresetKey) {
+  const factory = BUSINESS_DATE_PRESETS[preset] ?? BUSINESS_DATE_PRESETS.today;
+  return factory();
 }
 
 // ===================================================================
@@ -194,7 +186,7 @@ const ListaNotasVenta = () => {
     setColumnsConfig(prev => prev.map(c => c.id === id ? { ...c, visible: !c.visible } : c));
   };
 
-  const applyDatePreset = (preset: string) => {
+  const applyDatePreset = (preset: DatePresetKey) => {
     const { from, to } = getDatePresetRange(preset);
     setTempDateFrom(from);
     setTempDateTo(to);
@@ -397,8 +389,12 @@ const ListaNotasVenta = () => {
                     <div className="mb-4">
                       <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Preajuste</div>
                       <div className="grid grid-cols-2 gap-2">
-                        {Object.entries(DATE_PRESETS).map(([key, label]) => (
-                          <button key={key} onClick={() => applyDatePreset(key)} className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-left">
+                        {Object.entries(DATE_PRESET_LABELS).map(([key, label]) => (
+                          <button
+                            key={key}
+                            onClick={() => applyDatePreset(key as DatePresetKey)}
+                            className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-left"
+                          >
                             {label}
                           </button>
                         ))}

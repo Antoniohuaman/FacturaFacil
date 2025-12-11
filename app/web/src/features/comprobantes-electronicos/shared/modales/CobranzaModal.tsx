@@ -32,6 +32,7 @@ import { filterCollectionSeries, getNextCollectionDocument } from '../../../../s
 import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '../payments/CreditInstallmentsTable';
 import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models/cobranzas.types';
 import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 const DEFAULT_PAYMENT_OPTIONS = [
   { id: 'efectivo', label: 'Efectivo', badge: 'bg-green-100 text-green-700', icon: Wallet },
@@ -443,7 +444,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     return 'contado';
   }, [esBoleta, hasCreditSchedule, isCajaOpen, isCobranzasContext, modeIntent]);
   const [paymentLines, setPaymentLines] = useState<PaymentLineForm[]>([]);
-  const [fechaCobranza, setFechaCobranza] = useState(() => fechaEmision || new Date().toISOString().split('T')[0]);
+  const [fechaCobranza, setFechaCobranza] = useState(() => fechaEmision || getBusinessTodayISODate());
   const [cajaDestino, setCajaDestino] = useState(defaultCajaDestino);
   const [notas, setNotas] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -613,7 +614,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         bank: defaultCajaDestino,
       },
     ]);
-    setFechaCobranza(fechaEmision || new Date().toISOString().split('T')[0]);
+    setFechaCobranza(fechaEmision || getBusinessTodayISODate());
     setCajaDestino(defaultCajaDestino);
     setNotas('');
     setAllocationDrafts([]);
@@ -821,7 +822,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           enforcedMode === 'contado' && collectionDocumentPreview
             ? {
                 ...collectionDocumentPreview,
-                issuedAt: fechaCobranza || new Date().toISOString().split('T')[0],
+                issuedAt: fechaCobranza || getBusinessTodayISODate(),
               }
             : undefined,
         allocations: enforcedMode === 'contado' ? buildAllocationPayload() : undefined,

@@ -5,8 +5,9 @@
  */
 
 export const BUSINESS_TIMEZONE = 'America/Lima';
+export const BUSINESS_TIMEZONE_OFFSET = '-05:00';
 
-interface BusinessDateParts {
+export interface BusinessDateParts {
   year: number;
   month: number;
   day: number;
@@ -14,6 +15,8 @@ interface BusinessDateParts {
   minute: number;
   second: number;
 }
+
+export type BusinessDayBoundary = 'start' | 'end' | 'mid';
 
 const businessDateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: BUSINESS_TIMEZONE,
@@ -24,6 +27,13 @@ const businessDateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
   minute: '2-digit',
   second: '2-digit',
   hour12: false,
+});
+
+const businessIsoFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: BUSINESS_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
 });
 
 const businessDateFormatter = new Intl.DateTimeFormat('es-PE', {
@@ -64,6 +74,91 @@ function pad(value: number): string {
   return value.toString().padStart(2, '0');
 }
 
+export function getBusinessDateParts(date: Date = new Date()): BusinessDateParts {
+  return extractBusinessParts(date);
+}
+
+export function formatDateToBusinessIso(date: Date): string {
+  const parts = businessIsoFormatter.formatToParts(date);
+  const lookup = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? '0';
+  return `${lookup('year')}-${lookup('month')}-${lookup('day')}`;
+}
+
+function boundarySuffix(boundary: BusinessDayBoundary): string {
+  if (boundary === 'start') {
+    return 'T00:00:00.000';
+  }
+  if (boundary === 'end') {
+    return 'T23:59:59.999';
+  }
+  return 'T12:00:00.000';
+}
+
+export function toBusinessDate(
+  businessDateIso: string,
+  boundary: BusinessDayBoundary = 'mid',
+): Date | null {
+  if (!ISO_DATE_REGEX.test(businessDateIso)) {
+    return null;
+  }
+  return new Date(`${businessDateIso}${boundarySuffix(boundary)}${BUSINESS_TIMEZONE_OFFSET}`);
+}
+
+export function assertBusinessDate(
+  businessDateIso: string,
+  boundary: BusinessDayBoundary = 'mid',
+): Date {
+  const parsed = toBusinessDate(businessDateIso, boundary);
+  if (!parsed) {
+    throw new Error(`Fecha de negocio inválida: ${businessDateIso}`);
+  }
+  return parsed;
+}
+
+export function shiftBusinessDate(businessDateIso: string, offsetDays: number): string {
+  const baseDate = assertBusinessDate(businessDateIso, 'start');
+  baseDate.setUTCDate(baseDate.getUTCDate() + offsetDays);
+  return formatDateToBusinessIso(baseDate);
+}
+
+export function shiftBusinessDateByYears(businessDateIso: string, offsetYears: number): string {
+  const baseDate = assertBusinessDate(businessDateIso, 'start');
+  baseDate.setUTCFullYear(baseDate.getUTCFullYear() + offsetYears);
+  return formatDateToBusinessIso(baseDate);
+}
+
+export function getBusinessDefaultValidityRange(yearsAhead = 1): { validFrom: string; validUntil: string } {
+  const validFrom = getBusinessTodayISODate();
+  const validUntil = shiftBusinessDateByYears(validFrom, yearsAhead);
+  return { validFrom, validUntil };
+}
+
+export function ensureBusinessDateIso(input?: string | Date): string {
+  if (!input) {
+    return getBusinessTodayISODate();
+  }
+  if (typeof input === 'string') {
+    if (ISO_DATE_REGEX.test(input)) {
+      return input;
+    }
+    const parsed = new Date(input);
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatDateToBusinessIso(parsed);
+    }
+    return getBusinessTodayISODate();
+  }
+  if (Number.isNaN(input.getTime())) {
+    return getBusinessTodayISODate();
+  }
+  return formatDateToBusinessIso(input);
+}
+
+export function formatBusinessDateTimeLocal(date: Date = new Date()): string {
+  const { year, month, day, hour, minute } = extractBusinessParts(date);
+  return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}`;
+}
+
 /**
  * Devuelve un Date que representa el instante actual.
  * La interpretación como hora de negocio (America/Lima)
@@ -97,9 +192,8 @@ export function getBusinessDayRangeUtc(
   const [, yearStr, monthStr, dayStr] = match;
   const isoPrefix = `${yearStr}-${monthStr}-${dayStr}`;
 
-  // Perú está siempre en -05:00 (sin horario de verano)
-  const startUtc = new Date(`${isoPrefix}T00:00:00-05:00`).toISOString();
-  const endUtc = new Date(`${isoPrefix}T23:59:59.999-05:00`).toISOString();
+  const startUtc = new Date(`${isoPrefix}T00:00:00${BUSINESS_TIMEZONE_OFFSET}`).toISOString();
+  const endUtc = new Date(`${isoPrefix}T23:59:59.999${BUSINESS_TIMEZONE_OFFSET}`).toISOString();
   return { startUtc, endUtc };
 }
 
@@ -111,7 +205,7 @@ export function formatBusinessDateShort(businessDateIso: string): string {
     return businessDateIso;
   }
 
-  const date = new Date(`${businessDateIso}T00:00:00-05:00`);
+  const date = new Date(`${businessDateIso}T00:00:00${BUSINESS_TIMEZONE_OFFSET}`);
 
   return businessDateFormatter
     .format(date)

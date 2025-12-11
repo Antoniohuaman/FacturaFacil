@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useCaja } from '../context/CajaContext';
 import { FileBarChart, Download, Filter, X, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { EmptyState } from '../components/common/EmptyState';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 const ReportesCaja: React.FC = () => {
   const { movimientos, showToast } = useCaja();
@@ -68,7 +69,7 @@ const ReportesCaja: React.FC = () => {
       const url = URL.createObjectURL(blob);
 
       link.setAttribute('href', url);
-      link.setAttribute('download', `reporte_caja_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute('download', `reporte_caja_${getBusinessTodayISODate()}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -296,3 +297,4 @@ const ReportesCaja: React.FC = () => {
 };
 
 export default ReportesCaja;
+

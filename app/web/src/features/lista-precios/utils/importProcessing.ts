@@ -1,4 +1,10 @@
 import * as XLSX from 'xlsx';
+import {
+  assertBusinessDate,
+  getBusinessDefaultValidityRange,
+  getBusinessTodayISODate,
+  toBusinessDate
+} from '@/shared/time/businessTime';
 import type { CatalogProduct, Column, FixedPrice, Product } from '../models/PriceTypes';
 import type { ImportTableColumnConfig, PriceImportPreviewRow } from '../models/PriceImportTypes';
 import {
@@ -149,15 +155,7 @@ const buildHeaderIndexMap = (expectedHeaders: string[]): Record<string, number> 
   }, {})
 );
 
-const getDefaultValidity = () => {
-  const today = new Date();
-  const until = new Date();
-  until.setFullYear(until.getFullYear() + 1);
-  return {
-    validFrom: today.toISOString().split('T')[0],
-    validUntil: until.toISOString().split('T')[0]
-  };
-};
+const getDefaultValidity = () => getBusinessDefaultValidityRange();
 
 const collectAllowedUnits = (catalogProduct?: CatalogProduct, existingProduct?: Product): Set<string> => {
   const units = new Set<string>();
@@ -230,19 +228,20 @@ const enforceDuplicateSafety = (rows: PriceImportPreviewRow[]): void => {
 };
 
 const validateValidityRange = (validFrom: string, validUntil: string, errors: string[]) => {
-  const fromDate = new Date(`${validFrom}T00:00:00`);
-  const untilDate = new Date(`${validUntil}T00:00:00`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const fromDate = toBusinessDate(validFrom, 'start');
+  const untilDate = toBusinessDate(validUntil, 'end');
+  if (!fromDate || !untilDate) {
+    return;
+  }
 
-  if (!Number.isNaN(fromDate.getTime()) && !Number.isNaN(untilDate.getTime())) {
-    if (untilDate <= fromDate) {
-      errors.push('La fecha de vigencia debe ser posterior a la fecha actual.');
-      return;
-    }
-    if (untilDate <= today) {
-      errors.push('La vigencia debe estar en el futuro.');
-    }
+  const today = assertBusinessDate(getBusinessTodayISODate(), 'start');
+
+  if (untilDate <= fromDate) {
+    errors.push('La fecha de vigencia debe ser posterior a la fecha actual.');
+    return;
+  }
+  if (untilDate <= today) {
+    errors.push('La vigencia debe estar en el futuro.');
   }
 };
 
@@ -427,3 +426,4 @@ export const formatDateLabel = (value: string): string => {
   }
   return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
 };
+

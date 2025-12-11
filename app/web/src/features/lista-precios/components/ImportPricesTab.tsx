@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { Column, Product, CatalogProduct } from '../models/PriceTypes';
 import type {
   BulkPriceImportEntry,
@@ -112,7 +113,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     const worksheet = XLSX.utils.aoa_to_sheet([expectedHeaders]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, TEMPLATE_TITLE);
-    const timestamp = new Date().toISOString().split('T')[0];
+    const timestamp = getBusinessTodayISODate();
     XLSX.writeFile(workbook, `Plantilla_ImportacionPrecios_${timestamp}.xlsx`);
   };
 
@@ -181,7 +182,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     const worksheet = XLSX.utils.aoa_to_sheet(aoa);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, EXPORT_TITLE);
-    const today = new Date().toISOString().split('T')[0];
+    const today = getBusinessTodayISODate();
     XLSX.writeFile(workbook, `Exportacion_Precios_${today}.xlsx`);
   };
 
@@ -291,3 +292,4 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     </div>
   );
 };
+

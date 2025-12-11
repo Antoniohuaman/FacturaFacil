@@ -1,10 +1,8 @@
-import { getTodayISO } from '../../comprobantes-electronicos/utils/dateUtils';
 import type { CobranzaFilters } from '../models/cobranzas.types';
+import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
 
-const today = getTodayISO();
-const from = new Date();
-from.setDate(from.getDate() - 30);
-const defaultFrom = from.toISOString().split('T')[0];
+const today = getBusinessTodayISODate();
+const defaultFrom = shiftBusinessDate(today, -30);
 
 export const DEFAULT_COBRANZA_FILTERS: CobranzaFilters = {
   rangoFechas: {

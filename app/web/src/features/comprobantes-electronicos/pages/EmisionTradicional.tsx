@@ -39,6 +39,7 @@ import { PostIssueOptionsModal } from '../shared/modales/PostIssueOptionsModal';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
@@ -111,7 +112,7 @@ const EmisionTradicional = () => {
   } = useComprobanteActions();
   // ----- Lifted data from CompactDocumentForm (cliente y campos opcionales) -----
   const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<{ nombre: string; dni: string; direccion: string; email?: string } | null>(null);
-  const [fechaEmision, setFechaEmision] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [fechaEmision, setFechaEmision] = useState<string>(getBusinessTodayISODate());
   const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
 
   // ✅ Hook para cargar datos de duplicación (refactorizado)
@@ -798,3 +799,4 @@ const EmisionTradicional = () => {
 };
 
 export default EmisionTradicional;
+

@@ -1,4 +1,10 @@
-ï»¿export type PaymentCondition = 'CONTADO' | 'CREDITO';
+import {
+  ensureBusinessDateIso,
+  getBusinessTodayISODate,
+  shiftBusinessDate,
+} from '@/shared/time/businessTime';
+
+export type PaymentCondition = 'CONTADO' | 'CREDITO';
 
 export interface CreditInstallmentTemplate {
   diasCredito: number;
@@ -44,22 +50,6 @@ const ROUNDING_FACTOR = 100;
 const PERCENT_TOTAL = 100;
 const AMOUNT_EPSILON = 0.01;
 
-const toIsoDate = (date: Date): string => date.toISOString().split('T')[0];
-const createDate = (iso?: string): Date => {
-  if (!iso) return new Date();
-  const parsed = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return new Date();
-  }
-  return parsed;
-};
-
-const addDays = (base: Date, days: number): Date => {
-  const next = new Date(base);
-  next.setDate(next.getDate() + days);
-  return next;
-};
-
 const roundTwo = (value: number): number => Math.round(value * ROUNDING_FACTOR) / ROUNDING_FACTOR;
 
 export const normalizeCreditTemplates = (
@@ -81,7 +71,7 @@ export const validateCreditScheduleTemplate = (
 ): string[] => {
   const errors: string[] = [];
   if (!templates.length) {
-    errors.push('Agrega al menos una cuota para configurar el crÃ©dito.');
+    errors.push('Agrega al menos una cuota para configurar el crédito.');
     return errors;
   }
 
@@ -119,7 +109,7 @@ export const buildCreditScheduleFromTemplate = ({
   templates,
 }: BuildScheduleInput): CreditSchedule => {
   const safeTotal = Math.max(0, Number(total) || 0);
-  const baseDate = createDate(issueDate);
+  const baseIssueDate = ensureBusinessDateIso(issueDate);
   const schedule = sortByDays(normalizeCreditTemplates(templates));
 
   let allocated = 0;
@@ -129,7 +119,7 @@ export const buildCreditScheduleFromTemplate = ({
     const amount = isLast ? roundTwo(safeTotal - allocated) : rawAmount;
     allocated += amount;
 
-    const dueDate = toIsoDate(addDays(baseDate, template.diasCredito));
+    const dueDate = shiftBusinessDate(baseIssueDate, template.diasCredito);
 
     return {
       numeroCuota: index + 1,
@@ -156,7 +146,7 @@ export const buildCreditInstallments = (input: BuildScheduleInput): CreditInstal
 
 export const computeGlobalDueDate = (installments: CreditInstallment[]): string => {
   if (!installments.length) {
-    return toIsoDate(new Date());
+    return getBusinessTodayISODate();
   }
   return installments.reduce((latest, installment) =>
     installment.fechaVencimiento > latest ? installment.fechaVencimiento : latest,
@@ -194,7 +184,7 @@ export const buildCreditPaymentMethodName = (
   definitions?: CreditInstallmentDefinition[],
 ): string => {
   if (!definitions || definitions.length === 0) {
-    return 'CrÃ©dito';
+    return 'Crédito';
   }
 
   const orderedDays = Array.from(
@@ -208,12 +198,13 @@ export const buildCreditPaymentMethodName = (
   ).sort((a, b) => a - b);
 
   if (!orderedDays.length) {
-    return 'CrÃ©dito';
+    return 'Crédito';
   }
 
   if (orderedDays.length === 1) {
-    return `CrÃ©dito ${orderedDays[0]} dÃ­as`;
+    return `Crédito ${orderedDays[0]} días`;
   }
 
-  return `CrÃ©dito ${orderedDays.join('-')} dÃ­as`;
+  return `Crédito ${orderedDays.join('-')} días`;
 };
+

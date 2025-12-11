@@ -12,6 +12,7 @@ import AlertsPanel from '../components/panels/AlertsPanel';
 import InventarioSituacionPage from '../components/disponibilidad/InventarioSituacionPage';
 import { PageHeader } from '../../../components/PageHeader';
 import * as XLSX from 'xlsx';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 /**
  * Página principal del módulo de inventario
@@ -89,7 +90,7 @@ export const InventoryPage: React.FC = () => {
     ];
     ws['!cols'] = colWidths;
 
-    const fileName = `movimientos_stock_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `movimientos_stock_${getBusinessTodayISODate()}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
@@ -385,3 +386,4 @@ export const InventoryPage: React.FC = () => {
 };
 
 export default InventoryPage;
+

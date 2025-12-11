@@ -7,7 +7,7 @@ import {
   BUSINESS_TIMEZONE,
   formatBusinessDateShort,
   getBusinessTodayISODate
-} from '../../../shared/time/businessTime';
+} from '@/shared/time/businessTime';
 
 /**
  * Mapeo de meses en español (formato corto con punto)
@@ -317,3 +317,4 @@ export const DATE_PRESETS = {
     };
   }
 } as const;
+

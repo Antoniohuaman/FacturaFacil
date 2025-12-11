@@ -19,6 +19,7 @@ import {
   readDraftsFromStorage
 } from '../shared/drafts/draftStorage';
 import { validateComprobanteNormativa } from '../shared/core/comprobanteValidation';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 interface DraftSaveParams {
   tipoComprobante: TipoComprobante;
@@ -151,7 +152,7 @@ export const useDrafts = (): UseDraftsReturn => {
       tipo: tipoComprobante,
       serie: serieSeleccionada,
       productos: cartItems,
-      fechaEmision: new Date().toISOString().slice(0, 10),
+      fechaEmision: getBusinessTodayISODate(),
       fechaVencimiento: draftExpiryDate || undefined,
       cliente,
       observaciones,

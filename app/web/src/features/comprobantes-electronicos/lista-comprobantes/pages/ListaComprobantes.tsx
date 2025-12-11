@@ -38,7 +38,7 @@ import { InvoiceListTable } from '../components/lista-comprobantes/InvoiceListTa
 import { ColumnFilterPopover } from '../components/lista-comprobantes/ColumnFilterPopover';
 import { VoidInvoiceModal } from '../components/lista-comprobantes/VoidInvoiceModal';
 import type { ColumnConfig } from '../types/columnConfig';
-import { formatBusinessDateShort, getBusinessTodayISODate } from '../../../../shared/time/businessTime';
+import { formatBusinessDateShort, getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {

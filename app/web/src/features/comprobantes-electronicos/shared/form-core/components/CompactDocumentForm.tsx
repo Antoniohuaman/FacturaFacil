@@ -30,6 +30,7 @@ import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx
 import type { TipoComprobante } from '../../../models/comprobante.types';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';
 import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
+import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
 
 interface CompactDocumentFormProps {
   // Tipo de Comprobante
@@ -100,8 +101,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     direccion: string;
   } | null>(clienteSeleccionado || null);
   // Optional fields local state to notify parent
-  const [localFechaEmision, setLocalFechaEmision] = useState<string>(fechaEmision || new Date().toISOString().split('T')[0]);
-  const [localFechaVencimiento, setLocalFechaVencimiento] = useState<string>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  const [localFechaEmision, setLocalFechaEmision] = useState<string>(fechaEmision || getBusinessTodayISODate());
+  const [localFechaVencimiento, setLocalFechaVencimiento] = useState<string>(shiftBusinessDate(getBusinessTodayISODate(), 30));
   const [localDireccion, setLocalDireccion] = useState<string>('');
   const [localDireccionEnvio, setLocalDireccionEnvio] = useState<string>('');
   const [localCorreo, setLocalCorreo] = useState<string>('');
@@ -875,3 +876,4 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 };
 
 export default CompactDocumentForm;
+

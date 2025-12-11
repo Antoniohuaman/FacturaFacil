@@ -6,11 +6,10 @@ import type {
   VigenciaNotificacion
 } from './notificaciones';
 import { ensureEmpresaId } from '../../../shared/tenant';
-
-const nowIsoDate = (): string => new Date().toISOString().slice(0, 10);
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 export const createDefaultVigencia = (): VigenciaNotificacion => ({
-  fechaInicio: nowIsoDate()
+  fechaInicio: getBusinessTodayISODate()
 });
 
 export const createDefaultDestinatario = (): DestinatarioNotificacion => ({});
@@ -43,3 +42,4 @@ export const createEmptyNotificacionPayload = (): NotificacionIndicadorPayload =
   void actualizadoEl;
   return payload;
 };
+
