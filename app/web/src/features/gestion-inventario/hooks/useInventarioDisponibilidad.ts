@@ -1,6 +1,7 @@
 // src/features/gestion-inventario/hooks/useInventarioDisponibilidad.ts
 
 import { useState, useMemo, useCallback } from 'react';
+import { resolveUnidadMinima } from '@/shared/inventory/unitConversion';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { InventoryService } from '../services/inventory.service';
@@ -18,6 +19,11 @@ import type {
 export const useInventarioDisponibilidad = () => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
+
+  const warehousesActivos = useMemo(
+    () => configState.warehouses.filter(w => w.isActive),
+    [configState.warehouses]
+  );
 
   // Filtros activos
   const [filtros, setFiltros] = useState<DisponibilidadFilters>({
@@ -42,11 +48,32 @@ export const useInventarioDisponibilidad = () => {
    * Obtener almacenes disponibles según el establecimiento seleccionado
    */
   const almacenesDisponibles = useMemo(() => {
-    if (!filtros.establecimientoId) return [];
-    return configState.warehouses.filter(
-      w => w.isActive && w.establishmentId === filtros.establecimientoId
-    );
-  }, [configState.warehouses, filtros.establecimientoId]);
+    if (filtros.establecimientoId) {
+      return warehousesActivos.filter(
+        w => w.establishmentId === filtros.establecimientoId
+      );
+    }
+    return warehousesActivos;
+  }, [warehousesActivos, filtros.establecimientoId]);
+
+  const warehouseScope = useMemo(() => {
+    if (!warehousesActivos.length) {
+      return [] as string[];
+    }
+
+    if (filtros.almacenId) {
+      const match = warehousesActivos.find(w => w.id === filtros.almacenId);
+      return match ? [match.id] : [];
+    }
+
+    if (filtros.establecimientoId) {
+      return warehousesActivos
+        .filter(w => w.establishmentId === filtros.establecimientoId)
+        .map(w => w.id);
+    }
+
+    return warehousesActivos.map(w => w.id);
+  }, [warehousesActivos, filtros.almacenId, filtros.establecimientoId]);
 
   /**
    * Calcular situación del stock
@@ -65,30 +92,39 @@ export const useInventarioDisponibilidad = () => {
    * Generar datos de disponibilidad desde productos
    */
   const datosDisponibilidad = useMemo<DisponibilidadItem[]>(() => {
-    if (!filtros.almacenId) return [];
+    if (!warehouseScope.length) return [];
 
     return allProducts.map(product => {
-      // Stock real del almacén seleccionado
-      const real = InventoryService.getStock(product, filtros.almacenId);
+      let real = 0;
+      let rawReservado = 0;
 
-      // Stock reservado sólo si existe información explícita, nunca simulado
-      const rawReservado = InventoryService.getReservedStock(product, filtros.almacenId);
+      warehouseScope.forEach(warehouseId => {
+        real += InventoryService.getStock(product, warehouseId);
+        rawReservado += InventoryService.getReservedStock(product, warehouseId);
+      });
+
       const reservado = Math.min(rawReservado, Math.max(real, 0));
-
-      // Disponible = Real - Reservado (garantiza relación consistente)
       const disponible = Math.max(0, real - reservado);
 
-      // Stock mínimo y máximo configurados
-      const stockMinimo = product.stockMinimoPorAlmacen?.[filtros.almacenId];
-      const stockMaximo = product.stockMaximoPorAlmacen?.[filtros.almacenId];
+      const stockMinimoAcumulado = warehouseScope.reduce((sum, warehouseId) => {
+        const valor = Number(product.stockMinimoPorAlmacen?.[warehouseId] ?? 0);
+        return sum + (Number.isFinite(valor) ? valor : 0);
+      }, 0);
 
-      // Calcular situación
+      const stockMaximoAcumulado = warehouseScope.reduce((sum, warehouseId) => {
+        const valor = Number(product.stockMaximoPorAlmacen?.[warehouseId] ?? 0);
+        return sum + (Number.isFinite(valor) ? valor : 0);
+      }, 0);
+
+      const stockMinimo = stockMinimoAcumulado > 0 ? stockMinimoAcumulado : undefined;
+      const stockMaximo = stockMaximoAcumulado > 0 ? stockMaximoAcumulado : undefined;
       const situacion = calcularSituacion(disponible, stockMinimo);
 
       return {
         sku: product.codigo,
         productoId: product.id,
         nombre: product.nombre,
+        unidadMinima: resolveUnidadMinima(product),
         real,
         reservado,
         disponible,
@@ -98,7 +134,7 @@ export const useInventarioDisponibilidad = () => {
         precio: product.precio
       };
     });
-  }, [allProducts, filtros.almacenId, calcularSituacion]);
+  }, [allProducts, warehouseScope, calcularSituacion]);
 
   /**
    * Aplicar filtros de búsqueda y disponibilidad
@@ -142,6 +178,10 @@ export const useInventarioDisponibilidad = () => {
         case 'producto':
           valorA = a.nombre;
           valorB = b.nombre;
+          break;
+        case 'unidadMinima':
+          valorA = a.unidadMinima;
+          valorB = b.unidadMinima;
           break;
         case 'real':
           valorA = a.real;

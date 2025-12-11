@@ -140,10 +140,11 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
           <tr>
             {renderHeader('codigo', 'Código', 'left', true)}
             {renderHeader('producto', 'Producto', 'left', true)}
+            {renderHeader('unidadMinima', 'Unidad mínima', 'center', false)}
             {renderHeader('real', 'Real', 'right', true)}
             {renderHeader('reservado', 'Reservado', 'right', true)}
             {renderHeader('disponible', 'Disponible', 'right', true)}
-            {renderHeader('situacion', 'Situación', 'center', true)}
+            {renderHeader('situacion', 'Estado', 'center', true)}
             {renderHeader('acciones', 'Acciones', 'center', false)}
           </tr>
         </thead>
@@ -172,6 +173,13 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                       </span>
                     )}
                   </div>
+                </td>
+              )}
+
+              {/* Unidad mínima */}
+              {columnasVisibles.includes('unidadMinima') && (
+                <td className={`${cellClass} text-center text-gray-700 dark:text-gray-300 uppercase`}>
+                  {item.unidadMinima || '—'}
                 </td>
               )}
 

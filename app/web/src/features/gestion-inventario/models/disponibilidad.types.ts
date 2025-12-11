@@ -19,6 +19,9 @@ export interface DisponibilidadItem {
   /** Nombre del producto */
   nombre: string;
 
+  /** Unidad mínima definida en el catálogo */
+  unidadMinima: string;
+
   /** Stock real en el almacén */
   real: number;
 
@@ -45,10 +48,10 @@ export interface DisponibilidadItem {
  * Filtros para la vista de disponibilidad
  */
 export interface DisponibilidadFilters {
-  /** ID del establecimiento (requerido) */
+  /** ID del establecimiento. Vacío representa "todos" */
   establecimientoId: string;
 
-  /** ID del almacén (requerido) */
+  /** ID del almacén. Vacío representa "todos" */
   almacenId: string;
 
   /** Filtro de búsqueda por SKU o nombre (opcional) */
@@ -69,6 +72,7 @@ export type DensidadTabla = 'compacta' | 'comoda' | 'espaciosa';
 export type ColumnaDisponibilidad =
   | 'codigo'
   | 'producto'
+  | 'unidadMinima'
   | 'real'
   | 'reservado'
   | 'disponible'

@@ -61,7 +61,7 @@ const DisponibilidadToolbar: React.FC<DisponibilidadToolbarProps> = ({
                 onChange={(e) => handleEstablecimientoChange(e.target.value)}
                 className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[200px]"
               >
-                <option value="">Seleccionar establecimiento</option>
+                <option value="">Todos los establecimientos</option>
                 {establecimientos.map((est) => (
                   <option key={est.id} value={est.id}>
                     {est.code} - {est.name}
@@ -82,10 +82,10 @@ const DisponibilidadToolbar: React.FC<DisponibilidadToolbarProps> = ({
                 id="almacen-filter"
                 value={filtros.almacenId}
                 onChange={(e) => onFiltrosChange({ almacenId: e.target.value })}
-                disabled={!filtros.establecimientoId || almacenesDisponibles.length === 0}
+                disabled={almacenesDisponibles.length === 0}
                 className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
               >
-                <option value="">Seleccionar almacén</option>
+                <option value="">Todos los almacenes</option>
                 {almacenesDisponibles.map((alm) => (
                   <option key={alm.id} value={alm.id}>
                     {alm.code} - {alm.name}
@@ -166,32 +166,6 @@ const DisponibilidadToolbar: React.FC<DisponibilidadToolbarProps> = ({
           </div>
         </div>
 
-        {/* Mensaje de ayuda cuando no hay filtros seleccionados */}
-        {(!filtros.establecimientoId || !filtros.almacenId) && (
-          <div className="mt-3 flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-            <svg
-              className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                Selecciona un establecimiento y almacén para ver la disponibilidad
-              </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                Los filtros de Establecimiento y Almacén son obligatorios para mostrar los datos de inventario.
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

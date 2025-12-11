@@ -17,10 +17,11 @@ interface DisponibilidadSettingsProps {
 const COLUMNAS_INFO: Record<ColumnaDisponibilidad, string> = {
   codigo: 'Código (SKU)',
   producto: 'Producto',
+  unidadMinima: 'Unidad mínima',
   real: 'Stock Real',
   reservado: 'Stock Reservado',
   disponible: 'Stock Disponible',
-  situacion: 'Situación',
+  situacion: 'Estado',
   acciones: 'Acciones'
 };
 

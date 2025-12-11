@@ -15,6 +15,7 @@ import type {
 const COLUMNAS_DEFAULT: ColumnaDisponibilidad[] = [
   'codigo',
   'producto',
+  'unidadMinima',
   'real',
   'reservado',
   'disponible',
@@ -96,7 +97,7 @@ export const usePreferenciasDisponibilidad = create<PreferenciasDisponibilidadSt
       // Ocultar columnas opcionales (mantener solo código, producto, disponible, acciones)
       ocultarTodasColumnasOpcionales: () => {
         set({
-          columnasVisibles: ['codigo', 'producto', 'disponible', 'acciones']
+          columnasVisibles: ['codigo', 'producto', 'unidadMinima', 'disponible', 'acciones']
         });
       },
 

@@ -83,7 +83,9 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
     });
   };
 
-  const hayFiltrosActivos = filtros.establecimientoId || filtros.almacenId || filtros.filtroSku || filtros.soloConDisponible;
+  const hayFiltrosActivos = Boolean(
+    filtros.establecimientoId || filtros.almacenId || filtros.filtroSku || filtros.soloConDisponible
+  );
 
   return (
     <div className="bg-white dark:bg-gray-800 border-b border-[#E5E7EB] dark:border-gray-700 shadow-sm sticky top-0 z-30">
@@ -99,7 +101,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
               className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150 min-w-[180px]"
               aria-label="Filtrar por establecimiento"
             >
-              <option value="">Establecimiento</option>
+              <option value="">Todos los establecimientos</option>
               {establecimientos.map((est) => (
                 <option key={est.id} value={est.id}>
                   {est.code} - {est.name}
@@ -115,11 +117,11 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
               id="almacen-filter"
               value={filtros.almacenId}
               onChange={(e) => onFiltrosChange({ almacenId: e.target.value })}
-              disabled={!filtros.establecimientoId || almacenesDisponibles.length === 0}
+              disabled={almacenesDisponibles.length === 0}
               className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px]"
               aria-label="Filtrar por almacén"
             >
-              <option value="">Almacén</option>
+              <option value="">Todos los almacenes</option>
               {almacenesDisponibles.map((alm) => (
                 <option key={alm.id} value={alm.id}>
                   {alm.code} - {alm.name}
@@ -331,7 +333,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
       </div>
 
       {/* Fila de chips de filtros activos - REDISEÑADOS CON PRIMARIO */}
-      {hayFiltrosActivos && filtros.almacenId && (
+      {hayFiltrosActivos && (
         <div className="px-4 pb-2 flex flex-wrap items-center gap-2">
           <span className="text-xs text-[#4B5563] dark:text-gray-400 font-medium">Filtros:</span>
 
@@ -419,19 +421,6 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
         </div>
       )}
 
-      {/* Mensaje de ayuda cuando no hay filtros - MÁS COMPACTO */}
-      {(!filtros.establecimientoId || !filtros.almacenId) && (
-        <div className="px-4 pb-2.5">
-          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-xs text-blue-700 dark:text-blue-300">
-              Selecciona <strong>Establecimiento</strong> y <strong>Almacén</strong> para ver la disponibilidad
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

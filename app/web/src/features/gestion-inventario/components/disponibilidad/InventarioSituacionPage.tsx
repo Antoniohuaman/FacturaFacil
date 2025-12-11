@@ -4,7 +4,6 @@ import React, { useState, useCallback } from 'react';
 import { useInventarioDisponibilidad } from '../../hooks/useInventarioDisponibilidad';
 import { usePreferenciasDisponibilidad } from '../../stores/usePreferenciasDisponibilidad';
 import DisponibilidadToolbarEnhanced from './DisponibilidadToolbarEnhanced';
-import DisponibilidadKPIs from './DisponibilidadKPIs';
 import DisponibilidadTable from './DisponibilidadTable';
 import DisponibilidadPagination from './DisponibilidadPagination';
 import DisponibilidadSettings from './DisponibilidadSettings';
@@ -32,7 +31,6 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
   // Datos y lógica de disponibilidad
   const {
     datos,
-    resumen,
     almacenesDisponibles,
     filtros,
     ordenamiento,
@@ -46,9 +44,8 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
   // Preferencias de UI
   const { densidad, columnasVisibles, itemsPorPagina } = usePreferenciasDisponibilidad();
 
-  // Estado local para panel de configuración y KPIs
+  // Estado local para panel de configuración
   const [mostrandoSettings, setMostrandoSettings] = useState(false);
-  const [kpisCollapsed, setKpisCollapsed] = useState(true); // Plegados por defecto
 
   // Handler para ajustar stock (abre modal de ajuste)
   const handleAjustarStock = useCallback((item: DisponibilidadItem) => {
@@ -60,20 +57,6 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
       alert(`Ajustar stock de ${item.nombre} (SKU: ${item.sku})\nDisponible: ${item.disponible}`);
     }
   }, [onAjustarProducto]);
-
-  // Handlers para filtros accionables desde KPIs
-  const handleFilterSinStock = useCallback(() => {
-    actualizarFiltros({ soloConDisponible: false });
-    // TODO: Aplicar filtro específico para productos con disponible === 0
-  }, [actualizarFiltros]);
-
-  const handleFilterBajo = useCallback(() => {
-    // TODO: Aplicar filtro para productos con situación "Bajo"
-  }, []);
-
-  const handleFilterCritico = useCallback(() => {
-    // TODO: Aplicar filtro para productos con situación "Crítico"
-  }, []);
 
   // Sincronizar items por página del store con el hook
   React.useEffect(() => {
@@ -95,18 +78,6 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
         onTransferir={onTransferir}
         onAjustar={onAjustar}
       />
-
-      {/* KPIs compactos y plegables */}
-      {filtros.almacenId && (
-        <DisponibilidadKPIs
-          data={resumen}
-          isCollapsed={kpisCollapsed}
-          onToggleCollapse={() => setKpisCollapsed(!kpisCollapsed)}
-          onFilterSinStock={handleFilterSinStock}
-          onFilterBajo={handleFilterBajo}
-          onFilterCritico={handleFilterCritico}
-        />
-      )}
 
       {/* Tabla principal */}
       <div className="flex-1 overflow-auto px-4 py-3">

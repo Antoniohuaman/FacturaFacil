@@ -83,7 +83,7 @@ const DisponibilidadToolbarCompact: React.FC<DisponibilidadToolbarCompactProps> 
               className="h-8 px-2.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-400 focus:border-transparent min-w-[160px]"
               aria-label="Filtrar por establecimiento"
             >
-              <option value="">Establecimiento</option>
+              <option value="">Todos los establecimientos</option>
               {establecimientos.map((est) => (
                 <option key={est.id} value={est.id}>
                   {est.code} - {est.name}
@@ -99,11 +99,11 @@ const DisponibilidadToolbarCompact: React.FC<DisponibilidadToolbarCompactProps> 
               id="almacen-filter"
               value={filtros.almacenId}
               onChange={(e) => onFiltrosChange({ almacenId: e.target.value })}
-              disabled={!filtros.establecimientoId || almacenesDisponibles.length === 0}
+              disabled={almacenesDisponibles.length === 0}
               className="h-8 px-2.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-400 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]"
               aria-label="Filtrar por almacén"
             >
-              <option value="">Almacén</option>
+              <option value="">Todos los almacenes</option>
               {almacenesDisponibles.map((alm) => (
                 <option key={alm.id} value={alm.id}>
                   {alm.code} - {alm.name}
@@ -277,17 +277,6 @@ const DisponibilidadToolbarCompact: React.FC<DisponibilidadToolbarCompactProps> 
           </div>
         </div>
 
-        {/* Mensaje de ayuda cuando no hay filtros seleccionados - MÁS COMPACTO */}
-        {(!filtros.establecimientoId || !filtros.almacenId) && (
-          <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
-            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-xs text-blue-700 dark:text-blue-300">
-              Selecciona <strong>Establecimiento</strong> y <strong>Almacén</strong> para ver la disponibilidad
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
