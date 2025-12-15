@@ -14,6 +14,7 @@ import type { Warehouse } from '../models/Warehouse';
 import type { Caja } from '../models/Caja';
 import { lsKey } from '../../../shared/tenant';
 import { currencyManager } from '@/shared/currency';
+import type { CurrencyCode } from '@/shared/currency';
 
 // Category interface - moved from catalogo-articulos
 export interface Category {
@@ -368,6 +369,14 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
     });
     return unsubscribe;
   }, [rawDispatch]);
+
+  useEffect(() => {
+    const companyBaseCurrency = state.company?.baseCurrency;
+    if (!companyBaseCurrency) {
+      return;
+    }
+    currencyManager.setBaseCurrency(companyBaseCurrency as CurrencyCode);
+  }, [state.company?.baseCurrency]);
 
   useEffect(() => {
     const storedSeries = loadStoredSeries();

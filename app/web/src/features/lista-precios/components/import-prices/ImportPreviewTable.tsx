@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { useCurrencyManager } from '@/shared/currency';
 import type { ImportTableColumnConfig, PriceImportPreviewRow } from '../../models/PriceImportTypes';
 import { formatDateLabel } from '../../utils/importProcessing';
 
@@ -21,8 +22,12 @@ export const ImportPreviewTable: React.FC<ImportPreviewTableProps> = ({
   isApplying,
   loading,
   onApplyPrices
-}) => (
-  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+}) => {
+  const { baseCurrency, formatMoney } = useCurrencyManager();
+  const formatPrice = useCallback((value: number) => formatMoney(value, baseCurrency.code), [formatMoney, baseCurrency.code]);
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
       <div>
         <h3 className="text-base font-semibold text-gray-900 dark:text-white">Vista previa de la importación</h3>
@@ -75,7 +80,7 @@ export const ImportPreviewTable: React.FC<ImportPreviewTableProps> = ({
                     {cellPrice === null && (
                       <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">Eliminar</span>
                     )}
-                    {typeof cellPrice === 'number' && cellPrice.toFixed(2)}
+                    {typeof cellPrice === 'number' && formatPrice(cellPrice)}
                   </td>
                 );
               })}
@@ -117,4 +122,5 @@ export const ImportPreviewTable: React.FC<ImportPreviewTableProps> = ({
       </table>
     </div>
   </div>
-);
+  );
+};

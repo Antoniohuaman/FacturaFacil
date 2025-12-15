@@ -1,14 +1,18 @@
 // src/features/lista-precios/components/PackagesTab.tsx
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { useCurrencyManager } from '@/shared/currency';
 import type { Package } from '../../catalogo-articulos/models/types';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 
 export const PackagesTab: React.FC = () => {
   const { allProducts, packages, addPackage, updatePackage, deletePackage } = useProductStore();
+  const { baseCurrency, formatMoney } = useCurrencyManager();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const formatCurrency = useCallback((amount: number) => formatMoney(amount, baseCurrency.code), [formatMoney, baseCurrency.code]);
 
   const filteredPackages = packages.filter(pkg =>
     pkg.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -30,14 +34,6 @@ export const PackagesTab: React.FC = () => {
       deletePackage(pkg.id);
     }
   };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN'
-    }).format(amount);
-  };
-
   const PackageModal: React.FC<{ pkg?: Package; onClose: () => void }> = ({ pkg, onClose }) => {
     const [formData, setFormData] = useState({
       nombre: pkg?.nombre || '',

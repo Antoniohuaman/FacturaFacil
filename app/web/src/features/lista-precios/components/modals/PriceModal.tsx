@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, Search } from 'lucide-react';
 import { getBusinessDefaultValidityRange } from '@/shared/time/businessTime';
+import { useCurrencyManager } from '@/shared/currency';
 import type { Column, Product, PriceForm, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 import { isGlobalColumn } from '../../utils/priceHelpers';
@@ -45,6 +46,8 @@ export const PriceModal: React.FC<PriceModalProps> = ({
   const [selectedProductName, setSelectedProductName] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { state: configState } = useConfigurationContext();
+  const { baseCurrency, formatMoney } = useCurrencyManager();
+  const formatCurrency = useCallback((amount: number) => formatMoney(amount, baseCurrency.code), [formatMoney, baseCurrency.code]);
   const unitsByCode = useMemo(() => new Map(configState.units.map(unit => [unit.code, unit] as const)), [configState.units]);
 
   const formatUnitLabel = useCallback((code: string) => {
@@ -337,7 +340,7 @@ export const PriceModal: React.FC<PriceModalProps> = ({
                       <div className="text-sm text-gray-600 dark:text-gray-400">{product.nombre}</div>
                     </div>
                     <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                      S/ {product.precio.toFixed(2)}
+                      {formatCurrency(product.precio)}
                     </div>
                   </button>
                 ))}

@@ -1,9 +1,15 @@
+import { currencyManager } from '@/shared/currency';
 import type { Price, PriceCalculation, Product } from '../../models/PriceTypes';
 import { calculateVolumePrice } from './volume';
 
 export const DEFAULT_UNIT_CODE = 'NIU';
 
-export const roundCurrency = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+const getBaseCurrencyDecimals = () => currencyManager.getSnapshot().baseCurrency.decimalPlaces ?? 2;
+
+export const roundCurrency = (value: number, decimals: number = getBaseCurrencyDecimals()): number => {
+  const factor = 10 ** decimals;
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+};
 
 export const getFixedPriceValue = (price?: Price): number | undefined => {
   if (!price || price.type !== 'fixed') return undefined;

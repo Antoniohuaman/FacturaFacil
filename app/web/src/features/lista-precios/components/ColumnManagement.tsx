@@ -1,4 +1,5 @@
 import React from 'react';
+import { useCurrencyManager } from '@/shared/currency';
 import { Plus, Eye, EyeOff, Edit2, Trash2, Check, Info, Table } from 'lucide-react';
 import type { Column } from '../models/PriceTypes';
 import {
@@ -29,6 +30,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
   onToggleVisibility,
   onToggleTableVisibility
 }) => {
+  const { baseCurrency, formatMoney } = useCurrencyManager();
   const manualCount = countManualColumns(columns);
   const manualLimitReached = manualCount >= MANUAL_COLUMN_LIMIT;
 
@@ -82,9 +84,10 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
         return <span className="text-xs text-gray-500">Configura la regla</span>;
       }
       const sign = column.kind === 'global-discount' ? '-' : '+';
+      const normalizedValue = Math.abs(column.globalRuleValue);
       const formattedValue = column.globalRuleType === 'amount'
-        ? `${sign} S/ ${column.globalRuleValue.toFixed(2)}`
-        : `${sign}${column.globalRuleValue}%`;
+        ? `${sign} ${formatMoney(normalizedValue, baseCurrency.code)}`
+        : `${sign}${normalizedValue}%`;
       return (
         <span className="text-xs font-medium text-gray-700">
           {column.globalRuleType === 'amount' ? 'Monto fijo' : 'Porcentaje'} {formattedValue}
