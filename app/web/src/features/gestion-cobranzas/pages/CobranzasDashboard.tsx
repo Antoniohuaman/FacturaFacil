@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Coins, NotebookPen } from 'lucide-react';
+import { Coins, NotebookPen, Filter } from 'lucide-react';
 import type {
   Currency,
   CartItem,
@@ -104,6 +104,7 @@ export const CobranzasDashboard = () => {
   const [showCuentaPicker, setShowCuentaPicker] = useState(false);
   const [detalleCobranza, setDetalleCobranza] = useState<CobranzaDocumento | null>(null);
   const [historialCuenta, setHistorialCuenta] = useState<CuentaPorCobrarSummary | null>(null);
+  const [filtersVisible, setFiltersVisible] = useState(false);
 
   const formatMoney = (value: number, currency?: string) => {
     const resolved = (currency || 'PEN') as Currency;
@@ -184,9 +185,19 @@ export const CobranzasDashboard = () => {
           </div>
           <div>
             <h1 className="text-2xl font-semibold">Gestión de Cobranzas</h1>
-            <p className="text-sm text-slate-500 dark:text-gray-400">Controla tus cuentas por cobrar y los pagos registrados</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFiltersVisible((prev) => !prev)}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 text-blue-600 text-sm font-semibold hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-200 dark:hover:bg-blue-900/40"
+              aria-pressed={filtersVisible}
+              aria-expanded={filtersVisible}
+              aria-controls="cobranzas-filters"
+            >
+              <Filter className="w-4 h-4" />
+              {filtersVisible ? 'Ocultar filtros' : 'Filtros'}
+            </button>
             <button
               type="button"
               onClick={handleOpenCuentaPicker}
@@ -200,12 +211,16 @@ export const CobranzasDashboard = () => {
       </header>
 
       <CobranzasTabs activeTab={activeTab} onChange={setActiveTab} />
-      <CobranzasFiltersBar
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        onDateChange={handleDateChange}
-        onReset={resetFilters}
-      />
+      {filtersVisible && (
+        <div id="cobranzas-filters">
+          <CobranzasFiltersBar
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onDateChange={handleDateChange}
+            onReset={resetFilters}
+          />
+        </div>
+      )}
       <ResumenCards resumen={resumen} formatMoney={formatMoney} />
 
       {activeTab === 'cuentas' ? (

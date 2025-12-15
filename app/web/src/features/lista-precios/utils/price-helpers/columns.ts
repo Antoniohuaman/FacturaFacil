@@ -47,7 +47,7 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     kind: 'min-allowed',
     isBase: false,
     defaultVisible: true,
-    defaultVisibleInTable: true,
+    defaultVisibleInTable: false,
     defaultMode: 'fixed',
     helpText: 'Valor mínimo permitido para aplicar descuentos.'
   },
@@ -59,7 +59,7 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     kind: 'manual',
     isBase: false,
     defaultVisible: true,
-    defaultVisibleInTable: true,
+    defaultVisibleInTable: false,
     defaultMode: 'fixed',
     helpText: 'Precio manual para ventas al por mayor.'
   },
@@ -70,7 +70,7 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     kind: 'manual',
     isBase: false,
     defaultVisible: true,
-    defaultVisibleInTable: true,
+    defaultVisibleInTable: false,
     defaultMode: 'fixed',
     helpText: 'Lista especial para socios distribuidores.'
   },
@@ -81,7 +81,7 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     kind: 'manual',
     isBase: false,
     defaultVisible: true,
-    defaultVisibleInTable: true,
+    defaultVisibleInTable: false,
     defaultMode: 'fixed',
     helpText: 'Tarifa fija para cuentas corporativas.'
   },
@@ -93,7 +93,7 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     kind: 'manual',
     isBase: false,
     defaultVisible: true,
-    defaultVisibleInTable: true,
+    defaultVisibleInTable: false,
     defaultMode: 'fixed',
     helpText: 'Precio exclusivo para clientes frecuentes.'
   },
@@ -105,7 +105,7 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     kind: 'manual',
     isBase: false,
     defaultVisible: true,
-    defaultVisibleInTable: true,
+    defaultVisibleInTable: false,
     defaultMode: 'fixed',
     helpText: 'Precio especial para campañas y ofertas.'
   },
@@ -117,7 +117,7 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     kind: 'global-discount',
     isBase: false,
     defaultVisible: true,
-    defaultVisibleInTable: true,
+    defaultVisibleInTable: false,
     defaultMode: 'fixed',
     helpText: 'Aplicación automática de un descuento sobre el precio base.'
   },
@@ -129,7 +129,7 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     kind: 'global-increase',
     isBase: false,
     defaultVisible: true,
-    defaultVisibleInTable: true,
+    defaultVisibleInTable: false,
     defaultMode: 'fixed',
     helpText: 'Aplicación automática de un recargo sobre el precio base.'
   }

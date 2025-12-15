@@ -17,8 +17,7 @@ export const ProductPricingControls: React.FC<ProductPricingControlsProps> = ({
 
   return (
     <div className="mb-4 space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Precios por producto (SKU)</h3>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden />
           <input

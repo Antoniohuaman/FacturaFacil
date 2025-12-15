@@ -121,9 +121,6 @@ export const ListaPrecios: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Lista de Precios</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Configura columnas de precios y asigna valores por producto (SKU)
-            </p>
           </div>
           {error && (
             <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">

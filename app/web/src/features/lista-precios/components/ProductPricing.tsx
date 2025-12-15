@@ -4,7 +4,6 @@ import type { EffectivePriceMatrix, EffectivePriceResult } from '../utils/priceH
 import { filterVisibleColumns, isGlobalColumn } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
-import { useCurrencyManager } from '@/shared/currency';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { ProductPricingControls } from './product-pricing/ProductPricingControls';
 import { ProductPricingTable } from './product-pricing/ProductPricingTable';
@@ -56,7 +55,6 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const firstVolumeColumn = useMemo(() => orderedColumns.find(column => column.mode === 'volume' && !isGlobalColumn(column)), [orderedColumns]);
 
   const { state: configState } = useConfigurationContext();
-  const { baseCurrency } = useCurrencyManager();
   const measurementUnits = configState.units;
 
   const unitsByCode = useMemo(() => {
@@ -414,9 +412,6 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
             onSearchChange={onSearchChange}
             filteredProductsCount={filteredProducts.length}
           />
-          <p className="text-xs text-gray-500 mt-2">
-            Montos expresados en {baseCurrency.symbol} ({baseCurrency.code}).
-          </p>
 
           <ProductPricingTable
             orderedColumns={orderedColumns}

@@ -28,10 +28,7 @@ export const SummaryBar = React.memo<SummaryBarProps>(({ columns, onAssignPrice,
   if (isProductView) {
     return (
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {baseColumn ? `Columna base: ${baseColumn.name}` : 'Define una columna base en Plantilla de columnas'}
-          </div>
+        <div className="flex items-center justify-end">
           {onAssignPrice && (
             <button
               onClick={onAssignPrice}
