@@ -3,6 +3,7 @@
 // ===================================================================
 
 import type { CurrencyInfo, CajaIntegrationConfig, UnidadMedida } from './comprobante.types';
+import { DEFAULT_BASE_CURRENCY_CODE } from '@/shared/currency';
 
 // ===================================================================
 // CONFIGURACIÓN DE MONEDAS
@@ -22,7 +23,7 @@ export const CURRENCIES: Record<string, CurrencyInfo> = {
   }
 };
 
-export const DEFAULT_CURRENCY = 'PEN';
+export const DEFAULT_CURRENCY = DEFAULT_BASE_CURRENCY_CODE;
 
 // ===================================================================
 // UNIDADES DE MEDIDA SUNAT

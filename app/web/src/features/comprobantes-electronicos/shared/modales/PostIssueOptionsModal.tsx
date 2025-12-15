@@ -1,4 +1,5 @@
 import { ArrowRight, Download, Printer, X } from 'lucide-react';
+import { useCurrency } from '../form-core/hooks/useCurrency';
 
 interface PostIssueOptionsModalProps {
   isOpen: boolean;
@@ -23,9 +24,13 @@ export const PostIssueOptionsModal = ({
   onPrint,
   onDownload,
 }: PostIssueOptionsModalProps) => {
+  const { formatPrice, documentCurrency } = useCurrency();
   if (!isOpen || !comprobante) {
     return null;
   }
+
+  const receiptCurrency = (comprobante as { currency?: string }).currency ?? documentCurrency.code;
+  const formattedTotal = formatPrice(comprobante.total ?? 0, receiptCurrency);
 
   return (
     <div
@@ -51,7 +56,7 @@ export const PostIssueOptionsModal = ({
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-500">Comprobante emitido</p>
             <h2 className="mt-1 text-2xl font-bold text-gray-900">¿Qué deseas hacer ahora?</h2>
             <p className="mt-2 text-sm text-gray-500">
-              {comprobante.tipo} {comprobante.serie}-{comprobante.numero} por S/ {comprobante.total.toFixed(2)}
+              {comprobante.tipo} {comprobante.serie}-{comprobante.numero} por {formattedTotal}
             </p>
             {comprobante.cliente && (
               <p className="text-xs text-gray-400">Cliente: {comprobante.cliente}</p>

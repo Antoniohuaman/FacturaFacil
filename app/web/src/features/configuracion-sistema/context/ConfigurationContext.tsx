@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- archivo mezcla context y utilidades; split diferido */
-import { createContext, useContext, useReducer, useEffect, useRef } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
@@ -13,6 +13,7 @@ import { SUNAT_UNITS } from '../models/Unit';
 import type { Warehouse } from '../models/Warehouse';
 import type { Caja } from '../models/Caja';
 import { lsKey } from '../../../shared/tenant';
+import { currencyManager } from '@/shared/currency';
 
 // Category interface - moved from catalogo-articulos
 export interface Category {
@@ -344,8 +345,29 @@ interface ConfigurationProviderProps {
 }
 
 export function ConfigurationProvider({ children }: ConfigurationProviderProps) {
-  const [state, dispatch] = useReducer(configurationReducer, initialState);
+  const [state, rawDispatch] = useReducer(
+    configurationReducer,
+    initialState,
+    (baseState) => ({
+      ...baseState,
+      currencies: currencyManager.getSnapshot().currencies,
+    }),
+  );
   const seriesHydratedRef = useRef(false);
+  const dispatch = useCallback((action: ConfigurationAction) => {
+    if (action.type === 'SET_CURRENCIES') {
+      currencyManager.setCurrencies(action.payload);
+      return;
+    }
+    rawDispatch(action);
+  }, [rawDispatch]);
+
+  useEffect(() => {
+    const unsubscribe = currencyManager.subscribe(() => {
+      rawDispatch({ type: 'SET_CURRENCIES', payload: currencyManager.getSnapshot().currencies });
+    });
+    return unsubscribe;
+  }, [rawDispatch]);
 
   useEffect(() => {
     const storedSeries = loadStoredSeries();
@@ -353,7 +375,7 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
       dispatch({ type: 'SET_SERIES', payload: storedSeries });
     }
     seriesHydratedRef.current = true;
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     if (!seriesHydratedRef.current) return;
@@ -362,43 +384,6 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
 
   // Initialize with mock data for development
   useEffect(() => {
-    // Mock currencies
-    dispatch({
-      type: 'SET_CURRENCIES',
-      payload: [
-        {
-          id: '1',
-          code: 'PEN',
-          name: 'Sol Peruano',
-          symbol: 'S/',
-          symbolPosition: 'BEFORE',
-          decimalPlaces: 2,
-          exchangeRate: 1.0,
-          isBaseCurrency: true,
-          isActive: true,
-          lastUpdated: new Date(),
-          autoUpdate: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: '2',
-          code: 'USD',
-          name: 'Dólar Americano',
-          symbol: '$',
-          symbolPosition: 'BEFORE',
-          decimalPlaces: 2,
-          exchangeRate: 3.75,
-          isBaseCurrency: false,
-          isActive: true,
-          lastUpdated: new Date(),
-          autoUpdate: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ]
-    });
-
     // 8 FORMAS DE PAGO PREDETERMINADAS DEL SISTEMA
     // Estas son MAESTRAS y existen independientemente de la empresa
     dispatch({
@@ -788,7 +773,7 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
 
     // No se inicializan warehouses por defecto
     // Se crearán automáticamente cuando se cree el establecimiento por defecto
-  }, []);
+  }, [dispatch]);
 
   return (
     <ConfigurationContext.Provider value={{ state, dispatch }}>

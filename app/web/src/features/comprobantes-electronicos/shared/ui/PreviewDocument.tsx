@@ -2,6 +2,7 @@
 import React from 'react';
 import type { PreviewData } from '../../models/comprobante.types';
 import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useVoucherDesignConfig';
+import { formatMoney } from '@/shared/currency';
 
 interface PreviewDocumentProps {
   data: PreviewData;
@@ -25,7 +26,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
   } = data;
 
   const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
-  const currencySymbol = currency === 'USD' ? '$' : 'S/';
+  const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
 
   // Calcular subtotales
   const subtotalGravado = cartItems.filter(item => item.igvType === 'igv18').reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -366,8 +367,8 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
                   case 'descripcion': content = item.name; break;
                   case 'cantidad': content = item.quantity.toString(); break;
                   case 'unidadMedida': content = item.unidad || item.unidadMedida || 'UND'; break;
-                  case 'precioUnitario': content = `${currencySymbol} ${item.price.toFixed(2)}`; break;
-                  case 'total': content = `${currencySymbol} ${(item.price * item.quantity).toFixed(2)}`; break;
+                  case 'precioUnitario': content = formatCurrencyValue(item.price); break;
+                  case 'total': content = formatCurrencyValue(item.price * item.quantity); break;
                   case 'marca': content = item.marca || '-'; break;
                   case 'codigoBarras': content = item.codigoBarras || '-'; break;
                   case 'alias': content = item.alias || '-'; break;
@@ -399,29 +400,29 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
                     <>
                       <div className="flex justify-between text-xs">
                         <span>Op. Gravadas:</span>
-                        <span>{currencySymbol} {(subtotalGravado / 1.18).toFixed(2)}</span>
+                        <span>{formatCurrencyValue(subtotalGravado / 1.18)}</span>
                       </div>
                       <div className="flex justify-between text-xs">
                         <span>IGV (18%):</span>
-                        <span>{currencySymbol} {(subtotalGravado - subtotalGravado / 1.18).toFixed(2)}</span>
+                        <span>{formatCurrencyValue(subtotalGravado - subtotalGravado / 1.18)}</span>
                       </div>
                     </>
                   )}
                   {subtotalExonerado > 0 && (
                     <div className="flex justify-between text-xs">
                       <span>Op. Exoneradas:</span>
-                      <span>{currencySymbol} {subtotalExonerado.toFixed(2)}</span>
+                      <span>{formatCurrencyValue(subtotalExonerado)}</span>
                     </div>
                   )}
                   {subtotalInafecto > 0 && (
                     <div className="flex justify-between text-xs">
                       <span>Op. Inafectas:</span>
-                      <span>{currencySymbol} {subtotalInafecto.toFixed(2)}</span>
+                      <span>{formatCurrencyValue(subtotalInafecto)}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-center pt-2 border-t border-gray-300">
                     <span className="text-sm font-bold">TOTAL:</span>
-                    <span className="text-base font-bold">{currencySymbol} {totals.total.toFixed(2)}</span>
+                    <span className="text-base font-bold">{formatCurrencyValue(totals.total)}</span>
                   </div>
                 </div>
               </div>
@@ -449,7 +450,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
                       <td className="px-2 py-1 font-semibold">{cuota.numeroCuota}</td>
                       <td className="px-2 py-1">{cuota.fechaVencimiento}</td>
                       <td className="px-2 py-1">{cuota.porcentaje}%</td>
-                      <td className="px-2 py-1 text-right">{currencySymbol} {cuota.importe.toFixed(2)}</td>
+                      <td className="px-2 py-1 text-right">{formatCurrencyValue(cuota.importe)}</td>
                     </tr>
                   ))}
                 </tbody>

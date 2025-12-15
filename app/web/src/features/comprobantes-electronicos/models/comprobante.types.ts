@@ -3,6 +3,7 @@ import type {
   CreditInstallmentStatus,
   PaymentTermsPayload,
 } from '../../../shared/payments/paymentTerms';
+import type { CurrencyCode } from '@/shared/currency';
 
 export type { CreditInstallmentStatus };
 
@@ -18,7 +19,7 @@ export type IgvType = 'igv18' | 'igv10' | 'exonerado' | 'inafecto';
 export type PreviewFormat = 'a4' | 'ticket';
 
 // Nuevos tipos para monedas
-export type Currency = 'PEN' | 'USD';
+export type Currency = CurrencyCode;
 
 export interface CurrencyInfo {
   code: Currency;

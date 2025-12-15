@@ -1,5 +1,6 @@
 import { CheckCircle2, Printer, Mail, MessageCircle, Link2, FileText, X, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useCurrency } from '../form-core/hooks/useCurrency';
 
 interface SuccessModalProps {
   isOpen: boolean;
@@ -22,6 +23,9 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [showWhatsAppInput, setShowWhatsAppInput] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const { formatPrice, documentCurrency } = useCurrency();
+  const saleCurrency = (comprobante as { currency?: string }).currency ?? documentCurrency.code;
+  const formatSaleAmount = (value?: number) => formatPrice(value ?? 0, saleCurrency);
 
   // Manejar teclas ESC y Enter
   useEffect(() => {
@@ -59,7 +63,7 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
     const message = encodeURIComponent(
       `¡Hola! Te comparto el comprobante:\n\n` +
       `${comprobante.tipo} ${comprobante.serie}-${comprobante.numero}\n` +
-      `Total: S/ ${comprobante.total.toFixed(2)}\n\n` +
+      `Total: ${formatSaleAmount(comprobante.total)}\n\n` +
       `Gracias por tu compra.`
     );
     
@@ -138,13 +142,13 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
           <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 mb-6 border border-gray-200">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-600">Total pagado</span>
-              <span className="text-2xl font-bold text-gray-900">S/ {comprobante.total.toFixed(2)}</span>
+              <span className="text-2xl font-bold text-gray-900">{formatSaleAmount(comprobante.total)}</span>
             </div>
             
             {comprobante.vuelto !== undefined && comprobante.vuelto > 0 && (
               <div className="flex justify-between items-center pt-2 border-t border-gray-300">
                 <span className="text-sm text-gray-600">Vuelto</span>
-                <span className="text-lg font-semibold text-orange-600">S/ {comprobante.vuelto.toFixed(2)}</span>
+                <span className="text-lg font-semibold text-orange-600">{formatSaleAmount(comprobante.vuelto)}</span>
               </div>
             )}
             

@@ -4,7 +4,8 @@ import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes
 import { roundCurrency } from '../../../lista-precios/utils/price-helpers/pricing';
 import { useCart } from '../hooks/useCart';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
-import { buildLinePricingInputFromCartItem, calculateLineaComprobante } from '../../shared/core/comprobantePricing';
+import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
+import { calculateCurrencyAwareTotals } from '../../shared/core/currencyTotals';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
 
@@ -20,27 +21,6 @@ const PRICE_COLUMN_STORAGE_KEY = 'pos_price_column';
 
 type CatalogUnit = { code: string; isBase: boolean; label?: string };
 
-const calculateTotalsFromCart = (items: CartItem[], catalogLookup: Map<string, CatalogProduct>) => {
-  if (!items || items.length === 0) {
-    return { subtotal: 0, igv: 0, total: 0, currency: 'PEN' as const };
-  }
-
-  const lineResults = items.map((item) => {
-    const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
-    return calculateLineaComprobante(buildLinePricingInputFromCartItem(item, catalogProduct));
-  });
-
-  const subtotal = lineResults.reduce((sum, line) => sum + line.subtotal, 0);
-  const igv = lineResults.reduce((sum, line) => sum + line.igv, 0);
-  const total = lineResults.reduce((sum, line) => sum + line.total, 0);
-
-  return {
-    subtotal: Number(subtotal.toFixed(2)),
-    igv: Number(igv.toFixed(2)),
-    total: Number(total.toFixed(2)),
-    currency: 'PEN' as const,
-  };
-};
 
 const buildCatalogUnitOptions = (
   products: CatalogProduct[],
@@ -130,6 +110,8 @@ export const usePosCartAndTotals = () => {
     updateCartItemPrice,
     clearCart,
   } = useCart();
+
+  const { baseCurrency, documentCurrency, convertPrice } = useCurrency();
 
   const { allProducts: catalogProducts } = useProductStore();
   const catalogLookup = useMemo(() => {
@@ -302,7 +284,17 @@ export const usePosCartAndTotals = () => {
     applyPriceToItem(target, nextUnit, { forceReprice: true });
   }, [applyPriceToItem, cartItems]);
 
-  const totals = useMemo(() => calculateTotalsFromCart(cartItems, catalogLookup), [cartItems, catalogLookup]);
+  const totals = useMemo(
+    () =>
+      calculateCurrencyAwareTotals({
+        items: cartItems,
+        catalogLookup,
+        baseCurrencyCode: baseCurrency.code,
+        documentCurrencyCode: documentCurrency.code,
+        convert: convertPrice,
+      }),
+    [baseCurrency.code, cartItems, catalogLookup, convertPrice, documentCurrency.code],
+  );
 
   const cartActions = useMemo(
     () => ({ addToCart, removeFromCart, updateCartQuantity, setCartItemQuantity, updateCartItemPrice, clearCart }),

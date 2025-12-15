@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { X, CreditCard, FileText, User, Calculator, Search, Plus, Edit, Building2, Smartphone, Banknote, DollarSign, Trash2 } from 'lucide-react';
-import type { PaymentModalProps } from '../../models/comprobante.types';
+import type { PaymentModalProps, Currency } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
 import ClienteForm from '../../../gestion-clientes/components/ClienteForm.tsx';
 
@@ -38,10 +38,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   setTipoComprobante,
   onPaymentComplete,
   onViewFullForm,
-  currency = 'PEN',
+  currency = 'PEN' as Currency,
   onCurrencyChange
 }) => {
-  const { formatPrice, changeCurrency } = useCurrency();
+  const { formatPrice, changeCurrency, availableCurrencies, documentCurrency } = useCurrency();
+  const currencyDecimals = documentCurrency.decimalPlaces ?? 2;
 
   const [activeStep, setActiveStep] = useState<'document' | 'payment'>('document');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -341,7 +342,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     const newLine: PaymentLine = {
       id: Date.now().toString(),
       method: methodId,
-      amount: remaining > 0 ? remaining.toFixed(2) : '',
+      amount: remaining > 0 ? remaining.toFixed(currencyDecimals) : '',
       bank: methodId === 'efectivo' ? 'Caja general' : ''
     };
     setPaymentLines([...paymentLines, newLine]);
@@ -462,7 +463,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   };
 
-  const handleCurrencyChange = (newCurrency: 'PEN' | 'USD') => {
+  const handleCurrencyChange = (newCurrency: Currency) => {
     changeCurrency(newCurrency);
     if (onCurrencyChange) {
       onCurrencyChange(newCurrency);
@@ -644,29 +645,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     <label className="block text-sm font-bold text-gray-900 mb-2">
                       Moneda
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => handleCurrencyChange('PEN')}
-                        className={`p-2.5 rounded-lg border-2 text-center transition-all ${
-                          currency === 'PEN'
-                            ? 'border-emerald-600 bg-emerald-600 text-white shadow-lg'
-                            : 'border-gray-300 bg-white hover:border-emerald-400'
-                        }`}
-                      >
-                        <div className="font-bold text-sm">S/ Soles</div>
-                      </button>
-
-                      <button
-                        onClick={() => handleCurrencyChange('USD')}
-                        className={`p-2.5 rounded-lg border-2 text-center transition-all ${
-                          currency === 'USD'
-                            ? 'border-emerald-600 bg-emerald-600 text-white shadow-lg'
-                            : 'border-gray-300 bg-white hover:border-emerald-400'
-                        }`}
-                      >
-                        <div className="font-bold text-sm">$ Dólares</div>
-                      </button>
-                    </div>
+                    <select
+                      value={currency}
+                      onChange={(event) => handleCurrencyChange(event.target.value as Currency)}
+                      className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    >
+                      {availableCurrencies.map((option) => (
+                        <option key={option.code} value={option.code}>
+                          {option.symbol} {option.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Datos del cliente - Estilo mejorado */}
@@ -831,7 +820,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         <h5 className="text-sm font-medium text-gray-700 mb-3">💵 Pago Rápido en Efectivo</h5>
                         <div className="grid grid-cols-3 gap-2 mb-2">
                           <button
-                            onClick={() => updatePaymentLine(paymentLines[0].id, 'amount', totals.total.toFixed(2))}
+                            onClick={() => updatePaymentLine(paymentLines[0].id, 'amount', totals.total.toFixed(currencyDecimals))}
                             className="p-3 rounded-lg border-2 border-green-500 bg-green-50 text-green-700 font-semibold text-sm hover:bg-green-100 transition-all hover:scale-105"
                           >
                             {formatPrice(totals.total, currency)}
@@ -840,47 +829,47 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           <button
                             onClick={() => {
                               const current = parseFloat(paymentLines[0].amount) || 0;
-                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 20).toFixed(2));
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 20).toFixed(currencyDecimals));
                             }}
                             className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                           >
-                            + S/ 20.00
+                            + {formatPrice(20, currency)}
                           </button>
                           <button
                             onClick={() => {
                               const current = parseFloat(paymentLines[0].amount) || 0;
-                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 50).toFixed(2));
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 50).toFixed(currencyDecimals));
                             }}
                             className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                           >
-                            + S/ 50.00
+                            + {formatPrice(50, currency)}
                           </button>
                           <button
                             onClick={() => {
                               const current = parseFloat(paymentLines[0].amount) || 0;
-                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 100).toFixed(2));
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 100).toFixed(currencyDecimals));
                             }}
                             className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                           >
-                            + S/ 100.00
+                            + {formatPrice(100, currency)}
                           </button>
                           <button
                             onClick={() => {
                               const current = parseFloat(paymentLines[0].amount) || 0;
-                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 200).toFixed(2));
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 200).toFixed(currencyDecimals));
                             }}
                             className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                           >
-                            + S/ 200.00
+                            + {formatPrice(200, currency)}
                           </button>
                           <button
                             onClick={() => {
                               const current = parseFloat(paymentLines[0].amount) || 0;
-                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 500).toFixed(2));
+                              updatePaymentLine(paymentLines[0].id, 'amount', (current + 500).toFixed(currencyDecimals));
                             }}
                             className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                           >
-                            + S/ 500.00
+                            + {formatPrice(500, currency)}
                           </button>
                         </div>
                         <div className="flex justify-between items-center">

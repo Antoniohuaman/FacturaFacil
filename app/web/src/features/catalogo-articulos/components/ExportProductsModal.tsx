@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Product } from '../models/types';
+import { exportProductsToExcel } from '../utils/excelHelpers';
 
 interface ExportColumn {
   key: string;
@@ -142,8 +143,6 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
       const { columns } = generateExportData();
 
       if (selectedFormat === 'excel') {
-        // Importar helper dinámicamente
-        const { exportProductsToExcel } = await import('../utils/excelHelpers');
         exportProductsToExcel(products, selectedColumns, columns);
       } else if (selectedFormat === 'csv') {
         const { headers, rows } = generateExportData();

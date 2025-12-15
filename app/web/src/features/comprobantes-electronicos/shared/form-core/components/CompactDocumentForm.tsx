@@ -4,7 +4,7 @@
 // Reorganiza los campos para reducir scroll manteniendo toda la lógica
 // ===================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   FileText,
   ChevronDown,
@@ -27,7 +27,7 @@ import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
 import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
-import type { TipoComprobante } from '../../../models/comprobante.types';
+import type { TipoComprobante, Currency } from '../../../models/comprobante.types';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';
 import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
 import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
@@ -43,8 +43,10 @@ interface CompactDocumentFormProps {
   seriesFiltradas: string[];
 
   // Moneda y Forma de Pago
-  moneda?: string;
-  setMoneda?: (value: string) => void;
+  moneda?: Currency;
+  setMoneda?: (value: Currency) => void;
+  currencyOptions?: Array<{ code: Currency; name: string; symbol: string; rate?: number }>;
+  baseCurrencyCode?: Currency;
   formaPago?: string;
   setFormaPago?: (value: string) => void;
   onNuevaFormaPago?: () => void;
@@ -75,8 +77,10 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   serieSeleccionada,
   setSerieSeleccionada,
   seriesFiltradas,
-  moneda = "PEN",
+  moneda = 'PEN' as Currency,
   setMoneda,
+  currencyOptions = [],
+  baseCurrencyCode,
   formaPago = "contado",
   setFormaPago,
   onNuevaFormaPago,
@@ -137,6 +141,22 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     { value: 'natural', label: 'Persona Natural' },
     { value: 'juridica', label: 'Persona Jurídica' }
   ];
+
+  const fallbackCurrencyOptions = useMemo(
+    () => [
+      { code: 'PEN' as Currency, name: 'Sol Peruano', symbol: 'S/', rate: 1 },
+      { code: 'USD' as Currency, name: 'Dólar Estadounidense', symbol: '$', rate: 3.75 },
+    ],
+    [],
+  );
+  const selectableCurrencies = currencyOptions.length ? currencyOptions : fallbackCurrencyOptions;
+  const selectedCurrencyDescriptor = selectableCurrencies.find((option) => option.code === moneda);
+  const baseCurrencyDescriptor = baseCurrencyCode
+    ? selectableCurrencies.find((option) => option.code === baseCurrencyCode)
+    : undefined;
+  const showExchangeRateBanner = Boolean(
+    baseCurrencyCode && moneda && baseCurrencyCode !== moneda && selectedCurrencyDescriptor,
+  );
 
   // Cargar clientes desde localStorage
   const getClientesFromLocalStorage = () => {
@@ -736,11 +756,25 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   id="moneda"
                   className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white shadow-sm text-[13px]"
                   value={moneda}
-                  onChange={e => setMoneda?.(e.target.value)}
+                  onChange={(e) => setMoneda?.(e.target.value as Currency)}
                 >
-                  <option value="PEN">PEN - Soles</option>
-                  <option value="USD">USD - Dólares</option>
+                  {selectableCurrencies.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.code} - {option.name}
+                    </option>
+                  ))}
                 </select>
+                {showExchangeRateBanner && selectedCurrencyDescriptor && (
+                  <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-blue-900">
+                    <p className="font-semibold text-blue-900">Tipo de cambio (solo lectura)</p>
+                    <p className="mt-1">
+                      1 {selectedCurrencyDescriptor.code} ={' '}
+                      {(selectedCurrencyDescriptor.rate ?? 1).toFixed(4)}{' '}
+                      {baseCurrencyDescriptor?.code ?? baseCurrencyCode}
+                    </p>
+                    <p className="text-[11px] text-blue-700">Actualiza el tipo de cambio en Configuración → Monedas.</p>
+                  </div>
+                )}
                 <div className="min-h-[20px]"></div>
               </div>
 

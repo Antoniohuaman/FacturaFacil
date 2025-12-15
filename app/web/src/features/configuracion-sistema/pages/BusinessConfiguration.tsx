@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   CreditCard,
-  DollarSign,
   Scale,
   Receipt,
   Settings,
@@ -14,22 +13,20 @@ import { useConfigurationContext } from '../context/ConfigurationContext';
 import { UnitsSection } from '../components/business/UnitsSection';
 import { TaxesSection } from '../components/business/TaxesSection';
 import { PaymentMethodsSection } from '../components/business/PaymentMethodsSection';
-import { CurrenciesSection } from '../components/business/CurrenciesSection';
 import { SalesPreferencesSection } from '../components/business/SalesPreferencesSection';
 import { CategoriesSection } from '../components/business/CategoriesSection';
 
-type BusinessSection = 'payments' | 'currencies' | 'units' | 'taxes' | 'categories' | 'preferences';
+type BusinessSection = 'payments' | 'units' | 'taxes' | 'categories' | 'preferences';
 
 export function BusinessConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { paymentMethods, currencies, units, taxes, taxAffectations, categories } = state;
+  const { paymentMethods, units, taxes, taxAffectations, categories } = state;
 
   const [activeSection, setActiveSection] = useState<BusinessSection>('payments');
 
   const sections = [
     { id: 'payments' as BusinessSection, label: 'Formas de Pago', icon: CreditCard },
-    { id: 'currencies' as BusinessSection, label: 'Monedas', icon: DollarSign },
     { id: 'units' as BusinessSection, label: 'Unidades', icon: Scale },
     { id: 'taxes' as BusinessSection, label: 'Impuestos', icon: Receipt },
     { id: 'categories' as BusinessSection, label: 'Categorías', icon: Tag },
@@ -51,7 +48,7 @@ export function BusinessConfiguration() {
             Configuración de Negocio
           </h1>
           <p className="text-gray-600">
-            Configura formas de pago, monedas, unidades, impuestos, categorías y preferencias
+            Configura formas de pago, unidades, impuestos, categorías y preferencias. La moneda base se gestiona desde Datos de Empresa.
           </p>
         </div>
       </div>
@@ -92,16 +89,6 @@ export function BusinessConfiguration() {
               paymentMethods={paymentMethods}
               onUpdate={async (methods) => {
                 dispatch({ type: 'SET_PAYMENT_METHODS', payload: methods });
-              }}
-            />
-          )}
-
-          {/* Currencies Section */}
-          {activeSection === 'currencies' && (
-            <CurrenciesSection
-              currencies={currencies}
-              onUpdateCurrencies={async (currencies) => {
-                dispatch({ type: 'SET_CURRENCIES', payload: currencies });
               }}
             />
           )}

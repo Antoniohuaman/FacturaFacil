@@ -30,7 +30,17 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
   getUnitOptionsForProduct,
   formatUnitLabel,
 }) => {
-  const { formatPrice } = useCurrency();
+  const { formatPrice, convertPrice, baseCurrency, documentCurrency, availableCurrencies } = useCurrency();
+  const documentCurrencyCode = (currency ?? documentCurrency.code) as Currency;
+  const currencyMeta = availableCurrencies.find((item) => item.code === documentCurrencyCode);
+  const documentDecimals = currencyMeta?.decimalPlaces ?? documentCurrency.decimalPlaces ?? 2;
+  const documentSymbol = currencyMeta?.symbol ?? documentCurrency.symbol;
+
+  const convertBaseToDocument = (amount: number) =>
+    convertPrice(amount ?? 0, baseCurrency.code as Currency, documentCurrencyCode);
+
+  const convertDocumentToBase = (amount: number) =>
+    convertPrice(amount ?? 0, documentCurrencyCode, baseCurrency.code as Currency);
   const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
 
@@ -87,7 +97,7 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
     clearQuantityDraft(itemId);
   };
 
-  const commitPriceChange = (itemId: string, fallbackPrice: number) => {
+  const commitPriceChange = (itemId: string, fallbackDocumentPrice: number) => {
     if (!onUpdatePrice) {
       clearPriceDraft(itemId);
       return;
@@ -100,8 +110,9 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
 
     const normalized = raw.replace(',', '.');
     const parsed = normalized !== '' ? parseFloat(normalized) : NaN;
-    const safePrice = Number.isFinite(parsed) ? parsed : fallbackPrice;
-    onUpdatePrice(itemId, safePrice);
+    const safeDocumentPrice = Number.isFinite(parsed) ? parsed : fallbackDocumentPrice;
+    const normalizedBasePrice = convertDocumentToBase(safeDocumentPrice);
+    onUpdatePrice(itemId, normalizedBasePrice);
     clearPriceDraft(itemId);
   };
 
@@ -136,8 +147,9 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
           const draftQuantity = quantityDrafts[itemId];
           const quantityDisplayValue = draftQuantity ?? (Number.isFinite(item.quantity) ? item.quantity.toString() : '');
           const draftPrice = priceDrafts[itemId];
-          const priceDisplayValue = draftPrice ?? (Number.isFinite(item.price) ? item.price.toString() : '');
-          const fallbackPriceValue = Number.isFinite(item.price) ? item.price : 0;
+          const fallbackPriceBaseValue = Number.isFinite(item.price) ? item.price : 0;
+          const fallbackPriceDocumentValue = convertBaseToDocument(fallbackPriceBaseValue);
+          const priceDisplayValue = draftPrice ?? fallbackPriceDocumentValue.toFixed(documentDecimals);
           const minQuantity = SYSTEM_CONFIG.MIN_CART_QUANTITY;
           const maxQuantity = SYSTEM_CONFIG.MAX_CART_QUANTITY;
           const isAtMinQuantity = item.quantity <= minQuantity;
@@ -251,7 +263,7 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                   {onUpdatePrice ? (
                     <div className="relative h-7">
                       <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400 z-10">
-                        {currency === 'PEN' ? 'S/' : '$'}
+                        {documentSymbol}
                       </span>
                       <input
                         type="number"
@@ -261,11 +273,11 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                           const value = event.target.value;
                           setPriceDrafts(prev => ({ ...prev, [itemId]: value }));
                         }}
-                        onBlur={() => commitPriceChange(item.id, fallbackPriceValue)}
+                        onBlur={() => commitPriceChange(item.id, fallbackPriceDocumentValue)}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
                             event.preventDefault();
-                            commitPriceChange(item.id, fallbackPriceValue);
+                            commitPriceChange(item.id, fallbackPriceDocumentValue);
                           }
                         }}
                         onFocus={(event) => event.target.select()}
@@ -279,7 +291,9 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                     </div>
                   ) : (
                     <div className="h-7 px-1.5 flex items-center justify-end bg-gray-50 border border-gray-200 rounded">
-                      <span className="text-[11px] font-bold text-gray-900">{formatPrice(item.price, currency)}</span>
+                      <span className="text-[11px] font-bold text-gray-900">
+                        {formatPrice(convertBaseToDocument(item.price ?? 0), documentCurrencyCode)}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -290,7 +304,7 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                     aria-label="Total"
                   >
                     <span className="text-[11px] font-bold text-blue-900">
-                      {formatPrice(item.price * item.quantity, currency)}
+                      {formatPrice(convertBaseToDocument((item.price ?? 0) * item.quantity), documentCurrencyCode)}
                     </span>
                   </div>
                 </div>

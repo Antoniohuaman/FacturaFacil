@@ -43,7 +43,7 @@ import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
-import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload } from '../models/comprobante.types';
+import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
@@ -53,7 +53,7 @@ import { useCreditTermsConfigurator } from '../hooks/useCreditTermsConfigurator'
 import { CreditScheduleSummaryCard } from '../shared/payments/CreditScheduleSummaryCard';
 import { CreditScheduleModal } from '../shared/payments/CreditScheduleModal';
 import type { CreditInstallmentDefinition } from '../../../shared/payments/paymentTerms';
-import { buildLinePricingInputFromCartItem, calculateLineaComprobante } from '../shared/core/comprobantePricing';
+import { calculateCurrencyAwareTotals } from '../shared/core/currencyTotals';
 
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
@@ -75,7 +75,15 @@ const EmisionTradicional = () => {
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { session } = useUserSession();
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
-  const { currentCurrency, currencyInfo, changeCurrency } = useCurrency();
+  const {
+    currentCurrency,
+    currencyInfo,
+    changeCurrency,
+    availableCurrencies,
+    baseCurrency,
+    documentCurrency,
+    convertPrice,
+  } = useCurrency();
   const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
   const { openPreview, showPreview, closePreview } = usePreview();
@@ -150,27 +158,18 @@ const EmisionTradicional = () => {
     return map;
   }, [catalogProducts]);
 
-  // Calculate totals
-  const totals = useMemo(() => {
-    if (!cartItems || cartItems.length === 0) {
-      return { subtotal: 0, igv: 0, total: 0, currency: currentCurrency };
-    }
-
-    const lineResults = cartItems.map((item) => {
-      const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
-      return calculateLineaComprobante(buildLinePricingInputFromCartItem(item, catalogProduct));
-    });
-    const subtotal = lineResults.reduce((sum, line) => sum + line.subtotal, 0);
-    const igv = lineResults.reduce((sum, line) => sum + line.igv, 0);
-    const total = lineResults.reduce((sum, line) => sum + line.total, 0);
-
-    return {
-      subtotal: Number(subtotal.toFixed(2)),
-      igv: Number(igv.toFixed(2)),
-      total: Number(total.toFixed(2)),
-      currency: currentCurrency,
-    };
-  }, [cartItems, catalogLookup, currentCurrency]);
+  // Calculate totals sincronizados con la moneda del documento
+  const totals = useMemo(
+    () =>
+      calculateCurrencyAwareTotals({
+        items: cartItems,
+        catalogLookup,
+        baseCurrencyCode: baseCurrency.code,
+        documentCurrencyCode: documentCurrency.code,
+        convert: convertPrice,
+      }),
+    [baseCurrency.code, cartItems, catalogLookup, convertPrice, documentCurrency.code],
+  );
 
   const {
     paymentMethod: selectedPaymentMethod,
@@ -585,7 +584,9 @@ const EmisionTradicional = () => {
               setSerieSeleccionada={setSerieSeleccionada}
               seriesFiltradas={seriesFiltradas}
               moneda={currentCurrency}
-              setMoneda={(value: string) => changeCurrency(value as any)}
+              setMoneda={changeCurrency}
+              currencyOptions={availableCurrencies}
+              baseCurrencyCode={baseCurrency.code as Currency}
               formaPago={formaPago}
               setFormaPago={setFormaPago}
               onNuevaFormaPago={handleNuevaFormaPago}

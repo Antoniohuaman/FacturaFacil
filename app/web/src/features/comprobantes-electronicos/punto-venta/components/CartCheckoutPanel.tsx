@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, SlidersHorizontal, ShoppingCart } from 'lucide-react';
-import type { CartSidebarProps, Product, ComprobanteCreditTerms } from '../../models/comprobante.types';
+import type { CartSidebarProps, Product, ComprobanteCreditTerms, Currency } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { UI_MESSAGES } from '../../models/constants';
 import type { PaymentMethod } from '../../../configuracion-sistema/models/PaymentMethod';
@@ -19,10 +19,10 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   onAddProduct?: (product: Product) => void;
   onUpdatePrice?: (id: string, newPrice: number) => void;
   onSetQuantity?: (id: string, quantity: number) => void;
-  currency?: 'PEN' | 'USD';
+  currency?: Currency;
   tipoComprobante: 'boleta' | 'factura';
   setTipoComprobante: (tipo: 'boleta' | 'factura') => void;
-  onCurrencyChange?: (currency: 'PEN' | 'USD') => void;
+  onCurrencyChange?: (currency: Currency) => void;
   clienteSeleccionado: {
     id: number;
     nombre: string;
@@ -68,7 +68,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   onConfirmSale,
   cashBoxStatus = 'unknown',
   isProcessing = false,
-  currency = 'PEN',
+  currency = 'PEN' as Currency,
   tipoComprobante,
   setTipoComprobante,
   onCurrencyChange,
@@ -90,7 +90,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   getUnitOptionsForProduct,
   formatUnitLabel,
 }) => {
-  const { formatPrice, changeCurrency } = useCurrency();
+  const { formatPrice, changeCurrency, availableCurrencies } = useCurrency();
   const [showNotes, setShowNotes] = useState(false);
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
   const docMenuRef = useRef<HTMLDivElement>(null);
@@ -139,7 +139,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
     { value: 'boleta', label: 'Boleta' },
     { value: 'factura', label: 'Factura' },
   ] as const;
-  const handleCurrencyChange = (newCurrency: 'PEN' | 'USD') => {
+  const handleCurrencyChange = (newCurrency: Currency) => {
     changeCurrency(newCurrency);
     if (onCurrencyChange) {
       onCurrencyChange(newCurrency);
@@ -240,11 +240,14 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           <div className="relative">
             <select
               value={currency}
-              onChange={(event) => handleCurrencyChange(event.target.value as 'PEN' | 'USD')}
+              onChange={(event) => handleCurrencyChange(event.target.value as Currency)}
               className="appearance-none rounded-full border border-slate-200 bg-white px-4 py-1.5 pr-7 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
             >
-              <option value="PEN">S/.</option>
-              <option value="USD">$</option>
+              {availableCurrencies.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {option.symbol} • {option.code}
+                </option>
+              ))}
             </select>
             <Wallet2 className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           </div>

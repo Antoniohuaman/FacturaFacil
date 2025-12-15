@@ -38,7 +38,8 @@ export const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
   onPaymentComplete,
   isProcessing = false
 }) => {
-  const { formatPrice } = useCurrency();
+    const { formatPrice, documentCurrency } = useCurrency();
+    const currencyDecimals = documentCurrency.decimalPlaces ?? 2;
 
   const [paymentLines, setPaymentLines] = useState<PaymentLine[]>([
     { id: '1', method: 'efectivo', amount: '', bank: 'Caja general' }
@@ -163,7 +164,7 @@ export const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
     const newLine: PaymentLine = {
       id: Date.now().toString(),
       method: methodId,
-      amount: remaining > 0 ? remaining.toFixed(2) : '',
+      amount: remaining > 0 ? remaining.toFixed(currencyDecimals) : '',
       bank: methodId === 'efectivo' ? 'Caja general' : ''
     };
     setPaymentLines([...paymentLines, newLine]);
@@ -295,7 +296,7 @@ export const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
                     <h5 className="text-sm font-medium text-gray-700 mb-3">Pago Rápido en Efectivo</h5>
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       <button
-                        onClick={() => updatePaymentLine(paymentLines[0].id, 'amount', total.toFixed(2))}
+                        onClick={() => updatePaymentLine(paymentLines[0].id, 'amount', total.toFixed(currencyDecimals))}
                         className="p-3 rounded-lg border-2 border-green-500 bg-green-50 text-green-700 font-semibold text-sm hover:bg-green-100 transition-all hover:scale-105"
                       >
                         {formatPrice(total, currency)}
@@ -304,47 +305,47 @@ export const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
                       <button
                         onClick={() => {
                           const current = parseFloat(paymentLines[0].amount) || 0;
-                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 20).toFixed(2));
+                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 20).toFixed(currencyDecimals));
                         }}
                         className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                       >
-                        + S/ 20.00
+                        + {formatPrice(20, currency)}
                       </button>
                       <button
                         onClick={() => {
                           const current = parseFloat(paymentLines[0].amount) || 0;
-                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 50).toFixed(2));
+                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 50).toFixed(currencyDecimals));
                         }}
                         className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                       >
-                        + S/ 50.00
+                        + {formatPrice(50, currency)}
                       </button>
                       <button
                         onClick={() => {
                           const current = parseFloat(paymentLines[0].amount) || 0;
-                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 100).toFixed(2));
+                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 100).toFixed(currencyDecimals));
                         }}
                         className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                       >
-                        + S/ 100.00
+                        + {formatPrice(100, currency)}
                       </button>
                       <button
                         onClick={() => {
                           const current = parseFloat(paymentLines[0].amount) || 0;
-                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 200).toFixed(2));
+                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 200).toFixed(currencyDecimals));
                         }}
                         className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                       >
-                        + S/ 200.00
+                        + {formatPrice(200, currency)}
                       </button>
                       <button
                         onClick={() => {
                           const current = parseFloat(paymentLines[0].amount) || 0;
-                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 500).toFixed(2));
+                          updatePaymentLine(paymentLines[0].id, 'amount', (current + 500).toFixed(currencyDecimals));
                         }}
                         className="p-3 rounded-lg border border-gray-300 hover:border-green-400 hover:bg-green-50 transition-all text-sm font-medium hover:scale-105"
                       >
-                        + S/ 500.00
+                        + {formatPrice(500, currency)}
                       </button>
                     </div>
                     <div className="flex justify-between items-center">

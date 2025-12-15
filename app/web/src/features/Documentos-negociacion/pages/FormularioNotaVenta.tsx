@@ -27,6 +27,7 @@ import { Toast } from '../../comprobantes-electronicos/shared/ui/Toast/Toast';
 import { useDocumentoContext } from '../contexts/DocumentosContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { useCurrentEstablishmentId, useUserSession } from '../../../contexts/UserSessionContext';
+import type { Currency } from '../../comprobantes-electronicos/models/comprobante.types';
 
 const FormularioNotaVenta = () => {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ const FormularioNotaVenta = () => {
   // Hooks del sistema de comprobantes (solo para UI)
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
   const { calculateTotals } = usePayment();
-  const { currentCurrency, changeCurrency } = useCurrency();
+  const { currentCurrency, changeCurrency, availableCurrencies, baseCurrency } = useCurrency();
   const {
     config: fieldsConfig,
     toggleNotesSection,
@@ -448,7 +449,9 @@ const FormularioNotaVenta = () => {
               setSerieSeleccionada={setSerieSeleccionada}
               seriesFiltradas={seriesNotaVenta}
               moneda={currentCurrency}
-              setMoneda={(currency) => changeCurrency(currency as 'PEN' | 'USD')}
+              setMoneda={changeCurrency}
+              currencyOptions={availableCurrencies}
+              baseCurrencyCode={baseCurrency.code as Currency}
               formaPago={formaPago}
               setFormaPago={setFormaPago}
               fechaEmision={fechaEmision}

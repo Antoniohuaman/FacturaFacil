@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Download, Printer, FileText, Receipt, Eye } from 'lucide-react';
+import { formatMoney } from '@/shared/currency';
 import { PreviewDocument } from '../ui/PreviewDocument';
 import { PreviewTicket } from '../ui/PreviewTicket';
 import { usePreview } from '../../hooks/usePreview';
@@ -169,7 +170,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
               <div className="text-sm text-gray-600">
                 <span className="font-medium">{formatLabels[format]}</span> • 
                 <span className="ml-1">{cartItems.length} producto{cartItems.length !== 1 ? 's' : ''}</span> • 
-                <span className="ml-1">Total: S/ {totals.total.toFixed(2)}</span>
+                <span className="ml-1">Total: {formatMoney(totals.total ?? 0, totals.currency)}</span>
               </div>
 
               <div className="flex items-center gap-3">

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import type { PreviewData } from '../../models/comprobante.types';
 import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useVoucherDesignConfig';
 import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/models/VoucherDesignUnified';
+import { formatMoney } from '@/shared/currency';
 
 interface PreviewTicketProps {
   data: PreviewData;
@@ -25,7 +26,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
   } = data;
 
   const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
-  const currencySymbol = currency === 'USD' ? '$' : 'S/';
+  const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
   const currentDateTime = new Date().toLocaleString('es-PE', {
     day: '2-digit',
     month: '2-digit',
@@ -204,13 +205,13 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
                     <span className="w-10 text-right">{item.quantity}</span>
                   )}
                   {productFields.precioUnitario.visible && (
-                    <span className="w-16 text-right">{currencySymbol} {item.price.toFixed(2)}</span>
+                    <span className="w-16 text-right">{formatCurrencyValue(item.price)}</span>
                   )}
                   {productFields.descuento.visible && (
                     <span className="w-12 text-right">{item.descuentoProducto || 0}%</span>
                   )}
                   {productFields.total.visible && (
-                    <span className="w-16 text-right">{currencySymbol} {lineTotal.toFixed(2)}</span>
+                    <span className="w-16 text-right">{formatCurrencyValue(lineTotal)}</span>
                   )}
                 </div>
 
@@ -245,23 +246,23 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
               <>
                 <div className="flex justify-between">
                   <span>Op. Gravadas:</span>
-                  <span>{currencySymbol} {(subtotalGravado / 1.18).toFixed(2)}</span>
+                  <span>{formatCurrencyValue(subtotalGravado / 1.18)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>IGV (18%):</span>
-                  <span>{currencySymbol} {(subtotalGravado - subtotalGravado / 1.18).toFixed(2)}</span>
+                  <span>{formatCurrencyValue(subtotalGravado - subtotalGravado / 1.18)}</span>
                 </div>
               </>
             )}
             {subtotalExonerado > 0 && (
               <div className="flex justify-between">
                 <span>Op. Exoneradas:</span>
-                <span>{currencySymbol} {subtotalExonerado.toFixed(2)}</span>
+                <span>{formatCurrencyValue(subtotalExonerado)}</span>
               </div>
             )}
             <div className="flex justify-between font-bold text-sm pt-2 border-t border-gray-400">
               <span>TOTAL:</span>
-              <span>{currencySymbol} {totals.total.toFixed(2)}</span>
+              <span>{formatCurrencyValue(totals.total)}</span>
             </div>
           </div>
         </div>
@@ -274,7 +275,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
               {creditTerms.schedule.slice(0, 4).map((cuota) => (
                 <div key={cuota.numeroCuota} className="flex items-center justify-between text-xs">
                   <span># {cuota.numeroCuota} • {cuota.fechaVencimiento}</span>
-                  <span>{cuota.porcentaje}% / {currencySymbol} {cuota.importe.toFixed(2)}</span>
+                  <span>{cuota.porcentaje}% / {formatCurrencyValue(cuota.importe)}</span>
                 </div>
               ))}
             </div>

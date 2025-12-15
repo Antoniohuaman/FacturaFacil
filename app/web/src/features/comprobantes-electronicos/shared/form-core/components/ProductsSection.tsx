@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { CartItem } from '../../../models/comprobante.types';
+import type { CartItem, Currency, PaymentTotals } from '../../../models/comprobante.types';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
 import { CheckSquare, Square, Sliders, Settings2 } from 'lucide-react';
 import { usePriceBook } from '../hooks/usePriceBook';
@@ -8,6 +8,7 @@ import type { PriceColumnOption } from '../hooks/usePriceBook';
 import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
 import type { Product } from '../../../../catalogo-articulos/models/types';
+import { useCurrency } from '../hooks/useCurrency';
 
 type UnitOption = {
   code: string;
@@ -69,11 +70,7 @@ interface ProductsSectionProps {
   addProductsFromSelector: (products: { product: any; quantity: number }[]) => void;
   updateCartItem: (id: string, updates: Partial<CartItem>) => void;
   removeFromCart: (id: string) => void;
-  totals: {
-    subtotal: number;
-    igv: number;
-    total: number;
-  };
+  totals: PaymentTotals;
   refreshKey?: number;
   selectedEstablishmentId?: string;
 }
@@ -141,6 +138,30 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   refreshKey = 0,
   // selectedEstablishmentId, // TODO: Usar para filtrar stock por establecimiento
 }) => {
+  const { baseCurrency, documentCurrency, formatPrice, convertPrice } = useCurrency();
+  const documentDecimals = documentCurrency.decimalPlaces ?? 2;
+
+  const convertBaseToDocument = useCallback(
+    (amount: number) => convertPrice(amount ?? 0, baseCurrency.code as Currency, documentCurrency.code as Currency),
+    [baseCurrency.code, convertPrice, documentCurrency.code],
+  );
+
+  const convertDocumentToBase = useCallback(
+    (amount: number) => convertPrice(amount ?? 0, documentCurrency.code as Currency, baseCurrency.code as Currency),
+    [baseCurrency.code, convertPrice, documentCurrency.code],
+  );
+
+  const formatDocumentValue = useCallback(
+    (amount: number) => formatPrice(amount ?? 0, documentCurrency.code as Currency),
+    [documentCurrency.code, formatPrice],
+  );
+
+  const formatBaseAsDocument = useCallback(
+    (amount: number) => formatDocumentValue(convertBaseToDocument(amount ?? 0)),
+    [convertBaseToDocument, formatDocumentValue],
+  );
+
+  const totalsCurrencyCode = (totals.currency ?? documentCurrency.code) as Currency;
   // ===================================================================
   // ESTADO DE CONFIGURACIÓN DE COLUMNAS
   // ===================================================================
@@ -287,8 +308,6 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showGlobalPricing]);
-
-  const formatCurrency = useCallback((value: number) => `S/ ${Number(value || 0).toFixed(2)}`, []);
 
   const globalMultiplier = useMemo(() => {
     if (globalPricing.mode === 'discount') {
@@ -564,23 +583,25 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
   const handlePriceInputBlur = useCallback((item: CartItem, rawValue: string) => {
     const itemId = String(item.id);
-    let parsed = parseFloat(rawValue);
-    if (Number.isNaN(parsed)) {
-      parsed = item.price || 0;
+    const normalizedInput = rawValue.replace(',', '.');
+    let parsedDocumentValue = parseFloat(normalizedInput);
+    const fallbackDocumentValue = convertBaseToDocument(item.price || 0);
+    if (Number.isNaN(parsedDocumentValue)) {
+      parsedDocumentValue = fallbackDocumentValue;
     }
 
-    let normalized = roundCurrency(parsed);
+    let normalizedBase = roundCurrency(convertDocumentToBase(parsedDocumentValue));
     let errorMessage: string | undefined;
-    if (typeof item.minAllowedPrice === 'number' && normalized < item.minAllowedPrice) {
-      normalized = item.minAllowedPrice;
-      errorMessage = `El precio mínimo es ${formatCurrency(item.minAllowedPrice)}`;
+    if (typeof item.minAllowedPrice === 'number' && normalizedBase < item.minAllowedPrice) {
+      normalizedBase = item.minAllowedPrice;
+      errorMessage = `El precio mínimo es ${formatBaseAsDocument(item.minAllowedPrice)}`;
     }
 
-    const baseValue = stripGlobalRuleValue(normalized);
+    const baseValue = stripGlobalRuleValue(normalizedBase);
 
     updateCartItem(item.id, {
       basePrice: baseValue,
-      price: normalized,
+      price: normalizedBase,
       isManualPrice: true
     });
 
@@ -595,7 +616,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       }
       return next;
     });
-  }, [clearDraftForItem, formatCurrency, stripGlobalRuleValue, updateCartItem]);
+  }, [clearDraftForItem, convertBaseToDocument, convertDocumentToBase, formatBaseAsDocument, stripGlobalRuleValue, updateCartItem]);
 
   const handleGlobalModeChange = useCallback((mode: GlobalPricingMode) => {
     setGlobalPricing(prev => ({ ...prev, mode }));
@@ -763,7 +784,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       case 'precioCompra':
         return (
           <td className="px-3 py-4 text-right text-sm text-gray-700">
-            {item.precioCompra ? `S/ ${item.precioCompra.toFixed(2)}` : '-'}
+            {typeof item.precioCompra === 'number' ? formatBaseAsDocument(item.precioCompra) : '-'}
           </td>
         );
 
@@ -883,8 +904,9 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               ? item.priceColumnId || options[0].columnId
               : options[0].columnId)
           : '';
-        const inputValue = priceDrafts[itemKey] ?? (item.price ?? 0).toFixed(2);
-        const minLabel = typeof item.minAllowedPrice === 'number' ? formatCurrency(item.minAllowedPrice) : null;
+        const displayPrice = convertBaseToDocument(item.price ?? 0);
+        const inputValue = priceDrafts[itemKey] ?? displayPrice.toFixed(documentDecimals);
+        const minLabel = typeof item.minAllowedPrice === 'number' ? formatBaseAsDocument(item.minAllowedPrice) : null;
         const errorMessage = priceErrors[itemKey];
 
         return (
@@ -934,20 +956,23 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       case 'subtotal': {
         const igvPercent = getIgvPercent(item);
         const divisor = igvPercent > 0 ? 1 + igvPercent / 100 : 1;
-        const subtotalValue = divisor === 0 ? 0 : (item.price * item.quantity) / divisor;
+        const lineTotalBase = (item.price ?? 0) * item.quantity;
+        const subtotalValue = divisor === 0 ? 0 : lineTotalBase / divisor;
         return (
           <td className="px-4 py-4 text-right text-sm text-gray-700">
-            S/ {subtotalValue.toFixed(2)}
+            {formatBaseAsDocument(subtotalValue)}
           </td>
         );
       }
 
-      case 'total':
+      case 'total': {
+        const lineTotalBase = (item.price ?? 0) * item.quantity;
         return (
           <td className="px-4 py-4 text-right font-semibold text-sm text-gray-900">
-            S/ {(item.price * item.quantity).toFixed(2)}
+            {formatBaseAsDocument(lineTotalBase)}
           </td>
         );
+      }
 
       case 'accion':
         return (
@@ -1208,29 +1233,29 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Descuentos</span>
-                <span className="text-gray-700 font-medium">S/ 0.00</span>
+                <span className="text-gray-700 font-medium">{formatPrice(0, totalsCurrencyCode)}</span>
               </div>
 
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Subtotal</span>
-                <span className="text-gray-900 font-semibold">S/ {totals.subtotal.toFixed(2)}</span>
+                <span className="text-gray-900 font-semibold">{formatPrice(totals.subtotal ?? 0, totalsCurrencyCode)}</span>
               </div>
 
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">I.G.V. (18%)</span>
-                <span className="text-gray-900 font-semibold">S/ {totals.igv.toFixed(2)}</span>
+                <span className="text-gray-900 font-semibold">{formatPrice(totals.igv ?? 0, totalsCurrencyCode)}</span>
               </div>
 
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Redondeo</span>
-                <span className="text-gray-700 font-medium">S/ 0.00</span>
+                <span className="text-gray-700 font-medium">{formatPrice(0, totalsCurrencyCode)}</span>
               </div>
 
               <div className="pt-2.5 mt-2.5 border-t-2 border-dashed border-gray-300">
                 <div className="bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg p-3 shadow-md">
                   <div className="flex justify-between items-center">
                     <span className="text-violet-100 font-semibold text-sm">TOTAL</span>
-                    <span className="text-white font-bold text-xl">S/ {totals.total.toFixed(2)}</span>
+                    <span className="text-white font-bold text-xl">{formatPrice(totals.total ?? 0, totalsCurrencyCode)}</span>
                   </div>
                 </div>
               </div>
