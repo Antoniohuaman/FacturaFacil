@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  AVAILABLE_COLUMNS,
   type ColumnKey,
   type ColumnConfig,
   COLUMN_GROUP_LABELS
@@ -31,22 +30,7 @@ export const ColumnSelectorPanel: React.FC<ColumnSelectorPanelProps> = ({
 }) => {
   return (
     <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center space-x-2">
-          <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-            />
-          </svg>
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Personalizar columnas</h3>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            ({visibleColumns.size} de {AVAILABLE_COLUMNS.length} columnas visibles)
-          </span>
-        </div>
-
+      <div className="flex items-center justify-end mb-3">
         <button
           onClick={onTogglePanel}
           className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium flex items-center space-x-1"

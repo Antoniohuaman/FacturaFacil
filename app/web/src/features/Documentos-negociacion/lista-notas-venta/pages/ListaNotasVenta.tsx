@@ -396,19 +396,19 @@ const ListaNotasVenta = () => {
             <div className="flex-1" />
 
             {/* Botones de acción */}
-            <button onClick={() => setShowFilterPanel(!showFilterPanel)} className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Filtros avanzados">
+            <button onClick={() => setShowFilterPanel(!showFilterPanel)} className="h-[44px] px-4 flex items-center gap-2 text-sm rounded-[12px] text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors" title="Filtros avanzados">
               <Filter className="w-4 h-4" />
               Filtros
               {activeFiltersCount > 0 && <span className="ml-1 px-2 py-0.5 bg-purple-600 text-white text-xs font-bold rounded-full">{activeFiltersCount}</span>}
             </button>
 
-            <button onClick={() => console.log('Exportar')} className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Exportar">
+            <button onClick={() => console.log('Exportar')} className="h-[44px] px-4 flex items-center gap-2 text-sm rounded-[12px] text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors" title="Exportar">
               <Download className="w-4 h-4" />
               Exportar
             </button>
 
             <div className="relative" data-column-manager>
-              <button onClick={() => setShowColumnManager(!showColumnManager)} className="h-[44px] px-4 flex items-center gap-2 text-sm border border-gray-300 dark:border-gray-600 rounded-[12px] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Personalizar columnas">
+              <button onClick={() => setShowColumnManager(!showColumnManager)} className="h-[44px] px-4 flex items-center gap-2 text-sm rounded-[12px] text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors" title="Personalizar columnas">
                 <Columns className="w-4 h-4" />
                 Columnas
               </button>

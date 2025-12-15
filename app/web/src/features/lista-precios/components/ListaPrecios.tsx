@@ -193,6 +193,9 @@ export const ListaPrecios: React.FC = () => {
         columns={columns}
         onAssignPrice={handleAssignPriceFromSummary}
         viewMode={currentTab}
+        searchSKU={currentTab === 'products' ? searchSKU : undefined}
+        onSearchChange={currentTab === 'products' ? setSearchSKU : undefined}
+        filteredProductsCount={currentTab === 'products' ? filteredProducts.length : undefined}
       />
 
       {/* Main Content */}
@@ -219,7 +222,6 @@ export const ListaPrecios: React.FC = () => {
             products={products}
             filteredProducts={filteredProducts}
             searchSKU={searchSKU}
-            onSearchChange={setSearchSKU}
             onSavePrice={addOrUpdateProductPrice}
             onUnitChange={setProductActiveUnit}
             catalogProducts={catalogProducts}

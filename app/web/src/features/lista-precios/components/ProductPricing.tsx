@@ -5,7 +5,6 @@ import { filterVisibleColumns, isGlobalColumn } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import { ProductPricingControls } from './product-pricing/ProductPricingControls';
 import { ProductPricingTable } from './product-pricing/ProductPricingTable';
 import type { CellStatus, InlineCellState } from './product-pricing/types';
 import { FALLBACK_UNIT_CODE, cellKey, getDefaultValidityRange } from './product-pricing/utils';
@@ -15,7 +14,6 @@ interface ProductPricingProps {
   products: Product[];
   filteredProducts: Product[];
   searchSKU: string;
-  onSearchChange: (value: string) => void;
   onSavePrice: (priceData: PriceForm) => Promise<boolean> | boolean;
   onUnitChange: (sku: string, unitCode: string) => void;
   catalogProducts?: CatalogProduct[];
@@ -35,7 +33,6 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   products,
   filteredProducts,
   searchSKU,
-  onSearchChange,
   onSavePrice,
   onUnitChange,
   catalogProducts = [],
@@ -407,12 +404,6 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     <div className="p-5">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
         <div className="p-5">
-          <ProductPricingControls
-            searchSKU={searchSKU}
-            onSearchChange={onSearchChange}
-            filteredProductsCount={filteredProducts.length}
-          />
-
           <ProductPricingTable
             orderedColumns={orderedColumns}
             baseColumnId={baseColumnId}
