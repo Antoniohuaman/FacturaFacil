@@ -762,7 +762,7 @@ const InvoiceListDashboard = () => {
         }
       `}</style>
       
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900" style={{ paddingBottom: selection.selectedCount > 0 ? '80px' : '0' }}>
+      <div className="bg-gray-50 dark:bg-gray-900 min-h-full" style={{ paddingBottom: selection.selectedCount > 0 ? '80px' : '0' }}>
       {/* Header */}
       <ListHeader
         dateFrom={dateFrom}

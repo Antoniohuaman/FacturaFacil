@@ -212,7 +212,7 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   );
 
   return (
-    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 ${hideSidebar ? '' : 'flex'}`}>
+    <div className={`bg-gray-50 dark:bg-gray-900 min-h-full ${hideSidebar ? '' : 'flex'}`}>
       {!hideSidebar && renderSidebar()}
 
       <div className="flex-1 flex flex-col">
