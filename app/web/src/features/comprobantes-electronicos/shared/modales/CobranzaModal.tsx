@@ -843,14 +843,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     [buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionDocumentPreview, effectiveTotalRecibido, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
   );
 
-  const supportMessage =
-    mode === 'contado'
-      ? isCobranzasContext
-        ? 'Registra la cobranza para actualizar el saldo pendiente.'
-        : 'Registra el cobro ahora para actualizar el saldo pendiente.'
-      : 'Emitirás la venta a crédito sin mover caja por ahora.';
-  const documentLabel = tipoComprobante === 'factura' ? 'factura' : 'boleta';
-  const cobrarButtonLabel = isCobranzasContext ? 'Registrar Cobranza' : `Emitir ${documentLabel} y Cobrar`;
+  const cobrarButtonLabel = 'COBRAR';
   const cobrarDisabled =
     isProcessing ||
     submitting ||
@@ -876,7 +869,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
               Cobranza de {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'}
             </p>
-            <h2 className="text-[17px] font-semibold leading-tight text-slate-900">Revisa el cronograma antes de emitir</h2>
+            <h2 className="text-[17px] font-semibold leading-tight text-slate-900">{''}</h2>
           </div>
           <button type="button" className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" onClick={onClose} disabled={disableBackdropClose} aria-label="Cerrar">
             <X className="h-5 w-5" />
@@ -948,7 +941,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                     <h3 className="text-base font-semibold text-slate-900">
                       {hasCreditSchedule
                         ? `${normalizedInstallments.length} cuota${normalizedInstallments.length === 1 ? '' : 's'} programada${normalizedInstallments.length === 1 ? '' : 's'}`
-                        : 'Sin cronograma definido'}
+                        : mode === 'contado' ? '' : 'Sin cronograma definido'}
                     </h3>
                     {creditTerms?.fechaVencimientoGlobal && <p className="text-[13px] text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
                   </div>
@@ -1006,9 +999,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                     )}
                   </>
                 ) : (
-                  <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    Configura un cronograma de crédito para poder distribuir adelantos entre las cuotas.
-                  </p>
+                  mode === 'contado' ? null : (
+                    <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      Configura un cronograma de crédito para poder distribuir adelantos entre las cuotas.
+                    </p>
+                  )
                 )}
               </div>
             </section>
@@ -1017,12 +1012,12 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
               <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2.5">
                 <div className="flex items-center justify-between gap-2.5">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Gestión de cobranza</p>
-                    <h3 className="text-sm font-semibold text-slate-900">{mode === 'contado' ? 'Registrar pago' : 'Emitir sin cobro'}</h3>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{''}</p>
+                    <h3 className="text-sm font-semibold text-slate-900">{''}</h3>
                   </div>
                   {!isCajaOpen && mode === 'contado' && <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">Caja cerrada</span>}
                 </div>
-                <p className="mt-0.5 text-[12px] text-slate-600">{supportMessage}</p>
+                <p className="mt-0.5 text-[12px] text-slate-600">{''}</p>
               </div>
 
               {mode === 'contado' ? (
