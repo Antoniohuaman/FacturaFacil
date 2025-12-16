@@ -44,7 +44,7 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   creditTerms?: ComprobanteCreditTerms;
   creditScheduleErrors?: string[];
   creditPaymentMethodName?: string;
-  onEmitWithoutPayment?: () => void;
+  onEmitCredit?: () => void;
   observaciones: string;
   notaInterna?: string;
   onObservacionesChange: (value: string) => void;
@@ -81,7 +81,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   creditTerms,
   creditScheduleErrors,
   creditPaymentMethodName,
-  onEmitWithoutPayment,
+  onEmitCredit,
   observaciones,
   notaInterna = '',
   onObservacionesChange,
@@ -114,23 +114,28 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const isCashBoxClosed = cashBoxStatus === 'closed';
   const hasItems = cartItems.length > 0;
   const canProcessSale = !isProcessing && hasItems;
-  const primaryDisabled = !canProcessSale || !onConfirmSale;
-  const secondaryDisabled = !canProcessSale || !onEmitWithoutPayment;
-  const primaryLabel = 'Emitir y cobrar';
-  const secondaryLabel = 'Emitir sin cobrar';
+  const issueButtonLabel = useMemo(() => {
+    switch (tipoComprobante) {
+      case 'factura':
+        return 'EMITIR FACTURA';
+      case 'boleta':
+        return 'EMITIR BOLETA';
+      default:
+        return 'EMITIR DOCUMENTO';
+    }
+  }, [tipoComprobante]);
 
-  const handlePrimaryAction = () => {
-    if (primaryDisabled || !onConfirmSale) {
+  const issueDisabled = !canProcessSale || (!isCreditPaymentSelection ? !onConfirmSale : !onEmitCredit);
+
+  const handleIssueAction = () => {
+    if (issueDisabled) {
       return;
     }
-    onConfirmSale();
-  };
-
-  const handleSecondaryAction = () => {
-    if (secondaryDisabled || !onEmitWithoutPayment) {
+    if (isCreditPaymentSelection) {
+      onEmitCredit?.();
       return;
     }
-    onEmitWithoutPayment();
+    onConfirmSale?.();
   };
 
   const discountState = useState<'amount' | 'percentage'>('amount');
@@ -420,10 +425,10 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
             </div>
 
             <button
-              onClick={handlePrimaryAction}
-              disabled={primaryDisabled}
+              onClick={handleIssueAction}
+              disabled={issueDisabled}
               className={`w-full py-3 rounded-xl font-bold text-base shadow-lg transition-all ${
-                !primaryDisabled
+                !issueDisabled
                   ? 'bg-[#2ccdb0] text-white hover:bg-[#26b79c] active:bg-[#1f9a83]'
                   : 'bg-gray-200 text-gray-500 cursor-not-allowed'
               }`}
@@ -435,7 +440,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                 </span>
               ) : (
                 <div className="flex w-full items-center justify-center gap-3 px-2">
-                  <span className="text-sm font-semibold">{primaryLabel}</span>
+                  <span className="text-sm font-semibold">{issueButtonLabel}</span>
                   {!isCreditPaymentSelection && (
                     <span className="text-lg font-black">
                       {formatPrice(totals.total, currency)}
@@ -444,18 +449,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                 </div>
               )}
             </button>
-
-            {onEmitWithoutPayment && (
-              <button
-                onClick={handleSecondaryAction}
-                disabled={secondaryDisabled}
-                className={`w-full text-xs font-semibold tracking-wide ${
-                  !secondaryDisabled ? 'text-[#2f70b4] hover:text-[#265a91]' : 'text-gray-400'
-                }`}
-              >
-                {secondaryLabel}
-              </button>
-            )}
 
             <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600">
               <span>

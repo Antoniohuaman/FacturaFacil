@@ -195,7 +195,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
       return;
     }
     if (!isCajaOpen) {
-      warning('Caja cerrada', 'Abre una caja para registrar el cobro o emite sin cobrar.');
+      warning('Caja cerrada', 'Abre una caja para registrar el cobro o cambia la venta a crédito.');
       return;
     }
     setShowCobranzaModal(true);
@@ -211,7 +211,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     }
 
     if (isRegisteringCobro && !isCajaOpen) {
-      error('Caja cerrada', 'Abre una caja para registrar pagos al contado. También puedes emitir sin cobrar.');
+      error('Caja cerrada', 'Abre una caja para registrar pagos al contado o cambia la venta a crédito.');
       return false;
     }
 
@@ -276,12 +276,15 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     }
   };
 
-  const handleEmitirSinCobranza = async () => {
-    const paymentModeForValidation: PaymentCollectionMode | undefined = isCreditPaymentSelection ? 'credito' : undefined;
-    if (!ensureDataBeforeCobranza('Faltan datos para emitir sin cobrar', paymentModeForValidation)) {
+  const handleEmitirCredito = async () => {
+    if (!isCreditPaymentSelection) {
+      warning('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito para postergar el cobro.');
       return false;
     }
-    if (isCreditPaymentSelection && !validateCreditSchedule()) {
+    if (!ensureDataBeforeCobranza('Faltan datos para emitir a crédito', 'credito')) {
+      return false;
+    }
+    if (!validateCreditSchedule()) {
       return false;
     }
     const success = await handleCrearComprobante();
@@ -359,7 +362,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     handleCancelCreditScheduleModal,
     handleSaveCreditScheduleModal,
     handleConfirmSale,
-    handleEmitirSinCobranza,
+    handleEmitirCredito,
     handleCobranzaComplete,
     handlePrint,
     handleNewSale,

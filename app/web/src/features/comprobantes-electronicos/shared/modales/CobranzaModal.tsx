@@ -150,7 +150,6 @@ interface CobranzaModalProps {
   modeIntent?: PaymentCollectionMode;
   installmentsState?: CobranzaInstallmentState[];
   context?: CobranzaModalContextType;
-  onIssueWithoutPayment?: () => Promise<boolean> | boolean;
 }
 
 interface PaymentLineForm extends PaymentLineInput {
@@ -289,7 +288,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   modeIntent,
   installmentsState,
   context = 'emision',
-  onIssueWithoutPayment,
 }) => {
   const { formatPrice } = useCurrency();
   const { state } = useConfigurationContext();
@@ -861,34 +859,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     !isCajaOpen ||
     !collectionDocumentPreview ||
     !allocationsReady;
-  const emitirSinCobrarDisabled = isProcessing || submitting || !onIssueWithoutPayment;
-  const showEmitirSinCobrar = context === 'emision' && Boolean(onIssueWithoutPayment);
   const disableBackdropClose = isProcessing || submitting;
 
   const handleCobrar = useCallback(() => {
     void handleSubmit('contado');
   }, [handleSubmit]);
-
-  const handleIssueWithoutPayment = useCallback(() => {
-    if (!onIssueWithoutPayment || submitting) {
-      return;
-    }
-    setErrorMessage(null);
-    setSubmitting(true);
-    Promise.resolve(onIssueWithoutPayment())
-      .then((result) => {
-        if (!result) {
-          setErrorMessage('No se pudo emitir sin cobrar. Intenta nuevamente.');
-        }
-      })
-      .catch((issueError) => {
-        console.error('Error al emitir sin cobrar:', issueError);
-        setErrorMessage('Ocurrió un error al emitir sin cobrar. Intenta nuevamente.');
-      })
-      .finally(() => {
-        setSubmitting(false);
-      });
-  }, [onIssueWithoutPayment, submitting]);
 
   if (!isOpen) return null;
 
@@ -1278,20 +1253,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                 Cancelar
               </button>
               <div className="flex flex-col gap-2 sm:flex-row">
-                {showEmitirSinCobrar && (
-                  <button
-                    type="button"
-                    onClick={handleIssueWithoutPayment}
-                    disabled={emitirSinCobrarDisabled}
-                    className={`rounded-full border px-5 py-2 text-sm font-semibold transition ${
-                      emitirSinCobrarDisabled
-                        ? 'border-slate-200 text-slate-400 cursor-not-allowed'
-                        : 'border-slate-300 text-slate-700 hover:border-slate-400 hover:text-indigo-600'
-                    }`}
-                  >
-                    Emitir sin cobrar
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={handleCobrar}

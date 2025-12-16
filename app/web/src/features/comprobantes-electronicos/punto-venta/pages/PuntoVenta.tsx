@@ -81,7 +81,7 @@ const PuntoVenta = () => {
     handleCancelCreditScheduleModal,
     handleSaveCreditScheduleModal,
     handleConfirmSale,
-    handleEmitirSinCobranza,
+    handleEmitirCredito,
     handleCobranzaComplete,
     handlePrint,
     handleNewSale,
@@ -189,8 +189,8 @@ const PuntoVenta = () => {
                     creditTerms={creditTerms}
                     creditScheduleErrors={creditTemplateErrors}
                     creditPaymentMethodName={selectedPaymentMethod?.name}
-                    onEmitWithoutPayment={() => {
-                      void handleEmitirSinCobranza();
+                    onEmitCredit={() => {
+                      void handleEmitirCredito();
                     }}
                     observaciones={observaciones}
                     notaInterna={notaInterna}
@@ -228,7 +228,6 @@ const PuntoVenta = () => {
           isProcessing={isProcessing}
           creditTerms={creditTerms}
           creditPaymentMethodLabel={selectedPaymentMethod?.name}
-          onIssueWithoutPayment={handleEmitirSinCobranza}
         />
 
         <CreditScheduleModal

@@ -283,6 +283,16 @@ const EmisionTradicional = () => {
 
   const paymentMethodCode = selectedPaymentMethod?.code?.toUpperCase() ?? '';
   const isCreditPaymentSelection = paymentMethodCode === 'CREDITO';
+  const issueButtonLabel = useMemo(() => {
+    switch (tipoComprobante) {
+      case 'factura':
+        return 'EMITIR FACTURA';
+      case 'boleta':
+        return 'EMITIR BOLETA';
+      default:
+        return 'EMITIR DOCUMENTO';
+    }
+  }, [tipoComprobante]);
 
   const ensureDataBeforeCobranza = (paymentMode?: PaymentCollectionMode) => {
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
@@ -325,43 +335,54 @@ const EmisionTradicional = () => {
     setShowCobranzaModal(true);
   };
 
-  const handleEmitirSinCobrar = async (): Promise<boolean> => {
-    const paymentModeForValidation: PaymentCollectionMode | undefined = isCreditPaymentSelection ? 'credito' : undefined;
-    if (!ensureDataBeforeCobranza(paymentModeForValidation)) {
+  const handleEmitirCredito = async (): Promise<boolean> => {
+    if (!isCreditPaymentSelection) {
+      error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito para postergar el cobro.');
       return false;
     }
 
-    if (isCreditPaymentSelection) {
-      if (!isCreditMethod) {
-        error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
-        return false;
-      }
-      if (creditTemplateErrors.length > 0) {
-        creditTemplateErrors.forEach((validationError) =>
-          error('Cronograma de crédito incompleto', validationError),
-        );
-        return false;
-      }
-      if (!creditTerms) {
-        error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
-        return false;
-      }
+    if (!ensureDataBeforeCobranza('credito')) {
+      return false;
+    }
+
+    if (!isCreditMethod) {
+      error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
+      return false;
+    }
+    if (creditTemplateErrors.length > 0) {
+      creditTemplateErrors.forEach((validationError) =>
+        error('Cronograma de crédito incompleto', validationError),
+      );
+      return false;
+    }
+    if (!creditTerms) {
+      error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
+      return false;
     }
 
     const success = await handleCrearComprobante(undefined, { suppressSuccessModal: true });
     if (success) {
       setShowCobranzaModal(false);
-      setShowPostIssueOptionsModal(true);
+      setShowPostIssueOptionsModal(false);
+      const highlightedCuentaId = typeof window !== 'undefined'
+        ? window.sessionStorage.getItem('lastCreatedReceivableId') || undefined
+        : undefined;
+      navigate('/cobranzas', {
+        state: {
+          defaultTab: 'cuentas',
+          highlightCuentaId: highlightedCuentaId,
+        },
+      });
     }
     return Boolean(success);
   };
 
-  const handlePrimaryAction = () => {
+  const handleIssue = () => {
+    if (isCreditPaymentSelection) {
+      void handleEmitirCredito();
+      return;
+    }
     handleOpenCobranzaModal();
-  };
-
-  const handleSecondaryAction = () => {
-    void handleEmitirSinCobrar();
   };
 
   const handleCrearComprobante = async (
@@ -377,7 +398,7 @@ const EmisionTradicional = () => {
     }
 
     if (isRegisteringCobro && !isCajaOpen) {
-      error('Caja cerrada', 'Abre una caja para registrar cobranzas al contado. También puedes emitir sin cobrar.');
+      error('Caja cerrada', 'Abre una caja para registrar cobranzas al contado o cambia la venta a crédito.');
       return false;
     }
 
@@ -643,16 +664,12 @@ const EmisionTradicional = () => {
               isCartEmpty={cartItems.length === 0}
               productsCount={cartItems.length}
               primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
-                label: 'Emitir y cobrar',
-                onClick: handlePrimaryAction,
+                label: issueButtonLabel,
+                onClick: handleIssue,
                 disabled: isProcessing || cartItems.length === 0,
-                title: 'Abrir el modal de cobranza para registrar este pago',
-              } : undefined}
-              secondaryAction={fieldsConfig.actionButtons.crearComprobante ? {
-                label: 'Emitir sin cobrar',
-                onClick: handleSecondaryAction,
-                disabled: isProcessing || cartItems.length === 0,
-                title: 'Emitir el comprobante dejando el saldo pendiente',
+                title: isCreditPaymentSelection
+                  ? 'Emitir y generar la cuenta por cobrar'
+                  : 'Abrir el modal de cobranza para registrar este pago',
               } : undefined}
             />
             </div>
@@ -668,7 +685,7 @@ const EmisionTradicional = () => {
               viewModel={sidePreviewViewModel}
               hasMinimumData={hasMinimumDataForPreview}
               validationErrors={[]} // TODO: Agregar validaciones reales si es necesario
-              onConfirm={handlePrimaryAction}
+              onConfirm={handleIssue}
               onSaveDraft={() => setShowDraftModal(true)}
               isProcessing={false}
             />
@@ -730,7 +747,6 @@ const EmisionTradicional = () => {
           creditTerms={creditTerms}
           creditPaymentMethodLabel={selectedPaymentMethod?.name}
           modeIntent={cobranzaMode}
-          onIssueWithoutPayment={handleEmitirSinCobrar}
         />
 
         <PreviewModal
