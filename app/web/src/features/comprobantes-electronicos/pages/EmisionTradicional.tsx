@@ -569,7 +569,7 @@ const EmisionTradicional = () => {
                   </div>
                   <div>
                     <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                      Emisión Tradicional
+                      Nueva Emision
                     </h1>
                     
                   </div>
