@@ -31,7 +31,6 @@ import type { CuentaPorCobrarSummary } from '../../../gestion-cobranzas/models/c
 import { parseDateSpanish, filterByDateRange, DATE_PRESETS } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
 import { StatsCards } from '../components/StatsCards';
-import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
 import { TableFooter } from '../components/TableFooter';
 import { ListHeader } from '../components/ListHeader';
 import { InvoiceListTable } from '../components/lista-comprobantes/InvoiceListTable';
@@ -188,23 +187,7 @@ const InvoiceListDashboard = () => {
     setColumnFilters(newFilters);
   };
 
-  // Limpiar todos los filtros
-  const clearAllFilters = () => {
-    const today = getBusinessTodayISODate();
-    setColumnFilters({});
-    setDateFrom(today);
-    setDateTo(today);
-    setTempDateFrom(today);
-    setTempDateTo(today);
-    setAdvancedFilters({
-      estados: [],
-      vendedores: [],
-      formasPago: [],
-      tipos: [],
-      totalMin: '',
-      totalMax: ''
-    });
-  };
+  
 
   // Obtener opciones únicas para filtros avanzados
   const availableFilterOptions = useMemo(() => {
@@ -828,29 +811,7 @@ const InvoiceListDashboard = () => {
         }}
       />
 
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4">
-
-          {/* Chips de filtros activos */}
-          <ActiveFiltersChips
-            columnFilters={columnFilters}
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            todayDate={getBusinessTodayISODate()}
-            columnsConfig={columnsConfig}
-            formatDateShort={formatBusinessDateShort}
-            onClearColumnFilter={clearColumnFilter}
-            onClearDateFilter={() => {
-              const today = getBusinessTodayISODate();
-              setDateFrom(today);
-              setDateTo(today);
-              setTempDateFrom(today);
-              setTempDateTo(today);
-            }}
-            onClearAllFilters={clearAllFilters}
-          />
-        </div>
-      </div>
+      
 
       {/* Main Content */}
       <div className="px-6 py-6">
