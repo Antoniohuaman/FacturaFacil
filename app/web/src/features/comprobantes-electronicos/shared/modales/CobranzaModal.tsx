@@ -5,7 +5,6 @@ import {
   Plus,
   Smartphone,
   Trash2,
-  User,
   Wallet,
   X,
 } from 'lucide-react';
@@ -871,89 +870,95 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={disableBackdropClose ? undefined : onClose} />
 
-      <div className="relative mx-4 flex max-h-[94vh] w-full max-w-6xl flex-col rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div className="relative mx-4 flex max-h-[94vh] w-full max-w-6xl flex-col rounded-xl border border-slate-100 bg-white shadow-2xl">
+        <header className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
               Cobranza de {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'}
             </p>
-            <h2 className="text-xl font-semibold text-slate-900">Revisa el cronograma antes de emitir</h2>
+            <h2 className="text-lg font-semibold leading-tight text-slate-900">Revisa el cronograma antes de emitir</h2>
           </div>
-          <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" onClick={onClose} disabled={disableBackdropClose} aria-label="Cerrar">
+          <button type="button" className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" onClick={onClose} disabled={disableBackdropClose} aria-label="Cerrar">
             <X className="h-5 w-5" />
           </button>
         </header>
 
         {errorMessage && (
-          <div className="mx-6 mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</div>
+          <div className="mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-            <section className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
-                <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 overflow-hidden px-5 py-4">
+          <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+            <section className="flex min-h-0 flex-col gap-4">
+              <div className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Documento</p>
-                    <h3 className="text-lg font-semibold text-slate-900">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Documento</p>
+                    <h3 className="text-base font-semibold text-slate-900">
                       {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} · Serie {serie}
-                      {numeroTemporal && <span className="ml-1 text-sm text-slate-500">({numeroTemporal})</span>}
+                      {numeroTemporal && <span className="ml-1 text-sm font-normal text-slate-500">({numeroTemporal})</span>}
                     </h3>
                   </div>
-                  <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700 shadow">Total {formatCurrency(totals.total)}</div>
-                </div>
-                <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs text-slate-500">Fecha emisión</p>
-                    <p className="font-medium">{fechaEmision}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Moneda</p>
-                    <p className="font-medium">{currencyCode}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Cliente</p>
-                    <p className="flex items-center gap-1 font-medium text-slate-900">
-                      <User className="h-4 w-4 text-slate-400" />
-                      {cliente?.nombre || 'Sin cliente'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Documento del cliente</p>
-                    <p className="font-medium">{cliente?.documento || '—'}</p>
+                  <div className="flex flex-col items-end gap-1 text-right">
+                    <span className="text-[11px] uppercase tracking-wide text-slate-400">Total</span>
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-900 shadow-sm">
+                      {formatCurrency(totals.total)}
+                    </span>
                   </div>
                 </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-[13px] text-slate-600 sm:grid-cols-4">
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Fecha emisión</dt>
+                    <dd className="font-medium text-slate-900">{fechaEmision}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Moneda</dt>
+                    <dd className="font-medium text-slate-900">{currencyCode}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Cliente</dt>
+                    <dd className="font-medium text-slate-900">{cliente?.nombre || 'Sin cliente'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Documento cliente</dt>
+                    <dd className="font-medium text-slate-900">{cliente?.documento || '—'}</dd>
+                  </div>
+                </dl>
                 {productsSummary.highlighted.length > 0 && (
-                  <div className="mt-4 space-y-1 text-sm text-slate-600">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Productos recientes</p>
-                    {productsSummary.highlighted.map((item) => (
-                      <p key={item.id} className="truncate">
-                        {item.quantity} × {item.name}
-                      </p>
-                    ))}
+                  <div className="mt-3 border-t border-slate-100 pt-3 text-[13px] text-slate-600">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Productos recientes</p>
+                    <ul className="mt-1 space-y-1">
+                      {productsSummary.highlighted.map((item) => (
+                        <li key={item.id} className="truncate">
+                          {item.quantity} × {item.name}
+                        </li>
+                      ))}
+                    </ul>
                     {productsSummary.remaining > 0 && (
-                      <p className="text-xs text-slate-500">+ {productsSummary.remaining} ítem(s) adicionales</p>
+                      <p className="mt-1 text-[11px] text-slate-500">+ {productsSummary.remaining} ítem(s) adicionales</p>
                     )}
                   </div>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{creditScheduleLabel}</p>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-600">{creditScheduleLabel}</p>
                     <h3 className="text-base font-semibold text-slate-900">
                       {hasCreditSchedule
                         ? `${normalizedInstallments.length} cuota${normalizedInstallments.length === 1 ? '' : 's'} programada${normalizedInstallments.length === 1 ? '' : 's'}`
                         : 'Sin cronograma definido'}
                     </h3>
-                    {installmentsCounters && (
-                      <p className="text-xs text-slate-500">
-                        Pendientes {installmentsCounters.pending} · Parciales {installmentsCounters.partial} · Canceladas {installmentsCounters.canceled}
-                      </p>
-                    )}
-                    {creditTerms?.fechaVencimientoGlobal && <p className="text-sm text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
+                    {creditTerms?.fechaVencimientoGlobal && <p className="text-[13px] text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
                   </div>
+                  {installmentsCounters && (
+                    <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+                      <span className="rounded-full border border-slate-200 px-2.5 py-0.5">Pend. {installmentsCounters.pending}</span>
+                      <span className="rounded-full border border-slate-200 px-2.5 py-0.5">Parc. {installmentsCounters.partial}</span>
+                      <span className="rounded-full border border-slate-200 px-2.5 py-0.5">Canc. {installmentsCounters.canceled}</span>
+                    </div>
+                  )}
                 </div>
                 {hasCreditSchedule ? (
                   <>
@@ -971,15 +976,15 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                     />
                     {allowAllocations && (
                       <div className="mt-4 space-y-3">
-                        <div className="flex flex-wrap gap-3 text-xs font-semibold text-emerald-900">
-                          <span className="rounded-full bg-emerald-50 px-3 py-1">Recibido: {formatCurrency(effectiveTotalRecibido)}</span>
-                          <span className="rounded-full bg-emerald-50 px-3 py-1">Distribuido: {formatCurrency(totalAllocationAmount)}</span>
-                          <span className="rounded-full bg-emerald-50 px-3 py-1">Diferencia: {formatCurrency(Math.abs(allocationDifferenceDisplay))}</span>
+                        <div className="flex flex-wrap gap-2 text-[12px] font-semibold text-emerald-900">
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5">Recibido: {formatCurrency(effectiveTotalRecibido)}</span>
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5">Distribuido: {formatCurrency(totalAllocationAmount)}</span>
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5">Diferencia: {formatCurrency(Math.abs(allocationDifferenceDisplay))}</span>
                         </div>
-                        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex flex-wrap items-center gap-3 text-[12px]">
                           {allocationStatus && (
                             <div
-                              className={`rounded-xl px-3 py-2 font-semibold ${
+                              className={`rounded-lg px-3 py-1.5 font-semibold ${
                                 allocationStatus.tone === 'ok'
                                   ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
                                   : 'border border-amber-200 bg-amber-50 text-amber-700'
@@ -991,7 +996,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                           <button
                             type="button"
                             onClick={handleClearAllocations}
-                            className="ml-auto text-xs font-semibold text-slate-500 hover:text-slate-900"
+                            className="ml-auto text-[12px] font-semibold text-slate-500 underline-offset-2 hover:text-slate-900"
                             disabled={allocationDrafts.length === 0}
                           >
                             Limpiar selección
@@ -1008,37 +1013,37 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
               </div>
             </section>
 
-            <section className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+            <section className="flex min-h-0 flex-col gap-4">
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Gestión de cobranza</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Gestión de cobranza</p>
                     <h3 className="text-base font-semibold text-slate-900">{mode === 'contado' ? 'Registrar pago' : 'Emitir sin cobro'}</h3>
                   </div>
+                  {!isCajaOpen && mode === 'contado' && <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">Caja cerrada</span>}
                 </div>
-                <p className="text-sm text-slate-600">{supportMessage}</p>
+                <p className="mt-1 text-[13px] text-slate-600">{supportMessage}</p>
               </div>
 
               {mode === 'contado' ? (
                 <>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-semibold text-slate-800">Documento de cobranza</h4>
-                      {!isCajaOpen && <span className="text-xs font-semibold uppercase tracking-wide text-amber-600">Caja cerrada</span>}
                     </div>
                     {cobranzasSeries.length === 0 ? (
                       <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                         Configura una serie de cobranza activa antes de registrar pagos.
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-3 text-[13px] text-slate-700">
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Serie
                             <select
                               value={collectionSeriesId}
                               onChange={(event) => setCollectionSeriesId(event.target.value)}
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
                             >
                               {cobranzasSeries.map((seriesOption) => (
                                 <option key={seriesOption.id} value={seriesOption.id}>
@@ -1047,43 +1052,43 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               ))}
                             </select>
                           </label>
-                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Próximo número
                             <input
                               value={collectionDocumentPreview?.fullNumber ?? '—'}
                               readOnly
-                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                              className="mt-1 w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800"
                             />
                           </label>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Moneda
                             <input
                               value={currencyCode}
                               readOnly
-                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                              className="mt-1 w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800"
                             />
                           </label>
-                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Fecha de cobranza
                             <input
                               type="date"
                               value={fechaCobranza}
                               onChange={(event) => setFechaCobranza(event.target.value)}
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
                             />
                           </label>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Caja destino / banco
                             {cajaAbiertaNombre ? (
                               <>
                                 <input
                                   value={cajaDestino}
                                   readOnly
-                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                                  className="mt-1 w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800"
                                 />
                                 <span className="mt-1 block text-[11px] font-medium text-emerald-700">Este cobro irá a tu caja abierta.</span>
                               </>
@@ -1091,7 +1096,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               <select
                                 value={cajaDestino}
                                 onChange={(event) => setCajaDestino(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
                               >
                                 {cajaOptions.map((option) => (
                                   <option key={option} value={option}>
@@ -1101,14 +1106,14 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               </select>
                             )}
                           </label>
-                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             Concepto
                             <input
                               type="text"
                               placeholder="Cobranza de venta"
                               value={notas}
                               onChange={(event) => setNotas(event.target.value)}
-                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
                             />
                           </label>
                         </div>
@@ -1116,28 +1121,28 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-semibold text-slate-800">Métodos de pago</h4>
                       <button
                         type="button"
                         onClick={handleAddLine}
-                        className="inline-flex items-center gap-2 rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
+                        className="inline-flex items-center gap-2 rounded-md border border-dashed border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
                         disabled={isProcessing}
                       >
                         <Plus className="h-4 w-4" /> Nuevo método
                       </button>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
                       {paymentLines.map((line, index) => {
                         const optionMeta = availablePaymentOptions.find((option) => option.id === line.method) ?? availablePaymentOptions[0];
                         const LineIcon = optionMeta?.icon ?? CreditCard;
                         return (
-                          <div key={line.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                            <div className="mb-2 flex items-center justify-between text-sm text-slate-700">
-                              <div className="flex items-center gap-2 font-semibold text-slate-900">
-                                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 shadow">
+                          <div key={line.id} className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                            <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-600">
+                              <div className="flex items-center gap-2 text-slate-900">
+                                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-slate-600 shadow-sm">
                                   <LineIcon className="h-4 w-4" />
                                 </span>
                                 Método #{index + 1}
@@ -1146,18 +1151,18 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveLine(line.id)}
-                                  className="rounded-full p-2 text-slate-400 transition hover:bg-white hover:text-slate-600"
+                                  className="rounded-full p-1.5 text-slate-400 transition hover:bg-white hover:text-slate-600"
                                   aria-label="Eliminar método"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
                               )}
                             </div>
-                            <div className="space-y-3 text-[13px] text-slate-600">
-                              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            <div className="grid gap-3 text-[12px] text-slate-600 sm:grid-cols-2">
+                              <label className="col-span-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                                 Método de pago
                                 <select
-                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
+                                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
                                   value={line.method}
                                   onChange={(event) => updateLine(line.id, 'method', event.target.value)}
                                 >
@@ -1174,7 +1179,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                   type="number"
                                   min="0"
                                   step="0.01"
-                                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
+                                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
                                   value={Number.isNaN(line.amount) ? '' : line.amount}
                                   onChange={(event) => updateLine(line.id, 'amount', Number(event.target.value))}
                                 />
@@ -1183,7 +1188,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                 Destino / banco
                                 <input
                                   type="text"
-                                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
+                                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
                                   value={line.bank ?? ''}
                                   onChange={(event) => updateLine(line.id, 'bank', event.target.value)}
                                   placeholder="Caja o banco"
@@ -1193,7 +1198,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                 N° operación
                                 <input
                                   type="text"
-                                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
+                                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
                                   value={line.operationNumber ?? ''}
                                   onChange={(event) => updateLine(line.id, 'operationNumber', event.target.value)}
                                   placeholder="Referencia opcional"
@@ -1203,7 +1208,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                 Referencia
                                 <input
                                   type="text"
-                                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-indigo-400 focus:outline-none"
+                                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
                                   value={line.reference ?? ''}
                                   onChange={(event) => updateLine(line.id, 'reference', event.target.value)}
                                   placeholder="Voucher o comentario"
@@ -1219,9 +1224,9 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
                 </>
               ) : (
-                <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 p-5 text-sm text-indigo-900">
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-4 text-sm text-indigo-900">
                   <p className="font-semibold">Esta venta se emitirá completamente a crédito.</p>
-                  <p className="mt-2 text-indigo-900/80">
+                  <p className="mt-1 text-indigo-900/80">
                     No se generará ningún recibo de cobranza ahora. Podrás registrar pagos desde el módulo de cobranzas cuando recibas abonos del cliente.
                   </p>
                 </div>
@@ -1230,40 +1235,38 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           </div>
         </div>
 
-        <footer className="border-t border-slate-200 bg-white px-6 py-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-3 text-sm font-semibold text-slate-700">
-              <span className="rounded-full bg-slate-100 px-3 py-1">Total: {formatCurrency(totals.total)}</span>
+        <footer className="border-t border-slate-200 bg-white px-5 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-slate-700">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Total {formatCurrency(totals.total)}</span>
               {mode === 'contado' && (
                 <>
-                  <span className="rounded-full bg-slate-100 px-3 py-1">Recibido: {formatCurrency(effectiveTotalRecibido)}</span>
-                  <span className={`rounded-full px-3 py-1 ${differenceChipClass}`}>
-                    {differenceChipLabel}: {formattedDifference}
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Recibido {formatCurrency(effectiveTotalRecibido)}</span>
+                  <span className={`rounded-full border px-3 py-1 ${differenceChipClass}`}>
+                    {differenceChipLabel} {formattedDifference}
                   </span>
                 </>
               )}
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={disableBackdropClose}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Cancelar
               </button>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={handleCobrar}
-                  disabled={cobrarDisabled}
-                  className={`rounded-full px-5 py-2 text-sm font-semibold text-white transition ${
-                    cobrarDisabled ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-                  }`}
-                >
-                  {cobrarButtonLabel}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleCobrar}
+                disabled={cobrarDisabled}
+                className={`rounded-lg px-5 py-2 text-sm font-semibold text-white transition ${
+                  cobrarDisabled ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+              >
+                {cobrarButtonLabel}
+              </button>
             </div>
           </div>
         </footer>
