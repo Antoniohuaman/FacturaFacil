@@ -1,5 +1,4 @@
-﻿// NOTES SECTION - VERSIÓN COMPACTA
-import React from 'react';
+﻿import React from 'react';
 import { FileText, Eye, EyeOff } from 'lucide-react';
 import { ConfigurationCard } from './ConfigurationCard';
 
@@ -43,9 +42,9 @@ const NotesSection: React.FC<NotesSectionProps> = ({
             </span>
           </div>
           <textarea
-            rows={4}
+            rows={2}
             maxLength={MAX_CHARS}
-            className="w-full min-h-24 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px] bg-white shadow-sm border-slate-300 resize-none"
+            className="w-full min-h-16 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 text-sm bg-white shadow-sm border-slate-300 resize-none"
             placeholder="Ej: Entrega coordinada, Producto con garantía"
             value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}
@@ -71,9 +70,9 @@ const NotesSection: React.FC<NotesSectionProps> = ({
             </span>
           </div>
           <textarea
-            rows={4}
+            rows={2}
             maxLength={MAX_CHARS}
-            className="w-full min-h-24 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px] bg-white shadow-sm border-slate-300 resize-none"
+            className="w-full min-h-16 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 text-sm bg-white shadow-sm border-slate-300 resize-none"
             placeholder="Ej: Cliente prefiere pago los días 15"
             value={notaInterna}
             onChange={(e) => setNotaInterna(e.target.value)}

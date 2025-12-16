@@ -4,7 +4,7 @@
 // ===================================================================
 
 import React, { type ReactNode } from 'react';
-import { Eye, X, Save, CreditCard, ShoppingCart } from 'lucide-react';
+import { Eye, X, Save, CreditCard } from 'lucide-react';
 
 interface ActionButtonsSectionProps {
   onVistaPrevia?: () => void;
@@ -12,7 +12,7 @@ interface ActionButtonsSectionProps {
   onGuardarBorrador?: () => void;
   onCrearComprobante?: () => void;
   isCartEmpty?: boolean;
-  productsCount?: number;
+  
   primaryAction?: {
     label: string;
     onClick: () => void;
@@ -35,7 +35,6 @@ const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
   onGuardarBorrador,
   onCrearComprobante,
   isCartEmpty = false,
-  productsCount = 0,
   primaryAction,
   secondaryAction,
 }) => {
@@ -67,34 +66,29 @@ const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
             </button>
           )}
 
-          {/* Cart status small */}
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-200 text-slate-600 text-[12px]">
-            <ShoppingCart className="w-3.5 h-3.5 text-violet-600" />
-            <span className="font-medium">{productsCount}</span>
-            {isCartEmpty && <span className="ml-1 text-amber-600">Agregue productos</span>}
-          </div>
+          {/* Cart status removed for Emisión Tradicional (belongs to POS flow) */}
 
           {/* Actions on the right */}
           <div className="ml-auto flex items-center gap-2">
             <button
-              className="flex items-center gap-1.5 px-3 py-2 h-9 text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 font-medium shadow-sm text-[13px]"
+              className="flex items-center gap-1 px-2 py-1 h-8 text-[13px] text-slate-600 hover:text-slate-800 transition-colors"
               onClick={onCancelar}
               title="Descartar cambios y volver (Esc)"
               aria-label="Cancelar"
             >
               <X className="h-4 w-4" />
-              Cancelar
+              <span className="ml-1">Cancelar</span>
             </button>
 
             {onGuardarBorrador && (
               <button
-                className="flex items-center gap-1.5 px-3 py-2 h-9 text-violet-700 bg-white border border-violet-300 rounded-xl hover:bg-violet-50 hover:border-violet-400 transition-all duration-200 font-medium shadow-sm text-[13px]"
+                className="flex items-center gap-1 px-2 py-1 h-8 text-[13px] text-violet-600 hover:underline transition-colors"
                 onClick={onGuardarBorrador}
                 title="Guardar para continuar después (Ctrl+S)"
                 aria-label="Guardar borrador"
               >
                 <Save className="h-4 w-4" />
-                Guardar borrador
+                <span className="ml-1">Guardar borrador</span>
               </button>
             )}
 

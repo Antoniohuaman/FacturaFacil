@@ -657,7 +657,6 @@ const EmisionTradicional = () => {
               onCancelar={goToComprobantes}
               onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
               isCartEmpty={cartItems.length === 0}
-              productsCount={cartItems.length}
               primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
                 label: issueButtonLabel,
                 onClick: handleIssue,
