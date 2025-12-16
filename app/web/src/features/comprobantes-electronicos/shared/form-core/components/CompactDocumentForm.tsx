@@ -496,21 +496,21 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Cliente<span className="ml-0.5 text-red-500">*</span>
                 </label>
-                <div className="relative max-w-[88%]">
+                <div className="relative max-w-[88%] flex items-center">
                   <Search className="absolute left-2.5 top-2.5 text-gray-400 w-4 h-4 pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Buscar por nombre o documento..."
                     id="cliente-buscar"
-                    className="h-9 w-full pl-9 pr-10 rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                    className="h-9 flex-1 pl-9 pr-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
-                  {/* Search button inside input (compacto) */}
+                  {/* Search button aligned center and same height as input */}
                   <button
                     type="button"
                     aria-label={tipoComprobante === 'factura' ? 'Buscar en SUNAT' : 'Buscar en RENIEC'}
-                    className="absolute right-1 top-1 inline-flex h-7 px-2 items-center justify-center rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 focus:ring-2 focus:ring-indigo-300 transition-colors text-[11px] font-medium gap-1"
+                    className="inline-flex h-9 px-3 items-center justify-center rounded-lg bg-indigo-500 text-white hover:opacity-90 focus:ring-2 focus:ring-indigo-300 transition-colors text-[11px] font-medium gap-2 ml-2"
                     title={tipoComprobante === 'factura' ? 'Buscar en SUNAT' : 'Buscar en RENIEC'}
                     onClick={handleLookupClick}
                     disabled={isLookupLoading}
