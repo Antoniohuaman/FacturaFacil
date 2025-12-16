@@ -20,6 +20,9 @@ interface ProductTableProps {
   // ✅ Nuevas props para filtro de establecimiento
   establishmentScope?: string;
   establishments?: Establishment[];
+  // Optional: allow parent to control the column selector panel
+  columnSelectorOpen?: boolean;
+  onToggleColumnSelector?: () => void;
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({
@@ -32,7 +35,9 @@ const ProductTable: React.FC<ProductTableProps> = ({
   selectedProducts,
   onSelectedProductsChange,
   establishmentScope = 'ALL',
-  establishments: establishmentsProp
+  establishments: establishmentsProp,
+  columnSelectorOpen,
+  onToggleColumnSelector
 }) => {
   const { state: configState } = useConfigurationContext();
   const establishmentsFromContext = configState.establishments || [];
@@ -92,8 +97,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
   return (
     <>
       <ColumnSelectorPanel
-        show={showColumnSelector}
-        onTogglePanel={() => setShowColumnSelector(prev => !prev)}
+        show={columnSelectorOpen ?? showColumnSelector}
+        onTogglePanel={() => (onToggleColumnSelector ? onToggleColumnSelector() : setShowColumnSelector(prev => !prev))}
         visibleColumns={visibleColumns}
         columnsByGroup={columnsByGroup}
         groupLabels={groupLabels}

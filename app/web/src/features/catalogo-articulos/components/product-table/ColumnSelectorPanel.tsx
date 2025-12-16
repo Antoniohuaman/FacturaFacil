@@ -28,27 +28,17 @@ export const ColumnSelectorPanel: React.FC<ColumnSelectorPanelProps> = ({
   onHideAll,
   onReset
 }) => {
+  if (!show) return null;
+
+  // `onTogglePanel` is intentionally unused inside this panel because
+  // the trigger was moved to the parent toolbar; keep a reference
+  // so linters don't report it as unused and the prop signature stays stable.
+  void onTogglePanel;
+
   return (
     <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 p-4">
-      <div className="flex items-center justify-end mb-3">
-        <button
-          onClick={onTogglePanel}
-          className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium flex items-center space-x-1"
-        >
-          <span>{show ? 'Ocultar opciones' : 'Mostrar opciones'}</span>
-          <svg
-            className={`w-4 h-4 transition-transform ${show ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-      </div>
-
-      {show && (
-        <div className="space-y-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+      {/* Panel content (render only when open). Trigger moved to toolbar. */}
+      <div className="space-y-4 pt-0 border-t-0">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={onShowAll}
@@ -112,8 +102,7 @@ export const ColumnSelectorPanel: React.FC<ColumnSelectorPanelProps> = ({
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

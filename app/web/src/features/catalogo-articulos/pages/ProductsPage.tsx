@@ -1,6 +1,7 @@
 // src/features/catalogo-articulos/pages/ProductsPage.tsx
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
 import type { Product } from '../models/types';
 import ProductTable from '../components/ProductTable';
 import BulkDeleteToolbar from '../components/BulkDeleteToolbar';
@@ -67,6 +68,9 @@ const ProductsPage: React.FC = () => {
 
   // Estado para mostrar el modal de exportación
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // Estado para el selector de columnas (controlado desde el toolbar)
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
 
   // Eliminar productos seleccionados
   const handleBulkDeleteProducts = (productIds: string[]) => {
@@ -552,7 +556,7 @@ const ProductsPage: React.FC = () => {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto flex-wrap overflow-x-auto">
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${
@@ -573,6 +577,14 @@ const ProductsPage: React.FC = () => {
             </button>
 
             <div className="hidden sm:block w-px h-10 bg-gray-200 dark:bg-gray-700" aria-hidden="true"></div>
+            <button
+              onClick={() => setShowColumnSelector(prev => !prev)}
+              aria-label="Personalizar columnas"
+              title="Personalizar columnas"
+              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0 relative z-10"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
 
             <button
               onClick={() => setShowExportModal(true)}
@@ -624,6 +636,8 @@ const ProductsPage: React.FC = () => {
         onSelectedProductsChange={setSelectedProducts}
         establishmentScope={establishmentScope}
         establishments={establishments}
+        columnSelectorOpen={showColumnSelector}
+        onToggleColumnSelector={() => setShowColumnSelector(prev => !prev)}
       />
 
       {/* Pagination */}
