@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { CartItem, Currency, PaymentTotals } from '../../../models/comprobante.types';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
-import { CheckSquare, Square, Sliders, Settings2 } from 'lucide-react';
+import { CheckSquare, Square, SlidersHorizontal, Percent } from 'lucide-react';
 import { usePriceBook } from '../hooks/usePriceBook';
 import type { PriceColumnOption } from '../hooks/usePriceBook';
 import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
@@ -1010,22 +1010,22 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
             {/* Icono de sliders para configuración */}
             <button
               onClick={() => setShowColumnConfig(!showColumnConfig)}
-              className="flex items-center justify-center w-9 h-9 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-violet-400 transition-all shadow-sm"
+              className="p-1 text-gray-600 hover:opacity-80 transition-opacity rounded-md"
               title="Personalizar columnas"
               aria-label="Configurar columnas visibles"
             >
-              <Sliders className="w-4 h-4" />
+              <SlidersHorizontal size={16} />
             </button>
 
             <div className="relative">
               <button
                 ref={priceModeButtonRef}
                 onClick={() => setShowGlobalPricing(prev => !prev)}
-                className={`flex items-center justify-center w-9 h-9 border rounded-lg shadow-sm transition-all ${globalPricing.mode !== 'none' ? 'text-violet-700 border-violet-300 bg-violet-50 hover:bg-violet-100' : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 hover:border-violet-400'}`}
+                className={`p-1 text-gray-600 hover:opacity-80 transition-opacity rounded-md ${globalPricing.mode !== 'none' ? 'text-violet-700' : ''}`}
                 title="Modo de precios globales"
                 aria-label="Configurar regla global de precios"
               >
-                <Settings2 className="w-4 h-4" />
+                <Percent size={16} />
               </button>
               {showGlobalPricing && (
                 <div
