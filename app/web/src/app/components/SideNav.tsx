@@ -190,23 +190,23 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
               <>
                 <div
                   className={`w-full flex items-center rounded-lg transition-colors duration-150 ${
-                    collapsed ? 'justify-center p-3' : 'px-4 py-2.5'
+                          collapsed ? 'justify-center p-3' : 'px-4 py-2'
                   } ${
                     isActive
                       ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-700/50'
                       : 'text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700/70 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   style={{
-                    minHeight: '40px'
+                    minHeight: '36px'
                   }}
                 >
                   <span className={`flex items-center justify-center flex-shrink-0 w-5 h-5 transition-colors duration-150`}>
                     <item.icon size={20} />
                   </span>
                   
-                  {!collapsed && (
-                    <>
-                      <span className="ml-3 text-sm font-medium transition-colors duration-200">{item.label}</span>
+                      {!collapsed && (
+                        <>
+                          <span className="ml-3 text-sm font-medium transition-colors duration-200">{item.label}</span>
                       
                       {'badge' in item && item.badge && (
                         <span className={`ml-auto px-2 py-1 text-xs font-medium rounded-full transition-colors duration-200 ${
@@ -261,7 +261,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
                           : 'text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700/70 hover:text-slate-900 dark:hover:text-white'
                       }`}
                       style={{
-                        minHeight: '40px'
+                        minHeight: '36px'
                       }}
                     >
                       <span className={`flex items-center justify-center flex-shrink-0 w-5 h-5 transition-colors duration-150`}>
