@@ -133,10 +133,10 @@ export const CuentasPorCobrarTable = ({
                   <span className="text-slate-400">—</span>
                 )}
               </td>
-              <td className="px-4 py-3 text-right font-medium">{formatMoney(cuenta.total)}</td>
-              <td className="px-4 py-3 text-right text-slate-500">{formatMoney(cuenta.cobrado)}</td>
+              <td className="px-4 py-3 text-right font-medium">{formatMoney(cuenta.total, cuenta.moneda)}</td>
+              <td className="px-4 py-3 text-right text-slate-500">{formatMoney(cuenta.cobrado, cuenta.moneda)}</td>
               <td className={`px-4 py-3 text-right font-semibold ${cuenta.saldo > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}`}>
-                {formatMoney(cuenta.saldo)}
+                {formatMoney(cuenta.saldo, cuenta.moneda)}
               </td>
               <td className="px-4 py-3">
                 <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${statusBadgeClass(cuenta.estado)}`}>

@@ -512,6 +512,9 @@ const EmisionTradicional = () => {
   const handleNewSale = () => {
     clearCart();
     resetForm();
+    if (currentCurrency !== baseCurrency.code) {
+      changeCurrency(baseCurrency.code as Currency);
+    }
     setShowSuccessModal(false);
     setShowPostIssueOptionsModal(false);
     setProductSelectorKey(prev => prev + 1); // ✅ Incrementar para remontar ProductSelector

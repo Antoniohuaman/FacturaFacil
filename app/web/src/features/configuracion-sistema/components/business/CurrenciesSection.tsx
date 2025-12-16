@@ -1,9 +1,8 @@
 // src/features/configuration/components/business/CurrenciesSection.tsx
 import { useState } from 'react';
-import { DollarSign, Calculator, TrendingUp, AlertCircle, History } from 'lucide-react';
+import { DollarSign, TrendingUp, AlertCircle, History } from 'lucide-react';
 import type { Currency, ExchangeRate } from '../../models/Currency';
 import { DefaultSelector } from '../common/DefaultSelector';
-import { ExchangeRateModal } from './ExchangeRateModal';
 import { ConfigurationCard } from '../common/ConfigurationCard';
 import { useCurrencyManager } from '@/shared/currency';
 import type { CurrencyCode } from '@/shared/currency';
@@ -12,7 +11,6 @@ interface CurrenciesSectionProps {
   currencies: Currency[];
   exchangeRates?: ExchangeRate[];
   onUpdateCurrencies: (currencies: Currency[]) => Promise<void>;
-  onUpdateExchangeRates?: (rates: ExchangeRate[]) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -20,12 +18,9 @@ export function CurrenciesSection({
   currencies, 
   exchangeRates = [],
   onUpdateCurrencies, 
-  onUpdateExchangeRates,
   isLoading = false 
 }: CurrenciesSectionProps) {
   const { baseCurrency, setBaseCurrency } = useCurrencyManager();
-  const [showExchangeRateModal, setShowExchangeRateModal] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency | null>(null);
   const [showRateHistory, setShowRateHistory] = useState<string | null>(null);
 
   const setDefaultCurrency = async (currencyId: string) => {
@@ -43,31 +38,6 @@ export function CurrenciesSection({
     }
 
     setBaseCurrency(currency.code as CurrencyCode);
-  };
-
-  const handleAddExchangeRate = (currency: Currency) => {
-    setSelectedCurrency(currency);
-    setShowExchangeRateModal(true);
-  };
-
-  const handleSaveExchangeRate = async (rate: number) => {
-    if (!selectedCurrency || !onUpdateExchangeRates) return;
-
-    const newRate: ExchangeRate = {
-      id: Date.now().toString(),
-      fromCurrency: selectedCurrency.code,
-      toCurrency: baseCurrency.code,
-      rate: rate,
-      date: new Date(),
-      source: 'MANUAL',
-      createdAt: new Date()
-    };
-
-    const updatedRates = [...exchangeRates, newRate];
-    await onUpdateExchangeRates(updatedRates);
-    
-    setShowExchangeRateModal(false);
-    setSelectedCurrency(null);
   };
 
   const getLatestExchangeRate = (currencyCode: string): ExchangeRate | undefined => {
@@ -211,9 +181,9 @@ export function CurrenciesSection({
                   />
 
                   {/* Exchange Rate Actions */}
-                  {!currency.isBaseCurrency && (
+                  {!currency.isBaseCurrency && hasHistory && (
                     <div className="flex items-center space-x-2">
-                      {hasHistory && (
+                      
                         <button
                           onClick={() => setShowRateHistory(
                             showRateHistory === currency.code ? null : currency.code
@@ -223,15 +193,6 @@ export function CurrenciesSection({
                           <History className="w-4 h-4" />
                           <span>Historial</span>
                         </button>
-                      )}
-                      
-                      <button
-                        onClick={() => handleAddExchangeRate(currency)}
-                        className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
-                      >
-                        <Calculator className="w-4 h-4" />
-                        <span>Nuevo Tipo</span>
-                      </button>
                     </div>
                   )}
                 </div>
@@ -304,18 +265,6 @@ export function CurrenciesSection({
           </div>
         </div>
       </ConfigurationCard>
-
-      {/* Exchange Rate Modal */}
-      {showExchangeRateModal && selectedCurrency && (
-        <ExchangeRateModal
-          currency={selectedCurrency}
-          onSave={handleSaveExchangeRate}
-          onClose={() => {
-            setShowExchangeRateModal(false);
-            setSelectedCurrency(null);
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { validateComprobanteReadyForCobranza } from '../../shared/core/comproban
 import type {
   CartItem,
   ClientData,
+  Currency,
   PaymentCollectionMode,
   PaymentCollectionPayload,
   PaymentTotals,
@@ -30,7 +31,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
   const currentCompanyId = useCurrentCompanyId();
   useConfigurationContext();
 
-  const { currentCurrency, currencyInfo } = useCurrency();
+  const { currentCurrency, currencyInfo, baseCurrency, changeCurrency } = useCurrency();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada } = useDocumentType();
 
   const {
@@ -309,6 +310,9 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
   const handleNewSale = (clearCart: () => void) => {
     clearCart();
     resetForm();
+    if (currentCurrency !== baseCurrency.code) {
+      changeCurrency(baseCurrency.code as Currency);
+    }
     setShowSuccessModal(false);
   };
 

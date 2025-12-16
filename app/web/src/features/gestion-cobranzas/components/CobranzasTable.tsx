@@ -88,7 +88,9 @@ export const CobranzasTable = ({ data, formatMoney, onVerDetalle, onVerComproban
               <td className="px-4 py-3 text-xs font-medium">{cobranza.medioPago}</td>
               <td className="px-4 py-3 text-xs">{cobranza.cajaDestino}</td>
               <td className="px-4 py-3 text-center text-xs">{renderInstallmentsSnapshot(cobranza)}</td>
-              <td className="px-4 py-3 text-right font-semibold">{formatMoney(cobranza.displayAmount ?? cobranza.monto)}</td>
+              <td className="px-4 py-3 text-right font-semibold">
+                {formatMoney(cobranza.displayAmount ?? cobranza.monto, cobranza.moneda)}
+              </td>
               <td className="px-4 py-3">
                 <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${estadoBadge(cobranza.estado)}`}>
                   {cobranza.estado}
