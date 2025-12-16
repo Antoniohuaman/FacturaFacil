@@ -194,7 +194,7 @@ export const ProductPricingTable: React.FC<ProductPricingTableProps> = ({
                 title={column.name}
               >
                 <span className="text-[11px] text-gray-700 font-semibold normal-case">
-                  {column.isBase ? 'Precio base' : column.name}
+                  {column.isBase ? 'PRECIO BASE' : column.name}
                 </span>
               </th>
             ))}
