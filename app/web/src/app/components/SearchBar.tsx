@@ -355,10 +355,10 @@ const SearchBar = () => {
     <>
       {/* BUSCADOR */}
       <div className="relative" style={{ zIndex: showCommandPalette ? 1 : 'auto' }}>
-        <div className="relative">
+        <div className="relative w-full max-w-[450px]">
           <Search 
             size={16} 
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" 
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" 
           />
           <input
             type="text"
@@ -370,7 +370,7 @@ const SearchBar = () => {
             onFocus={() => searchQuery && setShowSearchResults(true)}
             onKeyDown={handleSearchKeyDown}
             placeholder="Buscar clientes, productos o comprobantes…"
-            className="w-[450px] pl-9 pr-16 py-2 rounded-lg border border-gray-200 dark:border-gray-600
+            className="w-full pl-9 pr-16 py-2 rounded-lg border border-gray-200 dark:border-gray-600
                      focus:border-gray-300 dark:focus:border-gray-500 focus:outline-none
                      bg-white dark:bg-gray-800 text-sm transition-colors text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           />

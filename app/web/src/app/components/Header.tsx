@@ -105,7 +105,14 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
       {/* SearchBar */}
       <div className="flex-1 flex justify-center px-8">
         <div className="w-full max-w-3xl">
-          <SearchBar />
+          <div className="flex items-center w-full">
+            <div className={sidebarCollapsed ? 'w-[88px] flex-shrink-0' : 'w-[260px] flex-shrink-0'} />
+            <div className="flex-1 flex justify-center">
+              <div className="w-full max-w-[450px]">
+                <SearchBar />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
