@@ -570,13 +570,8 @@ const EmisionTradicional = () => {
                   <div>
                     <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                       Emisión Tradicional
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                        Formulario
-                      </span>
                     </h1>
-                    <p className="text-sm text-gray-500">
-                      Comprobante detallado con todas las opciones
-                    </p>
+                    
                   </div>
                 </div>
               </div>

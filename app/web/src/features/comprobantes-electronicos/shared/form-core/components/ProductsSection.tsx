@@ -1005,9 +1005,6 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-base font-semibold text-gray-900">Productos del Comprobante</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Agregue productos y personalice las columnas visibles.
-            </p>
           </div>
           <div className="flex items-center gap-2">
             {/* Icono de sliders para configuración */}

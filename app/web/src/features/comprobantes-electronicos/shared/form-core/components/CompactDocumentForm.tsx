@@ -417,8 +417,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   return (
     <>
       <ConfigurationCard
-        title="Información del Comprobante"
-        description="Datos del documento, cliente y configuración"
+        title=""
+        description=""
         icon={FileText}
         helpText="Completa la información del comprobante electrónico siguiendo las normas de SUNAT"
         contentClassName="p-4"
