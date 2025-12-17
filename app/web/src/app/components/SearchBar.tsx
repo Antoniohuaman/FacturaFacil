@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +9,8 @@ import { useClientes } from '../../features/gestion-clientes/hooks/useClientes';
 import type { Cliente, ClienteFilters } from '../../features/gestion-clientes/models';
 import { useComprobanteContext } from '../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import type { Comprobante } from '../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
+import { useCobranzasContext } from '../../features/gestion-cobranzas/context/CobranzasContext';
+import type { CuentaPorCobrarSummary } from '../../features/gestion-cobranzas/models/cobranzas.types';
 
 // Interfaces de tipos
 interface BaseCommand {
@@ -34,11 +35,176 @@ type PaletteItem = {
   onExecute: () => void;
 };
 
-type SearchResults = {
-  comprobantes: Comprobante[];
-  productos: Product[];
-  clientes: Cliente[];
+type SearchResultCategory = 'comprobantes' | 'productos' | 'clientes' | 'cobranzas';
+
+interface SearchFieldDescriptor {
+  value?: string | null;
+  weight: number;
+  isKey?: boolean;
+}
+
+interface NumericFieldDescriptor {
+  value?: number | null;
+  weight: number;
+}
+
+interface SearchDisplayItem<T> {
+  type: SearchResultCategory;
+  id: string;
+  entity: T;
+  title: string;
+  subtitle?: string;
+  meta?: string;
+  amountLabel?: string;
+  amountValue?: number;
+  amountCurrency?: string;
+  score: number;
+}
+
+interface SearchCandidate<T> extends Omit<SearchDisplayItem<T>, 'type' | 'score'> {
+  searchFields: SearchFieldDescriptor[];
+  numericFields?: NumericFieldDescriptor[];
+}
+
+interface SectionResults<T> {
+  items: Array<SearchDisplayItem<T>>;
+  total: number;
+  hasMore: boolean;
+}
+
+type HighlightPart = {
+  text: string;
+  match: boolean;
 };
+
+const SECTION_LIMIT = 5;
+const COMMAND_PALETTE_RESULT_LIMIT = 3;
+const DIACRITIC_REGEX = /[\u0300-\u036f]/g;
+
+const removeDiacritics = (value: string) => value.normalize('NFD').replace(DIACRITIC_REGEX, '');
+
+const normalizeValue = (value: string) => removeDiacritics(value).toLowerCase();
+
+const tokenizeQuery = (value: string) => {
+  const normalized = normalizeValue(value.trim());
+  return normalized.length ? normalized.split(/\s+/).filter(Boolean) : [];
+};
+
+const extractNumericQuery = (value: string) => value.replace(/[^0-9]/g, '');
+
+const highlightParts = (value: string, query: string): HighlightPart[] => {
+  if (!value) {
+    return [];
+  }
+  const normalizedQuery = normalizeValue(query.trim());
+  if (!normalizedQuery) {
+    return [{ text: value, match: false }];
+  }
+  const normalizedValue = normalizeValue(value);
+  const startIndex = normalizedValue.indexOf(normalizedQuery);
+  if (startIndex === -1) {
+    return [{ text: value, match: false }];
+  }
+  const endIndex = startIndex + normalizedQuery.length;
+  const segments: HighlightPart[] = [];
+  if (startIndex > 0) {
+    segments.push({ text: value.slice(0, startIndex), match: false });
+  }
+  segments.push({ text: value.slice(startIndex, endIndex), match: true });
+  if (endIndex < value.length) {
+    segments.push({ text: value.slice(endIndex), match: false });
+  }
+  return segments;
+};
+
+const computeTextScore = (value: string | undefined | null, tokens: string[], weight: number, isKey?: boolean) => {
+  if (!value || !tokens.length) {
+    return 0;
+  }
+  const normalizedValue = normalizeValue(value);
+  const includesAllTokens = tokens.every((token) => normalizedValue.includes(token));
+  if (!includesAllTokens) {
+    return 0;
+  }
+  const startsWith = normalizedValue.startsWith(tokens[0]);
+  const base = startsWith ? 140 : 90;
+  return base + weight + (isKey ? 40 : 0);
+};
+
+const computeNumericScore = (value: number | undefined | null, numericQuery: string, weight: number) => {
+  if (!value && value !== 0) {
+    return 0;
+  }
+  if (!numericQuery) {
+    return 0;
+  }
+  const digitsFromValue = value.toString().replace(/[^0-9]/g, '');
+  if (!digitsFromValue.includes(numericQuery)) {
+    return 0;
+  }
+  return 100 + weight;
+};
+
+const buildSearchSection = <T,>(
+  type: SearchResultCategory,
+  items: T[],
+  tokens: string[],
+  numericQuery: string,
+  mapCandidate: (item: T) => SearchCandidate<T>
+): SectionResults<T> => {
+  if (!tokens.length && !numericQuery) {
+    return { items: [], total: 0, hasMore: false };
+  }
+
+  const scored = items
+    .map((item) => {
+      const candidate = mapCandidate(item);
+      const textScore = candidate.searchFields.reduce((score, field) => (
+        score + computeTextScore(field.value, tokens, field.weight, field.isKey)
+      ), 0);
+      const numericScore = (candidate.numericFields ?? []).reduce(
+        (score, field) => score + computeNumericScore(field.value, numericQuery, field.weight),
+        0
+      );
+      const totalScore = textScore + numericScore;
+      if (totalScore <= 0) {
+        return null;
+      }
+      const { searchFields: _searchFields, numericFields: _numericFields, ...display } = candidate;
+      return {
+        ...display,
+        type,
+        score: totalScore,
+      } satisfies SearchDisplayItem<T>;
+    })
+    .filter((item): item is SearchDisplayItem<T> => Boolean(item))
+    .sort((a, b) => b.score - a.score);
+
+  return {
+    items: scored.slice(0, SECTION_LIMIT),
+    total: scored.length,
+    hasMore: scored.length > SECTION_LIMIT,
+  };
+};
+
+const createEmptySection = <T,>(): SectionResults<T> => ({ items: [], total: 0, hasMore: false });
+
+const buildQueryString = (params: Record<string, string | undefined | null>) => {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      searchParams.set(key, value);
+    }
+  });
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
+};
+
+const slugify = (value: string) =>
+  normalizeValue(value)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'detalle';
 
 const formatCurrency = (value?: number, currency?: string) => {
   if (typeof value !== 'number' || Number.isNaN(value)) {
@@ -83,6 +249,10 @@ const SearchBar = () => {
   const combinedClientes = useMemo(() => [...transientClientes, ...persistedClientes], [persistedClientes, transientClientes]);
   const { state: comprobanteState } = useComprobanteContext();
   const comprobantes = comprobanteState.comprobantes;
+  const { cuentas } = useCobranzasContext();
+  const queryTokens = useMemo(() => tokenizeQuery(searchQuery), [searchQuery]);
+  const numericQuery = useMemo(() => extractNumericQuery(searchQuery.trim()), [searchQuery]);
+  const shouldSearch = queryTokens.length > 0 || numericQuery.length > 0;
 
   // Comandos para el Command Palette
   const baseCommands: SystemCommand[] = useMemo(() => ([
@@ -189,73 +359,187 @@ const SearchBar = () => {
     [filteredCommands]
   );
 
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-
-  // Búsqueda en datos reales
-  const searchResults = useMemo<SearchResults>(() => {
-    if (!normalizedSearchQuery) {
-      return { comprobantes: [], productos: [], clientes: [] };
+  const searchResults = useMemo(() => {
+    if (!shouldSearch) {
+      return {
+        comprobantes: createEmptySection<Comprobante>(),
+        productos: createEmptySection<Product>(),
+        clientes: createEmptySection<Cliente>(),
+        cobranzas: createEmptySection<CuentaPorCobrarSummary>(),
+      };
     }
 
-    const buildHaystack = (parts: Array<string | undefined | null>) =>
-      parts
-        .filter(Boolean)
-        .map((value) => value!.toString().toLowerCase())
-        .join(' ');
+    const clientesSection = buildSearchSection('clientes', combinedClientes, queryTokens, numericQuery, (cliente) => ({
+      id: String(
+        cliente.id ??
+        cliente.numeroDocumento ??
+        cliente.document ??
+        `cliente-${cliente.name ?? cliente.razonSocial ?? cliente.nombreComercial ?? Date.now()}`
+      ),
+      entity: cliente,
+      title: cliente.name || cliente.razonSocial || cliente.nombreCompleto || 'Cliente sin nombre',
+      subtitle: cliente.razonSocial && cliente.razonSocial !== cliente.name ? cliente.razonSocial : cliente.nombreComercial,
+      meta: cliente.document || cliente.numeroDocumento || cliente.email || cliente.phone,
+      searchFields: [
+        { value: cliente.name, weight: 120, isKey: true },
+        { value: cliente.razonSocial, weight: 120, isKey: true },
+        { value: cliente.nombreComercial, weight: 90 },
+        { value: cliente.document, weight: 160, isKey: true },
+        { value: cliente.numeroDocumento, weight: 160, isKey: true },
+        { value: cliente.email, weight: 90 },
+        { value: cliente.phone, weight: 80 },
+        { value: cliente.address ?? cliente.direccion, weight: 70 },
+        { value: cliente.additionalData ?? cliente.observaciones, weight: 50 },
+      ],
+    }));
 
-    const filteredComprobantes = comprobantes.filter((comp) => {
-      const haystack = buildHaystack([
-        comp.id,
-        comp.type,
-        comp.client,
-        comp.clientDoc,
-        comp.status,
-        comp.vendor,
-        comp.paymentMethod,
-      ]);
-      return haystack.includes(normalizedSearchQuery);
-    });
+    const productosSection = buildSearchSection('productos', productosCatalog, queryTokens, numericQuery, (producto) => ({
+      id: producto.id,
+      entity: producto,
+      title: producto.nombre,
+      subtitle: producto.codigo,
+      meta: [producto.categoria, producto.marca, producto.modelo].filter(Boolean).join(' • ') || undefined,
+      amountLabel: 'Precio',
+      amountValue: producto.precio,
+      amountCurrency: 'PEN',
+      searchFields: [
+        { value: producto.nombre, weight: 140, isKey: true },
+        { value: producto.codigo, weight: 140, isKey: true },
+        { value: producto.alias, weight: 110 },
+        { value: producto.descripcion, weight: 90 },
+        { value: producto.categoria, weight: 90 },
+        { value: producto.marca, weight: 90 },
+        { value: producto.modelo, weight: 90 },
+      ],
+      numericFields: [{ value: producto.precio, weight: 90 }],
+    }));
 
-    const filteredProductos = productosCatalog.filter((prod) => {
-      const haystack = buildHaystack([
-        prod.nombre,
-        prod.codigo,
-        prod.descripcion,
-        prod.marca,
-        prod.modelo,
-        prod.categoria,
-      ]);
-      return haystack.includes(normalizedSearchQuery);
-    });
+    const comprobantesSection = buildSearchSection('comprobantes', comprobantes, queryTokens, numericQuery, (comp) => ({
+      id: comp.id,
+      entity: comp,
+      title: comp.type ? `${comp.type} · ${comp.id}` : comp.id,
+      subtitle: comp.client,
+      meta: comp.clientDoc || comp.vendor || comp.status,
+      amountLabel: 'Total',
+      amountValue: comp.total,
+      amountCurrency: comp.currency,
+      searchFields: [
+        { value: comp.id, weight: 170, isKey: true },
+        { value: comp.type, weight: 150, isKey: true },
+        { value: comp.client, weight: 140, isKey: true },
+        { value: comp.clientDoc, weight: 140, isKey: true },
+        { value: comp.vendor, weight: 90 },
+        { value: comp.status, weight: 80 },
+      ],
+      numericFields: [{ value: comp.total, weight: 100 }],
+    }));
 
-    const filteredClientes = combinedClientes.filter((cliente) => {
-      const haystack = buildHaystack([
-        cliente.name,
-        cliente.razonSocial,
-        cliente.nombreComercial,
-        cliente.document,
-        cliente.numeroDocumento,
-        cliente.phone,
-        cliente.email,
-      ]);
-      return haystack.includes(normalizedSearchQuery);
+    const cobranzasSection = buildSearchSection('cobranzas', cuentas, queryTokens, numericQuery, (cuenta) => {
+      const serieNumero = cuenta.comprobanteSerie && cuenta.comprobanteNumero
+        ? `${cuenta.comprobanteSerie}-${cuenta.comprobanteNumero}`
+        : cuenta.comprobanteNumero || cuenta.comprobanteId;
+      const metaPrimary = [cuenta.clienteDocumento, cuenta.estado?.toUpperCase()].filter(Boolean).join(' • ');
+      const metrics: string[] = [];
+      if (typeof cuenta.total === 'number') {
+        metrics.push(`Total ${formatCurrency(cuenta.total, cuenta.moneda)}`);
+      }
+      if (typeof cuenta.cobrado === 'number') {
+        metrics.push(`Cobrado ${formatCurrency(cuenta.cobrado, cuenta.moneda)}`);
+      }
+
+      return {
+        id: cuenta.id,
+        entity: cuenta,
+        title: serieNumero || `Cuenta ${cuenta.id}`,
+        subtitle: cuenta.clienteNombre,
+        meta: [metaPrimary, metrics.join(' · ')].filter(Boolean).join(' · ') || undefined,
+        amountLabel: 'Saldo',
+        amountValue: cuenta.saldo,
+        amountCurrency: cuenta.moneda,
+        searchFields: [
+          { value: cuenta.clienteNombre, weight: 170, isKey: true },
+          { value: cuenta.clienteDocumento, weight: 160, isKey: true },
+          { value: serieNumero, weight: 140, isKey: true },
+          { value: cuenta.tipoComprobante, weight: 90 },
+          { value: cuenta.estado, weight: 110, isKey: true },
+          { value: cuenta.sucursal, weight: 70 },
+          { value: cuenta.cajero, weight: 60 },
+        ],
+        numericFields: [
+          { value: cuenta.total, weight: 100 },
+          { value: cuenta.cobrado, weight: 90 },
+          { value: cuenta.saldo, weight: 150 },
+        ],
+      } satisfies SearchCandidate<CuentaPorCobrarSummary>;
     });
 
     return {
-      comprobantes: filteredComprobantes,
-      productos: filteredProductos,
-      clientes: filteredClientes,
+      comprobantes: comprobantesSection,
+      productos: productosSection,
+      clientes: clientesSection,
+      cobranzas: cobranzasSection,
     };
-  }, [combinedClientes, comprobantes, normalizedSearchQuery, productosCatalog]);
+  }, [shouldSearch, combinedClientes, cuentas, queryTokens, numericQuery, productosCatalog, comprobantes]);
 
-  const hasResults = searchResults.comprobantes.length > 0 || 
-                    searchResults.productos.length > 0 || 
-                    searchResults.clientes.length > 0;
+  const totalResultsCount =
+    searchResults.comprobantes.total +
+    searchResults.productos.total +
+    searchResults.clientes.total +
+    searchResults.cobranzas.total;
+
+  const hasResults = totalResultsCount > 0;
 
   const paletteSearchResults = useMemo(
-    () => searchResults.comprobantes.slice(0, 3),
+    () => searchResults.comprobantes.items.slice(0, COMMAND_PALETTE_RESULT_LIMIT),
     [searchResults]
   );
+
+  const renderHighlight = useCallback((value?: string) => {
+    if (!value) {
+      return null;
+    }
+    const segments = highlightParts(value, searchQuery);
+    if (!segments.length) {
+      return value;
+    }
+    return segments.map((segment, index) =>
+      segment.match ? (
+        <mark
+          key={`${value}-${index}`}
+          className="rounded-sm bg-amber-200/80 px-0.5 text-inherit dark:bg-amber-400/30"
+        >
+          {segment.text}
+        </mark>
+      ) : (
+        <span key={`${value}-${index}`}>{segment.text}</span>
+      )
+    );
+  }, [searchQuery]);
+
+  const handleSeeAll = useCallback((type: SearchResultCategory) => {
+    const queryValue = searchQuery.trim();
+    if (!queryValue) {
+      return;
+    }
+    const queryString = buildQueryString({ search: queryValue });
+    switch (type) {
+      case 'clientes':
+        navigate(`/clientes${queryString}`);
+        break;
+      case 'productos':
+        navigate(`/catalogo${queryString}`);
+        break;
+      case 'comprobantes':
+        navigate(`/comprobantes${queryString}`);
+        break;
+      case 'cobranzas':
+        navigate(`/cobranzas${queryString}`);
+        break;
+      default:
+        break;
+    }
+    setShowSearchResults(false);
+  }, [navigate, searchQuery]);
 
 
   // Atajo de teclado Ctrl+K y otros atajos del sistema
@@ -404,11 +688,62 @@ const SearchBar = () => {
     }
   };
 
-  const handleSelectResult = useCallback((type: string, item: any) => {
-    console.log(`Seleccionado ${type}:`, item);
-    setShowSearchResults(false);
-    setSearchQuery('');
-  }, []);
+  const handleSelectResult = useCallback(
+    (type: SearchResultCategory, item: Cliente | Product | Comprobante | CuentaPorCobrarSummary) => {
+      const queryValue = searchQuery.trim();
+
+      const closeSearch = () => {
+        setShowSearchResults(false);
+        setSearchQuery('');
+      };
+
+      switch (type) {
+        case 'clientes': {
+          const cliente = item as Cliente;
+          if (cliente.id) {
+            const label = cliente.nombreCompleto || cliente.name || cliente.razonSocial || 'cliente';
+            const slug = slugify(label);
+            navigate(`/clientes/${cliente.id}/${slug}`);
+          } else {
+            const searchParam = queryValue || cliente.document || cliente.numeroDocumento || cliente.name;
+            navigate(`/clientes${buildQueryString({ search: searchParam })}`);
+          }
+          break;
+        }
+        case 'productos': {
+          const producto = item as Product;
+          const searchParam = queryValue || producto.codigo || producto.nombre;
+          navigate(`/catalogo${buildQueryString({ search: searchParam })}`);
+          break;
+        }
+        case 'comprobantes': {
+          const comprobante = item as Comprobante;
+          const searchParam =
+            queryValue ||
+            comprobante.id ||
+            comprobante.client ||
+            comprobante.clientDoc ||
+            comprobante.type;
+          navigate(`/comprobantes${buildQueryString({ search: searchParam })}`);
+          break;
+        }
+        case 'cobranzas': {
+          const cobranza = item as CuentaPorCobrarSummary;
+          const serieNumero = cobranza.comprobanteSerie && cobranza.comprobanteNumero
+            ? `${cobranza.comprobanteSerie}-${cobranza.comprobanteNumero}`
+            : cobranza.comprobanteNumero || cobranza.comprobanteId;
+          const searchParam = queryValue || cobranza.clienteDocumento || cobranza.clienteNombre || serieNumero;
+          navigate(`/cobranzas${buildQueryString({ search: searchParam, cuentaId: cobranza.id })}`);
+          break;
+        }
+        default:
+          break;
+      }
+
+      closeSearch();
+    },
+    [navigate, searchQuery]
+  );
 
   const handleExecuteCommand = useCallback((commandId: string) => {
     setShowCommandPalette(false);
@@ -461,7 +796,7 @@ const SearchBar = () => {
     setCommandPaletteView('main');
   }, []);
 
-  const handlePaletteResultSelect = useCallback((type: string, item: any) => {
+  const handlePaletteResultSelect = useCallback((type: SearchResultCategory, item: Cliente | Product | Comprobante | CuentaPorCobrarSummary) => {
     handleSelectResult(type, item);
     closePaletteAndReset();
   }, [closePaletteAndReset, handleSelectResult]);
@@ -487,7 +822,7 @@ const SearchBar = () => {
       paletteSearchResults.forEach((comp) => {
         items.push({
           key: `search-comprobantes-${comp.id}`,
-          onExecute: () => handlePaletteResultSelect('comprobantes', comp)
+          onExecute: () => handlePaletteResultSelect(comp.type, comp.entity)
         });
       });
     }
@@ -627,37 +962,158 @@ const SearchBar = () => {
 
         {/* DROPDOWN DE RESULTADOS - Solo mostrar si NO está abierto el command palette */}
         {showSearchResults && hasResults && !showCommandPalette && (
-          <div className="absolute top-full left-0 mt-2 w-[520px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600
-                        rounded-lg shadow-lg z-50 max-h-[400px] overflow-y-auto">
-            
-            {/* Comprobantes */}
-            {searchResults.comprobantes.length > 0 && (
+          <div className="absolute top-full left-0 mt-2 w-[520px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 max-h-[440px] overflow-y-auto">
+            {searchResults.comprobantes.items.length > 0 && (
               <div className="p-2">
-                <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
-                  Comprobantes
+                <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
+                  <span>Comprobantes</span>
+                  {searchResults.comprobantes.hasMore && (
+                    <button
+                      type="button"
+                      className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
+                      onClick={() => handleSeeAll('comprobantes')}
+                    >
+                      Ver todos
+                    </button>
+                  )}
                 </div>
-                {searchResults.comprobantes.map((comp) => (
+                {searchResults.comprobantes.items.map((result) => {
+                  const amountText = typeof result.amountValue === 'number'
+                    ? formatCurrency(result.amountValue, result.amountCurrency)
+                    : undefined;
+                  return (
+                    <button
+                      key={result.id}
+                      className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => handleSelectResult(result.type, result.entity)}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {renderHighlight(result.title) ?? result.title}
+                          </div>
+                          {result.subtitle && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {renderHighlight(result.subtitle) ?? result.subtitle}
+                            </div>
+                          )}
+                          {result.meta && (
+                            <div className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                              {renderHighlight(result.meta) ?? result.meta}
+                            </div>
+                          )}
+                        </div>
+                        {amountText && (
+                          <div className="text-right whitespace-nowrap">
+                            {result.amountLabel && (
+                              <div className="text-[10px] uppercase text-gray-400 dark:text-gray-500 tracking-wide">
+                                {result.amountLabel}
+                              </div>
+                            )}
+                            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {renderHighlight(amountText) ?? amountText}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {searchResults.productos.items.length > 0 && (
+              <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
+                  <span>Productos</span>
+                  {searchResults.productos.hasMore && (
+                    <button
+                      type="button"
+                      className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
+                      onClick={() => handleSeeAll('productos')}
+                    >
+                      Ver todos
+                    </button>
+                  )}
+                </div>
+                {searchResults.productos.items.map((result) => {
+                  const amountText = typeof result.amountValue === 'number'
+                    ? formatCurrency(result.amountValue, result.amountCurrency)
+                    : undefined;
+                  return (
+                    <button
+                      key={result.id}
+                      className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => handleSelectResult(result.type, result.entity)}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {renderHighlight(result.title) ?? result.title}
+                          </div>
+                          {result.subtitle && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {renderHighlight(result.subtitle) ?? result.subtitle}
+                            </div>
+                          )}
+                          {result.meta && (
+                            <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                              {renderHighlight(result.meta) ?? result.meta}
+                            </div>
+                          )}
+                        </div>
+                        {amountText && (
+                          <div className="text-right whitespace-nowrap">
+                            {result.amountLabel && (
+                              <div className="text-[10px] uppercase text-gray-400 dark:text-gray-500 tracking-wide">
+                                {result.amountLabel}
+                              </div>
+                            )}
+                            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {renderHighlight(amountText) ?? amountText}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {searchResults.clientes.items.length > 0 && (
+              <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
+                  <span>Clientes</span>
+                  {searchResults.clientes.hasMore && (
+                    <button
+                      type="button"
+                      className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
+                      onClick={() => handleSeeAll('clientes')}
+                    >
+                      Ver todos
+                    </button>
+                  )}
+                </div>
+                {searchResults.clientes.items.map((result) => (
                   <button
-                    key={comp.id}
+                    key={result.id}
                     className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => handleSelectResult('comprobantes', comp)}
+                    onClick={() => handleSelectResult(result.type, result.entity)}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {comp.type ? `${comp.type} · ${comp.id}` : comp.id}
+                          {renderHighlight(result.title) ?? result.title}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {comp.client || comp.clientDoc || 'Sin cliente asociado'}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                          {formatCurrency(comp.total, comp.currency)}
-                        </div>
-                        {comp.status && (
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                            {comp.status}
+                        {result.subtitle && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {renderHighlight(result.subtitle) ?? result.subtitle}
+                          </div>
+                        )}
+                        {result.meta && (
+                          <div className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                            {renderHighlight(result.meta) ?? result.meta}
                           </div>
                         )}
                       </div>
@@ -667,69 +1123,77 @@ const SearchBar = () => {
               </div>
             )}
 
-            {/* Productos */}
-            {searchResults.productos.length > 0 && (
+            {searchResults.cobranzas.items.length > 0 && (
               <div className="p-2 border-t border-gray-100 dark:border-gray-700">
-                <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
-                  Productos
+                <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
+                  <span>Cobranzas</span>
+                  {searchResults.cobranzas.hasMore && (
+                    <button
+                      type="button"
+                      className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
+                      onClick={() => handleSeeAll('cobranzas')}
+                    >
+                      Ver todos
+                    </button>
+                  )}
                 </div>
-                {searchResults.productos.map((prod) => (
-                  <button
-                    key={prod.id}
-                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => handleSelectResult('productos', prod)}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{prod.nombre}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{prod.codigo}</div>
-                      </div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                        {formatCurrency(prod.precio)}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Clientes */}
-            {searchResults.clientes.length > 0 && (
-              <div className="p-2 border-t border-gray-100 dark:border-gray-700">
-                <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
-                  Clientes
-                </div>
-                {searchResults.clientes.map((cliente) => (
-                  <button
-                    key={cliente.id}
-                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => handleSelectResult('clientes', cliente)}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{cliente.name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {cliente.document || cliente.numeroDocumento || 'Sin documento'}
+                {searchResults.cobranzas.items.map((result) => {
+                  const amountText = typeof result.amountValue === 'number'
+                    ? formatCurrency(result.amountValue, result.amountCurrency)
+                    : undefined;
+                  return (
+                    <button
+                      key={result.id}
+                      className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => handleSelectResult(result.type, result.entity)}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {renderHighlight(result.title) ?? result.title}
+                          </div>
+                          {result.subtitle && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {renderHighlight(result.subtitle) ?? result.subtitle}
+                            </div>
+                          )}
+                          {result.meta && (
+                            <div className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                              {renderHighlight(result.meta) ?? result.meta}
+                            </div>
+                          )}
                         </div>
+                        {amountText && (
+                          <div className="text-right whitespace-nowrap">
+                            {result.amountLabel && (
+                              <div className="text-[10px] uppercase text-gray-400 dark:text-gray-500 tracking-wide">
+                                {result.amountLabel}
+                              </div>
+                            )}
+                            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {renderHighlight(amountText) ?? amountText}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {cliente.email && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          {cliente.email}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         )}
 
         {/* Sin resultados - Solo mostrar si NO está abierto el command palette */}
-        {showSearchResults && !hasResults && searchQuery.length > 0 && !showCommandPalette && (
-          <div className="absolute top-full left-0 mt-2 w-[520px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600
-                        rounded-lg shadow-lg z-50 p-6 text-center">
+        {showSearchResults && !hasResults && shouldSearch && !showCommandPalette && (
+          <div className="absolute top-full left-0 mt-2 w-[520px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 p-6 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">No se encontraron resultados</p>
+          </div>
+        )}
+
+        {showSearchResults && !shouldSearch && searchQuery.length > 0 && !showCommandPalette && (
+          <div className="absolute top-full left-0 mt-2 w-[520px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 p-6 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Ingresa un término de búsqueda válido</p>
           </div>
         )}
       </div>
@@ -857,54 +1321,57 @@ const SearchBar = () => {
                   )}
 
                   {/* Resultados de búsqueda en Command Palette */}
-                  {searchQuery.length > 0 && hasResults && (
-                    <>
-                      {searchResults.comprobantes.length > 0 && (
-                        <div className="p-3 border-t border-gray-100 dark:border-gray-700">
-                          <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
-                            Comprobantes
-                          </div>
-                          {paletteSearchResults.map((comp) => {
-                            const itemKey = `search-comprobantes-${comp.id}`;
-                            const itemIndex = paletteIndexMap.get(itemKey) ?? -1;
-                            const isActive = itemIndex === activeIndex;
-                            const itemClasses = `w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors ${
-                              isActive ? 'bg-gray-100 dark:bg-gray-700 ring-1 ring-blue-500/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`;
-                            return (
-                              <button
-                                key={comp.id}
-                                ref={(el) => {
-                                  paletteItemRefs.current[itemKey] = el;
-                                }}
-                                data-key={itemKey}
-                                className={itemClasses}
-                                onClick={() => handlePaletteResultSelect('comprobantes', comp)}
-                              >
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {comp.type ? `${comp.type} · ${comp.id}` : comp.id}
-                                  </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    {comp.client || comp.clientDoc || 'Sin cliente asociado'}
-                                  </div>
+                  {searchQuery.length > 0 && hasResults && searchResults.comprobantes.items.length > 0 && (
+                    <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+                      <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
+                        Comprobantes
+                      </div>
+                      {paletteSearchResults.map((result) => {
+                        const itemKey = `search-comprobantes-${result.id}`;
+                        const itemIndex = paletteIndexMap.get(itemKey) ?? -1;
+                        const isActive = itemIndex === activeIndex;
+                        const amountText = typeof result.amountValue === 'number'
+                          ? formatCurrency(result.amountValue, result.amountCurrency)
+                          : undefined;
+                        const itemClasses = `w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors ${
+                          isActive ? 'bg-gray-100 dark:bg-gray-700 ring-1 ring-blue-500/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`;
+                        return (
+                          <button
+                            key={result.id}
+                            ref={(el) => {
+                              paletteItemRefs.current[itemKey] = el;
+                            }}
+                            data-key={itemKey}
+                            className={itemClasses}
+                            onClick={() => handlePaletteResultSelect(result.type, result.entity)}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                {renderHighlight(result.title) ?? result.title}
+                              </div>
+                              {result.subtitle && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                  {renderHighlight(result.subtitle) ?? result.subtitle}
                                 </div>
-                                <div className="text-right">
-                                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                    {formatCurrency(comp.total, comp.currency)}
-                                  </div>
-                                  {comp.status && (
-                                    <div className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                                      {comp.status}
-                                    </div>
-                                  )}
+                              )}
+                              {result.meta && (
+                                <div className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                                  {renderHighlight(result.meta) ?? result.meta}
                                 </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </>
+                              )}
+                            </div>
+                            {amountText && (
+                              <div className="text-right whitespace-nowrap ml-4">
+                                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                  {renderHighlight(amountText) ?? amountText}
+                                </div>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
 
