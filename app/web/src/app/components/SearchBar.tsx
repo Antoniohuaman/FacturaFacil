@@ -72,6 +72,7 @@ const SearchBar = () => {
   const [showConflictWarning, setShowConflictWarning] = useState('');
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(-1);
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const paletteItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const lastQueryRef = useRef('');
   const lastListSignatureRef = useRef('');
@@ -323,6 +324,32 @@ const SearchBar = () => {
     };
   }, [showCommandPalette]);
 
+  useEffect(() => {
+    if (!showSearchResults || showCommandPalette) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!searchContainerRef.current) {
+        return;
+      }
+
+      const targetNode = event.target;
+      if (!(targetNode instanceof Node)) {
+        return;
+      }
+
+      if (!searchContainerRef.current.contains(targetNode)) {
+        setShowSearchResults(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [showSearchResults, showCommandPalette]);
+
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       setShowSearchResults(false);
@@ -515,7 +542,11 @@ const SearchBar = () => {
   return (
     <>
       {/* BUSCADOR */}
-      <div className="relative" style={{ zIndex: showCommandPalette ? 1 : 'auto' }}>
+      <div
+        ref={searchContainerRef}
+        className="relative"
+        style={{ zIndex: showCommandPalette ? 1 : 'auto' }}
+      >
         <div className="relative w-full max-w-[450px]">
           <Search 
             size={16} 
