@@ -23,6 +23,18 @@ interface CustomCommand extends BaseCommand {
 
 type Command = SystemCommand | CustomCommand;
 
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!target || !(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) {
+    return true;
+  }
+
+  return Boolean(target.closest('input, textarea, select, [contenteditable]'));
+};
+
 const SearchBar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -174,17 +186,8 @@ const SearchBar = () => {
   // Atajo de teclado Ctrl+K y otros atajos del sistema
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+K para abrir command palette
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        e.stopPropagation();
-        // Solo abrir si no hay modales abiertos
-        setShowCommandPalette(prev => !prev);
-        // Limpiar búsqueda normal cuando se abre command palette
-        setShowSearchResults(false);
-        setCommandPaletteView('main');
-        return;
-      }
+      const isEditable = isEditableTarget(e.target) || isEditableTarget(document.activeElement);
+      const wantsPaletteToggle = (e.ctrlKey || e.metaKey) && e.key === 'k';
 
       // Escapar para cerrar
       if (e.key === 'Escape') {
@@ -204,13 +207,24 @@ const SearchBar = () => {
         return;
       }
 
-      // Solo procesar otros atajos si no estamos en un input/textarea
-      const activeElement = document.activeElement;
-      const isInInput = activeElement?.tagName === 'INPUT' || 
-                       activeElement?.tagName === 'TEXTAREA' || 
-                       activeElement?.getAttribute('contenteditable') === 'true';
-      
-      if (isInInput) return;
+      // Ctrl+K para abrir/ cerrar command palette (permitir cierre cuando ya está abierto)
+      const allowPaletteToggle = !isEditable || showCommandPalette;
+      if (wantsPaletteToggle && allowPaletteToggle) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowCommandPalette(prev => !prev);
+        setShowSearchResults(false);
+        setCommandPaletteView('main');
+        return;
+      }
+
+      if (isEditable) {
+        return;
+      }
+
+      if (showCommandPalette) {
+        return;
+      }
 
       // Atajos de navegación - IMPORTANTE: preventDefault para evitar conflictos con Chrome
       if (e.ctrlKey || e.metaKey) {
@@ -250,11 +264,6 @@ const SearchBar = () => {
             e.stopPropagation();
             navigate('/lista-precios');
             break;
-          case 'f':
-            e.preventDefault();
-            e.stopPropagation();
-            navigate('/comprobantes/emision');
-            break;
           case 'b':
             e.preventDefault();
             e.stopPropagation();
@@ -264,11 +273,6 @@ const SearchBar = () => {
             e.preventDefault();
             e.stopPropagation();
             navigate('/clientes');
-            break;
-          case 'p':
-            e.preventDefault();
-            e.stopPropagation();
-            navigate('/catalogo');
             break;
         }
       }
