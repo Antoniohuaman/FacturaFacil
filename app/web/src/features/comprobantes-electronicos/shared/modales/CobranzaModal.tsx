@@ -880,148 +880,266 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           <div className="mx-4 mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</div>
         )}
 
-        <div className="flex-1 overflow-hidden px-4 py-3">
-          <div className="grid h-full min-h-0 gap-2.5 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-            <section className="flex min-h-0 flex-col gap-2.5">
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Documento</p>
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} · Serie {serie}
-                      {numeroTemporal && <span className="ml-1 text-xs font-normal text-slate-500">({numeroTemporal})</span>}
-                    </h3>
+        <div className="flex-1 min-h-0 px-4 py-3">
+          <div className="flex h-full min-h-0 flex-col gap-3">
+            <section className="rounded-lg border border-slate-200 bg-white p-3">
+              <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
+                <div className="flex min-w-0 flex-col gap-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Documento</p>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} · Serie {serie}
+                        {numeroTemporal && <span className="ml-1 text-xs font-normal text-slate-500">({numeroTemporal})</span>}
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2 text-right text-[11px]">
+                      <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold uppercase tracking-wide text-slate-500">Total</span>
+                      <span className="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-900">
+                        {formatCurrency(totals.total)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-right text-[11px]">
-                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold uppercase tracking-wide text-slate-500">Total</span>
-                    <span className="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-900">
-                      {formatCurrency(totals.total)}
-                    </span>
-                  </div>
-                </div>
-                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-4">
-                  <div className="space-y-0.5">
-                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fecha emisión</dt>
-                    <dd className="font-medium text-slate-900">{fechaEmision}</dd>
-                  </div>
-                  <div className="space-y-0.5">
-                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Moneda</dt>
-                    <dd className="font-medium text-slate-900">{currencyCode}</dd>
-                  </div>
-                  <div className="space-y-0.5">
-                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Cliente</dt>
-                    <dd className="font-medium text-slate-900">{cliente?.nombre || 'Sin cliente'}</dd>
-                  </div>
-                  <div className="space-y-0.5">
-                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Documento cliente</dt>
-                    <dd className="font-medium text-slate-900">{cliente?.documento || '—'}</dd>
-                  </div>
-                </dl>
-                {productsSummary.highlighted.length > 0 && (
-                  <div className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-600">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Productos recientes</p>
-                    <ul className="mt-1 space-y-0.5">
-                      {productsSummary.highlighted.map((item) => (
-                        <li key={item.id} className="truncate">
-                          {item.quantity} × {item.name}
-                        </li>
-                      ))}
-                    </ul>
-                    {productsSummary.remaining > 0 && (
-                      <p className="mt-1 text-[10px] text-slate-500">+ {productsSummary.remaining} ítem(s) adicionales</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">{creditScheduleLabel}</p>
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      {hasCreditSchedule
-                        ? `${normalizedInstallments.length} cuota${normalizedInstallments.length === 1 ? '' : 's'} programada${normalizedInstallments.length === 1 ? '' : 's'}`
-                        : mode === 'contado' ? '' : 'Sin cronograma definido'}
-                    </h3>
-                    {creditTerms?.fechaVencimientoGlobal && <p className="text-xs text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
-                  </div>
-                  {installmentsCounters && (
-                    <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-600">
-                      <span className="rounded-md border border-slate-200 px-2 py-0.5">Pend. {installmentsCounters.pending}</span>
-                      <span className="rounded-md border border-slate-200 px-2 py-0.5">Parc. {installmentsCounters.partial}</span>
-                      <span className="rounded-md border border-slate-200 px-2 py-0.5">Canc. {installmentsCounters.canceled}</span>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-4">
+                    <div className="space-y-0.5">
+                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fecha emisión</dt>
+                      <dd className="font-medium text-slate-900">{fechaEmision}</dd>
+                    </div>
+                    <div className="space-y-0.5">
+                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Moneda</dt>
+                      <dd className="font-medium text-slate-900">{currencyCode}</dd>
+                    </div>
+                    <div className="space-y-0.5">
+                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Cliente</dt>
+                      <dd className="font-medium text-slate-900">{cliente?.nombre || 'Sin cliente'}</dd>
+                    </div>
+                    <div className="space-y-0.5">
+                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Documento cliente</dt>
+                      <dd className="font-medium text-slate-900">{cliente?.documento || '—'}</dd>
+                    </div>
+                  </dl>
+                  {productsSummary.highlighted.length > 0 && (
+                    <div className="border-t border-slate-100 pt-2 text-xs text-slate-600">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Productos recientes</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {productsSummary.highlighted.map((item) => (
+                          <li key={item.id} className="truncate">
+                            {item.quantity} × {item.name}
+                          </li>
+                        ))}
+                      </ul>
+                      {productsSummary.remaining > 0 && (
+                        <p className="mt-1 text-[10px] text-slate-500">+ {productsSummary.remaining} ítem(s) adicionales</p>
+                      )}
                     </div>
                   )}
                 </div>
-                {hasCreditSchedule ? (
-                  <>
-                    <CreditInstallmentsTable
-                      installments={normalizedInstallments}
-                      currency={currencyForFormat}
-                      mode={allowAllocations ? 'allocation' : 'readonly'}
-                      allocations={allowAllocations ? allocationDrafts : undefined}
-                      onChangeAllocations={allowAllocations ? handleAllocationChange : undefined}
-                      disabled={!allowAllocations || submitting || isProcessing}
-                      scrollMaxHeight={240}
-                      showDaysOverdue
-                      showRemainingResult={allowAllocations}
-                      compact
-                    />
-                    {allowAllocations && (
-                      <div className="mt-2.5 space-y-2">
-                        <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-emerald-900">
-                          <span className="rounded-md bg-emerald-50 px-2.5 py-0.5">Recibido: {formatCurrency(effectiveTotalRecibido)}</span>
-                          <span className="rounded-md bg-emerald-50 px-2.5 py-0.5">Distribuido: {formatCurrency(totalAllocationAmount)}</span>
-                          <span className="rounded-md bg-emerald-50 px-2.5 py-0.5">Diferencia: {formatCurrency(Math.abs(allocationDifferenceDisplay))}</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                          {allocationStatus && (
-                            <div
-                              className={`rounded-md px-3 py-1 font-semibold ${
-                                allocationStatus.tone === 'ok'
-                                  ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
-                                  : 'border border-amber-200 bg-amber-50 text-amber-700'
-                              }`}
-                            >
-                              {allocationStatus.text}
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={handleClearAllocations}
-                            className="ml-auto text-[11px] font-semibold text-slate-500 underline-offset-2 hover:text-slate-900"
-                            disabled={allocationDrafts.length === 0}
-                          >
-                            Limpiar selección
-                          </button>
-                        </div>
+
+                <div className="flex min-h-0 flex-col gap-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">{creditScheduleLabel}</p>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        {hasCreditSchedule
+                          ? `${normalizedInstallments.length} cuota${normalizedInstallments.length === 1 ? '' : 's'} programada${normalizedInstallments.length === 1 ? '' : 's'}`
+                          : mode === 'contado' ? '' : 'Sin cronograma definido'}
+                      </h3>
+                      {creditTerms?.fechaVencimientoGlobal && <p className="text-xs text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
+                    </div>
+                    {installmentsCounters && (
+                      <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-600">
+                        <span className="rounded-md border border-slate-200 px-2 py-0.5">Pend. {installmentsCounters.pending}</span>
+                        <span className="rounded-md border border-slate-200 px-2 py-0.5">Parc. {installmentsCounters.partial}</span>
+                        <span className="rounded-md border border-slate-200 px-2 py-0.5">Canc. {installmentsCounters.canceled}</span>
                       </div>
                     )}
-                  </>
-                ) : (
-                  mode === 'contado' ? null : (
-                    <p className="mt-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                      Configura un cronograma de crédito para poder distribuir adelantos entre las cuotas.
-                    </p>
-                  )
-                )}
+                  </div>
+                  {hasCreditSchedule ? (
+                    <>
+                      <div className="min-h-0">
+                        <CreditInstallmentsTable
+                          installments={normalizedInstallments}
+                          currency={currencyForFormat}
+                          mode={allowAllocations ? 'allocation' : 'readonly'}
+                          allocations={allowAllocations ? allocationDrafts : undefined}
+                          onChangeAllocations={allowAllocations ? handleAllocationChange : undefined}
+                          disabled={!allowAllocations || submitting || isProcessing}
+                          scrollMaxHeight={220}
+                          showDaysOverdue
+                          showRemainingResult={allowAllocations}
+                          compact
+                        />
+                      </div>
+                      {allowAllocations && (
+                        <div className="space-y-2 text-[11px]">
+                          <div className="flex flex-wrap gap-2 font-semibold text-emerald-900">
+                            <span className="rounded-md bg-emerald-50 px-2.5 py-0.5">Recibido: {formatCurrency(effectiveTotalRecibido)}</span>
+                            <span className="rounded-md bg-emerald-50 px-2.5 py-0.5">Distribuido: {formatCurrency(totalAllocationAmount)}</span>
+                            <span className="rounded-md bg-emerald-50 px-2.5 py-0.5">Diferencia: {formatCurrency(Math.abs(allocationDifferenceDisplay))}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {allocationStatus && (
+                              <div
+                                className={`rounded-md px-3 py-1 font-semibold ${
+                                  allocationStatus.tone === 'ok'
+                                    ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : 'border border-amber-200 bg-amber-50 text-amber-700'
+                                }`}
+                              >
+                                {allocationStatus.text}
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={handleClearAllocations}
+                              className="ml-auto text-[11px] font-semibold text-slate-500 underline-offset-2 hover:text-slate-900"
+                              disabled={allocationDrafts.length === 0}
+                            >
+                              Limpiar selección
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    mode === 'contado' ? (
+                      <div className="rounded-md border border-slate-100 bg-slate-50 p-2 text-xs text-slate-600">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Resumen del cobro</p>
+                        <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-semibold text-slate-700">
+                          <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5">Total {formatCurrency(totals.total)}</span>
+                          <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5">Recibido {formatCurrency(effectiveTotalRecibido)}</span>
+                          <span className={`rounded-md border px-2 py-0.5 ${differenceChipClass}`}>
+                            {differenceChipLabel} {formattedDifference}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                        Configura un cronograma de crédito para poder distribuir adelantos entre las cuotas.
+                      </p>
+                    )
+                  )}
+                </div>
               </div>
             </section>
 
-            <section className="flex min-h-0 flex-col gap-2.5">
-              {mode === 'contado' ? (
-                <>
-                  <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold text-slate-800">Documento de cobranza</h4>
-                      {!isCajaOpen && <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Caja cerrada</span>}
+            {mode === 'contado' ? (
+              <div className="grid flex-1 min-h-0 grid-cols-1 gap-3 lg:grid-cols-2">
+                <section className="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-slate-800">Métodos de pago</h4>
+                    <button
+                      type="button"
+                      onClick={handleAddLine}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
+                      disabled={isProcessing}
+                    >
+                      <Plus className="h-4 w-4" /> Nuevo método
+                    </button>
+                  </div>
+                  <div className="mt-2 flex min-h-0 flex-col">
+                    <div className="flex-1 overflow-hidden">
+                      <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                        {paymentLines.map((line, index) => {
+                          const optionMeta = availablePaymentOptions.find((option) => option.id === line.method) ?? availablePaymentOptions[0];
+                          const LineIcon = optionMeta?.icon ?? CreditCard;
+                          return (
+                            <div key={line.id} className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+                              <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-slate-600">
+                                <div className="flex items-center gap-1.5 text-slate-900">
+                                  <span className="inline-flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white">
+                                    <LineIcon className="h-4 w-4" />
+                                  </span>
+                                  Método #{index + 1}
+                                </div>
+                                {paymentLines.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveLine(line.id)}
+                                    className="rounded-full p-1 text-slate-400 transition hover:bg-white hover:text-slate-600"
+                                    aria-label="Eliminar método"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+                                <label className="col-span-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                  Método de pago
+                                  <select
+                                    className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+                                    value={line.method}
+                                    onChange={(event) => updateLine(line.id, 'method', event.target.value)}
+                                  >
+                                    {availablePaymentOptions.map((option) => (
+                                      <option key={option.id} value={option.id}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                  Monto
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+                                    value={Number.isNaN(line.amount) ? '' : line.amount}
+                                    onChange={(event) => updateLine(line.id, 'amount', Number(event.target.value))}
+                                  />
+                                </label>
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                  Destino / banco
+                                  <input
+                                    type="text"
+                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+                                    value={line.bank ?? ''}
+                                    onChange={(event) => updateLine(line.id, 'bank', event.target.value)}
+                                    placeholder="Caja o banco"
+                                  />
+                                </label>
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                  N° operación
+                                  <input
+                                    type="text"
+                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+                                    value={line.operationNumber ?? ''}
+                                    onChange={(event) => updateLine(line.id, 'operationNumber', event.target.value)}
+                                    placeholder="Referencia opcional"
+                                  />
+                                </label>
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                  Referencia
+                                  <input
+                                    type="text"
+                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+                                    value={line.reference ?? ''}
+                                    onChange={(event) => updateLine(line.id, 'reference', event.target.value)}
+                                    placeholder="Voucher o comentario"
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
+                  </div>
+                </section>
+
+                <section className="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-slate-800">Documento de cobranza</h4>
+                    {!isCajaOpen && <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Caja cerrada</span>}
+                  </div>
+                  <div className="mt-2 flex min-h-0 flex-col text-xs text-slate-700">
                     {cobranzasSeries.length === 0 ? (
-                      <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      <div className="flex-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                         Configura una serie de cobranza activa antes de registrar pagos.
                       </div>
                     ) : (
-                      <div className="mt-2 space-y-2 text-xs text-slate-700">
+                      <div className="space-y-2">
                         <div className="grid gap-2 sm:grid-cols-2">
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Serie
@@ -1105,116 +1223,16 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                       </div>
                     )}
                   </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold text-slate-800">Métodos de pago</h4>
-                      <button
-                        type="button"
-                        onClick={handleAddLine}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
-                        disabled={isProcessing}
-                      >
-                        <Plus className="h-4 w-4" /> Nuevo método
-                      </button>
-                    </div>
-
-                    <div className="mt-2 space-y-2 max-h-[260px] overflow-y-auto pr-1">
-                      {paymentLines.map((line, index) => {
-                        const optionMeta = availablePaymentOptions.find((option) => option.id === line.method) ?? availablePaymentOptions[0];
-                        const LineIcon = optionMeta?.icon ?? CreditCard;
-                        return (
-                          <div key={line.id} className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
-                            <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-slate-600">
-                              <div className="flex items-center gap-1.5 text-slate-900">
-                                <span className="inline-flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white">
-                                  <LineIcon className="h-4 w-4" />
-                                </span>
-                                Método #{index + 1}
-                              </div>
-                              {paymentLines.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveLine(line.id)}
-                                  className="rounded-full p-1 text-slate-400 transition hover:bg-white hover:text-slate-600"
-                                  aria-label="Eliminar método"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              )}
-                            </div>
-                            <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
-                              <label className="col-span-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                Método de pago
-                                <select
-                                  className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                  value={line.method}
-                                  onChange={(event) => updateLine(line.id, 'method', event.target.value)}
-                                >
-                                  {availablePaymentOptions.map((option) => (
-                                    <option key={option.id} value={option.id}>
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                Monto
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                  value={Number.isNaN(line.amount) ? '' : line.amount}
-                                  onChange={(event) => updateLine(line.id, 'amount', Number(event.target.value))}
-                                />
-                              </label>
-                              <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                Destino / banco
-                                <input
-                                  type="text"
-                                  className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                  value={line.bank ?? ''}
-                                  onChange={(event) => updateLine(line.id, 'bank', event.target.value)}
-                                  placeholder="Caja o banco"
-                                />
-                              </label>
-                              <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                N° operación
-                                <input
-                                  type="text"
-                                  className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                  value={line.operationNumber ?? ''}
-                                  onChange={(event) => updateLine(line.id, 'operationNumber', event.target.value)}
-                                  placeholder="Referencia opcional"
-                                />
-                              </label>
-                              <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                Referencia
-                                <input
-                                  type="text"
-                                  className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                  value={line.reference ?? ''}
-                                  onChange={(event) => updateLine(line.id, 'reference', event.target.value)}
-                                  placeholder="Voucher o comentario"
-                                />
-                              </label>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-2.5 text-sm text-indigo-900">
-                  <p className="font-semibold">Esta venta se emitirá completamente a crédito.</p>
-                  <p className="mt-1 text-indigo-900/80">
-                    No se generará ningún recibo de cobranza ahora. Podrás registrar pagos desde el módulo de cobranzas cuando recibas abonos del cliente.
-                  </p>
-                </div>
-              )}
-            </section>
+                </section>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-2.5 text-sm text-indigo-900">
+                <p className="font-semibold">Esta venta se emitirá completamente a crédito.</p>
+                <p className="mt-1 text-indigo-900/80">
+                  No se generará ningún recibo de cobranza ahora. Podrás registrar pagos desde el módulo de cobranzas cuando recibas abonos del cliente.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
