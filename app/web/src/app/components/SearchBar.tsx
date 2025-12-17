@@ -4,6 +4,12 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useProductStore } from '../../features/catalogo-articulos/hooks/useProductStore';
+import type { Product } from '../../features/catalogo-articulos/models/types';
+import { useClientes } from '../../features/gestion-clientes/hooks/useClientes';
+import type { Cliente, ClienteFilters } from '../../features/gestion-clientes/models';
+import { useComprobanteContext } from '../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
+import type { Comprobante } from '../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 
 // Interfaces de tipos
 interface BaseCommand {
@@ -28,22 +34,17 @@ type PaletteItem = {
   onExecute: () => void;
 };
 
-const MOCK_SEARCH_DATA = {
-  comprobantes: [
-    { id: 1, numero: 'FAC-001', cliente: 'Juan Pérez', monto: 1250.00, fecha: '30/09/2025', tipo: 'Factura' },
-    { id: 2, numero: 'BOL-045', cliente: 'María García', monto: 85.50, fecha: '30/09/2025', tipo: 'Boleta' },
-    { id: 3, numero: 'FAC-002', cliente: 'Carlos Ruiz', monto: 2340.00, fecha: '29/09/2025', tipo: 'Factura' }
-  ],
-  productos: [
-    { id: 1, codigo: 'PROD-001', nombre: 'Coca Cola 500ml', precio: 3.50, stock: 150 },
-    { id: 2, codigo: 'PROD-002', nombre: 'Pan Integral', precio: 5.00, stock: 80 },
-    { id: 3, codigo: 'PROD-003', nombre: 'Leche Gloria', precio: 4.20, stock: 45 }
-  ],
-  clientes: [
-    { id: 1, nombre: 'Juan Pérez', documento: '12345678', deuda: 0 },
-    { id: 2, nombre: 'María García', documento: '87654321', deuda: 150.00 },
-    { id: 3, nombre: 'Carlos Ruiz', documento: '20123456789', deuda: 0 }
-  ]
+type SearchResults = {
+  comprobantes: Comprobante[];
+  productos: Product[];
+  clientes: Cliente[];
+};
+
+const formatCurrency = (value?: number, currency?: string) => {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return `${currency ?? 'S/'} 0.00`;
+  }
+  return `${currency ?? 'S/'} ${value.toFixed(2)}`;
 };
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -76,9 +77,12 @@ const SearchBar = () => {
   const paletteItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const lastQueryRef = useRef('');
   const lastListSignatureRef = useRef('');
-
-  // Datos de ejemplo - reemplaza con tus datos reales
-  const searchData = MOCK_SEARCH_DATA;
+  const productosCatalog = useProductStore((state) => state.allProducts);
+  const clienteFilters = useMemo<ClienteFilters>(() => ({ page: 1, limit: 100 }), []);
+  const { clientes: persistedClientes, transientClientes } = useClientes(clienteFilters);
+  const combinedClientes = useMemo(() => [...transientClientes, ...persistedClientes], [persistedClientes, transientClientes]);
+  const { state: comprobanteState } = useComprobanteContext();
+  const comprobantes = comprobanteState.comprobantes;
 
   // Comandos para el Command Palette
   const baseCommands: SystemCommand[] = useMemo(() => ([
@@ -185,21 +189,64 @@ const SearchBar = () => {
     [filteredCommands]
   );
 
-  // Búsqueda en datos
-  const searchResults = useMemo(() => ({
-    comprobantes: searchData.comprobantes.filter(comp => 
-      comp.numero.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      comp.cliente.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-    productos: searchData.productos.filter(prod => 
-      prod.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      prod.codigo.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-    clientes: searchData.clientes.filter(cliente => 
-      cliente.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cliente.documento.includes(searchQuery)
-    )
-  }), [searchQuery, searchData]);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  // Búsqueda en datos reales
+  const searchResults = useMemo<SearchResults>(() => {
+    if (!normalizedSearchQuery) {
+      return { comprobantes: [], productos: [], clientes: [] };
+    }
+
+    const buildHaystack = (parts: Array<string | undefined | null>) =>
+      parts
+        .filter(Boolean)
+        .map((value) => value!.toString().toLowerCase())
+        .join(' ');
+
+    const filteredComprobantes = comprobantes.filter((comp) => {
+      const haystack = buildHaystack([
+        comp.id,
+        comp.type,
+        comp.client,
+        comp.clientDoc,
+        comp.status,
+        comp.vendor,
+        comp.paymentMethod,
+      ]);
+      return haystack.includes(normalizedSearchQuery);
+    });
+
+    const filteredProductos = productosCatalog.filter((prod) => {
+      const haystack = buildHaystack([
+        prod.nombre,
+        prod.codigo,
+        prod.descripcion,
+        prod.marca,
+        prod.modelo,
+        prod.categoria,
+      ]);
+      return haystack.includes(normalizedSearchQuery);
+    });
+
+    const filteredClientes = combinedClientes.filter((cliente) => {
+      const haystack = buildHaystack([
+        cliente.name,
+        cliente.razonSocial,
+        cliente.nombreComercial,
+        cliente.document,
+        cliente.numeroDocumento,
+        cliente.phone,
+        cliente.email,
+      ]);
+      return haystack.includes(normalizedSearchQuery);
+    });
+
+    return {
+      comprobantes: filteredComprobantes,
+      productos: filteredProductos,
+      clientes: filteredClientes,
+    };
+  }, [combinedClientes, comprobantes, normalizedSearchQuery, productosCatalog]);
 
   const hasResults = searchResults.comprobantes.length > 0 || 
                     searchResults.productos.length > 0 || 
@@ -597,11 +644,22 @@ const SearchBar = () => {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{comp.numero}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{comp.cliente}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {comp.type ? `${comp.type} · ${comp.id}` : comp.id}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {comp.client || comp.clientDoc || 'Sin cliente asociado'}
+                        </div>
                       </div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                        S/ {comp.monto.toFixed(2)}
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                          {formatCurrency(comp.total, comp.currency)}
+                        </div>
+                        {comp.status && (
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            {comp.status}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -627,7 +685,7 @@ const SearchBar = () => {
                         <div className="text-xs text-gray-500 dark:text-gray-400">{prod.codigo}</div>
                       </div>
                       <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                        S/ {prod.precio.toFixed(2)}
+                        {formatCurrency(prod.precio)}
                       </div>
                     </div>
                   </button>
@@ -649,12 +707,14 @@ const SearchBar = () => {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{cliente.nombre}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{cliente.documento}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{cliente.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {cliente.document || cliente.numeroDocumento || 'Sin documento'}
+                        </div>
                       </div>
-                      {cliente.deuda > 0 && (
-                        <div className="text-sm font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
-                          S/ {cliente.deuda.toFixed(2)}
+                      {cliente.email && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          {cliente.email}
                         </div>
                       )}
                     </div>
@@ -822,10 +882,23 @@ const SearchBar = () => {
                                 onClick={() => handlePaletteResultSelect('comprobantes', comp)}
                               >
                                 <div>
-                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{comp.numero}</div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">{comp.cliente}</div>
+                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    {comp.type ? `${comp.type} · ${comp.id}` : comp.id}
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {comp.client || comp.clientDoc || 'Sin cliente asociado'}
+                                  </div>
                                 </div>
-                                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">S/ {comp.monto.toFixed(2)}</div>
+                                <div className="text-right">
+                                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                    {formatCurrency(comp.total, comp.currency)}
+                                  </div>
+                                  {comp.status && (
+                                    <div className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                      {comp.status}
+                                    </div>
+                                  )}
+                                </div>
                               </button>
                             );
                           })}
