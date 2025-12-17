@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Trash2 } from 'lucide-react';
@@ -22,6 +22,29 @@ interface CustomCommand extends BaseCommand {
 }
 
 type Command = SystemCommand | CustomCommand;
+
+type PaletteItem = {
+  key: string;
+  onExecute: () => void;
+};
+
+const MOCK_SEARCH_DATA = {
+  comprobantes: [
+    { id: 1, numero: 'FAC-001', cliente: 'Juan Pérez', monto: 1250.00, fecha: '30/09/2025', tipo: 'Factura' },
+    { id: 2, numero: 'BOL-045', cliente: 'María García', monto: 85.50, fecha: '30/09/2025', tipo: 'Boleta' },
+    { id: 3, numero: 'FAC-002', cliente: 'Carlos Ruiz', monto: 2340.00, fecha: '29/09/2025', tipo: 'Factura' }
+  ],
+  productos: [
+    { id: 1, codigo: 'PROD-001', nombre: 'Coca Cola 500ml', precio: 3.50, stock: 150 },
+    { id: 2, codigo: 'PROD-002', nombre: 'Pan Integral', precio: 5.00, stock: 80 },
+    { id: 3, codigo: 'PROD-003', nombre: 'Leche Gloria', precio: 4.20, stock: 45 }
+  ],
+  clientes: [
+    { id: 1, nombre: 'Juan Pérez', documento: '12345678', deuda: 0 },
+    { id: 2, nombre: 'María García', documento: '87654321', deuda: 150.00 },
+    { id: 3, nombre: 'Carlos Ruiz', documento: '20123456789', deuda: 0 }
+  ]
+};
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
   if (!target || !(target instanceof HTMLElement)) {
@@ -48,25 +71,13 @@ const SearchBar = () => {
   }>({ nombre: '', atajo: '', categoria: 'acciones', accion: '' });
   const [showConflictWarning, setShowConflictWarning] = useState('');
   const navigate = useNavigate();
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const paletteItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const lastQueryRef = useRef('');
+  const lastListSignatureRef = useRef('');
 
   // Datos de ejemplo - reemplaza con tus datos reales
-  const searchData = {
-    comprobantes: [
-      { id: 1, numero: 'FAC-001', cliente: 'Juan Pérez', monto: 1250.00, fecha: '30/09/2025', tipo: 'Factura' },
-      { id: 2, numero: 'BOL-045', cliente: 'María García', monto: 85.50, fecha: '30/09/2025', tipo: 'Boleta' },
-      { id: 3, numero: 'FAC-002', cliente: 'Carlos Ruiz', monto: 2340.00, fecha: '29/09/2025', tipo: 'Factura' }
-    ],
-    productos: [
-      { id: 1, codigo: 'PROD-001', nombre: 'Coca Cola 500ml', precio: 3.50, stock: 150 },
-      { id: 2, codigo: 'PROD-002', nombre: 'Pan Integral', precio: 5.00, stock: 80 },
-      { id: 3, codigo: 'PROD-003', nombre: 'Leche Gloria', precio: 4.20, stock: 45 }
-    ],
-    clientes: [
-      { id: 1, nombre: 'Juan Pérez', documento: '12345678', deuda: 0 },
-      { id: 2, nombre: 'María García', documento: '87654321', deuda: 150.00 },
-      { id: 3, nombre: 'Carlos Ruiz', documento: '20123456789', deuda: 0 }
-    ]
-  };
+  const searchData = MOCK_SEARCH_DATA;
 
   // Comandos para el Command Palette
   const baseCommands: SystemCommand[] = useMemo(() => ([
@@ -163,8 +174,18 @@ const SearchBar = () => {
     cmd.atajo.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const actionCommands = useMemo(
+    () => filteredCommands.filter(cmd => cmd.categoria === 'acciones'),
+    [filteredCommands]
+  );
+
+  const navigationCommands = useMemo(
+    () => filteredCommands.filter(cmd => cmd.categoria === 'navegacion'),
+    [filteredCommands]
+  );
+
   // Búsqueda en datos
-  const searchResults = {
+  const searchResults = useMemo(() => ({
     comprobantes: searchData.comprobantes.filter(comp => 
       comp.numero.toLowerCase().includes(searchQuery.toLowerCase()) ||
       comp.cliente.toLowerCase().includes(searchQuery.toLowerCase())
@@ -177,11 +198,17 @@ const SearchBar = () => {
       cliente.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cliente.documento.includes(searchQuery)
     )
-  };
+  }), [searchQuery, searchData]);
 
   const hasResults = searchResults.comprobantes.length > 0 || 
                     searchResults.productos.length > 0 || 
                     searchResults.clientes.length > 0;
+
+  const paletteSearchResults = useMemo(
+    () => searchResults.comprobantes.slice(0, 3),
+    [searchResults]
+  );
+
 
   // Atajo de teclado Ctrl+K y otros atajos del sistema
   useEffect(() => {
@@ -303,13 +330,13 @@ const SearchBar = () => {
     }
   };
 
-  const handleSelectResult = (type: string, item: any) => {
+  const handleSelectResult = useCallback((type: string, item: any) => {
     console.log(`Seleccionado ${type}:`, item);
     setShowSearchResults(false);
     setSearchQuery('');
-  };
+  }, []);
 
-  const handleExecuteCommand = (commandId: string) => {
+  const handleExecuteCommand = useCallback((commandId: string) => {
     setShowCommandPalette(false);
     
     switch (commandId) {
@@ -353,7 +380,137 @@ const SearchBar = () => {
       default:
         console.log('Comando no reconocido:', commandId);
     }
-  };
+  }, [navigate]);
+
+  const closePaletteAndReset = useCallback(() => {
+    setShowCommandPalette(false);
+    setCommandPaletteView('main');
+  }, []);
+
+  const handlePaletteResultSelect = useCallback((type: string, item: any) => {
+    handleSelectResult(type, item);
+    closePaletteAndReset();
+  }, [closePaletteAndReset, handleSelectResult]);
+
+  const paletteItems = useMemo(() => {
+    const items: PaletteItem[] = [];
+
+    actionCommands.forEach((cmd) => {
+      items.push({
+        key: `command-${cmd.id}`,
+        onExecute: () => handleExecuteCommand(cmd.id)
+      });
+    });
+
+    navigationCommands.forEach((cmd) => {
+      items.push({
+        key: `command-${cmd.id}`,
+        onExecute: () => handleExecuteCommand(cmd.id)
+      });
+    });
+
+    if (searchQuery.length > 0 && hasResults) {
+      paletteSearchResults.forEach((comp) => {
+        items.push({
+          key: `search-comprobantes-${comp.id}`,
+          onExecute: () => handlePaletteResultSelect('comprobantes', comp)
+        });
+      });
+    }
+
+    return items;
+  }, [actionCommands, navigationCommands, searchQuery, hasResults, paletteSearchResults, handleExecuteCommand, handlePaletteResultSelect]);
+
+  const paletteIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    paletteItems.forEach((item, index) => {
+      map.set(item.key, index);
+    });
+    return map;
+  }, [paletteItems]);
+
+  useEffect(() => {
+    if (!showCommandPalette) {
+      setActiveIndex(-1);
+      lastQueryRef.current = '';
+      lastListSignatureRef.current = '';
+      return;
+    }
+
+    const signature = paletteItems.map(item => item.key).join('|');
+    const queryChanged = lastQueryRef.current !== searchQuery;
+    const listChanged = lastListSignatureRef.current !== signature;
+
+    lastQueryRef.current = searchQuery;
+    lastListSignatureRef.current = signature;
+
+    if (paletteItems.length === 0) {
+      setActiveIndex(-1);
+      return;
+    }
+
+    if (queryChanged || listChanged) {
+      setActiveIndex(0);
+      return;
+    }
+
+    setActiveIndex(prev => {
+      if (prev < 0) return 0;
+      if (prev >= paletteItems.length) return paletteItems.length - 1;
+      return prev;
+    });
+  }, [paletteItems, searchQuery, showCommandPalette]);
+
+  useEffect(() => {
+    if (!showCommandPalette || activeIndex < 0) {
+      return;
+    }
+    const activeItem = paletteItems[activeIndex];
+    if (!activeItem) {
+      return;
+    }
+    const node = paletteItemRefs.current[activeItem.key];
+    node?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, paletteItems, showCommandPalette]);
+
+  const handleCommandPaletteKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showCommandPalette || paletteItems.length === 0) {
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => {
+        if (paletteItems.length === 0) {
+          return -1;
+        }
+        if (prev === -1 || prev === paletteItems.length - 1) {
+          return 0;
+        }
+        return prev + 1;
+      });
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => {
+        if (paletteItems.length === 0) {
+          return -1;
+        }
+        if (prev <= 0) {
+          return paletteItems.length - 1;
+        }
+        return prev - 1;
+      });
+      return;
+    }
+
+    if (e.key === 'Enter' && activeIndex >= 0 && activeIndex < paletteItems.length) {
+      e.preventDefault();
+      paletteItems[activeIndex].onExecute();
+    }
+  }, [activeIndex, paletteItems, showCommandPalette]);
 
   return (
     <>
@@ -525,6 +682,7 @@ const SearchBar = () => {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={handleCommandPaletteKeyDown}
                       placeholder="Buscar o ejecutar comando..."
                       autoFocus
                       className="w-full pl-9 pr-4 py-3 bg-transparent text-sm focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg"
@@ -534,17 +692,27 @@ const SearchBar = () => {
 
                 <div className="max-h-96 overflow-y-auto">
                   {/* Comandos disponibles */}
-                  {filteredCommands.filter(c => c.categoria === 'acciones').length > 0 && (
+                  {actionCommands.length > 0 && (
                     <div className="p-3">
                       <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
                         Acciones
                       </div>
-                      {filteredCommands.filter(c => c.categoria === 'acciones').map((cmd) => {
+                      {actionCommands.map((cmd) => {
                         const IconComponent = cmd.icono || Search; // Fallback icon
+                        const itemKey = `command-${cmd.id}`;
+                        const itemIndex = paletteIndexMap.get(itemKey) ?? -1;
+                        const isActive = itemIndex === activeIndex;
+                        const itemClasses = `w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors ${
+                          isActive ? 'bg-gray-100 dark:bg-gray-700 ring-1 ring-blue-500/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`;
                         return (
                           <button
                             key={cmd.id}
-                            className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                            ref={(el) => {
+                              paletteItemRefs.current[itemKey] = el;
+                            }}
+                            data-key={itemKey}
+                            className={itemClasses}
                             onClick={() => handleExecuteCommand(cmd.id)}
                           >
                             <div className="flex items-center gap-3">
@@ -561,17 +729,27 @@ const SearchBar = () => {
                   )}
 
                   {/* Navegación */}
-                  {filteredCommands.filter(c => c.categoria === 'navegacion').length > 0 && (
+                  {navigationCommands.length > 0 && (
                     <div className="p-3 border-t border-gray-100 dark:border-gray-700">
                       <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
                         Ir a
                       </div>
-                      {filteredCommands.filter(c => c.categoria === 'navegacion').map((cmd) => {
+                      {navigationCommands.map((cmd) => {
                         const IconComponent = cmd.icono || Search; // Fallback icon
+                        const itemKey = `command-${cmd.id}`;
+                        const itemIndex = paletteIndexMap.get(itemKey) ?? -1;
+                        const isActive = itemIndex === activeIndex;
+                        const itemClasses = `w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors ${
+                          isActive ? 'bg-gray-100 dark:bg-gray-700 ring-1 ring-blue-500/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`;
                         return (
                           <button
                             key={cmd.id}
-                            className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                            ref={(el) => {
+                              paletteItemRefs.current[itemKey] = el;
+                            }}
+                            data-key={itemKey}
+                            className={itemClasses}
                             onClick={() => handleExecuteCommand(cmd.id)}
                           >
                             <div className="flex items-center gap-3">
@@ -595,23 +773,31 @@ const SearchBar = () => {
                           <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
                             Comprobantes
                           </div>
-                          {searchResults.comprobantes.slice(0, 3).map((comp) => (
-                            <button
-                              key={comp.id}
-                              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
-                              onClick={() => {
-                                handleSelectResult('comprobantes', comp);
-                                setShowCommandPalette(false);
-                                setCommandPaletteView('main');
-                              }}
-                            >
-                              <div>
-                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{comp.numero}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">{comp.cliente}</div>
-                              </div>
-                              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">S/ {comp.monto.toFixed(2)}</div>
-                            </button>
-                          ))}
+                          {paletteSearchResults.map((comp) => {
+                            const itemKey = `search-comprobantes-${comp.id}`;
+                            const itemIndex = paletteIndexMap.get(itemKey) ?? -1;
+                            const isActive = itemIndex === activeIndex;
+                            const itemClasses = `w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors ${
+                              isActive ? 'bg-gray-100 dark:bg-gray-700 ring-1 ring-blue-500/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`;
+                            return (
+                              <button
+                                key={comp.id}
+                                ref={(el) => {
+                                  paletteItemRefs.current[itemKey] = el;
+                                }}
+                                data-key={itemKey}
+                                className={itemClasses}
+                                onClick={() => handlePaletteResultSelect('comprobantes', comp)}
+                              >
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{comp.numero}</div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">{comp.cliente}</div>
+                                </div>
+                                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">S/ {comp.monto.toFixed(2)}</div>
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </>
