@@ -85,6 +85,21 @@ const removeDiacritics = (value: string) => value.normalize('NFD').replace(DIACR
 
 const normalizeValue = (value: string) => removeDiacritics(value).toLowerCase();
 
+const normalizeDocumentKey = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+const buildHaystackValue = (...values: Array<string | undefined | null>) =>
+  values
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .join(' ');
+
+const SECTION_ROUTE_MAP: Record<SearchResultCategory, string | null> = {
+  clientes: '/clientes',
+  productos: '/catalogo',
+  comprobantes: '/comprobantes',
+  cobranzas: '/cobranzas',
+};
+
 const tokenizeQuery = (value: string) => {
   const normalized = normalizeValue(value.trim());
   return normalized.length ? normalized.split(/\s+/).filter(Boolean) : [];
@@ -170,7 +185,9 @@ const buildSearchSection = <T,>(
       if (totalScore <= 0) {
         return null;
       }
-      const { searchFields: _searchFields, numericFields: _numericFields, ...display } = candidate;
+      const { searchFields: omitSearchFields, numericFields: omitNumericFields, ...display } = candidate;
+      void omitSearchFields;
+      void omitNumericFields;
       return {
         ...display,
         type,
@@ -247,6 +264,47 @@ const SearchBar = () => {
   const clienteFilters = useMemo<ClienteFilters>(() => ({ page: 1, limit: 100 }), []);
   const { clientes: persistedClientes, transientClientes } = useClientes(clienteFilters);
   const combinedClientes = useMemo(() => [...transientClientes, ...persistedClientes], [persistedClientes, transientClientes]);
+  const clienteById = useMemo(() => {
+    const map = new Map<string, Cliente>();
+    combinedClientes.forEach((cliente) => {
+      if (cliente.id !== undefined && cliente.id !== null) {
+        map.set(String(cliente.id), cliente);
+      }
+    });
+    return map;
+  }, [combinedClientes]);
+  const clienteByDocument = useMemo(() => {
+    const map = new Map<string, Cliente>();
+    combinedClientes.forEach((cliente) => {
+      const documentValue = cliente.numeroDocumento || cliente.document;
+      if (documentValue) {
+        map.set(normalizeDocumentKey(documentValue), cliente);
+      }
+    });
+    return map;
+  }, [combinedClientes]);
+  const resolveClienteReference = useCallback(
+    (reference?: { id?: string | null; document?: string | null }) => {
+      if (!reference) {
+        return undefined;
+      }
+      if (reference.id) {
+        const byId = clienteById.get(String(reference.id));
+        if (byId) {
+          return byId;
+        }
+      }
+      if (reference.document) {
+        const normalized = normalizeDocumentKey(reference.document);
+        const byDoc = clienteByDocument.get(normalized);
+        if (byDoc) {
+          return byDoc;
+        }
+      }
+      return undefined;
+    },
+    [clienteByDocument, clienteById]
+  );
   const { state: comprobanteState } = useComprobanteContext();
   const comprobantes = comprobanteState.comprobantes;
   const { cuentas } = useCobranzasContext();
@@ -390,6 +448,21 @@ const SearchBar = () => {
         { value: cliente.phone, weight: 80 },
         { value: cliente.address ?? cliente.direccion, weight: 70 },
         { value: cliente.additionalData ?? cliente.observaciones, weight: 50 },
+        {
+          value: buildHaystackValue(
+            cliente.name,
+            cliente.razonSocial,
+            cliente.nombreCompleto,
+            cliente.nombreComercial,
+            cliente.document,
+            cliente.numeroDocumento,
+            cliente.email,
+            cliente.phone,
+            cliente.address ?? cliente.direccion,
+            cliente.additionalData ?? cliente.observaciones
+          ),
+          weight: 60,
+        },
       ],
     }));
 
@@ -410,35 +483,99 @@ const SearchBar = () => {
         { value: producto.categoria, weight: 90 },
         { value: producto.marca, weight: 90 },
         { value: producto.modelo, weight: 90 },
+        { value: producto.codigoBarras, weight: 100 },
+        { value: producto.codigoFabrica, weight: 90 },
+        { value: producto.codigoSunat, weight: 90 },
+        {
+          value: buildHaystackValue(
+            producto.nombre,
+            producto.codigo,
+            producto.alias,
+            producto.descripcion,
+            producto.categoria,
+            producto.marca,
+            producto.modelo,
+            producto.codigoBarras,
+            producto.codigoFabrica,
+            producto.codigoSunat
+          ),
+          weight: 70,
+        },
       ],
       numericFields: [{ value: producto.precio, weight: 90 }],
     }));
 
-    const comprobantesSection = buildSearchSection('comprobantes', comprobantes, queryTokens, numericQuery, (comp) => ({
-      id: comp.id,
-      entity: comp,
-      title: comp.type ? `${comp.type} · ${comp.id}` : comp.id,
-      subtitle: comp.client,
-      meta: comp.clientDoc || comp.vendor || comp.status,
-      amountLabel: 'Total',
-      amountValue: comp.total,
-      amountCurrency: comp.currency,
-      searchFields: [
-        { value: comp.id, weight: 170, isKey: true },
-        { value: comp.type, weight: 150, isKey: true },
-        { value: comp.client, weight: 140, isKey: true },
-        { value: comp.clientDoc, weight: 140, isKey: true },
-        { value: comp.vendor, weight: 90 },
-        { value: comp.status, weight: 80 },
-      ],
-      numericFields: [{ value: comp.total, weight: 100 }],
-    }));
+    const comprobantesSection = buildSearchSection('comprobantes', comprobantes, queryTokens, numericQuery, (comp) => {
+      const compWithCliente = comp as Comprobante & { clienteId?: string | null; clientId?: string | null };
+      const relatedCliente = resolveClienteReference({
+        id: compWithCliente.clienteId ?? compWithCliente.clientId ?? null,
+        document: comp.clientDoc,
+      });
+      const clienteNombre =
+        comp.client ||
+        relatedCliente?.nombreCompleto ||
+        relatedCliente?.razonSocial ||
+        relatedCliente?.name ||
+        relatedCliente?.nombreComercial;
+      const clienteDocumento =
+        comp.clientDoc ||
+        relatedCliente?.numeroDocumento ||
+        relatedCliente?.document ||
+        undefined;
+      const contacto = relatedCliente?.email || relatedCliente?.phone || comp.email;
+      const serieNumero = comp.id;
+      const haystack = buildHaystackValue(
+        serieNumero,
+        comp.type,
+        clienteNombre,
+        clienteDocumento,
+        comp.vendor,
+        contacto,
+        comp.status,
+        comp.paymentMethod,
+        comp.address,
+        comp.observations,
+        comp.purchaseOrder,
+        comp.waybill
+      );
+      const metaPrimary = [clienteDocumento, comp.status, comp.currency].filter(Boolean).join(' • ');
+
+      return {
+        id: serieNumero,
+        entity: comp,
+        title: comp.type ? `${comp.type} · ${serieNumero}` : serieNumero,
+        subtitle: clienteNombre,
+        meta: metaPrimary || comp.vendor || contacto,
+        amountLabel: 'Total',
+        amountValue: comp.total,
+        amountCurrency: comp.currency,
+        searchFields: [
+          { value: serieNumero, weight: 180, isKey: true },
+          { value: comp.type, weight: 160, isKey: true },
+          { value: clienteNombre, weight: 150, isKey: true },
+          { value: clienteDocumento, weight: 150, isKey: true },
+          { value: relatedCliente?.nombreComercial, weight: 110 },
+          { value: comp.vendor, weight: 90 },
+          { value: contacto, weight: 85 },
+          { value: comp.status, weight: 80 },
+          { value: comp.paymentMethod, weight: 70 },
+          { value: comp.address, weight: 60 },
+          { value: comp.observations, weight: 50 },
+          { value: comp.purchaseOrder, weight: 60 },
+          { value: comp.waybill, weight: 60 },
+          { value: comp.email, weight: 70 },
+          { value: haystack, weight: 65 },
+        ],
+        numericFields: [{ value: comp.total, weight: 100 }],
+      } satisfies SearchCandidate<Comprobante>;
+    });
 
     const cobranzasSection = buildSearchSection('cobranzas', cuentas, queryTokens, numericQuery, (cuenta) => {
       const serieNumero = cuenta.comprobanteSerie && cuenta.comprobanteNumero
         ? `${cuenta.comprobanteSerie}-${cuenta.comprobanteNumero}`
         : cuenta.comprobanteNumero || cuenta.comprobanteId;
       const metaPrimary = [cuenta.clienteDocumento, cuenta.estado?.toUpperCase()].filter(Boolean).join(' • ');
+      const relatedCliente = resolveClienteReference({ document: cuenta.clienteDocumento });
       const metrics: string[] = [];
       if (typeof cuenta.total === 'number') {
         metrics.push(`Total ${formatCurrency(cuenta.total, cuenta.moneda)}`);
@@ -446,13 +583,26 @@ const SearchBar = () => {
       if (typeof cuenta.cobrado === 'number') {
         metrics.push(`Cobrado ${formatCurrency(cuenta.cobrado, cuenta.moneda)}`);
       }
+      const contactoCliente = relatedCliente?.email || relatedCliente?.phone;
+      const haystack = buildHaystackValue(
+        cuenta.clienteNombre,
+        cuenta.clienteDocumento,
+        serieNumero,
+        cuenta.tipoComprobante,
+        cuenta.estado,
+        cuenta.formaPago,
+        cuenta.moneda,
+        cuenta.sucursal,
+        cuenta.cajero,
+        contactoCliente
+      );
 
       return {
         id: cuenta.id,
         entity: cuenta,
         title: serieNumero || `Cuenta ${cuenta.id}`,
         subtitle: cuenta.clienteNombre,
-        meta: [metaPrimary, metrics.join(' · ')].filter(Boolean).join(' · ') || undefined,
+        meta: [metaPrimary, metrics.join(' · '), contactoCliente].filter(Boolean).join(' · ') || undefined,
         amountLabel: 'Saldo',
         amountValue: cuenta.saldo,
         amountCurrency: cuenta.moneda,
@@ -464,6 +614,12 @@ const SearchBar = () => {
           { value: cuenta.estado, weight: 110, isKey: true },
           { value: cuenta.sucursal, weight: 70 },
           { value: cuenta.cajero, weight: 60 },
+          { value: cuenta.formaPago, weight: 80 },
+          { value: cuenta.moneda, weight: 70 },
+          { value: cuenta.fechaEmision, weight: 60 },
+          { value: cuenta.fechaVencimiento, weight: 60 },
+          { value: contactoCliente, weight: 75 },
+          { value: haystack, weight: 65 },
         ],
         numericFields: [
           { value: cuenta.total, weight: 100 },
@@ -479,7 +635,7 @@ const SearchBar = () => {
       clientes: clientesSection,
       cobranzas: cobranzasSection,
     };
-  }, [shouldSearch, combinedClientes, cuentas, queryTokens, numericQuery, productosCatalog, comprobantes]);
+  }, [shouldSearch, combinedClientes, cuentas, queryTokens, numericQuery, productosCatalog, comprobantes, resolveClienteReference]);
 
   const totalResultsCount =
     searchResults.comprobantes.total +
@@ -517,27 +673,16 @@ const SearchBar = () => {
   }, [searchQuery]);
 
   const handleSeeAll = useCallback((type: SearchResultCategory) => {
+    const baseRoute = SECTION_ROUTE_MAP[type];
+    if (!baseRoute) {
+      return;
+    }
     const queryValue = searchQuery.trim();
     if (!queryValue) {
       return;
     }
     const queryString = buildQueryString({ search: queryValue });
-    switch (type) {
-      case 'clientes':
-        navigate(`/clientes${queryString}`);
-        break;
-      case 'productos':
-        navigate(`/catalogo${queryString}`);
-        break;
-      case 'comprobantes':
-        navigate(`/comprobantes${queryString}`);
-        break;
-      case 'cobranzas':
-        navigate(`/cobranzas${queryString}`);
-        break;
-      default:
-        break;
-    }
+    navigate(`${baseRoute}${queryString}`);
     setShowSearchResults(false);
   }, [navigate, searchQuery]);
 
@@ -967,7 +1112,7 @@ const SearchBar = () => {
               <div className="p-2">
                 <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
                   <span>Comprobantes</span>
-                  {searchResults.comprobantes.hasMore && (
+                  {searchResults.comprobantes.hasMore && SECTION_ROUTE_MAP.comprobantes && (
                     <button
                       type="button"
                       className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
@@ -1026,7 +1171,7 @@ const SearchBar = () => {
               <div className="p-2 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
                   <span>Productos</span>
-                  {searchResults.productos.hasMore && (
+                  {searchResults.productos.hasMore && SECTION_ROUTE_MAP.productos && (
                     <button
                       type="button"
                       className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
@@ -1085,7 +1230,7 @@ const SearchBar = () => {
               <div className="p-2 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
                   <span>Clientes</span>
-                  {searchResults.clientes.hasMore && (
+                  {searchResults.clientes.hasMore && SECTION_ROUTE_MAP.clientes && (
                     <button
                       type="button"
                       className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
@@ -1127,7 +1272,7 @@ const SearchBar = () => {
               <div className="p-2 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
                   <span>Cobranzas</span>
-                  {searchResults.cobranzas.hasMore && (
+                  {searchResults.cobranzas.hasMore && SECTION_ROUTE_MAP.cobranzas && (
                     <button
                       type="button"
                       className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
