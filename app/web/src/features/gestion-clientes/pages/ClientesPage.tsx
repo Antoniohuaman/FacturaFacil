@@ -22,6 +22,7 @@ import {
 	parseLegacyDocumentString,
 } from '../utils/documents';
 import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
+import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
 
 type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
 
@@ -338,6 +339,7 @@ const filterClientesList = (clients: Cliente[], filters: ClientesFilterValues): 
 };
 
 function ClientesPage() {
+	useFocusFromQuery();
 	const { showToast } = useCaja();
 			const { clientes, transientClientes, transientCount, clearTransientClientes, createCliente, updateCliente, deleteCliente, loading, pagination, fetchClientes } = useClientes();
 			const combinedClients = useMemo(() => [...clientes, ...transientClientes], [clientes, transientClientes]);

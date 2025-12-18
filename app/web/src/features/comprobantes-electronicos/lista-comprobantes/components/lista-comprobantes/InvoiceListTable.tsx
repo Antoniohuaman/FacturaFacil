@@ -309,6 +309,7 @@ export const InvoiceListTable = ({
 						) : (
 							invoices.map((invoice) => (
 								<tr
+									data-focus={`comprobantes:${invoice.id}`}
 									key={invoice.id}
 									className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
 										selection.isSelected(invoice.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''

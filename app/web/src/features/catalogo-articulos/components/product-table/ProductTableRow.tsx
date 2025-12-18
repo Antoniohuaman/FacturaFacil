@@ -46,6 +46,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
 }) => {
   return (
     <tr
+      data-focus={`productos:${row.id}`}
       className={`
         hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors
         ${selected ? 'bg-red-50 dark:bg-red-900/20' : ''}

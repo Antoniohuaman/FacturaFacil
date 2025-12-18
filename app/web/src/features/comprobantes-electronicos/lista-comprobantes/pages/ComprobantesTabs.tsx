@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import DraftInvoicesModule from './ListaBorradores';
 import InvoiceListDashboard from './ListaComprobantes';
 import { PageHeader } from '../../../../components/PageHeader';
+import { useFocusFromQuery } from '../../../../hooks/useFocusFromQuery';
 
 const ComprobantesTabs: React.FC = () => {
+  useFocusFromQuery();
   const [activeTab, setActiveTab] = useState<'comprobantes' | 'borradores'>('comprobantes');
 
   // Escuchar evento global para mostrar la pestaña de borradores

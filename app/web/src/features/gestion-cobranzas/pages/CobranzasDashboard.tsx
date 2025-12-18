@@ -23,6 +23,7 @@ import { HistorialCobranzaModal } from '../components/HistorialCobranzaModal';
 import { SeleccionarCuentaModal } from '../components/SeleccionarCuentaModal';
 import { useCobranzasDashboard } from '../hooks/useCobranzasDashboard';
 import type { CobranzaDocumento, CuentaPorCobrarSummary, CobranzaTabKey } from '../models/cobranzas.types';
+import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
 
 const resolveTipoComprobante = (label?: string): TipoComprobante => {
   if (!label) {
@@ -32,6 +33,7 @@ const resolveTipoComprobante = (label?: string): TipoComprobante => {
 };
 
 export const CobranzasDashboard = () => {
+  useFocusFromQuery();
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = (location.state as { defaultTab?: CobranzaTabKey; highlightCuentaId?: string } | null) ?? null;

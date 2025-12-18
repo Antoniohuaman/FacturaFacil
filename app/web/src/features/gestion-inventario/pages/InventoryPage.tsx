@@ -13,6 +13,7 @@ import InventarioSituacionPage from '../components/disponibilidad/InventarioSitu
 import { PageHeader } from '../../../components/PageHeader';
 import * as XLSX from 'xlsx';
 import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
 
 const formatMovementTimestamp = (value: Date | string): string => {
   const date = value instanceof Date ? value : new Date(value);
@@ -27,6 +28,7 @@ const formatMovementTimestamp = (value: Date | string): string => {
  * Gestiona todo el control de stock, movimientos, alertas y transferencias
  */
 export const InventoryPage: React.FC = () => {
+  useFocusFromQuery();
   const {
     // Estados
     selectedView,

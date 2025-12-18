@@ -152,6 +152,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
           {datos.map((item, index) => (
             <tr
               key={`${item.productoId}-${index}`}
+              data-focus={`inventario:sku:${item.sku ?? item.productoId ?? index}`}
               className="hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors duration-150"
             >
               {/* Código - STICKY */}

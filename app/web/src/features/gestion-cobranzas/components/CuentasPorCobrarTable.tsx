@@ -81,9 +81,11 @@ export const CuentasPorCobrarTable = ({
           {hasData ? data.map((cuenta) => {
             const installmentStats = resolveInstallmentStats(cuenta);
             const isHighlighted = Boolean(highlightId && highlightId === cuenta.id);
+            const focusId = cuenta.id || cuenta.comprobanteId || `${cuenta.comprobanteSerie}-${cuenta.comprobanteNumero}` || 'sin-id';
             return (
               <tr
                 key={cuenta.id}
+                data-focus={`cobranzas:${focusId}`}
                 className={`hover:bg-slate-50/70 dark:hover:bg-gray-900/40 transition-colors ${
                   isHighlighted ? 'bg-blue-50/80 dark:bg-blue-900/30 ring-2 ring-blue-200 dark:ring-blue-800' : ''
                 }`}

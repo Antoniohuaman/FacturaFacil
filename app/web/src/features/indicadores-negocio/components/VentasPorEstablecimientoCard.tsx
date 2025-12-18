@@ -19,7 +19,7 @@ const VentasPorEstablecimientoCard: React.FC<VentasPorEstablecimientoCardProps> 
           <p className="text-sm text-gray-500 dark:text-gray-400">No hay establecimientos con ventas registradas en este periodo.</p>
         ) : (
           data.map((tienda) => (
-            <div key={tienda.id}>
+            <div key={tienda.id} data-focus={`indicadores:establecimiento:${tienda.id}`}>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className={`h-3 w-3 rounded-full inline-block ${tienda.colorClass}`}></span>

@@ -10,49 +10,70 @@ interface RankingCardProps {
   footer?: ReactNode;
 }
 
-const RankingCard: React.FC<RankingCardProps> = ({ title, icon, items, valueFormatter, footer }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-0">
-    <div className="flex items-center justify-between px-6 pt-6 pb-2">
-      <div className="flex items-center gap-2">
-        <span className="text-lg text-gray-700 dark:text-gray-300">{icon}</span>
-        <span className="font-semibold text-gray-900 dark:text-gray-100">{title}</span>
+const RankingCard: React.FC<RankingCardProps> = ({ title, icon, items, valueFormatter, footer }) => {
+  const titleSlug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-|-$/g, '') || 'ranking';
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-0">
+      <div className="flex items-center justify-between px-6 pt-6 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-lg text-gray-700 dark:text-gray-300">{icon}</span>
+          <span className="font-semibold text-gray-900 dark:text-gray-100">{title}</span>
+        </div>
+        <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">Montos</span>
       </div>
-      <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">Montos</span>
-    </div>
-    <div className="px-6 pb-4">
-      {items.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400 py-3">Sin datos disponibles para este ranking.</p>
-      ) : (
-        items.map((item, index) => (
-          <div key={item.id} className="flex items-center justify-between py-2">
-            <div className="flex items-center gap-3">
-              <div
-                className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-white ${index === 0 ? 'bg-blue-700' : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
-              >
-                {index + 1}
-              </div>
-              <div>
-                <div className="font-semibold text-gray-900 dark:text-gray-100">{item.name}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {item.info}
-                  <span
-                    className={`font-semibold ml-1 ${item.trend === 'up' ? 'text-green-600' : 'text-red-500'}`}
-                    aria-label={item.trend === 'up' ? 'Tendencia al alza' : 'Tendencia a la baja'}
-                  >
-                    {formatPercentage(item.changePercentage)}
-                  </span>
+      <div className="px-6 pb-4">
+        {items.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 py-3">
+            Sin datos disponibles para este ranking.
+          </p>
+        ) : (
+          items.map((item, index) => (
+            <div
+              key={item.id}
+              data-focus={`indicadores:ranking:${titleSlug}:${item.id}`}
+              className="flex items-center justify-between py-2"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-white ${
+                    index === 0
+                      ? 'bg-blue-700'
+                      : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  {index + 1}
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900 dark:text-gray-100">{item.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {item.info}
+                    <span
+                      className={`font-semibold ml-1 ${item.trend === 'up' ? 'text-green-600' : 'text-red-500'}`}
+                      aria-label={item.trend === 'up' ? 'Tendencia al alza' : 'Tendencia a la baja'}
+                    >
+                      {formatPercentage(item.changePercentage)}
+                    </span>
+                  </div>
                 </div>
               </div>
+              <div className="font-semibold text-gray-900 dark:text-gray-100">
+                {valueFormatter ? valueFormatter(item.amount, item) : formatCurrency(item.amount)}
+              </div>
             </div>
-            <div className="font-semibold text-gray-900 dark:text-gray-100">
-              {valueFormatter ? valueFormatter(item.amount, item) : formatCurrency(item.amount)}
-            </div>
-          </div>
-        ))
-      )}
+          ))
+        )}
+      </div>
+      {footer ? (
+        <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">
+          {footer}
+        </div>
+      ) : null}
     </div>
-    {footer ? <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">{footer}</div> : null}
-  </div>
-);
+  );
+};
 
 export default RankingCard;

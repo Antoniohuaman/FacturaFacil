@@ -411,6 +411,74 @@ const slugify = (value: string) =>
     .replace(/^-+|-+$/g, '')
     || 'detalle';
 
+const coerceFocusId = (...values: Array<string | number | null | undefined>) => {
+  for (const value of values) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    const stringValue = String(value).trim();
+    if (stringValue) {
+      return stringValue;
+    }
+  }
+  return undefined;
+};
+
+const buildFocusParamValue = (type: SearchResultCategory, entity: SearchEntity): string | undefined => {
+  switch (type) {
+    case 'clientes': {
+      const cliente = entity as Cliente;
+      const id = coerceFocusId(cliente.id, cliente.numeroDocumento, cliente.document) ?? 'sin-id';
+      return `clientes:${id}`;
+    }
+    case 'productos': {
+      const producto = entity as Product;
+      const id = coerceFocusId(producto.id, producto.codigo) ?? 'sin-id';
+      return `productos:${id}`;
+    }
+    case 'comprobantes': {
+      const comprobante = entity as Comprobante;
+      const id = coerceFocusId(comprobante.id, comprobante.clientDoc, comprobante.client) ?? 'sin-id';
+      return `comprobantes:${id}`;
+    }
+    case 'cobranzas': {
+      const cobranza = entity as CuentaPorCobrarSummary;
+      const serieNumero = cobranza.comprobanteSerie && cobranza.comprobanteNumero
+        ? `${cobranza.comprobanteSerie}-${cobranza.comprobanteNumero}`
+        : cobranza.comprobanteNumero;
+      const id = coerceFocusId(cobranza.id, cobranza.comprobanteId, serieNumero) ?? 'sin-id';
+      return `cobranzas:${id}`;
+    }
+    case 'inventario': {
+      const inventoryEntry = entity as InventorySearchEntity;
+      const id = coerceFocusId(inventoryEntry.product.id, inventoryEntry.product.codigo) ?? 'sin-id';
+      return `inventario:${id}`;
+    }
+    case 'indicadores': {
+      const indicador = entity as IndicadorSearchEntity;
+      const baseLabel = slugify(indicador.label || indicador.context || 'indicador');
+      const context = indicador.context ? `-${slugify(indicador.context)}` : '';
+      return `indicadores:${baseLabel}${context}`;
+    }
+    case 'caja': {
+      const cajaEntry = entity as CajaSearchEntity;
+      if (cajaEntry.tipo === 'movimiento') {
+        const id = coerceFocusId(cajaEntry.movimiento?.id, cajaEntry.movimiento?.referencia) ?? 'sin-id';
+        return `caja:mov:${id}`;
+      }
+      const label = slugify(cajaEntry.resumenLabel || 'resumen');
+      return `caja:resumen:${label}`;
+    }
+    case 'listaPrecios': {
+      const priceEntry = entity as ListaPrecioSearchEntity;
+      const id = coerceFocusId(priceEntry.sku, priceEntry.productName, priceEntry.columnId) ?? 'sin-id';
+      return `listaPrecios:${id}`;
+    }
+    default:
+      return undefined;
+  }
+};
+
 const formatCurrency = (value?: number, currency?: string) => {
   if (typeof value !== 'number' || Number.isNaN(value)) {
     return `${currency ?? 'S/'} 0.00`;
@@ -1465,6 +1533,7 @@ const SearchBar = () => {
   const handleSelectResult = useCallback(
     (type: SearchResultCategory, item: SearchEntity) => {
       const queryValue = searchQuery.trim();
+      const focusParam = buildFocusParamValue(type, item);
 
       const closeSearch = () => {
         setShowSearchResults(false);
@@ -1474,20 +1543,22 @@ const SearchBar = () => {
       switch (type) {
         case 'clientes': {
           const cliente = item as Cliente;
-          if (cliente.id) {
-            const label = cliente.nombreCompleto || cliente.name || cliente.razonSocial || 'cliente';
-            const slug = slugify(label);
-            navigate(`/clientes/${cliente.id}/${slug}`);
-          } else {
-            const searchParam = queryValue || cliente.document || cliente.numeroDocumento || cliente.name;
-            navigate(`/clientes${buildQueryString({ search: searchParam })}`);
+          const searchParam = queryValue || cliente.document || cliente.numeroDocumento || cliente.name;
+          const params: Record<string, string | undefined> = { search: searchParam };
+          if (focusParam) {
+            params.focus = focusParam;
           }
+          navigate(`/clientes${buildQueryString(params)}`);
           break;
         }
         case 'productos': {
           const producto = item as Product;
           const searchParam = queryValue || producto.codigo || producto.nombre;
-          navigate(`/catalogo${buildQueryString({ search: searchParam })}`);
+          const params: Record<string, string | undefined> = { search: searchParam };
+          if (focusParam) {
+            params.focus = focusParam;
+          }
+          navigate(`/catalogo${buildQueryString(params)}`);
           break;
         }
         case 'comprobantes': {
@@ -1498,7 +1569,11 @@ const SearchBar = () => {
             comprobante.client ||
             comprobante.clientDoc ||
             comprobante.type;
-          navigate(`/comprobantes${buildQueryString({ search: searchParam })}`);
+          const params: Record<string, string | undefined> = { search: searchParam };
+          if (focusParam) {
+            params.focus = focusParam;
+          }
+          navigate(`/comprobantes${buildQueryString(params)}`);
           break;
         }
         case 'cobranzas': {
@@ -1507,19 +1582,34 @@ const SearchBar = () => {
             ? `${cobranza.comprobanteSerie}-${cobranza.comprobanteNumero}`
             : cobranza.comprobanteNumero || cobranza.comprobanteId;
           const searchParam = queryValue || cobranza.clienteDocumento || cobranza.clienteNombre || serieNumero;
-          navigate(`/cobranzas${buildQueryString({ search: searchParam, cuentaId: cobranza.id })}`);
+          const params: Record<string, string | undefined> = {
+            search: searchParam,
+            cuentaId: cobranza.id,
+          };
+          if (focusParam) {
+            params.focus = focusParam;
+          }
+          navigate(`/cobranzas${buildQueryString(params)}`);
           break;
         }
         case 'inventario': {
           const inventoryEntry = item as InventorySearchEntity;
           const searchParam = queryValue || inventoryEntry.product.codigo || inventoryEntry.product.nombre;
-          navigate(`/inventario${buildQueryString({ q: searchParam })}`);
+          const params: Record<string, string | undefined> = { q: searchParam };
+          if (focusParam) {
+            params.focus = focusParam;
+          }
+          navigate(`/inventario${buildQueryString(params)}`);
           break;
         }
         case 'indicadores': {
           const indicador = item as IndicadorSearchEntity;
           const searchParam = queryValue || indicador.label;
-          navigate(`/indicadores${buildQueryString({ q: searchParam })}`);
+          const params: Record<string, string | undefined> = { q: searchParam };
+          if (focusParam) {
+            params.focus = focusParam;
+          }
+          navigate(`/indicadores${buildQueryString(params)}`);
           break;
         }
         case 'caja': {
@@ -1530,14 +1620,29 @@ const SearchBar = () => {
             cajaEntry.movimiento?.referencia ||
             cajaEntry.movimiento?.id ||
             cajaEntry.resumenLabel;
-          const queryString = fallbackParam ? buildQueryString({ q: fallbackParam }) : '';
+          const params: Record<string, string | undefined> = {};
+          if (fallbackParam) {
+            params.q = fallbackParam;
+          }
+          if (focusParam) {
+            params.focus = focusParam;
+          }
+          const queryString = buildQueryString(params);
           navigate(`/control-caja${queryString}`);
           break;
         }
         case 'listaPrecios': {
           const priceEntry = item as ListaPrecioSearchEntity;
           const searchParam = queryValue || priceEntry.sku || priceEntry.productName;
-          const queryString = buildQueryString({ q: searchParam, columnId: priceEntry.columnId, unit: priceEntry.unitCode });
+          const params: Record<string, string | undefined> = {
+            q: searchParam,
+            columnId: priceEntry.columnId,
+            unit: priceEntry.unitCode,
+          };
+          if (focusParam) {
+            params.focus = focusParam;
+          }
+          const queryString = buildQueryString(params);
           navigate(`/lista-precios${queryString}`);
           break;
         }

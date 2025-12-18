@@ -947,7 +947,11 @@ export function EstablishmentsConfiguration() {
         ) : (
           <div className="divide-y divide-gray-200">
             {filteredEstablishments.map((establishment) => (
-              <div key={establishment.id} className="p-6 hover:bg-gray-50 transition-colors">
+              <div
+                key={establishment.id}
+                data-focus={`configuracion:establecimientos:${establishment.id}`}
+                className="p-6 hover:bg-gray-50 transition-colors"
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-3">

@@ -7,8 +7,10 @@ import TabNavigation from '../components/TabNavigation';
 import ProductsPage from './ProductsPage';
 import ImportPage from './ImportPage';
 import { useProductStore } from '../hooks/useProductStore';
+import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
 
 const CatalogoArticulosMain: React.FC = () => {
+  useFocusFromQuery();
   const [activeTab, setActiveTab] = useState<TabKey>('productos');
   const { allProducts } = useProductStore();
 

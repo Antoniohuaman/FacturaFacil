@@ -197,7 +197,11 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
               </tr>
             ) : (
               paginatedMovimientos.map((movimiento) => (
-                <tr key={movimiento.id} className="hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors duration-150">
+                <tr
+                  key={movimiento.id}
+                  data-focus={`inventario:movimiento:${movimiento.id}`}
+                  className="hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors duration-150"
+                >
                   <td className="px-4 py-2.5 whitespace-nowrap">
                     <div className="text-sm text-[#4B5563] dark:text-gray-400">{formatDate(movimiento.fecha)}</div>
                   </td>

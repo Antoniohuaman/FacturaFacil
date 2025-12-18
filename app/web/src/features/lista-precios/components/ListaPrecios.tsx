@@ -9,10 +9,12 @@ import { ImportPricesTab } from './ImportPricesTab';
 import { ColumnModal } from './modals/ColumnModal';
 import { PriceModal } from './modals/PriceModal';
 import { isFixedColumn } from '../utils/priceHelpers';
+import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
 
 type TabType = 'columns' | 'products' | 'packages' | 'import';
 
 export const ListaPrecios: React.FC = () => {
+  useFocusFromQuery();
   // Estado local solo para el tab de Paquetes (que no está en el hook)
   const [packagesTabActive, setPackagesTabActive] = useState(false);
 

@@ -434,6 +434,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                   const numeroDoc = extractDocumentNumber(client.document);
                   const direccion = client.address === 'Sin dirección' ? '-' : client.address;
                   const avatarUrl = getClienteAvatarUrl(client.imagenes);
+                  const focusKey = client.id ?? client.numeroDocumento ?? client.document ?? 'sin-id';
                   
                   // Actividad económica principal (si existe)
                   const actividadPrincipal = client.actividadesEconomicas?.find(a => a.esPrincipal) 
@@ -442,6 +443,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                   return (
                     <tr 
                       key={client.id} 
+                      data-focus={`clientes:${String(focusKey)}`}
                       className={!client.enabled ? 'row-disabled' : ''}
                       onClick={() => handleEdit(client)}
                     >

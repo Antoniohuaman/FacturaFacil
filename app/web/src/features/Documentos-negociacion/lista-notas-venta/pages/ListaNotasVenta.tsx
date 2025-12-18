@@ -507,6 +507,7 @@ const ListaNotasVenta = () => {
                     paginatedDocs.map(doc => (
                       <tr 
                         key={doc.id} 
+                        data-focus={`documentos:notaventa:${doc.id}`}
                         className={`${rowHeight} hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer`}
                         onClick={(e) => {
                           // No abrir drawer si se hace click en checkbox o botones de acción

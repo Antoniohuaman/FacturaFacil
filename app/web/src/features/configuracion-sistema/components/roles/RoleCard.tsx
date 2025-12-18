@@ -80,6 +80,7 @@ const PERMISSION_TRANSLATIONS: Record<string, string> = {
 
 export function RoleCard({ role, employeeCount = 0 }: RoleCardProps) {
   const [showPermissions, setShowPermissions] = useState(false);
+  const roleFocusId = role.id ?? role.name ?? 'rol-sin-id';
 
   const getLevelColor = (level?: Role['level']) => {
     if (!level) return 'gray';
@@ -177,7 +178,10 @@ export function RoleCard({ role, employeeCount = 0 }: RoleCardProps) {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
+    <div
+      className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+      data-focus={`configuracion:roles:${roleFocusId}`}
+    >
       {/* Header */}
       <div className="p-6">
         <div className="flex items-start justify-between mb-4">

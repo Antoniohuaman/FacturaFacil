@@ -206,7 +206,10 @@ export const ProductPricingTable: React.FC<ProductPricingTableProps> = ({
         <tbody>
           {paginatedProducts.map((product) => (
             <React.Fragment key={product.sku}>
-              <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+              <tr
+                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                data-focus={`listaPrecios:producto:${product.sku}`}
+              >
                 <td className="py-1.5 px-2 text-center align-middle">
                   <button
                     type="button"

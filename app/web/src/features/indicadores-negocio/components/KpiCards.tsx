@@ -14,7 +14,10 @@ const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails }) => {
   return (
     <div className="relative mb-5">
       <div className="flex flex-nowrap gap-3 md:gap-4 overflow-x-auto lg:overflow-visible pb-2 snap-x snap-mandatory lg:snap-none">
-        <div className={`${cardBase} bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30`}>
+        <div
+          className={`${cardBase} bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30`}
+          data-focus="indicadores:kpi:ventas"
+        >
           <div className="flex items-center justify-between mb-2">
             <div className="p-2.5 bg-blue-200 dark:bg-blue-800 rounded-lg">
               <ShoppingCart className="h-5 w-5 text-blue-800 dark:text-blue-200" />
@@ -28,7 +31,10 @@ const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails }) => {
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-auto">Periodo seleccionado</p>
         </div>
 
-        <div className={`${cardBase} bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800/30`}>
+        <div
+          className={`${cardBase} bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800/30`}
+          data-focus="indicadores:kpi:clientes"
+        >
           <div className="flex items-center justify-between mb-2">
             <div className="p-2.5 bg-green-200 dark:bg-green-800 rounded-lg">
               <Users className="h-5 w-5 text-green-800 dark:text-green-200" />
@@ -42,7 +48,10 @@ const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails }) => {
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-auto">este mes</p>
         </div>
 
-        <div className={`${cardBase} bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-800/30`}>
+        <div
+          className={`${cardBase} bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-800/30`}
+          data-focus="indicadores:kpi:comprobantes"
+        >
           <div className="flex items-center justify-between mb-2">
             <div className="p-2.5 bg-purple-200 dark:bg-purple-800 rounded-lg">
               <DollarSign className="h-5 w-5 text-purple-800 dark:text-purple-200" />
@@ -56,7 +65,10 @@ const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails }) => {
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-auto">En este periodo</p>
         </div>
 
-        <div className={`${cardBase} bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800/30`}>
+        <div
+          className={`${cardBase} bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800/30`}
+          data-focus="indicadores:kpi:crecimiento"
+        >
           <div className="flex items-center justify-between mb-2">
             <div className="p-2.5 bg-orange-200 dark:bg-orange-800 rounded-lg">
               <TrendingUp className="h-5 w-5 text-orange-800 dark:text-orange-200" />
@@ -79,7 +91,10 @@ const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails }) => {
           </div>
         </div>
 
-        <div className={`${cardBase} bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700`}>
+        <div
+          className={`${cardBase} bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700`}
+          data-focus="indicadores:kpi:ticket"
+        >
           <div className="flex items-center justify-between mb-2">
             <div className="p-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
               <Ticket className="h-5 w-5 text-gray-700 dark:text-gray-200" />
@@ -95,7 +110,10 @@ const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails }) => {
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-auto">Comprobantes emitidos: {data.comprobantesEmitidos.toLocaleString()}</p>
         </div>
 
-        <div className={`${cardBase} bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/40`}>
+        <div
+          className={`${cardBase} bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/40`}
+          data-focus="indicadores:kpi:anulaciones"
+        >
           <div className="flex items-center justify-between mb-2">
             <div className="p-2.5 bg-rose-200 dark:bg-rose-800 rounded-lg">
               <Ban className="h-5 w-5 text-rose-800 dark:text-rose-200" />

@@ -862,6 +862,7 @@ export function SeriesConfiguration() {
                     return (
                       <div
                         key={seriesItem.id}
+                        data-focus={`configuracion:series:${seriesItem.id}`}
                         className={`
                           border-2 rounded-lg p-4 transition-all
                           ${seriesItem.isActive 

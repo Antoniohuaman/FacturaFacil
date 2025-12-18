@@ -150,10 +150,13 @@ export function EmployeeCard({
 
   return (
     <>
-      <div className={`
+      <div
+        data-focus={`configuracion:empleados:${employee.id}`}
+        className={`
         bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200
         ${!compact ? 'p-6' : 'p-4'}
-      `}>
+      `}
+      >
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start space-x-3 flex-1 min-w-0">

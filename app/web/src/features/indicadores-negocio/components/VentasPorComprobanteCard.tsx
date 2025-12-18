@@ -28,7 +28,11 @@ const VentasPorComprobanteCard: React.FC<VentasPorComprobanteCardProps> = ({ dat
           {hasData ? (
             <div className="flex flex-col gap-4">
               {dataset.map((item) => (
-                <div key={item.name} className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700">
+                <div
+                  key={item.name}
+                  data-focus={`indicadores:comprobantes:${item.name}`}
+                  className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700"
+                >
                   <span className="inline-block p-1.5 rounded-md" style={{ backgroundColor: item.color }}>
                     <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M9 12h6" />

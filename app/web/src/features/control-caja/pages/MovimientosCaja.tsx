@@ -179,7 +179,11 @@ const MovimientosCaja: React.FC = () => {
                 </tr>
               ) : (
                 movimientosFiltrados.map((movimiento) => (
-                  <tr key={movimiento.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={movimiento.id}
+                    data-focus={`caja:mov:${movimiento.id}`}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
                     <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                       {new Date(movimiento.fecha).toLocaleString('es-PE', {
                         day: '2-digit',
@@ -231,7 +235,11 @@ const MovimientosCaja: React.FC = () => {
           </div>
         ) : (
           movimientosFiltrados.map((movimiento) => (
-            <div key={movimiento.id} className="bg-white rounded-lg shadow-md p-4 border border-gray-200">
+            <div
+              key={movimiento.id}
+              data-focus={`caja:mov:${movimiento.id}`}
+              className="bg-white rounded-lg shadow-md p-4 border border-gray-200"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">

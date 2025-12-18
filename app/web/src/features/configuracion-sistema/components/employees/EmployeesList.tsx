@@ -445,7 +445,11 @@ export function EmployeesList({
                   const statusConfig = getStatusConfig(employee.status);
                   
                   return (
-                    <tr key={employee.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr
+                      key={employee.id}
+                      data-focus={`configuracion:empleados:${employee.id}`}
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                    >
                       <td className="py-4 px-4">
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">

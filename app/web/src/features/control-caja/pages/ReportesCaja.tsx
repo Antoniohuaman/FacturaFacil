@@ -139,7 +139,10 @@ const ReportesCaja: React.FC = () => {
     <div className="space-y-6">
       {/* Estadísticas del reporte */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 sm:p-6 rounded-lg border border-green-200 shadow-sm">
+        <div
+          className="bg-gradient-to-br from-green-50 to-green-100 p-4 sm:p-6 rounded-lg border border-green-200 shadow-sm"
+          data-focus="caja:reportes:ingresos"
+        >
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Total Ingresos</p>
             <TrendingUp className="w-5 h-5 text-green-600" />
@@ -150,7 +153,10 @@ const ReportesCaja: React.FC = () => {
           </p>
         </div>
 
-        <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 sm:p-6 rounded-lg border border-red-200 shadow-sm">
+        <div
+          className="bg-gradient-to-br from-red-50 to-red-100 p-4 sm:p-6 rounded-lg border border-red-200 shadow-sm"
+          data-focus="caja:reportes:egresos"
+        >
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Total Egresos</p>
             <TrendingDown className="w-5 h-5 text-red-600" />
@@ -161,7 +167,10 @@ const ReportesCaja: React.FC = () => {
           </p>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 sm:p-6 rounded-lg border-2 border-blue-300 shadow-md">
+        <div
+          className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 sm:p-6 rounded-lg border-2 border-blue-300 shadow-md"
+          data-focus="caja:reportes:balance"
+        >
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Balance Neto</p>
             <BarChart3 className="w-5 h-5 text-blue-600" />
@@ -253,7 +262,11 @@ const ReportesCaja: React.FC = () => {
                 </tr>
               ) : (
                 reportesFiltrados.map((m) => (
-                  <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={m.id}
+                    data-focus={`caja:reporte:${m.id}`}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
                     <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                       {formatMovementDateTimeLabel(m.fecha)}
                     </td>
@@ -294,7 +307,11 @@ const ReportesCaja: React.FC = () => {
           </div>
         ) : (
           reportesFiltrados.map((m) => (
-            <div key={m.id} className="bg-white rounded-lg shadow-md p-4 border border-gray-200">
+            <div
+              key={m.id}
+              data-focus={`caja:reporte:${m.id}`}
+              className="bg-white rounded-lg shadow-md p-4 border border-gray-200"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
