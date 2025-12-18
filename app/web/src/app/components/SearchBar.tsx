@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useProductStore } from '../../features/catalogo-articulos/hooks/useProductStore';
@@ -11,6 +11,15 @@ import { useComprobanteContext } from '../../features/comprobantes-electronicos/
 import type { Comprobante } from '../../features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import { useCobranzasContext } from '../../features/gestion-cobranzas/context/CobranzasContext';
 import type { CuentaPorCobrarSummary } from '../../features/gestion-cobranzas/models/cobranzas.types';
+import { useConfigurationContext } from '../../features/configuracion-sistema/context/ConfigurationContext';
+import { useCaja } from '../../features/control-caja/context/CajaContext';
+import type { Movimiento } from '../../features/control-caja/models';
+import { useIndicadores } from '../../features/indicadores-negocio/hooks/useIndicadores';
+import { useIndicadoresFiltersStore } from '../../features/indicadores-negocio/store/indicadoresFiltersStore';
+import { useColumns } from '../../features/lista-precios/hooks/useColumns';
+import { useCatalogSync } from '../../features/lista-precios/hooks/useCatalogSync';
+import { usePriceProducts } from '../../features/lista-precios/hooks/usePriceProducts';
+import { DEFAULT_UNIT_CODE, getColumnDisplayName } from '../../features/lista-precios/utils/priceHelpers';
 
 // Interfaces de tipos
 interface BaseCommand {
@@ -35,7 +44,15 @@ type PaletteItem = {
   onExecute: () => void;
 };
 
-type SearchResultCategory = 'comprobantes' | 'productos' | 'clientes' | 'cobranzas';
+type SearchResultCategory =
+  | 'comprobantes'
+  | 'productos'
+  | 'clientes'
+  | 'cobranzas'
+  | 'inventario'
+  | 'indicadores'
+  | 'caja'
+  | 'listaPrecios';
 
 interface SearchFieldDescriptor {
   value?: string | null;
@@ -72,6 +89,109 @@ interface SectionResults<T> {
   hasMore: boolean;
 }
 
+interface InventorySearchEntity {
+  product: Product;
+  stockReal: number;
+  stockReservado: number;
+  stockDisponible: number;
+  stockMinimo?: number;
+  warehouses: Array<{ id: string; name: string; quantity: number }>;
+}
+
+interface IndicadorSearchEntity {
+  label: string;
+  value: number | string;
+  context?: string;
+}
+
+interface CajaSearchEntity {
+  tipo: 'resumen' | 'movimiento';
+  resumenLabel?: string;
+  resumenValue?: number;
+  movimiento?: Movimiento;
+}
+
+interface ListaPrecioSearchEntity {
+  sku: string;
+  productName: string;
+  columnId: string;
+  unitCode: string;
+  priceValue?: number;
+}
+
+type SearchEntity =
+  | Cliente
+  | Product
+  | Comprobante
+  | CuentaPorCobrarSummary
+  | InventorySearchEntity
+  | IndicadorSearchEntity
+  | CajaSearchEntity
+  | ListaPrecioSearchEntity;
+
+interface SearchDatasetItem<T extends SearchEntity = SearchEntity> {
+  id: string;
+  label: string;
+  secondary?: string;
+  description?: string;
+  haystack: string;
+  meta?: Record<string, string | number | undefined>;
+  amountLabel?: string;
+  amountValue?: number;
+  amountCurrency?: string;
+  route?: string;
+  entity: T;
+  keywords?: SearchFieldDescriptor[];
+  numericValues?: NumericFieldDescriptor[];
+}
+
+interface SearchDataset<T extends SearchEntity = SearchEntity> {
+  key: SearchResultCategory;
+  title: string;
+  routeBase: string | null;
+  items: Array<SearchDatasetItem<T>>;
+}
+
+interface SearchSection<T extends SearchEntity = SearchEntity> extends SectionResults<T> {
+  title: string;
+  routeBase: string | null;
+}
+
+type SearchSectionsMap = Record<SearchResultCategory, SearchSection<SearchEntity>>;
+
+type SearchSectionWithKey = SearchSection<SearchEntity> & { key: SearchResultCategory };
+
+const SEARCH_SECTION_KEYS: SearchResultCategory[] = [
+  'comprobantes',
+  'productos',
+  'clientes',
+  'cobranzas',
+  'inventario',
+  'indicadores',
+  'caja',
+  'listaPrecios',
+];
+
+const SEARCH_DATASET_CONFIG: Record<SearchResultCategory, { title: string; routeBase: string | null; priority: number }> = {
+  comprobantes: { title: 'Comprobantes', routeBase: '/comprobantes', priority: 10 },
+  productos: { title: 'Productos', routeBase: '/catalogo', priority: 20 },
+  clientes: { title: 'Clientes', routeBase: '/clientes', priority: 30 },
+  cobranzas: { title: 'Cobranzas', routeBase: '/cobranzas', priority: 40 },
+  inventario: { title: 'Inventario', routeBase: '/inventario', priority: 50 },
+  indicadores: { title: 'Indicadores', routeBase: '/indicadores', priority: 60 },
+  caja: { title: 'Control de Caja', routeBase: '/control-caja', priority: 70 },
+  listaPrecios: { title: 'Lista de Precios', routeBase: '/lista-precios', priority: 80 },
+};
+
+const SEARCH_PARAM_BY_SECTION: Partial<Record<SearchResultCategory, 'search' | 'q'>> = {
+  comprobantes: 'search',
+  productos: 'search',
+  clientes: 'search',
+  cobranzas: 'search',
+};
+
+const MAX_CAJA_MOVEMENT_ITEMS = 30;
+
 type HighlightPart = {
   text: string;
   match: boolean;
@@ -86,19 +206,6 @@ const removeDiacritics = (value: string) => value.normalize('NFD').replace(DIACR
 const normalizeValue = (value: string) => removeDiacritics(value).toLowerCase();
 
 const normalizeDocumentKey = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
-
-const buildHaystackValue = (...values: Array<string | undefined | null>) =>
-  values
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value))
-    .join(' ');
-
-const SECTION_ROUTE_MAP: Record<SearchResultCategory, string | null> = {
-  clientes: '/clientes',
-  productos: '/catalogo',
-  comprobantes: '/comprobantes',
-  cobranzas: '/cobranzas',
-};
 
 const tokenizeQuery = (value: string) => {
   const normalized = normalizeValue(value.trim());
@@ -160,12 +267,12 @@ const computeNumericScore = (value: number | undefined | null, numericQuery: str
   return 100 + weight;
 };
 
-const buildSearchSection = <T,>(
+const buildSearchSection = <T extends SearchEntity>(
   type: SearchResultCategory,
-  items: T[],
+  items: Array<SearchDatasetItem<T>>,
   tokens: string[],
   numericQuery: string,
-  mapCandidate: (item: T) => SearchCandidate<T>
+  mapCandidate: (item: SearchDatasetItem<T>) => SearchCandidate<T>
 ): SectionResults<T> => {
   if (!tokens.length && !numericQuery) {
     return { items: [], total: 0, hasMore: false };
@@ -204,7 +311,88 @@ const buildSearchSection = <T,>(
   };
 };
 
-const createEmptySection = <T,>(): SectionResults<T> => ({ items: [], total: 0, hasMore: false });
+const createEmptySection = <T extends SearchEntity = SearchEntity>(): SectionResults<T> => ({ items: [], total: 0, hasMore: false });
+
+const createEmptySectionsMap = (): SearchSectionsMap => {
+  return SEARCH_SECTION_KEYS.reduce((acc, key) => {
+    acc[key] = {
+      ...createEmptySection<SearchEntity>(),
+      title: SEARCH_DATASET_CONFIG[key].title,
+      routeBase: SEARCH_DATASET_CONFIG[key].routeBase,
+    };
+    return acc;
+  }, {} as SearchSectionsMap);
+};
+
+const buildRichHaystack = (...values: Array<string | number | undefined | null>) => {
+  const tokens: string[] = [];
+  values.forEach((rawValue) => {
+    if (rawValue === undefined || rawValue === null) {
+      return;
+    }
+    const stringValue = typeof rawValue === 'number' ? rawValue.toString() : rawValue;
+    const trimmed = stringValue.trim();
+    if (!trimmed) {
+      return;
+    }
+    const normalized = normalizeValue(trimmed);
+    if (normalized) {
+      tokens.push(normalized);
+    }
+    const digits = trimmed.replace(/[^0-9]/g, '');
+    if (digits.length > 0) {
+      tokens.push(digits);
+    }
+  });
+  return tokens.join(' ');
+};
+
+const formatMetaRecord = (meta?: Record<string, string | number | undefined>) => {
+  if (!meta) {
+    return undefined;
+  }
+  const entries = Object.entries(meta)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}: ${value}`);
+  return entries.length ? entries.join(' • ') : undefined;
+};
+
+const mapDatasetItemToCandidate = <T extends SearchEntity>(item: SearchDatasetItem<T>): SearchCandidate<T> => {
+  const metaText = formatMetaRecord(item.meta);
+  const searchFields: SearchFieldDescriptor[] = [
+    { value: item.label, weight: 160, isKey: true },
+    item.secondary ? { value: item.secondary, weight: 130 } : null,
+    item.description ? { value: item.description, weight: 110 } : null,
+    item.haystack ? { value: item.haystack, weight: 80 } : null,
+    ...(item.meta
+      ? Object.entries(item.meta).map(([key, value]) => {
+          if (value === undefined || value === null || value === '') {
+            return null;
+          }
+          return { value: `${key} ${value}`, weight: 70 } as SearchFieldDescriptor;
+        })
+      : []),
+    ...(item.keywords ?? []),
+  ].filter((field): field is SearchFieldDescriptor => Boolean(field && field.value));
+
+  const numericFields: NumericFieldDescriptor[] = [
+    ...(typeof item.amountValue === 'number' ? [{ value: item.amountValue, weight: 100 }] : []),
+    ...(item.numericValues ?? []),
+  ];
+
+  return {
+    id: item.id,
+    entity: item.entity,
+    title: item.label,
+    subtitle: item.secondary,
+    meta: metaText,
+    amountLabel: item.amountLabel,
+    amountValue: item.amountValue,
+    amountCurrency: item.amountCurrency,
+    searchFields,
+    numericFields: numericFields.length ? numericFields : undefined,
+  } satisfies SearchCandidate<T>;
+};
 
 const buildQueryString = (params: Record<string, string | undefined | null>) => {
   const searchParams = new URLSearchParams();
@@ -255,6 +443,7 @@ const SearchBar = () => {
   }>({ nombre: '', atajo: '', categoria: 'acciones', accion: '' });
   const [showConflictWarning, setShowConflictWarning] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeIndex, setActiveIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const paletteItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -308,9 +497,622 @@ const SearchBar = () => {
   const { state: comprobanteState } = useComprobanteContext();
   const comprobantes = comprobanteState.comprobantes;
   const { cuentas } = useCobranzasContext();
+  const { state: configState } = useConfigurationContext();
+  const warehouseNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    configState.warehouses.forEach((warehouse) => {
+      map.set(warehouse.id, warehouse.name ?? warehouse.code ?? warehouse.id);
+    });
+    return map;
+  }, [configState.warehouses]);
+  const { columns: priceColumns } = useColumns();
+  const { catalogProducts: syncedCatalogProducts } = useCatalogSync();
+  const { products: priceListProducts, effectivePrices: priceEffectivePrices } = usePriceProducts(syncedCatalogProducts, priceColumns);
+  const { status: cajaStatus, movimientos, getResumen, aperturaActual } = useCaja();
+  const cajaResumen = useMemo(() => getResumen(), [getResumen]);
+  const movimientoDateFormatter = useMemo(
+    () => new Intl.DateTimeFormat('es-PE', { dateStyle: 'short', timeStyle: 'short' }),
+    []
+  );
+  const indicadoresDateRange = useIndicadoresFiltersStore((state) => state.dateRange);
+  const indicadoresEstablishmentId = useIndicadoresFiltersStore((state) => state.establishmentId);
+  const indicadoresFilters = useMemo(
+    () => ({ dateRange: indicadoresDateRange, establishmentId: indicadoresEstablishmentId }),
+    [indicadoresDateRange, indicadoresEstablishmentId]
+  );
+  const { data: indicadoresData, status: indicadoresStatus } = useIndicadores(indicadoresFilters);
   const queryTokens = useMemo(() => tokenizeQuery(searchQuery), [searchQuery]);
   const numericQuery = useMemo(() => extractNumericQuery(searchQuery.trim()), [searchQuery]);
   const shouldSearch = queryTokens.length > 0 || numericQuery.length > 0;
+
+  const clienteItems = useMemo<SearchDatasetItem<Cliente>[]>(() => {
+    return combinedClientes.map((cliente) => {
+      const id = String(
+        cliente.id ??
+        cliente.numeroDocumento ??
+        cliente.document ??
+        `cliente-${cliente.name ?? cliente.razonSocial ?? cliente.nombreComercial ?? Date.now()}`
+      );
+      const title = cliente.name || cliente.razonSocial || cliente.nombreCompleto || 'Cliente sin nombre';
+      const subtitle = cliente.razonSocial && cliente.razonSocial !== cliente.name ? cliente.razonSocial : cliente.nombreComercial;
+      const document = cliente.document || cliente.numeroDocumento;
+      const haystack = buildRichHaystack(
+        cliente.name,
+        cliente.razonSocial,
+        cliente.nombreCompleto,
+        cliente.nombreComercial,
+        cliente.document,
+        cliente.numeroDocumento,
+        cliente.email,
+        cliente.phone,
+        cliente.address ?? cliente.direccion,
+        cliente.additionalData ?? cliente.observaciones
+      );
+      return {
+        id,
+        label: title,
+        secondary: subtitle ?? undefined,
+        description: cliente.address ?? cliente.direccion ?? undefined,
+        haystack,
+        meta: {
+          Documento: document,
+          Correo: cliente.email,
+          Telefono: cliente.phone,
+        },
+        entity: cliente,
+        keywords: [
+          { value: cliente.name, weight: 120, isKey: true },
+          { value: cliente.razonSocial, weight: 120, isKey: true },
+          { value: cliente.nombreComercial, weight: 90 },
+          { value: cliente.document, weight: 160, isKey: true },
+          { value: cliente.numeroDocumento, weight: 160, isKey: true },
+          { value: cliente.email, weight: 90 },
+          { value: cliente.phone, weight: 80 },
+          { value: cliente.address ?? cliente.direccion, weight: 70 },
+          { value: cliente.additionalData ?? cliente.observaciones, weight: 50 },
+        ],
+      } satisfies SearchDatasetItem<Cliente>;
+    });
+  }, [combinedClientes]);
+
+  const productoItems = useMemo<SearchDatasetItem<Product>[]>(() => {
+    return productosCatalog.map((producto) => {
+      const haystack = buildRichHaystack(
+        producto.nombre,
+        producto.codigo,
+        producto.alias,
+        producto.descripcion,
+        producto.categoria,
+        producto.marca,
+        producto.modelo,
+        producto.codigoBarras,
+        producto.codigoFabrica,
+        producto.codigoSunat,
+        producto.impuesto,
+        producto.precio
+      );
+      const amountValue = typeof producto.precio === 'number' ? producto.precio : undefined;
+      return {
+        id: producto.id,
+        label: producto.nombre,
+        secondary: producto.codigo,
+        description: producto.descripcion,
+        haystack,
+        meta: {
+          Categoria: producto.categoria,
+          Marca: producto.marca,
+          Modelo: producto.modelo,
+          IGV: producto.impuesto,
+        },
+        amountLabel: 'Precio',
+        amountValue,
+        amountCurrency: 'PEN',
+        entity: producto,
+        keywords: [
+          { value: producto.nombre, weight: 140, isKey: true },
+          { value: producto.codigo, weight: 140, isKey: true },
+          { value: producto.alias, weight: 110 },
+          { value: producto.descripcion, weight: 90 },
+          { value: producto.categoria, weight: 90 },
+          { value: producto.marca, weight: 90 },
+          { value: producto.modelo, weight: 90 },
+          { value: producto.codigoBarras, weight: 100 },
+          { value: producto.codigoFabrica, weight: 90 },
+          { value: producto.codigoSunat, weight: 90 },
+        ],
+        numericValues: amountValue !== undefined ? [{ value: amountValue, weight: 90 }] : undefined,
+      } satisfies SearchDatasetItem<Product>;
+    });
+  }, [productosCatalog]);
+
+  const comprobanteItems = useMemo<SearchDatasetItem<Comprobante>[]>(() => {
+    return comprobantes.map((comp) => {
+      const compWithCliente = comp as Comprobante & { clienteId?: string | null; clientId?: string | null };
+      const relatedCliente = resolveClienteReference({
+        id: compWithCliente.clienteId ?? compWithCliente.clientId ?? null,
+        document: comp.clientDoc,
+      });
+      const clienteNombre =
+        comp.client ||
+        relatedCliente?.nombreCompleto ||
+        relatedCliente?.razonSocial ||
+        relatedCliente?.name ||
+        relatedCliente?.nombreComercial;
+      const clienteDocumento =
+        comp.clientDoc ||
+        relatedCliente?.numeroDocumento ||
+        relatedCliente?.document ||
+        undefined;
+      const contacto = relatedCliente?.email || relatedCliente?.phone || comp.email;
+      const serieNumero = comp.id;
+      const haystack = buildRichHaystack(
+        serieNumero,
+        comp.type,
+        clienteNombre,
+        clienteDocumento,
+        comp.vendor,
+        contacto,
+        comp.status,
+        comp.paymentMethod,
+        comp.address,
+        comp.observations,
+        comp.purchaseOrder,
+        comp.waybill,
+        comp.total,
+        comp.currency
+      );
+      const amountValue = typeof comp.total === 'number' ? comp.total : undefined;
+      return {
+        id: serieNumero,
+        label: comp.type ? `${comp.type} · ${serieNumero}` : serieNumero,
+        secondary: clienteNombre,
+        description: comp.vendor || contacto || undefined,
+        haystack,
+        meta: {
+          Documento: clienteDocumento,
+          Estado: comp.status,
+          Moneda: comp.currency,
+        },
+        amountLabel: 'Total',
+        amountValue,
+        amountCurrency: comp.currency,
+        entity: comp,
+        keywords: [
+          { value: serieNumero, weight: 180, isKey: true },
+          { value: comp.type, weight: 160, isKey: true },
+          { value: clienteNombre, weight: 150, isKey: true },
+          { value: clienteDocumento, weight: 150, isKey: true },
+          { value: relatedCliente?.nombreComercial, weight: 110 },
+          { value: comp.vendor, weight: 90 },
+          { value: contacto, weight: 85 },
+          { value: comp.status, weight: 80 },
+          { value: comp.paymentMethod, weight: 70 },
+          { value: comp.address, weight: 60 },
+          { value: comp.observations, weight: 50 },
+          { value: comp.purchaseOrder, weight: 60 },
+          { value: comp.waybill, weight: 60 },
+          { value: comp.email, weight: 70 },
+        ],
+        numericValues: amountValue !== undefined ? [{ value: amountValue, weight: 100 }] : undefined,
+      } satisfies SearchDatasetItem<Comprobante>;
+    });
+  }, [comprobantes, resolveClienteReference]);
+
+  const cobranzaItems = useMemo<SearchDatasetItem<CuentaPorCobrarSummary>[]>(() => {
+    return cuentas.map((cuenta) => {
+      const serieNumero = cuenta.comprobanteSerie && cuenta.comprobanteNumero
+        ? `${cuenta.comprobanteSerie}-${cuenta.comprobanteNumero}`
+        : cuenta.comprobanteNumero || cuenta.comprobanteId;
+      const relatedCliente = resolveClienteReference({ document: cuenta.clienteDocumento });
+      const contactoCliente = relatedCliente?.email || relatedCliente?.phone;
+      const metrics: string[] = [];
+      if (typeof cuenta.total === 'number') {
+        metrics.push(`Total ${formatCurrency(cuenta.total, cuenta.moneda)}`);
+      }
+      if (typeof cuenta.cobrado === 'number') {
+        metrics.push(`Cobrado ${formatCurrency(cuenta.cobrado, cuenta.moneda)}`);
+      }
+      const haystack = buildRichHaystack(
+        cuenta.clienteNombre,
+        cuenta.clienteDocumento,
+        serieNumero,
+        cuenta.tipoComprobante,
+        cuenta.estado,
+        cuenta.formaPago,
+        cuenta.moneda,
+        cuenta.sucursal,
+        cuenta.cajero,
+        contactoCliente,
+        cuenta.total,
+        cuenta.cobrado,
+        cuenta.saldo
+      );
+      const numericValues: NumericFieldDescriptor[] = [];
+      if (typeof cuenta.total === 'number') {
+        numericValues.push({ value: cuenta.total, weight: 100 });
+      }
+      if (typeof cuenta.cobrado === 'number') {
+        numericValues.push({ value: cuenta.cobrado, weight: 90 });
+      }
+      if (typeof cuenta.saldo === 'number') {
+        numericValues.push({ value: cuenta.saldo, weight: 150 });
+      }
+      const amountValue = typeof cuenta.saldo === 'number' ? cuenta.saldo : undefined;
+      return {
+        id: cuenta.id,
+        label: serieNumero || `Cuenta ${cuenta.id}`,
+        secondary: cuenta.clienteNombre,
+        description: metrics.join(' · ') || undefined,
+        haystack,
+        meta: {
+          Documento: cuenta.clienteDocumento,
+          Estado: cuenta.estado?.toUpperCase(),
+          Forma: cuenta.formaPago,
+        },
+        amountLabel: 'Saldo',
+        amountValue,
+        amountCurrency: cuenta.moneda,
+        entity: cuenta,
+        keywords: [
+          { value: cuenta.clienteNombre, weight: 170, isKey: true },
+          { value: cuenta.clienteDocumento, weight: 160, isKey: true },
+          { value: serieNumero, weight: 140, isKey: true },
+          { value: cuenta.tipoComprobante, weight: 90 },
+          { value: cuenta.estado, weight: 110, isKey: true },
+          { value: cuenta.sucursal, weight: 70 },
+          { value: cuenta.cajero, weight: 60 },
+          { value: cuenta.formaPago, weight: 80 },
+          { value: cuenta.moneda, weight: 70 },
+          { value: cuenta.fechaEmision, weight: 60 },
+          { value: cuenta.fechaVencimiento, weight: 60 },
+          { value: contactoCliente, weight: 75 },
+        ],
+        numericValues: numericValues.length ? numericValues : undefined,
+      } satisfies SearchDatasetItem<CuentaPorCobrarSummary>;
+    });
+  }, [cuentas, resolveClienteReference]);
+
+  const inventoryItems = useMemo<SearchDatasetItem<InventorySearchEntity>[]>(() => {
+    return productosCatalog.map((producto) => {
+      const stockEntries = Object.entries(producto.stockPorAlmacen ?? {});
+      const stockReal = stockEntries.reduce((sum, [, qty]) => sum + Number(qty ?? 0), 0);
+      const stockReservadoRaw = Object.values(producto.stockReservadoPorAlmacen ?? {}).reduce((sum, qty) => sum + Number(qty ?? 0), 0);
+      const stockReservado = Math.max(stockReservadoRaw, 0);
+      const stockDisponible = Math.max(stockReal - stockReservado, 0);
+      const stockMinimo = Object.values(producto.stockMinimoPorAlmacen ?? {}).reduce((sum, qty) => sum + Number(qty ?? 0), 0) || undefined;
+      const situacion = stockDisponible === 0 ? 'Sin stock' : stockMinimo && stockDisponible < stockMinimo ? 'Bajo' : 'OK';
+      const warehouses = stockEntries.map(([warehouseId, qty]) => ({
+        id: warehouseId,
+        name: warehouseNameMap.get(warehouseId) ?? warehouseId,
+        quantity: Number(qty ?? 0),
+      }));
+      const haystack = buildRichHaystack(
+        producto.nombre,
+        producto.codigo,
+        producto.alias,
+        producto.categoria,
+        producto.marca,
+        producto.modelo,
+        situacion,
+        stockReal,
+        stockReservado,
+        stockDisponible,
+        ...warehouses.map((entry) => `${entry.name} ${entry.quantity}`)
+      );
+      return {
+        id: `inventory-${producto.id}`,
+        label: producto.nombre,
+        secondary: `SKU ${producto.codigo}`,
+        description: `Unidad ${producto.unidad}`,
+        haystack,
+        meta: {
+          'Stock real': stockReal,
+          Reservado: stockReservado,
+          Disponible: stockDisponible,
+          Situacion: situacion,
+        },
+        entity: {
+          product: producto,
+          stockReal,
+          stockReservado,
+          stockDisponible,
+          stockMinimo,
+          warehouses,
+        },
+        keywords: [
+          { value: producto.nombre, weight: 140, isKey: true },
+          { value: producto.codigo, weight: 140, isKey: true },
+          { value: producto.alias, weight: 110 },
+          { value: producto.categoria, weight: 100 },
+          { value: producto.marca, weight: 90 },
+          { value: producto.modelo, weight: 90 },
+        ],
+        numericValues: [
+          { value: stockReal, weight: 110 },
+          { value: stockReservado, weight: 90 },
+          { value: stockDisponible, weight: 140 },
+        ],
+      } satisfies SearchDatasetItem<InventorySearchEntity>;
+    });
+  }, [productosCatalog, warehouseNameMap]);
+
+  const indicadoresItems = useMemo<SearchDatasetItem<IndicadorSearchEntity>[]>(() => {
+    if (indicadoresStatus !== 'success') {
+      return [];
+    }
+    const items: SearchDatasetItem<IndicadorSearchEntity>[] = [];
+    const data = indicadoresData;
+    const pushIndicador = (id: string, label: string, value: number | string, context = 'kpi', details?: string) => {
+      const numericValue = typeof value === 'number' ? value : undefined;
+      const haystack = buildRichHaystack(label, value?.toString?.(), details);
+      items.push({
+        id,
+        label: `${label}: ${value}`,
+        secondary: details,
+        haystack,
+        meta: {
+          Valor: value,
+        },
+        entity: { label, value, context },
+        numericValues: numericValue !== undefined ? [{ value: numericValue, weight: 120 }] : undefined,
+      });
+    };
+    pushIndicador('indicador-total-ventas', 'Total ventas', data.kpis.totalVentas, 'kpi', `Tendencia ${data.kpis.totalVentasTrend}`);
+    pushIndicador('indicador-comprobantes', 'Comprobantes emitidos', data.kpis.comprobantesEmitidos, 'kpi', `Variación ${data.kpis.comprobantesDelta}`);
+    pushIndicador('indicador-nuevos-clientes', 'Nuevos clientes', data.kpis.nuevosClientes, 'kpi', `Delta ${data.kpis.nuevosClientesDelta}`);
+    pushIndicador('indicador-ticket-promedio', 'Ticket promedio', data.kpis.ticketPromedioPeriodo);
+    pushIndicador('indicador-anulaciones', 'Tasa de anulaciones (%)', data.kpis.tasaAnulacionesPorcentaje);
+    pushIndicador('indicador-total-comprobantes', 'Total comprobantes considerados', data.kpis.totalComprobantesConsiderados);
+    data.ventasPorComprobante.slice(0, 3).forEach((item) => {
+      const numericValues: NumericFieldDescriptor[] = [];
+      if (typeof item.value === 'number') {
+        numericValues.push({ value: item.value, weight: 100 });
+      }
+      if (typeof item.comprobantes === 'number') {
+        numericValues.push({ value: item.comprobantes, weight: 90 });
+      }
+      items.push({
+        id: `indicador-comprobante-${item.name}`,
+        label: `${item.name}: ${item.value}`,
+        secondary: `Comprobantes ${item.comprobantes}`,
+        description: item.trend ? `Tendencia ${item.trend}` : undefined,
+        haystack: buildRichHaystack(item.name, item.value, item.trend, item.ticketPromedio, item.comprobantes),
+        meta: {
+          'Ticket promedio': item.ticketPromedio,
+          Tendencia: item.trend,
+        },
+        entity: { label: item.name, value: item.value, context: 'ventasPorComprobante' },
+        numericValues: numericValues.length ? numericValues : undefined,
+      });
+    });
+    items.push({
+      id: 'indicador-clientes-insights',
+      label: `Clientes recurrentes: ${data.clientesInsights.recurrentes}`,
+      secondary: `Nuevos: ${data.clientesInsights.nuevos}`,
+      description: `Total clientes ${data.clientesInsights.totalClientes}`,
+      haystack: buildRichHaystack(
+        data.clientesInsights.recurrentes,
+        data.clientesInsights.nuevos,
+        data.clientesInsights.totalClientes,
+        data.clientesInsights.frecuenciaMediaCompras
+      ),
+      meta: {
+        'Frecuencia media': data.clientesInsights.frecuenciaMediaCompras,
+      },
+      entity: { label: 'Clientes', value: data.clientesInsights.totalClientes, context: 'clientes' },
+      numericValues: [{ value: data.clientesInsights.totalClientes, weight: 90 }],
+    });
+    data.formasPagoDistribucion.slice(0, 3).forEach((forma) => {
+      const numericValues: NumericFieldDescriptor[] = [];
+      if (typeof forma.monto === 'number') {
+        numericValues.push({ value: forma.monto, weight: 90 });
+      }
+      if (typeof forma.comprobantes === 'number') {
+        numericValues.push({ value: forma.comprobantes, weight: 80 });
+      }
+      items.push({
+        id: `indicador-forma-${forma.id}`,
+        label: `Forma de pago: ${forma.label}`,
+        secondary: `Monto ${forma.monto}`,
+        description: `Comprobantes ${forma.comprobantes}`,
+        haystack: buildRichHaystack(forma.label, forma.monto, forma.comprobantes, forma.porcentaje),
+        meta: {
+          Porcentaje: `${forma.porcentaje}%`,
+        },
+        entity: { label: forma.label, value: forma.monto, context: 'formasPago' },
+        numericValues: numericValues.length ? numericValues : undefined,
+      });
+    });
+    return items;
+  }, [indicadoresData, indicadoresStatus]);
+
+  const cajaItems = useMemo<SearchDatasetItem<CajaSearchEntity>[]>(() => {
+    const items: SearchDatasetItem<CajaSearchEntity>[] = [];
+    if (cajaResumen) {
+      items.push({
+        id: 'caja-saldo',
+        label: `Saldo actual: ${formatCurrency(cajaResumen.saldo, 'PEN')}`,
+        secondary: `Estado ${cajaStatus === 'abierta' ? 'Abierta' : 'Cerrada'}`,
+        haystack: buildRichHaystack('saldo', cajaResumen.saldo, cajaStatus),
+        meta: {
+          Estado: cajaStatus,
+        },
+        amountLabel: 'Saldo',
+        amountValue: cajaResumen.saldo,
+        amountCurrency: 'PEN',
+        entity: { tipo: 'resumen', resumenLabel: 'saldo', resumenValue: cajaResumen.saldo },
+        numericValues: [{ value: cajaResumen.saldo, weight: 120 }],
+      });
+      items.push({
+        id: 'caja-ingresos',
+        label: `Ingresos registrados: ${formatCurrency(cajaResumen.ingresos, 'PEN')}`,
+        haystack: buildRichHaystack('ingresos', cajaResumen.ingresos),
+        entity: { tipo: 'resumen', resumenLabel: 'ingresos', resumenValue: cajaResumen.ingresos },
+        numericValues: [{ value: cajaResumen.ingresos, weight: 110 }],
+      });
+      items.push({
+        id: 'caja-egresos',
+        label: `Egresos registrados: ${formatCurrency(cajaResumen.egresos, 'PEN')}`,
+        haystack: buildRichHaystack('egresos', cajaResumen.egresos),
+        entity: { tipo: 'resumen', resumenLabel: 'egresos', resumenValue: cajaResumen.egresos },
+        numericValues: [{ value: cajaResumen.egresos, weight: 110 }],
+      });
+    }
+    if (aperturaActual) {
+      items.push({
+        id: 'caja-apertura',
+        label: `Apertura ${formatCurrency(aperturaActual.montoInicialTotal, 'PEN')}`,
+        secondary: aperturaActual.usuarioNombre,
+        haystack: buildRichHaystack('apertura', aperturaActual.montoInicialTotal, aperturaActual.usuarioNombre),
+        entity: { tipo: 'resumen', resumenLabel: 'apertura', resumenValue: aperturaActual.montoInicialTotal },
+        numericValues: [{ value: aperturaActual.montoInicialTotal, weight: 100 }],
+      });
+    }
+    movimientos.slice(0, MAX_CAJA_MOVEMENT_ITEMS).forEach((movimiento) => {
+      const fecha = movimiento.fecha instanceof Date ? movimiento.fecha : new Date(movimiento.fecha);
+      const formattedDate = movimientoDateFormatter.format(fecha);
+      items.push({
+        id: movimiento.id,
+        label: `${movimiento.tipo}: ${movimiento.concepto}`,
+        secondary: formattedDate,
+        description: movimiento.observaciones || movimiento.referencia || undefined,
+        haystack: buildRichHaystack(
+          movimiento.tipo,
+          movimiento.concepto,
+          movimiento.medioPago,
+          movimiento.usuarioNombre,
+          movimiento.referencia,
+          movimiento.monto,
+          movimiento.cajaId
+        ),
+        meta: {
+          Medio: movimiento.medioPago,
+          Usuario: movimiento.usuarioNombre,
+        },
+        amountLabel: movimiento.tipo === 'Egreso' ? 'Monto egreso' : 'Monto ingreso',
+        amountValue: movimiento.monto,
+        amountCurrency: 'PEN',
+        entity: { tipo: 'movimiento', movimiento },
+        numericValues: [{ value: movimiento.monto, weight: 110 }],
+      });
+    });
+    return items;
+  }, [cajaResumen, cajaStatus, aperturaActual, movimientos, movimientoDateFormatter]);
+
+  const listaPreciosItems = useMemo<SearchDatasetItem<ListaPrecioSearchEntity>[]>(() => {
+    const baseColumn = priceColumns.find((column) => column.kind === 'base');
+    if (!baseColumn) {
+      return [];
+    }
+    return priceListProducts.reduce<SearchDatasetItem<ListaPrecioSearchEntity>[]>((acc, product) => {
+      const unitCode = product.activeUnitCode || DEFAULT_UNIT_CODE;
+      const baseEntry = priceEffectivePrices[product.sku]?.[baseColumn.id]?.[unitCode];
+      const baseValue = baseEntry?.value;
+      if (typeof baseValue !== 'number') {
+        return acc;
+      }
+      const visibleColumns = priceColumns.filter((column) => column.visible && column.id !== baseColumn.id);
+      const otherValues = visibleColumns
+        .map((column) => {
+          const value = priceEffectivePrices[product.sku]?.[column.id]?.[unitCode]?.value;
+          if (typeof value !== 'number') {
+            return null;
+          }
+          return `${getColumnDisplayName(column)} ${value.toFixed(2)}`;
+        })
+        .filter((entry): entry is string => Boolean(entry));
+
+      acc.push({
+        id: `lista-precios-${product.sku}`,
+        label: product.name,
+        secondary: `SKU ${product.sku} · Unidad ${unitCode}`,
+        description: otherValues.join(' • ') || undefined,
+        haystack: buildRichHaystack(product.name, product.sku, unitCode, baseValue, ...otherValues),
+        meta: {
+          SKU: product.sku,
+          Unidad: unitCode,
+        },
+        amountLabel: 'Precio base',
+        amountValue: baseValue,
+        amountCurrency: 'PEN',
+        entity: {
+          sku: product.sku,
+          productName: product.name,
+          columnId: baseColumn.id,
+          unitCode,
+          priceValue: baseValue,
+        },
+        keywords: [
+          { value: product.name, weight: 140, isKey: true },
+          { value: product.sku, weight: 140, isKey: true },
+        ],
+        numericValues: [{ value: baseValue, weight: 120 }],
+      });
+      return acc;
+    }, []);
+  }, [priceListProducts, priceEffectivePrices, priceColumns]);
+
+  const searchDatasets = useMemo<
+    Record<SearchResultCategory, SearchDataset<SearchEntity>>
+  >(() => ({
+    comprobantes: {
+      key: 'comprobantes',
+      title: SEARCH_DATASET_CONFIG.comprobantes.title,
+      routeBase: SEARCH_DATASET_CONFIG.comprobantes.routeBase,
+      items: comprobanteItems,
+    },
+    productos: {
+      key: 'productos',
+      title: SEARCH_DATASET_CONFIG.productos.title,
+      routeBase: SEARCH_DATASET_CONFIG.productos.routeBase,
+      items: productoItems,
+    },
+    clientes: {
+      key: 'clientes',
+      title: SEARCH_DATASET_CONFIG.clientes.title,
+      routeBase: SEARCH_DATASET_CONFIG.clientes.routeBase,
+      items: clienteItems,
+    },
+    cobranzas: {
+      key: 'cobranzas',
+      title: SEARCH_DATASET_CONFIG.cobranzas.title,
+      routeBase: SEARCH_DATASET_CONFIG.cobranzas.routeBase,
+      items: cobranzaItems,
+    },
+    inventario: {
+      key: 'inventario',
+      title: SEARCH_DATASET_CONFIG.inventario.title,
+      routeBase: SEARCH_DATASET_CONFIG.inventario.routeBase,
+      items: inventoryItems,
+    },
+    indicadores: {
+      key: 'indicadores',
+      title: SEARCH_DATASET_CONFIG.indicadores.title,
+      routeBase: SEARCH_DATASET_CONFIG.indicadores.routeBase,
+      items: indicadoresItems,
+    },
+    caja: {
+      key: 'caja',
+      title: SEARCH_DATASET_CONFIG.caja.title,
+      routeBase: SEARCH_DATASET_CONFIG.caja.routeBase,
+      items: cajaItems,
+    },
+    listaPrecios: {
+      key: 'listaPrecios',
+      title: SEARCH_DATASET_CONFIG.listaPrecios.title,
+      routeBase: SEARCH_DATASET_CONFIG.listaPrecios.routeBase,
+      items: listaPreciosItems,
+    },
+  }), [
+    clienteItems,
+    productoItems,
+    comprobanteItems,
+    cobranzaItems,
+    inventoryItems,
+    indicadoresItems,
+    cajaItems,
+    listaPreciosItems,
+  ]);
 
   // Comandos para el Command Palette
   const baseCommands: SystemCommand[] = useMemo(() => ([
@@ -417,237 +1219,62 @@ const SearchBar = () => {
     [filteredCommands]
   );
 
-  const searchResults = useMemo(() => {
+  const searchSections = useMemo<SearchSectionsMap>(() => {
     if (!shouldSearch) {
-      return {
-        comprobantes: createEmptySection<Comprobante>(),
-        productos: createEmptySection<Product>(),
-        clientes: createEmptySection<Cliente>(),
-        cobranzas: createEmptySection<CuentaPorCobrarSummary>(),
-      };
+      return createEmptySectionsMap();
     }
 
-    const clientesSection = buildSearchSection('clientes', combinedClientes, queryTokens, numericQuery, (cliente) => ({
-      id: String(
-        cliente.id ??
-        cliente.numeroDocumento ??
-        cliente.document ??
-        `cliente-${cliente.name ?? cliente.razonSocial ?? cliente.nombreComercial ?? Date.now()}`
-      ),
-      entity: cliente,
-      title: cliente.name || cliente.razonSocial || cliente.nombreCompleto || 'Cliente sin nombre',
-      subtitle: cliente.razonSocial && cliente.razonSocial !== cliente.name ? cliente.razonSocial : cliente.nombreComercial,
-      meta: cliente.document || cliente.numeroDocumento || cliente.email || cliente.phone,
-      searchFields: [
-        { value: cliente.name, weight: 120, isKey: true },
-        { value: cliente.razonSocial, weight: 120, isKey: true },
-        { value: cliente.nombreComercial, weight: 90 },
-        { value: cliente.document, weight: 160, isKey: true },
-        { value: cliente.numeroDocumento, weight: 160, isKey: true },
-        { value: cliente.email, weight: 90 },
-        { value: cliente.phone, weight: 80 },
-        { value: cliente.address ?? cliente.direccion, weight: 70 },
-        { value: cliente.additionalData ?? cliente.observaciones, weight: 50 },
-        {
-          value: buildHaystackValue(
-            cliente.name,
-            cliente.razonSocial,
-            cliente.nombreCompleto,
-            cliente.nombreComercial,
-            cliente.document,
-            cliente.numeroDocumento,
-            cliente.email,
-            cliente.phone,
-            cliente.address ?? cliente.direccion,
-            cliente.additionalData ?? cliente.observaciones
-          ),
-          weight: 60,
-        },
-      ],
-    }));
+    const sections = createEmptySectionsMap();
 
-    const productosSection = buildSearchSection('productos', productosCatalog, queryTokens, numericQuery, (producto) => ({
-      id: producto.id,
-      entity: producto,
-      title: producto.nombre,
-      subtitle: producto.codigo,
-      meta: [producto.categoria, producto.marca, producto.modelo].filter(Boolean).join(' • ') || undefined,
-      amountLabel: 'Precio',
-      amountValue: producto.precio,
-      amountCurrency: 'PEN',
-      searchFields: [
-        { value: producto.nombre, weight: 140, isKey: true },
-        { value: producto.codigo, weight: 140, isKey: true },
-        { value: producto.alias, weight: 110 },
-        { value: producto.descripcion, weight: 90 },
-        { value: producto.categoria, weight: 90 },
-        { value: producto.marca, weight: 90 },
-        { value: producto.modelo, weight: 90 },
-        { value: producto.codigoBarras, weight: 100 },
-        { value: producto.codigoFabrica, weight: 90 },
-        { value: producto.codigoSunat, weight: 90 },
-        {
-          value: buildHaystackValue(
-            producto.nombre,
-            producto.codigo,
-            producto.alias,
-            producto.descripcion,
-            producto.categoria,
-            producto.marca,
-            producto.modelo,
-            producto.codigoBarras,
-            producto.codigoFabrica,
-            producto.codigoSunat
-          ),
-          weight: 70,
-        },
-      ],
-      numericFields: [{ value: producto.precio, weight: 90 }],
-    }));
-
-    const comprobantesSection = buildSearchSection('comprobantes', comprobantes, queryTokens, numericQuery, (comp) => {
-      const compWithCliente = comp as Comprobante & { clienteId?: string | null; clientId?: string | null };
-      const relatedCliente = resolveClienteReference({
-        id: compWithCliente.clienteId ?? compWithCliente.clientId ?? null,
-        document: comp.clientDoc,
-      });
-      const clienteNombre =
-        comp.client ||
-        relatedCliente?.nombreCompleto ||
-        relatedCliente?.razonSocial ||
-        relatedCliente?.name ||
-        relatedCliente?.nombreComercial;
-      const clienteDocumento =
-        comp.clientDoc ||
-        relatedCliente?.numeroDocumento ||
-        relatedCliente?.document ||
-        undefined;
-      const contacto = relatedCliente?.email || relatedCliente?.phone || comp.email;
-      const serieNumero = comp.id;
-      const haystack = buildHaystackValue(
-        serieNumero,
-        comp.type,
-        clienteNombre,
-        clienteDocumento,
-        comp.vendor,
-        contacto,
-        comp.status,
-        comp.paymentMethod,
-        comp.address,
-        comp.observations,
-        comp.purchaseOrder,
-        comp.waybill
+    SEARCH_SECTION_KEYS.forEach((key) => {
+      const dataset = searchDatasets[key];
+      const section = buildSearchSection(
+        key,
+        dataset.items,
+        queryTokens,
+        numericQuery,
+        (item) => mapDatasetItemToCandidate(item)
       );
-      const metaPrimary = [clienteDocumento, comp.status, comp.currency].filter(Boolean).join(' • ');
-
-      return {
-        id: serieNumero,
-        entity: comp,
-        title: comp.type ? `${comp.type} · ${serieNumero}` : serieNumero,
-        subtitle: clienteNombre,
-        meta: metaPrimary || comp.vendor || contacto,
-        amountLabel: 'Total',
-        amountValue: comp.total,
-        amountCurrency: comp.currency,
-        searchFields: [
-          { value: serieNumero, weight: 180, isKey: true },
-          { value: comp.type, weight: 160, isKey: true },
-          { value: clienteNombre, weight: 150, isKey: true },
-          { value: clienteDocumento, weight: 150, isKey: true },
-          { value: relatedCliente?.nombreComercial, weight: 110 },
-          { value: comp.vendor, weight: 90 },
-          { value: contacto, weight: 85 },
-          { value: comp.status, weight: 80 },
-          { value: comp.paymentMethod, weight: 70 },
-          { value: comp.address, weight: 60 },
-          { value: comp.observations, weight: 50 },
-          { value: comp.purchaseOrder, weight: 60 },
-          { value: comp.waybill, weight: 60 },
-          { value: comp.email, weight: 70 },
-          { value: haystack, weight: 65 },
-        ],
-        numericFields: [{ value: comp.total, weight: 100 }],
-      } satisfies SearchCandidate<Comprobante>;
+      sections[key] = {
+        ...section,
+        title: dataset.title,
+        routeBase: dataset.routeBase,
+      };
     });
 
-    const cobranzasSection = buildSearchSection('cobranzas', cuentas, queryTokens, numericQuery, (cuenta) => {
-      const serieNumero = cuenta.comprobanteSerie && cuenta.comprobanteNumero
-        ? `${cuenta.comprobanteSerie}-${cuenta.comprobanteNumero}`
-        : cuenta.comprobanteNumero || cuenta.comprobanteId;
-      const metaPrimary = [cuenta.clienteDocumento, cuenta.estado?.toUpperCase()].filter(Boolean).join(' • ');
-      const relatedCliente = resolveClienteReference({ document: cuenta.clienteDocumento });
-      const metrics: string[] = [];
-      if (typeof cuenta.total === 'number') {
-        metrics.push(`Total ${formatCurrency(cuenta.total, cuenta.moneda)}`);
-      }
-      if (typeof cuenta.cobrado === 'number') {
-        metrics.push(`Cobrado ${formatCurrency(cuenta.cobrado, cuenta.moneda)}`);
-      }
-      const contactoCliente = relatedCliente?.email || relatedCliente?.phone;
-      const haystack = buildHaystackValue(
-        cuenta.clienteNombre,
-        cuenta.clienteDocumento,
-        serieNumero,
-        cuenta.tipoComprobante,
-        cuenta.estado,
-        cuenta.formaPago,
-        cuenta.moneda,
-        cuenta.sucursal,
-        cuenta.cajero,
-        contactoCliente
-      );
+    return sections;
+  }, [shouldSearch, searchDatasets, queryTokens, numericQuery]);
 
-      return {
-        id: cuenta.id,
-        entity: cuenta,
-        title: serieNumero || `Cuenta ${cuenta.id}`,
-        subtitle: cuenta.clienteNombre,
-        meta: [metaPrimary, metrics.join(' · '), contactoCliente].filter(Boolean).join(' · ') || undefined,
-        amountLabel: 'Saldo',
-        amountValue: cuenta.saldo,
-        amountCurrency: cuenta.moneda,
-        searchFields: [
-          { value: cuenta.clienteNombre, weight: 170, isKey: true },
-          { value: cuenta.clienteDocumento, weight: 160, isKey: true },
-          { value: serieNumero, weight: 140, isKey: true },
-          { value: cuenta.tipoComprobante, weight: 90 },
-          { value: cuenta.estado, weight: 110, isKey: true },
-          { value: cuenta.sucursal, weight: 70 },
-          { value: cuenta.cajero, weight: 60 },
-          { value: cuenta.formaPago, weight: 80 },
-          { value: cuenta.moneda, weight: 70 },
-          { value: cuenta.fechaEmision, weight: 60 },
-          { value: cuenta.fechaVencimiento, weight: 60 },
-          { value: contactoCliente, weight: 75 },
-          { value: haystack, weight: 65 },
-        ],
-        numericFields: [
-          { value: cuenta.total, weight: 100 },
-          { value: cuenta.cobrado, weight: 90 },
-          { value: cuenta.saldo, weight: 150 },
-        ],
-      } satisfies SearchCandidate<CuentaPorCobrarSummary>;
-    });
-
-    return {
-      comprobantes: comprobantesSection,
-      productos: productosSection,
-      clientes: clientesSection,
-      cobranzas: cobranzasSection,
-    };
-  }, [shouldSearch, combinedClientes, cuentas, queryTokens, numericQuery, productosCatalog, comprobantes, resolveClienteReference]);
-
-  const totalResultsCount =
-    searchResults.comprobantes.total +
-    searchResults.productos.total +
-    searchResults.clientes.total +
-    searchResults.cobranzas.total;
-
+  const totalResultsCount = useMemo(
+    () => Object.values(searchSections).reduce((sum, section) => sum + section.total, 0),
+    [searchSections]
+  );
   const hasResults = totalResultsCount > 0;
 
   const paletteSearchResults = useMemo(
-    () => searchResults.comprobantes.items.slice(0, COMMAND_PALETTE_RESULT_LIMIT),
-    [searchResults]
+    () => searchSections.comprobantes.items.slice(0, COMMAND_PALETTE_RESULT_LIMIT),
+    [searchSections]
+  );
+
+  const orderedSections = useMemo<SearchSectionWithKey[]>(() => {
+    const sections: SearchSectionWithKey[] = SEARCH_SECTION_KEYS.map((key) => ({
+      key,
+      ...searchSections[key],
+    }));
+    const currentPath = location.pathname;
+    sections.sort((a, b) => {
+      const basePriorityA = SEARCH_DATASET_CONFIG[a.key].priority;
+      const basePriorityB = SEARCH_DATASET_CONFIG[b.key].priority;
+      const activeBoostA = a.routeBase && currentPath.startsWith(a.routeBase) ? -100 : 0;
+      const activeBoostB = b.routeBase && currentPath.startsWith(b.routeBase) ? -100 : 0;
+      return basePriorityA + activeBoostA - (basePriorityB + activeBoostB);
+    });
+    return sections;
+  }, [searchSections, location.pathname]);
+
+  const visibleSections = useMemo(
+    () => orderedSections.filter((section) => section.items.length > 0),
+    [orderedSections]
   );
 
   const renderHighlight = useCallback((value?: string) => {
@@ -673,7 +1300,7 @@ const SearchBar = () => {
   }, [searchQuery]);
 
   const handleSeeAll = useCallback((type: SearchResultCategory) => {
-    const baseRoute = SECTION_ROUTE_MAP[type];
+    const baseRoute = SEARCH_DATASET_CONFIG[type]?.routeBase;
     if (!baseRoute) {
       return;
     }
@@ -681,7 +1308,9 @@ const SearchBar = () => {
     if (!queryValue) {
       return;
     }
-    const queryString = buildQueryString({ search: queryValue });
+    const paramKey = SEARCH_PARAM_BY_SECTION[type] ?? 'q';
+    const params: Record<string, string> = { [paramKey]: queryValue };
+    const queryString = buildQueryString(params);
     navigate(`${baseRoute}${queryString}`);
     setShowSearchResults(false);
   }, [navigate, searchQuery]);
@@ -834,7 +1463,7 @@ const SearchBar = () => {
   };
 
   const handleSelectResult = useCallback(
-    (type: SearchResultCategory, item: Cliente | Product | Comprobante | CuentaPorCobrarSummary) => {
+    (type: SearchResultCategory, item: SearchEntity) => {
       const queryValue = searchQuery.trim();
 
       const closeSearch = () => {
@@ -881,8 +1510,37 @@ const SearchBar = () => {
           navigate(`/cobranzas${buildQueryString({ search: searchParam, cuentaId: cobranza.id })}`);
           break;
         }
-        default:
+        case 'inventario': {
+          const inventoryEntry = item as InventorySearchEntity;
+          const searchParam = queryValue || inventoryEntry.product.codigo || inventoryEntry.product.nombre;
+          navigate(`/inventario${buildQueryString({ q: searchParam })}`);
           break;
+        }
+        case 'indicadores': {
+          const indicador = item as IndicadorSearchEntity;
+          const searchParam = queryValue || indicador.label;
+          navigate(`/indicadores${buildQueryString({ q: searchParam })}`);
+          break;
+        }
+        case 'caja': {
+          const cajaEntry = item as CajaSearchEntity;
+          const fallbackParam =
+            queryValue ||
+            cajaEntry.movimiento?.concepto ||
+            cajaEntry.movimiento?.referencia ||
+            cajaEntry.movimiento?.id ||
+            cajaEntry.resumenLabel;
+          const queryString = fallbackParam ? buildQueryString({ q: fallbackParam }) : '';
+          navigate(`/control-caja${queryString}`);
+          break;
+        }
+        case 'listaPrecios': {
+          const priceEntry = item as ListaPrecioSearchEntity;
+          const searchParam = queryValue || priceEntry.sku || priceEntry.productName;
+          const queryString = buildQueryString({ q: searchParam, columnId: priceEntry.columnId, unit: priceEntry.unitCode });
+          navigate(`/lista-precios${queryString}`);
+          break;
+        }
       }
 
       closeSearch();
@@ -941,7 +1599,7 @@ const SearchBar = () => {
     setCommandPaletteView('main');
   }, []);
 
-  const handlePaletteResultSelect = useCallback((type: SearchResultCategory, item: Cliente | Product | Comprobante | CuentaPorCobrarSummary) => {
+  const handlePaletteResultSelect = useCallback((type: SearchResultCategory, item: SearchEntity) => {
     handleSelectResult(type, item);
     closePaletteAndReset();
   }, [closePaletteAndReset, handleSelectResult]);
@@ -1108,27 +1766,30 @@ const SearchBar = () => {
         {/* DROPDOWN DE RESULTADOS - Solo mostrar si NO está abierto el command palette */}
         {showSearchResults && hasResults && !showCommandPalette && (
           <div className="absolute top-full left-0 mt-2 w-[520px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 max-h-[440px] overflow-y-auto">
-            {searchResults.comprobantes.items.length > 0 && (
-              <div className="p-2">
+            {visibleSections.map((section, index) => (
+              <div
+                key={section.key}
+                className={`p-2 ${index > 0 ? 'border-t border-gray-100 dark:border-gray-700' : ''}`}
+              >
                 <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
-                  <span>Comprobantes</span>
-                  {searchResults.comprobantes.hasMore && SECTION_ROUTE_MAP.comprobantes && (
+                  <span>{section.title}</span>
+                  {section.hasMore && section.routeBase && (
                     <button
                       type="button"
                       className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
-                      onClick={() => handleSeeAll('comprobantes')}
+                      onClick={() => handleSeeAll(section.key)}
                     >
                       Ver todos
                     </button>
                   )}
                 </div>
-                {searchResults.comprobantes.items.map((result) => {
+                {section.items.map((result) => {
                   const amountText = typeof result.amountValue === 'number'
                     ? formatCurrency(result.amountValue, result.amountCurrency)
                     : undefined;
                   return (
                     <button
-                      key={result.id}
+                      key={`${section.key}-${result.id}`}
                       className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       onClick={() => handleSelectResult(result.type, result.entity)}
                     >
@@ -1165,167 +1826,7 @@ const SearchBar = () => {
                   );
                 })}
               </div>
-            )}
-
-            {searchResults.productos.items.length > 0 && (
-              <div className="p-2 border-t border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
-                  <span>Productos</span>
-                  {searchResults.productos.hasMore && SECTION_ROUTE_MAP.productos && (
-                    <button
-                      type="button"
-                      className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
-                      onClick={() => handleSeeAll('productos')}
-                    >
-                      Ver todos
-                    </button>
-                  )}
-                </div>
-                {searchResults.productos.items.map((result) => {
-                  const amountText = typeof result.amountValue === 'number'
-                    ? formatCurrency(result.amountValue, result.amountCurrency)
-                    : undefined;
-                  return (
-                    <button
-                      key={result.id}
-                      className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      onClick={() => handleSelectResult(result.type, result.entity)}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {renderHighlight(result.title) ?? result.title}
-                          </div>
-                          {result.subtitle && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {renderHighlight(result.subtitle) ?? result.subtitle}
-                            </div>
-                          )}
-                          {result.meta && (
-                            <div className="text-[11px] text-gray-400 dark:text-gray-500">
-                              {renderHighlight(result.meta) ?? result.meta}
-                            </div>
-                          )}
-                        </div>
-                        {amountText && (
-                          <div className="text-right whitespace-nowrap">
-                            {result.amountLabel && (
-                              <div className="text-[10px] uppercase text-gray-400 dark:text-gray-500 tracking-wide">
-                                {result.amountLabel}
-                              </div>
-                            )}
-                            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {renderHighlight(amountText) ?? amountText}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {searchResults.clientes.items.length > 0 && (
-              <div className="p-2 border-t border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
-                  <span>Clientes</span>
-                  {searchResults.clientes.hasMore && SECTION_ROUTE_MAP.clientes && (
-                    <button
-                      type="button"
-                      className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
-                      onClick={() => handleSeeAll('clientes')}
-                    >
-                      Ver todos
-                    </button>
-                  )}
-                </div>
-                {searchResults.clientes.items.map((result) => (
-                  <button
-                    key={result.id}
-                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => handleSelectResult(result.type, result.entity)}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {renderHighlight(result.title) ?? result.title}
-                        </div>
-                        {result.subtitle && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {renderHighlight(result.subtitle) ?? result.subtitle}
-                          </div>
-                        )}
-                        {result.meta && (
-                          <div className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
-                            {renderHighlight(result.meta) ?? result.meta}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {searchResults.cobranzas.items.length > 0 && (
-              <div className="p-2 border-t border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase">
-                  <span>Cobranzas</span>
-                  {searchResults.cobranzas.hasMore && SECTION_ROUTE_MAP.cobranzas && (
-                    <button
-                      type="button"
-                      className="text-[10px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
-                      onClick={() => handleSeeAll('cobranzas')}
-                    >
-                      Ver todos
-                    </button>
-                  )}
-                </div>
-                {searchResults.cobranzas.items.map((result) => {
-                  const amountText = typeof result.amountValue === 'number'
-                    ? formatCurrency(result.amountValue, result.amountCurrency)
-                    : undefined;
-                  return (
-                    <button
-                      key={result.id}
-                      className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      onClick={() => handleSelectResult(result.type, result.entity)}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {renderHighlight(result.title) ?? result.title}
-                          </div>
-                          {result.subtitle && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                              {renderHighlight(result.subtitle) ?? result.subtitle}
-                            </div>
-                          )}
-                          {result.meta && (
-                            <div className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
-                              {renderHighlight(result.meta) ?? result.meta}
-                            </div>
-                          )}
-                        </div>
-                        {amountText && (
-                          <div className="text-right whitespace-nowrap">
-                            {result.amountLabel && (
-                              <div className="text-[10px] uppercase text-gray-400 dark:text-gray-500 tracking-wide">
-                                {result.amountLabel}
-                              </div>
-                            )}
-                            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {renderHighlight(amountText) ?? amountText}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            ))}
           </div>
         )}
 
@@ -1466,7 +1967,7 @@ const SearchBar = () => {
                   )}
 
                   {/* Resultados de búsqueda en Command Palette */}
-                  {searchQuery.length > 0 && hasResults && searchResults.comprobantes.items.length > 0 && (
+                  {searchQuery.length > 0 && hasResults && searchSections.comprobantes.items.length > 0 && (
                     <div className="p-3 border-t border-gray-100 dark:border-gray-700">
                       <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase px-2 py-1.5">
                         Comprobantes
