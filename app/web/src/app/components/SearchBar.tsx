@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { Search, FileText, Package, Users, Receipt, UserPlus, CreditCard, BarChart3, Settings, DollarSign, ArrowLeft, Plus, Trash2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useProductStore } from '../../features/catalogo-articulos/hooks/useProductStore';
 import type { Product } from '../../features/catalogo-articulos/models/types';
@@ -514,6 +514,7 @@ const SearchBar = () => {
   const location = useLocation();
   const [activeIndex, setActiveIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const paletteItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const lastQueryRef = useRef('');
   const lastListSignatureRef = useRef('');
@@ -592,6 +593,7 @@ const SearchBar = () => {
   const queryTokens = useMemo(() => tokenizeQuery(searchQuery), [searchQuery]);
   const numericQuery = useMemo(() => extractNumericQuery(searchQuery.trim()), [searchQuery]);
   const shouldSearch = queryTokens.length > 0 || numericQuery.length > 0;
+  const hasSearchText = searchQuery.trim().length > 0;
 
   const clienteItems = useMemo<SearchDatasetItem<Cliente>[]>(() => {
     return combinedClientes.map((cliente) => {
@@ -1383,6 +1385,14 @@ const SearchBar = () => {
     setShowSearchResults(false);
   }, [navigate, searchQuery]);
 
+  const closeSearch = useCallback((options?: { focusInput?: boolean }) => {
+    setShowSearchResults(false);
+    setSearchQuery('');
+    if (options?.focusInput) {
+      searchInputRef.current?.focus();
+    }
+  }, [searchInputRef]);
+
 
   // Atajo de teclado Ctrl+K y otros atajos del sistema
   useEffect(() => {
@@ -1525,8 +1535,7 @@ const SearchBar = () => {
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
-      setShowSearchResults(false);
-      setSearchQuery('');
+      closeSearch();
     }
   };
 
@@ -1534,11 +1543,6 @@ const SearchBar = () => {
     (type: SearchResultCategory, item: SearchEntity) => {
       const queryValue = searchQuery.trim();
       const focusParam = buildFocusParamValue(type, item);
-
-      const closeSearch = () => {
-        setShowSearchResults(false);
-        setSearchQuery('');
-      };
 
       switch (type) {
         case 'clientes': {
@@ -1650,7 +1654,7 @@ const SearchBar = () => {
 
       closeSearch();
     },
-    [navigate, searchQuery]
+    [navigate, searchQuery, closeSearch]
   );
 
   const handleExecuteCommand = useCallback((commandId: string) => {
@@ -1843,6 +1847,7 @@ const SearchBar = () => {
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" 
           />
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => {
@@ -1852,10 +1857,20 @@ const SearchBar = () => {
             onFocus={() => searchQuery && setShowSearchResults(true)}
             onKeyDown={handleSearchKeyDown}
             placeholder="Buscar clientes, productos o comprobantes…"
-            className="w-full pl-9 pr-16 py-2 rounded-lg border border-gray-200 dark:border-gray-600
+            className="w-full pl-9 pr-24 py-2 rounded-lg border border-gray-200 dark:border-gray-600
                      focus:border-gray-300 dark:focus:border-gray-500 focus:outline-none
                      bg-white dark:bg-gray-800 text-sm transition-colors text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           />
+          {hasSearchText && (
+            <button
+              type="button"
+              aria-label="Limpiar búsqueda"
+              onClick={() => closeSearch({ focusInput: true })}
+              className="absolute right-12 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              <X size={14} />
+            </button>
+          )}
           <button
             onClick={() => {
               setShowCommandPalette(true);
