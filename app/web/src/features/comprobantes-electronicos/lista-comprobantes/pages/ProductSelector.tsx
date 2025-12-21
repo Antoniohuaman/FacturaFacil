@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
+import ProductModal from '../../../catalogo-articulos/components/ProductModal';
+import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
 import { useUserSession } from '../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
@@ -53,11 +55,54 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   existingProducts = [] 
 }) => {
   // Obtener productos del catálogo real
-  const { allProducts: catalogProducts } = useProductStore();
+  const {
+    allProducts: catalogProducts,
+    addProduct,
+    categories: catalogCategories
+  } = useProductStore();
   const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook();
   const { session } = useUserSession();
   const establishmentId = session?.currentEstablishmentId;
   const { state: { warehouses } } = useConfigurationContext();
+
+  const mapCatalogProductToSelectorProduct = useCallback((p: CatalogProduct): Product => {
+    const stockInfo = getAvailableStockForUnit({
+      product: p,
+      warehouses,
+      establishmentId,
+      unitCode: p.unidad,
+    });
+    const requiresStockControl = Boolean(
+      p.stockPorAlmacen ||
+      p.stockPorEstablecimiento ||
+      typeof p.cantidad === 'number'
+    );
+
+    return {
+      id: p.id,
+      code: p.codigo,
+      name: p.nombre,
+      price: p.precio,
+      stock: stockInfo.availableInUnidadSeleccionada,
+      requiresStockControl,
+      category: p.categoria || 'Sin categoría',
+      descripcion: p.descripcion,
+      alias: p.alias,
+      marca: p.marca,
+      modelo: p.modelo,
+      codigoBarras: p.codigoBarras,
+      codigoFabrica: p.codigoFabrica,
+      precioCompra: p.precioCompra,
+      descuentoProducto: p.descuentoProducto,
+      peso: p.peso,
+      tipoExistencia: p.tipoExistencia,
+      tipoProducto: p.tipoExistencia === 'SERVICIOS' ? 'SERVICIO' : 'BIEN',
+      impuesto: p.impuesto,
+      imagen: p.imagen,
+      codigoSunat: p.codigoSunat,
+      unidad: p.unidad,
+    };
+  }, [establishmentId, warehouses]);
 
   const getBasePriceForProduct = useCallback((product: Product): number | null => {
     if (!hasSelectableColumns) {
@@ -85,53 +130,41 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const [hoveredIndex, setHoveredIndex] = useState(-1);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const noResultsPanelRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // ✅ Convertir productos del catálogo al formato esperado CON useMemo
-  const allProducts: Product[] = useMemo(() =>
-    catalogProducts.map(p => {
-      const stockInfo = getAvailableStockForUnit({
-        product: p,
-        warehouses,
-        establishmentId,
-        unitCode: p.unidad,
-      });
-      const requiresStockControl = Boolean(
-        p.stockPorAlmacen ||
-        p.stockPorEstablecimiento ||
-        typeof p.cantidad === 'number'
-      );
-
-      return {
-        id: p.id,
-        code: p.codigo,
-        name: p.nombre,
-        price: p.precio,
-        stock: stockInfo.availableInUnidadSeleccionada,
-        requiresStockControl,
-        category: p.categoria || 'Sin categoría',
-        descripcion: p.descripcion,
-        alias: p.alias,
-        marca: p.marca,
-        modelo: p.modelo,
-        codigoBarras: p.codigoBarras,
-        codigoFabrica: p.codigoFabrica,
-        precioCompra: p.precioCompra,
-        descuentoProducto: p.descuentoProducto,
-        peso: p.peso,
-        tipoExistencia: p.tipoExistencia,
-        tipoProducto: p.tipoExistencia === 'SERVICIOS' ? 'SERVICIO' : 'BIEN',
-        impuesto: p.impuesto,
-        imagen: p.imagen,
-        codigoSunat: p.codigoSunat,
-        unidad: p.unidad,
-      };
-    }),
-    [catalogProducts, establishmentId, warehouses]
+  const allProducts: Product[] = useMemo(
+    () => catalogProducts.map(mapCatalogProductToSelectorProduct),
+    [catalogProducts, mapCatalogProductToSelectorProduct]
   );
+  const handleCreateProductClick = useCallback(() => {
+    setShowProductModal(true);
+  }, []);
+
+  const handleProductModalClose = useCallback(() => {
+    setShowProductModal(false);
+  }, []);
+
+  const handleProductCreated = useCallback((productData: Omit<CatalogProduct, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => {
+    const created = addProduct(productData);
+    const selectorProduct = mapCatalogProductToSelectorProduct(created);
+    onAddProducts([{ product: selectorProduct, quantity: 1 }]);
+    setShowProductModal(false);
+    setSearchTerm('');
+    setShowDropdown(false);
+    setSelectedProducts(new Set());
+    setQuantities({});
+    setHoveredIndex(-1);
+    requestAnimationFrame(() => {
+      searchRef.current?.focus();
+    });
+  }, [addProduct, mapCatalogProductToSelectorProduct, onAddProducts]);
+
 
   // Intelligent search with prioritization
   const getFilteredProducts = useCallback(() => {
@@ -161,23 +194,27 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   const filteredProducts = getFilteredProducts();
 
-  // Close dropdown when clicking outside
+  // Close dropdown/panel when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current && 
-        !dropdownRef.current.contains(event.target as Node) &&
-        searchRef.current &&
-        !searchRef.current.contains(event.target as Node)
-      ) {
-        setShowDropdown(false);
-        setHoveredIndex(-1);
+    if (!showDropdown) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      const clickedInsideDropdown = dropdownRef.current?.contains(target);
+      const clickedInsideSearch = searchRef.current?.contains(target);
+      const clickedInsideHint = noResultsPanelRef.current?.contains(target);
+
+      if (clickedInsideDropdown || clickedInsideSearch || clickedInsideHint) {
+        return;
       }
+
+      setShowDropdown(false);
+      setHoveredIndex(-1);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [showDropdown]);
 
   // Scroll hovered item into view
   useEffect(() => {
@@ -234,21 +271,29 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     }
   }, [isMultipleMode, selectedProducts, quantities, onAddProducts]);
 
-  // Keyboard navigation
+  // Keyboard navigation + ESC closing for dropdown/panel
   useEffect(() => {
+    if (!showDropdown) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!showDropdown || filteredProducts.length === 0) return;
+      if (event.key === 'Escape') {
+        setShowDropdown(false);
+        setHoveredIndex(-1);
+        return;
+      }
+
+      if (filteredProducts.length === 0) {
+        return;
+      }
 
       switch (event.key) {
         case 'ArrowDown':
           event.preventDefault();
-          setHoveredIndex(prev => 
-            prev < filteredProducts.length - 1 ? prev + 1 : prev
-          );
+          setHoveredIndex(prev => (prev < filteredProducts.length - 1 ? prev + 1 : prev));
           break;
         case 'ArrowUp':
           event.preventDefault();
-          setHoveredIndex(prev => prev > 0 ? prev - 1 : prev);
+          setHoveredIndex(prev => (prev > 0 ? prev - 1 : prev));
           break;
         case 'Enter':
           event.preventDefault();
@@ -256,17 +301,13 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             handleProductSelect(filteredProducts[hoveredIndex]);
           }
           break;
-        case 'Escape':
-          setShowDropdown(false);
-          setHoveredIndex(-1);
+        default:
           break;
       }
     };
 
-    if (showDropdown) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showDropdown, hoveredIndex, filteredProducts, handleProductSelect]);
 
   const handleQuantityChange = (productId: string, delta: number) => {
@@ -330,6 +371,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     );
   };
 
+  const trimmedSearch = searchTerm.trim();
+  const showCreateProductHint = showDropdown && trimmedSearch.length > 0 && filteredProducts.length === 0 && !isLoading;
+
   return (
     <div className="space-y-4">
       {/* Mode Toggle */}
@@ -372,6 +416,16 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           )}
         </div>
+
+        {showCreateProductHint && (
+          <button
+            type="button"
+            onClick={handleCreateProductClick}
+            className="mt-1 text-sm text-blue-600 hover:text-blue-700 focus:outline-none"
+          >
+            ➕ Crear nuevo producto
+          </button>
+        )}
 
         {/* Selected Products Preview (Multiple Mode) */}
         {isMultipleMode && selectedProducts.size > 0 && (
@@ -558,7 +612,10 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
         {/* No results */}
         {showDropdown && searchTerm && filteredProducts.length === 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-center text-gray-500">
+          <div
+            ref={noResultsPanelRef}
+            className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-center text-gray-500"
+          >
             <Search className="w-8 h-8 mx-auto mb-2 text-gray-300" />
             <p className="text-sm">No se encontraron productos</p>
             <p className="text-xs text-gray-400">
@@ -582,6 +639,13 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           </span>
         )}
       </div>
+
+      <ProductModal
+        isOpen={showProductModal}
+        onClose={handleProductModalClose}
+        onSave={handleProductCreated}
+        categories={catalogCategories}
+      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useRef } from "react";
+import { memo, useEffect, useState, useRef, useCallback } from "react";
 import type { ToastItem } from "../types";
 
 const toneStyles: Record<
@@ -91,6 +91,11 @@ function ToastComponent({ toast, onClose }: ToastProps) {
   const progressRef = useRef<HTMLDivElement>(null);
   const styles = toneStyles[toast.tone];
 
+  const handleClose = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(() => onClose(toast.id), 300); // Match exit animation duration
+  }, [onClose, toast.id]);
+
   // Auto-dismiss ULTRA FLUIDO con RAF optimizado
   useEffect(() => {
     if (toast.sticky) return;
@@ -136,12 +141,7 @@ function ToastComponent({ toast, onClose }: ToastProps) {
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [toast.sticky, toast.durationMs, isHovered]);
-
-  const handleClose = () => {
-    setIsExiting(true);
-    setTimeout(() => onClose(toast.id), 300); // Match exit animation duration
-  };
+  }, [toast.sticky, toast.durationMs, isHovered, handleClose]);
 
   const handleActionClick = () => {
     if (toast.action?.onClick) {
