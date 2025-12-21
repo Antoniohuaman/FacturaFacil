@@ -203,21 +203,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   });
 
   // Handlers para cliente
-  const handleNuevoCliente = () => {
-    setIsEditing(false);
-    setDocumentType('DNI');
-    setClientType('natural');
-    setFormData({
-      documentNumber: '',
-      legalName: '',
-      address: '',
-      gender: 'M',
-      phone: '',
-      email: '',
-      additionalData: ''
-    });
-    setShowClienteForm(true);
-  };
 
   const handleEditarCliente = () => {
     if (!clienteSeleccionadoLocal) return;
@@ -555,13 +540,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   </div>
                 )}
 
-                {/* Link "Nuevo Cliente" */}
-                <p 
-                  className="mt-1 text-[12px] text-primary hover:underline cursor-pointer font-medium"
-                  onClick={handleNuevoCliente}
-                >
-                  + Nuevo Cliente
-                </p>
+                {/* '+ Nuevo Cliente' intentionally removed — creation handled elsewhere */}
               </div>
             ) : (
               <div>
