@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useConsultasExternas } from '../hooks';
 import type { ClienteFormData } from '../models';
+import { onlyDigits } from '../utils/documents';
 import TelefonosInput from './TelefonosInput';
 import EmailsInput from './EmailsInput';
 import ActividadesEconomicasInput from './ActividadesEconomicasInput';
@@ -37,6 +38,36 @@ const tiposDocumento = [
   { value: 'G', label: 'Salvoconducto' },
   { value: 'H', label: 'Carné Permiso Temp.Perman. - CPP' },
 ];
+
+const DNI_CODE = '1';
+const RUC_CODE = '6';
+const DNI_REGEX = /^\d{8}$/;
+const RUC_REGEX = /^[12]\d{10}$/;
+const DNI_ERROR_MESSAGE = 'El DNI debe tener 8 dígitos numéricos';
+const RUC_ERROR_MESSAGE = 'El RUC debe tener 11 dígitos numéricos y comenzar con 1 o 2';
+
+const sanitizeNumeroDocumentoValue = (value: string, tipoDocumento: string): string => {
+  if (tipoDocumento === RUC_CODE) {
+    return onlyDigits(value).slice(0, 11);
+  }
+  if (tipoDocumento === DNI_CODE) {
+    return onlyDigits(value).slice(0, 8);
+  }
+  return value.slice(0, 20);
+};
+
+const getDocumentoValidationErrorMessage = (
+  tipoDocumento: string,
+  numeroDocumento: string
+): string | undefined => {
+  if (tipoDocumento === DNI_CODE) {
+    return DNI_REGEX.test(onlyDigits(numeroDocumento)) ? undefined : DNI_ERROR_MESSAGE;
+  }
+  if (tipoDocumento === RUC_CODE) {
+    return RUC_REGEX.test(onlyDigits(numeroDocumento)) ? undefined : RUC_ERROR_MESSAGE;
+  }
+  return undefined;
+};
 
 const ClienteFormNew: React.FC<ClienteFormProps> = ({
   formData,
@@ -98,6 +129,14 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     [getFieldError]
   );
 
+  const handleNumeroDocumentoChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const sanitizedValue = sanitizeNumeroDocumentoValue(event.target.value, formData.tipoDocumento);
+      handleFieldChange('numeroDocumento', sanitizedValue, 'numeroDocumento');
+    },
+    [formData.tipoDocumento, handleFieldChange]
+  );
+
   // Actualizar nombreCompleto automáticamente
   useEffect(() => {
     if (formData.tipoDocumento !== '6') {
@@ -138,6 +177,21 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       handleFieldChange('tipoPersona', 'Natural', 'tipoPersona');
     }
   }, [formData.tipoDocumento, formData.tipoPersona, handleFieldChange]);
+
+  useEffect(() => {
+    if (formData.tipoDocumento !== RUC_CODE && formData.tipoDocumento !== DNI_CODE) {
+      return;
+    }
+
+    const sanitized = sanitizeNumeroDocumentoValue(formData.numeroDocumento, formData.tipoDocumento);
+    if (sanitized !== formData.numeroDocumento) {
+      handleFieldChange('numeroDocumento', sanitized, 'numeroDocumento');
+    }
+  }, [formData.tipoDocumento, formData.numeroDocumento, handleFieldChange]);
+
+  useEffect(() => {
+    clearFieldError('numeroDocumento');
+  }, [formData.tipoDocumento, clearFieldError]);
 
   const handleConsultarReniec = async () => {
     if (!formData.numeroDocumento || formData.numeroDocumento.length !== 8) {
@@ -212,6 +266,27 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
   const esRUC = formData.tipoDocumento === '6';
   const esDNI = formData.tipoDocumento === '1';
+  const documentoMaxLength = esDNI ? 8 : esRUC ? 11 : 20;
+
+  const getDocumentoValidationError = useCallback(() => {
+    if (!esDNI && !esRUC) {
+      return undefined;
+    }
+    return getDocumentoValidationErrorMessage(formData.tipoDocumento, formData.numeroDocumento);
+  }, [esDNI, esRUC, formData.tipoDocumento, formData.numeroDocumento]);
+
+  const handleNumeroDocumentoBlur = useCallback(() => {
+    if (!esDNI && !esRUC) {
+      return;
+    }
+
+    const documentError = getDocumentoValidationError();
+    if (documentError) {
+      setFieldErrors((prev) => ({ ...prev, numeroDocumento: documentError }));
+    } else {
+      clearFieldError('numeroDocumento');
+    }
+  }, [esDNI, esRUC, getDocumentoValidationError, clearFieldError]);
 
   const isFieldBusinessEnabled = useCallback(
     (fieldId: ClienteFieldId) => {
@@ -347,9 +422,13 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
         nextErrors[fieldId] = `${getFieldLabel(fieldId)} es obligatorio`;
       }
     });
+    const documentError = getDocumentoValidationError();
+    if (documentError) {
+      nextErrors.numeroDocumento = documentError;
+    }
     setFieldErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
-  }, [requiredFieldIds, isFieldRenderable, hasValue, getFieldLabel]);
+  }, [requiredFieldIds, isFieldRenderable, hasValue, getFieldLabel, getDocumentoValidationError]);
 
   const handleSaveClick = useCallback(() => {
     if (!validateCustomFields()) {
@@ -496,9 +575,11 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 </label>
                 <input
                   type="text"
+                  inputMode={esDNI || esRUC ? 'numeric' : 'text'}
                   value={formData.numeroDocumento}
-                  onChange={(e) => handleFieldChange('numeroDocumento', e.target.value, 'numeroDocumento')}
-                  maxLength={esDNI ? 8 : esRUC ? 11 : 20}
+                  onChange={handleNumeroDocumentoChange}
+                  onBlur={handleNumeroDocumentoBlur}
+                  maxLength={documentoMaxLength}
                   className={getFieldInputClass(
                     'numeroDocumento',
                     'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'

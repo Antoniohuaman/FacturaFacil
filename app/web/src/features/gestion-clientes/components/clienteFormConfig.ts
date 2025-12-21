@@ -432,9 +432,15 @@ export const ALWAYS_REQUIRED_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter((field) =>
   (field) => field.id
 );
 
-export const DEFAULT_VISIBLE_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter(
+const FORCE_DEFAULT_VISIBLE_FIELD_IDS: ClienteFieldId[] = ['direccion', 'segundoNombre'];
+
+const BASE_DEFAULT_VISIBLE_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter(
   (field) => field.defaultRequired || field.alwaysRequired || field.alwaysVisible
 ).map((field) => field.id);
+
+export const DEFAULT_VISIBLE_FIELD_IDS = Array.from(
+  new Set<ClienteFieldId>([...BASE_DEFAULT_VISIBLE_FIELD_IDS, ...FORCE_DEFAULT_VISIBLE_FIELD_IDS])
+);
 
 export const DEFAULT_REQUIRED_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter(
   (field) => field.defaultRequired || field.alwaysRequired
