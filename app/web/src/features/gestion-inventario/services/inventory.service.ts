@@ -58,6 +58,46 @@ export class InventoryService {
   }
 
   /**
+   * Actualiza los umbrales mínimo/máximo para un almacén específico
+   */
+  static updateThresholds(
+    product: Product,
+    warehouseId: string,
+    updates: { stockMinimo?: number | null; stockMaximo?: number | null }
+  ): Product {
+    const hasMinUpdate = Object.prototype.hasOwnProperty.call(updates, 'stockMinimo');
+    const hasMaxUpdate = Object.prototype.hasOwnProperty.call(updates, 'stockMaximo');
+
+    const nextMinMap = { ...(product.stockMinimoPorAlmacen ?? {}) };
+    const nextMaxMap = { ...(product.stockMaximoPorAlmacen ?? {}) };
+
+    if (hasMinUpdate) {
+      const normalizedMin = updates.stockMinimo ?? undefined;
+      if (normalizedMin === undefined) {
+        delete nextMinMap[warehouseId];
+      } else {
+        nextMinMap[warehouseId] = normalizedMin;
+      }
+    }
+
+    if (hasMaxUpdate) {
+      const normalizedMax = updates.stockMaximo ?? undefined;
+      if (normalizedMax === undefined) {
+        delete nextMaxMap[warehouseId];
+      } else {
+        nextMaxMap[warehouseId] = normalizedMax;
+      }
+    }
+
+    return {
+      ...product,
+      stockMinimoPorAlmacen: Object.keys(nextMinMap).length ? nextMinMap : undefined,
+      stockMaximoPorAlmacen: Object.keys(nextMaxMap).length ? nextMaxMap : undefined,
+      fechaActualizacion: new Date()
+    };
+  }
+
+  /**
    * Registrar ajuste de stock
    */
   static registerAdjustment(

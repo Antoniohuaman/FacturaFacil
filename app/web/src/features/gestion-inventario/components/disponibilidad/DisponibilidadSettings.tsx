@@ -21,6 +21,8 @@ const COLUMNAS_INFO: Record<ColumnaDisponibilidad, string> = {
   real: 'Stock Real',
   reservado: 'Stock Reservado',
   disponible: 'Stock Disponible',
+  stockMinimo: 'Stock mínimo',
+  stockMaximo: 'Stock máximo',
   situacion: 'Estado',
   acciones: 'Acciones'
 };

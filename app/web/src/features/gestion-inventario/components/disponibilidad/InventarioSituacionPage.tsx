@@ -9,6 +9,14 @@ import DisponibilidadPagination from './DisponibilidadPagination';
 import DisponibilidadSettings from './DisponibilidadSettings';
 import type { DisponibilidadItem } from '../../models/disponibilidad.types';
 
+type ThresholdField = 'stockMinimo' | 'stockMaximo';
+
+interface ThresholdChangePayload {
+  productoId: string;
+  field: ThresholdField;
+  value: number | null;
+}
+
 interface InventarioSituacionPageProps {
   onExportar?: () => void;
   onActualizacionMasiva?: () => void;
@@ -38,7 +46,11 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     actualizarFiltros,
     cambiarOrdenamiento,
     irAPagina,
-    cambiarItemsPorPagina
+    cambiarItemsPorPagina,
+    canEditThresholds,
+    thresholdsTooltip,
+    selectedWarehouse,
+    updateStockThreshold
   } = useInventarioDisponibilidad();
 
   // Preferencias de UI
@@ -62,6 +74,25 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
   React.useEffect(() => {
     cambiarItemsPorPagina(itemsPorPagina);
   }, [itemsPorPagina, cambiarItemsPorPagina]);
+
+  const selectedWarehouseId = selectedWarehouse?.id;
+
+  const handleThresholdChange = useCallback(async ({
+    productoId,
+    field,
+    value
+  }: ThresholdChangePayload) => {
+    if (!selectedWarehouseId) {
+      throw new Error('Selecciona un establecimiento y un almacén para editar los valores.');
+    }
+
+    await updateStockThreshold({
+      productoId,
+      warehouseId: selectedWarehouseId,
+      field,
+      value
+    });
+  }, [selectedWarehouseId, updateStockThreshold]);
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
@@ -88,6 +119,10 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
           ordenamiento={ordenamiento}
           onOrdenamientoChange={cambiarOrdenamiento}
           onAjustarStock={handleAjustarStock}
+          canEditThresholds={canEditThresholds}
+          editThresholdMessage={thresholdsTooltip}
+          onUpdateThreshold={handleThresholdChange}
+          selectedWarehouseName={selectedWarehouse?.name}
         />
       </div>
 

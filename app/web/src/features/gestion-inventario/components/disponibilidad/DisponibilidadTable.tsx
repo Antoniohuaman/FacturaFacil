@@ -1,6 +1,6 @@
 // src/features/gestion-inventario/components/disponibilidad/DisponibilidadTable.tsx
 
-import React from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type {
   DisponibilidadItem,
   DensidadTabla,
@@ -9,6 +9,22 @@ import type {
   SituacionStock
 } from '../../models/disponibilidad.types';
 
+type ThresholdField = 'stockMinimo' | 'stockMaximo';
+
+interface ThresholdUpdatePayload {
+  productoId: string;
+  field: ThresholdField;
+  value: number | null;
+}
+
+interface EditingCellState {
+  key: string;
+  productId: string;
+  field: ThresholdField;
+  value: string;
+  originalValue: string;
+}
+
 interface DisponibilidadTableProps {
   datos: DisponibilidadItem[];
   densidad: DensidadTabla;
@@ -16,6 +32,10 @@ interface DisponibilidadTableProps {
   ordenamiento: OrdenamientoDisponibilidad;
   onOrdenamientoChange: (campo: ColumnaDisponibilidad) => void;
   onAjustarStock?: (item: DisponibilidadItem) => void;
+  canEditThresholds: boolean;
+  editThresholdMessage?: string;
+  onUpdateThreshold?: (payload: ThresholdUpdatePayload) => Promise<void> | void;
+  selectedWarehouseName?: string;
 }
 
 const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
@@ -24,8 +44,196 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   columnasVisibles,
   ordenamiento,
   onOrdenamientoChange,
-  onAjustarStock
+  onAjustarStock,
+  canEditThresholds,
+  editThresholdMessage,
+  onUpdateThreshold,
+  selectedWarehouseName
 }) => {
+  const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
+  const [savingCellId, setSavingCellId] = useState<string | null>(null);
+  const [cellErrors, setCellErrors] = useState<Record<string, string>>({});
+  const activeInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (editingCell && activeInputRef.current) {
+      activeInputRef.current.focus();
+      activeInputRef.current.select();
+    }
+  }, [editingCell]);
+
+  const getCellKey = useCallback((productId: string, field: ThresholdField) => `${productId}-${field}` , []);
+
+  const formatThresholdValue = useCallback((value?: number) => (
+    typeof value === 'number' ? value.toLocaleString() : '—'
+  ), []);
+
+  const cleanupCellError = useCallback((cellKey: string) => {
+    setCellErrors(prev => {
+      if (!prev[cellKey]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[cellKey];
+      return next;
+    });
+  }, []);
+
+  const cancelEditing = useCallback(() => {
+    if (editingCell) {
+      cleanupCellError(editingCell.key);
+    }
+    setEditingCell(null);
+    activeInputRef.current = null;
+  }, [editingCell, cleanupCellError]);
+
+  const parseInputValue = useCallback((rawValue: string): number | null | undefined => {
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = Number(trimmed);
+    if (Number.isNaN(parsed)) {
+      return undefined;
+    }
+    return parsed;
+  }, []);
+
+  const valuesAreEqual = useCallback((a: number | null, b: number | null) => {
+    if (a === null && b === null) {
+      return true;
+    }
+    if (a === null || b === null) {
+      return false;
+    }
+    return Math.abs(a - b) < 1e-9;
+  }, []);
+
+  const getThresholdValue = useCallback((item: DisponibilidadItem, field: ThresholdField) => (
+    field === 'stockMinimo' ? item.stockMinimo : item.stockMaximo
+  ), []);
+
+  const validateValue = useCallback((
+    item: DisponibilidadItem,
+    field: ThresholdField,
+    nextValue: number | null
+  ): string | null => {
+    if (nextValue !== null && nextValue < 0) {
+      return 'Debe ser mayor o igual a 0';
+    }
+
+    const otherValue = field === 'stockMinimo' ? item.stockMaximo : item.stockMinimo;
+
+    if (nextValue !== null && otherValue !== undefined) {
+      if (field === 'stockMinimo' && otherValue < nextValue) {
+        return 'El mínimo no puede ser mayor que el máximo';
+      }
+      if (field === 'stockMaximo' && nextValue < otherValue) {
+        return 'El máximo debe ser mayor o igual al mínimo';
+      }
+    }
+
+    return null;
+  }, []);
+
+  const commitEdit = useCallback(async (
+    item: DisponibilidadItem,
+    field: ThresholdField
+  ) => {
+    if (!editingCell || editingCell.productId !== item.productoId || editingCell.field !== field) {
+      return;
+    }
+
+    const cellKey = editingCell.key;
+    const parsedCurrent = parseInputValue(editingCell.value);
+
+    if (parsedCurrent === undefined) {
+      setCellErrors(prev => ({ ...prev, [cellKey]: 'Ingresa un número válido' }));
+      return;
+    }
+
+    const parsedOriginal = parseInputValue(editingCell.originalValue);
+
+    if (parsedOriginal === undefined) {
+      // Estado original siempre debería ser válido, pero prevenimos fallos
+      cleanupCellError(cellKey);
+    }
+
+    if (valuesAreEqual(parsedOriginal ?? null, parsedCurrent)) {
+      cancelEditing();
+      return;
+    }
+
+    const validationMessage = validateValue(item, field, parsedCurrent);
+    if (validationMessage) {
+      setCellErrors(prev => ({ ...prev, [cellKey]: validationMessage }));
+      return;
+    }
+
+    if (!onUpdateThreshold) {
+      cancelEditing();
+      return;
+    }
+
+    setSavingCellId(cellKey);
+    try {
+      await onUpdateThreshold({
+        productoId: item.productoId,
+        field,
+        value: parsedCurrent
+      });
+      cleanupCellError(cellKey);
+      cancelEditing();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo guardar el cambio';
+      setCellErrors(prev => ({ ...prev, [cellKey]: message }));
+    } finally {
+      setSavingCellId(null);
+    }
+  }, [editingCell, parseInputValue, valuesAreEqual, validateValue, onUpdateThreshold, cleanupCellError, cancelEditing]);
+
+  const handleBlur = useCallback((item: DisponibilidadItem, field: ThresholdField) => {
+    if (savingCellId) {
+      return;
+    }
+    void commitEdit(item, field);
+  }, [commitEdit, savingCellId]);
+
+  const handleKeyDown = useCallback((
+    event: React.KeyboardEvent<HTMLInputElement>,
+    item: DisponibilidadItem,
+    field: ThresholdField
+  ) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void commitEdit(item, field);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEditing();
+    }
+  }, [commitEdit, cancelEditing]);
+
+  const startEditing = useCallback((item: DisponibilidadItem, field: ThresholdField) => {
+    if (!canEditThresholds || savingCellId) {
+      return;
+    }
+    const currentValue = getThresholdValue(item, field);
+    const cellKey = getCellKey(item.productoId, field);
+    setEditingCell({
+      key: cellKey,
+      productId: item.productoId,
+      field,
+      value: typeof currentValue === 'number' ? String(currentValue) : '',
+      originalValue: typeof currentValue === 'number' ? String(currentValue) : ''
+    });
+    cleanupCellError(cellKey);
+  }, [canEditThresholds, savingCellId, getThresholdValue, getCellKey, cleanupCellError]);
+
+  const tooltipMessage = canEditThresholds
+    ? selectedWarehouseName
+      ? `Editar para ${selectedWarehouseName}`
+      : 'Editar valor'
+    : editThresholdMessage ?? 'Selecciona un establecimiento y un almacén para configurar mínimos/máximos';
   // Clases según densidad - MÁS COMPACTO
   const densidadClasses = {
     compacta: 'py-1.5 px-2.5 text-xs',
@@ -37,22 +245,33 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
 
   // Renderizar badge de situación - ESTILO NEUTRO TIPO JIRA
   const renderSituacionBadge = (situacion: SituacionStock) => {
-    // Badges neutros: solo OK (verde suave) y Sin stock (gris)
-    // Bajo y Crítico se ven en la columna "Disponible" con color
-    if (situacion === 'OK') {
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-          OK
-        </span>
-      );
+    switch (situacion) {
+      case 'OK':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+            OK
+          </span>
+        );
+      case 'Bajo':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+            Bajo
+          </span>
+        );
+      case 'Crítico':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700">
+            Crítico
+          </span>
+        );
+      case 'Sin stock':
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-300 dark:border-gray-600">
+            Sin stock
+          </span>
+        );
     }
-
-    // Sin stock
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-300 dark:border-gray-600">
-        Sin stock
-      </span>
-    );
   };
 
   // Renderizar header con ordenamiento
@@ -106,6 +325,88 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
     );
   };
 
+  const renderThresholdCell = (item: DisponibilidadItem, field: ThresholdField) => {
+    if (!columnasVisibles.includes(field)) {
+      return null;
+    }
+
+    const cellKey = getCellKey(item.productoId, field);
+    const isEditing = editingCell?.key === cellKey;
+    const isSaving = savingCellId === cellKey;
+    const value = getThresholdValue(item, field);
+    const errorMessage = cellErrors[cellKey];
+
+    const inputRef = (node: HTMLInputElement | null) => {
+      if (isEditing) {
+        activeInputRef.current = node;
+      }
+    };
+
+    const baseClasses = `${cellClass} text-right`;
+
+    if (isEditing) {
+      return (
+        <td key={field} className={baseClasses}>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex w-full items-center gap-2">
+              <input
+                ref={inputRef}
+                type="number"
+                min={0}
+                step="0.01"
+                className="w-full rounded-md border border-gray-300 px-2 py-1 text-right text-sm text-gray-900 focus:border-[#6F36FF] focus:ring-2 focus:ring-[#6F36FF]/30 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                value={editingCell?.value ?? ''}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setEditingCell(prev => (prev && prev.key === cellKey ? { ...prev, value: nextValue } : prev));
+                }}
+                onBlur={() => handleBlur(item, field)}
+                onKeyDown={(event) => handleKeyDown(event, item, field)}
+                disabled={isSaving}
+                placeholder="No configurado"
+                autoFocus
+              />
+              {isSaving && (
+                <svg
+                  className="h-4 w-4 animate-spin text-[#6F36FF]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                </svg>
+              )}
+            </div>
+            {errorMessage && (
+              <span className="text-[11px] text-red-500 dark:text-red-400">{errorMessage}</span>
+            )}
+          </div>
+        </td>
+      );
+    }
+
+    return (
+      <td key={field} className={baseClasses}>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            onClick={() => startEditing(item, field)}
+            disabled={!canEditThresholds || Boolean(savingCellId)}
+            title={tooltipMessage ?? undefined}
+            className={`w-full text-right text-sm font-medium tabular-nums ${
+              canEditThresholds ? 'text-gray-900 dark:text-gray-100 hover:text-[#6F36FF]' : 'text-gray-500 dark:text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {formatThresholdValue(value)}
+          </button>
+          {errorMessage && (
+            <span className="text-[11px] text-red-500 dark:text-red-400">{errorMessage}</span>
+          )}
+        </div>
+      </td>
+    );
+  };
+
   // Si no hay datos
   if (datos.length === 0) {
     return (
@@ -144,6 +445,8 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             {renderHeader('real', 'Real', 'right', true)}
             {renderHeader('reservado', 'Reservado', 'right', true)}
             {renderHeader('disponible', 'Disponible', 'right', true)}
+            {renderHeader('stockMinimo', 'Stock mínimo', 'right', false)}
+            {renderHeader('stockMaximo', 'Stock máximo', 'right', false)}
             {renderHeader('situacion', 'Estado', 'center', true)}
             {renderHeader('acciones', 'Acciones', 'center', false)}
           </tr>
@@ -211,7 +514,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                     className={`font-bold tabular-nums ${
                       item.disponible === 0
                         ? 'text-[#EF4444] dark:text-[#F87171]'
-                        : item.disponible < (item.stockMinimo || 0)
+                        : typeof item.stockMinimo === 'number' && item.disponible <= item.stockMinimo
                         ? 'text-[#D97706] dark:text-[#F59E0B]'
                         : 'text-[#10B981] dark:text-[#34D399]'
                     }`}
@@ -220,6 +523,12 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                   </span>
                 </td>
               )}
+
+              {/* Stock mínimo */}
+              {renderThresholdCell(item, 'stockMinimo')}
+
+              {/* Stock máximo */}
+              {renderThresholdCell(item, 'stockMaximo')}
 
               {/* Situación */}
               {columnasVisibles.includes('situacion') && (

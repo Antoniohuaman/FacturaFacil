@@ -12,7 +12,20 @@ import type {
 /**
  * Columnas por defecto visibles en la tabla
  */
-const COLUMNAS_DEFAULT: ColumnaDisponibilidad[] = [
+const TODAS_LAS_COLUMNAS: ColumnaDisponibilidad[] = [
+  'codigo',
+  'producto',
+  'unidadMinima',
+  'real',
+  'reservado',
+  'disponible',
+  'stockMinimo',
+  'stockMaximo',
+  'situacion',
+  'acciones'
+];
+
+const COLUMNAS_VISIBLES_POR_DEFECTO: ColumnaDisponibilidad[] = [
   'codigo',
   'producto',
   'unidadMinima',
@@ -28,7 +41,7 @@ const COLUMNAS_DEFAULT: ColumnaDisponibilidad[] = [
  */
 const PREFERENCIAS_INICIALES: PreferenciasDisponibilidad = {
   densidad: 'compacta',
-  columnasVisibles: COLUMNAS_DEFAULT,
+  columnasVisibles: COLUMNAS_VISIBLES_POR_DEFECTO,
   vistasGuardadas: [],
   itemsPorPagina: 25
 };
@@ -91,7 +104,7 @@ export const usePreferenciasDisponibilidad = create<PreferenciasDisponibilidadSt
 
       // Mostrar todas las columnas
       mostrarTodasColumnas: () => {
-        set({ columnasVisibles: COLUMNAS_DEFAULT });
+        set({ columnasVisibles: TODAS_LAS_COLUMNAS });
       },
 
       // Ocultar columnas opcionales (mantener solo código, producto, disponible, acciones)

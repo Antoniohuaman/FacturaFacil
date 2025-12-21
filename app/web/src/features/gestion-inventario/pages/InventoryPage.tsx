@@ -104,8 +104,6 @@ export const InventoryPage: React.FC = () => {
     XLSX.writeFile(wb, fileName);
   };
 
-  const hasWarehouses = warehouses.length > 0;
-
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Header con PageHeader para mantener consistencia */}

@@ -76,6 +76,8 @@ export type ColumnaDisponibilidad =
   | 'real'
   | 'reservado'
   | 'disponible'
+  | 'stockMinimo'
+  | 'stockMaximo'
   | 'situacion'
   | 'acciones';
 
