@@ -15,7 +15,8 @@
       "Bash(xargs cat:*)",
       "Bash(cp:*)",
       "Bash(npm run:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run lint:*)"
     ],
     "deny": [],
     "ask": []

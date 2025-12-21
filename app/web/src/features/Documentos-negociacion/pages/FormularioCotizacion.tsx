@@ -21,10 +21,10 @@ import NotesSection from '../../comprobantes-electronicos/shared/form-core/compo
 import FieldsConfigModal from '../../comprobantes-electronicos/shared/form-core/components/FieldsConfigModal';
 import { ErrorBoundary } from '../../comprobantes-electronicos/shared/ui/ErrorBoundary';
 import { DocumentoProductsSection } from '../components/DocumentoProductsSection';
-import { Toast } from '../../comprobantes-electronicos/shared/ui/Toast/Toast';
 
 // Contextos
 import { useDocumentoContext } from '../contexts/DocumentosContext';
+import { useFeedback } from '../../../shared/feedback';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { useCurrentEstablishmentId, useUserSession } from '../../../contexts/UserSessionContext';
 import type { Currency } from '../../comprobantes-electronicos/models/comprobante.types';
@@ -36,6 +36,7 @@ const FormularioCotizacion = () => {
   const { state: configState } = useConfigurationContext();
   const currentEstablishmentId = useCurrentEstablishmentId();
   const { session } = useUserSession();
+  const feedback = useFeedback();
 
   // Detectar modo edición
   const documentoToEdit = location.state?.documento;
@@ -44,11 +45,6 @@ const FormularioCotizacion = () => {
   // UI State
   const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Toast state
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
 
   // Hooks del sistema de comprobantes (solo para UI)
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
@@ -211,15 +207,13 @@ const FormularioCotizacion = () => {
 
   const handleGuardarBorrador = () => {
     if (!clienteSeleccionado || cartItems.length === 0) {
-      setToastMessage('Debe seleccionar un cliente y agregar al menos un producto');
-      setToastType('warning');
-      setShowToast(true);
+      feedback.warning('Debe seleccionar un cliente y agregar al menos un producto');
       return;
     }
 
     try {
       let numeroDocumento: string;
-      
+
       if (isEditMode && documentoToEdit) {
         // Modo edición: mantener el mismo ID
         numeroDocumento = documentoToEdit.id;
@@ -272,14 +266,11 @@ const FormularioCotizacion = () => {
       // Guardar o actualizar en contexto
       if (isEditMode) {
         updateDocumento(documentoData);
-        setToastMessage(`Cotización ${numeroDocumento} actualizada exitosamente`);
+        feedback.success(`Borrador ${numeroDocumento} actualizado exitosamente`);
       } else {
         addDocumento(documentoData);
-        setToastMessage(`Borrador ${numeroDocumento} guardado exitosamente`);
+        feedback.success(`Borrador ${numeroDocumento} guardado exitosamente`);
       }
-      
-      setToastType('success');
-      setShowToast(true);
 
       // Volver al listado después de 1.5 segundos
       setTimeout(() => {
@@ -287,9 +278,7 @@ const FormularioCotizacion = () => {
       }, 1500);
     } catch (error) {
       console.error('Error al guardar borrador:', error);
-      setToastMessage('Error al guardar el borrador');
-      setToastType('error');
-      setShowToast(true);
+      feedback.error('Error al guardar el borrador');
     }
   };
 
@@ -299,9 +288,7 @@ const FormularioCotizacion = () => {
 
   const handleCrearCotizacion = async () => {
     if (!canProcess) {
-      setToastMessage('Complete todos los campos requeridos');
-      setToastType('warning');
-      setShowToast(true);
+      feedback.warning('Complete todos los campos requeridos');
       return;
     }
 
@@ -309,7 +296,7 @@ const FormularioCotizacion = () => {
 
     try {
       let numeroDocumento: string;
-      
+
       if (isEditMode && documentoToEdit) {
         // Modo edición: mantener el mismo ID
         numeroDocumento = documentoToEdit.id;
@@ -358,14 +345,11 @@ const FormularioCotizacion = () => {
       // Guardar o actualizar en contexto
       if (isEditMode) {
         updateDocumento(cotizacionData);
-        setToastMessage(`Cotización ${numeroDocumento} actualizada exitosamente`);
+        feedback.success(`Cotización ${numeroDocumento} actualizada exitosamente`);
       } else {
         addDocumento(cotizacionData);
-        setToastMessage(`Cotización ${numeroDocumento} creada exitosamente`);
+        feedback.success(`Cotización ${numeroDocumento} creada exitosamente`);
       }
-      
-      setToastType('success');
-      setShowToast(true);
 
       // Volver al listado después de 1.5 segundos
       setTimeout(() => {
@@ -373,9 +357,7 @@ const FormularioCotizacion = () => {
       }, 1500);
     } catch (error) {
       console.error('Error al crear cotización:', error);
-      setToastMessage('Error al crear la cotización');
-      setToastType('error');
-      setShowToast(true);
+      feedback.error('Error al crear la cotización');
     } finally {
       setIsProcessing(false);
     }
@@ -514,15 +496,6 @@ const FormularioCotizacion = () => {
             </div>
           </div>
         </div>
-
-        {/* Toast de Notificaciones */}
-        <Toast
-          show={showToast}
-          message={toastMessage}
-          type={toastType}
-          onClose={() => setShowToast(false)}
-          position="bottom-right"
-        />
       </div>
     </ErrorBoundary>
   );

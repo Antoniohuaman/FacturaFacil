@@ -1,42 +1,35 @@
-import { useCallback, useEffect } from "react";
+import { memo, useMemo } from "react";
 import { useFeedback } from "./useFeedback";
 import { Toast } from "./components/Toast";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 
-export function FeedbackHost() {
-  const fb = useFeedback();
+function FeedbackHostComponent() {
+  const { toasts, dismiss, confirmState, cancelAction, confirmAction } = useFeedback();
 
-  // Auto-dismiss por toast
-  useEffect(() => {
-    const timers = fb.toasts
-      .filter((t) => !t.sticky)
-      .map((t) => {
-        const ms = t.durationMs ?? 4500;
-        return window.setTimeout(() => fb.dismiss(t.id), ms);
-      });
-
-    return () => {
-      timers.forEach((id) => window.clearTimeout(id));
-    };
-  }, [fb, fb.toasts]);
-
-  const handleConfirm = useCallback(async () => {
-    // Aquí cerramos el modal; la resolución del promise la maneja el provider
-    // (si necesitas lógica async real, se mete antes de cerrar)
-    fb.closeConfirm();
-  }, [fb]);
+  // Memoizar los toasts para evitar re-renders innecesarios
+  // El auto-dismiss ahora es manejado internamente por cada Toast
+  const toastElements = useMemo(
+    () => toasts.map((t) => <Toast key={t.id} toast={t} onClose={dismiss} />),
+    [toasts, dismiss]
+  );
 
   return (
     <>
-      {/* Toast stack */}
-      <div className="fixed right-4 top-4 z-[60] flex flex-col gap-2">
-        {fb.toasts.map((t) => (
-          <Toast key={t.id} toast={t} onClose={fb.dismiss} />
-        ))}
+      {/* Toast stack - posicionado en top-right con animaciones elegantes */}
+      <div
+        className="fixed right-4 top-4 z-[60] flex flex-col gap-3 pointer-events-none"
+        aria-live="polite"
+        aria-atomic="false"
+      >
+        <div className="pointer-events-auto flex flex-col gap-3">
+          {toastElements}
+        </div>
       </div>
 
-      {/* Confirm modal */}
-      <ConfirmDialog state={fb.confirmState} onCancel={fb.closeConfirm} onConfirm={handleConfirm} />
+      {/* Confirm modal - z-index más alto para estar siempre encima */}
+      <ConfirmDialog state={confirmState} onCancel={cancelAction} onConfirm={confirmAction} />
     </>
   );
 }
+
+export const FeedbackHost = memo(FeedbackHostComponent);

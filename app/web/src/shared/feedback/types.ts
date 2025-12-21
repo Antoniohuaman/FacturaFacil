@@ -1,15 +1,25 @@
 export type ToastTone = "success" | "info" | "warning" | "error";
 
+export type ToastAction = {
+  label: string;
+  onClick: () => void;
+  variant?: "primary" | "secondary";
+};
+
 export type ToastItem = {
   id: string;
   title?: string;
   message: string;
   tone: ToastTone;
   createdAt: number;
-  /** si no se define, se usa el default global */
+  /** si no se define, se usa el default global (4500ms) */
   durationMs?: number;
   /** si true, no se auto-cierra */
   sticky?: boolean;
+  /** botón de acción opcional */
+  action?: ToastAction;
+  /** descripción adicional (segunda línea) */
+  description?: string;
 };
 
 export type ConfirmOptions = {
@@ -18,8 +28,12 @@ export type ConfirmOptions = {
   confirmText?: string;
   cancelText?: string;
   tone?: ToastTone;
-  /** si true, muestra estado “cargando” en confirmar */
+  /** si true, muestra estado "cargando" en confirmar */
   loading?: boolean;
+  /** descripción adicional debajo del mensaje */
+  description?: string;
+  /** icono personalizado (opcional) */
+  icon?: "warning" | "danger" | "info" | "success" | "question";
 };
 
 export type ConfirmState = {
@@ -30,6 +44,8 @@ export type ConfirmState = {
   cancelText: string;
   tone: ToastTone;
   loading: boolean;
+  description?: string;
+  icon?: "warning" | "danger" | "info" | "success" | "question";
 };
 
 export type FeedbackApi = {
@@ -48,5 +64,7 @@ export type FeedbackApi = {
   // Confirm
   confirmState: ConfirmState;
   openConfirm: (opts: ConfirmOptions) => Promise<boolean>;
-  closeConfirm: () => void;
+  closeConfirm: (confirmed?: boolean) => void;
+  confirmAction: () => void;
+  cancelAction: () => void;
 };

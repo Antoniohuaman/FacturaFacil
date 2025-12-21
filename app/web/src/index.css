@@ -148,4 +148,72 @@
     background-color: #cbd5f5;
     border-radius: 9999px;
   }
+
+  /* ============================================
+     ANIMACIONES PARA TOAST - SISTEMA DE FEEDBACK
+     ============================================ */
+
+  /* Shimmer effect para barra de progreso - Ultra suave */
+  @keyframes toast-shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    50% {
+      transform: translateX(100%);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+
+  /* Pulse effect para glow del borde - Suave y elegante */
+  @keyframes toast-pulse {
+    0%, 100% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* Slide-in desde la derecha - Entrada del toast */
+  @keyframes toast-slide-in {
+    from {
+      transform: translateX(120%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  /* Slide-out hacia la derecha - Salida del toast */
+  @keyframes toast-slide-out {
+    from {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(130%) scale(0.9);
+      opacity: 0;
+    }
+  }
+
+  /* Clases de utilidad para toasts */
+  .toast-shimmer-animation {
+    animation: toast-shimmer 2s infinite ease-in-out;
+  }
+
+  .toast-pulse-animation {
+    animation: toast-pulse 1.5s infinite ease-in-out;
+  }
+
+  .toast-slide-in-animation {
+    animation: toast-slide-in 0.3s ease-out;
+  }
+
+  .toast-slide-out-animation {
+    animation: toast-slide-out 0.3s ease-in forwards;
+  }
 }

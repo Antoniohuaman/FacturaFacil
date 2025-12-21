@@ -21,10 +21,10 @@ import NotesSection from '../../comprobantes-electronicos/shared/form-core/compo
 import FieldsConfigModal from '../../comprobantes-electronicos/shared/form-core/components/FieldsConfigModal';
 import { ErrorBoundary } from '../../comprobantes-electronicos/shared/ui/ErrorBoundary';
 import { DocumentoProductsSection } from '../components/DocumentoProductsSection';
-import { Toast } from '../../comprobantes-electronicos/shared/ui/Toast/Toast';
 
 // Contextos
 import { useDocumentoContext } from '../contexts/DocumentosContext';
+import { useFeedback } from '../../../shared/feedback';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { useCurrentEstablishmentId, useUserSession } from '../../../contexts/UserSessionContext';
 import type { Currency } from '../../comprobantes-electronicos/models/comprobante.types';
@@ -36,6 +36,7 @@ const FormularioNotaVenta = () => {
   const { state: configState } = useConfigurationContext();
   const currentEstablishmentId = useCurrentEstablishmentId();
   const { session } = useUserSession();
+  const feedback = useFeedback();
 
   // Modo edición
   const documentoToEdit = location.state?.documento;
@@ -44,11 +45,6 @@ const FormularioNotaVenta = () => {
   // UI State
   const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Toast state
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('success');
 
   // Hooks del sistema de comprobantes (solo para UI)
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
@@ -215,15 +211,20 @@ const FormularioNotaVenta = () => {
 
   const handleGuardarBorrador = () => {
     if (!clienteSeleccionado || cartItems.length === 0) {
-      setToastMessage('Debe seleccionar un cliente y agregar al menos un producto');
-      setToastType('warning');
-      setShowToast(true);
+      feedback.warning(
+        'Debe seleccionar un cliente y agregar al menos un producto',
+        'Campos incompletos',
+        {
+          description: 'Complete la información mínima requerida para guardar el borrador',
+          durationMs: 5000
+        }
+      );
       return;
     }
 
     try {
       let numeroNotaVenta: string;
-      
+
       if (isEditMode && documentoToEdit) {
         // Modo edición: mantener el mismo ID
         numeroNotaVenta = documentoToEdit.id;
@@ -276,24 +277,48 @@ const FormularioNotaVenta = () => {
       // Guardar o actualizar en contexto
       if (isEditMode) {
         updateDocumento(borrador);
-        setToastMessage(`Borrador ${numeroNotaVenta} actualizado exitosamente`);
+        feedback.success(
+          `Borrador ${numeroNotaVenta} actualizado exitosamente`,
+          'Borrador actualizado',
+          {
+            description: `${cartItems.length} producto${cartItems.length > 1 ? 's' : ''} - Total: ${currentCurrency} ${totals.total.toFixed(2)}`,
+            action: {
+              label: 'Ver listado',
+              onClick: () => navigate('/documentos-negociacion'),
+              variant: 'primary'
+            }
+          }
+        );
       } else {
         addDocumento(borrador);
-        setToastMessage(`Borrador ${numeroNotaVenta} guardado exitosamente`);
+        feedback.success(
+          `Borrador ${numeroNotaVenta} guardado exitosamente`,
+          'Borrador guardado',
+          {
+            description: `${cartItems.length} producto${cartItems.length > 1 ? 's' : ''} - Total: ${currentCurrency} ${totals.total.toFixed(2)}`,
+            action: {
+              label: 'Ver listado',
+              onClick: () => navigate('/documentos-negociacion'),
+              variant: 'primary'
+            }
+          }
+        );
       }
-      
-      setToastType('success');
-      setShowToast(true);
 
-      // Navegar al listado después de 1.5 segundos
+      // Navegar al listado después de 2 segundos
       setTimeout(() => {
         navigate('/documentos-negociacion');
-      }, 1500);
+      }, 2000);
     } catch (error) {
       console.error('Error al guardar borrador:', error);
-      setToastMessage('Error al guardar el borrador');
-      setToastType('error');
-      setShowToast(true);
+      feedback.error(
+        'No se pudo guardar el borrador. Por favor, intente nuevamente.',
+        'Error al guardar',
+        {
+          description: 'Si el problema persiste, contacte al administrador del sistema',
+          durationMs: 6000
+        }
+      );
     }
   };
 
@@ -303,17 +328,34 @@ const FormularioNotaVenta = () => {
 
   const handleCrearNotaVenta = async () => {
     if (!canProcess) {
-      setToastMessage('Complete todos los campos requeridos');
-      setToastType('warning');
-      setShowToast(true);
+      feedback.warning(
+        'Complete todos los campos requeridos antes de continuar',
+        'Validación de formulario',
+        {
+          description: 'Verifique que haya seleccionado un cliente y agregado productos',
+          durationMs: 5000
+        }
+      );
       return;
     }
 
     setIsProcessing(true);
 
+    // Mostrar loading toast
+    const loadingId = feedback.info(
+      'Procesando su nota de venta, por favor espere...',
+      'Creando documento',
+      {
+        sticky: true
+      }
+    );
+
     try {
+      // Simular procesamiento (eliminar cuando haya integración real)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       let numeroNotaVenta: string;
-      
+
       if (isEditMode && documentoToEdit) {
         // Modo edición: mantener el mismo ID
         numeroNotaVenta = documentoToEdit.id;
@@ -368,24 +410,64 @@ const FormularioNotaVenta = () => {
       // Guardar o actualizar en contexto
       if (isEditMode) {
         updateDocumento(notaVentaData);
-        setToastMessage(`Nota de Venta ${numeroNotaVenta} actualizada exitosamente`);
+        // Dismiss loading toast
+        feedback.dismiss(loadingId);
+        // Show success
+        feedback.success(
+          `Nota de Venta ${numeroNotaVenta} actualizada exitosamente`,
+          'Documento actualizado',
+          {
+            description: `Cliente: ${clienteSeleccionado!.nombre} - Total: ${currentCurrency} ${totals.total.toFixed(2)}`,
+            action: {
+              label: 'Ver listado',
+              onClick: () => navigate('/documentos-negociacion'),
+              variant: 'primary'
+            },
+            durationMs: 6000
+          }
+        );
       } else {
         addDocumento(notaVentaData);
-        setToastMessage(`Nota de Venta ${numeroNotaVenta} creada exitosamente`);
+        // Dismiss loading toast
+        feedback.dismiss(loadingId);
+        // Show success
+        feedback.success(
+          `Nota de Venta ${numeroNotaVenta} creada exitosamente`,
+          'Documento creado',
+          {
+            description: `Cliente: ${clienteSeleccionado!.nombre} - Total: ${currentCurrency} ${totals.total.toFixed(2)}`,
+            action: {
+              label: 'Ver listado',
+              onClick: () => navigate('/documentos-negociacion'),
+              variant: 'primary'
+            },
+            durationMs: 6000
+          }
+        );
       }
-      
-      setToastType('success');
-      setShowToast(true);
 
-      // Volver al listado después de 1.5 segundos
+      // Volver al listado después de 2.5 segundos
       setTimeout(() => {
         navigate('/documentos-negociacion');
-      }, 1500);
+      }, 2500);
     } catch (error) {
       console.error('Error al crear nota de venta:', error);
-      setToastMessage('Error al crear la nota de venta');
-      setToastType('error');
-      setShowToast(true);
+      // Dismiss loading toast
+      feedback.dismiss(loadingId);
+      // Show error
+      feedback.error(
+        'No se pudo crear la nota de venta. Por favor, intente nuevamente.',
+        'Error en el proceso',
+        {
+          description: 'Si el problema persiste, contacte al administrador del sistema',
+          action: {
+            label: 'Reintentar',
+            onClick: () => handleCrearNotaVenta(),
+            variant: 'secondary'
+          },
+          durationMs: 7000
+        }
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -524,15 +606,6 @@ const FormularioNotaVenta = () => {
             </div>
           </div>
         </div>
-
-        {/* Toast de Notificaciones */}
-        <Toast
-          show={showToast}
-          message={toastMessage}
-          type={toastType}
-          onClose={() => setShowToast(false)}
-          position="bottom-right"
-        />
       </div>
     </ErrorBoundary>
   );

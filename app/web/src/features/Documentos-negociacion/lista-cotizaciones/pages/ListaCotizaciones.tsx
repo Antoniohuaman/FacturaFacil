@@ -15,6 +15,7 @@ import {
   Filter, Download, Plus, ChevronDown, Calendar, Check, Columns, X, FileCheck, Link
 } from 'lucide-react';
 import { useDocumentoContext } from '../../contexts/DocumentosContext';
+import { useFeedback } from '../../../../shared/feedback';
 import { lsKey } from '../../../../shared/tenant';
 import { DATE_PRESETS as BUSINESS_DATE_PRESETS, getTodayISO, formatDateShortSpanish, filterByDateRange } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
@@ -55,9 +56,10 @@ const DATE_PRESET_LABELS: Record<DatePresetKey, string> = {
 // ===================================================================
 
 const ListaCotizaciones = () => {
-  const { state, reloadFromStorage } = useDocumentoContext();
+  const { state, reloadFromStorage, updateDocumento, deleteDocumento } = useDocumentoContext();
   const navigate = useNavigate();
-  
+  const feedback = useFeedback();
+
   const cotizaciones = state.documentos.filter(doc => doc.type === 'Cotización');
 
   // Recargar documentos cuando se enfoca la ventana (útil después de convertir a comprobante)
@@ -250,6 +252,94 @@ const ListaCotizaciones = () => {
   const handleGenerateComprobanteFromDrawer = (documento: any) => {
     handleCloseDrawer();
     handleConvertirAComprobante(documento);
+  };
+
+  // ===================================================================
+  // HANDLERS PARA ANULAR Y ELIMINAR CON CONFIRMACIÓN
+  // ===================================================================
+
+  const handleAnularCotizacion = async (cotizacion: any) => {
+    const confirmed = await feedback.openConfirm({
+      title: 'Anular Cotización',
+      message: `¿Está seguro que desea anular la cotización ${cotizacion.id}?`,
+      description: 'Esta acción cambiará el estado del documento a "Anulado" pero se mantendrá en el sistema para consultas.',
+      confirmText: 'Sí, anular',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+      icon: 'warning'
+    });
+
+    if (confirmed) {
+      try {
+        const updatedCotizacion = {
+          ...cotizacion,
+          status: 'Anulado' as const,
+          statusColor: 'red' as const,
+          annulledDate: new Date().toISOString(),
+          annulledBy: 'Usuario'
+        };
+
+        updateDocumento(updatedCotizacion);
+        feedback.success(
+          `La cotización ${cotizacion.id} ha sido anulada exitosamente`,
+          'Documento anulado',
+          {
+            description: `Cliente: ${cotizacion.client} - Total: ${cotizacion.currency} ${cotizacion.total.toFixed(2)}`,
+            durationMs: 5000
+          }
+        );
+        setOpenMenuId(null);
+        setMenuPosition(null);
+      } catch (error) {
+        console.error('Error al anular cotización:', error);
+        feedback.error(
+          'No se pudo anular la cotización. Por favor, intente nuevamente.',
+          'Error al anular',
+          {
+            description: 'Si el problema persiste, contacte al administrador del sistema',
+            durationMs: 6000
+          }
+        );
+      }
+    }
+  };
+
+  const handleEliminarCotizacion = async (cotizacion: any) => {
+    const confirmed = await feedback.openConfirm({
+      title: 'Eliminar Cotización',
+      message: `¿Está seguro que desea eliminar permanentemente la cotización ${cotizacion.id}?`,
+      description: 'Esta acción es irreversible. El documento será eliminado completamente del sistema.',
+      confirmText: 'Sí, eliminar',
+      cancelText: 'Cancelar',
+      tone: 'error',
+      icon: 'danger'
+    });
+
+    if (confirmed) {
+      try {
+        deleteDocumento(cotizacion.id);
+        feedback.success(
+          `La cotización ${cotizacion.id} ha sido eliminada exitosamente`,
+          'Documento eliminado',
+          {
+            description: `Cliente: ${cotizacion.client}`,
+            durationMs: 4500
+          }
+        );
+        setOpenMenuId(null);
+        setMenuPosition(null);
+      } catch (error) {
+        console.error('Error al eliminar cotización:', error);
+        feedback.error(
+          'No se pudo eliminar la cotización. Por favor, intente nuevamente.',
+          'Error al eliminar',
+          {
+            description: 'Si el problema persiste, contacte al administrador del sistema',
+            durationMs: 6000
+          }
+        );
+      }
+    }
   };
 
   // Filtrado de datos
@@ -677,15 +767,19 @@ const ListaCotizaciones = () => {
                                       
                                       <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                                       
-                                      <button 
-                                        onClick={() => {
-                                          setOpenMenuId(null);
-                                          setMenuPosition(null);
-                                        }}
-                                        className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 focus:outline-none focus:bg-red-50 dark:focus:bg-red-900/20"
+                                      <button
+                                        onClick={() => handleAnularCotizacion(doc)}
+                                        className="w-full px-4 py-2 text-left text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 flex items-center gap-2 focus:outline-none focus:bg-orange-50 dark:focus:bg-orange-900/20"
                                         role="menuitem"
                                       >
                                         <XCircle className="w-4 h-4" /> Anular
+                                      </button>
+                                      <button
+                                        onClick={() => handleEliminarCotizacion(doc)}
+                                        className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 focus:outline-none focus:bg-red-50 dark:focus:bg-red-900/20"
+                                        role="menuitem"
+                                      >
+                                        <X className="w-4 h-4" /> Eliminar
                                       </button>
                                     </div>
                                   </>,

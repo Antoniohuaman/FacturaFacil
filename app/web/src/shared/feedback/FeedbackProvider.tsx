@@ -17,6 +17,8 @@ const initialConfirmState: ConfirmState = {
   cancelText: "Cancelar",
   tone: "info",
   loading: false,
+  description: undefined,
+  icon: undefined,
 };
 
 export function FeedbackProvider({ children }: { children: React.ReactNode }) {
@@ -96,13 +98,21 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     [push]
   );
 
-  const closeConfirm = useCallback(() => {
+  const closeConfirm = useCallback((confirmed = false) => {
     setConfirmState((s) => ({ ...s, open: false, loading: false }));
     if (confirmResolveRef.current) {
-      confirmResolveRef.current(false);
+      confirmResolveRef.current(confirmed);
       confirmResolveRef.current = null;
     }
   }, []);
+
+  const confirmAction = useCallback(() => {
+    closeConfirm(true);
+  }, [closeConfirm]);
+
+  const cancelAction = useCallback(() => {
+    closeConfirm(false);
+  }, [closeConfirm]);
 
   const openConfirm = useCallback((opts: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
@@ -116,6 +126,8 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
         cancelText: opts.cancelText ?? "Cancelar",
         tone: opts.tone ?? "info",
         loading: opts.loading ?? false,
+        description: opts.description,
+        icon: opts.icon,
       });
     });
   }, []);
@@ -135,8 +147,24 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
       confirmState,
       openConfirm,
       closeConfirm,
+      confirmAction,
+      cancelAction,
     }),
-    [toasts, push, dismiss, clear, success, info, warning, error, confirmState, openConfirm, closeConfirm]
+    [
+      toasts,
+      push,
+      dismiss,
+      clear,
+      success,
+      info,
+      warning,
+      error,
+      confirmState,
+      openConfirm,
+      closeConfirm,
+      confirmAction,
+      cancelAction,
+    ]
   );
 
   return <FeedbackContext.Provider value={api}>{children}</FeedbackContext.Provider>;
