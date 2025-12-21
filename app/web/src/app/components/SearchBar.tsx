@@ -16,9 +16,12 @@ import { useCaja } from '../../features/control-caja/context/CajaContext';
 import type { Movimiento } from '../../features/control-caja/models';
 import { useIndicadores } from '../../features/indicadores-negocio/hooks/useIndicadores';
 import { useIndicadoresFiltersStore } from '../../features/indicadores-negocio/store/indicadoresFiltersStore';
+import { useTenantStore } from '../../features/autenticacion/store/TenantStore';
 import { useColumns } from '../../features/lista-precios/hooks/useColumns';
 import { useCatalogSync } from '../../features/lista-precios/hooks/useCatalogSync';
 import { usePriceProducts } from '../../features/lista-precios/hooks/usePriceProducts';
+import type { Column } from '../../features/lista-precios/models/PriceTypes';
+import type { EffectivePriceMatrix } from '../../features/lista-precios/models/EffectivePriceTypes';
 import { DEFAULT_UNIT_CODE, getColumnDisplayName } from '../../features/lista-precios/utils/priceHelpers';
 
 // Interfaces de tipos
@@ -498,7 +501,55 @@ const isEditableTarget = (target: EventTarget | null): boolean => {
   return Boolean(target.closest('input, textarea, select, [contenteditable]'));
 };
 
+type PriceProductsSnapshot = Pick<ReturnType<typeof usePriceProducts>, 'products' | 'effectivePrices'>;
+
+const EMPTY_PRICE_PRODUCTS: PriceProductsSnapshot = {
+  products: [],
+  effectivePrices: {} as EffectivePriceMatrix,
+};
+
+interface SearchBarContentProps {
+  priceColumns: Column[];
+  priceListProducts: PriceProductsSnapshot['products'];
+  priceEffectivePrices: PriceProductsSnapshot['effectivePrices'];
+}
+
 const SearchBar = () => {
+  const empresaId = useTenantStore((state) => state.contextoActual?.empresaId ?? '');
+
+  if (!empresaId) {
+    return (
+      <SearchBarContent
+        priceColumns={[]}
+        priceListProducts={EMPTY_PRICE_PRODUCTS.products}
+        priceEffectivePrices={EMPTY_PRICE_PRODUCTS.effectivePrices}
+      />
+    );
+  }
+
+  return <SearchBarTenant />;
+};
+
+const SearchBarTenant = () => {
+  const { columns: priceColumns } = useColumns();
+  const { catalogProducts: syncedCatalogProducts } = useCatalogSync();
+  const { products: priceListProducts, effectivePrices: priceEffectivePrices } =
+    usePriceProducts(syncedCatalogProducts, priceColumns);
+
+  return (
+    <SearchBarContent
+      priceColumns={priceColumns}
+      priceListProducts={priceListProducts}
+      priceEffectivePrices={priceEffectivePrices}
+    />
+  );
+};
+
+const SearchBarContent = ({
+  priceColumns,
+  priceListProducts,
+  priceEffectivePrices,
+}: SearchBarContentProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -574,9 +625,6 @@ const SearchBar = () => {
     });
     return map;
   }, [configState.warehouses]);
-  const { columns: priceColumns } = useColumns();
-  const { catalogProducts: syncedCatalogProducts } = useCatalogSync();
-  const { products: priceListProducts, effectivePrices: priceEffectivePrices } = usePriceProducts(syncedCatalogProducts, priceColumns);
   const { status: cajaStatus, movimientos, getResumen, aperturaActual } = useCaja();
   const cajaResumen = useMemo(() => getResumen(), [getResumen]);
   const movimientoDateFormatter = useMemo(
