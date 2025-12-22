@@ -28,6 +28,7 @@ import CatalogoArticulosMain from "../../features/catalogo-articulos/pages/Catal
 import { ListaPrecios } from "../../features/lista-precios/components/ListaPrecios";
 import { InventoryPage } from "../../features/gestion-inventario/pages/InventoryPage";
 import CobranzasDashboard from "../../features/gestion-cobranzas/pages/CobranzasDashboard";
+import NotificationsCenterPage from "../../features/notifications/pages/NotificationsCenterPage";
 
 import RouteErrorBoundary from "./RouteErrorBoundary";
 
@@ -92,6 +93,7 @@ export const router = createBrowserRouter([
       { path: "/configuracion/cajas", element: <CajasConfiguration /> },
       { path: "/configuracion/cajas/new", element: <CajaFormPage /> },
       { path: "/configuracion/cajas/:id", element: <CajaFormPage /> },
+      { path: "/notificaciones", element: <NotificationsCenterPage /> },
     ],
   },
 ]);

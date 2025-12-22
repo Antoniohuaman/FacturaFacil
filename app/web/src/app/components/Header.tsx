@@ -6,6 +6,7 @@ import UserDropdown from './UserDropdown';
 import EstablishmentSelector from './EstablishmentSelector';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useCaja } from '../../features/control-caja/context/CajaContext';
+import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
 
 interface HeaderProps {
   sidebarCollapsed?: boolean;
@@ -24,6 +25,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
   // ✅ Contexts para datos reales
   const { session } = useUserSession();
   const { status, aperturaActual, getResumen } = useCaja();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useHeaderNotifications();
   
   // Calcular resumen de caja (saldo actual = apertura + ingresos - egresos)
   const resumenCaja = getResumen();
@@ -242,59 +244,105 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
           <button 
             className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
             onClick={() => setShowNotifications(!showNotifications)}
+            aria-label="Ver notificaciones"
           >
             <Bell className="w-5 h-5 text-slate-600 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
             {/* Indicador de notificaciones nuevas */}
-            <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 min-w-[0.75rem] h-3 px-[2px] bg-red-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                <span className="sr-only">Tienes {unreadCount} notificaciones sin leer</span>
+              </span>
+            )}
           </button>
 
           {/* Dropdown de notificaciones */}
           {showNotifications && (
             <div className="absolute right-0 top-full mt-2 w-[480px] bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl py-3 z-50 max-h-96 overflow-y-auto">
               <div className="px-4 pb-3 border-b border-slate-100 dark:border-gray-700">
-                <h3 className="font-semibold text-slate-900 dark:text-white text-base">Notificaciones</h3>
-              </div>
-              <div className="py-2 space-y-1">
-                {/* Notificaciones actualizadas con títulos específicos y colores apropiados */}
-                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-red-500">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">Factura rechazada por SUNAT</p>
-                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Factura F001-00123 requiere corrección</p>
-                    </div>
-                    <span className="text-xs text-slate-400 dark:text-gray-500">2 min</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white text-base">Notificaciones</h3>
+                    <p className="text-xs text-slate-500 dark:text-gray-400">
+                      {unreadCount > 0
+                        ? `${unreadCount} sin leer`
+                        : 'Al día, sin pendientes'}
+                    </p>
                   </div>
-                </div>
-                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-red-500">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">Producto sin stock disponible</p>
-                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Laptop HP Pavilion - Stock agotado</p>
-                    </div>
-                    <span className="text-xs text-slate-400 dark:text-gray-500">5 min</span>
-                  </div>
-                </div>
-                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-yellow-500">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">Factura con observaciones de SUNAT</p>
-                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Boleta B001-00456 tiene observaciones menores</p>
-                    </div>
-                    <span className="text-xs text-slate-400 dark:text-gray-500">15 min</span>
-                  </div>
-                </div>
-                <div className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 border-yellow-500">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">Stock bajo: revisa inventario</p>
-                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Mouse Inalámbrico tiene solo 8 unidades</p>
-                    </div>
-                    <span className="text-xs text-slate-400 dark:text-gray-500">30 min</span>
-                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      onClick={() => markAllAsRead()}
+                    >
+                      Marcar todas como leídas
+                    </button>
+                  )}
                 </div>
               </div>
+              {notifications.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-slate-500 dark:text-gray-400">
+                  <p className="font-medium text-slate-700 dark:text-gray-200 mb-1">
+                    Sin notificaciones recientes
+                  </p>
+                  <p className="text-xs">
+                    Te avisaremos cuando haya algo importante.
+                  </p>
+                </div>
+              ) : (
+                <div className="py-2 space-y-1">
+                  {notifications.map((notification) => {
+                    const isUnread = !notification.read;
+                    const borderColor =
+                      notification.severity === 'error'
+                        ? 'border-red-500'
+                        : notification.severity === 'warning'
+                        ? 'border-yellow-500'
+                        : notification.severity === 'success'
+                        ? 'border-emerald-500'
+                        : 'border-slate-300';
+
+                    return (
+                      <button
+                        key={notification.id}
+                        type="button"
+                        className={`w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 ${borderColor} ${
+                          isUnread ? 'bg-slate-50/80 dark:bg-gray-800/60' : ''
+                        }`}
+                        onClick={() => {
+                          if (notification.link) {
+                            navigate(notification.link);
+                          }
+                          markAsRead(notification.id);
+                          setShowNotifications(false);
+                        }}
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">
+                              {notification.title}
+                            </p>
+                            {notification.message && (
+                              <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                                {notification.message}
+                              </p>
+                            )}
+                          </div>
+                          <span className="ml-2 mt-0.5 inline-flex h-2 w-2 rounded-full bg-slate-300 dark:bg-gray-500" />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div className="border-t border-slate-100 dark:border-gray-700 pt-2">
-                <button className="w-full px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  onClick={() => {
+                    navigate('/notificaciones');
+                    setShowNotifications(false);
+                  }}
+                >
                   Ver todas las notificaciones
                 </button>
               </div>
