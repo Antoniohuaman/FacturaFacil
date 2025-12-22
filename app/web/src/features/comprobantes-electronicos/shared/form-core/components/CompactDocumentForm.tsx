@@ -810,15 +810,13 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 </label>
                 <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg p-3 border border-violet-200 shadow-sm">
                   <p className="text-[13px] font-semibold text-gray-900 mb-1.5">{clienteSeleccionadoLocal.nombre}</p>
-                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <div className="grid grid-cols-2 gap-1.5 text-[11px]">
                     <div className="bg-white rounded px-2 py-1 border border-violet-100">
-                      <span className="font-medium text-gray-500 block">Doc:</span>
                       <p className="font-semibold text-gray-900">
                         {formatDocumentLabel(clienteSeleccionadoLocal.tipoDocumento, clienteSeleccionadoLocal.dni)}
                       </p>
                     </div>
                     <div className="bg-white rounded px-2 py-1 border border-violet-100">
-                      <span className="font-medium text-gray-500 block">Dir:</span>
                       <p className="font-medium text-gray-700 truncate">{clienteSeleccionadoLocal.direccion}</p>
                     </div>
                   </div>
