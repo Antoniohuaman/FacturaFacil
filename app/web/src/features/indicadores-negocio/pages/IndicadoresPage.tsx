@@ -36,7 +36,7 @@ const IndicadoresPage: React.FC = () => {
     establishmentId
   }), [dateRange, establishmentId]);
 
-  const { data, status, error, source } = useIndicadores(filters);
+  const { data, status, error } = useIndicadores(filters);
 
   const normalizedEstablishmentId = establishmentId || "Todos";
   const notificationsFilters = useMemo(() => ({
@@ -110,24 +110,6 @@ const IndicadoresPage: React.FC = () => {
       <Toolbar />
 
       <div className="p-4 md:p-6">
-        {status === 'success' && (
-          <div className="mb-2 flex flex-wrap gap-3 text-xs text-gray-500 leading-relaxed">
-            <span>
-              Origen de datos: {
-                source === 'api'
-                  ? 'Servicio real'
-                  : source === 'dev-local'
-                    ? 'Datos locales (dev)'
-                    : source === 'fallback'
-                      ? 'Fallback local'
-                      : 'Sin definir'
-              }
-            </span>
-            <span>
-              Notificaciones: {notificationsState.hasActivas ? 'activas' : 'sin activar'}
-            </span>
-          </div>
-        )}
         {error && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             No se pudieron cargar los indicadores. Intenta nuevamente.
