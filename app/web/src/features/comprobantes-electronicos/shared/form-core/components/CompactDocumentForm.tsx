@@ -31,6 +31,189 @@ import type { TipoComprobante, Currency } from '../../../models/comprobante.type
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';
 import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
 import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
+import { normalizeKey } from '@/features/gestion-clientes/utils/documents';
+
+import {
+  buildClientDocKey,
+  detectDocumentTypeFromDigits,
+  formatDocumentLabel,
+  mergeNormalizedClientes,
+  type NormalizedClienteRecord,
+  type NormalizedDocumentType,
+  normalizeClienteRecord,
+  normalizeDocumentNumber as normalizeDocNumber,
+  normalizeDocumentType,
+  normalizedTypeToSunatCode,
+  sunatCodeToNormalizedType,
+} from '../utils/clientNormalization';
+
+type SelectedCliente = {
+  nombre: string;
+  dni: string;
+  direccion: string;
+  tipoDocumento: NormalizedDocumentType;
+  email?: string;
+  sunatCode?: string;
+};
+
+const CLIENTE_LEGACY_KEY = 'clientes';
+
+const resolveClienteStorageKeys = (): string[] => {
+  if (typeof window === 'undefined' || !('localStorage' in window)) {
+    return [];
+  }
+
+  const prioritized: string[] = [];
+  const legacy: string[] = [];
+
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (!key) {
+      continue;
+    }
+    if (key.endsWith(':dev_clientes')) {
+      prioritized.unshift(key);
+    } else if (key === 'dev_clientes') {
+      prioritized.push(key);
+    } else if (key === CLIENTE_LEGACY_KEY || key.endsWith(':clientes')) {
+      legacy.push(key);
+    }
+  }
+
+  const ordered = [...prioritized, ...legacy, CLIENTE_LEGACY_KEY];
+  const unique = Array.from(new Set(ordered));
+
+  return unique.filter((key) => {
+    try {
+      return Boolean(window.localStorage.getItem(key));
+    } catch {
+      return false;
+    }
+  });
+};
+
+const loadNormalizedClientesFromStorage = (): NormalizedClienteRecord[] => {
+  if (typeof window === 'undefined' || !('localStorage' in window)) {
+    return [];
+  }
+
+  const keys = resolveClienteStorageKeys();
+  const seen = new Map<string, NormalizedClienteRecord>();
+  const aggregated: NormalizedClienteRecord[] = [];
+
+  keys.forEach((key) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+
+      parsed.forEach((record) => {
+        const normalized = normalizeClienteRecord(record);
+        const existing = seen.get(normalized.docKey);
+        if (existing) {
+          const merged = mergeNormalizedClientes(existing, normalized);
+          seen.set(normalized.docKey, merged);
+          const position = aggregated.findIndex((item) => item.docKey === normalized.docKey);
+          if (position >= 0) {
+            aggregated[position] = merged;
+          }
+        } else {
+          seen.set(normalized.docKey, normalized);
+          aggregated.push(normalized);
+        }
+      });
+    } catch (error) {
+      console.error('Error loading clientes from localStorage key', key, error);
+    }
+  });
+
+  return aggregated;
+};
+
+const readLegacyClientes = (): any[] => {
+  if (typeof window === 'undefined' || !('localStorage' in window)) {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CLIENTE_LEGACY_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Error reading legacy clientes from localStorage', error);
+    return [];
+  }
+};
+
+const persistLegacyClientes = (clientes: any[]): void => {
+  if (typeof window === 'undefined' || !('localStorage' in window)) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(CLIENTE_LEGACY_KEY, JSON.stringify(clientes));
+  } catch (error) {
+    console.error('Error saving clientes to localStorage', error);
+  }
+};
+
+const inferDocumentTypeFromNumber = (value: string): NormalizedDocumentType => detectDocumentTypeFromDigits(value);
+
+const mapSelectedClienteFromProps = (
+  cliente?: { nombre: string; dni: string; direccion: string; tipoDocumento?: NormalizedDocumentType; email?: string } | null,
+): SelectedCliente | null => {
+  if (!cliente) {
+    return null;
+  }
+
+  const tipoDocumento = cliente.tipoDocumento
+    ? normalizeDocumentType(cliente.tipoDocumento)
+    : inferDocumentTypeFromNumber(cliente.dni);
+
+  const numeroDocumento = tipoDocumento === 'RUC' || tipoDocumento === 'DNI'
+    ? normalizeDocNumber(cliente.dni)
+    : (cliente.dni || '').trim();
+
+  return {
+    nombre: cliente.nombre,
+    dni: numeroDocumento,
+    direccion: cliente.direccion,
+    tipoDocumento,
+    email: cliente.email,
+    sunatCode: normalizedTypeToSunatCode(tipoDocumento),
+  };
+};
+
+const resolveSunatLegacyToken = (code?: string): string => {
+  if (!code) {
+    return 'OTROS';
+  }
+
+  const upperCased = code.toString().trim().toUpperCase();
+  switch (upperCased) {
+    case '1':
+      return 'DNI';
+    case '6':
+      return 'RUC';
+    case '0':
+      return 'SIN_DOCUMENTO';
+    case '4':
+      return 'CE';
+    case '7':
+      return 'PAS';
+    default:
+      return upperCased;
+  }
+};
 
 interface CompactDocumentFormProps {
   // Tipo de Comprobante
@@ -60,9 +243,15 @@ interface CompactDocumentFormProps {
     nombre: string;
     dni: string;
     direccion: string;
+    tipoDocumento?: NormalizedDocumentType;
+    email?: string;
   };
   // Callbacks para elevar datos al padre (EmisionTradicional)
-  onClienteChange?: (cliente: { nombre: string; dni: string; direccion: string; email?: string } | null) => void;
+  onClienteChange?: (
+    cliente:
+      | { nombre: string; dni: string; direccion: string; email?: string; tipoDocumento?: NormalizedDocumentType }
+      | null
+  ) => void;
   fechaEmision?: string;
   onFechaEmisionChange?: (value: string) => void;
   onOptionalFieldsChange?: (fields: Record<string, any>) => void;
@@ -99,11 +288,9 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
   // Estados para cliente
   const [showClienteForm, setShowClienteForm] = useState(false);
-  const [clienteSeleccionadoLocal, setClienteSeleccionadoLocal] = useState<{
-    nombre: string;
-    dni: string;
-    direccion: string;
-  } | null>(clienteSeleccionado || null);
+  const [clienteSeleccionadoLocal, setClienteSeleccionadoLocal] = useState<SelectedCliente | null>(
+    () => mapSelectedClienteFromProps(clienteSeleccionado)
+  );
   // Optional fields local state to notify parent
   const [localFechaEmision, setLocalFechaEmision] = useState<string>(fechaEmision || getBusinessTodayISODate());
   const [localFechaVencimiento, setLocalFechaVencimiento] = useState<string>(shiftBusinessDate(getBusinessTodayISODate(), 30));
@@ -117,7 +304,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const [clientDocError, setClientDocError] = useState<string | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [documentType, setDocumentType] = useState('DNI');
+  const [documentType, setDocumentType] = useState('1');
   const [clientType, setClientType] = useState('natural');
   const [formData, setFormData] = useState({
     documentNumber: '',
@@ -129,12 +316,36 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     additionalData: ''
   });
 
+  useEffect(() => {
+    const mapped = mapSelectedClienteFromProps(clienteSeleccionado);
+    setClienteSeleccionadoLocal((prev) => {
+      if (!mapped && !prev) {
+        return prev;
+      }
+      if (!mapped || !prev) {
+        return mapped;
+      }
+      if (
+        prev.dni === mapped.dni &&
+        prev.nombre === mapped.nombre &&
+        prev.direccion === mapped.direccion &&
+        prev.tipoDocumento === mapped.tipoDocumento &&
+        prev.email === mapped.email &&
+        prev.sunatCode === mapped.sunatCode
+      ) {
+        return prev;
+      }
+      return mapped;
+    });
+  }, [clienteSeleccionado]);
+
   // Tipos de documento y cliente
   const documentTypes = [
-    { value: 'DNI', label: 'DNI' },
-    { value: 'RUC', label: 'RUC' },
-    { value: 'CE', label: 'Carnet de Extranjería' },
-    { value: 'PAS', label: 'Pasaporte' }
+    { value: '1', label: 'DNI' },
+    { value: '6', label: 'RUC' },
+    { value: '0', label: 'Sin documento' },
+    { value: '4', label: 'Carnet de Extranjería' },
+    { value: '7', label: 'Pasaporte' }
   ];
 
   const clientTypes = [
@@ -158,48 +369,15 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     baseCurrencyCode && moneda && baseCurrencyCode !== moneda && selectedCurrencyDescriptor,
   );
 
-  // Cargar clientes desde localStorage
-  const getClientesFromLocalStorage = () => {
-    try {
-      const stored = localStorage.getItem('clientes');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return parsed.map((cliente: any) => {
-          const isRUC = cliente.document?.includes('RUC');
-          const isDNI = cliente.document?.includes('DNI');
-          const documento = cliente.document?.replace('RUC ', '').replace('DNI ', '').replace('Sin documento', '');
+  const clientesDisponibles = loadNormalizedClientesFromStorage();
 
-          return {
-            id: String(cliente.id),
-            tipoDocumento: isRUC ? 'RUC' : isDNI ? 'DNI' : 'Sin documento',
-            numeroDocumento: documento || '',
-            tipoPersona: isRUC ? 'juridica' : 'natural',
-            nombres: !isRUC ? cliente.name : '',
-            apellidos: '',
-            razonSocial: isRUC ? cliente.name : '',
-            direccion: cliente.address || 'Dirección no definida',
-            telefono: cliente.phone || '',
-            email: ''
-          };
-        });
-      }
-      return [];
-    } catch (error) {
-      console.error('Error loading clientes from localStorage:', error);
-      return [];
-    }
-  };
+  const searchLower = searchQuery.trim().toLowerCase();
+  const searchDigits = normalizeDocNumber(searchQuery);
 
-  const mockClientes = getClientesFromLocalStorage();
-
-  // Filtrar clientes por búsqueda
-  const clientesFiltrados = mockClientes.filter((cliente: any) => {
-    const searchLower = searchQuery.toLowerCase();
-    const nombreCompleto = cliente.tipoPersona === 'natural'
-      ? `${cliente.nombres} ${cliente.apellidos}`.toLowerCase()
-      : cliente.razonSocial!.toLowerCase();
-    return nombreCompleto.includes(searchLower) ||
-           cliente.numeroDocumento.includes(searchLower);
+  const clientesFiltrados = clientesDisponibles.filter((cliente) => {
+    const matchName = searchLower ? cliente.nombreLower.includes(searchLower) : false;
+    const matchDocument = searchDigits ? cliente.numeroDocumento.includes(searchDigits) : false;
+    return matchName || matchDocument;
   });
 
   // Handlers para cliente
@@ -207,69 +385,127 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const handleEditarCliente = () => {
     if (!clienteSeleccionadoLocal) return;
 
-    const cliente = mockClientes.find((c: any) => c.numeroDocumento === clienteSeleccionadoLocal.dni);
-    if (cliente) {
-      setIsEditing(true);
-      setDocumentType(cliente.tipoDocumento);
-      setClientType(cliente.tipoPersona);
-
-      const nombreCompleto = cliente.tipoPersona === 'natural'
-        ? `${cliente.nombres} ${cliente.apellidos}`
-        : cliente.razonSocial || '';
-
-      setFormData({
-        documentNumber: cliente.numeroDocumento,
-        legalName: nombreCompleto,
-        address: cliente.direccion || '',
-        gender: 'M',
-        phone: cliente.telefono || '',
-        email: cliente.email || '',
-        additionalData: ''
-      });
-      setShowClienteForm(true);
+    const docKey = buildClientDocKey(clienteSeleccionadoLocal.tipoDocumento, clienteSeleccionadoLocal.dni);
+    const cliente = clientesDisponibles.find((item) => item.docKey === docKey);
+    if (!cliente) {
+      return;
     }
+
+    setIsEditing(true);
+
+    const docCodeForForm = cliente.sunatCode ?? normalizedTypeToSunatCode(cliente.tipoDocumento);
+    const normalizedDocType = sunatCodeToNormalizedType(docCodeForForm);
+
+    setDocumentType(docCodeForForm);
+    setClientType(normalizedDocType === 'RUC' ? 'juridica' : 'natural');
+
+    setFormData({
+      documentNumber: cliente.numeroDocumento,
+      legalName: cliente.nombre,
+      address: cliente.direccion || '',
+      gender: 'M',
+      phone: cliente.telefono || '',
+      email: cliente.email || '',
+      additionalData: ''
+    });
+    setShowClienteForm(true);
   };
 
   const handleSaveCliente = () => {
     try {
-      const clientesLS = localStorage.getItem('clientes');
-      const clientesActuales = clientesLS ? JSON.parse(clientesLS) : [];
+      const normalizedType = sunatCodeToNormalizedType(documentType);
+      const rawDocumentInput = formData.documentNumber.trim();
+      const normalizedNumber =
+        normalizedType === 'RUC' || normalizedType === 'DNI'
+          ? normalizeDocNumber(rawDocumentInput)
+          : rawDocumentInput;
 
-      const documentTypeMap: { [key: string]: string } = {
-        'DNI': 'DNI',
-        'RUC': 'RUC',
-        'CE': 'CARNET_EXTRANJERIA',
-        'PAS': 'PASAPORTE'
-      };
+      const docNumberForKey = normalizedNumber || rawDocumentInput;
 
-      const docTypeFormatted = documentTypeMap[documentType] || documentType;
-      const documentoFormateado = `${docTypeFormatted} ${formData.documentNumber.trim()}`;
+      const candidateDocKey =
+        normalizedType === 'SIN_DOCUMENTO'
+          ? `${normalizedType}:${normalizeKey(formData.legalName.trim() || 'cliente')}`
+          : buildClientDocKey(normalizedType, docNumberForKey);
 
-      const newId = clientesActuales.length > 0
-        ? Math.max(...clientesActuales.map((c: any) => c.id)) + 1
-        : 1;
+      const clientesActuales = readLegacyClientes();
+
+      let matchedIndex = -1;
+      for (let index = 0; index < clientesActuales.length; index += 1) {
+        const normalized = normalizeClienteRecord(clientesActuales[index]);
+        if (normalized.docKey === candidateDocKey) {
+          matchedIndex = index;
+          break;
+        }
+      }
+
+      const nextNumericId = (() => {
+        const numericIds = clientesActuales
+          .map((cliente: any) => Number(cliente?.id))
+          .filter((id) => Number.isFinite(id));
+        const maxId = numericIds.length ? Math.max(...numericIds) : 0;
+        return maxId + 1;
+      })();
+
+      const persistedNumeroDocumento =
+        normalizedType === 'RUC' || normalizedType === 'DNI'
+          ? normalizedNumber
+          : rawDocumentInput;
+
+      const tipoDocumentoPersistido =
+        normalizedType === 'OTROS' ? resolveSunatLegacyToken(documentType) : normalizedType;
+
+      const legacyBase = matchedIndex >= 0 ? clientesActuales[matchedIndex] : {};
+      const legacyDocumentToken =
+        normalizedType === 'OTROS' ? resolveSunatLegacyToken(documentType) : normalizedType;
+      const documentValue =
+        normalizedType === 'SIN_DOCUMENTO' || !persistedNumeroDocumento
+          ? 'Sin documento'
+          : `${legacyDocumentToken} ${persistedNumeroDocumento}`.trim();
 
       const nuevoCliente = {
-        id: newId,
+        ...legacyBase,
+        id: matchedIndex >= 0 ? legacyBase.id : nextNumericId,
         name: formData.legalName.trim(),
-        document: documentoFormateado,
+        document: documentValue,
         type: clientType === 'natural' ? 'Cliente' : 'Cliente',
         address: formData.address.trim() || 'Sin dirección',
         phone: formData.phone.trim() || 'Sin teléfono',
-        enabled: true
+        enabled: legacyBase.enabled ?? true,
+        tipoDocumento: tipoDocumentoPersistido,
+        tipoDocumentoCodigoSunat: documentType,
+        documentCode: documentType,
+        numeroDocumento: persistedNumeroDocumento,
+        direccion: formData.address.trim() || 'Sin dirección',
+        telefono: formData.phone.trim() || 'Sin teléfono',
+        email: formData.email.trim() || undefined,
       };
 
-      clientesActuales.unshift(nuevoCliente);
-      localStorage.setItem('clientes', JSON.stringify(clientesActuales));
+      if (matchedIndex >= 0) {
+        clientesActuales[matchedIndex] = nuevoCliente;
+      } else {
+        clientesActuales.unshift(nuevoCliente);
+      }
 
-      setClienteSeleccionadoLocal({
+      persistLegacyClientes(clientesActuales);
+
+      const selected: SelectedCliente = {
         nombre: nuevoCliente.name,
-        dni: formData.documentNumber,
-        direccion: nuevoCliente.address
-      });
+        dni: persistedNumeroDocumento,
+        direccion: nuevoCliente.address,
+        tipoDocumento: normalizedType,
+        email: nuevoCliente.email,
+        sunatCode: documentType,
+      };
 
-      // Notify parent about new client
-      onClienteChange?.({ nombre: nuevoCliente.name, dni: formData.documentNumber, direccion: nuevoCliente.address, email: formData.email || '' });
+      setClienteSeleccionadoLocal(selected);
+
+      onClienteChange?.({
+        nombre: selected.nombre,
+        dni: selected.dni,
+        direccion: selected.direccion,
+        email: selected.email,
+        tipoDocumento: selected.tipoDocumento,
+      });
 
       setShowClienteForm(false);
       setSearchQuery('');
@@ -285,26 +521,32 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     }));
   };
 
-  const handleSeleccionarCliente = (cliente: any) => {
-    const nombreCompleto = cliente.tipoPersona === 'natural'
-      ? `${cliente.nombres} ${cliente.apellidos}`
-      : cliente.razonSocial;
-
-    setClienteSeleccionadoLocal({
-      nombre: nombreCompleto,
+  const handleSeleccionarCliente = (cliente: NormalizedClienteRecord) => {
+    const selected: SelectedCliente = {
+      nombre: cliente.nombre,
       dni: cliente.numeroDocumento,
-      direccion: cliente.direccion || 'Dirección no definida'
-    });
+      direccion: cliente.direccion || 'Dirección no definida',
+      tipoDocumento: cliente.tipoDocumento,
+      email: cliente.email,
+      sunatCode: cliente.sunatCode ?? normalizedTypeToSunatCode(cliente.tipoDocumento),
+    };
 
-    // Notify parent
-    onClienteChange?.({ nombre: nombreCompleto, dni: cliente.numeroDocumento, direccion: cliente.direccion || 'Dirección no definida' });
+    setClienteSeleccionadoLocal(selected);
+
+    onClienteChange?.({
+      nombre: selected.nombre,
+      dni: selected.dni,
+      direccion: selected.direccion,
+      email: selected.email,
+      tipoDocumento: selected.tipoDocumento,
+    });
 
     setSearchQuery('');
     setClientDocError(null);
   };
 
   const isValidDocumentForLookup = () => {
-    const digitsOnly = searchQuery.replace(/\D/g, '');
+    const digitsOnly = normalizeDocNumber(searchQuery);
     if (!digitsOnly) {
       return false;
     }
@@ -331,18 +573,21 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       return;
     }
 
-    const digitsOnly = searchQuery.replace(/\D/g, '');
+    const digitsOnly = normalizeDocNumber(searchQuery);
+    const expectedType: NormalizedDocumentType = tipoComprobante === 'factura' ? 'RUC' : 'DNI';
     setIsLookupLoading(true);
     try {
       // 1) Buscar en clientes locales existentes
-      const existing = mockClientes.find((cliente: any) => cliente.numeroDocumento === digitsOnly);
+      const existing = clientesDisponibles.find(
+        (cliente) => cliente.tipoDocumento === expectedType && cliente.numeroDocumento === digitsOnly,
+      );
       if (existing) {
         handleSeleccionarCliente(existing);
         return;
       }
 
       // 2) Lookup simulado RENIEC/SUNAT
-      const fromLookup = tipoComprobante === 'factura'
+      const fromLookup = expectedType === 'RUC'
         ? await lookupEmpresaPorRuc(digitsOnly)
         : await lookupPersonaPorDni(digitsOnly);
 
@@ -351,26 +596,40 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         return;
       }
 
-      const selectedClient = {
+      const lookupType = normalizeDocumentType(fromLookup.tipoDocumento);
+      const normalizedLookupNumber =
+        lookupType === 'RUC' || lookupType === 'DNI'
+          ? normalizeDocNumber(fromLookup.documento)
+          : fromLookup.documento;
+
+      const selectedClient: SelectedCliente = {
         nombre: fromLookup.nombre,
-        dni: fromLookup.documento,
+        dni: normalizedLookupNumber,
         direccion: fromLookup.direccion || 'Dirección no definida',
         email: fromLookup.email,
+        tipoDocumento: lookupType,
+        sunatCode: normalizedTypeToSunatCode(lookupType),
       };
 
       setClienteSeleccionadoLocal(selectedClient);
-      onClienteChange?.(selectedClient);
+      onClienteChange?.({
+        nombre: selectedClient.nombre,
+        dni: selectedClient.dni,
+        direccion: selectedClient.direccion,
+        email: selectedClient.email,
+        tipoDocumento: selectedClient.tipoDocumento,
+      });
       onLookupClientSelected?.({
         data: {
           nombre: fromLookup.nombre,
-          documento: fromLookup.documento,
-          tipoDocumento: fromLookup.tipoDocumento,
+          documento: selectedClient.dni,
+          tipoDocumento: selectedClient.tipoDocumento,
           direccion: fromLookup.direccion,
           email: fromLookup.email,
         },
         origen: fromLookup.origen,
       });
-      setSearchQuery(fromLookup.documento);
+      setSearchQuery(selectedClient.dni);
       setClientDocError(null);
     } finally {
       setIsLookupLoading(false);
@@ -394,7 +653,13 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     });
 
     if (clienteSeleccionadoLocal) {
-      onClienteChange?.(clienteSeleccionadoLocal);
+      onClienteChange?.({
+        nombre: clienteSeleccionadoLocal.nombre,
+        dni: clienteSeleccionadoLocal.dni,
+        direccion: clienteSeleccionadoLocal.direccion,
+        email: clienteSeleccionadoLocal.email,
+        tipoDocumento: clienteSeleccionadoLocal.tipoDocumento,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -513,22 +778,17 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 {searchQuery && (
                   <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg shadow-sm bg-white">
                     {clientesFiltrados.length > 0 ? (
-                      clientesFiltrados.map((cliente: any) => (
+                      clientesFiltrados.map((cliente) => (
                         <button
-                          key={cliente.id}
+                          key={cliente.docKey}
                           onClick={() => handleSeleccionarCliente(cliente)}
                           className="w-full text-left px-3 py-2 hover:bg-violet-50 border-b border-gray-100 last:border-b-0 transition-colors"
                         >
                           <p className="text-xs font-semibold text-gray-900">
-                            {cliente.tipoPersona === 'natural'
-                              ? `${cliente.nombres} ${cliente.apellidos}`
-                              : cliente.razonSocial}
+                            {cliente.nombre}
                           </p>
                           <p className="text-[11px] text-gray-500 mt-0.5">
-                            <span className="inline-flex px-1 py-0.5 bg-gray-100 rounded text-[10px] font-medium mr-1">
-                              {cliente.tipoDocumento}
-                            </span>
-                            {cliente.numeroDocumento}
+                            {cliente.documentLabel}
                           </p>
                         </button>
                       ))
@@ -553,7 +813,9 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <div className="grid grid-cols-2 gap-1.5 text-[11px]">
                     <div className="bg-white rounded px-2 py-1 border border-violet-100">
                       <span className="font-medium text-gray-500 block">Doc:</span>
-                      <p className="font-semibold text-gray-900">{clienteSeleccionadoLocal.dni}</p>
+                      <p className="font-semibold text-gray-900">
+                        {formatDocumentLabel(clienteSeleccionadoLocal.tipoDocumento, clienteSeleccionadoLocal.dni)}
+                      </p>
                     </div>
                     <div className="bg-white rounded px-2 py-1 border border-violet-100">
                       <span className="font-medium text-gray-500 block">Dir:</span>
