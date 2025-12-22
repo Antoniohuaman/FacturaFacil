@@ -10,8 +10,7 @@ import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 
 // Importar el modal REAL de productos del catálogo
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
-import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
-import type { Product as CatalogoProduct } from '../../../catalogo-articulos/models/types';
+import { useProductStore, type ProductInput } from '../../../catalogo-articulos/hooks/useProductStore';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
 import type { PosPriceListOption } from '../hooks/usePosCartAndTotals';
 
@@ -242,7 +241,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     setShowProductModal(true);
   };
 
-  const handleProductCreated = (productData: Omit<CatalogoProduct, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => {
+  const handleProductCreated = (productData: ProductInput) => {
     // Guardar en el catálogo usando el store
     addProduct(productData);
     

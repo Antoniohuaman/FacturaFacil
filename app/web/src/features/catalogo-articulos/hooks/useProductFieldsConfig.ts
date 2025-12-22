@@ -23,7 +23,6 @@ const DEFAULT_FIELDS_CONFIG: ProductFieldConfig[] = [
   
   // CAMPOS PERSONALIZABLES (el usuario decide si mostrar y si son obligatorios)
   { id: 'categoria', label: 'Categoría', icon: '🏷️', visible: true, required: false, isSystemRequired: false, category: 'basic' },
-  { id: 'precio', label: 'Precio de venta', icon: '💵', visible: true, required: false, isSystemRequired: false, category: 'pricing' },
   { id: 'descripcion', label: 'Descripción', icon: '📝', visible: true, required: false, isSystemRequired: false, category: 'basic' },
   { id: 'codigoBarras', label: 'Código de barras', icon: '🏷️', visible: true, required: false, isSystemRequired: false, category: 'codes' },
   { id: 'marca', label: 'Marca', icon: '🏭', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
@@ -86,8 +85,10 @@ export const useProductFieldsConfig = () => {
       if (savedConfig) {
         try {
           const parsed = JSON.parse(savedConfig);
-          // Filtrar cualquier campo de stock que pueda existir en la configuración guardada
-          const filteredConfig = parsed.filter((field: ProductFieldConfig) => field.id !== 'cantidad' && field.id !== 'tipoExistencia');
+          // Filtrar campos obsoletos para evitar inconsistencias en configuraciones guardadas
+          const filteredConfig = parsed.filter((field: ProductFieldConfig) =>
+            field.id !== 'cantidad' && field.id !== 'tipoExistencia' && field.id !== 'precio'
+          );
           setFieldsConfig(filteredConfig);
         } catch (error) {
           console.error('Error al cargar configuración de campos:', error);

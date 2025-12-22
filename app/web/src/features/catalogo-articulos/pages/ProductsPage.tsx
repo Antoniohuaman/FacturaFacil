@@ -7,7 +7,7 @@ import ProductTable from '../components/ProductTable';
 import BulkDeleteToolbar from '../components/BulkDeleteToolbar';
 import ProductModal from '../components/ProductModal';
 import ExportProductsModal from '../components/ExportProductsModal';
-import { useProductStore } from '../hooks/useProductStore';
+import { useProductStore, type ProductInput } from '../hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -101,7 +101,7 @@ const ProductsPage: React.FC = () => {
     setShowProductModal(true);
   };
 
-  const handleSaveProduct = (productData: Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => {
+  const handleSaveProduct = (productData: ProductInput) => {
     if (editingProduct) {
       updateProduct(editingProduct.id, productData);
     } else {
@@ -154,8 +154,6 @@ const ProductsPage: React.FC = () => {
     if (filters.modelo) count++;
   // tipoExistencia eliminado
     if (filters.impuesto) count++;
-    if (filters.rangoPrecios.min > 0) count++;
-    if (filters.rangoPrecios.max < 50000) count++;
     return count;
   }, [establishmentScope, filters]);
 
@@ -276,62 +274,6 @@ const ProductsPage: React.FC = () => {
                 </option>
               ))}
             </select>
-          </div>
-
-          {/* Precio mínimo */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Precio mínimo</span>
-                {filters.rangoPrecios.min > 0 && (
-                  <span className="ml-auto px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-full font-medium">
-                    Activo
-                  </span>
-                )}
-              </span>
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.10"
-              value={filters.rangoPrecios.min.toFixed(2)}
-              onChange={(e) => updateFilters({
-                rangoPrecios: { ...filters.rangoPrecios, min: parseFloat(e.target.value) || 0 }
-              })}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
-              placeholder="S/ 0.00"
-            />
-          </div>
-
-          {/* Precio máximo */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Precio máximo</span>
-                {filters.rangoPrecios.max < 50000 && (
-                  <span className="ml-auto px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-full font-medium">
-                    Activo
-                  </span>
-                )}
-              </span>
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.10"
-              value={filters.rangoPrecios.max.toFixed(2)}
-              onChange={(e) => updateFilters({
-                rangoPrecios: { ...filters.rangoPrecios, max: parseFloat(e.target.value) || 50000 }
-              })}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
-              placeholder="S/ 50,000.00"
-            />
           </div>
 
           {/* Marca */}

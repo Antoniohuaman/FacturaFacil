@@ -81,22 +81,17 @@ export interface FilterOptions {
   busqueda: string;
   categoria: string;
   unidad: string;
-  rangoPrecios: {
-    min: number;
-    max: number;
-  };
   // Nuevos filtros
   marca?: string;
   modelo?: string;
   impuesto?: string;
-  ordenarPor: 'nombre' | 'precio' | 'fechaCreacion' | 'fechaActualizacion';
+  ordenarPor: 'nombre' | 'fechaCreacion' | 'fechaActualizacion';
   direccion: 'asc' | 'desc';
 }
 
 export interface ProductFormData {
   nombre: string;
   codigo: string;
-  precio: number;
   tipoUnidadMedida: UnitMeasureType;
   unidad: string;
   unidadesMedidaAdicionales: AdditionalUnitMeasure[];

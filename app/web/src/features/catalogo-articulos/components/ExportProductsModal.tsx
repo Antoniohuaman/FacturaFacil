@@ -23,7 +23,6 @@ interface ExportProductsModalProps {
 const AVAILABLE_COLUMNS: ExportColumn[] = [
   { key: 'codigo', label: 'Código', type: 'text', required: true },
   { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-  { key: 'precio', label: 'Precio de Venta', type: 'currency' },
   { key: 'unidad', label: 'Unidad', type: 'text' },
   { key: 'categoria', label: 'Categoría', type: 'text' },
   { key: 'impuesto', label: 'Tipo de Impuesto', type: 'text' },
@@ -44,7 +43,7 @@ const AVAILABLE_COLUMNS: ExportColumn[] = [
   { key: 'fechaActualizacion', label: 'Última Actualización', type: 'date' }
 ];
 
-const BASIC_COLUMNS = ['codigo', 'nombre', 'precio', 'unidad', 'categoria'];
+const BASIC_COLUMNS = ['codigo', 'nombre', 'unidad', 'categoria'];
 
 const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
   isOpen,
@@ -242,7 +241,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
                   </label>
                   <div className="space-y-3">
                     {[
-                      { value: 'basic', label: 'Básicas', desc: 'Código, nombre, precio, unidad, categoría' },
+                      { value: 'basic', label: 'Básicas', desc: 'Código, nombre, unidad, categoría' },
                       { value: 'all', label: 'Todas', desc: 'Incluye todas las columnas disponibles' },
                       { value: 'custom', label: 'Personalizadas', desc: 'Selecciona las columnas que necesites' }
                     ].map((option) => (

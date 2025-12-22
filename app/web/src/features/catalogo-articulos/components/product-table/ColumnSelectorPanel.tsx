@@ -97,7 +97,7 @@ export const ColumnSelectorPanel: React.FC<ColumnSelectorPanelProps> = ({
               </svg>
               <div className="ml-3">
                 <p className="text-xs text-blue-700 dark:text-blue-300">
-                  Personaliza las columnas según tus necesidades. Por defecto se muestran: Código, Nombre, Precio, Establecimiento, Categoría y Unidad. Tus preferencias se guardan automáticamente.
+                  Personaliza las columnas según tus necesidades. Por defecto se muestran: Código, Nombre, Establecimiento, Categoría y Unidad. Tus preferencias se guardan automáticamente.
                 </p>
               </div>
             </div>

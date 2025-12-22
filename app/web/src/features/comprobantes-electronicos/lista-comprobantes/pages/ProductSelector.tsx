@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
-import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
+import { useProductStore, type ProductInput } from '../../../catalogo-articulos/hooks/useProductStore';
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
 import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
@@ -150,7 +150,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     setShowProductModal(false);
   }, []);
 
-  const handleProductCreated = useCallback((productData: Omit<CatalogProduct, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => {
+  const handleProductCreated = useCallback((productData: ProductInput) => {
     const created = addProduct(productData);
     const selectorProduct = mapCatalogProductToSelectorProduct(created);
     onAddProducts([{ product: selectorProduct, quantity: 1 }]);

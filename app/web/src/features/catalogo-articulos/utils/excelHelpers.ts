@@ -54,7 +54,6 @@ export const BASIC_IMPORT_COLUMNS: ExcelColumn[] = [
   { key: 'tipoProducto', label: 'Tipo de producto', required: true, example: 'Bien', type: 'select' },
   { key: 'nombre', label: 'Nombre', required: true, example: 'Producto de ejemplo', type: 'text' },
   { key: 'codigo', label: 'Código', required: true, example: 'PROD001', type: 'text' },
-  { key: 'precio', label: 'Precio de venta', required: false, example: '100.00', type: 'number' },
   { key: 'unidad', label: 'Unidad', required: true, example: 'NIU', type: 'select' },
   { key: 'categoria', label: 'Categoría', required: false, example: 'General', type: 'text' },
   { key: 'impuesto', label: 'Impuesto', required: true, example: 'IGV (18.00%)', type: 'select' },
@@ -398,7 +397,6 @@ function parseRow(
   return {
     nombre: String(row['Nombre'] || '').trim(),
     codigo: codigo,
-    precio: parseNumber(row['Precio de venta'], 0),
     tipoUnidadMedida: inferUnitMeasureType(unidad?.code || 'NIU'),
     unidad: unidad?.code || 'NIU',
     unidadesMedidaAdicionales: [],

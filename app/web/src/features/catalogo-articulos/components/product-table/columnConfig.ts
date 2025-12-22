@@ -1,7 +1,6 @@
 export type ColumnKey =
   | 'codigo'
   | 'nombre'
-  | 'precio'
   | 'establecimiento'
   | 'categoria'
   | 'imagen'
@@ -34,7 +33,6 @@ export interface ColumnConfig {
 export const AVAILABLE_COLUMNS: ColumnConfig[] = [
   { key: 'codigo', label: 'Código', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'nombre', label: 'Nombre', defaultVisible: true, filterable: false, group: 'basicas' },
-  { key: 'precio', label: 'Precio', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'establecimiento', label: 'Establecimiento', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'categoria', label: 'Categoría', defaultVisible: true, filterable: true, group: 'basicas' },
   { key: 'unidad', label: 'Unidad', defaultVisible: true, filterable: true, group: 'basicas' },

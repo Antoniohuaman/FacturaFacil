@@ -13,7 +13,7 @@ import { ProductImageUpload } from './product-modal/ProductImageUpload';
 import { ProductFinancialSection } from './product-modal/ProductFinancialSection';
 import { ProductCodesSection } from './product-modal/ProductCodesSection';
 import { ProductActions } from './product-modal/ProductActions';
-import { useProductStore } from '../hooks/useProductStore';
+import { useProductStore, type ProductInput } from '../hooks/useProductStore';
 import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
 import { useProductForm } from '../hooks/useProductForm';
 import type { Product } from '../models/types';
@@ -22,7 +22,7 @@ import { useConfigurationContext, type Category } from '../../configuracion-sist
 interface ProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (productData: Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => void;
+  onSave: (productData: ProductInput) => void;
   product?: Product;
   categories: Category[];
 }
@@ -65,8 +65,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
     additionalUnitErrors,
     loading,
     imagePreview,
-    precioInput,
-    setPrecioInput,
     productType,
     setProductType,
     isDescriptionExpanded,
@@ -150,9 +148,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
               <ProductPricingSection
                 formData={formData}
                 setFormData={setFormData}
-                errors={errors}
-                precioInput={precioInput}
-                setPrecioInput={setPrecioInput}
                 isFieldVisible={isFieldVisible}
                 isFieldRequired={isFieldRequired}
               />

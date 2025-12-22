@@ -115,7 +115,6 @@ const ImportModal: React.FC<ImportModalProps> = ({
   ];
 
   const optionalFieldsBasic = [
-    'Precio de venta',
     'Categoría'
   ];
 

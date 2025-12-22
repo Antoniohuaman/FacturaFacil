@@ -18,7 +18,7 @@ import {
   saveCategoriesToStorage
 } from '../utils/catalogStorage';
 
-type ProductInput = Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>;
+export type ProductInput = Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion' | 'precio'>;
 type PackageInput = Omit<Package, 'id' | 'fechaCreacion'>;
 
 interface ProductStoreState {
@@ -46,7 +46,6 @@ interface ProductStoreState {
 
 const STORAGE_AVAILABLE = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 const DEFAULT_ITEMS_PER_PAGE = 10;
-const PRICE_RANGE = { min: 0, max: 50000 } as const;
 
 if (STORAGE_AVAILABLE) {
   try {
@@ -333,7 +332,6 @@ function createDefaultFilters(): FilterOptions {
     busqueda: '',
     categoria: '',
     unidad: '',
-    rangoPrecios: { ...PRICE_RANGE },
     marca: '',
     modelo: '',
     impuesto: '',
@@ -380,8 +378,6 @@ function applyFilters(products: Product[], filters: FilterOptions): Product[] {
     if (filters.marca && (product.marca ?? '').toLowerCase() !== filters.marca.toLowerCase()) return false;
     if (filters.modelo && (product.modelo ?? '').toLowerCase() !== filters.modelo.toLowerCase()) return false;
     if (filters.impuesto && (product.impuesto ?? '').toLowerCase() !== filters.impuesto.toLowerCase()) return false;
-    if (product.precio < filters.rangoPrecios.min) return false;
-    if (product.precio > filters.rangoPrecios.max) return false;
 
     return true;
   });
@@ -392,9 +388,6 @@ function sortProducts(products: Product[], filters: FilterOptions): Product[] {
   sorted.sort((a, b) => {
     let comparison = 0;
     switch (filters.ordenarPor) {
-      case 'precio':
-        comparison = a.precio - b.precio;
-        break;
       case 'nombre':
         comparison = a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
         break;
@@ -428,11 +421,7 @@ function computePagination(totalItems: number, itemsPerPage: number, requestedPa
 function mergeFilters(current: FilterOptions, changes: Partial<FilterOptions>): FilterOptions {
   return {
     ...current,
-    ...changes,
-    rangoPrecios: {
-      ...current.rangoPrecios,
-      ...(changes.rangoPrecios ?? {})
-    }
+    ...changes
   };
 }
 
@@ -447,7 +436,7 @@ function buildProduct(existing: Product | undefined, input: Partial<ProductInput
     nombre: (input.nombre ?? existing?.nombre ?? 'Producto sin nombre').trim(),
     unidad,
     tipoUnidadMedida: input.tipoUnidadMedida ?? existing?.tipoUnidadMedida ?? inferUnitMeasureType(unidad),
-    precio: toNumber(input.precio, existing?.precio ?? 0),
+    precio: existing?.precio ?? 0,
     categoria: input.categoria ?? existing?.categoria ?? '',
     descripcion: input.descripcion ?? existing?.descripcion,
     imagen: resolveImageValue(input.imagen ?? existing?.imagen),
@@ -498,7 +487,6 @@ function mapFormDataToInput(data: ProductFormData): ProductInput {
   return {
     nombre: data.nombre,
     codigo: data.codigo,
-    precio: toNumber(data.precio, 0),
     unidad: data.unidad,
     tipoUnidadMedida: data.tipoUnidadMedida ?? inferUnitMeasureType(data.unidad),
     categoria: data.categoria?.trim() || '',
@@ -602,14 +590,6 @@ function generateId(prefix: string): string {
     return `${prefix}-${crypto.randomUUID()}`;
   }
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function toOptionalNumber(value: unknown, fallback?: number): number | undefined {

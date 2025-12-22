@@ -76,19 +76,6 @@ export const ProductTableHeader: React.FC<ProductTableHeaderProps> = ({
           </th>
         )}
 
-        {visibleColumns.has('precio') && (
-          <th
-            scope="col"
-            className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-            onClick={() => onSort('precio')}
-          >
-            <div className="flex items-center space-x-1">
-              <span>Precio</span>
-              <SortIcon state={getSortState('precio')} />
-            </div>
-          </th>
-        )}
-
         {visibleColumns.has('establecimiento') && (
           <th
             scope="col"

@@ -3,6 +3,7 @@ import type React from 'react';
 import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
 import type { Unit } from '../../configuracion-sistema/models/Unit';
 import type { Product, ProductFormData, UnitMeasureType } from '../models/types';
+import type { ProductInput } from './useProductStore';
 import {
   UNIT_MEASURE_TYPE_OPTIONS,
   filterUnitsByMeasureType,
@@ -29,7 +30,7 @@ interface UseProductFormParams {
   allProducts: Product[];
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
-  onSave: (productData: Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion'>) => void;
+  onSave: (productData: ProductInput) => void;
   onClose: () => void;
 }
 
@@ -40,7 +41,6 @@ const buildDefaultFormData = (
 ): ProductFormData => ({
   nombre: '',
   codigo: '',
-  precio: 0,
   unidad: defaultUnit,
   tipoUnidadMedida: inferredType,
   unidadesMedidaAdicionales: [],
@@ -122,7 +122,6 @@ export const useProductForm = ({
   const [additionalUnitErrors, setAdditionalUnitErrors] = useState<AdditionalUnitError[]>([]);
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
-  const [precioInput, setPrecioInput] = useState('0.00');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [unitInfoMessage, setUnitInfoMessage] = useState<string | null>(null);
@@ -319,7 +318,6 @@ export const useProductForm = ({
     const defaultUnit = getDefaultUnitForType('BIEN');
     const inferredType = inferMeasureTypeFromUnitCode(defaultUnit);
     setFormData(buildDefaultFormData(defaultUnit, inferredType, defaultCategoryName));
-    setPrecioInput('0.00');
     setImagePreview('');
     setProductType('BIEN');
     setAdditionalUnitErrors([]);
@@ -343,7 +341,6 @@ export const useProductForm = ({
       setFormData({
         nombre: productData.nombre,
         codigo: productData.codigo,
-        precio: productData.precio,
         unidad: productData.unidad,
         tipoUnidadMedida: inferredType,
         unidadesMedidaAdicionales: sanitizedUnits,
@@ -365,7 +362,6 @@ export const useProductForm = ({
         tipoExistencia: productData.tipoExistencia || 'MERCADERIAS'
       });
 
-      setPrecioInput(productData.precio.toFixed(2));
       setImagePreview(productData.imagen || '');
       setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
       setProductType(productData.unidad === 'ZZ' ? 'SERVICIO' : 'BIEN');
@@ -445,15 +441,6 @@ export const useProductForm = ({
 
     if (isFieldVisible('categoria') && isFieldRequired('categoria') && !formData.categoria) {
       newErrors.categoria = 'La categoría es requerida';
-    }
-
-    if (isFieldVisible('precio')) {
-      if (formData.precio < 0) {
-        newErrors.precio = 'El precio no puede ser negativo';
-      }
-      if (isFieldRequired('precio') && formData.precio === 0) {
-        newErrors.precio = 'El precio es requerido';
-      }
     }
 
     if (isFieldVisible('descripcion') && isFieldRequired('descripcion') && !formData.descripcion?.trim()) {
@@ -573,8 +560,6 @@ export const useProductForm = ({
     additionalUnitErrors,
     loading,
     imagePreview,
-    precioInput,
-    setPrecioInput,
     productType,
     setProductType,
     isDescriptionExpanded,

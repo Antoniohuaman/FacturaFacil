@@ -149,7 +149,7 @@ const ImportPage: React.FC = () => {
                         <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
-                        Precio, Categoría (opcionales)
+                        Categoría (opcional)
                       </div>
                     </div>
 
@@ -211,7 +211,7 @@ const ImportPage: React.FC = () => {
                         <svg className="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        Precios, costos, márgenes, tipo de existencia
+                        Costos, márgenes, tipo de existencia
                       </div>
                     </div>
 

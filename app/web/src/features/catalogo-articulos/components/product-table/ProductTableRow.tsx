@@ -76,13 +76,6 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
         </td>
       )}
 
-      {visibleColumns.has('precio') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          <div className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrency(row.precio)}</div>
-          {row.impuesto && <div className="text-xs text-gray-500 dark:text-gray-400">{row.impuesto}</div>}
-        </td>
-      )}
-
       {visibleColumns.has('establecimiento') && (
         <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
           {row._establishmentId === 'UNASSIGNED' ? (
