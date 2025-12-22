@@ -21,7 +21,8 @@ import {
   FileText as FileIcon,
   Mail,
   Building2,
-  Eye
+  Eye,
+  X
 } from 'lucide-react';
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
@@ -808,35 +809,40 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Cliente Seleccionado
                 </label>
-                <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg p-3 border border-violet-200 shadow-sm">
-                  <p className="text-[13px] font-semibold text-gray-900 mb-1.5">{clienteSeleccionadoLocal.nombre}</p>
-                    <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                    <div className="bg-white rounded px-2 py-1 border border-violet-100">
-                      <p className="font-semibold text-gray-900">
+                <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg px-3 py-2.5 border border-violet-200 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1 text-[13px]">
+                      <span className="inline-flex items-center rounded-full border border-violet-100 bg-white/70 px-2 py-0.5 text-[12px] font-semibold text-violet-700">
                         {formatDocumentLabel(clienteSeleccionadoLocal.tipoDocumento, clienteSeleccionadoLocal.dni)}
-                      </p>
+                      </span>
+                      <span
+                        className="font-semibold text-gray-900 truncate"
+                        title={clienteSeleccionadoLocal.nombre}
+                      >
+                        {clienteSeleccionadoLocal.nombre}
+                      </span>
                     </div>
-                    <div className="bg-white rounded px-2 py-1 border border-violet-100">
-                      <p className="font-medium text-gray-700 truncate">{clienteSeleccionadoLocal.direccion}</p>
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <button
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 transition"
+                        onClick={handleEditarCliente}
+                        title="Editar cliente"
+                        aria-label="Editar cliente"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 transition"
+                        onClick={() => {
+                          setClienteSeleccionadoLocal(null);
+                          setSearchQuery('');
+                        }}
+                        title="Cambiar cliente"
+                        aria-label="Cambiar cliente"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex gap-1.5 mt-2">
-                    <button
-                      className="flex items-center justify-center gap-1 text-primary text-[11px] font-medium px-2 py-1 border border-slate-300 rounded hover:bg-slate-50"
-                      onClick={handleEditarCliente}
-                    >
-                      <Edit className="w-3 h-3" />
-                      <span>Editar</span>
-                    </button>
-                    <button
-                      className="flex-1 text-gray-700 text-[11px] font-medium px-2 py-1 border border-slate-300 rounded hover:bg-gray-50"
-                      onClick={() => {
-                        setClienteSeleccionadoLocal(null);
-                        setSearchQuery('');
-                      }}
-                    >
-                      Cambiar
-                    </button>
                   </div>
                 </div>
               </div>
