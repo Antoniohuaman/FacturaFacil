@@ -30,6 +30,7 @@ import { useConfigurationContext } from '../../configuracion-sistema/context/Con
 import { calculateRequiredUnidadMinima, resolveWarehouseForSale } from '../../../shared/inventory/stockGateway';
 import {
   assertBusinessDate,
+  composeBusinessDateTime,
   formatBusinessDateTimeForTicket,
   formatBusinessDateTimeIso,
   getBusinessNow,
@@ -434,8 +435,8 @@ export const useComprobanteActions = () => {
       // ✅ AGREGAR COMPROBANTE A LA LISTA GLOBAL
       try {
         // Formatear fecha actual en el formato esperado por la lista
-        const now = getBusinessNow();
-        const formattedDate = formatBusinessDateTimeForTicket(now);
+        const businessNow = getBusinessNow();
+        const formattedDate = formatBusinessDateTimeForTicket(businessNow);
 
         // Determinar el tipo de comprobante para la lista
         // Obtener usuario actual
@@ -446,13 +447,14 @@ export const useComprobanteActions = () => {
         const dateToUse = data.fechaEmision
           ? (() => {
               try {
-                const d = assertBusinessDate(data.fechaEmision, 'start');
-                return formatBusinessDateTimeForTicket(d);
+                const composedIssueDate = composeBusinessDateTime(data.fechaEmision, businessNow);
+                return formatBusinessDateTimeForTicket(composedIssueDate);
               } catch (e) {
                 return formattedDate;
               }
             })()
           : formattedDate;
+
 
         const paymentMethodLabel = paymentSummaryLabel;
 

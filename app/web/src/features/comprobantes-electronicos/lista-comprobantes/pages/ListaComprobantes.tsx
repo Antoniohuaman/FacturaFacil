@@ -15,6 +15,7 @@ import {
   exportToExcel,
   createZipFile
 } from '../components/comprobantes-bulk';
+import type { ExcelColumn } from '../components/comprobantes-bulk';
 import { FilterPanel, type FilterValues } from '../components/FilterPanel';
 import { PreviewModal } from '../../shared/modales/PreviewModal';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
@@ -51,6 +52,141 @@ const resolveTipoComprobante = (label?: string): TipoComprobante => {
   return label.toLowerCase().includes('boleta') ? 'boleta' : 'factura';
 };
 
+type ComprobanteExportRow = Record<string, string | number | Date | null>;
+
+const COMPROBANTES_EXPORT_COLUMNS: ExcelColumn[] = [
+  { header: 'Serie', key: 'serie', width: 12 },
+  { header: 'Correlativo', key: 'correlativo', width: 18 },
+  { header: 'N° comprobante', key: 'documentNumber', width: 24 },
+  { header: 'Tipo', key: 'type', width: 14 },
+  { header: 'Fecha emisión', key: 'issueDate', width: 20, numFmt: 'dd/mm/yyyy hh:mm' },
+  { header: 'Fecha vencimiento', key: 'dueDate', width: 18, numFmt: 'dd/mm/yyyy' },
+  { header: 'Cliente', key: 'customerName', width: 32 },
+  { header: 'Doc cliente', key: 'customerDocument', width: 18 },
+  { header: 'Vendedor', key: 'seller', width: 24 },
+  { header: 'Forma de pago', key: 'paymentMethod', width: 20 },
+  { header: 'Moneda', key: 'currency', width: 12 },
+  { header: 'Tipo de cambio', key: 'exchangeRate', width: 16, numFmt: '#,##0.000' },
+  { header: 'Total', key: 'total', width: 16, numFmt: '#,##0.00' },
+  { header: 'Estado', key: 'status', width: 16 },
+  { header: 'Correo', key: 'email', width: 28 },
+  { header: 'Dirección facturación', key: 'billingAddress', width: 32 },
+  { header: 'Dirección envío', key: 'shippingAddress', width: 32 },
+  { header: 'Orden de compra', key: 'purchaseOrder', width: 24 },
+  { header: 'Centro de costo', key: 'costCenter', width: 24 },
+  { header: 'Guía de remisión', key: 'waybill', width: 24 },
+  { header: 'Observaciones', key: 'observations', width: 32 },
+  { header: 'Nota interna', key: 'internalNote', width: 32 },
+  { header: 'Doc relacionado ID', key: 'relatedDocumentId', width: 28 },
+  { header: 'Doc relacionado tipo', key: 'relatedDocumentType', width: 26 }
+];
+
+const DOCUMENT_TEXT_COLUMN_KEYS = ['serie', 'correlativo', 'documentNumber', 'customerDocument', 'relatedDocumentId'];
+
+const TICKET_DATE_REGEX = /^(\d{2})\/(\d{2})\/(\d{4})(?:[,\s]+(\d{2}):(\d{2}))?$/;
+
+const extractSerieCorrelativo = (invoice: Comprobante) => {
+  const invoiceData = invoice as unknown as Record<string, unknown>;
+  const rawSerie = invoiceData['serie'];
+  const rawCorrelativo = invoiceData['correlativo'];
+
+  if (rawSerie && rawCorrelativo) {
+    return { serie: String(rawSerie), correlativo: String(rawCorrelativo) };
+  }
+
+  const documentNumber = invoice.id ?? '';
+  const hyphenIndex = documentNumber.indexOf('-');
+  if (hyphenIndex !== -1) {
+    return {
+      serie: documentNumber.slice(0, hyphenIndex),
+      correlativo: documentNumber.slice(hyphenIndex + 1)
+    };
+  }
+
+  return { serie: '', correlativo: '' };
+};
+
+const normalizeDateForExcel = (date: Date | null): Date | null => {
+  if (!date || Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const offsetMinutes = date.getTimezoneOffset();
+  return new Date(date.getTime() - offsetMinutes * 60000);
+};
+
+const parseTicketDate = (value: string): Date | null => {
+  const match = TICKET_DATE_REGEX.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+
+  const [, day, month, year, hour = '00', minute = '00'] = match;
+  const parsed = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    0,
+    0
+  );
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const parseExcelDate = (value?: string): Date | null => {
+  if (!value) {
+    return null;
+  }
+
+  const directDate = new Date(value);
+  if (!Number.isNaN(directDate.getTime())) {
+    return normalizeDateForExcel(directDate);
+  }
+
+  const ticketDate = parseTicketDate(value);
+  if (ticketDate) {
+    return normalizeDateForExcel(ticketDate);
+  }
+
+  const parsed = parseDateSpanish(value);
+  if (parsed) {
+    return normalizeDateForExcel(parsed);
+  }
+
+  return null;
+};
+
+const mapInvoiceToExportRow = (invoice: Comprobante): ComprobanteExportRow => {
+  const { serie, correlativo } = extractSerieCorrelativo(invoice);
+
+  return {
+    serie,
+    correlativo,
+    documentNumber: invoice.id ?? '',
+    type: invoice.type ?? '',
+    issueDate: parseExcelDate(invoice.date),
+    dueDate: parseExcelDate(invoice.dueDate),
+    customerName: invoice.client ?? '',
+    customerDocument: invoice.clientDoc ?? '',
+    seller: invoice.vendor ?? '',
+    paymentMethod: invoice.paymentMethod ?? '',
+    currency: invoice.currency ?? '',
+    exchangeRate: typeof invoice.exchangeRate === 'number' ? invoice.exchangeRate : '',
+    total: typeof invoice.total === 'number' ? invoice.total : Number(invoice.total ?? 0),
+    status: invoice.status ?? '',
+    email: invoice.email ?? '',
+    billingAddress: invoice.address ?? '',
+    shippingAddress: invoice.shippingAddress ?? '',
+    purchaseOrder: invoice.purchaseOrder ?? '',
+    costCenter: invoice.costCenter ?? '',
+    waybill: invoice.waybill ?? '',
+    observations: invoice.observations ?? '',
+    internalNote: invoice.internalNote ?? '',
+    relatedDocumentId: invoice.relatedDocumentId ?? '',
+    relatedDocumentType: invoice.relatedDocumentType ?? ''
+  };
+};
+
 const InvoiceListDashboard = () => {
   // ✅ Obtener comprobantes del contexto global
   const { state, dispatch } = useComprobanteContext();
@@ -76,6 +212,7 @@ const InvoiceListDashboard = () => {
   const [density, setDensity] = useState<'comfortable' | 'intermediate' | 'compact'>('comfortable');
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [isLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Estados para Date Range
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
@@ -498,6 +635,8 @@ const InvoiceListDashboard = () => {
     return result;
   }, [filteredInvoices, columnFilters, advancedFilters]);
 
+  const canExportComprobantes = searchedInvoices.length > 0;
+
   // Cálculos de paginación
   const totalRecords = searchedInvoices.length;
   const totalPages = Math.ceil(totalRecords / recordsPerPage);
@@ -711,6 +850,38 @@ const InvoiceListDashboard = () => {
     }
   };
 
+  const handleExportAll = useCallback(async () => {
+    if (isExporting || !canExportComprobantes) {
+      return;
+    }
+
+    setIsExporting(true);
+    setProgress(5);
+    setProgressMessage('Exportando comprobantes filtrados...');
+    setShowProgress(true);
+
+    try {
+      const rows = searchedInvoices.map(mapInvoiceToExportRow);
+      const filename = `Comprobantes_${dateFrom}_${dateTo}`;
+      await exportToExcel(rows, filename, setProgress, {
+        columns: COMPROBANTES_EXPORT_COLUMNS,
+        worksheetName: 'Comprobantes',
+        textColumnKeys: DOCUMENT_TEXT_COLUMN_KEYS,
+      });
+      setProgressMessage(`Exportación lista (${rows.length} comprobantes)`);
+      setProgress(100);
+    } catch (error) {
+      console.error('No se pudo exportar comprobantes', error);
+      setProgressMessage('No se pudo generar el Excel. Intenta nuevamente.');
+    } finally {
+      setTimeout(() => {
+        setShowProgress(false);
+        setProgress(0);
+        setIsExporting(false);
+      }, 900);
+    }
+  }, [isExporting, canExportComprobantes, searchedInvoices, dateFrom, dateTo]);
+
   return (
     <>
       <style>{`
@@ -772,43 +943,9 @@ const InvoiceListDashboard = () => {
         onToggleColumnManager={() => setShowColumnManager(!showColumnManager)}
         onToggleColumn={toggleColumn}
         onDensityChange={setDensity}
-        onExport={async () => {
-          if (searchedInvoices.length === 0) {
-            alert('No hay datos para exportar');
-            return;
-          }
-
-          setProgressMessage('Exportando comprobantes...');
-          setProgress(0);
-          setShowProgress(true);
-
-          try {
-            const exportData = searchedInvoices.map(inv => {
-              const row: Record<string, any> = {};
-              visibleColumns.forEach(col => {
-                if (col.key === 'actions') return;
-                const label = col.label;
-                const value = (inv as any)[col.key];
-                row[label] = value ?? '';
-              });
-              return row;
-            });
-
-            const filename = `comprobantes_${dateFrom}_${dateTo}`;
-            await exportToExcel(exportData, filename, setProgress);
-
-            setTimeout(() => {
-              alert(`Exportación completada: ${searchedInvoices.length} registros`);
-            }, 600);
-          } catch (error) {
-            alert('Error al exportar');
-          } finally {
-            setTimeout(() => {
-              setShowProgress(false);
-              setProgress(0);
-            }, 500);
-          }
-        }}
+        onExport={handleExportAll}
+        isExporting={isExporting}
+        isExportDisabled={!canExportComprobantes || isExporting}
       />
 
       

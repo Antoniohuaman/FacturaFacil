@@ -49,6 +49,8 @@ interface ListHeaderProps {
 
   // Export
   onExport: () => Promise<void>;
+  isExporting?: boolean;
+  isExportDisabled?: boolean;
 
   // Optional: Hide action buttons (for Borradores)
   hideActionButtons?: boolean;
@@ -85,6 +87,8 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
   onToggleColumn,
   onDensityChange,
   onExport,
+  isExporting = false,
+  isExportDisabled = false,
   hideActionButtons = false
 }) => {
   const navigate = useNavigate();
@@ -218,11 +222,21 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
           <button
             title="Exportar (Atajo: E)"
             aria-label="Exportar comprobantes"
-            className="px-3 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`px-3 py-2.5 text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              isExportDisabled
+                ? 'text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700/40 cursor-not-allowed opacity-70'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
             onClick={onExport}
+            disabled={isExportDisabled}
+            aria-busy={isExporting}
           >
-            <Download className="w-4 h-4" />
-            Exportar
+            {isExporting ? (
+              <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>{isExporting ? 'Exportando...' : 'Exportar'}</span>
           </button>
 
           {/* Gestor de Columnas con Presentación */}

@@ -178,6 +178,24 @@ export function parseBusinessDateTimeLocal(input: string): Date | null {
 }
 
 /**
+ * Combina una fecha de negocio (YYYY-MM-DD) con la hora actual de negocio
+ * para preservar el instante real de emisión.
+ */
+export function composeBusinessDateTime(
+  businessDateIso: string,
+  timeSource: Date = new Date(),
+): Date {
+  assertBusinessDate(businessDateIso, 'start');
+  const { hour, minute, second } = extractBusinessParts(timeSource);
+  const isoCandidate = `${businessDateIso}T${pad(hour)}:${pad(minute)}:${pad(second)}.000${BUSINESS_TIMEZONE_OFFSET}`;
+  const composed = new Date(isoCandidate);
+  if (Number.isNaN(composed.getTime())) {
+    throw new Error(`No se pudo componer fecha de negocio ${businessDateIso} con la hora actual`);
+  }
+  return composed;
+}
+
+/**
  * Devuelve un Date que representa el instante actual.
  * La interpretación como hora de negocio (America/Lima)
  * se hace siempre vía extractBusinessParts / Intl con BUSINESS_TIMEZONE.
