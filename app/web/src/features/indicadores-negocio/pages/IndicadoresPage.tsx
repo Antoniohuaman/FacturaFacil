@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Award, Settings, ShoppingCart, Users } from "lucide-react";
 import DetalleVentasDiariasModal from "../components/DetalleVentasDiariasModal";
 import DetalleCrecimientoModal from "../components/DetalleCrecimientoModal";
@@ -14,7 +13,6 @@ import FormasPagoCard from "../components/FormasPagoCard";
 import NotificacionIndicadorModal from "../components/NotificacionIndicadorModal";
 import PageHeader from "../../../components/PageHeader";
 import { useIndicadores } from "../hooks/useIndicadores";
-import { formatRangeLabel } from "../utils/formatters";
 import { useIndicadoresFilters } from "../hooks/useIndicadoresFilters";
 import { useNotificacionesIndicador } from "../hooks/useNotificacionesIndicador";
 import { createEmptyNotificacionPayload } from "../models/notificacionesDefaults";
@@ -27,7 +25,6 @@ const NOTIFICADOR_GENERAL_ID = "indicadores-general";
 
 const IndicadoresPage: React.FC = () => {
   useFocusFromQuery();
-  const navigate = useNavigate();
   const [openDetalleModal, setOpenDetalleModal] = useState(false);
   const [openDetalleCrecimientoModal, setOpenDetalleCrecimientoModal] = useState(false);
   const [openNotificacionesModal, setOpenNotificacionesModal] = useState(false);
@@ -92,17 +89,6 @@ const IndicadoresPage: React.FC = () => {
     };
   }, [companyId, normalizedEstablishmentId, defaultCurrencyCode]);
 
-  const handleCrearComprobante = () => {
-    navigate("/comprobantes/nuevo");
-  };
-
-  const handleFiltrar = () => {
-    console.log("Filtros aplicados:", filters);
-    alert(
-      `Filtros aplicados:\nPeriodo: ${formatRangeLabel(dateRange)}\nEstablecimiento: ${establishmentId || "Todos"}`
-    );
-  };
-
   return (
     <div>
       {/* HEADER DE PÁGINA - Título separado */}
@@ -121,10 +107,7 @@ const IndicadoresPage: React.FC = () => {
       />
       
       {/* TOOLBAR - Controles y acciones */}
-      <Toolbar
-        onFilter={handleFiltrar}
-        onCreateDocument={handleCrearComprobante}
-      />
+      <Toolbar />
 
       <div className="p-4 md:p-6">
         {status === 'success' && (

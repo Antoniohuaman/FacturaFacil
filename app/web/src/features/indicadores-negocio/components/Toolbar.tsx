@@ -1,19 +1,10 @@
-import { Filter, Plus } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { useIndicadoresFilters } from '../hooks/useIndicadoresFilters';
 import type { DateRange } from '../models/dateRange';
 
-interface ToolbarProps {
-  onFilter?: () => void;
-  onCreateDocument?: () => void;
-}
-
 // COMPONENTE DE TOOLBAR
-export default function Toolbar({
-  onFilter,
-  onCreateDocument
-}: ToolbarProps) {
+export default function Toolbar() {
   const { state: configState } = useConfigurationContext();
   const {
     dateRange,
@@ -36,19 +27,10 @@ export default function Toolbar({
   const handleDateRangeChange = (range: DateRange) => {
     setDateRange(range);
   };
-
-  const handleFilter = () => {
-    onFilter?.();
-  };
-
-  const handleCreateDocument = () => {
-    onCreateDocument?.();
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 border-b border-slate-300 dark:border-gray-700 shadow-sm -mx-10 px-16 py-4" style={{ minHeight: '72px', display: 'flex', alignItems: 'center' }}>
       {/* TOOLBAR HORIZONTAL */}
-      <div className="flex items-center justify-between w-full">
+      <div className="flex items-center justify-start w-full">
         {/* GRUPO IZQUIERDO: Filtros */}
         <div className="flex items-center space-x-8">
           {/* DateRangePicker */}
@@ -75,27 +57,6 @@ export default function Toolbar({
               ))}
             </select>
           </div>
-
-          {/* Botón Filtrar */}
-          <button
-            onClick={handleFilter}
-            className="h-10 flex items-center space-x-2 px-4 bg-slate-600 dark:bg-slate-700 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
-          >
-            <Filter className="w-4 h-4" />
-            <span className="text-sm font-medium">Filtrar</span>
-          </button>
-        </div>
-
-        {/* GRUPO DERECHO: Acción Primaria */}
-        <div className="flex items-center">
-          <button
-            onClick={handleCreateDocument}
-            className="h-10 flex items-center space-x-2 px-4 text-white rounded-lg hover:opacity-90 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            style={{ backgroundColor: '#1478D4' }}
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">Nuevo comprobante</span>
-          </button>
         </div>
       </div>
     </div>
