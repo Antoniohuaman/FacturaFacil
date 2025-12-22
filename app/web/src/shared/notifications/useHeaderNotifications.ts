@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useComprobanteContext } from '@/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useProductStore } from '@/features/catalogo-articulos/hooks/useProductStore';
@@ -114,7 +114,56 @@ export const useHeaderNotifications = (): UseHeaderNotificationsResult => {
   const { state: configState } = useConfigurationContext();
   const { status } = useCaja();
 
-  const [readIds, setReadIds] = useState<string[]>([]);
+  const scopeKey = useMemo(() => {
+    const companyId = session?.currentCompanyId || 'no-company';
+    const establishmentId = session?.currentEstablishmentId || 'no-establishment';
+    const userId = session?.userId || 'anon';
+    return `${companyId}::${establishmentId}::${userId}`;
+  }, [session?.currentCompanyId, session?.currentEstablishmentId, session?.userId]);
+
+  const storageKey = useMemo(
+    () => `ff_headerNotifications_readIds:${scopeKey}`,
+    [scopeKey],
+  );
+
+  const [readIdsByScope, setReadIdsByScope] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (!scopeKey) {
+      return;
+    }
+
+    setReadIdsByScope((prev) => {
+      if (prev[scopeKey]) {
+        return prev;
+      }
+
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        if (!raw) {
+          return { ...prev, [scopeKey]: [] };
+        }
+
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed) && parsed.every((id) => typeof id === 'string')) {
+          return { ...prev, [scopeKey]: parsed };
+        }
+      } catch {
+        // Ignorar errores de lectura/formato y empezar limpio para este scope
+      }
+
+      return { ...prev, [scopeKey]: [] };
+    });
+  }, [scopeKey, storageKey]);
+
+  const readIds = useMemo(
+    () => readIdsByScope[scopeKey] ?? [],
+    [readIdsByScope, scopeKey],
+  );
 
   const sunatNotifications = useMemo(
     () => mapSunatNotifications(comprobanteState.comprobantes),
@@ -152,19 +201,48 @@ export const useHeaderNotifications = (): UseHeaderNotificationsResult => {
   );
 
   const markAsRead = useCallback((id: string) => {
-    setReadIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-  }, []);
-
-  const markAllAsRead = useCallback(() => {
-    setReadIds((prev) => {
-      if (!notifications.length) {
+    setReadIdsByScope((prev) => {
+      const current = prev[scopeKey] ?? [];
+      if (current.includes(id)) {
         return prev;
       }
-      const allIds = notifications.map((notification) => notification.id);
-      const unique = new Set([...prev, ...allIds]);
-      return Array.from(unique);
+      const next = [...current, id];
+      const nextByScope = { ...prev, [scopeKey]: next };
+
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(storageKey, JSON.stringify(next));
+        } catch {
+          // Si falla el guardado, no rompemos la UX
+        }
+      }
+
+      return nextByScope;
     });
-  }, [notifications]);
+  }, [scopeKey, storageKey]);
+
+  const markAllAsRead = useCallback(() => {
+    if (!notifications.length) {
+      return;
+    }
+
+    setReadIdsByScope((prev) => {
+      const current = prev[scopeKey] ?? [];
+      const allIds = notifications.map((notification) => notification.id);
+      const unique = Array.from(new Set([...current, ...allIds]));
+      const nextByScope = { ...prev, [scopeKey]: unique };
+
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(storageKey, JSON.stringify(unique));
+        } catch {
+          // Si falla el guardado, no rompemos la UX
+        }
+      }
+
+      return nextByScope;
+    });
+  }, [notifications, scopeKey, storageKey]);
 
   return {
     notifications,
