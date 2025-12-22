@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bell, Settings, Menu } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
 import EstablishmentSelector from './EstablishmentSelector';
@@ -18,9 +18,13 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
   const [showCashMenu, setShowCashMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const menuRef = useRef<HTMLDivElement>(null);
   const cashMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const LAST_NON_CONFIG_ROUTE_KEY = 'lastNonConfigRoute';
+  const isInConfiguration = location.pathname === '/configuracion' || location.pathname.startsWith('/configuracion/');
+  const configButtonLabel = isInConfiguration ? 'Salir de Configuración' : 'Configuración del Sistema';
 
   // ✅ Contexts para datos reales
   const { session } = useUserSession();
@@ -77,6 +81,32 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
     setShowCashMenu(false);
     // Navegar a la página de control de caja con tab de apertura
     navigate('/control-caja?tab=apertura');
+  };
+
+  // Persistir la última ruta fuera de configuración para permitir regresar
+  useEffect(() => {
+    if (!isInConfiguration) {
+      const currentUrl = `${location.pathname}${location.search}${location.hash}`;
+      sessionStorage.setItem(LAST_NON_CONFIG_ROUTE_KEY, currentUrl);
+    }
+  }, [isInConfiguration, location.pathname, location.search, location.hash]);
+
+  const handleConfigurationClick = () => {
+    const currentUrl = `${location.pathname}${location.search}${location.hash}`;
+
+    if (!isInConfiguration) {
+      sessionStorage.setItem(LAST_NON_CONFIG_ROUTE_KEY, currentUrl);
+      navigate('/configuracion');
+      return;
+    }
+
+    const lastRoute = sessionStorage.getItem(LAST_NON_CONFIG_ROUTE_KEY);
+    if (lastRoute && !lastRoute.startsWith('/configuracion')) {
+      navigate(lastRoute);
+      return;
+    }
+
+    navigate('/');
   };
 
   return (
@@ -353,9 +383,10 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
         {/* Botón de configuración */}
         <div className="relative ml-4">
           <button
-            onClick={() => navigate('/configuracion')}
+            onClick={handleConfigurationClick}
             className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
-            title="Configuración del Sistema"
+            title={configButtonLabel}
+            aria-label={configButtonLabel}
           >
             <Settings className="w-5 h-5 text-slate-600 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
           </button>
