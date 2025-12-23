@@ -1,6 +1,6 @@
 // src/features/gestion-inventario/components/disponibilidad/InventarioSituacionPage.tsx
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useInventarioDisponibilidad } from '../../hooks/useInventarioDisponibilidad';
 import { usePreferenciasDisponibilidad } from '../../stores/usePreferenciasDisponibilidad';
 import DisponibilidadToolbarEnhanced from './DisponibilidadToolbarEnhanced';
@@ -8,6 +8,10 @@ import DisponibilidadTable from './DisponibilidadTable';
 import DisponibilidadPagination from './DisponibilidadPagination';
 import DisponibilidadSettings from './DisponibilidadSettings';
 import type { DisponibilidadItem } from '../../models/disponibilidad.types';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import type { Warehouse } from '../../../configuracion-sistema/models/Warehouse';
+import * as XLSX from 'xlsx';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 type ThresholdField = 'stockMinimo' | 'stockMaximo';
 
@@ -18,7 +22,6 @@ interface ThresholdChangePayload {
 }
 
 interface InventarioSituacionPageProps {
-  onExportar?: () => void;
   onActualizacionMasiva?: () => void;
   onTransferir?: () => void;
   onAjustar?: () => void;
@@ -30,7 +33,6 @@ interface InventarioSituacionPageProps {
  * Diseño moderno estilo Jira con filtros compactos y personalización avanzada
  */
 const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
-  onExportar,
   onActualizacionMasiva,
   onTransferir,
   onAjustar,
@@ -40,6 +42,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
   const {
     datos,
     almacenesDisponibles,
+    datosExportacion,
     filtros,
     ordenamiento,
     infoPaginacion,
@@ -50,8 +53,11 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     canEditThresholds,
     thresholdsTooltip,
     selectedWarehouse,
+    selectedEstablecimiento,
+    warehouseScope,
     updateStockThreshold
   } = useInventarioDisponibilidad();
+  const { state: configState } = useConfigurationContext();
 
   // Preferencias de UI
   const { densidad, columnasVisibles, itemsPorPagina } = usePreferenciasDisponibilidad();
@@ -94,6 +100,146 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     });
   }, [selectedWarehouseId, updateStockThreshold]);
 
+  const warehouseMap = useMemo(() => {
+    return new Map(configState.warehouses.map((warehouse) => [warehouse.id, warehouse]));
+  }, [configState.warehouses]);
+
+  const establishmentMap = useMemo(() => {
+    return new Map(configState.establishments.map((est) => [est.id, est]));
+  }, [configState.establishments]);
+
+  const handleExportStockActual = useCallback(() => {
+    const scopeWarehouses = warehouseScope
+      .map(id => warehouseMap.get(id))
+      .filter((warehouse): warehouse is Warehouse => Boolean(warehouse));
+
+    const formatWarehouseLabel = (warehouse?: Warehouse) => {
+      if (!warehouse) return '';
+      const code = warehouse.code || warehouse.id;
+      if (code && warehouse.name) return `${code} - ${warehouse.name}`;
+      return warehouse.name || code || warehouse.id;
+    };
+
+    const formatEstablishmentLabel = (establishment?: { id?: string; code?: string; name?: string }) => {
+      if (!establishment) return '';
+      const fromMap = establishment.id ? establishmentMap.get(establishment.id) : undefined;
+      const code = fromMap?.code ?? establishment.code ?? establishment.id;
+      const name = fromMap?.name ?? establishment.name;
+      if (code && name) return `${code} - ${name}`;
+      return name || code || establishment.id || '';
+    };
+
+    const derivedEstablishments = new Map<string, { id?: string; code?: string; name?: string }>();
+    scopeWarehouses.forEach(warehouse => {
+      if (!warehouse.establishmentId) {
+        return;
+      }
+      derivedEstablishments.set(warehouse.establishmentId, {
+        id: warehouse.establishmentId,
+        code: warehouse.establishmentCode,
+        name: warehouse.establishmentName
+      });
+    });
+
+    const establishmentLabel = (() => {
+      if (selectedEstablecimiento) {
+        return formatEstablishmentLabel(selectedEstablecimiento);
+      }
+      if (derivedEstablishments.size === 1) {
+        const single = derivedEstablishments.values().next().value;
+        return formatEstablishmentLabel(single);
+      }
+      if (derivedEstablishments.size > 1) {
+        return 'Todos los establecimientos (consolidado)';
+      }
+      if (filtros.establecimientoId) {
+        return formatEstablishmentLabel({ id: filtros.establecimientoId });
+      }
+      return 'No definido';
+    })();
+
+    const warehouseLabel = (() => {
+      if (selectedWarehouse) {
+        return formatWarehouseLabel(selectedWarehouse);
+      }
+      if (scopeWarehouses.length === 1) {
+        return formatWarehouseLabel(scopeWarehouses[0]);
+      }
+      if (scopeWarehouses.length > 1) {
+        return 'Todos los almacenes (consolidado)';
+      }
+      if (filtros.almacenId) {
+        return filtros.almacenId;
+      }
+      return 'Sin almacenes disponibles';
+    })();
+
+    const includedCodes = scopeWarehouses
+      .map(warehouse => warehouse.code || warehouse.id)
+      .filter(Boolean)
+      .join(', ');
+
+    const headers = [
+      'Establecimiento',
+      'Almacén (alcance)',
+      'Almacenes incluidos (códigos)',
+      'Código (SKU)',
+      'Producto',
+      'Unidad mínima',
+      'Real',
+      'Reservado',
+      'Disponible',
+      'Stock mínimo',
+      'Stock máximo',
+      'Estado'
+    ];
+
+    const exportRows = datosExportacion.map(item => ({
+      'Establecimiento': establishmentLabel,
+      'Almacén (alcance)': warehouseLabel,
+      'Almacenes incluidos (códigos)': includedCodes || '—',
+      'Código (SKU)': item.sku ?? '',
+      'Producto': item.nombre,
+      'Unidad mínima': item.unidadMinima,
+      'Real': item.real,
+      'Reservado': item.reservado,
+      'Disponible': item.disponible,
+      'Stock mínimo': item.stockMinimo ?? '',
+      'Stock máximo': item.stockMaximo ?? '',
+      'Estado': item.situacion
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows, { header: headers });
+    worksheet['!cols'] = [
+      { wch: 28 },
+      { wch: 28 },
+      { wch: 32 },
+      { wch: 15 },
+      { wch: 30 },
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 14 }
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock Actual');
+    const fileName = `stock_actual_${getBusinessTodayISODate()}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }, [
+    datosExportacion,
+    filtros.almacenId,
+    filtros.establecimientoId,
+    selectedEstablecimiento,
+    selectedWarehouse,
+    warehouseMap,
+    warehouseScope,
+    establishmentMap
+  ]);
+
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Toolbar mejorado con filtros y acciones */}
@@ -104,7 +250,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
         totalItems={infoPaginacion.totalItems}
         itemsMostrados={datos.length}
         onOpenSettings={() => setMostrandoSettings(true)}
-        onExportar={onExportar}
+        onExportar={handleExportStockActual}
         onActualizacionMasiva={onActualizacionMasiva}
         onTransferir={onTransferir}
         onAjustar={onAjustar}

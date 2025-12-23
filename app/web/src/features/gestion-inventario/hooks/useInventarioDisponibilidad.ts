@@ -398,6 +398,7 @@ export const useInventarioDisponibilidad = () => {
   return {
     // Datos
     datos: datosPaginados,
+    datosExportacion: datosOrdenados,
     resumen,
     almacenesDisponibles,
 
@@ -416,6 +417,8 @@ export const useInventarioDisponibilidad = () => {
     canEditThresholds,
     thresholdsTooltip,
     selectedWarehouse,
+    selectedEstablecimiento,
+    warehouseScope,
     updateStockThreshold
   };
 };

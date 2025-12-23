@@ -266,7 +266,6 @@ export const InventoryPage: React.FC = () => {
       <div className={`flex-1 overflow-auto ${selectedView === 'situacion' ? '' : 'p-6'}`}>
         {selectedView === 'situacion' && (
           <InventarioSituacionPage
-            onExportar={handleExportToExcel}
             onActualizacionMasiva={openMassUpdateModal}
             onTransferir={openTransferModal}
             onAjustar={() => openAdjustmentModal('', 0)}
