@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useCaja } from '../context/CajaContext';
 import { FileBarChart, Download, Filter, X, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { EmptyState } from '../components/common/EmptyState';
 import {
   ensureBusinessDateIso,
@@ -39,6 +40,11 @@ const formatMovementDateTimeLabel = (value: Date | string): string => {
 };
 
 const normalizeFilterDate = (value: string) => (value ? ensureBusinessDateIso(value) : undefined);
+
+const formatAmountWithSign = (tipo: string, monto: number): string => {
+  const sign = tipo === 'Egreso' ? '-' : '+';
+  return `${sign}S/ ${monto.toFixed(2)}`;
+};
 
 const escapeCsvValue = (value: string | number | null | undefined): string => {
   if (value === null || value === undefined) {
@@ -81,6 +87,16 @@ const ReportesCaja: React.FC = () => {
   const totalEgresos = reportesFiltrados.filter(m => m.tipo === 'Egreso').reduce((sum, m) => sum + m.monto, 0);
   const balance = totalIngresos - totalEgresos;
 
+  const getExportRange = () => {
+    const fechasDelReporte = reportesFiltrados
+      .map((m) => toBusinessDateIso(m.fecha))
+      .filter((date): date is string => Boolean(date))
+      .sort();
+    const rangoDesde = normalizedDesde || fechasDelReporte[0] || getBusinessTodayISODate();
+    const rangoHasta = normalizedHasta || fechasDelReporte[fechasDelReporte.length - 1] || rangoDesde;
+    return { rangoDesde, rangoHasta };
+  };
+
   const exportarCSV = () => {
     if (reportesFiltrados.length === 0) {
       showToast('warning', 'Sin datos', 'No hay datos para exportar.');
@@ -122,12 +138,7 @@ const ReportesCaja: React.FC = () => {
       csvRows.push(buildTotalRow('Total Egresos', totalEgresos));
       csvRows.push(buildTotalRow('Balance', balance));
 
-      const fechasDelReporte = reportesFiltrados
-        .map((m) => toBusinessDateIso(m.fecha))
-        .filter((date): date is string => Boolean(date))
-        .sort();
-      const rangoDesde = normalizedDesde || fechasDelReporte[0] || getBusinessTodayISODate();
-      const rangoHasta = normalizedHasta || fechasDelReporte[fechasDelReporte.length - 1] || rangoDesde;
+      const { rangoDesde, rangoHasta } = getExportRange();
 
       const csvContent = csvRows.join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -144,6 +155,46 @@ const ReportesCaja: React.FC = () => {
       showToast('success', 'Exportado', 'Reporte exportado exitosamente como CSV.');
     } catch (error) {
       showToast('error', 'Error', 'No se pudo exportar el reporte.');
+    }
+  };
+
+  const exportarExcel = () => {
+    if (reportesFiltrados.length === 0) {
+      showToast('warning', 'Sin datos', 'No hay datos para exportar.');
+      return;
+    }
+
+    try {
+      const rows = reportesFiltrados.map((m) => ({
+        'Fecha/Hora': formatMovementDateTimeLabel(m.fecha),
+        'Tipo': m.tipo,
+        'Concepto': m.concepto,
+        'Medio': m.medioPago,
+        'Monto': formatAmountWithSign(m.tipo, m.monto),
+        'Usuario': m.usuarioNombre || 'N/A',
+        'Caja / Establecimiento': m.cajaId || 'N/A',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet['!cols'] = [
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 36 },
+        { wch: 14 },
+        { wch: 16 },
+        { wch: 20 },
+        { wch: 24 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Reportes');
+
+      const { rangoDesde, rangoHasta } = getExportRange();
+      XLSX.writeFile(workbook, `caja_reporte_${rangoDesde}_${rangoHasta}.xlsx`);
+      showToast('success', 'Exportado', 'Reporte exportado en Excel.');
+    } catch (error) {
+      console.error('[Caja] exportarExcel error', error);
+      showToast('error', 'Error', 'No se pudo exportar el reporte en Excel.');
     }
   };
 
@@ -227,6 +278,13 @@ const ReportesCaja: React.FC = () => {
                 Limpiar
               </button>
             )}
+            <button
+              onClick={exportarExcel}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors text-sm"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Exportar Excel</span>
+            </button>
             <button
               onClick={exportarCSV}
               className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors text-sm"
