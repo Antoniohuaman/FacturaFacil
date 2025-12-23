@@ -71,16 +71,28 @@ export interface MovimientoStock {
 export type EstadoAlerta = 'CRITICO' | 'BAJO' | 'NORMAL' | 'EXCESO';
 
 /**
+ * Categorías simplificadas para las alertas de stock
+ */
+export type StockAlertType = 'LOW' | 'OK' | 'OVER';
+
+/**
  * Alerta de stock
  */
 export interface StockAlert {
   productoId: string;
   productoCodigo: string;
   productoNombre: string;
+  /** Stock disponible (real - reservado) en el alcance evaluado */
   cantidadActual: number;
+  /** Stock real antes de reservar unidades */
+  cantidadReal?: number;
+  /** Stock reservado asociado al alcance */
+  cantidadReservada?: number;
   stockMinimo: number;
   stockMaximo?: number;
   estado: EstadoAlerta;
+  alertType: Exclude<StockAlertType, 'OK'>;
+  isCritical: boolean;
   warehouseId: string;
   warehouseCodigo: string;
   warehouseNombre: string;

@@ -1,12 +1,19 @@
 // src/features/inventario/components/panels/AlertsPanel.tsx
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { StockAlert } from '../../models';
+import { evaluateStockAlert } from '../../utils/stockAlerts';
+import type { StockAlertEvaluation } from '../../utils/stockAlerts';
 
 interface AlertsPanelProps {
   alertas: StockAlert[];
   onReabastecerProducto?: (productoId: string, cantidadSugerida: number) => void;
   onProgramarCompra?: (productoId: string, cantidadSugerida: number) => void;
+}
+
+interface DecoratedAlert {
+  alerta: StockAlert;
+  evaluation: StockAlertEvaluation;
 }
 
 const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProducto, onProgramarCompra }) => {
@@ -54,8 +61,19 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
     );
   };
 
-  const alertasCriticas = alertas.filter(a => a.estado === 'CRITICO');
-  const alertasBajas = alertas.filter(a => a.estado === 'BAJO');
+  const alertasDecoradas = useMemo<DecoratedAlert[]>(() => alertas.map(alerta => ({
+    alerta,
+    evaluation: evaluateStockAlert({
+      disponible: alerta.cantidadActual,
+      stockMinimo: alerta.stockMinimo,
+      stockMaximo: alerta.stockMaximo
+    })
+  })), [alertas]);
+
+  const alertasCriticas = alertasDecoradas.filter(({ evaluation }) => evaluation.type === 'LOW' && evaluation.isCritical);
+  const alertasBajas = alertasDecoradas.filter(({ evaluation }) => evaluation.type === 'LOW' && !evaluation.isCritical);
+  const alertasExceso = alertasDecoradas.filter(({ evaluation }) => evaluation.type === 'OVER');
+  const alertasReposicion = [...alertasCriticas, ...alertasBajas];
 
   return (
     <div className="space-y-6">
@@ -73,7 +91,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                 Alertas de Stock Activas
               </h3>
               <p className="text-sm text-[#4B5563] dark:text-gray-400 mt-0.5">
-                {alertasCriticas.length} productos en estado crítico, {alertasBajas.length} con stock bajo
+                {alertasCriticas.length} productos en estado crítico, {alertasBajas.length} con stock bajo, {alertasExceso.length} excedidos
               </p>
             </div>
           </div>
@@ -97,16 +115,27 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                 }).format(new Date());
 
                 let reporte = `REPORTE DE ALERTAS DE STOCK\nFecha: ${fecha}\n\n`;
-                reporte += `Total de alertas: ${alertas.length}\n`;
-                reporte += `Críticas: ${alertas.filter(a => a.estado === 'CRITICO').length}\n`;
-                reporte += `Stock Bajo: ${alertas.filter(a => a.estado === 'BAJO').length}\n\n`;
+                reporte += `Total de alertas: ${alertasDecoradas.length}\n`;
+                reporte += `Críticas: ${alertasCriticas.length}\n`;
+                reporte += `Stock Bajo: ${alertasBajas.length}\n`;
+                reporte += `Excede Máximo: ${alertasExceso.length}\n\n`;
                 reporte += `DETALLE:\n`;
-                alertas.forEach((a, i) => {
-                  reporte += `\n${i + 1}. ${a.productoNombre}\n`;
-                  reporte += `   Código: ${a.productoCodigo}\n`;
-                  reporte += `   Stock Actual: ${a.cantidadActual}\n`;
-                  reporte += `   Stock Mínimo: ${a.stockMinimo}\n`;
-                  reporte += `   Faltante: ${a.stockMinimo - a.cantidadActual}\n`;
+                alertasDecoradas.forEach(({ alerta, evaluation }, i) => {
+                  reporte += `\n${i + 1}. ${alerta.productoNombre}\n`;
+                  reporte += `   Código: ${alerta.productoCodigo}\n`;
+                  reporte += `   Disponible: ${alerta.cantidadActual}\n`;
+                  if (alerta.stockMinimo > 0) {
+                    reporte += `   Stock Mínimo: ${alerta.stockMinimo}\n`;
+                  }
+                  if (typeof alerta.stockMaximo === 'number') {
+                    reporte += `   Stock Máximo: ${alerta.stockMaximo}\n`;
+                  }
+                  if (evaluation.type === 'LOW' && typeof evaluation.missing === 'number') {
+                    reporte += `   Faltante: ${evaluation.missing}\n`;
+                  }
+                  if (evaluation.type === 'OVER' && typeof evaluation.excess === 'number') {
+                    reporte += `   Excedente: ${evaluation.excess}\n`;
+                  }
                 });
 
                 const blob = new Blob([reporte], { type: 'text/plain' });
@@ -137,7 +166,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
             </h3>
           </div>
           <div className="divide-y divide-[#E5E7EB] dark:divide-gray-700">
-            {alertasCriticas.map((alerta) => (
+            {alertasCriticas.map(({ alerta, evaluation }) => (
               <div key={alerta.productoId} className="p-4 hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors duration-150">
                 <div className="flex items-center justify-between">
                   <div className="flex items-start space-x-4 flex-1">
@@ -156,7 +185,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                       </p>
                       <div className="flex items-center gap-6 text-sm">
                         <div>
-                          <span className="text-[#4B5563] dark:text-gray-400">Stock Actual:</span>
+                          <span className="text-[#4B5563] dark:text-gray-400">Stock Disponible:</span>
                           <span className="ml-1.5 font-semibold text-[#EF4444] dark:text-[#F87171] tabular-nums">{alerta.cantidadActual}</span>
                         </div>
                         <div>
@@ -166,7 +195,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                         <div>
                           <span className="text-[#4B5563] dark:text-gray-400">Faltante:</span>
                           <span className="ml-1.5 font-semibold text-[#EF4444] dark:text-[#F87171] tabular-nums">
-                            {alerta.stockMinimo - alerta.cantidadActual}
+                            {evaluation.missing ?? 0}
                           </span>
                         </div>
                       </div>
@@ -175,13 +204,13 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                   <div className="flex items-center gap-2 ml-6">
                     <button
                       onClick={() => {
-                        const cantidadSugerida = alerta.stockMinimo - alerta.cantidadActual;
+                        const cantidadSugerida = evaluation.missing ?? 0;
                         if (onReabastecerProducto) {
                           onReabastecerProducto(alerta.productoId, cantidadSugerida);
                         }
                       }}
                       className="h-9 px-4 py-2 text-sm font-medium text-white bg-[#EF4444] hover:bg-[#dc2626] rounded-lg transition-all duration-150"
-                      title={`Reabastecer ${alerta.productoNombre} (${alerta.stockMinimo - alerta.cantidadActual} unidades)`}
+                      title={`Reabastecer ${alerta.productoNombre} (${evaluation.missing ?? 0} unidades)`}
                     >
                       Reabastecer
                     </button>
@@ -205,7 +234,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
             </h3>
           </div>
           <div className="divide-y divide-[#E5E7EB] dark:divide-gray-700">
-            {alertasBajas.map((alerta) => (
+            {alertasBajas.map(({ alerta, evaluation }) => (
               <div key={alerta.productoId} className="p-4 hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors duration-150">
                 <div className="flex items-center justify-between">
                   <div className="flex items-start space-x-4 flex-1">
@@ -224,7 +253,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                       </p>
                       <div className="flex items-center gap-6 text-sm">
                         <div>
-                          <span className="text-[#4B5563] dark:text-gray-400">Stock Actual:</span>
+                          <span className="text-[#4B5563] dark:text-gray-400">Stock Disponible:</span>
                           <span className="ml-1.5 font-semibold text-[#D97706] dark:text-[#F59E0B] tabular-nums">{alerta.cantidadActual}</span>
                         </div>
                         <div>
@@ -234,7 +263,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                         <div>
                           <span className="text-[#4B5563] dark:text-gray-400">Faltante:</span>
                           <span className="ml-1.5 font-semibold text-[#D97706] dark:text-[#F59E0B] tabular-nums">
-                            {alerta.stockMinimo - alerta.cantidadActual}
+                            {evaluation.missing ?? 0}
                           </span>
                         </div>
                       </div>
@@ -243,13 +272,13 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                   <div className="flex items-center gap-2 ml-6">
                     <button
                       onClick={() => {
-                        const cantidadSugerida = alerta.stockMinimo - alerta.cantidadActual;
+                        const cantidadSugerida = evaluation.missing ?? 0;
                         if (onProgramarCompra) {
                           onProgramarCompra(alerta.productoId, cantidadSugerida);
                         }
                       }}
                       className="h-9 px-4 py-2 text-sm font-medium text-[#D97706] dark:text-[#F59E0B] bg-[#D97706]/10 dark:bg-[#D97706]/15 hover:bg-[#D97706]/15 dark:hover:bg-[#D97706]/20 border border-[#D97706]/30 dark:border-[#D97706]/40 rounded-lg transition-all duration-150"
-                      title={`Programar compra de ${alerta.productoNombre} (${alerta.stockMinimo - alerta.cantidadActual} unidades)`}
+                      title={`Programar compra de ${alerta.productoNombre} (${evaluation.missing ?? 0} unidades)`}
                     >
                       Programar Compra
                     </button>
@@ -261,8 +290,65 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
         </div>
       )}
 
+      {/* Overstock Alerts */}
+      {alertasExceso.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-[#3B82F6]/30 dark:border-[#3B82F6]/40">
+          <div className="px-4 py-2.5 bg-[#3B82F6]/10 dark:bg-[#3B82F6]/15 border-b border-[#3B82F6]/30 dark:border-[#3B82F6]/40">
+            <h3 className="text-sm font-semibold text-[#3B82F6] dark:text-[#60A5FA] flex items-center">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v8m-4-4h8M5 12a7 7 0 1114 0 7 7 0 01-14 0z" />
+              </svg>
+              Excede Stock Máximo ({alertasExceso.length})
+            </h3>
+          </div>
+          <div className="divide-y divide-[#E5E7EB] dark:divide-gray-700">
+            {alertasExceso.map(({ alerta, evaluation }) => (
+              <div key={alerta.productoId} className="p-4 hover:bg-[#3B82F6]/5 dark:hover:bg-[#3B82F6]/8 transition-colors duration-150">
+                <div className="flex items-start space-x-4">
+                  <div className="flex-shrink-0">
+                    {getAlertIcon('EXCESO')}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <h4 className="text-sm font-semibold text-[#111827] dark:text-gray-100">
+                        {alerta.productoNombre}
+                      </h4>
+                      {getAlertBadge('EXCESO')}
+                    </div>
+                    <p className="text-xs text-[#4B5563] dark:text-gray-400 font-mono mb-2">
+                      Código: {alerta.productoCodigo}
+                    </p>
+                    <div className="flex items-center gap-6 text-sm">
+                      <div>
+                        <span className="text-[#4B5563] dark:text-gray-400">Stock Disponible:</span>
+                        <span className="ml-1.5 font-semibold text-[#3B82F6] dark:text-[#60A5FA] tabular-nums">{alerta.cantidadActual}</span>
+                      </div>
+                      {typeof alerta.stockMaximo === 'number' && (
+                        <div>
+                          <span className="text-[#4B5563] dark:text-gray-400">Stock Máximo:</span>
+                          <span className="ml-1.5 font-semibold text-[#111827] dark:text-gray-100 tabular-nums">{alerta.stockMaximo}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-[#4B5563] dark:text-gray-400">Excedente:</span>
+                        <span className="ml-1.5 font-semibold text-[#3B82F6] dark:text-[#60A5FA] tabular-nums">
+                          {evaluation.excess ?? 0}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-xs text-[#4B5563] dark:text-gray-400">
+                      Reduce inventario mediante ajustes o transferencias para liberar espacio en almacén.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Empty State */}
-      {alertas.length === 0 && (
+      {alertasDecoradas.length === 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-[#E5E7EB] dark:border-gray-700 p-12">
           <div className="text-center">
             <svg className="mx-auto h-16 w-16 text-[#10B981] dark:text-[#34D399]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -325,30 +411,34 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                     </div>
 
                     <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-4">
-                      <table className="min-w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200 dark:border-gray-700">
-                            <th className="text-left text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Producto</th>
-                            <th className="text-left text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Código</th>
-                            <th className="text-right text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Stock Actual</th>
-                            <th className="text-right text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Stock Mínimo</th>
-                            <th className="text-right text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Cantidad a Pedir</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {alertas.map((alerta) => (
-                            <tr key={alerta.productoId}>
-                              <td className="py-2 text-sm text-gray-900 dark:text-gray-200">{alerta.productoNombre}</td>
-                              <td className="py-2 text-sm font-mono text-gray-600 dark:text-gray-400">{alerta.productoCodigo}</td>
-                              <td className="py-2 text-sm text-right text-red-600 dark:text-red-400 font-semibold">{alerta.cantidadActual}</td>
-                              <td className="py-2 text-sm text-right text-gray-900 dark:text-gray-200">{alerta.stockMinimo}</td>
-                              <td className="py-2 text-sm text-right text-green-600 dark:text-green-400 font-semibold">
-                                {alerta.stockMinimo - alerta.cantidadActual}
-                              </td>
+                      {alertasReposicion.length > 0 ? (
+                        <table className="min-w-full">
+                          <thead>
+                            <tr className="border-b border-gray-200 dark:border-gray-700">
+                              <th className="text-left text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Producto</th>
+                              <th className="text-left text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Código</th>
+                              <th className="text-right text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Disponible</th>
+                              <th className="text-right text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Stock Mínimo</th>
+                              <th className="text-right text-xs font-semibold text-gray-600 dark:text-gray-400 pb-2">Cantidad a Pedir</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {alertasReposicion.map(({ alerta, evaluation }) => (
+                              <tr key={alerta.productoId}>
+                                <td className="py-2 text-sm text-gray-900 dark:text-gray-200">{alerta.productoNombre}</td>
+                                <td className="py-2 text-sm font-mono text-gray-600 dark:text-gray-400">{alerta.productoCodigo}</td>
+                                <td className="py-2 text-sm text-right text-red-600 dark:text-red-400 font-semibold">{alerta.cantidadActual}</td>
+                                <td className="py-2 text-sm text-right text-gray-900 dark:text-gray-200">{alerta.stockMinimo}</td>
+                                <td className="py-2 text-sm text-right text-green-600 dark:text-green-400 font-semibold">
+                                  {evaluation.missing ?? 0}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p className="text-sm text-gray-600 dark:text-gray-400">No hay productos con stock bajo para reabastecer.</p>
+                      )}
                     </div>
 
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
@@ -406,27 +496,27 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
                         let ordenCompra = `ORDEN DE COMPRA - REABASTECIMIENTO\n`;
                         ordenCompra += `Fecha: ${fecha}\n`;
                         ordenCompra += `===========================================\n\n`;
-                        ordenCompra += `Total de productos: ${alertas.length}\n\n`;
+                        ordenCompra += `Total de productos: ${alertasReposicion.length}\n\n`;
                         ordenCompra += `DETALLE DE PRODUCTOS:\n`;
                         ordenCompra += `===========================================\n\n`;
 
-                        alertas.forEach((a, i) => {
-                          const cantidadPedir = a.stockMinimo - a.cantidadActual;
-                          ordenCompra += `${i + 1}. ${a.productoNombre}\n`;
-                          ordenCompra += `   Código: ${a.productoCodigo}\n`;
-                          ordenCompra += `   Stock Actual: ${a.cantidadActual}\n`;
-                          ordenCompra += `   Stock Mínimo: ${a.stockMinimo}\n`;
+                        alertasReposicion.forEach(({ alerta, evaluation }, i) => {
+                          const cantidadPedir = evaluation.missing ?? 0;
+                          ordenCompra += `${i + 1}. ${alerta.productoNombre}\n`;
+                          ordenCompra += `   Código: ${alerta.productoCodigo}\n`;
+                          ordenCompra += `   Stock Disponible: ${alerta.cantidadActual}\n`;
+                          ordenCompra += `   Stock Mínimo: ${alerta.stockMinimo}\n`;
                           ordenCompra += `   CANTIDAD A PEDIR: ${cantidadPedir}\n`;
-                          if (a.establishmentCodigo) {
-                            ordenCompra += `   Establecimiento: ${a.establishmentCodigo} - ${a.establishmentNombre || ''}\n`;
+                          if (alerta.establishmentCodigo) {
+                            ordenCompra += `   Establecimiento: ${alerta.establishmentCodigo} - ${alerta.establishmentNombre || ''}\n`;
                           }
                           ordenCompra += `\n`;
                         });
 
                         ordenCompra += `===========================================\n`;
                         ordenCompra += `RESUMEN:\n`;
-                        ordenCompra += `Total de artículos diferentes: ${alertas.length}\n`;
-                        ordenCompra += `Cantidad total a ordenar: ${alertas.reduce((sum, a) => sum + (a.stockMinimo - a.cantidadActual), 0)}\n`;
+                        ordenCompra += `Total de artículos diferentes: ${alertasReposicion.length}\n`;
+                        ordenCompra += `Cantidad total a ordenar: ${alertasReposicion.reduce((sum, { evaluation }) => sum + (evaluation.missing ?? 0), 0)}\n`;
                         ordenCompra += `===========================================\n\n`;
                         ordenCompra += `Generado automáticamente por FacturaFácil\n`;
                         ordenCompra += `Sistema de Gestión de Inventario\n`;

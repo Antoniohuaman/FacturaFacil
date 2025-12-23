@@ -5,6 +5,7 @@ import { useProductStore } from '@/features/catalogo-articulos/hooks/useProductS
 import { useConfigurationContext } from '@/features/configuracion-sistema/context/ConfigurationContext';
 import { useCaja } from '@/features/control-caja/context/CajaContext';
 import { InventoryService } from '@/features/gestion-inventario/services/inventory.service';
+import { evaluateStockAlert } from '@/features/gestion-inventario/utils/stockAlerts';
 import type { Product } from '@/features/catalogo-articulos/models/types';
 import type { Warehouse } from '@/features/configuracion-sistema/models/Warehouse';
 import type { HeaderNotification, UseHeaderNotificationsResult } from './types';
@@ -66,19 +67,35 @@ const mapStockNotifications = (
   }
 
   return filteredAlerts.slice(0, 5).map((alert) => {
-    const isCritical = alert.estado === 'CRITICO';
-    const severity: HeaderNotification['severity'] = isCritical ? 'error' : 'warning';
+    const evaluation = evaluateStockAlert({
+      disponible: alert.cantidadActual,
+      stockMinimo: alert.stockMinimo,
+      stockMaximo: alert.stockMaximo
+    });
+    const isCritical = evaluation.type === 'LOW' && evaluation.isCritical;
+    const severity: HeaderNotification['severity'] = isCritical
+      ? 'error'
+      : evaluation.type === 'OVER'
+        ? 'info'
+        : 'warning';
 
-    const faltante = typeof alert.faltante === 'number' ? alert.faltante : undefined;
-
-    const baseMessageParts = [`Stock actual: ${alert.cantidadActual}`];
-    if (faltante !== undefined) {
-      baseMessageParts.push(`Faltan ${faltante} para mínimo`);
+    const baseMessageParts = [`Disponible: ${alert.cantidadActual}`];
+    if (evaluation.type === 'LOW' && typeof evaluation.missing === 'number' && alert.stockMinimo > 0) {
+      baseMessageParts.push(`Faltan ${evaluation.missing} para mínimo (${alert.stockMinimo})`);
     }
+    if (evaluation.type === 'OVER' && typeof evaluation.excess === 'number' && typeof alert.stockMaximo === 'number') {
+      baseMessageParts.push(`Supera máximo (${alert.stockMaximo}) por ${evaluation.excess}`);
+    }
+
+    const titlePrefix = evaluation.type === 'OVER'
+      ? 'Excede stock máximo'
+      : isCritical
+        ? 'Stock crítico'
+        : 'Stock bajo';
 
     return {
       id: `stock-${alert.productoId}-${alert.warehouseId}`,
-      title: `${isCritical ? 'Stock crítico' : 'Stock bajo'} · ${alert.productoNombre}`,
+      title: `${titlePrefix} · ${alert.productoNombre}`,
       message: baseMessageParts.join(' · '),
       createdAt: Date.now(),
       severity,

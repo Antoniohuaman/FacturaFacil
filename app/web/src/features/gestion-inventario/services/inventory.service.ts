@@ -11,6 +11,7 @@ import type {
   EstadoAlerta
 } from '../models';
 import { StockRepository } from '../repositories/stock.repository';
+import { evaluateStockAlert } from '../utils/stockAlerts';
 
 /**
  * Servicio para gestión de inventario
@@ -259,51 +260,48 @@ export class InventoryService {
 
     products.forEach(product => {
       warehouses.forEach(warehouse => {
-        const stockActual = this.getStock(product, warehouse.id);
-        const stockMinimo = product.stockMinimoPorAlmacen?.[warehouse.id] || 0;
+        const stockReal = this.getStock(product, warehouse.id);
+        const stockReservado = this.getReservedStock(product, warehouse.id);
+        const stockDisponible = Math.max(0, stockReal - stockReservado);
+        const stockMinimo = product.stockMinimoPorAlmacen?.[warehouse.id];
         const stockMaximo = product.stockMaximoPorAlmacen?.[warehouse.id];
+        const evaluation = evaluateStockAlert({
+          disponible: stockDisponible,
+          stockMinimo,
+          stockMaximo
+        });
 
-        // Verificar si hay alerta
-        let estado: EstadoAlerta | null = null;
-        let faltante: number | undefined;
-        let excedente: number | undefined;
-
-        if (stockActual === 0) {
-          estado = 'CRITICO';
-          faltante = stockMinimo;
-        } else if (stockActual < stockMinimo * 0.5) {
-          estado = 'CRITICO';
-          faltante = stockMinimo - stockActual;
-        } else if (stockActual < stockMinimo) {
-          estado = 'BAJO';
-          faltante = stockMinimo - stockActual;
-        } else if (stockMaximo && stockActual > stockMaximo) {
-          estado = 'EXCESO';
-          excedente = stockActual - stockMaximo;
-        } else if (stockMinimo > 0) {
-          estado = 'NORMAL';
+        if (evaluation.type === 'OK') {
+          return;
         }
 
-        // Solo crear alerta si hay problema
-        if (estado && estado !== 'NORMAL') {
-          alerts.push({
-            productoId: product.id,
-            productoCodigo: product.codigo,
-            productoNombre: product.nombre,
-            cantidadActual: stockActual,
-            stockMinimo,
-            stockMaximo,
-            estado,
-            warehouseId: warehouse.id,
-            warehouseCodigo: warehouse.code,
-            warehouseNombre: warehouse.name,
-            establishmentId: warehouse.establishmentId,
-            establishmentCodigo: warehouse.establishmentCode || '',
-            establishmentNombre: warehouse.establishmentName || '',
-            faltante,
-            excedente
-          });
-        }
+        const estado: EstadoAlerta = evaluation.type === 'OVER'
+          ? 'EXCESO'
+          : evaluation.isCritical
+            ? 'CRITICO'
+            : 'BAJO';
+
+        alerts.push({
+          productoId: product.id,
+          productoCodigo: product.codigo,
+          productoNombre: product.nombre,
+          cantidadActual: stockDisponible,
+          cantidadReal: stockReal,
+          cantidadReservada: stockReservado,
+          stockMinimo: typeof stockMinimo === 'number' ? stockMinimo : 0,
+          stockMaximo,
+          estado,
+          alertType: evaluation.type === 'OVER' ? 'OVER' : 'LOW',
+          isCritical: evaluation.isCritical,
+          warehouseId: warehouse.id,
+          warehouseCodigo: warehouse.code,
+          warehouseNombre: warehouse.name,
+          establishmentId: warehouse.establishmentId,
+          establishmentCodigo: warehouse.establishmentCode || '',
+          establishmentNombre: warehouse.establishmentName || '',
+          faltante: evaluation.missing,
+          excedente: evaluation.excess
+        });
       });
     });
 
