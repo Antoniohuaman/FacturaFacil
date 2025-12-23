@@ -10,14 +10,8 @@ import type {
 } from '../models/PriceImportTypes';
 import {
   TEMPLATE_TITLE,
-  EXPORT_TITLE,
-  SKU_HEADER,
-  UNIT_HEADER,
-  VALIDITY_HEADER,
   buildTableColumnConfigs,
   buildExpectedHeaders,
-  collectUnitsWithPrices,
-  formatDateLabel,
   parsePriceImportFile
 } from '../utils/importProcessing';
 import { ImportActionControls } from './import-prices/ImportActionControls';
@@ -25,12 +19,18 @@ import { ImportStatusMessages } from './import-prices/ImportStatusMessages';
 import { ImportPreviewTable } from './import-prices/ImportPreviewTable';
 import { readTenantJson, writeTenantJson } from '../utils/storage';
 
+export interface ExportPricesResult {
+  success: boolean;
+  error?: string;
+}
+
 interface ImportPricesTabProps {
   columns: Column[];
   products: Product[];
   catalogProducts: CatalogProduct[];
   loading: boolean;
   onApplyImport: (entries: BulkPriceImportEntry[]) => Promise<BulkPriceImportResult>;
+  onExportPrices: () => ExportPricesResult;
 }
 interface StoredImportState {
   rows: PriceImportPreviewRow[];
@@ -58,7 +58,8 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   products,
   catalogProducts,
   loading,
-  onApplyImport
+  onApplyImport,
+  onExportPrices
 }) => {
   const persistedState = useMemo(() => getStoredImportState(), []);
   const [rows, setRows] = useState<PriceImportPreviewRow[]>(persistedState.rows ?? []);
@@ -72,7 +73,10 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
 
   const tableColumns: ImportTableColumnConfig[] = useMemo(() => buildTableColumnConfigs(columns), [columns]);
   const expectedHeaders = useMemo(() => buildExpectedHeaders(tableColumns), [tableColumns]);
-  const tableColumnSignature = useMemo(() => tableColumns.map(column => `${column.columnId}:${column.header}`).join('|'), [tableColumns]);
+  const tableColumnSignature = useMemo(
+    () => tableColumns.map(column => `${column.columnId}:${column.header}`).join('|'),
+    [tableColumns]
+  );
 
   useEffect(() => {
     setRows([]);
@@ -81,8 +85,14 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     setLastResult(null);
   }, [tableColumnSignature]);
 
-  const productLookup = useMemo(() => new Map(products.map(product => [product.sku.toUpperCase(), product] as const)), [products]);
-  const catalogLookup = useMemo(() => new Map(catalogProducts.map(product => [product.codigo.toUpperCase(), product] as const)), [catalogProducts]);
+  const productLookup = useMemo(
+    () => new Map(products.map(product => [product.sku.toUpperCase(), product] as const)),
+    [products]
+  );
+  const catalogLookup = useMemo(
+    () => new Map(catalogProducts.map(product => [product.codigo.toUpperCase(), product] as const)),
+    [catalogProducts]
+  );
 
   useEffect(() => {
     const payload: StoredImportState = {
@@ -113,74 +123,19 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     XLSX.writeFile(workbook, `Plantilla_ImportacionPrecios_${timestamp}.xlsx`);
   };
 
-  const handleExportPrices = () => {
-    if (tableColumns.length === 0) {
-      setParseError('Activa al menos una columna visible en la tabla para exportar.');
-      return;
-    }
-
+  const handleExportPrices = useCallback(() => {
     setParseError(null);
-    const allowedColumnIds = new Set(tableColumns.map(column => column.columnId));
-    const aoa: (string | number)[][] = [expectedHeaders];
-    let exportedRows = 0;
 
-    products.forEach(product => {
-      const unitCodes = collectUnitsWithPrices(product, allowedColumnIds);
-      if (unitCodes.length === 0) {
-        return;
+    try {
+      const result = onExportPrices();
+      if (!result.success) {
+        setParseError(result.error ?? 'No se pudo exportar los precios.');
       }
-
-      const catalogUnit = catalogLookup.get(product.sku)?.unidad;
-      const orderedUnits = [...unitCodes].sort((a, b) => {
-        if (catalogUnit) {
-          if (a === catalogUnit && b !== catalogUnit) return -1;
-          if (b === catalogUnit && a !== catalogUnit) return 1;
-        }
-        if (product.activeUnitCode) {
-          if (a === product.activeUnitCode && b !== product.activeUnitCode) return -1;
-          if (b === product.activeUnitCode && a !== product.activeUnitCode) return 1;
-        }
-        return a.localeCompare(b);
-      });
-
-      orderedUnits.forEach(unitCode => {
-        const row: Record<string, string | number> = {
-          [SKU_HEADER]: product.sku,
-          [UNIT_HEADER]: unitCode
-        };
-
-        let validityIso: string | null = null;
-
-        tableColumns.forEach(({ columnId, header }) => {
-          const price = product.prices[columnId]?.[unitCode];
-          if (price && price.type === 'fixed') {
-            row[header] = price.value;
-            if (!validityIso && price.validUntil) {
-              validityIso = price.validUntil;
-            }
-          } else {
-            row[header] = '';
-          }
-        });
-
-        row[VALIDITY_HEADER] = validityIso ? formatDateLabel(validityIso) : '';
-        const orderedRow = expectedHeaders.map(header => row[header] ?? '');
-        aoa.push(orderedRow);
-        exportedRows += 1;
-      });
-    });
-
-    if (exportedRows === 0) {
-      setParseError('No hay precios registrados para las columnas visibles.');
-      return;
+    } catch (error) {
+      console.error('[ImportPricesTab] Error exporting prices:', error);
+      setParseError('No se pudo exportar los precios. Inténtalo nuevamente.');
     }
-
-    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, EXPORT_TITLE);
-    const today = getBusinessTodayISODate();
-    XLSX.writeFile(workbook, `Exportacion_Precios_${today}.xlsx`);
-  };
+  }, [onExportPrices]);
 
   const handleFileSelected = useCallback(async (file: File) => {
     if (tableColumns.length === 0) {

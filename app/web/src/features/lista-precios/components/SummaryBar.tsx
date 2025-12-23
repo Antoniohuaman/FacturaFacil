@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, AlertCircle, Plus, Search, X } from 'lucide-react';
+import { Check, AlertCircle, Plus, Search, X, Download } from 'lucide-react';
 import type { Column } from '../models/PriceTypes';
 import {
   filterVisibleColumns,
@@ -17,9 +17,26 @@ interface SummaryBarProps {
   searchSKU?: string;
   onSearchChange?: (value: string) => void;
   filteredProductsCount?: number;
+  onExportPrices?: () => void;
+  exportDisabled?: boolean;
+  exportBusy?: boolean;
+  exportErrorMessage?: string;
+  exportDisabledReason?: string;
 }
 
-export const SummaryBar = React.memo<SummaryBarProps>(({ columns, onAssignPrice, viewMode = 'products', searchSKU = '', onSearchChange, filteredProductsCount = 0 }) => {
+export const SummaryBar = React.memo<SummaryBarProps>(({
+  columns,
+  onAssignPrice,
+  viewMode = 'products',
+  searchSKU = '',
+  onSearchChange,
+  filteredProductsCount = 0,
+  onExportPrices,
+  exportDisabled,
+  exportBusy,
+  exportErrorMessage,
+  exportDisabledReason
+}) => {
   const visibleColumns = filterVisibleColumns(columns);
   const baseColumn = findBaseColumn(columns);
   const fixedCount = countColumnsByMode(columns, 'fixed');
@@ -63,16 +80,39 @@ export const SummaryBar = React.memo<SummaryBarProps>(({ columns, onAssignPrice,
 
             <div className="flex-1" />
 
-            {onAssignPrice && (
-              <button
-                onClick={onAssignPrice}
-                className="flex items-center px-4 py-2 text-white rounded-lg text-sm font-medium hover:opacity-95 transition-colors whitespace-nowrap shadow"
-                style={{ backgroundColor: '#1478D4' }}
-              >
-                <Plus size={16} className="mr-2" />
-                Asignar precio
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {onExportPrices && (
+                <button
+                  type="button"
+                  onClick={onExportPrices}
+                  disabled={exportDisabled}
+                  title={exportDisabledReason}
+                  aria-label="Exportar precios visibles"
+                  aria-busy={exportBusy}
+                  className={`px-3 py-2.5 text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${exportDisabled
+                    ? 'text-gray-400 bg-gray-100 dark:bg-gray-800/50 cursor-not-allowed'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                >
+                  {exportBusy ? (
+                    <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden />
+                  ) : (
+                    <Download size={16} aria-hidden />
+                  )}
+                  <span>{exportBusy ? 'Exportando...' : 'Exportar'}</span>
+                </button>
+              )}
+
+              {onAssignPrice && (
+                <button
+                  onClick={onAssignPrice}
+                  className="flex items-center px-4 py-2 text-white rounded-lg text-sm font-medium hover:opacity-95 transition-colors whitespace-nowrap shadow"
+                  style={{ backgroundColor: '#1478D4' }}
+                >
+                  <Plus size={16} className="mr-2" />
+                  Asignar precio
+                </button>
+              )}
+            </div>
           </div>
 
           {hasSearch && (
@@ -80,6 +120,12 @@ export const SummaryBar = React.memo<SummaryBarProps>(({ columns, onAssignPrice,
               {filteredProductsCount > 0
                 ? `✓ ${filteredProductsCount} producto${pluralSuffix} encontrado${pluralSuffix} para "${trimmedSearch}"`
                 : `No se encontraron productos que coincidan con "${trimmedSearch}". Intenta con términos más generales.`}
+            </div>
+          )}
+
+          {exportErrorMessage && (
+            <div className="text-xs text-red-600 dark:text-red-400">
+              {exportErrorMessage}
             </div>
           )}
         </div>
@@ -164,10 +210,15 @@ export const SummaryBar = React.memo<SummaryBarProps>(({ columns, onAssignPrice,
 }, (prevProps, nextProps) => {
   return (
     prevProps.onAssignPrice === nextProps.onAssignPrice &&
+    prevProps.onExportPrices === nextProps.onExportPrices &&
     prevProps.viewMode === nextProps.viewMode &&
     prevProps.onSearchChange === nextProps.onSearchChange &&
     prevProps.searchSKU === nextProps.searchSKU &&
     prevProps.filteredProductsCount === nextProps.filteredProductsCount &&
+    prevProps.exportDisabled === nextProps.exportDisabled &&
+    prevProps.exportBusy === nextProps.exportBusy &&
+    prevProps.exportErrorMessage === nextProps.exportErrorMessage &&
+    prevProps.exportDisabledReason === nextProps.exportDisabledReason &&
     areColumnsEqual(prevProps.columns, nextProps.columns)
   );
 });

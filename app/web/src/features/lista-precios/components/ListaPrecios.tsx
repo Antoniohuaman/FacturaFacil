@@ -1,15 +1,27 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import * as XLSX from 'xlsx';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { Column, NewColumnForm } from '../models/PriceTypes';
 import { usePriceList } from '../hooks/usePriceList';
 import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
 import { ProductPricing } from './ProductPricing';
 import { PackagesTab } from './PackagesTab';
-import { ImportPricesTab } from './ImportPricesTab';
+import { ImportPricesTab, type ExportPricesResult } from './ImportPricesTab';
 import { ColumnModal } from './modals/ColumnModal';
 import { PriceModal } from './modals/PriceModal';
 import { isFixedColumn } from '../utils/priceHelpers';
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
+import {
+  EXPORT_TITLE,
+  SKU_HEADER,
+  UNIT_HEADER,
+  VALIDITY_HEADER,
+  buildTableColumnConfigs,
+  buildExpectedHeaders,
+  collectUnitsWithPrices,
+  formatDateLabel
+} from '../utils/importProcessing';
 
 type TabType = 'columns' | 'products' | 'packages' | 'import';
 
@@ -51,6 +63,8 @@ export const ListaPrecios: React.FC = () => {
   } = usePriceList();
 
   const assignPriceHandlerRef = useRef<(() => void) | null>(null);
+  const [exportingPrices, setExportingPrices] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const registerAssignPriceHandler = useCallback((handler: (() => void) | null) => {
     assignPriceHandlerRef.current = handler;
@@ -62,6 +76,8 @@ export const ListaPrecios: React.FC = () => {
 
   // Determinar tab activo (preferencia al tab del hook para columns/products)
   const currentTab: TabType = packagesTabActive ? 'packages' : activeTab;
+  const tableColumnConfigs = useMemo(() => buildTableColumnConfigs(columns), [columns]);
+  const visibleTableColumnsCount = tableColumnConfigs.length;
 
   const handleTabChange = (tab: TabType) => {
     if (tab === 'packages') {
@@ -71,6 +87,12 @@ export const ListaPrecios: React.FC = () => {
       setActiveTab(tab);
     }
   };
+
+  useEffect(() => {
+    if (currentTab !== 'products' && exportError) {
+      setExportError(null);
+    }
+  }, [currentTab, exportError]);
 
   const handleSaveColumn = useCallback((data: NewColumnForm) => {
     const trimmedName = data.name.trim();
@@ -115,6 +137,108 @@ export const ListaPrecios: React.FC = () => {
       kind: 'manual'
     });
   }, [addColumn, editingColumn, updateColumn]);
+
+  const exportVisiblePrices = useCallback((): ExportPricesResult => {
+    if (tableColumnConfigs.length === 0) {
+      return { success: false, error: 'Activa al menos una columna visible en la tabla para exportar.' };
+    }
+
+    const expectedHeaders = buildExpectedHeaders(tableColumnConfigs);
+    const allowedColumnIds = new Set(tableColumnConfigs.map(column => column.columnId));
+    const catalogLookup = new Map(catalogProducts.map(product => [product.codigo.toUpperCase(), product] as const));
+
+    const aoa: (string | number)[][] = [expectedHeaders];
+    let exportedRows = 0;
+
+    products.forEach(product => {
+      const unitCodes = collectUnitsWithPrices(product, allowedColumnIds);
+      if (unitCodes.length === 0) {
+        return;
+      }
+
+      const catalogUnit = catalogLookup.get(product.sku)?.unidad;
+      const orderedUnits = [...unitCodes].sort((a, b) => {
+        if (catalogUnit) {
+          if (a === catalogUnit && b !== catalogUnit) return -1;
+          if (b === catalogUnit && a !== catalogUnit) return 1;
+        }
+        if (product.activeUnitCode) {
+          if (a === product.activeUnitCode && b !== product.activeUnitCode) return -1;
+          if (b === product.activeUnitCode && a !== product.activeUnitCode) return 1;
+        }
+        return a.localeCompare(b);
+      });
+
+      orderedUnits.forEach(unitCode => {
+        const row: Record<string, string | number> = {
+          [SKU_HEADER]: product.sku,
+          [UNIT_HEADER]: unitCode
+        };
+
+        let validityIso: string | null = null;
+
+        tableColumnConfigs.forEach(({ columnId, header }) => {
+          const price = product.prices[columnId]?.[unitCode];
+          if (price && price.type === 'fixed') {
+            row[header] = price.value;
+            if (!validityIso && price.validUntil) {
+              validityIso = price.validUntil;
+            }
+          } else {
+            row[header] = '';
+          }
+        });
+
+        row[VALIDITY_HEADER] = validityIso ? formatDateLabel(validityIso) : '';
+        const orderedRow = expectedHeaders.map(header => row[header] ?? '');
+        aoa.push(orderedRow);
+        exportedRows += 1;
+      });
+    });
+
+    if (exportedRows === 0) {
+      return { success: false, error: 'No hay precios registrados para las columnas visibles.' };
+    }
+
+    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, EXPORT_TITLE);
+    const today = getBusinessTodayISODate();
+    XLSX.writeFile(workbook, `Exportacion_Precios_${today}.xlsx`);
+
+    return { success: true };
+  }, [catalogProducts, products, tableColumnConfigs]);
+
+  const handleExportPrices = useCallback(() => {
+    if (exportingPrices) {
+      return;
+    }
+
+    setExportError(null);
+
+    if (visibleTableColumnsCount === 0) {
+      setExportError('Activa al menos una columna visible en la tabla para exportar.');
+      return;
+    }
+
+    setExportingPrices(true);
+    try {
+      const result = exportVisiblePrices();
+      if (!result.success && result.error) {
+        setExportError(result.error);
+      }
+    } catch (error) {
+      console.error('[ListaPrecios] Error al exportar precios', error);
+      setExportError('No se pudo exportar los precios. Inténtalo nuevamente.');
+    } finally {
+      setExportingPrices(false);
+    }
+  }, [exportVisiblePrices, exportingPrices, visibleTableColumnsCount]);
+
+  const exportDisabled = visibleTableColumnsCount === 0 || exportingPrices;
+  const exportDisabledReason = visibleTableColumnsCount === 0
+    ? 'Activa al menos una columna visible en la tabla para exportar.'
+    : undefined;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -198,6 +322,11 @@ export const ListaPrecios: React.FC = () => {
         searchSKU={currentTab === 'products' ? searchSKU : undefined}
         onSearchChange={currentTab === 'products' ? setSearchSKU : undefined}
         filteredProductsCount={currentTab === 'products' ? filteredProducts.length : undefined}
+        onExportPrices={currentTab === 'products' ? handleExportPrices : undefined}
+        exportDisabled={currentTab === 'products' ? exportDisabled : undefined}
+        exportBusy={currentTab === 'products' ? exportingPrices : undefined}
+        exportErrorMessage={currentTab === 'products' ? exportError || undefined : undefined}
+        exportDisabledReason={currentTab === 'products' ? exportDisabledReason : undefined}
       />
 
       {/* Main Content */}
@@ -237,6 +366,7 @@ export const ListaPrecios: React.FC = () => {
             catalogProducts={catalogProducts}
             loading={loading}
             onApplyImport={applyImportedFixedPrices}
+            onExportPrices={exportVisiblePrices}
           />
         ) : (
           <PackagesTab />
