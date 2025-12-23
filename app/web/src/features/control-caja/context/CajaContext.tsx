@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- archivo mezcla context y utilidades; split diferido */
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
 import type {
   CajaStatus,
   AperturaCaja,
@@ -10,12 +10,46 @@ import type {
 import type { ToastMessage, ToastType } from "../components/common/Toast";
 import { calcularResumenCaja } from "../utils/calculations";
 import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/errors";
+import { lsKey } from "../../../shared/tenant";
+
+type PersistedMovimiento = Omit<Movimiento, 'fecha'> & { fecha: string };
+
+const STORAGE_KEYS = {
+  historialMovimientos: "control_caja_historial_movimientos",
+} as const;
+
+const getStorageKey = (base: string): string => {
+  try {
+    return lsKey(base);
+  } catch {
+    return base;
+  }
+};
+
+const serializeMovimientos = (movimientos: Movimiento[]): PersistedMovimiento[] =>
+  movimientos.map((movimiento) => ({
+    ...movimiento,
+    fecha: movimiento.fecha.toISOString(),
+  }));
+
+const deserializeMovimientos = (raw: PersistedMovimiento[] | null | undefined): Movimiento[] =>
+  (Array.isArray(raw) ? raw : [])
+    .map((movimiento) => ({
+      ...movimiento,
+      fecha: new Date(movimiento.fecha),
+    }))
+    .filter((movimiento) => !Number.isNaN(movimiento.fecha.getTime()));
+
+const sortMovimientosByFechaDesc = (movimientos: Movimiento[]): Movimiento[] =>
+  [...movimientos].sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
 
 interface CajaContextValue {
   // Estado de caja
   status: CajaStatus;
   aperturaActual: AperturaCaja | null;
   movimientos: Movimiento[];
+  historialMovimientos: Movimiento[];
+  historialCargado: boolean;
 
   // Configuración
   margenDescuadre: number;
@@ -59,6 +93,54 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const [status, setStatus] = useState<CajaStatus>("cerrada");
   const [aperturaActual, setAperturaActual] = useState<AperturaCaja | null>(null);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+  const [historialMovimientos, setHistorialMovimientos] = useState<Movimiento[]>([]);
+  const [historialHydrated, setHistorialHydrated] = useState(false);
+
+  useEffect(() => {
+    if (historialHydrated || typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(getStorageKey(STORAGE_KEYS.historialMovimientos));
+      if (stored) {
+        const parsed = JSON.parse(stored) as PersistedMovimiento[];
+        const movimientosPersistidos = deserializeMovimientos(parsed);
+        setHistorialMovimientos((prev) => {
+          if (prev.length === 0) {
+            return sortMovimientosByFechaDesc(movimientosPersistidos);
+          }
+
+          const existentes = new Set(prev.map((mov) => mov.id));
+          const merged = [...prev];
+          movimientosPersistidos.forEach((movimiento) => {
+            if (!existentes.has(movimiento.id)) {
+              merged.push(movimiento);
+            }
+          });
+          return sortMovimientosByFechaDesc(merged);
+        });
+      }
+    } catch (error) {
+      console.warn("[Caja] No se pudo cargar el historial de movimientos", error);
+    } finally {
+      setHistorialHydrated(true);
+    }
+  }, [historialHydrated]);
+
+  useEffect(() => {
+    if (!historialHydrated || typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const serialized = JSON.stringify(serializeMovimientos(historialMovimientos));
+      window.localStorage.setItem(getStorageKey(STORAGE_KEYS.historialMovimientos), serialized);
+    } catch (error) {
+      console.warn("[Caja] No se pudo persistir el historial de movimientos", error);
+    }
+  }, [historialHydrated, historialMovimientos]);
+
   const [margenDescuadre, setMargenDescuadre] = useState<number>(1.0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -176,6 +258,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       };
 
       setMovimientos((prev) => [nuevoMovimiento, ...prev]);
+      setHistorialMovimientos((prev) => [nuevoMovimiento, ...prev]);
 
       showToast(
         "success",
@@ -201,6 +284,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       aperturaActual,
       movimientos,
       margenDescuadre,
+      historialMovimientos,
+      historialCargado: historialHydrated,
       setMargenDescuadre,
       abrirCaja,
       cerrarCaja,
@@ -216,6 +301,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       aperturaActual,
       movimientos,
       margenDescuadre,
+      historialMovimientos,
+      historialHydrated,
       abrirCaja,
       cerrarCaja,
       agregarMovimiento,

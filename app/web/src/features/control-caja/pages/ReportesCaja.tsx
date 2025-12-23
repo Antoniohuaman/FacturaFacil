@@ -40,8 +40,15 @@ const formatMovementDateTimeLabel = (value: Date | string): string => {
 
 const normalizeFilterDate = (value: string) => (value ? ensureBusinessDateIso(value) : undefined);
 
+const escapeCsvValue = (value: string | number | null | undefined): string => {
+  if (value === null || value === undefined) {
+    return '""';
+  }
+  return `"${String(value).replace(/"/g, '""')}"`;
+};
+
 const ReportesCaja: React.FC = () => {
-  const { movimientos, showToast } = useCaja();
+  const { historialMovimientos, historialCargado, showToast } = useCaja();
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [usuarioFiltro, setUsuarioFiltro] = useState('');
@@ -49,7 +56,7 @@ const ReportesCaja: React.FC = () => {
   const normalizedDesde = normalizeFilterDate(fechaDesde);
   const normalizedHasta = normalizeFilterDate(fechaHasta);
 
-  const reportesFiltrados = movimientos.filter(m => {
+  const reportesFiltrados = historialMovimientos.filter(m => {
     const movimientoDateIso = toBusinessDateIso(m.fecha);
     if (!movimientoDateIso) {
       return false;
@@ -82,30 +89,45 @@ const ReportesCaja: React.FC = () => {
 
     try {
       // Generar CSV
-      const headers = ['Fecha', 'Hora', 'Tipo', 'Concepto', 'Medio de Pago', 'Monto', 'Referencia', 'Usuario'];
+      const headers = ['Fecha', 'Hora', 'Tipo', 'Concepto', 'Medio de Pago', 'Monto', 'Referencia', 'Usuario', 'Caja', 'Apertura'];
       const csvRows = [headers.join(',')];
 
       reportesFiltrados.forEach(m => {
         const businessDate = toBusinessDateIso(m.fecha) ?? '';
         const businessTime = getBusinessTimeLabel(m.fecha);
         const row = [
-          businessDate,
-          businessTime,
-          m.tipo,
-          `"${m.concepto}"`,
-          m.medioPago,
-          m.monto.toFixed(2),
-          m.referencia || '',
-          m.usuarioNombre || ''
+          escapeCsvValue(businessDate),
+          escapeCsvValue(businessTime),
+          escapeCsvValue(m.tipo),
+          escapeCsvValue(m.concepto),
+          escapeCsvValue(m.medioPago),
+          escapeCsvValue(m.monto.toFixed(2)),
+          escapeCsvValue(m.referencia || ''),
+          escapeCsvValue(m.usuarioNombre || ''),
+          escapeCsvValue(m.cajaId),
+          escapeCsvValue(m.aperturaId),
         ];
         csvRows.push(row.join(','));
       });
 
       // Agregar totales
-      csvRows.push('');
-      csvRows.push(`Total Ingresos,,,,,${totalIngresos.toFixed(2)}`);
-      csvRows.push(`Total Egresos,,,,,${totalEgresos.toFixed(2)}`);
-      csvRows.push(`Balance,,,,,${balance.toFixed(2)}`);
+      const emptyCell = escapeCsvValue('');
+      csvRows.push(Array(headers.length).fill(emptyCell).join(','));
+      const buildTotalRow = (label: string, value: number) => [
+        escapeCsvValue(label),
+        ...Array(headers.length - 2).fill(emptyCell),
+        escapeCsvValue(value.toFixed(2)),
+      ].join(',');
+      csvRows.push(buildTotalRow('Total Ingresos', totalIngresos));
+      csvRows.push(buildTotalRow('Total Egresos', totalEgresos));
+      csvRows.push(buildTotalRow('Balance', balance));
+
+      const fechasDelReporte = reportesFiltrados
+        .map((m) => toBusinessDateIso(m.fecha))
+        .filter((date): date is string => Boolean(date))
+        .sort();
+      const rangoDesde = normalizedDesde || fechasDelReporte[0] || getBusinessTodayISODate();
+      const rangoHasta = normalizedHasta || fechasDelReporte[fechasDelReporte.length - 1] || rangoDesde;
 
       const csvContent = csvRows.join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -113,7 +135,7 @@ const ReportesCaja: React.FC = () => {
       const url = URL.createObjectURL(blob);
 
       link.setAttribute('href', url);
-      link.setAttribute('download', `reporte_caja_${getBusinessTodayISODate()}.csv`);
+      link.setAttribute('download', `caja_reporte_${rangoDesde}_${rangoHasta}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -125,7 +147,15 @@ const ReportesCaja: React.FC = () => {
     }
   };
 
-  if (movimientos.length === 0) {
+  if (!historialCargado) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 text-sm text-gray-600">
+        Cargando historial de movimientos...
+      </div>
+    );
+  }
+
+  if (historialMovimientos.length === 0) {
     return (
       <EmptyState
         icon={FileBarChart}
