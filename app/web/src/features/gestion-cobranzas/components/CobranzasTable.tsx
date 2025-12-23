@@ -1,5 +1,6 @@
 import { Eye, FileText, Receipt } from 'lucide-react';
 import type { CobranzaDocumento } from '../models/cobranzas.types';
+import { getCobranzaInstallmentSnapshot } from '../utils/reporting';
 
 interface CobranzasTableProps {
   data: Array<CobranzaDocumento & { displayAmount?: number }>;
@@ -22,21 +23,15 @@ const estadoBadge = (estado: CobranzaDocumento['estado']) => {
 };
 
 const renderInstallmentsSnapshot = (cobranza: CobranzaDocumento) => {
-  const info = cobranza.installmentsInfo;
-  if (!info || info.total === 0) {
+  const snapshot = getCobranzaInstallmentSnapshot(cobranza);
+  if (!snapshot) {
     return <span className="text-slate-400">—</span>;
   }
 
-  const paid = Math.max(0, info.total - info.pending);
-  const ratio = cobranza.estado === 'cancelado'
-    ? `${info.total}/${info.total}`
-    : `${paid}/${info.total}`;
-  const caption = cobranza.estado === 'cancelado' ? 'Cuotas totales' : 'Cuotas pagadas';
-
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <span className="font-semibold text-slate-900 dark:text-white">{ratio}</span>
-      <span className="text-[11px] text-slate-500">{caption}</span>
+      <span className="font-semibold text-slate-900 dark:text-white">{snapshot.ratio}</span>
+      <span className="text-[11px] text-slate-500">{snapshot.caption}</span>
     </div>
   );
 };

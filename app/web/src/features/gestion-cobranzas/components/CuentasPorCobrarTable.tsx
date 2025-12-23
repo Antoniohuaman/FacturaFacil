@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowRightCircle, Clock, FileText, Wallet } from 'lucide-react';
 import type { CuentaPorCobrarSummary } from '../models/cobranzas.types';
+import { formatCuentaCuotasLabel, formatCuentaFormaPago, getCuentaInstallmentStats } from '../utils/reporting';
 
 interface CuentasPorCobrarTableProps {
   data: CuentaPorCobrarSummary[];
@@ -22,31 +23,6 @@ const statusBadgeClass = (estado: CuentaPorCobrarSummary['estado']) => {
     default:
       return 'bg-slate-100 text-slate-700';
   }
-};
-
-const resolveInstallmentStats = (cuenta: CuentaPorCobrarSummary) => {
-  let total = cuenta.totalInstallments;
-  let pending = cuenta.pendingInstallmentsCount;
-  const partial = cuenta.partialInstallmentsCount ?? 0;
-
-  if (typeof total !== 'number' && cuenta.creditTerms?.schedule?.length) {
-    total = cuenta.creditTerms.schedule.length;
-  }
-
-  if (typeof pending !== 'number' && typeof total === 'number') {
-    pending = total;
-  }
-
-  if (typeof total !== 'number' || typeof pending !== 'number') {
-    return null;
-  }
-
-  return {
-    total,
-    pending,
-    partial,
-    canceled: Math.max(0, total - pending),
-  };
 };
 
 export const CuentasPorCobrarTable = ({
@@ -79,7 +55,7 @@ export const CuentasPorCobrarTable = ({
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-slate-700 dark:text-gray-100">
           {hasData ? data.map((cuenta) => {
-            const installmentStats = resolveInstallmentStats(cuenta);
+            const installmentStats = getCuentaInstallmentStats(cuenta);
             const isHighlighted = Boolean(highlightId && highlightId === cuenta.id);
             const focusId = cuenta.id || cuenta.comprobanteId || `${cuenta.comprobanteSerie}-${cuenta.comprobanteNumero}` || 'sin-id';
             return (
@@ -110,10 +86,7 @@ export const CuentasPorCobrarTable = ({
                 <div className="flex flex-col items-center gap-0.5">
                   <span className="font-medium text-slate-900 dark:text-white">{cuenta.formaPago}</span>
                   {cuenta.creditTerms && (
-                    <span className="text-[11px] text-slate-500">
-                      {cuenta.creditTerms.schedule.length} cuota{cuenta.creditTerms.schedule.length === 1 ? '' : 's'} ·
-                      vence {cuenta.creditTerms.fechaVencimientoGlobal}
-                    </span>
+                    <span className="text-[11px] text-slate-500">{formatCuentaFormaPago(cuenta)}</span>
                   )}
                 </div>
               </td>
@@ -121,7 +94,7 @@ export const CuentasPorCobrarTable = ({
                 {installmentStats && installmentStats.total > 0 ? (
                   <div className="flex flex-col items-center gap-0.5 text-slate-600">
                     <span className="font-semibold text-slate-900 dark:text-white">
-                      {installmentStats.pending}/{installmentStats.total}
+                      {formatCuentaCuotasLabel(installmentStats)}
                     </span>
                     <span className="text-[11px] text-slate-500">Cuotas pendientes</span>
                     {installmentStats.partial > 0 && (

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Coins, NotebookPen, Filter } from 'lucide-react';
+import { Coins, NotebookPen, Filter, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import type {
   Currency,
   CartItem,
@@ -23,6 +24,8 @@ import { HistorialCobranzaModal } from '../components/HistorialCobranzaModal';
 import { SeleccionarCuentaModal } from '../components/SeleccionarCuentaModal';
 import { useCobranzasDashboard } from '../hooks/useCobranzasDashboard';
 import type { CobranzaDocumento, CuentaPorCobrarSummary, CobranzaTabKey } from '../models/cobranzas.types';
+import { DEFAULT_COBRANZA_FILTERS } from '../utils/constants';
+import { buildCobranzasExportRows, buildCuentasExportRows } from '../utils/reporting';
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
 
 const resolveTipoComprobante = (label?: string): TipoComprobante => {
@@ -178,6 +181,69 @@ export const CobranzasDashboard = () => {
 
   const tipoComprobante = selectedCuenta ? resolveTipoComprobante(selectedCuenta.tipoComprobante) : 'factura';
 
+  const canExport = activeTab === 'cuentas' ? filteredCuentas.length > 0 : filteredCobranzas.length > 0;
+
+  const getRangeBounds = () => {
+    const defaultRange = DEFAULT_COBRANZA_FILTERS.rangoFechas;
+    const from = filters.rangoFechas.from || defaultRange.from;
+    const to = filters.rangoFechas.to || defaultRange.to;
+    return { from, to };
+  };
+
+  const handleExport = () => {
+    if (!canExport) {
+      error('Sin datos para exportar', 'Ajusta los filtros y vuelve a intentarlo.');
+      return;
+    }
+
+    try {
+      const rows = activeTab === 'cuentas'
+        ? buildCuentasExportRows(filteredCuentas, formatMoney)
+        : buildCobranzasExportRows(filteredCobranzas, formatMoney);
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet['!cols'] = activeTab === 'cuentas'
+        ? [
+            { wch: 26 },
+            { wch: 16 },
+            { wch: 30 },
+            { wch: 14 },
+            { wch: 16 },
+            { wch: 28 },
+            { wch: 18 },
+            { wch: 14 },
+            { wch: 14 },
+            { wch: 14 },
+            { wch: 14 },
+          ]
+        : [
+            { wch: 20 },
+            { wch: 14 },
+            { wch: 26 },
+            { wch: 26 },
+            { wch: 16 },
+            { wch: 18 },
+            { wch: 16 },
+            { wch: 16 },
+            { wch: 14 },
+          ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, activeTab === 'cuentas' ? 'Cuentas por cobrar' : 'Cobranzas');
+
+      const { from, to } = getRangeBounds();
+      const filename = activeTab === 'cuentas'
+        ? `cobranzas_cuentas_por_cobrar_${from}_${to}.xlsx`
+        : `cobranzas_cobranzas_${from}_${to}.xlsx`;
+
+      XLSX.writeFile(workbook, filename);
+      success('Exportación completa', `${rows.length} registros exportados.`);
+    } catch (exportError) {
+      console.error('Error al exportar cobranzas:', exportError);
+      error('Error al exportar', 'No se pudo generar el archivo. Intente nuevamente.');
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <header className="flex flex-col gap-2">
@@ -199,6 +265,19 @@ export const CobranzasDashboard = () => {
             >
               <Filter className="w-4 h-4" />
               {filtersVisible ? 'Ocultar filtros' : 'Filtros'}
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={!canExport}
+              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors shadow-sm ${
+                canExport
+                  ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40'
+                  : 'border-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <Download className="w-4 h-4" />
+              Exportar
             </button>
             <button
               type="button"
