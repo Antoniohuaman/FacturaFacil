@@ -98,7 +98,7 @@ export const reportDefinitions: ReportDefinition[] = [
     name: "Movimientos de caja",
     description: "Ingresos y egresos controlados por responsable",
     category: "Caja",
-    modulePath: "/control-caja",
+    modulePath: "/control-caja?tab=reportes",
     icon: Wallet
   }
 ];

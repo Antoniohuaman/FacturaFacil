@@ -23,6 +23,8 @@ import {
 } from '../utils/documents';
 import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
+import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
+import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 
 type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
 
@@ -341,6 +343,9 @@ const filterClientesList = (clients: Cliente[], filters: ClientesFilterValues): 
 function ClientesPage() {
 	useFocusFromQuery();
 	const { showToast } = useCaja();
+	const { request: autoExportRequest, finish: finishAutoExport } = useAutoExportRequest('clientes-maestro');
+	const autoExportHandledRef = useRef(false);
+	const autoExportRunnerRef = useRef<() => Promise<void>>(async () => {});
 			const { clientes, transientClientes, transientCount, clearTransientClientes, createCliente, updateCliente, deleteCliente, loading, pagination, fetchClientes } = useClientes();
 			const combinedClients = useMemo(() => [...clientes, ...transientClientes], [clientes, transientClientes]);
 	const { columnDefinitions, visibleColumnIds, toggleColumn, resetColumns, selectAllColumns } = useClientesColumns();
@@ -644,6 +649,25 @@ function ClientesPage() {
 		setExportMenuOpen(false);
 		await exportClientes('COMPLETO', completeExportColumns, completeExportRows, completeTextColumns);
 	};
+	
+	autoExportRunnerRef.current = handleExportClientesCompleto;
+
+	useEffect(() => {
+		if (!autoExportRequest || autoExportHandledRef.current || loading) {
+			return;
+		}
+
+		autoExportHandledRef.current = true;
+		const runAutoExport = async () => {
+			try {
+				await autoExportRunnerRef.current();
+			} finally {
+				finishAutoExport(REPORTS_HUB_PATH);
+			}
+		};
+
+		void runAutoExport();
+	}, [autoExportRequest, finishAutoExport, loading]);
 
 	const hasClients = combinedClients.length > 0;
 	const hasVisibleClients = filteredClients.length > 0;

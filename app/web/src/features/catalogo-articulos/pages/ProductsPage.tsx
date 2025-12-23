@@ -1,6 +1,6 @@
 // src/features/catalogo-articulos/pages/ProductsPage.tsx
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import type { Product } from '../models/types';
 import ProductTable from '../components/ProductTable';
@@ -10,6 +10,21 @@ import ExportProductsModal from '../components/ExportProductsModal';
 import { useProductStore, type ProductInput } from '../hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
+import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
+import { exportProductsToExcel } from '../utils/excelHelpers';
+
+const MAIN_EXPORT_COLUMNS: Array<{ key: keyof Product; label: string; type: 'text' | 'currency' | 'number' }> = [
+  { key: 'codigo', label: 'Código', type: 'text' },
+  { key: 'nombre', label: 'Nombre', type: 'text' },
+  { key: 'categoria', label: 'Categoría', type: 'text' },
+  { key: 'unidad', label: 'Unidad', type: 'text' },
+  { key: 'precio', label: 'Precio referencial', type: 'currency' },
+  { key: 'impuesto', label: 'Impuesto', type: 'text' },
+  { key: 'marca', label: 'Marca', type: 'text' },
+  { key: 'modelo', label: 'Modelo', type: 'text' },
+  { key: 'descripcion', label: 'Descripción', type: 'text' }
+];
 
 const ProductsPage: React.FC = () => {
   const {
@@ -33,6 +48,9 @@ const ProductsPage: React.FC = () => {
   const { state: configState } = useConfigurationContext();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { request: autoExportRequest, finish: finishAutoExport } = useAutoExportRequest('precios-catalogo');
+  const autoExportHandledRef = useRef(false);
+  const exportVisibleRef = useRef<() => void>(() => {});
 
   // Estado del filtro de establecimiento desde URL
   const [establishmentScope, setEstablishmentScope] = useState<string>(() => {
@@ -113,6 +131,19 @@ const ProductsPage: React.FC = () => {
 
   const handleSearch = (value: string) => {
     updateFilters({ busqueda: value });
+  };
+
+  const handleExportVisibleFromMain = () => {
+    if (!products.length) {
+      return;
+    }
+
+    try {
+      const columnKeys = MAIN_EXPORT_COLUMNS.map(column => column.key as string);
+      exportProductsToExcel(products, columnKeys, MAIN_EXPORT_COLUMNS);
+    } catch (error) {
+      console.error('[Catálogo] Error al exportar productos visibles', error);
+    }
   };
 
   // Obtener listas únicas de valores para filtros
@@ -463,6 +494,34 @@ const ProductsPage: React.FC = () => {
       </div>
     );
   };
+
+  exportVisibleRef.current = handleExportVisibleFromMain;
+
+  useEffect(() => {
+    if (!autoExportRequest || autoExportHandledRef.current) {
+      return;
+    }
+
+    if (autoExportRequest.establishmentId && establishmentScope !== autoExportRequest.establishmentId) {
+      setEstablishmentScope(autoExportRequest.establishmentId);
+      return;
+    }
+
+    if (loading) {
+      return;
+    }
+
+    autoExportHandledRef.current = true;
+    const runAutoExport = async () => {
+      try {
+        await Promise.resolve(exportVisibleRef.current());
+      } finally {
+        finishAutoExport(REPORTS_HUB_PATH);
+      }
+    };
+
+    void runAutoExport();
+  }, [autoExportRequest, establishmentScope, finishAutoExport, loading]);
 
   return (
     <div className="space-y-6 pt-4">

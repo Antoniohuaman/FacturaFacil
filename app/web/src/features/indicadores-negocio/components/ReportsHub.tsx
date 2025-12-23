@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FileDown, Search } from "lucide-react";
 import DateRangePicker from "./DateRangePicker";
 import { useConfigurationContext } from "../../configuracion-sistema/context/ConfigurationContext";
 import { useIndicadoresFilters } from "../hooks/useIndicadoresFilters";
 import type { ReportCategory, ReportDefinition } from "../models/reportDefinitions";
 import { reportCategories, reportDefinitions } from "../models/reportDefinitions";
+import { REPORTS_HUB_PATH } from "@/shared/export/autoExportParams";
 
 type GroupedReports = Record<ReportCategory, ReportDefinition[]>;
 
@@ -18,6 +19,9 @@ const ReportsHub: React.FC = () => {
     setEstablishmentId
   } = useIndicadoresFilters();
   const [search, setSearch] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [exportingReportId, setExportingReportId] = useState<string | null>(null);
 
   const establishmentOptions = useMemo(() => {
     const activos = configState.establishments.filter((est) => est.isActive !== false);
@@ -52,6 +56,40 @@ const ReportsHub: React.FC = () => {
 
   const totalResults = reportCategories.reduce((total, category) => total + groupedReports[category].length, 0);
   const hasResults = totalResults > 0;
+
+  const handleExportClick = (definition: ReportDefinition) => {
+    if (exportingReportId) {
+      return;
+    }
+
+    setExportingReportId(definition.id);
+    const [pathname, existingSearch = ""] = definition.modulePath.split("?");
+    const params = new URLSearchParams(existingSearch);
+    params.set("autoExport", "1");
+    params.set("reportId", definition.id);
+    if (dateRange.startDate) {
+      params.set("from", dateRange.startDate);
+    } else {
+      params.delete("from");
+    }
+    if (dateRange.endDate) {
+      params.set("to", dateRange.endDate);
+    } else {
+      params.delete("to");
+    }
+    if (establishmentId && establishmentId !== "Todos") {
+      params.set("establishmentId", establishmentId);
+    } else {
+      params.delete("establishmentId");
+    }
+
+    const hubReturnPath = location.pathname.startsWith("/indicadores")
+      ? `${location.pathname}${location.search || ""}`
+      : REPORTS_HUB_PATH;
+    params.set("returnTo", encodeURIComponent(hubReturnPath));
+
+    navigate({ pathname, search: `?${params.toString()}` });
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -131,13 +169,15 @@ const ReportsHub: React.FC = () => {
                         >
                           Abrir módulo
                         </Link>
-                        <Link
-                          to={item.modulePath}
-                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 dark:bg-blue-500 dark:hover:bg-blue-400"
+                        <button
+                          type="button"
+                          onClick={() => handleExportClick(item)}
+                          disabled={Boolean(exportingReportId)}
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-400"
                         >
                           <FileDown className="h-3.5 w-3.5" />
                           Exportar
-                        </Link>
+                        </button>
                       </div>
                     </div>
                   ))}

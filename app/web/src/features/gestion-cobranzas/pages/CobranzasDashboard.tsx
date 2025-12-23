@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Coins, NotebookPen, Filter, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -27,6 +27,8 @@ import type { CobranzaDocumento, CuentaPorCobrarSummary, CobranzaTabKey } from '
 import { DEFAULT_COBRANZA_FILTERS } from '../utils/constants';
 import { buildCobranzasExportRows, buildCuentasExportRows } from '../utils/reporting';
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
+import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
+import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 
 const resolveTipoComprobante = (label?: string): TipoComprobante => {
   if (!label) {
@@ -110,6 +112,9 @@ export const CobranzasDashboard = () => {
   const [detalleCobranza, setDetalleCobranza] = useState<CobranzaDocumento | null>(null);
   const [historialCuenta, setHistorialCuenta] = useState<CuentaPorCobrarSummary | null>(null);
   const [filtersVisible, setFiltersVisible] = useState(false);
+  const { request: autoExportRequest, finish: finishAutoExport } = useAutoExportRequest('cobranzas-estado');
+  const autoExportHandledRef = useRef(false);
+  const exportHandlerRef = useRef<() => void>(() => {});
 
   const formatMoney = (value: number, currency?: string) => {
     const resolved = (currency || 'PEN') as Currency;
@@ -243,6 +248,43 @@ export const CobranzasDashboard = () => {
       error('Error al exportar', 'No se pudo generar el archivo. Intente nuevamente.');
     }
   };
+
+  exportHandlerRef.current = handleExport;
+
+  useEffect(() => {
+    if (!autoExportRequest || autoExportHandledRef.current) {
+      return;
+    }
+
+    let needsSync = false;
+    if (autoExportRequest.from && autoExportRequest.from !== filters.rangoFechas.from) {
+      handleDateChange('from', autoExportRequest.from);
+      needsSync = true;
+    }
+    if (autoExportRequest.to && autoExportRequest.to !== filters.rangoFechas.to) {
+      handleDateChange('to', autoExportRequest.to);
+      needsSync = true;
+    }
+    if (activeTab !== 'cuentas') {
+      setActiveTab('cuentas');
+      needsSync = true;
+    }
+
+    if (needsSync) {
+      return;
+    }
+
+    autoExportHandledRef.current = true;
+    const runAutoExport = async () => {
+      try {
+        await Promise.resolve(exportHandlerRef.current());
+      } finally {
+        finishAutoExport(REPORTS_HUB_PATH);
+      }
+    };
+
+    void runAutoExport();
+  }, [activeTab, autoExportRequest, finishAutoExport, filters.rangoFechas.from, filters.rangoFechas.to, handleDateChange, setActiveTab]);
 
   return (
     <div className="p-6 space-y-6">

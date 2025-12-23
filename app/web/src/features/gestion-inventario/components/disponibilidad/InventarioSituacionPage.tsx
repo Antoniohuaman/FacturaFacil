@@ -1,6 +1,6 @@
 // src/features/gestion-inventario/components/disponibilidad/InventarioSituacionPage.tsx
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useInventarioDisponibilidad } from '../../hooks/useInventarioDisponibilidad';
 import { usePreferenciasDisponibilidad } from '../../stores/usePreferenciasDisponibilidad';
 import DisponibilidadToolbarEnhanced from './DisponibilidadToolbarEnhanced';
@@ -12,6 +12,8 @@ import { useConfigurationContext } from '../../../configuracion-sistema/context/
 import type { Warehouse } from '../../../configuracion-sistema/models/Warehouse';
 import * as XLSX from 'xlsx';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import type { AutoExportRequest } from '@/shared/export/autoExportParams';
+import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 
 type ThresholdField = 'stockMinimo' | 'stockMaximo';
 
@@ -26,6 +28,8 @@ interface InventarioSituacionPageProps {
   onTransferir?: () => void;
   onAjustar?: () => void;
   onAjustarProducto?: (productId: string, suggestedQty: number) => void;
+  autoExportRequest?: AutoExportRequest | null;
+  onAutoExportFinished?: (fallbackPath?: string) => void;
 }
 
 /**
@@ -36,7 +40,9 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
   onActualizacionMasiva,
   onTransferir,
   onAjustar,
-  onAjustarProducto
+  onAjustarProducto,
+  autoExportRequest,
+  onAutoExportFinished
 }) => {
   // Datos y lógica de disponibilidad
   const {
@@ -64,6 +70,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
 
   // Estado local para panel de configuración
   const [mostrandoSettings, setMostrandoSettings] = useState(false);
+  const autoExportHandledRef = useRef(false);
 
   // Handler para ajustar stock (abre modal de ajuste)
   const handleAjustarStock = useCallback((item: DisponibilidadItem) => {
@@ -239,6 +246,28 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     warehouseScope,
     establishmentMap
   ]);
+
+  useEffect(() => {
+    if (!autoExportRequest || autoExportHandledRef.current) {
+      return;
+    }
+
+    if (autoExportRequest.establishmentId && filtros.establecimientoId !== autoExportRequest.establishmentId) {
+      actualizarFiltros({ establecimientoId: autoExportRequest.establishmentId });
+      return;
+    }
+
+    autoExportHandledRef.current = true;
+    const runAutoExport = async () => {
+      try {
+        await handleExportStockActual();
+      } finally {
+        onAutoExportFinished?.(REPORTS_HUB_PATH);
+      }
+    };
+
+    void runAutoExport();
+  }, [actualizarFiltros, autoExportRequest, filtros.establecimientoId, handleExportStockActual, onAutoExportFinished]);
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">

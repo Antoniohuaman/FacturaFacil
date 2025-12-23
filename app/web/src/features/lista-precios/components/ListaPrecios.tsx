@@ -12,6 +12,8 @@ import { ColumnModal } from './modals/ColumnModal';
 import { PriceModal } from './modals/PriceModal';
 import { isFixedColumn } from '../utils/priceHelpers';
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
+import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
+import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import {
   EXPORT_TITLE,
   SKU_HEADER,
@@ -63,6 +65,8 @@ export const ListaPrecios: React.FC = () => {
   } = usePriceList();
 
   const assignPriceHandlerRef = useRef<(() => void) | null>(null);
+  const { request: autoExportRequest, finish: finishAutoExport } = useAutoExportRequest('precios-listas');
+  const autoExportHandledRef = useRef(false);
   const [exportingPrices, setExportingPrices] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -235,6 +239,33 @@ export const ListaPrecios: React.FC = () => {
       setExportingPrices(false);
     }
   }, [exportVisiblePrices, exportingPrices, filteredProducts, visibleTableColumnsCount]);
+
+  useEffect(() => {
+    if (!autoExportRequest || autoExportHandledRef.current) {
+      return;
+    }
+
+    if (currentTab !== 'products') {
+      setPackagesTabActive(false);
+      setActiveTab('products');
+      return;
+    }
+
+    if (loading || visibleTableColumnsCount === 0) {
+      return;
+    }
+
+    autoExportHandledRef.current = true;
+    const runAutoExport = async () => {
+      try {
+        await handleExportVisibleFromMain();
+      } finally {
+        finishAutoExport(REPORTS_HUB_PATH);
+      }
+    };
+
+    void runAutoExport();
+  }, [autoExportRequest, currentTab, finishAutoExport, handleExportVisibleFromMain, loading, setActiveTab, setPackagesTabActive, visibleTableColumnsCount]);
 
   const handleExportAllFromImport = useCallback(() => {
     return exportVisiblePrices(products);

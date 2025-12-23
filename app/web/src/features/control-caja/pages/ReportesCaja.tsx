@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCaja } from '../context/CajaContext';
 import { FileBarChart, Download, Filter, X, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -11,6 +11,8 @@ import {
   getBusinessDateParts,
   getBusinessTodayISODate,
 } from '@/shared/time/businessTime';
+import type { AutoExportRequest } from '@/shared/export/autoExportParams';
+import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 
 const pad = (value: number): string => value.toString().padStart(2, '0');
 
@@ -53,11 +55,18 @@ const escapeCsvValue = (value: string | number | null | undefined): string => {
   return `"${String(value).replace(/"/g, '""')}"`;
 };
 
-const ReportesCaja: React.FC = () => {
+interface ReportesCajaProps {
+  autoExportRequest?: AutoExportRequest | null;
+  onAutoExportFinished?: (fallbackPath?: string) => void;
+}
+
+const ReportesCaja: React.FC<ReportesCajaProps> = ({ autoExportRequest, onAutoExportFinished }) => {
   const { historialMovimientos, historialCargado, showToast } = useCaja();
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [usuarioFiltro, setUsuarioFiltro] = useState('');
+  const autoExportHandledRef = useRef(false);
+  const exportarExcelRef = useRef<() => void>(() => {});
 
   const normalizedDesde = normalizeFilterDate(fechaDesde);
   const normalizedHasta = normalizeFilterDate(fechaHasta);
@@ -197,6 +206,39 @@ const ReportesCaja: React.FC = () => {
       showToast('error', 'Error', 'No se pudo exportar el reporte en Excel.');
     }
   };
+
+  exportarExcelRef.current = exportarExcel;
+
+  useEffect(() => {
+    if (!autoExportRequest || autoExportHandledRef.current) {
+      return;
+    }
+
+    let pendingSync = false;
+    if (autoExportRequest.from && autoExportRequest.from !== fechaDesde) {
+      setFechaDesde(autoExportRequest.from);
+      pendingSync = true;
+    }
+    if (autoExportRequest.to && autoExportRequest.to !== fechaHasta) {
+      setFechaHasta(autoExportRequest.to);
+      pendingSync = true;
+    }
+
+    if (pendingSync || !historialCargado) {
+      return;
+    }
+
+    autoExportHandledRef.current = true;
+    const runAutoExport = async () => {
+      try {
+        await Promise.resolve(exportarExcelRef.current());
+      } finally {
+        onAutoExportFinished?.(REPORTS_HUB_PATH);
+      }
+    };
+
+    void runAutoExport();
+  }, [autoExportRequest, fechaDesde, fechaHasta, historialCargado, onAutoExportFinished]);
 
   if (!historialCargado) {
     return (

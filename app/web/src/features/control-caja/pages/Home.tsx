@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useCaja } from '../context/CajaContext';
 import { DollarSign, Lock, Clock, User, Calendar, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
@@ -11,6 +11,7 @@ import DetalleMovimientoCaja from './DetalleMovimientoCaja';
 import ConfiguracionCaja from './ConfiguracionCaja';
 import ReportesCaja from './ReportesCaja';
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
+import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 
 const TABS = [
   { key: 'apertura', label: 'Apertura' },
@@ -29,6 +30,8 @@ export default function ControlCajaHome() {
   const [activeTab, setActiveTab] = useState(tabFromUrl || 'apertura');
   const { status, aperturaActual, getResumen } = useCaja();
   const resumen = getResumen();
+  const { request: cajaAutoExportRequest, finish: finishCajaAutoExport } = useAutoExportRequest('caja-movimientos');
+  const cajaAutoExportHandledRef = useRef(false);
 
   // Actualizar tab cuando cambie el parámetro URL
   useEffect(() => {
@@ -36,6 +39,19 @@ export default function ControlCajaHome() {
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
+
+  useEffect(() => {
+    if (!cajaAutoExportRequest || cajaAutoExportHandledRef.current) {
+      return;
+    }
+
+    if (activeTab !== 'reportes') {
+      setActiveTab('reportes');
+      return;
+    }
+
+    cajaAutoExportHandledRef.current = true;
+  }, [activeTab, cajaAutoExportRequest]);
 
   return (
     <div className="flex-1 bg-gray-50 dark:bg-gray-900">
@@ -231,7 +247,12 @@ export default function ControlCajaHome() {
             {activeTab === 'movimientos' && <MovimientosCaja />}
             {activeTab === 'detalle' && <DetalleMovimientoCaja />}
             {activeTab === 'configuracion' && <ConfiguracionCaja />}
-            {activeTab === 'reportes' && <ReportesCaja />}
+            {activeTab === 'reportes' && (
+              <ReportesCaja
+                autoExportRequest={cajaAutoExportRequest}
+                onAutoExportFinished={finishCajaAutoExport}
+              />
+            )}
           </div>
         </div>
       </div>

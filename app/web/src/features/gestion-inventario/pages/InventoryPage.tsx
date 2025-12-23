@@ -1,6 +1,6 @@
 // src/features/inventario/pages/InventoryPage.tsx
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Download } from 'lucide-react';
 import { useInventory } from '../hooks';
 import MovementsTable from '../components/tables/MovementsTable';
@@ -14,6 +14,8 @@ import { PageHeader } from '../../../components/PageHeader';
 import * as XLSX from 'xlsx';
 import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
+import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
+import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 
 const formatMovementTimestamp = (value: Date | string): string => {
   const date = value instanceof Date ? value : new Date(value);
@@ -59,6 +61,10 @@ export const InventoryPage: React.FC = () => {
     openTransferModal,
     openMassUpdateModal
   } = useInventory();
+  const { request: stockAutoExportRequest, finish: finishStockAutoExport } = useAutoExportRequest('inventario-stock');
+  const { request: movementsAutoExportRequest, finish: finishMovementsAutoExport } = useAutoExportRequest('inventario-movimientos');
+  const movementsAutoExportHandledRef = useRef(false);
+  const exportHandlerRef = useRef<() => void>(() => {});
 
   /**
    * Exporta movimientos a Excel
@@ -103,6 +109,40 @@ export const InventoryPage: React.FC = () => {
     const fileName = `movimientos_stock_${getBusinessTodayISODate()}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
+
+  exportHandlerRef.current = handleExportToExcel;
+
+  useEffect(() => {
+    if (!stockAutoExportRequest) {
+      return;
+    }
+
+    if (selectedView !== 'situacion') {
+      setSelectedView('situacion');
+    }
+  }, [selectedView, setSelectedView, stockAutoExportRequest]);
+
+  useEffect(() => {
+    if (!movementsAutoExportRequest || movementsAutoExportHandledRef.current) {
+      return;
+    }
+
+    if (selectedView !== 'movimientos') {
+      setSelectedView('movimientos');
+      return;
+    }
+
+    movementsAutoExportHandledRef.current = true;
+    const runAutoExport = async () => {
+      try {
+        await Promise.resolve(exportHandlerRef.current());
+      } finally {
+        finishMovementsAutoExport(REPORTS_HUB_PATH);
+      }
+    };
+
+    void runAutoExport();
+  }, [finishMovementsAutoExport, movementsAutoExportRequest, selectedView, setSelectedView]);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900">
@@ -266,6 +306,8 @@ export const InventoryPage: React.FC = () => {
       <div className={`flex-1 overflow-auto ${selectedView === 'situacion' ? '' : 'p-6'}`}>
         {selectedView === 'situacion' && (
           <InventarioSituacionPage
+            autoExportRequest={stockAutoExportRequest}
+            onAutoExportFinished={finishStockAutoExport}
             onActualizacionMasiva={openMassUpdateModal}
             onTransferir={openTransferModal}
             onAjustar={() => openAdjustmentModal('', 0)}

@@ -39,6 +39,8 @@ import { ColumnFilterPopover } from '../components/lista-comprobantes/ColumnFilt
 import { VoidInvoiceModal } from '../components/lista-comprobantes/VoidInvoiceModal';
 import type { ColumnConfig } from '../types/columnConfig';
 import { formatBusinessDateShort, getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
+import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -246,6 +248,8 @@ const InvoiceListDashboard = () => {
   const [voidReason, setVoidReason] = useState('');
   const [selectedCuentaCobranza, setSelectedCuentaCobranza] = useState<CuentaPorCobrarSummary | null>(null);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
+  const { request: autoExportRequest, finish: finishAutoExport } = useAutoExportRequest('comprobantes-general');
+  const autoExportHandledRef = useRef(false);
 
   // --------------------
   // Column manager (config local)
@@ -881,6 +885,37 @@ const InvoiceListDashboard = () => {
       }, 900);
     }
   }, [isExporting, canExportComprobantes, searchedInvoices, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (!autoExportRequest || autoExportHandledRef.current) {
+      return;
+    }
+
+    let pendingSync = false;
+    if (autoExportRequest.from && autoExportRequest.from !== dateFrom) {
+      setDateFrom(autoExportRequest.from);
+      pendingSync = true;
+    }
+    if (autoExportRequest.to && autoExportRequest.to !== dateTo) {
+      setDateTo(autoExportRequest.to);
+      pendingSync = true;
+    }
+
+    if (pendingSync) {
+      return;
+    }
+
+    autoExportHandledRef.current = true;
+    const runExport = async () => {
+      try {
+        await handleExportAll();
+      } finally {
+        finishAutoExport(REPORTS_HUB_PATH);
+      }
+    };
+
+    void runExport();
+  }, [autoExportRequest, dateFrom, dateTo, finishAutoExport, handleExportAll, setDateFrom, setDateTo]);
 
   return (
     <>
