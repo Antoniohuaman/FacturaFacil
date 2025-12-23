@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
-import type { Column, NewColumnForm } from '../models/PriceTypes';
+import type { Column, NewColumnForm, Product } from '../models/PriceTypes';
 import { usePriceList } from '../hooks/usePriceList';
 import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
@@ -138,7 +138,7 @@ export const ListaPrecios: React.FC = () => {
     });
   }, [addColumn, editingColumn, updateColumn]);
 
-  const exportVisiblePrices = useCallback((): ExportPricesResult => {
+  const exportVisiblePrices = useCallback((productsToExport?: Product[]): ExportPricesResult => {
     if (tableColumnConfigs.length === 0) {
       return { success: false, error: 'Activa al menos una columna visible en la tabla para exportar.' };
     }
@@ -146,11 +146,12 @@ export const ListaPrecios: React.FC = () => {
     const expectedHeaders = buildExpectedHeaders(tableColumnConfigs);
     const allowedColumnIds = new Set(tableColumnConfigs.map(column => column.columnId));
     const catalogLookup = new Map(catalogProducts.map(product => [product.codigo.toUpperCase(), product] as const));
+    const sourceProducts = productsToExport ?? products;
 
     const aoa: (string | number)[][] = [expectedHeaders];
     let exportedRows = 0;
 
-    products.forEach(product => {
+    sourceProducts.forEach(product => {
       const unitCodes = collectUnitsWithPrices(product, allowedColumnIds);
       if (unitCodes.length === 0) {
         return;
@@ -209,7 +210,7 @@ export const ListaPrecios: React.FC = () => {
     return { success: true };
   }, [catalogProducts, products, tableColumnConfigs]);
 
-  const handleExportPrices = useCallback(() => {
+  const handleExportVisibleFromMain = useCallback(() => {
     if (exportingPrices) {
       return;
     }
@@ -223,7 +224,7 @@ export const ListaPrecios: React.FC = () => {
 
     setExportingPrices(true);
     try {
-      const result = exportVisiblePrices();
+      const result = exportVisiblePrices(filteredProducts);
       if (!result.success && result.error) {
         setExportError(result.error);
       }
@@ -233,7 +234,11 @@ export const ListaPrecios: React.FC = () => {
     } finally {
       setExportingPrices(false);
     }
-  }, [exportVisiblePrices, exportingPrices, visibleTableColumnsCount]);
+  }, [exportVisiblePrices, exportingPrices, filteredProducts, visibleTableColumnsCount]);
+
+  const handleExportAllFromImport = useCallback(() => {
+    return exportVisiblePrices(products);
+  }, [exportVisiblePrices, products]);
 
   const exportDisabled = visibleTableColumnsCount === 0 || exportingPrices;
   const exportDisabledReason = visibleTableColumnsCount === 0
@@ -322,7 +327,7 @@ export const ListaPrecios: React.FC = () => {
         searchSKU={currentTab === 'products' ? searchSKU : undefined}
         onSearchChange={currentTab === 'products' ? setSearchSKU : undefined}
         filteredProductsCount={currentTab === 'products' ? filteredProducts.length : undefined}
-        onExportPrices={currentTab === 'products' ? handleExportPrices : undefined}
+        onExportPrices={currentTab === 'products' ? handleExportVisibleFromMain : undefined}
         exportDisabled={currentTab === 'products' ? exportDisabled : undefined}
         exportBusy={currentTab === 'products' ? exportingPrices : undefined}
         exportErrorMessage={currentTab === 'products' ? exportError || undefined : undefined}
@@ -366,7 +371,7 @@ export const ListaPrecios: React.FC = () => {
             catalogProducts={catalogProducts}
             loading={loading}
             onApplyImport={applyImportedFixedPrices}
-            onExportPrices={exportVisiblePrices}
+            onExportPrices={handleExportAllFromImport}
           />
         ) : (
           <PackagesTab />
