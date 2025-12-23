@@ -17,9 +17,10 @@ import {
 import { useDocumentoContext } from '../../contexts/DocumentosContext';
 import { useFeedback } from '../../../../shared/feedback';
 import { lsKey } from '../../../../shared/tenant';
-import { DATE_PRESETS as BUSINESS_DATE_PRESETS, getTodayISO, formatDateShortSpanish, filterByDateRange } from '../../utils/dateUtils';
+import { DATE_PRESETS as BUSINESS_DATE_PRESETS, getTodayISO, formatDateShortSpanish, filterByDateRange, parseDateSpanish } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
 import { DrawerDetalleDocumento } from '../../components/DrawerDetalleDocumento';
+import { exportDatasetToExcel } from '../../../../shared/export/exportToExcel';
 
 // ===================================================================
 // TIPOS Y CONFIGURACIÓN
@@ -107,6 +108,7 @@ const ListaCotizaciones = () => {
   // Estados del Drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedDocumento, setSelectedDocumento] = useState<any | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Configuración de columnas
   const MASTER_COLUMNS: ColumnConfig[] = useMemo(() => ([
@@ -428,6 +430,84 @@ const ListaCotizaciones = () => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  const getFilenameSuffix = () => {
+    if (dateFrom && dateTo) {
+      return dateFrom === dateTo ? dateFrom : `${dateFrom}_${dateTo}`;
+    }
+    return getTodayISO();
+  };
+
+  const formatDateForExport = (value?: string) => {
+    if (!value) return '';
+    const parsed = parseDateSpanish(value) ?? (() => {
+      const asDate = new Date(value);
+      return Number.isNaN(asDate.getTime()) ? null : asDate;
+    })();
+    if (!parsed) return value;
+    const day = String(parsed.getUTCDate()).padStart(2, '0');
+    const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+    const year = parsed.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const getColumnValueForExport = (doc: any, column: ColumnConfig) => {
+    switch (column.id) {
+      case 'documentNumber':
+        return doc.id;
+      case 'status':
+        return doc.status;
+      case 'total':
+        return typeof doc.total === 'number' ? doc.total : Number(doc.total ?? 0);
+      case 'date':
+      case 'validUntil':
+        return formatDateForExport((doc as any)[column.key]);
+      default:
+        return (doc as any)[column.key] ?? '';
+    }
+  };
+
+  const handleExport = async () => {
+    const exportableColumns = visibleColumns.filter(col => col.id !== 'actions');
+    if (!paginatedDocs.length) {
+      feedback.warning('No hay registros para exportar');
+      return;
+    }
+    if (!exportableColumns.length) {
+      feedback.warning('No hay columnas visibles para exportar');
+      return;
+    }
+
+    const rows = paginatedDocs.map(doc => {
+      const row: Record<string, unknown> = {};
+      exportableColumns.forEach(col => {
+        row[col.id] = getColumnValueForExport(doc, col);
+      });
+      return row;
+    });
+
+    const columns = exportableColumns.map(col => ({
+      header: col.label,
+      key: col.id,
+      numFmt: col.id === 'total' ? '#,##0.00' : undefined
+    }));
+
+    setIsExporting(true);
+    try {
+      await exportDatasetToExcel({
+        rows,
+        columns,
+        filename: `cotizaciones_${getFilenameSuffix()}`,
+        worksheetName: 'Cotizaciones'
+      });
+      feedback.success('Exportación completada');
+    } catch (error) {
+      console.error('Error al exportar cotizaciones:', error);
+      feedback.error('No se pudo exportar las cotizaciones');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="flex-1 bg-gray-50 dark:bg-gray-900">
       {/* Header con controles - DISEÑO IDÉNTICO A COMPROBANTES */}
@@ -494,9 +574,16 @@ const ListaCotizaciones = () => {
               {activeFiltersCount > 0 && <span className="ml-1 px-2 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">{activeFiltersCount}</span>}
             </button>
 
-            <button onClick={() => console.log('Exportar')} className="h-[44px] px-4 flex items-center gap-2 text-sm rounded-[12px] text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors" title="Exportar">
-              <Download className="w-4 h-4" />
-              Exportar
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className={`h-[44px] px-4 flex items-center gap-2 text-sm rounded-[12px] text-gray-700 dark:text-gray-300 transition-colors ${
+                isExporting ? 'bg-gray-100 dark:bg-gray-700/60 cursor-not-allowed' : 'bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700/60'
+              }`}
+              title="Exportar"
+            >
+              <Download className={`w-4 h-4 ${isExporting ? 'animate-pulse' : ''}`} />
+              {isExporting ? 'Exportando...' : 'Exportar'}
             </button>
 
             <div className="relative" data-column-manager>
