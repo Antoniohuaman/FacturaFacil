@@ -54,13 +54,14 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   const [savingCellId, setSavingCellId] = useState<string | null>(null);
   const [cellErrors, setCellErrors] = useState<Record<string, string>>({});
   const activeInputRef = useRef<HTMLInputElement | null>(null);
+  const editingCellKey = editingCell?.key;
 
   useEffect(() => {
-    if (editingCell && activeInputRef.current) {
+    if (editingCellKey && activeInputRef.current) {
       activeInputRef.current.focus();
       activeInputRef.current.select();
     }
-  }, [editingCell]);
+  }, [editingCellKey]);
 
   const getCellKey = useCallback((productId: string, field: ThresholdField) => `${productId}-${field}` , []);
 
@@ -87,12 +88,17 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
     activeInputRef.current = null;
   }, [editingCell, cleanupCellError]);
 
+  const sanitizeNumericInput = useCallback((rawValue: string) => {
+    const digitsAndDot = rawValue.replace(/[^0-9.]/g, '');
+    return digitsAndDot.replace(/\.(?=.*\.)/g, '');
+  }, []);
+
   const parseInputValue = useCallback((rawValue: string): number | null | undefined => {
     const trimmed = rawValue.trim();
     if (!trimmed) {
       return null;
     }
-    const parsed = Number(trimmed);
+    const parsed = Number.parseInt(trimmed, 10);
     if (Number.isNaN(parsed)) {
       return undefined;
     }
@@ -242,6 +248,11 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   };
 
   const cellClass = densidadClasses[densidad];
+  const thresholdTextSize = {
+    compacta: 'text-xs',
+    comoda: 'text-sm',
+    espaciosa: 'text-base'
+  }[densidad];
 
   // Renderizar badge de situación - ESTILO NEUTRO TIPO JIRA
   const renderSituacionBadge = (situacion: SituacionStock) => {
@@ -348,16 +359,17 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
       return (
         <td key={field} className={baseClasses}>
           <div className="flex flex-col items-end gap-1">
-            <div className="flex w-full items-center gap-2">
+            <div className="flex w-full items-center justify-end gap-2">
               <input
                 ref={inputRef}
-                type="number"
-                min={0}
-                step="0.01"
-                className="w-full rounded-md border border-gray-300 px-2 py-1 text-right text-sm text-gray-900 focus:border-[#6F36FF] focus:ring-2 focus:ring-[#6F36FF]/30 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
+                className={`w-24 h-8 rounded-md border border-gray-300 bg-transparent px-2 text-right tabular-nums text-gray-900 shadow-sm focus:border-[#6F36FF] focus:ring-2 focus:ring-[#6F36FF]/30 dark:border-gray-600 dark:bg-gray-900/40 dark:text-gray-100 ${thresholdTextSize}`}
                 value={editingCell?.value ?? ''}
                 onChange={(event) => {
-                  const nextValue = event.target.value;
+                  const nextValue = sanitizeNumericInput(event.target.value);
                   setEditingCell(prev => (prev && prev.key === cellKey ? { ...prev, value: nextValue } : prev));
                 }}
                 onBlur={() => handleBlur(item, field)}
@@ -393,7 +405,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             onClick={() => startEditing(item, field)}
             disabled={!canEditThresholds || Boolean(savingCellId)}
             title={tooltipMessage ?? undefined}
-            className={`w-full text-right text-sm font-medium tabular-nums ${
+            className={`w-full text-right ${thresholdTextSize} font-medium tabular-nums ${
               canEditThresholds ? 'text-gray-900 dark:text-gray-100 hover:text-[#6F36FF]' : 'text-gray-500 dark:text-gray-400 cursor-not-allowed'
             }`}
           >
