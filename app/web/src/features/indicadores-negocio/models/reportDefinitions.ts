@@ -1,12 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Building2,
-  ClipboardList,
-  FileSpreadsheet,
   FileText,
   Layers,
   Package,
-  Receipt,
   Tag,
   Users,
   Wallet
@@ -50,52 +46,12 @@ export const reportDefinitions: ReportDefinition[] = [
     icon: FileText
   },
   {
-    id: "comprobantes-resumen-diario",
-    name: "Resumen diario",
-    description: "Totales consolidado diario para SUNAT y contabilidad",
-    category: "Comprobantes",
-    modulePath: "/comprobantes",
-    icon: Receipt
-  },
-  {
-    id: "comprobantes-pos",
-    name: "Ventas por punto",
-    description: "Comparativo de ventas por punto de venta y canal",
-    category: "Comprobantes",
-    modulePath: "/punto-venta/dashboard",
-    icon: Layers
-  },
-  {
-    id: "documentos-cotizaciones",
-    name: "Cotizaciones",
-    description: "Listado de propuestas comerciales y vigencias",
-    category: "Documentos",
-    modulePath: "/documentos-negociacion",
-    icon: ClipboardList
-  },
-  {
-    id: "documentos-notas-venta",
-    name: "Notas de venta",
-    description: "Registro de notas de venta emitidas y pendientes",
-    category: "Documentos",
-    modulePath: "/documentos-negociacion",
-    icon: FileSpreadsheet
-  },
-  {
     id: "clientes-maestro",
     name: "Maestro de clientes",
     description: "Ficha completa de clientes y datos de contacto",
     category: "Clientes",
     modulePath: "/clientes",
     icon: Users
-  },
-  {
-    id: "clientes-historial",
-    name: "Historial de compras",
-    description: "Órdenes y comprobantes asociados a cada cliente",
-    category: "Clientes",
-    modulePath: "/clientes",
-    icon: FileText
   },
   {
     id: "precios-listas",
@@ -115,8 +71,8 @@ export const reportDefinitions: ReportDefinition[] = [
   },
   {
     id: "inventario-stock",
-    name: "Stock valorizado",
-    description: "Existencias por almacén con valoración",
+    name: "Reporte de stock",
+    description: "Stock actual y estados por almacén listo para Excel",
     category: "Inventario",
     modulePath: "/inventario",
     icon: Layers
@@ -136,22 +92,6 @@ export const reportDefinitions: ReportDefinition[] = [
     category: "Cobranzas",
     modulePath: "/cobranzas",
     icon: Wallet
-  },
-  {
-    id: "cobranzas-alertas",
-    name: "Alertas de mora",
-    description: "Clientes con riesgo por días de atraso",
-    category: "Cobranzas",
-    modulePath: "/cobranzas",
-    icon: ClipboardList
-  },
-  {
-    id: "caja-sesiones",
-    name: "Sesiones de caja",
-    description: "Aperturas, cierres y conciliaciones por turno",
-    category: "Caja",
-    modulePath: "/caja/sesiones",
-    icon: Building2
   },
   {
     id: "caja-movimientos",
