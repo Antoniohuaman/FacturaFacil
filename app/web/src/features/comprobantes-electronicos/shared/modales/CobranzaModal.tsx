@@ -480,6 +480,28 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     : 'bg-sky-100 text-sky-700';
   const differenceChipLabel = isCobranzasContext ? 'Saldo restante' : 'Diferencia';
 
+  const documentSeriesMeta = useMemo(() => {
+    if (!serie) {
+      return null;
+    }
+    const normalizedSerie = serie.trim().toUpperCase();
+    if (!normalizedSerie) {
+      return null;
+    }
+    const matches = state.series.filter((seriesItem) => seriesItem.series?.toUpperCase() === normalizedSerie);
+    if (!matches.length) {
+      return null;
+    }
+    if (effectiveEstablishmentId) {
+      const establishmentMatch = matches.find((match) => match.establishmentId === effectiveEstablishmentId);
+      if (establishmentMatch) {
+        return establishmentMatch;
+      }
+    }
+    return matches[0];
+  }, [effectiveEstablishmentId, serie, state.series]);
+  const documentTypeInfo = documentSeriesMeta?.documentType;
+
   const formaPagoDisplay = useMemo(() => {
     if (formaPago) {
       const normalizedFormaPago = normalizeFormaPagoId(formaPago);
@@ -499,23 +521,50 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
   const fechaComprobanteDisplay = creditTerms?.fechaVencimientoGlobal?.trim() ? creditTerms.fechaVencimientoGlobal : null;
 
+  const comprobanteDisplay = useMemo(() => {
+    const code = documentTypeInfo?.code?.trim();
+    const name = documentTypeInfo?.name?.trim();
+    if (code && name) {
+      return `${code} ${name}`;
+    }
+    if (name) {
+      return name;
+    }
+    return docTypeLabel;
+  }, [docTypeLabel, documentTypeInfo]);
+
+  const comprobanteNumberDisplay = useMemo(() => {
+    const normalizedSerie = serie?.trim().toUpperCase();
+    const normalizedNumber = numeroTemporal?.trim();
+    if (normalizedSerie && normalizedNumber) {
+      const numberAlreadyIncludesSerie = normalizedNumber.toUpperCase().startsWith(normalizedSerie);
+      if (numberAlreadyIncludesSerie) {
+        return normalizedNumber;
+      }
+      const sanitizedNumber = normalizedNumber.replace(/^[-\s]+/, '');
+      return `${normalizedSerie}-${sanitizedNumber}`;
+    }
+    if (normalizedSerie) {
+      return normalizedSerie;
+    }
+    if (normalizedNumber) {
+      return normalizedNumber;
+    }
+    return null;
+  }, [numeroTemporal, serie]);
+
   const documentHeaderItems = useMemo(
     () => {
       const items: Array<{ key: string; label: string; value: React.ReactNode }> = [
         {
           key: 'comprobante',
           label: 'Comprobante',
-          value: (
-            <>
-              {docTypeLabel} · Serie {serie}
-              {numeroTemporal && <span className="ml-1 text-xs font-normal text-slate-500">({numeroTemporal})</span>}
-            </>
-          ),
+          value: comprobanteDisplay,
         },
         {
           key: 'numero',
           label: 'N° Comprobante',
-          value: numeroTemporal || null,
+          value: comprobanteNumberDisplay,
         },
         {
           key: 'formaPago',
@@ -549,7 +598,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       }
 
       return items;
-    }, [cliente, currencyCode, docTypeLabel, fechaComprobanteDisplay, fechaEmision, formaPagoDisplay, numeroTemporal, serie],
+    }, [cliente, currencyCode, comprobanteDisplay, comprobanteNumberDisplay, fechaComprobanteDisplay, fechaEmision, formaPagoDisplay],
   );
 
   const handleAllocationChange = useCallback((allocations: CreditInstallmentAllocationInput[]) => {
