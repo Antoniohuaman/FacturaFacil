@@ -883,8 +883,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         <div className="flex-1 min-h-0 px-4 py-3">
           <div className="flex h-full min-h-0 flex-col gap-3">
             <section className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
-                <div className="flex min-w-0 flex-col gap-2">
+              <div className="flex flex-col gap-4">
+                <div className="flex min-w-0 flex-col gap-2 border-b border-slate-100 pb-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="space-y-1">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Documento</p>
@@ -935,7 +935,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                   )}
                 </div>
 
-                <div className="flex min-h-0 flex-col gap-2">
+                <div className="flex min-h-0 flex-col gap-2 pt-1">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="space-y-1">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">{creditScheduleLabel}</p>
