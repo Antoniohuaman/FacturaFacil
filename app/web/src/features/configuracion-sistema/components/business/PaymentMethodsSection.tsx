@@ -253,7 +253,7 @@ export function PaymentMethodsSection({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Formas de Pago</h3>
+        <div />
         <button
           onClick={() => setShowForm(true)}
           disabled={isSubmitting}
@@ -355,13 +355,7 @@ export function PaymentMethodsSection({
       {/* Métodos de CONTADO */}
       {contadoMethods.length > 0 && (
         <div>
-          <h4 className="text-md font-medium text-gray-700 mb-3 flex items-center space-x-2">
-            <CreditCard className="w-4 h-4 text-green-600" />
-            <span>Métodos de Pago al CONTADO</span>
-            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-              {contadoMethods.length} método{contadoMethods.length !== 1 ? 's' : ''}
-            </span>
-          </h4>
+          {/* Header removed to reduce visual clutter (icon and count badge) */}
           <div className="space-y-2">
             {contadoMethods.map((method) => (
               <div key={method.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-green-300 transition-colors">
@@ -412,7 +406,8 @@ export function PaymentMethodsSection({
                   <button
                     onClick={() => handleEdit(method)}
                     className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Editar"
+                    title={method.id === 'pm-efectivo' ? 'No editable' : 'Editar'}
+                    disabled={method.id === 'pm-efectivo'}
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>

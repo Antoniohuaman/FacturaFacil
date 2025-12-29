@@ -402,7 +402,7 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
         {
           id: 'pm-efectivo',
           code: 'CONTADO',
-          name: 'Efectivo',
+          name: 'Contado',
           type: 'CASH',
           sunatCode: '001',
           sunatDescription: 'Pago al contado - Efectivo',
