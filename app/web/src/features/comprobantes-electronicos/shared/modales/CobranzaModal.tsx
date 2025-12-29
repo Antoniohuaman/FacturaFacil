@@ -294,6 +294,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const isCajaOpen = cajaStatus === 'abierta';
   const currentEstablishmentId = useCurrentEstablishmentId();
   const effectiveEstablishmentId = establishmentId || currentEstablishmentId;
+  const docTypeLabel = tipoComprobante === 'factura' ? 'Factura' : 'Boleta';
   const esBoleta = tipoComprobante === 'boleta';
   const isCobranzasContext = context === 'cobranzas';
 
@@ -478,6 +479,78 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     ? 'bg-amber-100 text-amber-800'
     : 'bg-sky-100 text-sky-700';
   const differenceChipLabel = isCobranzasContext ? 'Saldo restante' : 'Diferencia';
+
+  const formaPagoDisplay = useMemo(() => {
+    if (formaPago) {
+      const normalizedFormaPago = normalizeFormaPagoId(formaPago);
+      const matchedOption = availablePaymentOptions.find((option) => {
+        const normalizedOptionId = normalizeFormaPagoId(option.id);
+        const normalizedLabel = option.label.toLowerCase();
+        return option.id === formaPago || normalizedOptionId === normalizedFormaPago || normalizedLabel === normalizedFormaPago;
+      });
+      if (matchedOption) {
+        return matchedOption.label;
+      }
+      return formaPago;
+    }
+
+    return creditPaymentMethodLabel ?? null;
+  }, [availablePaymentOptions, creditPaymentMethodLabel, formaPago]);
+
+  const fechaComprobanteDisplay = creditTerms?.fechaVencimientoGlobal?.trim() ? creditTerms.fechaVencimientoGlobal : null;
+
+  const documentHeaderItems = useMemo(
+    () => {
+      const items: Array<{ key: string; label: string; value: React.ReactNode }> = [
+        {
+          key: 'comprobante',
+          label: 'Comprobante',
+          value: (
+            <>
+              {docTypeLabel} · Serie {serie}
+              {numeroTemporal && <span className="ml-1 text-xs font-normal text-slate-500">({numeroTemporal})</span>}
+            </>
+          ),
+        },
+        {
+          key: 'numero',
+          label: 'N° Comprobante',
+          value: numeroTemporal || null,
+        },
+        {
+          key: 'formaPago',
+          label: 'Forma de pago',
+          value: formaPagoDisplay || null,
+        },
+        {
+          key: 'cliente',
+          label: 'Cliente',
+          value: cliente?.nombre || 'Sin cliente',
+        },
+        {
+          key: 'documentoCliente',
+          label: 'Documento cliente',
+          value: cliente?.documento || '—',
+        },
+        {
+          key: 'fechaEmision',
+          label: 'Fecha emisión',
+          value: fechaEmision,
+        },
+        {
+          key: 'moneda',
+          label: 'Moneda',
+          value: currencyCode,
+        },
+      ];
+
+      if (fechaComprobanteDisplay) {
+        items.push({ key: 'fechaComprobante', label: 'Fecha comprobante', value: fechaComprobanteDisplay });
+      }
+
+      return items;
+    }, [cliente, currencyCode, docTypeLabel, fechaComprobanteDisplay, fechaEmision, formaPagoDisplay, numeroTemporal, serie],
+  );
 
   const handleAllocationChange = useCallback((allocations: CreditInstallmentAllocationInput[]) => {
     setAllocationDrafts(allocations);
@@ -854,9 +927,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       <div className="relative mx-4 flex max-h-[94vh] w-full max-w-6xl flex-col rounded-xl border border-slate-100 bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
           <div className="leading-none">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              Cobranza de {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'}
-            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Cobranza de {docTypeLabel}</p>
             <h2 className="text-[16px] font-semibold text-slate-900">{''}</h2>
           </div>
           <button type="button" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100" onClick={onClose} disabled={disableBackdropClose} aria-label="Cerrar">
@@ -873,27 +944,13 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
             <section className="rounded-lg border border-slate-200 bg-white p-3">
               <div className="flex flex-col gap-4">
                 <div className="flex min-w-0 flex-col gap-2 border-b border-slate-100 pb-3">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} · Serie {serie}
-                    {numeroTemporal && <span className="ml-1 text-xs font-normal text-slate-500">({numeroTemporal})</span>}
-                  </h3>
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-4">
-                    <div className="space-y-0.5">
-                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fecha emisión</dt>
-                      <dd className="font-medium text-slate-900">{fechaEmision}</dd>
-                    </div>
-                    <div className="space-y-0.5">
-                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Moneda</dt>
-                      <dd className="font-medium text-slate-900">{currencyCode}</dd>
-                    </div>
-                    <div className="space-y-0.5">
-                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Cliente</dt>
-                      <dd className="font-medium text-slate-900">{cliente?.nombre || 'Sin cliente'}</dd>
-                    </div>
-                    <div className="space-y-0.5">
-                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Documento cliente</dt>
-                      <dd className="font-medium text-slate-900">{cliente?.documento || '—'}</dd>
-                    </div>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-600 sm:grid-cols-4">
+                    {documentHeaderItems.map((item) => (
+                      <div key={item.key} className="space-y-0.5">
+                        <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{item.label}</dt>
+                        <dd className="font-medium text-slate-900">{item.value ?? '—'}</dd>
+                      </div>
+                    ))}
                   </dl>
                 </div>
 
