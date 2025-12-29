@@ -873,13 +873,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
             <section className="rounded-lg border border-slate-200 bg-white p-3">
               <div className="flex flex-col gap-4">
                 <div className="flex min-w-0 flex-col gap-2 border-b border-slate-100 pb-3">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Documento</p>
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} · Serie {serie}
-                      {numeroTemporal && <span className="ml-1 text-xs font-normal text-slate-500">({numeroTemporal})</span>}
-                    </h3>
-                  </div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} · Serie {serie}
+                    {numeroTemporal && <span className="ml-1 text-xs font-normal text-slate-500">({numeroTemporal})</span>}
+                  </h3>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-4">
                     <div className="space-y-0.5">
                       <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fecha emisión</dt>
@@ -900,18 +897,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                   </dl>
                 </div>
 
-                <div className="flex min-h-0 flex-col gap-2 pt-1">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">{creditScheduleLabel}</p>
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        {hasCreditSchedule
-                          ? `${normalizedInstallments.length} cuota${normalizedInstallments.length === 1 ? '' : 's'} programada${normalizedInstallments.length === 1 ? '' : 's'}`
-                          : mode === 'contado' ? '' : 'Sin cronograma definido'}
-                      </h3>
-                      {creditTerms?.fechaVencimientoGlobal && <p className="text-xs text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
-                    </div>
-                  </div>
+                <div className="flex min-h-0 flex-col gap-2" aria-label={creditScheduleLabel || undefined}>
+                  {creditTerms?.fechaVencimientoGlobal && <p className="text-xs text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
                   {hasCreditSchedule ? (
                     <>
                       <div className="min-h-0">
