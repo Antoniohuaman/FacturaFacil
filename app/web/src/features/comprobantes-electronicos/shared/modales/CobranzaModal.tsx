@@ -270,7 +270,6 @@ const mapCobranzaInstallmentToSchedule = (
 export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   isOpen,
   onClose,
-  cartItems,
   totals,
   cliente,
   tipoComprobante,
@@ -453,12 +452,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const currencyForFormat: Currency = ['PEN', 'USD'].includes(normalizedCurrencyCode) ? (normalizedCurrencyCode as Currency) : 'PEN';
   const formatCurrency = useCallback((amount?: number) => formatPrice(Number(amount ?? 0), currencyForFormat), [currencyForFormat, formatPrice]);
 
-  const productsSummary = useMemo(() => {
-    const highlighted = cartItems.slice(0, 3);
-    const remaining = cartItems.length - highlighted.length;
-    return { highlighted, remaining };
-  }, [cartItems]);
-
   const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
   const allowAllocations = mode === 'contado' && hasCreditSchedule;
   const totalAllocationAmount = useMemo(
@@ -575,11 +568,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   }, [allowAllocations, effectiveTotalRecibido, totalAllocationAmount]);
 
   const allocationsReady = !allowAllocations || (allocationDrafts.length > 0 && !allocationMismatch);
-
-  const allocationDifferenceDisplay = useMemo(
-    () => clampCurrency(effectiveTotalRecibido - totalAllocationAmount),
-    [effectiveTotalRecibido, totalAllocationAmount],
-  );
 
   const allocationStatus = useMemo(() => {
     if (!allowAllocations) {
@@ -885,20 +873,12 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
             <section className="rounded-lg border border-slate-200 bg-white p-3">
               <div className="flex flex-col gap-4">
                 <div className="flex min-w-0 flex-col gap-2 border-b border-slate-100 pb-3">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Documento</p>
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} · Serie {serie}
-                        {numeroTemporal && <span className="ml-1 text-xs font-normal text-slate-500">({numeroTemporal})</span>}
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-2 text-right text-[11px]">
-                      <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-semibold uppercase tracking-wide text-slate-500">Total</span>
-                      <span className="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-900">
-                        {formatCurrency(totals.total)}
-                      </span>
-                    </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Documento</p>
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      {tipoComprobante === 'factura' ? 'Factura' : 'Boleta'} · Serie {serie}
+                      {numeroTemporal && <span className="ml-1 text-xs font-normal text-slate-500">({numeroTemporal})</span>}
+                    </h3>
                   </div>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-4">
                     <div className="space-y-0.5">
@@ -918,21 +898,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                       <dd className="font-medium text-slate-900">{cliente?.documento || '—'}</dd>
                     </div>
                   </dl>
-                  {productsSummary.highlighted.length > 0 && (
-                    <div className="border-t border-slate-100 pt-2 text-xs text-slate-600">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Productos recientes</p>
-                      <ul className="mt-1 space-y-0.5">
-                        {productsSummary.highlighted.map((item) => (
-                          <li key={item.id} className="truncate">
-                            {item.quantity} × {item.name}
-                          </li>
-                        ))}
-                      </ul>
-                      {productsSummary.remaining > 0 && (
-                        <p className="mt-1 text-[10px] text-slate-500">+ {productsSummary.remaining} ítem(s) adicionales</p>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex min-h-0 flex-col gap-2 pt-1">
@@ -946,13 +911,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                       </h3>
                       {creditTerms?.fechaVencimientoGlobal && <p className="text-xs text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
                     </div>
-                    {installmentsCounters && (
-                      <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-600">
-                        <span className="rounded-md border border-slate-200 px-2 py-0.5">Pend. {installmentsCounters.pending}</span>
-                        <span className="rounded-md border border-slate-200 px-2 py-0.5">Parc. {installmentsCounters.partial}</span>
-                        <span className="rounded-md border border-slate-200 px-2 py-0.5">Canc. {installmentsCounters.canceled}</span>
-                      </div>
-                    )}
                   </div>
                   {hasCreditSchedule ? (
                     <>
@@ -971,12 +929,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                         />
                       </div>
                       {allowAllocations && (
-                        <div className="space-y-2 text-[11px]">
-                          <div className="flex flex-wrap gap-2 font-semibold text-emerald-900">
-                            <span className="rounded-md bg-emerald-50 px-2.5 py-0.5">Recibido: {formatCurrency(effectiveTotalRecibido)}</span>
-                            <span className="rounded-md bg-emerald-50 px-2.5 py-0.5">Distribuido: {formatCurrency(totalAllocationAmount)}</span>
-                            <span className="rounded-md bg-emerald-50 px-2.5 py-0.5">Diferencia: {formatCurrency(Math.abs(allocationDifferenceDisplay))}</span>
-                          </div>
+                        <div className="mt-2 text-[11px]">
                           <div className="flex flex-wrap items-center gap-2">
                             {allocationStatus && (
                               <div
@@ -1002,18 +955,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                       )}
                     </>
                   ) : (
-                    mode === 'contado' ? (
-                      <div className="rounded-md border border-slate-100 bg-slate-50 p-2 text-xs text-slate-600">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Resumen del cobro</p>
-                        <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-semibold text-slate-700">
-                          <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5">Total {formatCurrency(totals.total)}</span>
-                          <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5">Recibido {formatCurrency(effectiveTotalRecibido)}</span>
-                          <span className={`rounded-md border px-2 py-0.5 ${differenceChipClass}`}>
-                            {differenceChipLabel} {formattedDifference}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
+                    mode === 'contado' ? null : (
                       <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
                         Configura un cronograma de crédito para poder distribuir adelantos entre las cuotas.
                       </p>
