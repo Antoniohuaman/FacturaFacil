@@ -268,20 +268,9 @@ export function PaymentMethodsSection({
       {showForm && (
         <ConfigurationCard
           title={editingId ? 'Editar Método de Pago' : 'Nuevo Método de Pago'}
-          description="Configura un método de pago personalizado"
         >
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Información importante */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <h5 className="font-medium text-amber-900 mb-2">📋 Forma de Pago Normativa</h5>
-              <p className="text-sm text-amber-800">
-                A nivel normativo (SUNAT) solo existen 2 códigos: <strong>CONTADO</strong> y <strong>CRÉDITO</strong>.
-                El nombre es libre y puedes crear múltiples métodos con el mismo código pero diferentes nombres.
-              </p>
-              <div className="mt-2 text-xs text-amber-700">
-                <strong>Ejemplos:</strong> CONTADO - Efectivo | CONTADO - Yape | CONTADO - Tarjeta | CREDITO - 30 días
-              </div>
-            </div>
+            {/* Informational help removed per request */}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -299,9 +288,7 @@ export function PaymentMethodsSection({
                   <option value="CONTADO">CONTADO - Pago inmediato</option>
                   <option value="CREDITO">CREDITO - Pago diferido</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  {editingId ? 'No se puede cambiar el código al editar' : 'Elige CONTADO o CREDITO según el tipo de pago'}
-                </p>
+                {/* helper text removed */}
               </div>
 
               <div>
@@ -320,11 +307,7 @@ export function PaymentMethodsSection({
                   required
                   maxLength={50}
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  {isCredit
-                    ? 'El nombre se genera automáticamente según los días del cronograma.'
-                    : 'Escribe el nombre que desees (máx. 50 caracteres)'}
-                </p>
+                {/* helper text removed */}
               </div>
             </div>
 
@@ -544,18 +527,7 @@ export function PaymentMethodsSection({
         </div>
       )}
 
-      {/* Help Text */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-900 mb-2">💡 Consejos sobre Formas de Pago</h4>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• <strong>Códigos normativos:</strong> Solo existen CONTADO y CREDITO según normativa SUNAT</li>
-          <li>• <strong>Nombres personalizados:</strong> Puedes crear varios métodos con el mismo código pero diferentes nombres</li>
-          <li>• <strong>Ejemplos de CONTADO:</strong> Efectivo, Yape, Plin, Tarjeta de Crédito, Tarjeta de Débito, Transferencia</li>
-          <li>• <strong>Ejemplos de CREDITO:</strong> Crédito 30 días, Crédito 60 días, Letra de cambio, Factura con crédito</li>
-          <li>• <strong>Favoritos:</strong> Marca con estrella los métodos más usados para acceso rápido</li>
-          <li>• <strong>Método por defecto:</strong> Solo puede haber uno y no se puede ocultar ni eliminar</li>
-        </ul>
-      </div>
+      {/* Help text removed per requirements */}
     </div>
   );
 }

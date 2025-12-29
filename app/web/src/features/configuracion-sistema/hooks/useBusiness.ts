@@ -91,48 +91,6 @@ const MOCK_PAYMENT_METHODS: PaymentMethod[] = [
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  {
-    id: 'pm-2',
-    code: 'TARJETA_DEBITO',
-    name: 'Tarjeta de Débito',
-    type: 'CARD',
-    sunatCode: '005',
-    sunatDescription: 'Tarjeta de débito',
-    configuration: {
-      requiresReference: true,
-      allowsPartialPayments: false,
-      requiresValidation: true,
-      hasCommission: true,
-      commissionType: 'PERCENTAGE',
-      commissionAmount: 2.5,
-      requiresCustomerData: false,
-      allowsCashBack: false,
-      requiresSignature: false,
-    },
-    financial: {
-      affectsCashFlow: false,
-      settlementPeriod: 'DAILY',
-      bankId: 'bank-visa',
-    },
-    display: {
-      icon: 'CreditCard',
-      color: '#3b82f6',
-      displayOrder: 2,
-      isVisible: true,
-      showInPos: true,
-      showInInvoicing: true,
-    },
-    validation: {
-      documentTypes: ['01', '03'],
-      customerTypes: ['INDIVIDUAL', 'BUSINESS'],
-      minTransactionAmount: 5.00,
-      allowedCurrencies: ['PEN', 'USD'],
-    },
-    isDefault: false,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
 ];
 
 const MOCK_CURRENCIES: Currency[] = [

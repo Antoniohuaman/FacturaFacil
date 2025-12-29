@@ -128,17 +128,7 @@ export function PaymentMethodFormModal({
           {/* Content */}
           <div className="px-6 py-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Información importante */}
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <h5 className="font-medium text-amber-900 mb-2">📋 Forma de Pago Normativa</h5>
-                <p className="text-sm text-amber-800">
-                  A nivel normativo (SUNAT) solo existen 2 códigos: <strong>CONTADO</strong> y <strong>CRÉDITO</strong>.
-                  El nombre es libre y puedes crear múltiples métodos con el mismo código pero diferentes nombres.
-                </p>
-                <div className="mt-2 text-xs text-amber-700">
-                  <strong>Ejemplos:</strong> CONTADO - Efectivo | CONTADO - Yape | CONTADO - Tarjeta | CREDITO - 30 días
-                </div>
-              </div>
+              {/* Informational help removed per request */}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -155,9 +145,7 @@ export function PaymentMethodFormModal({
                     <option value="CONTADO">CONTADO - Pago inmediato</option>
                     <option value="CREDITO">CREDITO - Pago diferido</option>
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Elige CONTADO o CREDITO según el tipo de pago
-                  </p>
+                  {/* helper text removed */}
                 </div>
 
                 <div>
@@ -173,7 +161,7 @@ export function PaymentMethodFormModal({
                     required
                     maxLength={50}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Escribe el nombre que desees (máx. 50 caracteres)</p>
+                  {/* helper text removed */}
                 </div>
               </div>
 
