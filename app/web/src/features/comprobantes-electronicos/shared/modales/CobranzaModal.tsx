@@ -45,6 +45,7 @@ const DEFAULT_PAYMENT_OPTIONS = [
 
 const DEFAULT_CAJAS = ['Caja general', 'Caja chica', 'BCP', 'BBVA', 'Interbank'];
 const tolerance = 0.01;
+const UNSET_PAYMENT_AMOUNT = Number.NaN;
 type CobranzaModalContextType = 'emision' | 'cobranzas';
 
 const clampCurrency = (value: number) => Number(Number(value ?? 0).toFixed(2));
@@ -55,23 +56,29 @@ interface ValidateCollectedAmountInput {
   totalDocumento: number;
   tolerance: number;
   allowPartial?: boolean;
+  targetAppliedAmount?: number;
 }
 
-const validateCollectedAmount = ({ context, totalRecibido, totalDocumento, tolerance: amountTolerance, allowPartial = false }: ValidateCollectedAmountInput): string | null => {
+const validateCollectedAmount = ({
+  context,
+  totalRecibido,
+  totalDocumento,
+  tolerance: amountTolerance,
+  allowPartial = false,
+  targetAppliedAmount,
+}: ValidateCollectedAmountInput): string | null => {
   const received = clampCurrency(totalRecibido);
   const documentTotal = clampCurrency(totalDocumento);
+  const requiredAmount = clampCurrency(typeof targetAppliedAmount === 'number' ? targetAppliedAmount : documentTotal);
 
-  if (context === 'cobranzas' || allowPartial) {
-    if (received <= amountTolerance) {
-      return 'Ingresa un monto mayor a 0.';
-    }
-    if (received - documentTotal > amountTolerance) {
-      return 'No puedes cobrar más que el saldo pendiente.';
-    }
-    return null;
+  if (received <= amountTolerance) {
+    return 'Ingresa un monto mayor a 0.';
   }
 
-  if (Math.abs(documentTotal - received) > amountTolerance) {
+  if (received + amountTolerance < requiredAmount) {
+    if (context === 'cobranzas' || allowPartial) {
+      return 'Ingresa al menos el monto que vas a aplicar.';
+    }
     return 'La suma de los montos debe coincidir con el total.';
   }
 
@@ -456,29 +463,42 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
   const allowAllocations = mode === 'contado' && hasCreditSchedule;
   const totalAllocationAmount = useMemo(
-    () => allocationDrafts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0),
+    () => clampCurrency(allocationDrafts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0)),
     [allocationDrafts],
   );
+  const amountToApply = useMemo(() => (allowAllocations ? totalAllocationAmount : clampCurrency(totals.total)), [allowAllocations, totalAllocationAmount, totals.total]);
 
-  const effectiveTotalRecibido = useMemo(() => {
-    if (allowAllocations && isCobranzasContext) {
-      return totalAllocationAmount;
+  const summaryDifferenceMeta = useMemo(() => {
+    if (allowAllocations) {
+      const delta = clampCurrency(totalRecibido - amountToApply);
+      if (delta > tolerance) {
+        return { label: 'Vuelto', className: 'bg-sky-100 text-sky-700', amount: delta };
+      }
+      if (delta < -tolerance) {
+        return { label: 'Falta', className: 'bg-amber-100 text-amber-800', amount: Math.abs(delta) };
+      }
+      return { label: 'Diferencia', className: 'bg-emerald-100 text-emerald-700', amount: 0 };
     }
-    return totalRecibido;
-  }, [allowAllocations, isCobranzasContext, totalAllocationAmount, totalRecibido]);
 
-  const diferencia = useMemo(() => totals.total - effectiveTotalRecibido, [effectiveTotalRecibido, totals.total]);
-  const differenceValue = isCobranzasContext ? Math.max(0, diferencia) : Math.abs(diferencia);
-  const differenceStatus = diferencia > tolerance ? 'faltante' : diferencia < -tolerance ? 'vuelto' : 'ajustado';
-  const formattedDifference = formatCurrency(differenceValue);
-  const differenceChipClass = isCobranzasContext
-    ? 'bg-slate-100 text-slate-700'
-    : differenceStatus === 'ajustado'
-    ? 'bg-emerald-100 text-emerald-700'
-    : differenceStatus === 'faltante'
-    ? 'bg-amber-100 text-amber-800'
-    : 'bg-sky-100 text-sky-700';
-  const differenceChipLabel = isCobranzasContext ? 'Saldo restante' : 'Diferencia';
+    const referenceAmount = isCobranzasContext ? amountToApply : totalRecibido;
+    const rawDifference = totals.total - referenceAmount;
+    const differenceStatus = rawDifference > tolerance ? 'faltante' : rawDifference < -tolerance ? 'vuelto' : 'ajustado';
+    const label = isCobranzasContext ? 'Saldo restante' : 'Diferencia';
+    const amount = clampCurrency(isCobranzasContext ? Math.max(0, rawDifference) : Math.abs(rawDifference));
+    const className = isCobranzasContext
+      ? 'bg-slate-100 text-slate-700'
+      : differenceStatus === 'ajustado'
+      ? 'bg-emerald-100 text-emerald-700'
+      : differenceStatus === 'faltante'
+      ? 'bg-amber-100 text-amber-800'
+      : 'bg-sky-100 text-sky-700';
+
+    return { label, className, amount };
+  }, [allowAllocations, amountToApply, isCobranzasContext, totalRecibido, totals.total]);
+
+  const formattedDifference = formatCurrency(summaryDifferenceMeta.amount);
+  const differenceChipClass = summaryDifferenceMeta.className;
+  const differenceChipLabel = summaryDifferenceMeta.label;
 
   const documentSeriesMeta = useMemo(() => {
     if (!serie) {
@@ -661,8 +681,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       const targetAmount = typeof targetAmountOverride === 'number' ? clampCurrency(targetAmountOverride) : undefined;
       const requiresAlignment =
-        isCobranzasContext &&
-        allowAllocations &&
         typeof targetAmount === 'number' &&
         Math.abs(workingLines.reduce((sum, line) => sum + (line.amount || 0), 0) - targetAmount) > tolerance;
 
@@ -679,15 +697,15 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         operationNumber: line.operationNumber,
       }));
     },
-    [alignPaymentLinesWithTarget, allowAllocations, isCobranzasContext, paymentLines],
+    [alignPaymentLinesWithTarget, paymentLines],
   );
 
   const allocationMismatch = useMemo(() => {
     if (!allowAllocations) {
       return false;
     }
-    return Math.abs(clampCurrency(totalAllocationAmount - effectiveTotalRecibido)) > tolerance;
-  }, [allowAllocations, effectiveTotalRecibido, totalAllocationAmount]);
+    return amountToApply - totalRecibido > tolerance;
+  }, [allowAllocations, amountToApply, totalRecibido]);
 
   const allocationsReady = !allowAllocations || (allocationDrafts.length > 0 && !allocationMismatch);
 
@@ -696,18 +714,18 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       return null;
     }
     if (allocationDrafts.length === 0) {
-      return effectiveTotalRecibido > tolerance
+      return totalRecibido > tolerance
         ? ({ tone: 'warn', text: 'Selecciona al menos una cuota para aplicar el cobro.' } as const)
         : null;
     }
     if (allocationMismatch) {
-      return { tone: 'warn', text: 'El monto distribuido debe coincidir con el monto recibido.' } as const;
+      return { tone: 'warn', text: 'El monto recibido debe ser mayor o igual al monto distribuido.' } as const;
     }
     return {
       tone: 'ok',
       text: isCobranzasContext ? 'El cobro se aplicará a las cuotas seleccionadas.' : 'El adelanto se aplicará a las cuotas seleccionadas.',
     } as const;
-  }, [allowAllocations, allocationDrafts.length, allocationMismatch, effectiveTotalRecibido, isCobranzasContext]);
+  }, [allowAllocations, allocationDrafts.length, allocationMismatch, isCobranzasContext, totalRecibido]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -717,7 +735,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       {
         id: 'line-1',
         method: initialMethodId,
-        amount: Number(totals.total.toFixed(2)),
+        amount: UNSET_PAYMENT_AMOUNT,
         bank: defaultCajaDestino,
       },
     ]);
@@ -762,43 +780,17 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     }
   }, [allowAllocations, allocationDrafts.length, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen || !isCobranzasContext || !allowAllocations) {
-      return;
-    }
-    setPaymentLines((prev) => {
-      if (prev.length !== 1) {
-        return prev;
-      }
-      const currentAmount = Number(prev[0].amount) || 0;
-      if (Math.abs(currentAmount - totalAllocationAmount) <= tolerance) {
-        return prev;
-      }
-      return [
-        {
-          ...prev[0],
-          amount: clampCurrency(totalAllocationAmount),
-        },
-      ];
-    });
-  }, [allowAllocations, isCobranzasContext, isOpen, totalAllocationAmount]);
-
   const handleAddLine = useCallback(() => {
-    setPaymentLines((prev) => {
-      const alreadyAssigned = prev.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
-      const remaining = totals.total - alreadyAssigned;
-
-      return [
-        ...prev,
-        {
-          id: `line-${Date.now()}`,
-          method: resolveInitialMethod(),
-          amount: remaining > 0 ? Number(remaining.toFixed(2)) : 0,
-          bank: defaultCajaDestino,
-        },
-      ];
-    });
-  }, [defaultCajaDestino, resolveInitialMethod, totals.total]);
+    setPaymentLines((prev) => [
+      ...prev,
+      {
+        id: `line-${Date.now()}`,
+        method: resolveInitialMethod(),
+        amount: UNSET_PAYMENT_AMOUNT,
+        bank: defaultCajaDestino,
+      },
+    ]);
+  }, [defaultCajaDestino, resolveInitialMethod]);
 
   const handleRemoveLine = useCallback((id: string) => {
     setPaymentLines((prev) => (prev.length === 1 ? prev : prev.filter((line) => line.id !== id)));
@@ -836,10 +828,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       const amountValidationError = validateCollectedAmount({
         context,
-        totalRecibido: effectiveTotalRecibido,
+        totalRecibido,
         totalDocumento: totals.total,
         tolerance,
         allowPartial: allowAllocations && !isCobranzasContext,
+        targetAppliedAmount: amountToApply,
       });
       if (amountValidationError) {
         setErrorMessage(amountValidationError);
@@ -852,8 +845,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           return false;
         }
 
-        if (Math.abs(totalAllocationAmount - effectiveTotalRecibido) > tolerance) {
-          setErrorMessage('La distribución debe coincidir con el monto recibido.');
+        if (amountToApply - totalRecibido > tolerance) {
+          setErrorMessage('El monto recibido debe ser mayor o igual al monto distribuido.');
           return false;
         }
 
@@ -870,7 +863,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       setErrorMessage(null);
       return true;
     },
-    [allowAllocations, allocationDrafts, cobranzaInstallmentsSnapshot, context, effectiveTotalRecibido, isCobranzasContext, mode, paymentLines, totalAllocationAmount, totals.total],
+    [allowAllocations, allocationDrafts, amountToApply, cobranzaInstallmentsSnapshot, context, isCobranzasContext, mode, paymentLines, totalRecibido, totals.total],
   );
 
   const buildAllocationPayload = useCallback((): CreditInstallmentAllocation[] => {
@@ -921,7 +914,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       const payload: PaymentCollectionPayload = {
         mode: enforcedMode,
-        lines: enforcedMode === 'contado' ? buildPaymentLinesPayload(enforcedMode, effectiveTotalRecibido) : [],
+        lines: enforcedMode === 'contado' ? buildPaymentLinesPayload(enforcedMode, amountToApply) : [],
         cajaDestino: enforcedMode === 'contado' ? cajaDestino || undefined : undefined,
         fechaCobranza: enforcedMode === 'contado' ? fechaCobranza || undefined : undefined,
         notes: notas || undefined,
@@ -950,7 +943,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         setSubmitting(false);
       }
     },
-    [buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionDocumentPreview, effectiveTotalRecibido, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
+    [amountToApply, buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionDocumentPreview, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
   );
 
   const cobrarButtonLabel = 'COBRAR';
@@ -1274,10 +1267,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         <footer className="border-t border-slate-200 bg-white px-4 py-2">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-700">
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Total {formatCurrency(totals.total)}</span>
+              <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Total {formatCurrency(amountToApply)}</span>
               {mode === 'contado' && (
                 <>
-                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Recibido {formatCurrency(effectiveTotalRecibido)}</span>
+                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Recibido {formatCurrency(totalRecibido)}</span>
                   <span className={`rounded-md border px-2.5 py-0.5 ${differenceChipClass}`}>
                     {differenceChipLabel} {formattedDifference}
                   </span>
