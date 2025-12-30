@@ -221,7 +221,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   installmentsState,
   context = 'emision',
 }) => {
-  const { formatPrice } = useCurrency();
+  const { formatPrice, availableCurrencies, baseCurrency } = useCurrency();
   const { state } = useConfigurationContext();
   const { cajas } = state;
   const { status: cajaStatus, aperturaActual } = useCaja();
@@ -353,14 +353,29 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const [fechaCobranza, setFechaCobranza] = useState(() => fechaEmision || getBusinessTodayISODate());
   const [cajaDestino, setCajaDestino] = useState(defaultCajaDestino);
   const [notas, setNotas] = useState('');
+  const [bancoDocumento, setBancoDocumento] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [allocationDrafts, setAllocationDrafts] = useState<CreditInstallmentAllocationInput[]>([]);
 
-  const currencyCode = typeof moneda === 'string' ? moneda : moneda?.code ?? 'PEN';
+  const initialCurrencyCode = (typeof moneda === 'string' ? moneda : moneda?.code ?? 'PEN').toUpperCase();
+  const [currencyCode, setCurrencyCode] = useState(initialCurrencyCode);
   const normalizedCurrencyCode = (currencyCode || 'PEN').toUpperCase();
   const currencyForFormat: Currency = ['PEN', 'USD'].includes(normalizedCurrencyCode) ? (normalizedCurrencyCode as Currency) : 'PEN';
   const formatCurrency = useCallback((amount?: number) => formatPrice(Number(amount ?? 0), currencyForFormat), [currencyForFormat, formatPrice]);
+  const selectedCurrencyDescriptor = useMemo(
+    () => availableCurrencies.find((option) => option.code === currencyForFormat) ?? null,
+    [availableCurrencies, currencyForFormat],
+  );
+  const [exchangeRate, setExchangeRate] = useState<number>(() => selectedCurrencyDescriptor?.rate ?? 1);
+
+  useEffect(() => {
+    if (selectedCurrencyDescriptor) {
+      setExchangeRate(selectedCurrencyDescriptor.rate ?? 1);
+    } else {
+      setExchangeRate(1);
+    }
+  }, [selectedCurrencyDescriptor]);
 
   const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
   const allowAllocations = mode === 'contado' && hasCreditSchedule;
@@ -1093,12 +1108,52 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                         <div className="grid gap-2 sm:grid-cols-2">
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Moneda
-                            <input
-                              value={currencyCode}
-                              readOnly
-                              className="mt-1 w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
-                            />
+                            {availableCurrencies.length <= 1 ? (
+                              <input
+                                value={currencyCode}
+                                readOnly
+                                className="mt-1 w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
+                              />
+                            ) : (
+                              <select
+                                value={currencyCode}
+                                onChange={(event) => setCurrencyCode(event.target.value as Currency)}
+                                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+                              >
+                                {availableCurrencies.map((option) => (
+                                  <option key={option.code} value={option.code}>
+                                    {option.symbol} {option.code}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </label>
+                          <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            Tipo de Cambio
+                            <div className="mt-1 flex items-center gap-1">
+                              <span className="text-[11px] text-slate-600">1 {currencyForFormat}</span>
+                              <span className="text-[11px] text-slate-600">=</span>
+                              <input
+                                type="text"
+                                value={Number.isNaN(exchangeRate) ? '' : exchangeRate}
+                                onChange={(event) => {
+                                  const rawText = event.target.value.replace(',', '.');
+                                  const parsed = Number(rawText);
+                                  if (!rawText) {
+                                    setExchangeRate(Number.NaN);
+                                    return;
+                                  }
+                                  if (Number.isFinite(parsed) && parsed > 0) {
+                                    setExchangeRate(parsed);
+                                  }
+                                }}
+                                className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 appearance-none"
+                              />
+                              <span className="text-[11px] text-slate-600">{baseCurrency?.code ?? 'PEN'}</span>
+                            </div>
+                          </label>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Fecha de cobranza
                             <input
@@ -1108,10 +1163,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
                             />
                           </label>
-                        </div>
-                        <div className="grid gap-2 sm:grid-cols-2">
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                            Caja destino / banco
+                            Caja Destino
                             {cajaAbiertaNombre ? (
                               <>
                                 <input
@@ -1134,6 +1187,18 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                 ))}
                               </select>
                             )}
+                          </label>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            Bancos
+                            <input
+                              type="text"
+                              value={bancoDocumento}
+                              onChange={(event) => setBancoDocumento(event.target.value)}
+                              className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+                              placeholder="Banco destino"
+                            />
                           </label>
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Concepto
