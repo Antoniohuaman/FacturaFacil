@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Banknote, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Banknote, Eye, EyeOff, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { currencyManager, type CurrencyDescriptor } from '@/shared/currency';
 import { useBankAccounts } from '../../hooks/useBankAccounts';
 import { useAccountingAccounts } from '../../hooks/useAccountingAccounts';
@@ -16,7 +16,7 @@ const typeLabel = BANK_ACCOUNT_TYPES.reduce<Record<string, string>>((acc, item) 
 }, {});
 
 export function BankAccountsSection() {
-  const { accounts, loading, error, createAccount, updateAccount, deleteAccount } = useBankAccounts();
+  const { accounts, loading, error, createAccount, updateAccount, deleteAccount, setFavoriteAccount } = useBankAccounts();
   const { accounts: accountingAccounts } = useAccountingAccounts();
   const { toasts, success, error: showError, removeToast } = useToast();
 
@@ -76,8 +76,40 @@ export function BankAccountsSection() {
     }
   };
 
+  const handleToggleVisibility = async (account: BankAccount) => {
+    try {
+      const nextVisible = !account.isVisible;
+      await updateAccount(account.id, {
+        bankId: account.bankId,
+        bankName: account.bankName,
+        accountType: account.accountType,
+        currencyCode: account.currencyCode,
+        description: account.description,
+        accountNumber: account.accountNumber,
+        cci: account.cci,
+        accountingAccountId: account.accountingAccountId,
+        isVisible: nextVisible,
+        isFavorite: account.isFavorite
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo actualizar la visibilidad';
+      showError('Error', message);
+    }
+  };
+
+  const handleToggleFavorite = async (target: BankAccount) => {
+    try {
+      const isCurrentlyFavorite = target.isFavorite ?? false;
+      const nextId = isCurrentlyFavorite ? null : target.id;
+      await setFavoriteAccount(nextId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo actualizar la cuenta favorita';
+      showError('Error', message);
+    }
+  };
+
   const renderContent = () => {
-    if (loading) {
+    if (loading && !accounts.length) {
       return (
         <div className="space-y-2">
           <div className="h-9 w-full animate-pulse rounded-md bg-gray-100" />
@@ -127,7 +159,7 @@ export function BankAccountsSection() {
             <col className="w-[200px]" />
             <col className="w-[220px]" />
             <col className="w-32" />
-            <col className="w-[88px]" />
+            <col className="w-[132px]" />
           </colgroup>
           <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
             <tr>
@@ -171,6 +203,24 @@ export function BankAccountsSection() {
                 </td>
                 <td className="sticky right-0 z-10 bg-white px-3 py-2 text-right shadow-[inset_1px_0_0_0_rgba(229,231,235,1)]">
                   <div className="inline-flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleToggleVisibility(account)}
+                      className="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+                      title={account.isVisible ? 'Ocultar cuenta' : 'Mostrar cuenta'}
+                    >
+                      {account.isVisible ? (
+                        <Eye className="h-4 w-4" />
+                      ) : (
+                        <EyeOff className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleToggleFavorite(account)}
+                      className="rounded-md p-2 text-gray-500 transition hover:bg-yellow-50 hover:text-yellow-500"
+                      title={account.isFavorite ? 'Quitar favorita' : 'Marcar como favorita'}
+                    >
+                      <Star className={`h-4 w-4 ${account.isFavorite ? 'text-yellow-400' : 'text-gray-300'}`} />
+                    </button>
                     <button
                       onClick={() => openEdit(account)}
                       className="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"

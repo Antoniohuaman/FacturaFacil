@@ -41,6 +41,8 @@ const reviveBankAccount = (raw: RawBankAccount, catalog: AccountingAccount[]): B
     accountNumber: raw.accountNumber,
     cci: raw.cci,
     accountingAccountId,
+    isVisible: typeof raw.isVisible === 'boolean' ? raw.isVisible : true,
+    isFavorite: typeof raw.isFavorite === 'boolean' ? raw.isFavorite : false,
     createdAt: new Date(raw.createdAt),
     updatedAt: new Date(raw.updatedAt)
   };
@@ -78,6 +80,7 @@ export interface BankAccountsDataSource {
   create: (empresaId: string, establecimientoId: string | undefined, input: BankAccountInput) => Promise<BankAccount>;
   update: (empresaId: string, establecimientoId: string | undefined, id: string, input: BankAccountInput) => Promise<BankAccount>;
   delete: (empresaId: string, establecimientoId: string | undefined, id: string) => Promise<void>;
+  setFavorite: (empresaId: string, establecimientoId: string | undefined, targetId: string | null) => Promise<BankAccount[]>;
 }
 
 const generateId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `ba-${Date.now()}`);
@@ -94,6 +97,8 @@ export const bankAccountsDataSource: BankAccountsDataSource = {
     const account: BankAccount = {
       id: generateId(),
       ...input,
+      isVisible: typeof input.isVisible === 'boolean' ? input.isVisible : true,
+      isFavorite: typeof input.isFavorite === 'boolean' ? input.isFavorite : false,
       createdAt: now,
       updatedAt: now
     };
@@ -123,5 +128,23 @@ export const bankAccountsDataSource: BankAccountsDataSource = {
     const accounts = await loadAccounts(empresaId, establecimientoId);
     const next = accounts.filter((item) => item.id !== id);
     persistAccounts(empresaId, establecimientoId, next);
+  },
+  async setFavorite(empresaId, establecimientoId, targetId) {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const accounts = await loadAccounts(empresaId, establecimientoId);
+    const now = new Date();
+    const next = accounts.map((account) => {
+      const shouldBeFavorite = targetId !== null && account.id === targetId;
+      if ((account.isFavorite ?? false) === shouldBeFavorite) {
+        return account;
+      }
+      return {
+        ...account,
+        isFavorite: shouldBeFavorite,
+        updatedAt: now
+      };
+    });
+    persistAccounts(empresaId, establecimientoId, next);
+    return next;
   }
 };

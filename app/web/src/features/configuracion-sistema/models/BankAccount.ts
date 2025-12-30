@@ -12,6 +12,8 @@ export interface BankAccount {
   accountNumber: string;
   cci: string;
   accountingAccountId?: string | null;
+  isVisible: boolean;
+  isFavorite: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +27,8 @@ export interface BankAccountInput {
   accountNumber: string;
   cci: string;
   accountingAccountId?: string | null;
+  isVisible?: boolean;
+  isFavorite?: boolean;
 }
 
 export const BANK_ACCOUNT_TYPES: Array<{ value: BankAccountType; label: string }> = [

@@ -11,6 +11,7 @@ interface UseBankAccountsReturn {
   createAccount: (input: BankAccountInput) => Promise<BankAccount>;
   updateAccount: (id: string, input: BankAccountInput) => Promise<BankAccount>;
   deleteAccount: (id: string) => Promise<void>;
+  setFavoriteAccount: (id: string | null) => Promise<void>;
 }
 
 export function useBankAccounts(): UseBankAccountsReturn {
@@ -48,7 +49,6 @@ export function useBankAccounts(): UseBankAccountsReturn {
 
   const createAccount = useCallback(async (input: BankAccountInput) => {
     if (!scopeReady) throw new Error('Selecciona una empresa para registrar cuentas bancarias');
-    setLoading(true);
     setError(null);
     try {
       const created = await bankAccountsDataSource.create(empresaId, establecimientoId, input);
@@ -58,25 +58,41 @@ export function useBankAccounts(): UseBankAccountsReturn {
       const message = err instanceof Error ? err.message : 'No se pudo crear la cuenta bancaria';
       setError(message);
       throw err;
-    } finally {
-      setLoading(false);
     }
   }, [empresaId, establecimientoId, scopeReady]);
 
   const updateAccount = useCallback(async (id: string, input: BankAccountInput) => {
     if (!scopeReady) throw new Error('Selecciona una empresa para actualizar cuentas bancarias');
-    setLoading(true);
     setError(null);
     try {
+      // Optimistic update: reflect changes immediately in local state
+      setAccounts((prev) => {
+        const idx = prev.findIndex((item) => item.id === id);
+        if (idx === -1) return prev;
+        const updated: BankAccount = {
+          ...prev[idx],
+          ...input,
+          updatedAt: new Date()
+        };
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      });
+
       const updated = await bankAccountsDataSource.update(empresaId, establecimientoId, id, input);
       setAccounts((prev) => prev.map((item) => (item.id === id ? updated : item)));
       return updated;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo actualizar la cuenta bancaria';
       setError(message);
+      // Revert by reloading the list on error
+      try {
+        const list = await bankAccountsDataSource.list(empresaId, establecimientoId);
+        setAccounts(list);
+      } catch {
+        // ignore secondary error
+      }
       throw err;
-    } finally {
-      setLoading(false);
     }
   }, [empresaId, establecimientoId, scopeReady]);
 
@@ -96,6 +112,42 @@ export function useBankAccounts(): UseBankAccountsReturn {
     }
   }, [empresaId, establecimientoId, scopeReady]);
 
+  const setFavoriteAccount = useCallback(async (id: string | null) => {
+    if (!scopeReady) throw new Error('Selecciona una empresa para actualizar cuentas bancarias');
+    setError(null);
+    try {
+      // Optimistic favorite update: ensure only one favorite locally
+      setAccounts((prev) => {
+        const now = new Date();
+        return prev.map((account) => {
+          const shouldBeFavorite = id !== null && account.id === id;
+          if ((account.isFavorite ?? false) === shouldBeFavorite) {
+            return account;
+          }
+          return {
+            ...account,
+            isFavorite: shouldBeFavorite,
+            updatedAt: now
+          };
+        });
+      });
+
+      const updatedList = await bankAccountsDataSource.setFavorite(empresaId, establecimientoId, id);
+      setAccounts(updatedList);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo actualizar la cuenta favorita';
+      setError(message);
+      // Revert by reloading on error
+      try {
+        const list = await bankAccountsDataSource.list(empresaId, establecimientoId);
+        setAccounts(list);
+      } catch {
+        // ignore secondary error
+      }
+      throw err;
+    }
+  }, [empresaId, establecimientoId, scopeReady]);
+
   return {
     accounts,
     loading,
@@ -103,6 +155,7 @@ export function useBankAccounts(): UseBankAccountsReturn {
     refresh,
     createAccount,
     updateAccount,
-    deleteAccount
+    deleteAccount,
+    setFavoriteAccount
   };
 }
