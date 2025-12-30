@@ -157,7 +157,7 @@ export function BankAccountsSection() {
                     {account.cci}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-3 py-2 text-gray-700 tabular-nums">{account.accountingAccount}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-gray-700 tabular-nums">{account.accountingAccount || '—'}</td>
                 <td className="sticky right-0 z-10 bg-white px-3 py-2 text-right shadow-[inset_1px_0_0_0_rgba(229,231,235,1)]">
                   <div className="inline-flex items-center gap-1.5">
                     <button
