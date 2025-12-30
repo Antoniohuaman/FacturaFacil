@@ -1055,14 +1055,14 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
               <div className="grid flex-1 min-h-0 grid-cols-1 gap-3 lg:grid-cols-2">
                 <section className="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-semibold text-slate-800">Métodos de pago</h4>
+                    <h4 className="text-sm font-semibold text-slate-800">Medios de pago</h4>
                     <button
                       type="button"
                       onClick={handleAddLine}
                       className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
                       disabled={isProcessing}
                     >
-                      <Plus className="h-4 w-4" /> Nuevo método
+                      <Plus className="h-4 w-4" /> Agregar Medio
                     </button>
                   </div>
                   <div className="mt-2 flex min-h-0 flex-col">
@@ -1078,14 +1078,14 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                   <span className="inline-flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white">
                                     <LineIcon className="h-4 w-4" />
                                   </span>
-                                  Método #{index + 1}
+                                  Medio #{index + 1}
                                 </div>
                                 {paymentLines.length > 1 && (
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveLine(line.id)}
                                     className="rounded-full p-1 text-slate-400 transition hover:bg-white hover:text-slate-600"
-                                    aria-label="Eliminar método"
+                                    aria-label="Eliminar medio"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>
@@ -1093,7 +1093,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               </div>
                               <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
                                 <label className="col-span-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                  Método de pago
+                                  Medio de pago
                                   <select
                                     className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
                                     value={line.method}
