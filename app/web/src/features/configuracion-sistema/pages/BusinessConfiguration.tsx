@@ -26,7 +26,7 @@ export function BusinessConfiguration() {
   const [activeSection, setActiveSection] = useState<BusinessSection>('payments');
 
   const sections = [
-    { id: 'payments' as BusinessSection, label: 'Formas de Pago', icon: CreditCard },
+    { id: 'payments' as BusinessSection, label: 'Pagos', icon: CreditCard },
     { id: 'units' as BusinessSection, label: 'Unidades', icon: Scale },
     { id: 'taxes' as BusinessSection, label: 'Impuestos', icon: Receipt },
     { id: 'categories' as BusinessSection, label: 'Categorías', icon: Tag },
