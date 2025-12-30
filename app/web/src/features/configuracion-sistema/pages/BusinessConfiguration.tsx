@@ -8,7 +8,8 @@ import {
   Scale,
   Receipt,
   Settings,
-  Tag
+  Tag,
+  NotebookPen
 } from 'lucide-react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { UnitsSection } from '../components/business/UnitsSection';
@@ -17,8 +18,10 @@ import { PaymentMethodsSection } from '../components/business/PaymentMethodsSect
 import { SalesPreferencesSection } from '../components/business/SalesPreferencesSection';
 import { CategoriesSection } from '../components/business/CategoriesSection';
 import { BankAccountsSection } from '../components/business/BankAccountsSection';
+import { AccountingDashboard } from '../components/business/AccountingDashboard';
+import { AccountingAccountsSection } from '../components/business/AccountingAccountsSection';
 
-type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'preferences';
+type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'accounting' | 'preferences';
 
 export function BusinessConfiguration() {
   const navigate = useNavigate();
@@ -26,6 +29,7 @@ export function BusinessConfiguration() {
   const { paymentMethods, units, taxes, taxAffectations, categories } = state;
 
   const [activeSection, setActiveSection] = useState<BusinessSection>('payments');
+  const [accountingView, setAccountingView] = useState<'dashboard' | 'accounts'>('dashboard');
 
   const sections = [
     { id: 'payments' as BusinessSection, label: 'Pagos', icon: CreditCard },
@@ -33,6 +37,7 @@ export function BusinessConfiguration() {
     { id: 'units' as BusinessSection, label: 'Unidades', icon: Scale },
     { id: 'taxes' as BusinessSection, label: 'Impuestos', icon: Receipt },
     { id: 'categories' as BusinessSection, label: 'Categorías', icon: Tag },
+    { id: 'accounting' as BusinessSection, label: 'Datos contables', icon: NotebookPen },
     { id: 'preferences' as BusinessSection, label: 'Preferencias', icon: Settings }
   ];
 
@@ -51,7 +56,7 @@ export function BusinessConfiguration() {
             Configuración de Negocio
           </h1>
           <p className="text-gray-600">
-            Configura formas de pago, unidades, impuestos, categorías y preferencias. La moneda base se gestiona desde Datos de Empresa.
+            Configura pagos, datos bancarios, unidades, impuestos, categorías, datos contables y preferencias. La moneda base se gestiona desde Datos de Empresa.
           </p>
         </div>
       </div>
@@ -67,7 +72,12 @@ export function BusinessConfiguration() {
               return (
                 <button
                   key={section.id}
-                  onClick={() => setActiveSection(section.id)}
+                  onClick={() => {
+                    setActiveSection(section.id);
+                    if (section.id !== 'accounting') {
+                      setAccountingView('dashboard');
+                    }
+                  }}
                   className={`
                     flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap
                     transition-colors duration-200
@@ -140,6 +150,14 @@ export function BusinessConfiguration() {
                 dispatch({ type: 'SET_CATEGORIES', payload: categories });
               }}
             />
+          )}
+
+          {activeSection === 'accounting' && (
+            accountingView === 'dashboard' ? (
+              <AccountingDashboard onOpenAccounts={() => setAccountingView('accounts')} />
+            ) : (
+              <AccountingAccountsSection onBack={() => setAccountingView('dashboard')} />
+            )
           )}
 
           {/* Preferences Section */}
