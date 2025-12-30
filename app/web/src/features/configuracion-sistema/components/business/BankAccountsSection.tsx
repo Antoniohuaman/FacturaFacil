@@ -117,10 +117,10 @@ export function BankAccountsSection() {
             <col className="w-32" />
             <col />
             <col className="w-20" />
-            <col className="w-44" />
-            <col className="w-40" />
+            <col className="w-[200px]" />
+            <col className="w-[220px]" />
             <col className="w-32" />
-            <col className="w-24" />
+            <col className="w-[88px]" />
           </colgroup>
           <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
             <tr>
@@ -131,7 +131,7 @@ export function BankAccountsSection() {
               <th scope="col" className="px-3 py-2 text-left font-semibold">N° Cuenta</th>
               <th scope="col" className="px-3 py-2 text-left font-semibold">CCI</th>
               <th scope="col" className="px-3 py-2 text-left font-semibold">Cuenta contable</th>
-              <th scope="col" className="sticky right-0 bg-gray-50 px-3 py-2 text-right font-semibold">Acciones</th>
+              <th scope="col" className="sticky right-0 z-10 bg-gray-50 px-3 py-2 text-right font-semibold shadow-[inset_1px_0_0_0_rgba(229,231,235,1)]">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white text-[13px]">
@@ -141,10 +141,24 @@ export function BankAccountsSection() {
                 <td className="whitespace-nowrap px-3 py-2 text-gray-700">{typeLabel[account.accountType] ?? account.accountType}</td>
                 <td className="truncate px-3 py-2 text-gray-700" title={account.description}>{account.description}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-gray-700">{getCurrencyLabel(account.currencyCode)}</td>
-                <td className="truncate px-3 py-2 font-medium text-gray-900 tabular-nums" title={account.accountNumber}>{account.accountNumber}</td>
-                <td className="truncate px-3 py-2 text-gray-700 tabular-nums" title={account.cci}>{account.cci}</td>
+                <td className="px-3 py-2">
+                  <span
+                    className="block max-w-[200px] truncate font-medium text-gray-900 tabular-nums"
+                    title={account.accountNumber}
+                  >
+                    {account.accountNumber}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <span
+                    className="block max-w-[220px] truncate text-gray-700 tabular-nums"
+                    title={account.cci}
+                  >
+                    {account.cci}
+                  </span>
+                </td>
                 <td className="whitespace-nowrap px-3 py-2 text-gray-700 tabular-nums">{account.accountingAccount}</td>
-                <td className="sticky right-0 bg-white px-3 py-2 text-right shadow-[inset_1px_0_0_0_rgba(229,231,235,1)]">
+                <td className="sticky right-0 z-10 bg-white px-3 py-2 text-right shadow-[inset_1px_0_0_0_rgba(229,231,235,1)]">
                   <div className="inline-flex items-center gap-1.5">
                     <button
                       onClick={() => openEdit(account)}
