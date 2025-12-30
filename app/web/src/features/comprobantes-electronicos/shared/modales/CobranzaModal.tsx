@@ -24,6 +24,7 @@ import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '
 import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models/cobranzas.types';
 import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { getConfiguredPaymentMeans, type PaymentMeanOption } from '../../../../shared/payments/paymentMeans';
 
 const DEFAULT_CAJAS = ['Caja general', 'Caja chica', 'BCP', 'BBVA', 'Interbank'];
 const tolerance = 0.01;
@@ -231,6 +232,17 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const esBoleta = tipoComprobante === 'boleta';
   const isCobranzasContext = context === 'cobranzas';
 
+  const paymentMeansOptions = useMemo<PaymentMeanOption[]>(
+    () => getConfiguredPaymentMeans().filter((option) => option.isVisible),
+    [],
+  );
+
+  const defaultPaymentMeanLabel = useMemo(() => {
+    const explicitDefault = paymentMeansOptions.find((option) => option.isDefault);
+    const fallback = paymentMeansOptions[0];
+    return explicitDefault?.label ?? fallback?.label ?? '';
+  }, [paymentMeansOptions]);
+
   const cobranzasSeries = useMemo(
     () => filterCollectionSeries(state.series, effectiveEstablishmentId || undefined),
     [state.series, effectiveEstablishmentId],
@@ -269,8 +281,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     }
     return getNextCollectionDocument(selectedCollectionSeries);
   }, [selectedCollectionSeries]);
-
-  const resolveInitialMethod = useCallback(() => '', []);
+  const resolveInitialMethod = useCallback(() => defaultPaymentMeanLabel, [defaultPaymentMeanLabel]);
 
   const cobranzaInstallmentsSnapshot = useMemo<CobranzaInstallmentState[]>(() => {
     if (installmentsState?.length) {
@@ -952,6 +963,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                       <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
                         {paymentLines.map((line, index) => {
                           const LineIcon = CreditCard;
+                          const hasPaymentMeans = paymentMeansOptions.length > 0;
                           return (
                             <div key={line.id} className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
                               <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-slate-600">
@@ -979,9 +991,17 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                     className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
                                     value={line.method ?? ''}
                                     onChange={(event) => updateLine(line.id, 'method', event.target.value)}
-                                    disabled
+                                    disabled={!hasPaymentMeans}
                                   >
-                                    <option value="">Sin opciones disponibles</option>
+                                    {!hasPaymentMeans ? (
+                                      <option value="">Sin opciones disponibles</option>
+                                    ) : (
+                                      paymentMeansOptions.map((option) => (
+                                        <option key={option.code} value={option.label}>
+                                          {option.label}
+                                        </option>
+                                      ))
+                                    )}
                                   </select>
                                 </label>
                                 <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">

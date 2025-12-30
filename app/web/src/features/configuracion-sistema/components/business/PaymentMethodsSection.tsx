@@ -7,12 +7,11 @@ import { ConfigurationCard } from '../common/ConfigurationCard';
 import CreditScheduleEditor from './CreditScheduleEditor';
 import type { CreditInstallmentDefinition } from '../../../../shared/payments/paymentTerms';
 import { buildCreditPaymentMethodName, validateCreditScheduleTemplate } from '../../../../shared/payments/paymentTerms';
-
-type PaymentMeanDefinition = {
-  code: string;
-  sunatName: string;
-  defaultLabel: string;
-};
+import {
+  PAYMENT_MEANS_CATALOG,
+  loadPaymentMeansPreferences,
+  savePaymentMeansPreferences,
+} from '../../../../shared/payments/paymentMeans';
 
 const normalizeLabel = (text: string) => {
   const fallback = text
@@ -26,30 +25,7 @@ const normalizeLabel = (text: string) => {
   }
 };
 
-const PAYMENT_MEANS_CATALOG: PaymentMeanDefinition[] = [
-  { code: '001', sunatName: 'Depósito en cuenta', defaultLabel: 'Depósito' },
-  { code: '002', sunatName: 'Giro', defaultLabel: 'Giro' },
-  { code: '003', sunatName: 'Transferencia de fondos', defaultLabel: 'Transferencia' },
-  { code: '004', sunatName: 'Orden de pago', defaultLabel: 'Orden pago' },
-  { code: '005', sunatName: 'Tarjeta de débito', defaultLabel: 'Tarjeta débito' },
-  { code: '006', sunatName: 'Tarjeta de crédito (sistema financiero)', defaultLabel: 'Tarjeta crédito' },
-  { code: '007', sunatName: 'Cheques no negociables / …', defaultLabel: 'Cheque' },
-  { code: '008', sunatName: 'Efectivo (sin obligación de medio)', defaultLabel: 'Efectivo' },
-  { code: '009', sunatName: 'Efectivo (demás casos)', defaultLabel: 'Efectivo' },
-  { code: '010', sunatName: 'Medios de pago usados en comercio exterior', defaultLabel: 'Com. exterior' },
-  { code: '011', sunatName: 'Documentos EDPYMES / cooperativas…', defaultLabel: 'EDPYMES' },
-  { code: '012', sunatName: 'Tarjeta crédito (no sist. financiero)', defaultLabel: 'Tarj. crédito' },
-  { code: '013', sunatName: 'Tarjetas crédito exterior (no domiciliadas)', defaultLabel: 'Tarj. exterior' },
-  { code: '101', sunatName: 'Transferencias – Comercio exterior', defaultLabel: 'Transf. ext' },
-  { code: '102', sunatName: 'Cheques bancarios – Comercio exterior', defaultLabel: 'Cheque ext' },
-  { code: '103', sunatName: 'Orden de pago simple – Comercio exterior', defaultLabel: 'Orden simple' },
-  { code: '104', sunatName: 'Orden de pago documentario – Comercio exterior', defaultLabel: 'Orden doc' },
-  { code: '105', sunatName: 'Remesa simple – Comercio exterior', defaultLabel: 'Remesa simple' },
-  { code: '106', sunatName: 'Remesa documentaria – Comercio exterior', defaultLabel: 'Remesa doc' },
-  { code: '107', sunatName: 'Carta de crédito simple – Comercio exterior', defaultLabel: 'Carta simple' },
-  { code: '108', sunatName: 'Carta de crédito documentario – Comercio exterior', defaultLabel: 'Carta doc' },
-  { code: '999', sunatName: 'Otros medios de pago', defaultLabel: 'Otros' }
-];
+// Catálogo SUNAT de medios de pago se mueve a shared/payments/paymentMeans
 
 interface PaymentMethodsSectionProps {
   paymentMethods: PaymentMethod[];
@@ -62,26 +38,19 @@ export function PaymentMethodsSection({
   onUpdate, 
   isLoading = false 
 }: PaymentMethodsSectionProps) {
+  const initialPrefs = loadPaymentMeansPreferences();
+
   const [activeTab, setActiveTab] = useState<'forms' | 'means'>('forms');
   const [labelByCode, setLabelByCode] = useState<Record<string, string>>(() =>
-    PAYMENT_MEANS_CATALOG.reduce((acc, mean) => {
-      acc[mean.code] = mean.defaultLabel;
-      return acc;
-    }, {} as Record<string, string>)
+    ({ ...initialPrefs.labelByCode })
   );
   const [visibleByCode, setVisibleByCode] = useState<Record<string, boolean>>(() =>
-    PAYMENT_MEANS_CATALOG.reduce((acc, mean) => {
-      acc[mean.code] = true;
-      return acc;
-    }, {} as Record<string, boolean>)
+    ({ ...initialPrefs.visibleByCode })
   );
   const [favoriteByCode, setFavoriteByCode] = useState<Record<string, boolean>>(() =>
-    PAYMENT_MEANS_CATALOG.reduce((acc, mean) => {
-      acc[mean.code] = false;
-      return acc;
-    }, {} as Record<string, boolean>)
+    ({ ...initialPrefs.favoriteByCode })
   );
-  const [defaultCode, setDefaultCode] = useState<string | null>('008');
+  const [defaultCode, setDefaultCode] = useState<string | null>(initialPrefs.defaultCode);
   const [editingMeanCode, setEditingMeanCode] = useState<string | null>(null);
   const [meanDraft, setMeanDraft] = useState<{ label: string; visible: boolean; favorite: boolean; isDefault: boolean }>({
     label: '',
@@ -95,6 +64,15 @@ export function PaymentMethodsSection({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const isCredit = formData.code === 'CREDITO';
+
+  useEffect(() => {
+    savePaymentMeansPreferences({
+      labelByCode,
+      visibleByCode,
+      favoriteByCode,
+      defaultCode,
+    });
+  }, [labelByCode, visibleByCode, favoriteByCode, defaultCode]);
 
   // Agrupar métodos por código normativo (CONTADO vs CREDITO)
   const contadoMethods = paymentMethods.filter(pm => pm.code === 'CONTADO');
