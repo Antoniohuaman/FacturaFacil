@@ -1,13 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Building2,
-  CreditCard,
-  Plus,
-  Smartphone,
-  Trash2,
-  Wallet,
-  X,
-} from 'lucide-react';
+import { CreditCard, Plus, Trash2, X } from 'lucide-react';
 import type {
   CartItem,
   ClientData,
@@ -32,16 +24,6 @@ import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '
 import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models/cobranzas.types';
 import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
-
-const DEFAULT_PAYMENT_OPTIONS = [
-  { id: 'efectivo', label: 'Efectivo', badge: 'bg-green-100 text-green-700', icon: Wallet },
-  { id: 'yape', label: 'Yape', badge: 'bg-purple-100 text-purple-700', icon: Smartphone },
-  { id: 'plin', label: 'Plin', badge: 'bg-indigo-100 text-indigo-700', icon: Smartphone },
-  { id: 'transferencia', label: 'Transferencia', badge: 'bg-blue-100 text-blue-700', icon: Building2 },
-  { id: 'tarjeta_credito', label: 'Tarjeta crédito', badge: 'bg-orange-100 text-orange-700', icon: CreditCard },
-  { id: 'tarjeta_debito', label: 'Tarjeta débito', badge: 'bg-cyan-100 text-cyan-700', icon: CreditCard },
-  { id: 'deposito', label: 'Depósito', badge: 'bg-teal-100 text-teal-700', icon: Building2 },
-];
 
 const DEFAULT_CAJAS = ['Caja general', 'Caja chica', 'BCP', 'BBVA', 'Interbank'];
 const tolerance = 0.01;
@@ -127,15 +109,6 @@ const validateAllocationsLimits = ({ installments, allocations }: AllocationVali
   return null;
 };
 
-type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
-
-interface PaymentOptionMeta {
-  id: string;
-  label: string;
-  badge: string;
-  icon: IconComponent;
-}
-
 interface CobranzaModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -163,53 +136,6 @@ interface PaymentLineForm extends PaymentLineInput {
   reference?: string;
   operationNumber?: string;
 }
-
-const normalizeFormaPagoId = (value?: string) => value?.replace(/^pm-/, '').toLowerCase() ?? '';
-
-const getBadgeByType = (type?: string, label?: string) => {
-  if (label) {
-    const lower = label.toLowerCase();
-    if (lower.includes('yape') || lower.includes('plin')) return 'bg-purple-100 text-purple-700';
-    if (lower.includes('efectivo')) return 'bg-green-100 text-green-700';
-    if (lower.includes('tarjeta')) return 'bg-blue-100 text-blue-700';
-    if (lower.includes('transfer') || lower.includes('banco')) return 'bg-sky-100 text-sky-700';
-    if (lower.includes('depósito') || lower.includes('deposito')) return 'bg-teal-100 text-teal-700';
-  }
-
-  switch (type) {
-    case 'CASH':
-      return 'bg-green-100 text-green-700';
-    case 'CARD':
-      return 'bg-blue-100 text-blue-700';
-    case 'DIGITAL_WALLET':
-      return 'bg-purple-100 text-purple-700';
-    case 'TRANSFER':
-      return 'bg-sky-100 text-sky-700';
-    default:
-      return 'bg-slate-100 text-slate-600';
-  }
-};
-
-const getIconByType = (type?: string, label?: string): IconComponent => {
-  if (label) {
-    const lower = label.toLowerCase();
-    if (lower.includes('yape') || lower.includes('plin')) return Smartphone;
-    if (lower.includes('efectivo')) return Wallet;
-  }
-
-  switch (type) {
-    case 'CASH':
-      return Wallet;
-    case 'CARD':
-      return CreditCard;
-    case 'DIGITAL_WALLET':
-      return Smartphone;
-    case 'TRANSFER':
-      return Building2;
-    default:
-      return CreditCard;
-  }
-};
 
 const sanitizeInstallment = (installment: ComprobanteCreditInstallment) => {
   const pagado = Number(installment.pagado ?? 0);
@@ -296,7 +222,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 }) => {
   const { formatPrice } = useCurrency();
   const { state } = useConfigurationContext();
-  const { paymentMethods, cajas } = state;
+  const { cajas } = state;
   const { status: cajaStatus, aperturaActual } = useCaja();
   const isCajaOpen = cajaStatus === 'abierta';
   const currentEstablishmentId = useCurrentEstablishmentId();
@@ -310,20 +236,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     [state.series, effectiveEstablishmentId],
   );
   const [collectionSeriesId, setCollectionSeriesId] = useState('');
-
-  const availablePaymentOptions = useMemo<PaymentOptionMeta[]>(() => {
-    const active = paymentMethods
-      .filter((pm) => pm.isActive && (pm.display?.showInInvoicing ?? true))
-      .sort((a, b) => (a.display?.displayOrder ?? 0) - (b.display?.displayOrder ?? 0))
-      .map((pm) => ({
-        id: pm.id,
-        label: pm.name,
-        badge: getBadgeByType(pm.type, pm.name),
-        icon: getIconByType(pm.type, pm.name),
-      }));
-
-    return active.length ? active : DEFAULT_PAYMENT_OPTIONS;
-  }, [paymentMethods]);
 
   const cajaOptions = useMemo(() => {
     const enabled = cajas.filter((caja) => caja.habilitada);
@@ -358,28 +270,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     return getNextCollectionDocument(selectedCollectionSeries);
   }, [selectedCollectionSeries]);
 
-  const resolveInitialMethod = useCallback(() => {
-    if (!availablePaymentOptions.length) {
-      return 'efectivo';
-    }
-
-    if (formaPago) {
-      const exactMatch = availablePaymentOptions.find((option) => option.id === formaPago);
-      if (exactMatch) {
-        return exactMatch.id;
-      }
-
-      const normalizedFormaPago = normalizeFormaPagoId(formaPago);
-      const normalizedMatch = availablePaymentOptions.find(
-        (option) => normalizeFormaPagoId(option.id) === normalizedFormaPago || option.label.toLowerCase() === normalizedFormaPago,
-      );
-      if (normalizedMatch) {
-        return normalizedMatch.id;
-      }
-    }
-
-    return availablePaymentOptions[0].id;
-  }, [availablePaymentOptions, formaPago]);
+  const resolveInitialMethod = useCallback(() => '', []);
 
   const cobranzaInstallmentsSnapshot = useMemo<CobranzaInstallmentState[]>(() => {
     if (installmentsState?.length) {
@@ -523,21 +414,12 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const documentTypeInfo = documentSeriesMeta?.documentType;
 
   const formaPagoDisplay = useMemo(() => {
-    if (formaPago) {
-      const normalizedFormaPago = normalizeFormaPagoId(formaPago);
-      const matchedOption = availablePaymentOptions.find((option) => {
-        const normalizedOptionId = normalizeFormaPagoId(option.id);
-        const normalizedLabel = option.label.toLowerCase();
-        return option.id === formaPago || normalizedOptionId === normalizedFormaPago || normalizedLabel === normalizedFormaPago;
-      });
-      if (matchedOption) {
-        return matchedOption.label;
-      }
-      return formaPago;
+    if (creditPaymentMethodLabel) {
+      return creditPaymentMethodLabel;
     }
-
-    return creditPaymentMethodLabel ?? null;
-  }, [availablePaymentOptions, creditPaymentMethodLabel, formaPago]);
+    const normalized = formaPago?.trim();
+    return normalized && normalized.length > 0 ? normalized : null;
+  }, [creditPaymentMethodLabel, formaPago]);
 
   const fechaComprobanteDisplay = creditTerms?.fechaVencimientoGlobal?.trim() ? creditTerms.fechaVencimientoGlobal : null;
 
@@ -690,7 +572,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       return workingLines.map((line) => ({
         id: line.id,
-        method: line.method,
+        method: line.method ?? '',
         amount: line.amount,
         bank: line.bank,
         reference: line.reference,
@@ -820,7 +702,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         return false;
       }
 
-      const invalidLine = paymentLines.find((line) => !line.method || !line.amount || line.amount <= 0);
+      const invalidLine = paymentLines.find((line) => !Number.isFinite(line.amount) || line.amount <= 0);
       if (invalidLine) {
         setErrorMessage('Cada método necesita un monto mayor a 0.');
         return false;
@@ -1069,8 +951,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                     <div className="flex-1 overflow-hidden">
                       <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
                         {paymentLines.map((line, index) => {
-                          const optionMeta = availablePaymentOptions.find((option) => option.id === line.method) ?? availablePaymentOptions[0];
-                          const LineIcon = optionMeta?.icon ?? CreditCard;
+                          const LineIcon = CreditCard;
                           return (
                             <div key={line.id} className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
                               <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-slate-600">
@@ -1096,14 +977,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                   Medio de pago
                                   <select
                                     className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                    value={line.method}
+                                    value={line.method ?? ''}
                                     onChange={(event) => updateLine(line.id, 'method', event.target.value)}
+                                    disabled
                                   >
-                                    {availablePaymentOptions.map((option) => (
-                                      <option key={option.id} value={option.id}>
-                                        {option.label}
-                                      </option>
-                                    ))}
+                                    <option value="">Sin opciones disponibles</option>
                                   </select>
                                 </label>
                                 <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
