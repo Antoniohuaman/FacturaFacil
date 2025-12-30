@@ -14,6 +14,18 @@ type PaymentMeanDefinition = {
   defaultLabel: string;
 };
 
+const normalizeLabel = (text: string) => {
+  const fallback = text
+    .replace(/Cr�dito/g, 'Crédito')
+    .replace(/d�as/g, 'días');
+  try {
+    // Attempt to recover UTF-8 strings that arrived mojibake-encoded
+    return decodeURIComponent(escape(fallback));
+  } catch {
+    return fallback;
+  }
+};
+
 const PAYMENT_MEANS_CATALOG: PaymentMeanDefinition[] = [
   { code: '001', sunatName: 'Depósito en cuenta', defaultLabel: 'Depósito' },
   { code: '002', sunatName: 'Giro', defaultLabel: 'Giro' },
@@ -79,7 +91,7 @@ export function PaymentMethodsSection({
   });
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<{ code: string; name: string; creditSchedule: CreditInstallmentDefinition[] }>({ code: '', name: '', creditSchedule: [] });
+  const [formData, setFormData] = useState<{ code: string; name: string; creditSchedule: CreditInstallmentDefinition[] }>({ code: 'CREDITO', name: '', creditSchedule: [] });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const isCredit = formData.code === 'CREDITO';
@@ -105,7 +117,7 @@ export function PaymentMethodsSection({
   }, [editingMeanCode, labelByCode, visibleByCode, favoriteByCode, defaultCode]);
 
   const resetForm = () => {
-    setFormData({ code: '', name: '', creditSchedule: [] });
+    setFormData({ code: 'CREDITO', name: '', creditSchedule: [] });
     setEditingId(null);
     setShowForm(false);
     setFormErrors([]);
@@ -120,28 +132,6 @@ export function PaymentMethodsSection({
     setEditingId(method.id);
     setShowForm(true);
     setFormErrors([]);
-  };
-
-  const handleCodeChange = (code: string) => {
-    setFormData(prev => {
-      if (code === 'CREDITO') {
-        return {
-          ...prev,
-          code,
-          name: buildCreditPaymentMethodName(prev.creditSchedule),
-        };
-      }
-
-      return {
-        ...prev,
-        code,
-        creditSchedule: [],
-        name: prev.code === 'CREDITO' ? '' : prev.name,
-      };
-    });
-    if (formErrors.length) {
-      setFormErrors([]);
-    }
   };
 
   const handleCreditScheduleChange = (schedule: CreditInstallmentDefinition[]) => {
@@ -351,11 +341,11 @@ export function PaymentMethodsSection({
   const deleteMethod = async (methodId: string) => {
     const method = paymentMethods.find(pm => pm.id === methodId);
     if (method?.isDefault) {
-      alert('No se puede eliminar el método de pago por defecto');
+      alert('No se puede eliminar el pago por defecto');
       return;
     }
 
-    if (confirm('¿Estás seguro de que deseas eliminar este método de pago?')) {
+    if (confirm('¿Estás seguro de que deseas eliminar este pago?')) {
       const updatedMethods = paymentMethods.filter(pm => pm.id !== methodId);
       await onUpdate(updatedMethods);
     }
@@ -380,55 +370,47 @@ export function PaymentMethodsSection({
         {/* Form */}
         {showForm && (
           <ConfigurationCard
-            title={editingId ? 'Editar Método de Pago' : 'Nuevo Método de Pago'}
+            title={editingId ? 'Editar crédito' : 'Nuevo crédito'}
           >
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
               {/* Informational help removed per request */}
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Código Normativo *
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                    Código normativo
                   </label>
-                  <select
-                    value={formData.code}
-                    onChange={(e) => handleCodeChange(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                    required
-                    disabled={!!editingId}
-                  >
-                    <option value="">Selecciona un código</option>
-                    <option value="CONTADO">CONTADO - Pago inmediato</option>
-                    <option value="CREDITO">CREDITO - Pago diferido</option>
-                  </select>
-                  {/* helper text removed */}
+                  <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800">
+                    <span>CRÉDITO</span>
+                    <span className="text-xs font-normal text-slate-500">Fijo para creación de cuotas</span>
+                  </div>
+                  <input type="hidden" value="CREDITO" />
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Nombre Personalizado *
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                    Nombre personalizado
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={handleNameInputChange}
                     readOnly={isCredit}
-                    className={`w-full rounded-md border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
                       isCredit ? 'cursor-not-allowed bg-gray-50 text-gray-600' : ''
                     }`}
                     placeholder={isCredit ? 'Crédito - define días de crédito' : 'Ej: Efectivo, Yape, Tarjeta Visa, Crédito 30 días...'}
                     required
                     maxLength={50}
                   />
-                  {/* helper text removed */}
                 </div>
               </div>
 
               {formData.code === 'CREDITO' && (
-                <div className="space-y-2 rounded-lg border border-slate-200 bg-white/50 p-4">
+                <div className="space-y-2 rounded-lg border border-slate-200 bg-white/50 p-3">
                   <div>
                     <h5 className="text-sm font-semibold text-slate-700">Cronograma por defecto (opcional)</h5>
-                    <p className="text-xs text-slate-500">Define cuotas sugeridas para este método de pago. Podrás ajustarlas durante la emisión.</p>
+                    <p className="text-xs text-slate-500">Define cuotas sugeridas para este crédito. Podrás ajustarlas durante la emisión.</p>
                   </div>
                   <CreditScheduleEditor value={formData.creditSchedule} onChange={handleCreditScheduleChange} />
                   {formErrors.length > 0 && (
@@ -443,19 +425,19 @@ export function PaymentMethodsSection({
                 </div>
               )}
 
-              <div className="flex items-center justify-end space-x-3 border-t border-gray-200 pt-4">
+              <div className="flex items-center justify-end space-x-2 border-t border-gray-200 pt-3">
                 <button
                   type="button"
                   onClick={resetForm}
                   disabled={isSubmitting}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !formData.code.trim() || !formData.name.trim()}
-                  className="flex items-center space-x-2 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                   {isSubmitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
                   <span>{editingId ? 'Actualizar' : 'Crear'}</span>
@@ -468,7 +450,10 @@ export function PaymentMethodsSection({
         {/* Métodos de CONTADO */}
         {contadoMethods.length > 0 && (
           <div>
-            {/* Header removed to reduce visual clutter (icon and count badge) */}
+            <h4 className="mb-3 flex items-center space-x-2 text-sm font-semibold text-gray-700">
+              <CreditCard className="h-4 w-4 text-green-600" />
+              <span>Pagos al contado</span>
+            </h4>
             <div className="space-y-2">
               {contadoMethods.map((method) => (
                 <div key={method.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-green-300">
@@ -478,7 +463,7 @@ export function PaymentMethodsSection({
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">{method.name}</span>
+                        <span className="font-medium text-gray-900">{normalizeLabel(method.name)}</span>
                         <span className="rounded bg-green-50 px-2 py-1 font-mono text-xs text-gray-500">
                           {method.code}
                         </span>
@@ -545,9 +530,9 @@ export function PaymentMethodsSection({
           <div>
             <h4 className="mb-3 flex items-center space-x-2 text-md font-medium text-gray-700">
               <CreditCard className="h-4 w-4 text-blue-600" />
-              <span>Métodos de Pago a CRÉDITO</span>
+              <span>Créditos</span>
               <span className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800">
-                {creditoMethods.length} método{creditoMethods.length !== 1 ? 's' : ''}
+                {creditoMethods.length} crédito{creditoMethods.length !== 1 ? 's' : ''}
               </span>
             </h4>
             <div className="space-y-2">
@@ -559,7 +544,7 @@ export function PaymentMethodsSection({
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">{method.name}</span>
+                        <span className="font-medium text-gray-900">{normalizeLabel(method.name)}</span>
                         <span className="rounded bg-blue-50 px-2 py-1 font-mono text-xs text-gray-500">
                           {method.code}
                         </span>
@@ -624,13 +609,13 @@ export function PaymentMethodsSection({
         {paymentMethods.length === 0 && (
           <div className="py-12 text-center">
             <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">No hay métodos de pago</h3>
-            <p className="mt-2 text-gray-500">Agrega tu primer método de pago personalizado</p>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">No hay créditos</h3>
+            <p className="mt-2 text-gray-500">Agrega tu primer crédito</p>
             <button
               onClick={() => setShowForm(true)}
               className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
             >
-              Agregar Método de Pago
+              Nuevo crédito
             </button>
           </div>
         )}
@@ -748,7 +733,7 @@ export function PaymentMethodsSection({
             className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
-            <span>Agregar Método</span>
+            <span>Nuevo crédito</span>
           </button>
         )}
       </div>
