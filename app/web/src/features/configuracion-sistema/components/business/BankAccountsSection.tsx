@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Banknote, Pencil, Plus, Trash2 } from 'lucide-react';
 import { currencyManager, type CurrencyDescriptor } from '@/shared/currency';
-import { useConfigurationContext } from '../../context/ConfigurationContext';
 import { useBankAccounts } from '../../hooks/useBankAccounts';
 import type { BankAccount } from '../../models/BankAccount';
 import { BANK_ACCOUNT_TYPES, BANK_CATALOG } from '../../models/BankAccount';
@@ -16,14 +15,20 @@ const typeLabel = BANK_ACCOUNT_TYPES.reduce<Record<string, string>>((acc, item) 
 }, {});
 
 export function BankAccountsSection() {
-  const { state } = useConfigurationContext();
   const { accounts, loading, error, createAccount, updateAccount, deleteAccount } = useBankAccounts();
   const { toasts, success, error: showError, removeToast } = useToast();
 
   const currencyOptions: CurrencyDescriptor[] = useMemo(() => {
-    if (state.currencies && state.currencies.length) return state.currencies;
     return currencyManager.getSnapshot().currencies;
-  }, [state.currencies]);
+  }, []);
+
+  const getCurrencyLabel = (code?: string) => {
+    if (!code) return '-';
+    const upper = code.toUpperCase();
+    if (['PEN', 'SOL', 'SOLES', 'S/'].includes(upper)) return 'Sol';
+    if (upper === 'USD') return 'USD';
+    return upper;
+  };
 
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<BankAccount | null>(null);
@@ -105,53 +110,60 @@ export function BankAccountsSection() {
     }
 
     return (
-      <div className="overflow-hidden rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <table className="min-w-full table-fixed divide-y divide-gray-200 text-sm">
+          <colgroup>
+            <col className="w-40" />
+            <col className="w-32" />
+            <col />
+            <col className="w-20" />
+            <col className="w-44" />
+            <col className="w-40" />
+            <col className="w-32" />
+            <col className="w-24" />
+          </colgroup>
+          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
             <tr>
-              <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Banco</th>
-              <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Tipo de cuenta</th>
-              <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Descripción</th>
-              <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Moneda</th>
-              <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">N° Cuenta</th>
-              <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">CCI</th>
-              <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Cuenta contable</th>
-              <th scope="col" className="px-4 py-3 text-right font-semibold text-gray-700">Acciones</th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">Banco</th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">Tipo</th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">Descripción</th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">Moneda</th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">N° Cuenta</th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">CCI</th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">Cuenta contable</th>
+              <th scope="col" className="sticky right-0 bg-gray-50 px-3 py-2 text-right font-semibold">Acciones</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
-            {accounts.map((account) => {
-              const currencyLabel = currencyOptions.find((c) => c.code === account.currencyCode)?.name ?? account.currencyCode;
-              return (
-                <tr key={account.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-900">{account.bankName}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-700">{typeLabel[account.accountType] ?? account.accountType}</td>
-                  <td className="px-4 py-3 text-gray-700">{account.description}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-700">{account.currencyCode} · {currencyLabel}</td>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900 tracking-tight">{account.accountNumber}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-700">{account.cci}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-700">{account.accountingAccount}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-2">
-                      <button
-                        onClick={() => openEdit(account)}
-                        className="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
-                        title="Editar"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeleting(account)}
-                        className="rounded-md p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+          <tbody className="divide-y divide-gray-200 bg-white text-[13px]">
+            {accounts.map((account) => (
+              <tr key={account.id} className="hover:bg-gray-50">
+                <td className="truncate px-3 py-2 text-gray-900" title={account.bankName}>{account.bankName}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-gray-700">{typeLabel[account.accountType] ?? account.accountType}</td>
+                <td className="truncate px-3 py-2 text-gray-700" title={account.description}>{account.description}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-gray-700">{getCurrencyLabel(account.currencyCode)}</td>
+                <td className="truncate px-3 py-2 font-medium text-gray-900 tabular-nums" title={account.accountNumber}>{account.accountNumber}</td>
+                <td className="truncate px-3 py-2 text-gray-700 tabular-nums" title={account.cci}>{account.cci}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-gray-700 tabular-nums">{account.accountingAccount}</td>
+                <td className="sticky right-0 bg-white px-3 py-2 text-right shadow-[inset_1px_0_0_0_rgba(229,231,235,1)]">
+                  <div className="inline-flex items-center gap-1.5">
+                    <button
+                      onClick={() => openEdit(account)}
+                      className="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+                      title="Editar"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeleting(account)}
+                      className="rounded-md p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -160,22 +172,19 @@ export function BankAccountsSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-            <Banknote className="h-4 w-4" />
-            Información bancaria
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-0.5">
+          <div className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
+            <Banknote className="h-4 w-4 text-blue-600" />
+            <span>Cuentas bancarias</span>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Cuentas bancarias</h2>
-            <p className="text-sm text-gray-600">Administra las cuentas asociadas a tu empresa y establecimiento.</p>
-          </div>
+          <p className="text-sm text-gray-600">Gestiona cuentas bancarias del negocio.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">{accounts.length} cuentas</div>
           <button
             onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
             Agregar cuenta bancaria
