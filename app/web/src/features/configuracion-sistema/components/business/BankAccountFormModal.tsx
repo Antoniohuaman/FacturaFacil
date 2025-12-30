@@ -1,0 +1,292 @@
+import { useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
+import type { CurrencyDescriptor } from '@/shared/currency';
+import type { BankAccount, BankAccountInput, BankAccountType } from '../../models/BankAccount';
+import { BANK_ACCOUNT_TYPES } from '../../models/BankAccount';
+
+interface BankAccountFormModalProps {
+  isOpen: boolean;
+  mode: 'create' | 'edit';
+  initialData?: BankAccount;
+  bankOptions: Array<{ id: string; name: string }>;
+  currencyOptions: CurrencyDescriptor[];
+  onClose: () => void;
+  onSubmit: (values: BankAccountInput) => Promise<void>;
+}
+
+interface FormState {
+  bankId: string;
+  accountType: BankAccountType;
+  currencyCode: string;
+  description: string;
+  accountNumber: string;
+  cci: string;
+  accountingAccount: string;
+}
+
+type FormErrors = Partial<Record<keyof FormState, string>>;
+
+const emptyForm: FormState = {
+  bankId: '',
+  accountType: 'CHECKING',
+  currencyCode: '',
+  description: '',
+  accountNumber: '',
+  cci: '',
+  accountingAccount: ''
+};
+
+export function BankAccountFormModal({
+  isOpen,
+  mode,
+  initialData,
+  bankOptions,
+  currencyOptions,
+  onClose,
+  onSubmit
+}: BankAccountFormModalProps) {
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && initialData) {
+      setForm({
+        bankId: initialData.bankId,
+        accountType: initialData.accountType,
+        currencyCode: initialData.currencyCode,
+        description: initialData.description,
+        accountNumber: initialData.accountNumber,
+        cci: initialData.cci,
+        accountingAccount: initialData.accountingAccount
+      });
+      setErrors({});
+    } else if (isOpen) {
+      setForm(emptyForm);
+      setErrors({});
+    }
+  }, [initialData, isOpen]);
+
+  const bankNameById = useMemo(() => {
+    return bankOptions.reduce<Record<string, string>>((acc, bank) => {
+      acc[bank.id] = bank.name;
+      return acc;
+    }, {});
+  }, [bankOptions]);
+
+  const sanitizeDigits = (value: string) => value.replace(/\D+/g, '');
+
+  const validate = (draft: FormState): FormErrors => {
+    const next: FormErrors = {};
+    if (!draft.bankId) next.bankId = 'Selecciona un banco';
+    if (!draft.accountType) next.accountType = 'Selecciona el tipo de cuenta';
+    if (!draft.currencyCode) next.currencyCode = 'Selecciona la moneda';
+    if (!draft.description.trim()) next.description = 'Ingresa una descripción';
+    if (!draft.accountNumber.trim()) next.accountNumber = 'Ingresa el número de cuenta';
+    if (!draft.cci.trim()) next.cci = 'Ingresa el CCI';
+    if (!draft.accountingAccount.trim()) {
+      next.accountingAccount = 'Ingresa la cuenta contable';
+    } else if (!/^\d{1,12}$/.test(draft.accountingAccount)) {
+      next.accountingAccount = 'Solo dígitos, máximo 12';
+    }
+    if (draft.accountNumber && /\D/.test(draft.accountNumber)) {
+      next.accountNumber = 'Solo dígitos';
+    }
+    if (draft.cci && /\D/.test(draft.cci)) {
+      next.cci = 'Solo dígitos';
+    }
+    return next;
+  };
+
+  const handleClose = () => {
+    if (submitting) return;
+    onClose();
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const draft = {
+      ...form,
+      accountNumber: sanitizeDigits(form.accountNumber),
+      cci: sanitizeDigits(form.cci),
+      accountingAccount: sanitizeDigits(form.accountingAccount)
+    };
+
+    const validation = validate(draft);
+    if (Object.keys(validation).length) {
+      setErrors(validation);
+      setForm((prev) => ({ ...prev, ...draft }));
+      return;
+    }
+
+    setErrors({});
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        bankId: draft.bankId,
+        bankName: bankNameById[draft.bankId] || draft.bankId,
+        accountType: draft.accountType,
+        currencyCode: draft.currencyCode,
+        description: draft.description.trim(),
+        accountNumber: draft.accountNumber,
+        cci: draft.cci,
+        accountingAccount: draft.accountingAccount
+      });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black bg-opacity-40" onClick={handleClose} />
+      <div className="relative w-full max-w-3xl rounded-xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Información bancaria</p>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {mode === 'create' ? 'Agregar información bancaria' : 'Editar información bancaria'}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="text-gray-400 transition hover:text-gray-600"
+            aria-label="Cerrar"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Banco *</label>
+              <select
+                value={form.bankId}
+                onChange={(e) => setForm((prev) => ({ ...prev, bankId: e.target.value }))}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Selecciona un banco</option>
+                {bankOptions.map((bank) => (
+                  <option key={bank.id} value={bank.id}>
+                    {bank.name}
+                  </option>
+                ))}
+              </select>
+              {errors.bankId && <p className="text-xs text-red-600">{errors.bankId}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Tipo de cuenta *</label>
+              <select
+                value={form.accountType}
+                onChange={(e) => setForm((prev) => ({ ...prev, accountType: e.target.value as BankAccountType }))}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {BANK_ACCOUNT_TYPES.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+              {errors.accountType && <p className="text-xs text-red-600">{errors.accountType}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Moneda *</label>
+              <select
+                value={form.currencyCode}
+                onChange={(e) => setForm((prev) => ({ ...prev, currencyCode: e.target.value }))}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Selecciona la moneda</option>
+                {currencyOptions.map((currency) => (
+                  <option key={currency.code} value={currency.code}>
+                    {currency.code} · {currency.name}
+                  </option>
+                ))}
+              </select>
+              {errors.currencyCode && <p className="text-xs text-red-600">{errors.currencyCode}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Descripción *</label>
+              <input
+                type="text"
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                maxLength={60}
+                placeholder="Alias o etiqueta"
+              />
+              {errors.description && <p className="text-xs text-red-600">{errors.description}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Número de cuenta *</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.accountNumber}
+                onChange={(e) => setForm((prev) => ({ ...prev, accountNumber: sanitizeDigits(e.target.value) }))}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                maxLength={30}
+                placeholder="Solo dígitos"
+              />
+              {errors.accountNumber && <p className="text-xs text-red-600">{errors.accountNumber}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">CCI *</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.cci}
+                onChange={(e) => setForm((prev) => ({ ...prev, cci: sanitizeDigits(e.target.value) }))}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                maxLength={30}
+                placeholder="Código de cuenta interbancario"
+              />
+              {errors.cci && <p className="text-xs text-red-600">{errors.cci}</p>}
+            </div>
+
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-sm font-medium text-gray-700">Cuenta contable *</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.accountingAccount}
+                onChange={(e) => setForm((prev) => ({ ...prev, accountingAccount: sanitizeDigits(e.target.value).slice(0, 12) }))}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                maxLength={12}
+                placeholder="Solo dígitos, máximo 12"
+              />
+              {errors.accountingAccount && <p className="text-xs text-red-600">{errors.accountingAccount}</p>}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={submitting}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
+            >
+              {submitting && <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />}
+              <span>Guardar</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

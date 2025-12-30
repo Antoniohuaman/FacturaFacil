@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
+  Banknote,
   CreditCard,
   Scale,
   Receipt,
@@ -15,8 +16,9 @@ import { TaxesSection } from '../components/business/TaxesSection';
 import { PaymentMethodsSection } from '../components/business/PaymentMethodsSection';
 import { SalesPreferencesSection } from '../components/business/SalesPreferencesSection';
 import { CategoriesSection } from '../components/business/CategoriesSection';
+import { BankAccountsSection } from '../components/business/BankAccountsSection';
 
-type BusinessSection = 'payments' | 'units' | 'taxes' | 'categories' | 'preferences';
+type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'preferences';
 
 export function BusinessConfiguration() {
   const navigate = useNavigate();
@@ -27,6 +29,7 @@ export function BusinessConfiguration() {
 
   const sections = [
     { id: 'payments' as BusinessSection, label: 'Pagos', icon: CreditCard },
+    { id: 'bankAccounts' as BusinessSection, label: 'Información bancaria', icon: Banknote },
     { id: 'units' as BusinessSection, label: 'Unidades', icon: Scale },
     { id: 'taxes' as BusinessSection, label: 'Impuestos', icon: Receipt },
     { id: 'categories' as BusinessSection, label: 'Categorías', icon: Tag },
@@ -91,6 +94,10 @@ export function BusinessConfiguration() {
                 dispatch({ type: 'SET_PAYMENT_METHODS', payload: methods });
               }}
             />
+          )}
+
+          {activeSection === 'bankAccounts' && (
+            <BankAccountsSection />
           )}
 
           {/* Units Section */}
