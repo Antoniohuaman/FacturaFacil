@@ -24,7 +24,7 @@ interface FormState {
   description: string;
   accountNumber: string;
   cci: string;
-  accountingAccount?: string;
+  accountingAccountId?: string | null;
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -36,7 +36,7 @@ const emptyForm: FormState = {
   description: '',
   accountNumber: '',
   cci: '',
-  accountingAccount: ''
+  accountingAccountId: null
 };
 
 export function BankAccountFormModal({
@@ -61,7 +61,7 @@ export function BankAccountFormModal({
   const handleAccountingModalSubmit = async (input: AccountingAccountInput) => {
     const created = await createAccountingAccount(input);
     await refreshAccountingAccounts();
-    setForm((prev) => ({ ...prev, accountingAccount: created.code }));
+    setForm((prev) => ({ ...prev, accountingAccountId: created.id }));
     setShowAccountingModal(false);
   };
 
@@ -74,7 +74,7 @@ export function BankAccountFormModal({
         description: initialData.description,
         accountNumber: initialData.accountNumber,
         cci: initialData.cci,
-        accountingAccount: initialData.accountingAccount ?? ''
+        accountingAccountId: initialData.accountingAccountId ?? null
       });
       setErrors({});
     } else if (isOpen) {
@@ -121,7 +121,7 @@ export function BankAccountFormModal({
       ...form,
       accountNumber: sanitizeDigits(form.accountNumber),
       cci: sanitizeDigits(form.cci),
-      accountingAccount: form.accountingAccount?.trim() || ''
+      accountingAccountId: form.accountingAccountId || null
     };
 
     const validation = validate(draft);
@@ -142,7 +142,7 @@ export function BankAccountFormModal({
         description: draft.description.trim(),
         accountNumber: draft.accountNumber,
         cci: draft.cci,
-        accountingAccount: draft.accountingAccount || undefined
+        accountingAccountId: draft.accountingAccountId ?? null
       });
       onClose();
     } finally {
@@ -280,13 +280,13 @@ export function BankAccountFormModal({
                 {accountingAccounts.length ? (
                   <div className="flex items-center gap-2">
                     <select
-                      value={form.accountingAccount ?? ''}
-                      onChange={(e) => setForm((prev) => ({ ...prev, accountingAccount: e.target.value }))}
+                      value={form.accountingAccountId ?? ''}
+                      onChange={(e) => setForm((prev) => ({ ...prev, accountingAccountId: e.target.value || null }))}
                       className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Sin cuenta contable</option>
                       {accountingAccounts.map((account) => (
-                        <option key={account.id} value={account.code}>
+                        <option key={account.id} value={account.id}>
                           {account.code}
                         </option>
                       ))}

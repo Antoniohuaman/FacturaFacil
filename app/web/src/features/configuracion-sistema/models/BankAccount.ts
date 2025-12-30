@@ -11,7 +11,7 @@ export interface BankAccount {
   description: string;
   accountNumber: string;
   cci: string;
-  accountingAccount?: string;
+  accountingAccountId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,7 +24,7 @@ export interface BankAccountInput {
   description: string;
   accountNumber: string;
   cci: string;
-  accountingAccount?: string;
+  accountingAccountId?: string | null;
 }
 
 export const BANK_ACCOUNT_TYPES: Array<{ value: BankAccountType; label: string }> = [

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Banknote, Pencil, Plus, Trash2 } from 'lucide-react';
 import { currencyManager, type CurrencyDescriptor } from '@/shared/currency';
 import { useBankAccounts } from '../../hooks/useBankAccounts';
+import { useAccountingAccounts } from '../../hooks/useAccountingAccounts';
 import type { BankAccount } from '../../models/BankAccount';
 import { BANK_ACCOUNT_TYPES, BANK_CATALOG } from '../../models/BankAccount';
 import { BankAccountFormModal } from './BankAccountFormModal';
@@ -16,6 +17,7 @@ const typeLabel = BANK_ACCOUNT_TYPES.reduce<Record<string, string>>((acc, item) 
 
 export function BankAccountsSection() {
   const { accounts, loading, error, createAccount, updateAccount, deleteAccount } = useBankAccounts();
+  const { accounts: accountingAccounts } = useAccountingAccounts();
   const { toasts, success, error: showError, removeToast } = useToast();
 
   const currencyOptions: CurrencyDescriptor[] = useMemo(() => {
@@ -109,6 +111,11 @@ export function BankAccountsSection() {
       );
     }
 
+    const accountingById = accountingAccounts.reduce<Record<string, string>>((acc, item) => {
+      acc[item.id] = item.code;
+      return acc;
+    }, {});
+
     return (
       <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="min-w-full table-fixed divide-y divide-gray-200 text-sm">
@@ -157,7 +164,11 @@ export function BankAccountsSection() {
                     {account.cci}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-3 py-2 text-gray-700 tabular-nums">{account.accountingAccount || '—'}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-gray-700 tabular-nums">
+                  {account.accountingAccountId && accountingById[account.accountingAccountId]
+                    ? accountingById[account.accountingAccountId]
+                    : '—'}
+                </td>
                 <td className="sticky right-0 z-10 bg-white px-3 py-2 text-right shadow-[inset_1px_0_0_0_rgba(229,231,235,1)]">
                   <div className="inline-flex items-center gap-1.5">
                     <button

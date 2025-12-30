@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useAccountingAccounts } from '../../hooks/useAccountingAccounts';
+import { useBankAccounts } from '../../hooks/useBankAccounts';
 import type { AccountingAccount } from '../../models/AccountingAccount';
 import { AccountingAccountModal } from './AccountingAccountModal';
 import { ConfirmationModal } from '../common/ConfirmationModal';
@@ -11,6 +12,7 @@ interface AccountingAccountsSectionProps {
 
 export function AccountingAccountsSection({ onBack }: AccountingAccountsSectionProps) {
   const { accounts, loading, error, createAccount, updateAccount, deleteAccount } = useAccountingAccounts();
+  const { accounts: bankAccounts } = useBankAccounts();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<AccountingAccount | null>(null);
   const [deleting, setDeleting] = useState<AccountingAccount | null>(null);
@@ -46,6 +48,17 @@ export function AccountingAccountsSection({ onBack }: AccountingAccountsSectionP
   const handleConfirmDelete = async () => {
     if (!deleting) return;
     try {
+      const linkedCount = bankAccounts.filter(
+        (bankAccount) => bankAccount.accountingAccountId === deleting.id
+      ).length;
+
+      if (linkedCount > 0) {
+        setFormError(
+          `No se puede eliminar porque está asociada a ${linkedCount} cuenta${linkedCount > 1 ? 's' : ''} bancaria. Desvincúlala primero.`
+        );
+        return;
+      }
+
       await deleteAccount(deleting.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo eliminar la cuenta contable';
