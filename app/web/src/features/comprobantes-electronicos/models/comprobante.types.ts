@@ -182,6 +182,8 @@ export interface PaymentCollectionPayload {
   collectionDocument?: CollectionDocumentPayload;
   allocations?: CreditInstallmentAllocation[];
   attachments?: PaymentAttachmentMetadata[];
+  collectionCurrency?: Currency;
+  collectionExchangeRate?: number;
 }
 
 export type ComprobantePaymentTerms = PaymentTermsPayload;

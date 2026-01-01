@@ -25,6 +25,7 @@ import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '
 import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models/cobranzas.types';
 import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { getRate } from '@/shared/currency';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '../../../../shared/payments/paymentMeans';
 import { AttachmentsSection } from '../components/AttachmentsSection';
 
@@ -231,7 +232,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   installmentsState,
   context = 'emision',
 }) => {
-  const { formatPrice, availableCurrencies, baseCurrency } = useCurrency();
+  const { formatPrice, availableCurrencies } = useCurrency();
   const { state } = useConfigurationContext();
   const { cajas } = state;
   const { status: cajaStatus, aperturaActual } = useCaja();
@@ -389,50 +390,95 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachmentsError, setAttachmentsError] = useState<string | null>(null);
 
-  const initialCurrencyCode = (typeof moneda === 'string' ? moneda : moneda?.code ?? 'PEN').toUpperCase();
-  const [currencyCode, setCurrencyCode] = useState(initialCurrencyCode);
-  const normalizedCurrencyCode = (currencyCode || 'PEN').toUpperCase();
-  const currencyForFormat: Currency = ['PEN', 'USD'].includes(normalizedCurrencyCode) ? (normalizedCurrencyCode as Currency) : 'PEN';
-  const formatCurrency = useCallback((amount?: number) => formatPrice(Number(amount ?? 0), currencyForFormat), [currencyForFormat, formatPrice]);
-  const selectedCurrencyDescriptor = useMemo(
-    () => availableCurrencies.find((option) => option.code === currencyForFormat) ?? null,
-    [availableCurrencies, currencyForFormat],
+  const documentCurrencyCode = useMemo<Currency>(() => {
+    const raw = (typeof moneda === 'string' ? moneda : moneda?.code) ?? 'PEN';
+    return raw.toUpperCase() as Currency;
+  }, [moneda]);
+  const [collectionCurrencyCode, setCollectionCurrencyCode] = useState<Currency>(documentCurrencyCode);
+  const [exchangeRateInput, setExchangeRateInput] = useState('1');
+  const [exchangeRateValue, setExchangeRateValue] = useState(1);
+  const formatCollectionCurrency = useCallback(
+    (amount?: number) => formatPrice(Number(amount ?? 0), collectionCurrencyCode),
+    [collectionCurrencyCode, formatPrice],
   );
-  const [exchangeRate, setExchangeRate] = useState<number>(() => selectedCurrencyDescriptor?.rate ?? 1);
+
+  const convertCollectionToDocument = useCallback(
+    (amount: number) => {
+      if (!Number.isFinite(amount)) {
+        return 0;
+      }
+      if (collectionCurrencyCode === documentCurrencyCode) {
+        return clampCurrency(amount);
+      }
+      return clampCurrency(amount * exchangeRateValue);
+    },
+    [collectionCurrencyCode, documentCurrencyCode, exchangeRateValue],
+  );
+
+  const convertDocumentToCollection = useCallback(
+    (amount: number) => {
+      if (!Number.isFinite(amount)) {
+        return 0;
+      }
+      if (collectionCurrencyCode === documentCurrencyCode || exchangeRateValue <= 0) {
+        return clampCurrency(amount);
+      }
+      return clampCurrency(amount / exchangeRateValue);
+    },
+    [collectionCurrencyCode, documentCurrencyCode, exchangeRateValue],
+  );
+
+  const exchangeRateLocked = collectionCurrencyCode === documentCurrencyCode;
+  const collectionExchangeRate = exchangeRateLocked ? 1 : exchangeRateValue;
 
   useEffect(() => {
-    if (selectedCurrencyDescriptor) {
-      setExchangeRate(selectedCurrencyDescriptor.rate ?? 1);
-    } else {
-      setExchangeRate(1);
+    if (exchangeRateLocked) {
+      setExchangeRateValue(1);
+      setExchangeRateInput('1');
+      return;
     }
-  }, [selectedCurrencyDescriptor]);
+    const referenceRate = getRate(collectionCurrencyCode, documentCurrencyCode);
+    const normalizedRate = Number.isFinite(referenceRate) && referenceRate > 0 ? referenceRate : 1;
+    const formattedRate = Number(normalizedRate.toFixed(6));
+    setExchangeRateValue(formattedRate);
+    setExchangeRateInput(formattedRate.toString());
+  }, [collectionCurrencyCode, documentCurrencyCode, exchangeRateLocked]);
 
   const totalRecibido = useMemo(() => paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0), [paymentLines]);
+  const totalRecibidoDocument = useMemo(
+    () => convertCollectionToDocument(totalRecibido),
+    [convertCollectionToDocument, totalRecibido],
+  );
   const allowAllocations = mode === 'contado' && hasCreditSchedule;
   const totalAllocationAmount = useMemo(
     () => clampCurrency(allocationDrafts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0)),
     [allocationDrafts],
   );
   const amountToApply = useMemo(() => (allowAllocations ? totalAllocationAmount : clampCurrency(totals.total)), [allowAllocations, totalAllocationAmount, totals.total]);
+  const amountToApplyInCollection = useMemo(
+    () => convertDocumentToCollection(amountToApply),
+    [amountToApply, convertDocumentToCollection],
+  );
 
   const summaryDifferenceMeta = useMemo(() => {
     if (allowAllocations) {
-      const delta = clampCurrency(totalRecibido - amountToApply);
-      if (delta > tolerance) {
-        return { label: 'Vuelto', className: 'bg-sky-100 text-sky-700', amount: delta };
+      const deltaDocument = clampCurrency(totalRecibidoDocument - amountToApply);
+      if (deltaDocument > tolerance) {
+        return { label: 'Vuelto', className: 'bg-sky-100 text-sky-700', amountDocument: deltaDocument };
       }
-      if (delta < -tolerance) {
-        return { label: 'Falta', className: 'bg-amber-100 text-amber-800', amount: Math.abs(delta) };
+      if (deltaDocument < -tolerance) {
+        return { label: 'Falta', className: 'bg-amber-100 text-amber-800', amountDocument: Math.abs(deltaDocument) };
       }
-      return { label: 'Diferencia', className: 'bg-emerald-100 text-emerald-700', amount: 0 };
+      return { label: 'Diferencia', className: 'bg-emerald-100 text-emerald-700', amountDocument: 0 };
     }
 
-    const referenceAmount = isCobranzasContext ? amountToApply : totalRecibido;
-    const rawDifference = totals.total - referenceAmount;
-    const differenceStatus = rawDifference > tolerance ? 'faltante' : rawDifference < -tolerance ? 'vuelto' : 'ajustado';
+    const referenceAmountDocument = isCobranzasContext ? amountToApply : totalRecibidoDocument;
+    const rawDifferenceDocument = totals.total - referenceAmountDocument;
+    const differenceStatus = rawDifferenceDocument > tolerance ? 'faltante' : rawDifferenceDocument < -tolerance ? 'vuelto' : 'ajustado';
     const label = isCobranzasContext ? 'Saldo restante' : 'Diferencia';
-    const amount = clampCurrency(isCobranzasContext ? Math.max(0, rawDifference) : Math.abs(rawDifference));
+    const amountDocument = clampCurrency(
+      isCobranzasContext ? Math.max(0, rawDifferenceDocument) : Math.abs(rawDifferenceDocument),
+    );
     const className = isCobranzasContext
       ? 'bg-slate-100 text-slate-700'
       : differenceStatus === 'ajustado'
@@ -441,10 +487,14 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       ? 'bg-amber-100 text-amber-800'
       : 'bg-sky-100 text-sky-700';
 
-    return { label, className, amount };
-  }, [allowAllocations, amountToApply, isCobranzasContext, totalRecibido, totals.total]);
+    return { label, className, amountDocument };
+  }, [allowAllocations, amountToApply, isCobranzasContext, totalRecibidoDocument, totals.total]);
 
-  const formattedDifference = formatCurrency(summaryDifferenceMeta.amount);
+  const differenceAmountForDisplay = useMemo(
+    () => convertDocumentToCollection(summaryDifferenceMeta.amountDocument),
+    [convertDocumentToCollection, summaryDifferenceMeta.amountDocument],
+  );
+  const formattedDifference = formatCollectionCurrency(differenceAmountForDisplay);
   const differenceChipClass = summaryDifferenceMeta.className;
   const differenceChipLabel = summaryDifferenceMeta.label;
 
@@ -548,7 +598,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         {
           key: 'moneda',
           label: 'Moneda',
-          value: currencyCode,
+          value: documentCurrencyCode,
         },
       ];
 
@@ -557,7 +607,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       }
 
       return items;
-    }, [cliente, currencyCode, comprobanteDisplay, comprobanteNumberDisplay, fechaComprobanteDisplay, fechaEmision, formaPagoDisplay],
+    }, [cliente, comprobanteDisplay, comprobanteNumberDisplay, documentCurrencyCode, fechaComprobanteDisplay, fechaEmision, formaPagoDisplay],
   );
 
   const handleAllocationChange = useCallback((allocations: CreditInstallmentAllocationInput[]) => {
@@ -639,19 +689,19 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       return workingLines.map((line) => ({
         id: line.id,
         method: line.method ?? '',
-        amount: line.amount,
+        amount: convertCollectionToDocument(line.amount),
         operationNumber: line.operationNumber,
       }));
     },
-    [alignPaymentLinesWithTarget, paymentLines],
+    [alignPaymentLinesWithTarget, convertCollectionToDocument, paymentLines],
   );
 
   const allocationMismatch = useMemo(() => {
     if (!allowAllocations) {
       return false;
     }
-    return amountToApply - totalRecibido > tolerance;
-  }, [allowAllocations, amountToApply, totalRecibido]);
+    return amountToApply - totalRecibidoDocument > tolerance;
+  }, [allowAllocations, amountToApply, totalRecibidoDocument]);
 
   const allocationsReady = !allowAllocations || (allocationDrafts.length > 0 && !allocationMismatch);
 
@@ -660,7 +710,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       return null;
     }
     if (allocationDrafts.length === 0) {
-      return totalRecibido > tolerance
+      return totalRecibidoDocument > tolerance
         ? ({ tone: 'warn', text: 'Selecciona al menos una cuota para aplicar el cobro.' } as const)
         : null;
     }
@@ -671,7 +721,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       tone: 'ok',
       text: isCobranzasContext ? 'El cobro se aplicará a las cuotas seleccionadas.' : 'El adelanto se aplicará a las cuotas seleccionadas.',
     } as const;
-  }, [allowAllocations, allocationDrafts.length, allocationMismatch, isCobranzasContext, totalRecibido]);
+  }, [allowAllocations, allocationDrafts.length, allocationMismatch, isCobranzasContext, totalRecibidoDocument]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -694,7 +744,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     setErrorMessage(null);
     setAttachments([]);
     setAttachmentsError(null);
-  }, [defaultCajaDestino, fechaEmision, isOpen, resolveInitialMethod, totals.total]);
+    setCollectionCurrencyCode(documentCurrencyCode);
+    setExchangeRateInput('1');
+    setExchangeRateValue(1);
+  }, [defaultCajaDestino, documentCurrencyCode, fechaEmision, isOpen, resolveInitialMethod, totals.total]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -809,7 +862,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       const amountValidationError = validateCollectedAmount({
         context,
-        totalRecibido,
+        totalRecibido: totalRecibidoDocument,
         totalDocumento: totals.total,
         tolerance,
         allowPartial: allowAllocations && !isCobranzasContext,
@@ -826,7 +879,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           return false;
         }
 
-        if (amountToApply - totalRecibido > tolerance) {
+        if (amountToApply - totalRecibidoDocument > tolerance) {
           setErrorMessage('El monto recibido debe ser mayor o igual al monto distribuido.');
           return false;
         }
@@ -844,7 +897,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       setErrorMessage(null);
       return true;
     },
-    [allowAllocations, allocationDrafts, amountToApply, cobranzaInstallmentsSnapshot, context, isCobranzasContext, mode, paymentLines, totalRecibido, totals.total],
+    [allowAllocations, allocationDrafts, amountToApply, cobranzaInstallmentsSnapshot, context, isCobranzasContext, mode, paymentLines, totalRecibidoDocument, totals.total],
   );
 
   const buildAllocationPayload = useCallback((): CreditInstallmentAllocation[] => {
@@ -897,7 +950,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       const payload: PaymentCollectionPayload = {
         mode: enforcedMode,
-        lines: enforcedMode === 'contado' ? buildPaymentLinesPayload(enforcedMode, amountToApply) : [],
+        lines:
+          enforcedMode === 'contado'
+            ? buildPaymentLinesPayload(enforcedMode, amountToApplyInCollection)
+            : [],
         cajaDestino: enforcedMode === 'contado' ? cajaDestino || undefined : undefined,
         fechaCobranza: enforcedMode === 'contado' ? fechaCobranza || undefined : undefined,
         notes: notas || undefined,
@@ -910,6 +966,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
             : undefined,
         allocations: enforcedMode === 'contado' ? buildAllocationPayload() : undefined,
         attachments: attachmentsPayload,
+        collectionCurrency: collectionCurrencyCode,
+        collectionExchangeRate,
       };
 
       try {
@@ -927,7 +985,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         setSubmitting(false);
       }
     },
-    [amountToApply, attachments, buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionDocumentPreview, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
+    [amountToApplyInCollection, attachments, buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionCurrencyCode, collectionDocumentPreview, collectionExchangeRate, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
   );
 
   const cobrarButtonLabel = 'COBRAR';
@@ -986,7 +1044,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                       <div className="min-h-0">
                         <CreditInstallmentsTable
                           installments={normalizedInstallments}
-                          currency={currencyForFormat}
+                          currency={documentCurrencyCode}
                           mode={allowAllocations ? 'allocation' : 'readonly'}
                           allocations={allowAllocations ? allocationDrafts : undefined}
                           onChangeAllocations={allowAllocations ? handleAllocationChange : undefined}
@@ -1204,14 +1262,14 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                             Moneda
                             {availableCurrencies.length <= 1 ? (
                               <input
-                                value={currencyCode}
+                                value={collectionCurrencyCode}
                                 readOnly
                                 className="mt-1 w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
                               />
                             ) : (
                               <select
-                                value={currencyCode}
-                                onChange={(event) => setCurrencyCode(event.target.value as Currency)}
+                                value={collectionCurrencyCode}
+                                onChange={(event) => setCollectionCurrencyCode(event.target.value as Currency)}
                                 className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
                               >
                                 {availableCurrencies.map((option) => (
@@ -1225,25 +1283,29 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Tipo de Cambio
                             <div className="mt-1 flex items-center gap-1">
-                              <span className="text-[11px] text-slate-600">1 {currencyForFormat}</span>
+                              <span className="text-[11px] text-slate-600">1 {collectionCurrencyCode}</span>
                               <span className="text-[11px] text-slate-600">=</span>
                               <input
                                 type="text"
-                                value={Number.isNaN(exchangeRate) ? '' : exchangeRate}
+                                value={exchangeRateLocked ? '1' : exchangeRateInput}
                                 onChange={(event) => {
-                                  const rawText = event.target.value.replace(',', '.');
-                                  const parsed = Number(rawText);
-                                  if (!rawText) {
-                                    setExchangeRate(Number.NaN);
+                                  if (exchangeRateLocked) {
                                     return;
                                   }
+                                  const rawValue = event.target.value;
+                                  setExchangeRateInput(rawValue);
+                                  const normalized = rawValue.replace(',', '.');
+                                  const parsed = Number(normalized);
                                   if (Number.isFinite(parsed) && parsed > 0) {
-                                    setExchangeRate(parsed);
+                                    setExchangeRateValue(parsed);
                                   }
                                 }}
-                                className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 appearance-none"
+                                disabled={exchangeRateLocked}
+                                className={`w-full rounded-md border px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 appearance-none ${
+                                  exchangeRateLocked ? 'border-slate-100 bg-slate-50' : 'border-slate-200'
+                                }`}
                               />
-                              <span className="text-[11px] text-slate-600">{baseCurrency?.code ?? 'PEN'}</span>
+                              <span className="text-[11px] text-slate-600">{documentCurrencyCode}</span>
                             </div>
                           </label>
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -1329,10 +1391,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         <footer className="border-t border-slate-200 bg-white px-4 py-2">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-700">
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Total {formatCurrency(amountToApply)}</span>
+              <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Total {formatCollectionCurrency(amountToApplyInCollection)}</span>
               {mode === 'contado' && (
                 <>
-                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Recibido {formatCurrency(totalRecibido)}</span>
+                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Recibido {formatCollectionCurrency(totalRecibido)}</span>
                   <span className={`rounded-md border px-2.5 py-0.5 ${differenceChipClass}`}>
                     {differenceChipLabel} {formattedDifference}
                   </span>
