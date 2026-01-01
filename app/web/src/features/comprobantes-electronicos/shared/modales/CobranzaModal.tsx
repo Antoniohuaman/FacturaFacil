@@ -145,11 +145,7 @@ interface CobranzaModalProps {
   context?: CobranzaModalContextType;
 }
 
-interface PaymentLineForm extends PaymentLineInput {
-  bank?: string;
-  reference?: string;
-  operationNumber?: string;
-}
+type PaymentLineForm = Omit<PaymentLineInput, 'bank' | 'reference'>;
 
 const sanitizeInstallment = (installment: ComprobanteCreditInstallment) => {
   const pagado = Number(installment.pagado ?? 0);
@@ -641,8 +637,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         id: line.id,
         method: line.method ?? '',
         amount: line.amount,
-        bank: line.bank,
-        reference: line.reference,
         operationNumber: line.operationNumber,
       }));
     },
@@ -685,7 +679,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         id: 'line-1',
         method: initialMethodId,
         amount: UNSET_PAYMENT_AMOUNT,
-        bank: defaultCajaDestino,
       },
     ]);
     setFechaCobranza(fechaEmision || getBusinessTodayISODate());
@@ -773,10 +766,9 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         id: `line-${Date.now()}`,
         method: resolveInitialMethod(),
         amount: UNSET_PAYMENT_AMOUNT,
-        bank: defaultCajaDestino,
       },
     ]);
-  }, [defaultCajaDestino, resolveInitialMethod]);
+  }, [resolveInitialMethod]);
 
   const handleRemoveLine = useCallback((id: string) => {
     setPaymentLines((prev) => (prev.length === 1 ? prev : prev.filter((line) => line.id !== id)));
@@ -1111,33 +1103,13 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                   />
                                 </label>
                                 <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                  Destino / banco
-                                  <input
-                                    type="text"
-                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                    value={line.bank ?? ''}
-                                    onChange={(event) => updateLine(line.id, 'bank', event.target.value)}
-                                    placeholder="Caja o banco"
-                                  />
-                                </label>
-                                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                                   N° operación
                                   <input
                                     type="text"
                                     className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
                                     value={line.operationNumber ?? ''}
                                     onChange={(event) => updateLine(line.id, 'operationNumber', event.target.value)}
-                                    placeholder="Referencia opcional"
-                                  />
-                                </label>
-                                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                  Referencia
-                                  <input
-                                    type="text"
-                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                    value={line.reference ?? ''}
-                                    onChange={(event) => updateLine(line.id, 'reference', event.target.value)}
-                                    placeholder="Voucher o comentario"
+                                    placeholder="Ingresa el número o referencia"
                                   />
                                 </label>
                               </div>
