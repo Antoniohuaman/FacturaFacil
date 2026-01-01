@@ -167,6 +167,12 @@ export interface CollectionDocumentPayload {
   issuedAt?: string;
 }
 
+export interface PaymentAttachmentMetadata {
+  name: string;
+  size: number;
+  type?: string;
+}
+
 export interface PaymentCollectionPayload {
   mode: PaymentCollectionMode;
   lines: PaymentLineInput[];
@@ -175,6 +181,7 @@ export interface PaymentCollectionPayload {
   fechaCobranza?: string;
   collectionDocument?: CollectionDocumentPayload;
   allocations?: CreditInstallmentAllocation[];
+  attachments?: PaymentAttachmentMetadata[];
 }
 
 export type ComprobantePaymentTerms = PaymentTermsPayload;

@@ -26,13 +26,25 @@ import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models
 import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '../../../../shared/payments/paymentMeans';
+import { AttachmentsSection } from '../components/AttachmentsSection';
 
 const DEFAULT_CAJAS = ['Caja general', 'Caja chica', 'BCP', 'BBVA', 'Interbank'];
 const tolerance = 0.01;
 const UNSET_PAYMENT_AMOUNT = Number.NaN;
 type CobranzaModalContextType = 'emision' | 'cobranzas';
+const MAX_ATTACHMENT_FILES = 3;
+const MAX_ATTACHMENT_SIZE_MB = 5;
+const ALLOWED_ATTACHMENT_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'docx'];
 
 const clampCurrency = (value: number) => Number(Number(value ?? 0).toFixed(2));
+const buildAttachmentMetadata = (file: File) => {
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  return {
+    name: file.name,
+    size: file.size,
+    type: file.type || extension || undefined,
+  };
+};
 
 interface ValidateCollectedAmountInput {
   context: CobranzaModalContextType;
@@ -375,6 +387,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [allocationDrafts, setAllocationDrafts] = useState<CreditInstallmentAllocationInput[]>([]);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachmentsError, setAttachmentsError] = useState<string | null>(null);
 
   const initialCurrencyCode = (typeof moneda === 'string' ? moneda : moneda?.code ?? 'PEN').toUpperCase();
   const [currencyCode, setCurrencyCode] = useState(initialCurrencyCode);
@@ -555,6 +569,15 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     setAllocationDrafts([]);
   }, []);
 
+  const handleAttachmentsChange = useCallback((nextFiles: File[]) => {
+    setAttachments(nextFiles);
+    setAttachmentsError(null);
+  }, []);
+
+  const handleAttachmentsError = useCallback((message: string | null) => {
+    setAttachmentsError(message);
+  }, []);
+
   const alignPaymentLinesWithTarget = useCallback((lines: PaymentLineForm[], targetAmount: number): PaymentLineForm[] => {
     if (!lines.length) {
       return lines;
@@ -673,6 +696,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     setBankSelectionTouched(false);
     setAllocationDrafts([]);
     setErrorMessage(null);
+    setAttachments([]);
+    setAttachmentsError(null);
   }, [defaultCajaDestino, fechaEmision, isOpen, resolveInitialMethod, totals.total]);
 
   useEffect(() => {
@@ -873,6 +898,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         return;
       }
 
+      const attachmentsPayload = attachments.length ? attachments.map((file) => buildAttachmentMetadata(file)) : undefined;
+
       const payload: PaymentCollectionPayload = {
         mode: enforcedMode,
         lines: enforcedMode === 'contado' ? buildPaymentLinesPayload(enforcedMode, amountToApply) : [],
@@ -887,6 +914,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
               }
             : undefined,
         allocations: enforcedMode === 'contado' ? buildAllocationPayload() : undefined,
+        attachments: attachmentsPayload,
       };
 
       try {
@@ -904,7 +932,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         setSubmitting(false);
       }
     },
-    [amountToApply, buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionDocumentPreview, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
+    [amountToApply, attachments, buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionDocumentPreview, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
   );
 
   const cobrarButtonLabel = 'COBRAR';
@@ -1283,6 +1311,18 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
                             />
                           </label>
+                        </div>
+                        <div className="mt-2 border-t border-slate-100 pt-2">
+                          <AttachmentsSection
+                            title="Adjuntos"
+                            files={attachments}
+                            onChange={handleAttachmentsChange}
+                            onErrorChange={handleAttachmentsError}
+                            errorMessage={attachmentsError}
+                            maxFiles={MAX_ATTACHMENT_FILES}
+                            maxFileSizeMb={MAX_ATTACHMENT_SIZE_MB}
+                            allowedExtensions={ALLOWED_ATTACHMENT_EXTENSIONS}
+                          />
                         </div>
                       </div>
                     )}
