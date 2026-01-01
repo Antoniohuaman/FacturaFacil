@@ -1054,67 +1054,81 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                         {paymentLines.map((line, index) => {
                           const LineIcon = CreditCard;
                           const hasPaymentMeans = paymentMeansOptions.length > 0;
+                          const methodSelectId = `payment-method-${line.id}`;
+                          const amountInputId = `payment-amount-${line.id}`;
+                          const operationInputId = `payment-operation-${line.id}`;
                           return (
-                            <div key={line.id} className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
-                              <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-slate-600">
-                                <div className="flex items-center gap-1.5 text-slate-900">
-                                  <span className="inline-flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white">
-                                    <LineIcon className="h-4 w-4" />
-                                  </span>
-                                  Medio #{index + 1}
+                            <div key={line.id} className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                              <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
+                                <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                  <LineIcon className="h-3.5 w-3.5 text-slate-500" />
+                                  #{index + 1}
+                                </span>
+                                <div className="flex flex-1 flex-wrap items-center gap-2 md:flex-nowrap">
+                                  <div className="min-w-[150px] flex-1">
+                                    <label className="sr-only" htmlFor={methodSelectId}>
+                                      Medio de pago
+                                    </label>
+                                    <select
+                                      id={methodSelectId}
+                                      className="h-9 w-full rounded border border-slate-200 bg-white px-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+                                      value={line.method ?? ''}
+                                      onChange={(event) => updateLine(line.id, 'method', event.target.value)}
+                                      disabled={!hasPaymentMeans}
+                                      aria-label="Medio de pago"
+                                    >
+                                      {!hasPaymentMeans ? (
+                                        <option value="">Sin opciones disponibles</option>
+                                      ) : (
+                                        paymentMeansOptions.map((option) => (
+                                          <option key={option.code} value={option.label}>
+                                            {option.label}
+                                          </option>
+                                        ))
+                                      )}
+                                    </select>
+                                  </div>
+                                  <div className="w-full min-w-[110px] md:w-28">
+                                    <label className="sr-only" htmlFor={amountInputId}>
+                                      Monto
+                                    </label>
+                                    <input
+                                      id={amountInputId}
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      className="h-9 w-full rounded border border-slate-200 px-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+                                      value={Number.isNaN(line.amount) ? '' : line.amount}
+                                      onChange={(event) => updateLine(line.id, 'amount', Number(event.target.value))}
+                                      placeholder="Monto"
+                                      aria-label="Monto"
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-[150px]">
+                                    <label className="sr-only" htmlFor={operationInputId}>
+                                      N° operación
+                                    </label>
+                                    <input
+                                      id={operationInputId}
+                                      type="text"
+                                      className="h-9 w-full rounded border border-slate-200 px-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+                                      value={line.operationNumber ?? ''}
+                                      onChange={(event) => updateLine(line.id, 'operationNumber', event.target.value)}
+                                      placeholder="Ingresa el número o referencia"
+                                      aria-label="N° operación"
+                                    />
+                                  </div>
                                 </div>
                                 {paymentLines.length > 1 && (
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveLine(line.id)}
-                                    className="rounded-full p-1 text-slate-400 transition hover:bg-white hover:text-slate-600"
+                                    className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-white hover:text-slate-600"
                                     aria-label="Eliminar medio"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>
                                 )}
-                              </div>
-                              <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
-                                <label className="col-span-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                  Medio de pago
-                                  <select
-                                    className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                    value={line.method ?? ''}
-                                    onChange={(event) => updateLine(line.id, 'method', event.target.value)}
-                                    disabled={!hasPaymentMeans}
-                                  >
-                                    {!hasPaymentMeans ? (
-                                      <option value="">Sin opciones disponibles</option>
-                                    ) : (
-                                      paymentMeansOptions.map((option) => (
-                                        <option key={option.code} value={option.label}>
-                                          {option.label}
-                                        </option>
-                                      ))
-                                    )}
-                                  </select>
-                                </label>
-                                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                  Monto
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                    value={Number.isNaN(line.amount) ? '' : line.amount}
-                                    onChange={(event) => updateLine(line.id, 'amount', Number(event.target.value))}
-                                  />
-                                </label>
-                                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                  N° operación
-                                  <input
-                                    type="text"
-                                    className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
-                                    value={line.operationNumber ?? ''}
-                                    onChange={(event) => updateLine(line.id, 'operationNumber', event.target.value)}
-                                    placeholder="Ingresa el número o referencia"
-                                  />
-                                </label>
                               </div>
                             </div>
                           );
