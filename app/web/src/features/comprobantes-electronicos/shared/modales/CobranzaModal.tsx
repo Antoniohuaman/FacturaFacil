@@ -17,6 +17,7 @@ import type {
 } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useBankAccounts } from '../../../configuracion-sistema/hooks/useBankAccounts';
 import { useCaja } from '../../../control-caja/context/CajaContext';
 import { useCurrentEstablishmentId } from '../../../../contexts/UserSessionContext';
 import { filterCollectionSeries, getNextCollectionDocument } from '../../../../shared/series/collectionSeries';
@@ -231,6 +232,21 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const docTypeLabel = tipoComprobante === 'factura' ? 'Factura' : 'Boleta';
   const esBoleta = tipoComprobante === 'boleta';
   const isCobranzasContext = context === 'cobranzas';
+  const { accounts: bankAccounts, loading: bankAccountsLoading } = useBankAccounts();
+  const visibleBankAccounts = useMemo(() => bankAccounts.filter((account) => account.isVisible), [bankAccounts]);
+  const bankAccountOptions = useMemo(
+    () =>
+      visibleBankAccounts.map((account) => {
+        const currencyLabel = typeof account.currencyCode === 'string' ? account.currencyCode.toUpperCase() : account.currencyCode;
+        return {
+          id: account.id,
+          label: `${account.bankName} - ${account.accountNumber} - ${currencyLabel}`,
+        };
+      }),
+    [visibleBankAccounts],
+  );
+  const bankAccountOptionsMap = useMemo(() => new Map(bankAccountOptions.map((option) => [option.id, option])), [bankAccountOptions]);
+  const hasVisibleBankAccounts = bankAccountOptions.length > 0;
 
   const paymentMeansOptions = useMemo<PaymentMeanOption[]>(
     () => getConfiguredPaymentMeans().filter((option) => option.isVisible),
@@ -354,6 +370,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const [cajaDestino, setCajaDestino] = useState(defaultCajaDestino);
   const [notas, setNotas] = useState('');
   const [bancoDocumento, setBancoDocumento] = useState('');
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
+  const [bankSelectionTouched, setBankSelectionTouched] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [allocationDrafts, setAllocationDrafts] = useState<CreditInstallmentAllocationInput[]>([]);
@@ -650,9 +668,44 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     setFechaCobranza(fechaEmision || getBusinessTodayISODate());
     setCajaDestino(defaultCajaDestino);
     setNotas('');
+    setBancoDocumento('');
+    setSelectedBankAccountId(null);
+    setBankSelectionTouched(false);
     setAllocationDrafts([]);
     setErrorMessage(null);
   }, [defaultCajaDestino, fechaEmision, isOpen, resolveInitialMethod, totals.total]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    if (selectedBankAccountId && !bankAccountOptionsMap.has(selectedBankAccountId)) {
+      setSelectedBankAccountId(null);
+    }
+  }, [bankAccountOptionsMap, isOpen, selectedBankAccountId]);
+
+  useEffect(() => {
+    if (!isOpen || bankSelectionTouched || selectedBankAccountId) {
+      return;
+    }
+    const preferredAccount = visibleBankAccounts.find((account) => account.isFavorite) ?? visibleBankAccounts[0];
+    if (preferredAccount) {
+      setSelectedBankAccountId(preferredAccount.id);
+    }
+  }, [bankSelectionTouched, isOpen, selectedBankAccountId, visibleBankAccounts]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    if (!selectedBankAccountId) {
+      setBancoDocumento((current) => (current ? '' : current));
+      return;
+    }
+    const selectedOption = bankAccountOptionsMap.get(selectedBankAccountId);
+    const nextValue = selectedOption?.label ?? '';
+    setBancoDocumento((current) => (current === nextValue ? current : nextValue));
+  }, [bankAccountOptionsMap, isOpen, selectedBankAccountId]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -1192,13 +1245,33 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                         <div className="grid gap-2 sm:grid-cols-2">
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Bancos
-                            <input
-                              type="text"
-                              value={bancoDocumento}
-                              onChange={(event) => setBancoDocumento(event.target.value)}
-                              className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-                              placeholder="Banco destino"
-                            />
+                            <select
+                              value={selectedBankAccountId ?? ''}
+                              onChange={(event) => {
+                                const nextValue = event.target.value;
+                                setSelectedBankAccountId(nextValue || null);
+                                setBankSelectionTouched(true);
+                              }}
+                              className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+                              disabled={!hasVisibleBankAccounts}
+                              title={bancoDocumento || 'Sin banco'}
+                            >
+                              <option value="">Sin banco</option>
+                              {bankAccountOptions.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            {!hasVisibleBankAccounts ? (
+                              <span className="mt-1 block text-[10px] font-medium text-amber-700">
+                                No hay cuentas bancarias visibles. Configuralas en Informacion bancaria.
+                              </span>
+                            ) : (
+                              bankAccountsLoading && (
+                                <span className="mt-1 block text-[10px] text-slate-500">Actualizando cuentas bancarias...</span>
+                              )
+                            )}
                           </label>
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Concepto
