@@ -986,7 +986,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                 </div>
 
                 <div className="flex min-h-0 flex-col gap-2" aria-label={creditScheduleLabel || undefined}>
-                  {creditTerms?.fechaVencimientoGlobal && <p className="text-xs text-slate-500">Vence: {creditTerms.fechaVencimientoGlobal}</p>}
                   {hasCreditSchedule ? (
                     <>
                       <div className="min-h-0">
@@ -1004,11 +1003,11 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                         />
                       </div>
                       {allowAllocations && (
-                        <div className="mt-2 text-[11px]">
-                          <div className="flex flex-wrap items-center gap-2">
+                        <div className="mt-1 text-[11px]">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             {allocationStatus && (
                               <div
-                                className={`rounded-md px-3 py-1 font-semibold ${
+                                className={`rounded-md px-2.5 py-0.5 font-semibold leading-tight ${
                                   allocationStatus.tone === 'ok'
                                     ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
                                     : 'border border-amber-200 bg-amber-50 text-amber-700'
