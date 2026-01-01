@@ -1149,8 +1149,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                         Configura una serie de cobranza activa antes de registrar pagos.
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,120px)_minmax(0,1fr)_minmax(0,190px)]">
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Serie
                             <select
@@ -1173,8 +1173,33 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               className="mt-1 w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
                             />
                           </label>
+                          <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            Caja Destino
+                            {cajaAbiertaNombre ? (
+                              <div className="mt-1 space-y-1">
+                                <input
+                                  value={CAJA_GENERAL_NAME}
+                                  readOnly
+                                  className="w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
+                                />
+                                <span className="text-[10px] font-medium text-emerald-700">Este cobro irá a tu caja abierta.</span>
+                              </div>
+                            ) : (
+                              <select
+                                value={cajaDestino}
+                                onChange={(event) => setCajaDestino(event.target.value)}
+                                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+                              >
+                                {cajaOptions.map((option) => (
+                                  <option key={option} value={option}>
+                                    {CAJA_GENERAL_NAME}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </label>
                         </div>
-                        <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,130px)_minmax(0,1fr)_minmax(0,170px)]">
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Moneda
                             {availableCurrencies.length <= 1 ? (
@@ -1221,8 +1246,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               <span className="text-[11px] text-slate-600">{baseCurrency?.code ?? 'PEN'}</span>
                             </div>
                           </label>
-                        </div>
-                        <div className="grid gap-2 sm:grid-cols-2">
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Fecha de cobranza
                             <input
@@ -1232,33 +1255,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
                             />
                           </label>
-                          <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                            Caja Destino
-                            {cajaAbiertaNombre ? (
-                              <>
-                                <input
-                                  value={CAJA_GENERAL_NAME}
-                                  readOnly
-                                  className="mt-1 w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
-                                />
-                                <span className="mt-1 block text-[10px] font-medium text-emerald-700">Este cobro irá a tu caja abierta.</span>
-                              </>
-                            ) : (
-                              <select
-                                value={cajaDestino}
-                                onChange={(event) => setCajaDestino(event.target.value)}
-                                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-                              >
-                                {cajaOptions.map((option) => (
-                                  <option key={option} value={option}>
-                                    {CAJA_GENERAL_NAME}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </label>
                         </div>
-                        <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Bancos
                             <select
@@ -1291,16 +1289,16 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                           </label>
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Concepto
-                            <input
-                              type="text"
+                            <textarea
+                              rows={2}
                               placeholder="Cobranza de venta"
                               value={notas}
                               onChange={(event) => setNotas(event.target.value)}
-                              className="mt-1 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-                            />
+                              className="mt-1 w-full resize-y rounded-md border border-slate-200 px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 min-h-[44px] max-h-24"
+                            ></textarea>
                           </label>
                         </div>
-                        <div className="mt-2 border-t border-slate-100 pt-2">
+                        <div>
                           <AttachmentsSection
                             title="Adjuntos"
                             files={attachments}
