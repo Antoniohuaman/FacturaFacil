@@ -28,7 +28,8 @@ import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '../../../../shared/payments/paymentMeans';
 import { AttachmentsSection } from '../components/AttachmentsSection';
 
-const DEFAULT_CAJAS = ['Caja general', 'Caja chica', 'BCP', 'BBVA', 'Interbank'];
+const CAJA_GENERAL_NAME = 'Caja general';
+const normalizeCajaName = (value?: string) => (value ?? '').trim().toLowerCase();
 const tolerance = 0.01;
 const UNSET_PAYMENT_AMOUNT = Number.NaN;
 type CobranzaModalContextType = 'emision' | 'cobranzas';
@@ -274,21 +275,23 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const [collectionSeriesId, setCollectionSeriesId] = useState('');
 
   const cajaOptions = useMemo(() => {
-    const enabled = cajas.filter((caja) => caja.habilitada);
-    if (enabled.length) {
-      return enabled.map((caja) => caja.nombre);
-    }
-    return DEFAULT_CAJAS;
+    const generalCaja = cajas.find(
+      (caja) => caja.habilitada && normalizeCajaName(caja.nombre) === normalizeCajaName(CAJA_GENERAL_NAME),
+    );
+    return [generalCaja?.nombre ?? CAJA_GENERAL_NAME];
   }, [cajas]);
 
   const cajaAbiertaNombre = useMemo(() => {
     if (!aperturaActual) return undefined;
     const found = cajas.find((caja) => caja.id === aperturaActual.cajaId);
-    return found?.nombre;
+    if (found?.nombre && normalizeCajaName(found.nombre) === normalizeCajaName(CAJA_GENERAL_NAME)) {
+      return found.nombre;
+    }
+    return undefined;
   }, [aperturaActual, cajas]);
 
   const defaultCajaDestino = useMemo(
-    () => cajaAbiertaNombre || cajaOptions[0] || DEFAULT_CAJAS[0],
+    () => cajaAbiertaNombre || cajaOptions[0] || CAJA_GENERAL_NAME,
     [cajaAbiertaNombre, cajaOptions],
   );
 
@@ -1220,7 +1223,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                             {cajaAbiertaNombre ? (
                               <>
                                 <input
-                                  value={cajaDestino}
+                                  value={CAJA_GENERAL_NAME}
                                   readOnly
                                   className="mt-1 w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
                                 />
@@ -1234,7 +1237,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               >
                                 {cajaOptions.map((option) => (
                                   <option key={option} value={option}>
-                                    {option}
+                                    {CAJA_GENERAL_NAME}
                                   </option>
                                 ))}
                               </select>
