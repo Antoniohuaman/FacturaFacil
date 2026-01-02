@@ -94,6 +94,269 @@ const COLUMN_DEFINITION_MAP = new Map(
 
 const MENU_WIDTH = 208;
 
+const COLUMN_WIDTHS: Partial<Record<ClienteColumnId, number>> = {
+  avatar: 60,
+  tipoDocumento: 80,
+  numeroDocumento: 120,
+  nombreRazonSocial: 220,
+  direccion: 200,
+  tipoCuenta: 100,
+  telefono: 110,
+  correo: 180,
+  tipoPersona: 90,
+  nombreComercial: 150,
+  paginaWeb: 140,
+  pais: 80,
+  departamento: 120,
+  provincia: 120,
+  distrito: 120,
+  ubigeo: 80,
+  referenciaDireccion: 150,
+  formaPago: 100,
+  monedaPreferida: 90,
+  listaPrecio: 140,
+  usuarioAsignado: 140,
+  clientePorDefecto: 110,
+  tipoContribuyente: 180,
+  estadoSunat: 120,
+  condicionDomicilio: 110,
+  fechaInscripcion: 100,
+  sistemaEmision: 120,
+  esEmisorElectronico: 110,
+  esAgenteRetencion: 110,
+  esAgentePercepcion: 110,
+  esBuenContribuyente: 120,
+  exceptuadaPercepcion: 130,
+  actividadesEconomicas: 250,
+  observaciones: 200,
+  adjuntos: 90,
+  imagenes: 90,
+  estadoCliente: 120,
+  fechaRegistro: 110,
+  fechaUltimaModificacion: 110,
+  acciones: 100
+};
+
+type ClienteActividad = NonNullable<Cliente['actividadesEconomicas']>[number];
+
+interface RowRenderContext {
+  client: Cliente;
+  tipoDoc: string;
+  numeroDoc: string;
+  direccion: string;
+  avatarUrl?: string;
+  actividadPrincipal?: ClienteActividad;
+  perfilPrecioLabel?: string;
+  navigate: ReturnType<typeof useNavigate>;
+  handleOptionsClick: (id: number | string, event: React.MouseEvent<HTMLButtonElement>) => void;
+  rowKey: string | number;
+}
+
+interface RenderedCell {
+  content: React.ReactNode;
+  title?: string;
+  className?: string;
+  stopClickPropagation?: boolean;
+}
+
+const getColumnStyle = (columnId: ClienteColumnId): React.CSSProperties | undefined => {
+  const width = COLUMN_WIDTHS[columnId];
+  return width ? { width: `${width}px` } : undefined;
+};
+
+const renderHeaderCell = (columnId: ClienteColumnId) => {
+  const style = getColumnStyle(columnId);
+  const label = COLUMN_DEFINITION_MAP.get(columnId)?.label ?? columnId;
+  const className = columnId === 'acciones' ? 'text-right' : undefined;
+  return (
+    <th key={columnId} style={style} className={className}>
+      {label}
+    </th>
+  );
+};
+
+const buildCellContent = (columnId: ClienteColumnId, context: RowRenderContext): RenderedCell => {
+  const { client, tipoDoc, numeroDoc, direccion, avatarUrl, actividadPrincipal, perfilPrecioLabel, navigate, handleOptionsClick } = context;
+  switch (columnId) {
+    case 'avatar':
+      return {
+        content: (
+          <div className="flex justify-center">
+            <ClienteAvatar name={client.name} imageUrl={avatarUrl} />
+          </div>
+        )
+      };
+    case 'tipoDocumento':
+      return { content: tipoDoc };
+    case 'numeroDocumento':
+      return { content: numeroDoc };
+    case 'nombreRazonSocial':
+      return {
+        content: <span className="font-medium">{client.name}</span>,
+        title: client.name
+      };
+    case 'direccion':
+      return { content: direccion, title: direccion };
+    case 'tipoCuenta':
+      return { content: client.type };
+    case 'telefono': {
+      const phonesDetail = client.telefonos?.map((t) => `${t.tipo}: ${t.numero}`).join(', ') || client.phone || undefined;
+      const phonesValue = client.telefonos?.length
+        ? client.telefonos.map((t) => t.numero).join(', ')
+        : renderText(client.phone);
+      return { content: phonesValue, title: phonesDetail };
+    }
+    case 'correo': {
+      const emailsDetail = client.emails?.join(', ') || client.email || undefined;
+      const emailsValue = client.emails?.length ? client.emails.join(', ') : renderText(client.email);
+      return { content: emailsValue, title: emailsDetail };
+    }
+    case 'tipoPersona':
+      return { content: renderText(client.tipoPersona) };
+    case 'nombreComercial':
+      return { content: renderText(client.nombreComercial) };
+    case 'paginaWeb':
+      return { content: renderText(client.paginaWeb), title: client.paginaWeb ?? undefined };
+    case 'pais':
+      return { content: renderText(client.pais) };
+    case 'departamento':
+      return { content: renderText(client.departamento) };
+    case 'provincia':
+      return { content: renderText(client.provincia) };
+    case 'distrito':
+      return { content: renderText(client.distrito) };
+    case 'ubigeo':
+      return { content: renderText(client.ubigeo) };
+    case 'referenciaDireccion':
+      return {
+        content: renderText(client.referenciaDireccion),
+        title: client.referenciaDireccion ?? undefined
+      };
+    case 'formaPago':
+      return { content: renderText(client.formaPago) };
+    case 'monedaPreferida':
+      return { content: renderText(client.monedaPreferida) };
+    case 'listaPrecio':
+      return { content: renderText(perfilPrecioLabel) };
+    case 'usuarioAsignado':
+      return { content: renderText(client.usuarioAsignado) };
+    case 'clientePorDefecto':
+      return { content: <BooleanBadge value={client.clientePorDefecto} /> };
+    case 'tipoContribuyente':
+      return {
+        content: renderText(client.tipoContribuyente),
+        title: client.tipoContribuyente ?? undefined
+      };
+    case 'estadoSunat':
+      return { content: <EstadoSunatBadge estado={client.estadoContribuyente} /> };
+    case 'condicionDomicilio':
+      return { content: renderText(client.condicionDomicilio) };
+    case 'fechaInscripcion':
+      return { content: formatDate(client.fechaInscripcion) };
+    case 'sistemaEmision':
+      return { content: renderText(client.sistemaEmision) };
+    case 'esEmisorElectronico':
+      return { content: <BooleanBadge value={client.esEmisorElectronico} /> };
+    case 'esAgenteRetencion':
+      return { content: <BooleanBadge value={client.esAgenteRetencion} /> };
+    case 'esAgentePercepcion':
+      return { content: <BooleanBadge value={client.esAgentePercepcion} /> };
+    case 'esBuenContribuyente':
+      return { content: <BooleanBadge value={client.esBuenContribuyente} /> };
+    case 'exceptuadaPercepcion':
+      return { content: <BooleanBadge value={client.exceptuadaPercepcion} /> };
+    case 'actividadesEconomicas': {
+      const actividadLabel = actividadPrincipal
+        ? `${actividadPrincipal.codigo} - ${actividadPrincipal.descripcion}`
+        : '-';
+      return {
+        content: actividadLabel,
+        title: actividadPrincipal ? actividadLabel : undefined
+      };
+    }
+    case 'observaciones': {
+      const notes = client.observaciones || client.additionalData;
+      return { content: renderText(notes), title: notes ?? undefined };
+    }
+    case 'adjuntos':
+      return {
+        content: client.adjuntos?.length ? `${client.adjuntos.length} archivo(s)` : '-'
+      };
+    case 'imagenes':
+      return {
+        content: client.imagenes?.length ? `${client.imagenes.length} imagen(es)` : '-'
+      };
+    case 'estadoCliente':
+      return {
+        content: <EstadoClienteBadge estadoCliente={client.estadoCliente} enabled={client.enabled} />
+      };
+    case 'fechaRegistro':
+      return { content: formatDate(client.createdAt) };
+    case 'fechaUltimaModificacion':
+      return { content: formatDate(client.updatedAt) };
+    case 'acciones':
+      return {
+        content: (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              title="Ver historial"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/clientes/${client.id}/${encodeURIComponent(client.name)}/historial`);
+              }}
+            >
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            </button>
+
+            <div className="relative inline-block">
+              <button
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                onClick={(e) => handleOptionsClick(client.id, e)}
+                title="Más opciones"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="5" cy="12" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="19" cy="12" r="2" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ),
+        className: 'text-right',
+        stopClickPropagation: true
+      };
+    default: {
+      const fallbackValue = (client as unknown as Record<string, unknown>)[columnId];
+      return { content: renderText(typeof fallbackValue === 'string' ? fallbackValue : undefined) };
+    }
+  }
+};
+
+const renderCell = (columnId: ClienteColumnId, context: RowRenderContext) => {
+  const cell = buildCellContent(columnId, context);
+  const style = getColumnStyle(columnId);
+  const props: React.TdHTMLAttributes<HTMLTableCellElement> = {};
+  if (cell.title) {
+    props.title = cell.title;
+  }
+  if (cell.className) {
+    props.className = cell.className;
+  }
+  if (cell.stopClickPropagation) {
+    props.onClick = (event) => event.stopPropagation();
+  }
+  return (
+    <td key={`${context.rowKey}-${columnId}`} style={style} {...props}>
+      {cell.content}
+    </td>
+  );
+};
+
 /**
  * Componente Badge para valores booleanos
  * Distingue entre false (muestra "No") y null/undefined (muestra "-")
@@ -192,14 +455,6 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
     const [menuCoords, setMenuCoords] = useState<{ top: number; left: number } | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
     const [clientes, setClientes] = useState<Cliente[]>(clients);
-    const visibilitySet = useMemo(() => new Set<ClienteColumnId>(visibleColumnIds), [visibleColumnIds]);
-    const isColumnVisible = (columnId: ClienteColumnId): boolean => {
-      const definition = COLUMN_DEFINITION_MAP.get(columnId);
-      if (definition?.fixed) {
-        return true;
-      }
-      return visibilitySet.has(columnId);
-    };
     const activeClient = useMemo(() => clientes.find((client) => client.id === menuOpenId) ?? null, [clientes, menuOpenId]);
     const closeMenu = useCallback(() => {
       setMenuOpenId(null);
@@ -377,226 +632,38 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
           <div className="overflow-x-auto">
             <table className="w-full compact-table" style={{ minWidth: '1200px' }}>
               <thead>
-                <tr>
-                  {isColumnVisible('avatar') && <th style={{ width: '60px' }}>Avatar</th>}
-                  {isColumnVisible('tipoDocumento') && <th style={{ width: '80px' }}>Tipo doc.</th>}
-                  {isColumnVisible('numeroDocumento') && <th style={{ width: '120px' }}>N° documento</th>}
-                  {isColumnVisible('nombreRazonSocial') && <th style={{ width: '220px' }}>Nombre / Razón social</th>}
-                  {isColumnVisible('direccion') && <th style={{ width: '200px' }}>Dirección</th>}
-                  {isColumnVisible('tipoCuenta') && <th style={{ width: '100px' }}>Tipo cuenta</th>}
-                  {isColumnVisible('telefono') && <th style={{ width: '110px' }}>Teléfono</th>}
-                  {isColumnVisible('correo') && <th style={{ width: '180px' }}>Correo</th>}
-
-                  {isColumnVisible('tipoPersona') && <th style={{ width: '90px' }}>Tipo persona</th>}
-                  {isColumnVisible('nombreComercial') && <th style={{ width: '150px' }}>Nombre comercial</th>}
-                  {isColumnVisible('paginaWeb') && <th style={{ width: '140px' }}>Página web</th>}
-                  {isColumnVisible('pais') && <th style={{ width: '80px' }}>País</th>}
-                  {isColumnVisible('departamento') && <th style={{ width: '120px' }}>Departamento</th>}
-                  {isColumnVisible('provincia') && <th style={{ width: '120px' }}>Provincia</th>}
-                  {isColumnVisible('distrito') && <th style={{ width: '120px' }}>Distrito</th>}
-                  {isColumnVisible('ubigeo') && <th style={{ width: '80px' }}>Ubigeo</th>}
-                  {isColumnVisible('referenciaDireccion') && <th style={{ width: '150px' }}>Referencia</th>}
-
-                  {isColumnVisible('formaPago') && <th style={{ width: '100px' }}>Forma pago</th>}
-                  {isColumnVisible('monedaPreferida') && <th style={{ width: '90px' }}>Moneda</th>}
-                  {isColumnVisible('listaPrecio') && <th style={{ width: '140px' }}>Perfil de precio</th>}
-                  {isColumnVisible('usuarioAsignado') && <th style={{ width: '140px' }}>Usuario asignado</th>}
-                  {isColumnVisible('clientePorDefecto') && <th style={{ width: '110px' }}>Cliente default</th>}
-
-                  {isColumnVisible('tipoContribuyente') && <th style={{ width: '180px' }}>Tipo contribuyente</th>}
-                  {isColumnVisible('estadoSunat') && <th style={{ width: '120px' }}>Estado SUNAT</th>}
-                  {isColumnVisible('condicionDomicilio') && <th style={{ width: '110px' }}>Condición dom.</th>}
-                  {isColumnVisible('fechaInscripcion') && <th style={{ width: '100px' }}>Fecha insc.</th>}
-                  {isColumnVisible('sistemaEmision') && <th style={{ width: '120px' }}>Sistema emisión</th>}
-                  {isColumnVisible('esEmisorElectronico') && <th style={{ width: '110px' }}>Emisor electr.</th>}
-                  {isColumnVisible('esAgenteRetencion') && <th style={{ width: '110px' }}>Agente reten.</th>}
-                  {isColumnVisible('esAgentePercepcion') && <th style={{ width: '110px' }}>Agente percep.</th>}
-                  {isColumnVisible('esBuenContribuyente') && <th style={{ width: '120px' }}>Buen contrib.</th>}
-                  {isColumnVisible('exceptuadaPercepcion') && <th style={{ width: '130px' }}>Except. percep.</th>}
-                  {isColumnVisible('actividadesEconomicas') && <th style={{ width: '250px' }}>Actividades econ.</th>}
-
-                  {isColumnVisible('observaciones') && <th style={{ width: '200px' }}>Observaciones</th>}
-                  {isColumnVisible('adjuntos') && <th style={{ width: '90px' }}>Adjuntos</th>}
-                  {isColumnVisible('imagenes') && <th style={{ width: '90px' }}>Imágenes</th>}
-                  {isColumnVisible('estadoCliente') && <th style={{ width: '120px' }}>Estado cliente</th>}
-                  {isColumnVisible('fechaRegistro') && <th style={{ width: '110px' }}>Fecha registro</th>}
-                  {isColumnVisible('fechaUltimaModificacion') && <th style={{ width: '110px' }}>Últ. modif.</th>}
-
-                  {isColumnVisible('acciones') && (
-                    <th style={{ width: '100px' }} className="text-right">
-                      Acciones
-                    </th>
-                  )}
-                </tr>
+                <tr>{visibleColumnIds.map((columnId) => renderHeaderCell(columnId))}</tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                {clientes.map(client => {
-                  // Extraer datos del formato legacy
+                {clientes.map((client) => {
                   const tipoDoc = extractDocumentType(client.document);
                   const numeroDoc = extractDocumentNumber(client.document);
                   const direccion = client.address === 'Sin dirección' ? '-' : client.address;
                   const avatarUrl = getClienteAvatarUrl(client.imagenes);
                   const focusKey = client.id ?? client.numeroDocumento ?? client.document ?? 'sin-id';
-                  
-                  // Actividad económica principal (si existe)
-                  const actividadPrincipal = client.actividadesEconomicas?.find(a => a.esPrincipal) 
-                    || client.actividadesEconomicas?.[0];
+                  const actividadPrincipal = client.actividadesEconomicas?.find((a) => a.esPrincipal) || client.actividadesEconomicas?.[0];
                   const perfilPrecioLabel = resolveProfileLabel(client.listaPrecio);
+                  const rowContext: RowRenderContext = {
+                    client,
+                    tipoDoc,
+                    numeroDoc,
+                    direccion,
+                    avatarUrl,
+                    actividadPrincipal,
+                    perfilPrecioLabel,
+                    navigate,
+                    handleOptionsClick,
+                    rowKey: focusKey
+                  };
 
                   return (
-                    <tr 
-                      key={client.id} 
+                    <tr
+                      key={focusKey}
                       data-focus={`clientes:${String(focusKey)}`}
                       className={!client.enabled ? 'row-disabled' : ''}
                       onClick={() => handleEdit(client)}
                     >
-                      {isColumnVisible('avatar') && (
-                        <td>
-                          <div className="flex justify-center">
-                            <ClienteAvatar name={client.name} imageUrl={avatarUrl} />
-                          </div>
-                        </td>
-                      )}
-
-                      {isColumnVisible('tipoDocumento') && <td>{tipoDoc}</td>}
-                      {isColumnVisible('numeroDocumento') && <td>{numeroDoc}</td>}
-                      {isColumnVisible('nombreRazonSocial') && (
-                        <td className="font-medium" title={client.name}>
-                          {client.name}
-                        </td>
-                      )}
-                      {isColumnVisible('direccion') && <td title={direccion}>{direccion}</td>}
-                      {isColumnVisible('tipoCuenta') && <td>{client.type}</td>}
-                      {isColumnVisible('telefono') && (
-                        <td title={client.telefonos?.map(t => `${t.tipo}: ${t.numero}`).join(', ') || client.phone}>
-                          {client.telefonos?.length ? client.telefonos.map(t => t.numero).join(', ') : renderText(client.phone)}
-                        </td>
-                      )}
-                      {isColumnVisible('correo') && (
-                        <td title={client.emails?.join(', ') || client.email}>
-                          {client.emails?.length ? client.emails.join(', ') : renderText(client.email)}
-                        </td>
-                      )}
-
-                      {isColumnVisible('tipoPersona') && <td>{renderText(client.tipoPersona)}</td>}
-                      {isColumnVisible('nombreComercial') && <td>{renderText(client.nombreComercial)}</td>}
-                      {isColumnVisible('paginaWeb') && <td title={client.paginaWeb}>{renderText(client.paginaWeb)}</td>}
-                      {isColumnVisible('pais') && <td>{renderText(client.pais)}</td>}
-                      {isColumnVisible('departamento') && <td>{renderText(client.departamento)}</td>}
-                      {isColumnVisible('provincia') && <td>{renderText(client.provincia)}</td>}
-                      {isColumnVisible('distrito') && <td>{renderText(client.distrito)}</td>}
-                      {isColumnVisible('ubigeo') && <td>{renderText(client.ubigeo)}</td>}
-                      {isColumnVisible('referenciaDireccion') && (
-                        <td title={client.referenciaDireccion}>{renderText(client.referenciaDireccion)}</td>
-                      )}
-
-                      {isColumnVisible('formaPago') && <td>{renderText(client.formaPago)}</td>}
-                      {isColumnVisible('monedaPreferida') && <td>{renderText(client.monedaPreferida)}</td>}
-                      {isColumnVisible('listaPrecio') && <td>{renderText(perfilPrecioLabel)}</td>}
-                      {isColumnVisible('usuarioAsignado') && <td>{renderText(client.usuarioAsignado)}</td>}
-                      {isColumnVisible('clientePorDefecto') && (
-                        <td>
-                          <BooleanBadge value={client.clientePorDefecto} />
-                        </td>
-                      )}
-
-                      {isColumnVisible('tipoContribuyente') && (
-                        <td title={client.tipoContribuyente}>{renderText(client.tipoContribuyente)}</td>
-                      )}
-                      {isColumnVisible('estadoSunat') && (
-                        <td>
-                          <EstadoSunatBadge estado={client.estadoContribuyente} />
-                        </td>
-                      )}
-                      {isColumnVisible('condicionDomicilio') && <td>{renderText(client.condicionDomicilio)}</td>}
-                      {isColumnVisible('fechaInscripcion') && <td>{formatDate(client.fechaInscripcion)}</td>}
-                      {isColumnVisible('sistemaEmision') && <td>{renderText(client.sistemaEmision)}</td>}
-                      {isColumnVisible('esEmisorElectronico') && (
-                        <td>
-                          <BooleanBadge value={client.esEmisorElectronico} />
-                        </td>
-                      )}
-                      {isColumnVisible('esAgenteRetencion') && (
-                        <td>
-                          <BooleanBadge value={client.esAgenteRetencion} />
-                        </td>
-                      )}
-                      {isColumnVisible('esAgentePercepcion') && (
-                        <td>
-                          <BooleanBadge value={client.esAgentePercepcion} />
-                        </td>
-                      )}
-                      {isColumnVisible('esBuenContribuyente') && (
-                        <td>
-                          <BooleanBadge value={client.esBuenContribuyente} />
-                        </td>
-                      )}
-                      {isColumnVisible('exceptuadaPercepcion') && (
-                        <td>
-                          <BooleanBadge value={client.exceptuadaPercepcion} />
-                        </td>
-                      )}
-                      {isColumnVisible('actividadesEconomicas') && (
-                        <td title={actividadPrincipal ? `${actividadPrincipal.codigo} - ${actividadPrincipal.descripcion}` : '-'}>
-                          {actividadPrincipal
-                            ? `${actividadPrincipal.codigo} - ${actividadPrincipal.descripcion}`
-                            : '-'}
-                        </td>
-                      )}
-
-                      {isColumnVisible('observaciones') && (
-                        <td title={client.observaciones || client.additionalData}>
-                          {renderText(client.observaciones || client.additionalData)}
-                        </td>
-                      )}
-                      {isColumnVisible('adjuntos') && (
-                        <td>{client.adjuntos?.length ? `${client.adjuntos.length} archivo(s)` : '-'}</td>
-                      )}
-                      {isColumnVisible('imagenes') && (
-                        <td>{client.imagenes?.length ? `${client.imagenes.length} imagen(es)` : '-'}</td>
-                      )}
-                      {isColumnVisible('estadoCliente') && (
-                        <td>
-                          <EstadoClienteBadge estadoCliente={client.estadoCliente} enabled={client.enabled} />
-                        </td>
-                      )}
-                      {isColumnVisible('fechaRegistro') && <td>{formatDate(client.createdAt)}</td>}
-                      {isColumnVisible('fechaUltimaModificacion') && <td>{formatDate(client.updatedAt)}</td>}
-
-                      {isColumnVisible('acciones') && (
-                        <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                              title="Ver historial"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/clientes/${client.id}/${encodeURIComponent(client.name)}/historial`);
-                              }}
-                            >
-                              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
-                                <circle cx="12" cy="12" r="10" />
-                              </svg>
-                            </button>
-
-                            <div className="relative inline-block">
-                              <button
-                                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                                onClick={(e) => handleOptionsClick(client.id, e)}
-                                title="Más opciones"
-                              >
-                                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                                  <circle cx="5" cy="12" r="2" />
-                                  <circle cx="12" cy="12" r="2" />
-                                  <circle cx="19" cy="12" r="2" />
-                                </svg>
-                              </button>
-
-                            </div>
-                          </div>
-                        </td>
-                      )}
+                      {visibleColumnIds.map((columnId) => renderCell(columnId, rowContext))}
                     </tr>
                   );
                 })}

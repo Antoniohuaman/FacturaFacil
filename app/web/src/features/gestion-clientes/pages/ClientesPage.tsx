@@ -354,7 +354,14 @@ function ClientesPage() {
 	const autoExportRunnerRef = useRef<() => Promise<void>>(async () => {});
 			const { clientes, transientClientes, transientCount, clearTransientClientes, createCliente, updateCliente, deleteCliente, loading, pagination, fetchClientes } = useClientes();
 			const combinedClients = useMemo(() => [...clientes, ...transientClientes], [clientes, transientClientes]);
-	const { columnDefinitions, visibleColumnIds, toggleColumn, resetColumns, selectAllColumns } = useClientesColumns();
+	const {
+		columnsConfig,
+		visibleColumnIds,
+		toggleColumn,
+		resetColumns,
+		selectAllColumns,
+		reorderColumns
+	} = useClientesColumns();
 	const { resolveProfileId, resolveProfileLabel } = usePriceProfilesCatalog();
 	const normalizeProfileSelectionValue = useCallback((value?: string | null) => resolveProfileId(value) ?? '', [resolveProfileId]);
 	const [filters, setFilters] = useState<ClientesFilterValues>(() => ({ ...CLIENTES_FILTERS_INITIAL_STATE }));
@@ -1189,13 +1196,13 @@ function ClientesPage() {
 							onApply={handleApplyFilters}
 							onClear={handleClearFilters}
 						/>
-						<ColumnSelector
-							columns={columnDefinitions}
-							visibleColumnIds={visibleColumnIds}
-							onToggleColumn={toggleColumn}
-							onReset={resetColumns}
-							onSelectAll={selectAllColumns}
-						/>
+							<ColumnSelector
+								columns={columnsConfig}
+								onToggleColumn={toggleColumn}
+								onReset={resetColumns}
+								onSelectAll={selectAllColumns}
+								onReorderColumns={reorderColumns}
+							/>
 						{transientCount > 0 && (
 							<button
 								onClick={() => clearTransientClientes()}

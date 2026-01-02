@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lsKey } from '../../../shared/tenant';
 
 export type ClienteColumnId =
   | 'avatar'
@@ -49,11 +50,15 @@ export interface ClienteColumnDefinition {
   defaultVisible?: boolean;
 }
 
-// Legacy key kept for migration/reference; storage is now tenantized via STORAGE_BASE_KEY
-// const STORAGE_KEY = 'ff_gestionClientes_columnVisibility';
-import { lsKey as tenantLsKey } from '../../../shared/tenant';
+export interface ClienteColumnConfig {
+  id: ClienteColumnId;
+  label: string;
+  visible: boolean;
+  fixed?: boolean;
+}
 
-const STORAGE_BASE_KEY = 'clientes_visible_columns';
+const STORAGE_BASE_KEY = 'clientes_columns_config';
+const LEGACY_STORAGE_BASE_KEY = 'clientes_visible_columns';
 
 export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = [
   { id: 'avatar', label: 'Avatar', defaultVisible: true },
@@ -98,88 +103,203 @@ export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = [
   { id: 'acciones', label: 'Acciones', fixed: true }
 ];
 
-const FIXED_COLUMN_IDS = CLIENTE_COLUMN_DEFINITIONS.filter((column) => column.fixed).map((column) => column.id);
+const createDefaultConfig = (): ClienteColumnConfig[] =>
+  CLIENTE_COLUMN_DEFINITIONS.map((column) => ({
+    id: column.id,
+    label: column.label,
+    visible: column.fixed ? true : Boolean(column.defaultVisible),
+    fixed: column.fixed,
+  }));
 
-const TOGGLEABLE_COLUMN_IDS = CLIENTE_COLUMN_DEFINITIONS.filter((column) => !column.fixed).map((column) => column.id);
-
-const DEFAULT_VISIBLE_COLUMN_IDS: ClienteColumnId[] = [
-  'avatar',
-  'tipoDocumento',
-  'numeroDocumento',
-  'nombreRazonSocial',
-  'telefono',
-  'estadoCliente',
-  'acciones'
-];
-
-const readFromStorage = (): ClienteColumnId[] | null => {
-  if (typeof window === 'undefined') return null;
+const resolveTenantStorageKey = (baseKey: string): string | null => {
   try {
-    const storageKey = tenantLsKey(STORAGE_BASE_KEY);
-    const stored = window.localStorage.getItem(storageKey);
-    if (!stored) return null;
-    const parsed = JSON.parse(stored) as ClienteColumnId[];
-    if (!Array.isArray(parsed)) return null;
-    const knownIds = new Set(CLIENTE_COLUMN_DEFINITIONS.map((column) => column.id));
-    const sanitized = parsed.filter((id) => knownIds.has(id));
-    if (sanitized.length === 0) return null;
-    return Array.from(new Set([...FIXED_COLUMN_IDS, ...sanitized]));
+    return lsKey(baseKey);
   } catch {
     return null;
   }
 };
 
-const writeToStorage = (ids: ClienteColumnId[]): void => {
-  if (typeof window === 'undefined') return;
+const parseConfig = (raw: string | null): ClienteColumnConfig[] | null => {
+  if (!raw) {
+    return null;
+  }
   try {
-    const storageKey = tenantLsKey(STORAGE_BASE_KEY);
-    window.localStorage.setItem(storageKey, JSON.stringify(ids));
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as ClienteColumnConfig[]) : null;
   } catch {
-    // noop
+    return null;
   }
 };
 
-export const useClientesColumns = () => {
-  const [visibleColumnIds, setVisibleColumnIds] = useState<ClienteColumnId[]>(() => {
-    const stored = readFromStorage();
-    return stored ?? DEFAULT_VISIBLE_COLUMN_IDS;
-  });
+const sanitizeConfig = (stored: ClienteColumnConfig[]): ClienteColumnConfig[] => {
+  const defaults = createDefaultConfig();
+  const defaultMap = new Map(defaults.map((column) => [column.id, column]));
+  const sanitized: ClienteColumnConfig[] = [];
 
-  useEffect(() => {
-    writeToStorage(visibleColumnIds);
-  }, [visibleColumnIds]);
-
-  const toggleColumn = useCallback((columnId: ClienteColumnId) => {
-    if (FIXED_COLUMN_IDS.includes(columnId)) {
+  stored.forEach((column) => {
+    const reference = defaultMap.get(column.id);
+    if (!reference) {
       return;
     }
-    setVisibleColumnIds((prev) => {
-      const isVisible = prev.includes(columnId);
-      if (isVisible) {
-        return prev.filter((id) => id !== columnId);
+    sanitized.push({
+      ...reference,
+      visible: reference.fixed ? true : Boolean(column.visible),
+    });
+    defaultMap.delete(column.id);
+  });
+
+  defaultMap.forEach((column) => {
+    sanitized.push({ ...column });
+  });
+
+  return sanitized;
+};
+
+const parseLegacyVisibility = (raw: string | null): ClienteColumnId[] | null => {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+    const validIds = new Set(CLIENTE_COLUMN_DEFINITIONS.map((column) => column.id));
+    const filtered = parsed.filter((id): id is ClienteColumnId => validIds.has(id as ClienteColumnId));
+    return filtered.length ? filtered : null;
+  } catch {
+    return null;
+  }
+};
+
+const migrateLegacyVisibility = (legacyIds: ClienteColumnId[]): ClienteColumnConfig[] => {
+  const defaults = createDefaultConfig();
+  const legacySet = new Set(legacyIds);
+  return defaults.map((column) => ({
+    ...column,
+    visible: column.fixed ? true : legacySet.has(column.id),
+  }));
+};
+
+const loadInitialConfig = (): ClienteColumnConfig[] => {
+  if (typeof window === 'undefined') {
+    return createDefaultConfig();
+  }
+
+  const tenantKey = resolveTenantStorageKey(STORAGE_BASE_KEY);
+  const legacyKey = resolveTenantStorageKey(LEGACY_STORAGE_BASE_KEY);
+
+  if (tenantKey) {
+    const stored = parseConfig(window.localStorage.getItem(tenantKey));
+    if (stored) {
+      return sanitizeConfig(stored);
+    }
+  }
+
+  if (legacyKey) {
+    const legacyIds = parseLegacyVisibility(window.localStorage.getItem(legacyKey));
+    if (legacyIds) {
+      const migrated = migrateLegacyVisibility(legacyIds);
+      if (tenantKey) {
+        try {
+          window.localStorage.setItem(tenantKey, JSON.stringify(migrated));
+          window.localStorage.removeItem(legacyKey);
+        } catch {
+          // noop
+        }
       }
-      return [...prev, columnId];
+      return migrated;
+    }
+  }
+
+  return createDefaultConfig();
+};
+
+export const useClientesColumns = () => {
+  const [columnsConfig, setColumnsConfig] = useState<ClienteColumnConfig[]>(() => loadInitialConfig());
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const tenantKey = resolveTenantStorageKey(STORAGE_BASE_KEY);
+    if (!tenantKey) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(tenantKey, JSON.stringify(columnsConfig));
+      const legacyKey = resolveTenantStorageKey(LEGACY_STORAGE_BASE_KEY);
+      if (legacyKey) {
+        window.localStorage.removeItem(legacyKey);
+      }
+    } catch {
+      // noop
+    }
+  }, [columnsConfig]);
+
+  const toggleColumn = useCallback((columnId: ClienteColumnId) => {
+    setColumnsConfig((prev) =>
+      prev.map((column) => {
+        if (column.id !== columnId || column.fixed) {
+          return column;
+        }
+        return { ...column, visible: !column.visible };
+      })
+    );
+  }, []);
+
+  const reorderColumns = useCallback((sourceId: ClienteColumnId, targetId: ClienteColumnId) => {
+    if (sourceId === targetId) {
+      return;
+    }
+
+    setColumnsConfig((prev) => {
+      const sourceIndex = prev.findIndex((column) => column.id === sourceId);
+      const targetIndex = prev.findIndex((column) => column.id === targetId);
+
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return prev;
+      }
+
+      if (prev[sourceIndex]?.fixed) {
+        return prev;
+      }
+
+      const updated = [...prev];
+      const [moved] = updated.splice(sourceIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
     });
   }, []);
 
   const resetColumns = useCallback(() => {
-    setVisibleColumnIds(DEFAULT_VISIBLE_COLUMN_IDS);
+    setColumnsConfig(createDefaultConfig());
   }, []);
 
   const selectAllColumns = useCallback(() => {
-    setVisibleColumnIds(Array.from(new Set([...TOGGLEABLE_COLUMN_IDS, ...FIXED_COLUMN_IDS])) as ClienteColumnId[]);
+    setColumnsConfig((prev) => prev.map((column) => ({ ...column, visible: true })));
   }, []);
 
   const visibleColumns = useMemo(
-    () => CLIENTE_COLUMN_DEFINITIONS.filter((column) => visibleColumnIds.includes(column.id)),
-    [visibleColumnIds]
+    () => columnsConfig.filter((column) => column.visible || column.fixed),
+    [columnsConfig]
+  );
+
+  const visibleColumnIds = useMemo(() => visibleColumns.map((column) => column.id), [visibleColumns]);
+
+  const lockedColumnIds = useMemo(
+    () => columnsConfig.filter((column) => column.fixed).map((column) => column.id),
+    [columnsConfig]
   );
 
   return {
     columnDefinitions: CLIENTE_COLUMN_DEFINITIONS,
+    columnsConfig,
     visibleColumns,
     visibleColumnIds,
+    lockedColumnIds,
     toggleColumn,
+    reorderColumns,
     resetColumns,
     selectAllColumns,
   };
