@@ -41,15 +41,10 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
 }) => {
   const tableColumns = useMemo(() => (
     columns
-      .filter((column) => column.isVisibleInTable !== false || column.isBase)
+      .filter((column) => column.visible !== false && column.isVisibleInTable !== false)
       .sort((a, b) => a.order - b.order)
   ), [columns]);
-  const orderedColumns = useMemo(() => {
-    const base = tableColumns.find(column => column.isBase);
-    if (!base) return tableColumns;
-    const rest = tableColumns.filter(column => column.id !== base.id);
-    return [base, ...rest];
-  }, [tableColumns]);
+  const orderedColumns = tableColumns;
   const firstEditableColumn = useMemo(() => orderedColumns.find(column => !isGlobalColumn(column)), [orderedColumns]);
   const baseColumnId = orderedColumns.find(column => column.isBase)?.id;
   const firstVolumeColumn = useMemo(() => orderedColumns.find(column => column.mode === 'volume' && !isGlobalColumn(column)), [orderedColumns]);

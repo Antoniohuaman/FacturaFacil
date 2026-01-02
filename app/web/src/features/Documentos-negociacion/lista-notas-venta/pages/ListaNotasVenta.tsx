@@ -18,7 +18,7 @@ import { DATE_PRESETS as BUSINESS_DATE_PRESETS, getTodayISO, formatDateShortSpan
 import { TABLE_CONFIG } from '../../models/constants';
 import { DrawerDetalleDocumento } from '../../components/DrawerDetalleDocumento';
 import { exportDatasetToExcel } from '../../../../shared/export/exportToExcel';
-import DocumentColumnsManager from '../../components/DocumentColumnsManager';
+import { ColumnsManager } from '@/shared/columns/ColumnsManager';
 import { useNotasVentaColumns } from '../../hooks/useNotasVentaColumns';
 import type { ColumnConfig } from '../../../comprobantes-electronicos/lista-comprobantes/types/columnConfig';
 
@@ -518,14 +518,13 @@ const ListaNotasVenta = () => {
               {isExporting ? 'Exportando...' : 'Exportar'}
             </button>
 
-            <DocumentColumnsManager
+            <ColumnsManager
               columns={columnsConfig}
               onToggleColumn={toggleColumn}
               onSelectAllColumns={selectAllColumns}
               onResetColumns={resetColumns}
               onReorderColumns={reorderColumns}
-              density={density}
-              onDensityChange={setDensity}
+              densityControls={{ value: density, onChange: setDensity }}
             />
 
             <button onClick={() => navigate('/documentos/nueva-nota-venta')} className="h-[44px] px-6 flex items-center gap-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-[12px] transition-colors font-semibold">

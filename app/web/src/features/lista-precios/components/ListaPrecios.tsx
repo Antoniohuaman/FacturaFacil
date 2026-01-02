@@ -6,6 +6,7 @@ import { usePriceList } from '../hooks/usePriceList';
 import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
 import { ProductPricing } from './ProductPricing';
+import { PriceColumnsManagerButton } from './product-pricing/PriceColumnsManagerButton';
 import { PackagesTab } from './PackagesTab';
 import { ImportPricesTab, type ExportPricesResult } from './ImportPricesTab';
 import { ColumnModal } from './modals/ColumnModal';
@@ -55,6 +56,9 @@ export const ListaPrecios: React.FC = () => {
     deleteColumn,
     toggleColumnVisibility,
     toggleColumnTableVisibility,
+    reorderColumns,
+    resetTableColumns,
+    selectAllTableColumns,
     updateColumn,
     addOrUpdateProductPrice,
     applyImportedFixedPrices,
@@ -276,6 +280,18 @@ export const ListaPrecios: React.FC = () => {
     ? 'Activa al menos una columna visible en la tabla para exportar.'
     : undefined;
 
+  const columnsManagerTrigger = currentTab === 'products'
+    ? (
+      <PriceColumnsManagerButton
+        columns={columns}
+        onToggleColumnVisibility={toggleColumnTableVisibility}
+        onReorderColumns={reorderColumns}
+        onResetColumns={resetTableColumns}
+        onSelectAllColumns={selectAllTableColumns}
+      />
+    )
+    : undefined;
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
@@ -363,6 +379,7 @@ export const ListaPrecios: React.FC = () => {
         exportBusy={currentTab === 'products' ? exportingPrices : undefined}
         exportErrorMessage={currentTab === 'products' ? exportError || undefined : undefined}
         exportDisabledReason={currentTab === 'products' ? exportDisabledReason : undefined}
+        columnsManagerTrigger={columnsManagerTrigger}
       />
 
       {/* Main Content */}

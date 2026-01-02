@@ -156,6 +156,9 @@ const normalizeGlobalRuleValue = (value?: number | null): number | null => {
 };
 
 const buildFixedColumn = (definition: FixedColumnDefinition, existing?: Column): Column => {
+  const resolvedOrder = typeof existing?.order === 'number' && Number.isFinite(existing.order)
+    ? existing.order
+    : definition.order;
   const column: Column = {
     id: definition.id,
     name: definition.defaultName,
@@ -165,7 +168,7 @@ const buildFixedColumn = (definition: FixedColumnDefinition, existing?: Column):
       ? existing.isVisibleInTable
       : definition.defaultVisibleInTable !== false,
     isBase: definition.isBase,
-    order: definition.order,
+    order: resolvedOrder,
     kind: definition.kind
   };
 
@@ -260,6 +263,18 @@ export const getFixedColumnHelpText = (columnId: string): string | undefined => 
   return getFixedColumnDefinition(columnId)?.helpText;
 };
 
+export const getDefaultTableVisibility = (columnId: string): boolean => {
+  const definition = getFixedColumnDefinition(columnId);
+  if (!definition) {
+    return true;
+  }
+  return definition.defaultVisibleInTable !== false;
+};
+
+export const getDefaultColumnOrder = (columnId: string): number | undefined => {
+  return getFixedColumnDefinition(columnId)?.order;
+};
+
 export const getColumnDisplayName = (column: Column): string => {
   return getFixedColumnDefinition(column.id)?.defaultName ?? column.name;
 };
@@ -286,7 +301,15 @@ export const ensureRequiredColumns = (columns: Column[]): Column[] => {
       mode: column.mode === 'volume' ? 'volume' : 'fixed'
     }));
 
-  return [...fixedColumns, ...manualColumns].map((column, index) => ({
+  const combined = [...fixedColumns, ...manualColumns];
+  combined.sort((a, b) => {
+    if (a.order === b.order) {
+      return a.id.localeCompare(b.id);
+    }
+    return a.order - b.order;
+  });
+
+  return combined.map((column, index) => ({
     ...column,
     order: index + 1
   }));

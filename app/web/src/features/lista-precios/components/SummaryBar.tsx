@@ -22,6 +22,7 @@ interface SummaryBarProps {
   exportBusy?: boolean;
   exportErrorMessage?: string;
   exportDisabledReason?: string;
+  columnsManagerTrigger?: React.ReactNode;
 }
 
 export const SummaryBar = React.memo<SummaryBarProps>(({
@@ -35,7 +36,8 @@ export const SummaryBar = React.memo<SummaryBarProps>(({
   exportDisabled,
   exportBusy,
   exportErrorMessage,
-  exportDisabledReason
+  exportDisabledReason,
+  columnsManagerTrigger
 }) => {
   const visibleColumns = filterVisibleColumns(columns);
   const baseColumn = findBaseColumn(columns);
@@ -81,6 +83,7 @@ export const SummaryBar = React.memo<SummaryBarProps>(({
             <div className="flex-1" />
 
             <div className="flex items-center gap-3">
+              {columnsManagerTrigger}
               {onExportPrices && (
                 <button
                   type="button"
@@ -219,6 +222,7 @@ export const SummaryBar = React.memo<SummaryBarProps>(({
     prevProps.exportBusy === nextProps.exportBusy &&
     prevProps.exportErrorMessage === nextProps.exportErrorMessage &&
     prevProps.exportDisabledReason === nextProps.exportDisabledReason &&
+    prevProps.columnsManagerTrigger === nextProps.columnsManagerTrigger &&
     areColumnsEqual(prevProps.columns, nextProps.columns)
   );
 });

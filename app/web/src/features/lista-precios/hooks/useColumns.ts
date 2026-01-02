@@ -11,7 +11,9 @@ import {
   isProductDiscountColumn,
   isMinAllowedColumn,
   isFixedColumn,
-  BASE_COLUMN_ID
+  BASE_COLUMN_ID,
+  getDefaultTableVisibility,
+  getDefaultColumnOrder
 } from '../utils/priceHelpers';
 import { lsKey } from '../utils/tenantHelpers';
 import { ensureTenantStorageMigration, readTenantJson, writeTenantJson } from '../utils/storage';
@@ -156,6 +158,47 @@ export const useColumns = () => {
     ));
   }, [applyColumnsUpdate]);
 
+  const reorderColumns = useCallback((sourceId: string, targetId: string): void => {
+    if (sourceId === targetId) {
+      return;
+    }
+    applyColumnsUpdate(prev => {
+      const sourceIndex = prev.findIndex(column => column.id === sourceId);
+      const targetIndex = prev.findIndex(column => column.id === targetId);
+
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return prev;
+      }
+
+      const next = [...prev];
+      const [moved] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next.map((column, index) => ({ ...column, order: index + 1 }));
+    });
+  }, [applyColumnsUpdate]);
+
+  const resetTableColumns = useCallback(() => {
+    applyColumnsUpdate(prev => prev.map(column => {
+      const defaultOrder = getDefaultColumnOrder(column.id);
+      const defaultVisible = isFixedColumn(column)
+        ? getDefaultTableVisibility(column.id)
+        : true;
+
+      return {
+        ...column,
+        order: typeof defaultOrder === 'number' ? defaultOrder : column.order,
+        isVisibleInTable: defaultVisible
+      };
+    }));
+  }, [applyColumnsUpdate]);
+
+  const selectAllTableColumns = useCallback(() => {
+    applyColumnsUpdate(prev => prev.map(column => ({
+      ...column,
+      isVisibleInTable: true
+    })));
+  }, [applyColumnsUpdate]);
+
   /**
    * Establecer columna base
    */
@@ -225,6 +268,9 @@ export const useColumns = () => {
     deleteColumn,
     toggleColumnVisibility,
     toggleColumnTableVisibility,
+    reorderColumns,
+    resetTableColumns,
+    selectAllTableColumns,
     setBaseColumn,
     updateColumn,
     clearError
