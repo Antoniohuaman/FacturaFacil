@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 /* eslint-disable @typescript-eslint/no-unused-expressions -- expresiones con efectos; refactor diferido */
-/* eslint-disable no-empty -- bloques de captura intencionales; logging diferido */
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables de error no utilizadas; logging diferido */
 // ===================================================================
 // LISTA DE COTIZACIONES - Diseño idéntico a ListaComprobantes
 // Funcionalidad específica para cotizaciones
@@ -12,30 +10,21 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Printer, MoreHorizontal, Share2, Copy, Eye, Edit2, XCircle,
-  Filter, Download, Plus, ChevronDown, Calendar, Check, Columns, X, FileCheck, Link
+  Filter, Download, Plus, ChevronDown, Calendar, FileCheck, Link, X
 } from 'lucide-react';
 import { useDocumentoContext } from '../../contexts/DocumentosContext';
 import { useFeedback } from '../../../../shared/feedback';
-import { lsKey } from '../../../../shared/tenant';
 import { DATE_PRESETS as BUSINESS_DATE_PRESETS, getTodayISO, formatDateShortSpanish, filterByDateRange, parseDateSpanish } from '../../utils/dateUtils';
 import { TABLE_CONFIG } from '../../models/constants';
 import { DrawerDetalleDocumento } from '../../components/DrawerDetalleDocumento';
 import { exportDatasetToExcel } from '../../../../shared/export/exportToExcel';
+import DocumentColumnsManager from '../../components/DocumentColumnsManager';
+import { useCotizacionesColumns } from '../../hooks/useCotizacionesColumns';
+import type { ColumnConfig } from '../../../comprobantes-electronicos/lista-comprobantes/types/columnConfig';
 
 // ===================================================================
 // TIPOS Y CONFIGURACIÓN
 // ===================================================================
-
-interface ColumnConfig {
-  id: string;
-  key: string;
-  label: string;
-  visible: boolean;
-  fixed: 'left' | 'right' | null;
-  align: 'left' | 'right' | 'center';
-  minWidth?: string;
-  width?: string;
-}
 
 type DatePresetKey = keyof typeof BUSINESS_DATE_PRESETS;
 
@@ -100,7 +89,6 @@ const ListaCotizaciones = () => {
 
   // Estados de UI
   const [density, setDensity] = useState<'comfortable' | 'intermediate' | 'compact'>('comfortable');
-  const [showColumnManager, setShowColumnManager] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
@@ -110,55 +98,14 @@ const ListaCotizaciones = () => {
   const [selectedDocumento, setSelectedDocumento] = useState<any | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Configuración de columnas
-  const MASTER_COLUMNS: ColumnConfig[] = useMemo(() => ([
-    { id: 'documentNumber', key: 'id', label: 'N° Cotización', visible: true, fixed: 'left', align: 'left', minWidth: '168px', width: 'w-[168px]' },
-    { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', minWidth: '220px', width: 'w-[220px]' },
-    { id: 'clientDoc', key: 'clientDoc', label: 'N° Doc Cliente', visible: true, fixed: null, align: 'left', minWidth: '130px', width: 'w-[130px]' },
-    { id: 'vendor', key: 'vendor', label: 'Vendedor', visible: true, fixed: null, align: 'left', minWidth: '150px', width: 'w-[150px]' },
-    { id: 'paymentMethod', key: 'paymentMethod', label: 'Forma de pago', visible: true, fixed: null, align: 'left', minWidth: '130px', width: 'w-[130px]' },
-    { id: 'total', key: 'total', label: 'Total', visible: true, fixed: null, align: 'right', minWidth: '110px', width: 'w-[110px]' },
-    { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'center', minWidth: '170px', width: 'w-[170px]' },
-    { id: 'actions', key: 'actions', label: 'ACCIONES', visible: true, fixed: 'right', align: 'center', minWidth: '110px', width: 'w-[110px]' },
-    { id: 'date', key: 'date', label: 'F. Emisión', visible: false, fixed: null, align: 'center', minWidth: '120px' },
-    { id: 'validUntil', key: 'validUntil', label: 'F. Vencimiento', visible: false, fixed: null, align: 'center', minWidth: '130px' },
-    { id: 'currency', key: 'currency', label: 'Moneda', visible: false, fixed: null, align: 'left', minWidth: '100px' },
-    { id: 'address', key: 'address', label: 'Dirección', visible: false, fixed: null, align: 'left', minWidth: '200px' },
-    { id: 'email', key: 'email', label: 'Correo', visible: false, fixed: null, align: 'left', minWidth: '200px' },
-    { id: 'observations', key: 'observations', label: 'Observaciones', visible: false, fixed: null, align: 'left', minWidth: '200px' }
-  ]), []);
-
-  const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
-    try {
-      const tenantKey = lsKey('cotizaciones_columns_config');
-      const storedTenant = localStorage.getItem(tenantKey);
-      if (storedTenant) return JSON.parse(storedTenant);
-
-      const legacy = localStorage.getItem('cotizaciones_columns_config');
-      if (legacy) {
-        localStorage.setItem(tenantKey, legacy);
-        localStorage.removeItem('cotizaciones_columns_config');
-        return JSON.parse(legacy);
-      }
-    } catch (e) {}
-    return MASTER_COLUMNS;
-  });
-
-  useEffect(() => {
-    try {
-      const tenantKey = lsKey('cotizaciones_columns_config');
-      localStorage.setItem(tenantKey, JSON.stringify(columnsConfig));
-    } catch (e) {
-      console.error('Error saving cotizaciones columns config:', e);
-    }
-  }, [columnsConfig]);
-
-  const visibleColumns = useMemo(() => columnsConfig.filter(c => c.visible), [columnsConfig]);
-
-  // Handlers
-  const toggleColumn = (id: string) => {
-    setColumnsConfig(prev => prev.map(c => c.id === id ? { ...c, visible: !c.visible } : c));
-  };
+  const {
+    columnsConfig,
+    visibleColumns,
+    toggleColumn,
+    reorderColumns,
+    resetColumns,
+    selectAllColumns
+  } = useCotizacionesColumns();
 
   const applyDatePreset = (preset: DatePresetKey) => {
     const factory = BUSINESS_DATE_PRESETS[preset] ?? BUSINESS_DATE_PRESETS.today;
@@ -417,19 +364,6 @@ const ListaCotizaciones = () => {
   const rowHeight = { comfortable: 'h-[56px]', intermediate: 'h-[48px]', compact: 'h-[40px]' }[density];
   const textSize = { comfortable: 'text-sm', intermediate: 'text-sm', compact: 'text-xs' }[density];
 
-  // Click fuera para cerrar popovers
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-menu]') && !target.closest('[data-column-manager]')) {
-        setOpenMenuId(null);
-        setShowColumnManager(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
   const getFilenameSuffix = () => {
     if (dateFrom && dateTo) {
       return dateFrom === dateTo ? dateFrom : `${dateFrom}_${dateTo}`;
@@ -586,44 +520,15 @@ const ListaCotizaciones = () => {
               {isExporting ? 'Exportando...' : 'Exportar'}
             </button>
 
-            <div className="relative" data-column-manager>
-              <button onClick={() => setShowColumnManager(!showColumnManager)} className="h-[44px] px-4 flex items-center gap-2 text-sm rounded-[12px] text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors" title="Personalizar columnas">
-                <Columns className="w-4 h-4" />
-                Columnas
-              </button>
-
-              {showColumnManager && (
-                <div className="absolute right-0 top-full mt-2 z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-[320px]">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-sm text-gray-900 dark:text-white">Personalizar columnas</h3>
-                      <button onClick={() => setShowColumnManager(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-                    </div>
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                      {columnsConfig.filter(c => c.id !== 'actions').map(col => (
-                        <label key={col.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer">
-                          <div className={`w-5 h-5 rounded border ${col.visible ? 'bg-blue-600 border-blue-600' : 'border-gray-300 dark:border-gray-600'} flex items-center justify-center`}>
-                            {col.visible && <Check className="w-3 h-3 text-white" />}
-                          </div>
-                          <input type="checkbox" checked={col.visible} onChange={() => toggleColumn(col.id)} className="sr-only" />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">{col.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Densidad</div>
-                      <div className="flex gap-2">
-                        {(['comfortable', 'intermediate', 'compact'] as const).map(d => (
-                          <button key={d} onClick={() => setDensity(d)} className={`flex-1 px-3 py-2 text-xs rounded-lg transition-colors ${density === d ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
-                            {d === 'comfortable' && 'Cómoda'}{d === 'intermediate' && 'Intermedia'}{d === 'compact' && 'Compacta'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <DocumentColumnsManager
+              columns={columnsConfig}
+              onToggleColumn={toggleColumn}
+              onSelectAllColumns={selectAllColumns}
+              onResetColumns={resetColumns}
+              onReorderColumns={reorderColumns}
+              density={density}
+              onDensityChange={setDensity}
+            />
 
             <button onClick={() => navigate('/documentos/nueva-cotizacion')} className="h-[44px] px-6 flex items-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-[12px] transition-colors font-semibold">
               <Plus className="w-4 h-4" />
