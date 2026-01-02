@@ -38,6 +38,7 @@ import {
   buildClientDocKey,
   detectDocumentTypeFromDigits,
   formatDocumentLabel,
+  loadNormalizedClientesFromStorage,
   mergeNormalizedClientes,
   type NormalizedClienteRecord,
   type NormalizedDocumentType,
@@ -45,6 +46,8 @@ import {
   normalizeDocumentNumber as normalizeDocNumber,
   normalizeDocumentType,
   normalizedTypeToSunatCode,
+  persistLegacyClientes,
+  readLegacyClientes,
   sunatCodeToNormalizedType,
 } from '../utils/clientNormalization';
 
@@ -57,115 +60,6 @@ type SelectedCliente = {
   sunatCode?: string;
 };
 
-const CLIENTE_LEGACY_KEY = 'clientes';
-
-const resolveClienteStorageKeys = (): string[] => {
-  if (typeof window === 'undefined' || !('localStorage' in window)) {
-    return [];
-  }
-
-  const prioritized: string[] = [];
-  const legacy: string[] = [];
-
-  for (let index = 0; index < window.localStorage.length; index += 1) {
-    const key = window.localStorage.key(index);
-    if (!key) {
-      continue;
-    }
-    if (key.endsWith(':dev_clientes')) {
-      prioritized.unshift(key);
-    } else if (key === 'dev_clientes') {
-      prioritized.push(key);
-    } else if (key === CLIENTE_LEGACY_KEY || key.endsWith(':clientes')) {
-      legacy.push(key);
-    }
-  }
-
-  const ordered = [...prioritized, ...legacy, CLIENTE_LEGACY_KEY];
-  const unique = Array.from(new Set(ordered));
-
-  return unique.filter((key) => {
-    try {
-      return Boolean(window.localStorage.getItem(key));
-    } catch {
-      return false;
-    }
-  });
-};
-
-const loadNormalizedClientesFromStorage = (): NormalizedClienteRecord[] => {
-  if (typeof window === 'undefined' || !('localStorage' in window)) {
-    return [];
-  }
-
-  const keys = resolveClienteStorageKeys();
-  const seen = new Map<string, NormalizedClienteRecord>();
-  const aggregated: NormalizedClienteRecord[] = [];
-
-  keys.forEach((key) => {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) {
-        return;
-      }
-
-      parsed.forEach((record) => {
-        const normalized = normalizeClienteRecord(record);
-        const existing = seen.get(normalized.docKey);
-        if (existing) {
-          const merged = mergeNormalizedClientes(existing, normalized);
-          seen.set(normalized.docKey, merged);
-          const position = aggregated.findIndex((item) => item.docKey === normalized.docKey);
-          if (position >= 0) {
-            aggregated[position] = merged;
-          }
-        } else {
-          seen.set(normalized.docKey, normalized);
-          aggregated.push(normalized);
-        }
-      });
-    } catch (error) {
-      console.error('Error loading clientes from localStorage key', key, error);
-    }
-  });
-
-  return aggregated;
-};
-
-const readLegacyClientes = (): any[] => {
-  if (typeof window === 'undefined' || !('localStorage' in window)) {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(CLIENTE_LEGACY_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error('Error reading legacy clientes from localStorage', error);
-    return [];
-  }
-};
-
-const persistLegacyClientes = (clientes: any[]): void => {
-  if (typeof window === 'undefined' || !('localStorage' in window)) {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(CLIENTE_LEGACY_KEY, JSON.stringify(clientes));
-  } catch (error) {
-    console.error('Error saving clientes to localStorage', error);
-  }
-};
 
 const inferDocumentTypeFromNumber = (value: string): NormalizedDocumentType => detectDocumentTypeFromDigits(value);
 

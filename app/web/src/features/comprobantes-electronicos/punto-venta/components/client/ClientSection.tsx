@@ -1,13 +1,28 @@
-import React, { useMemo, useState } from 'react';
-import { Search, Edit, User, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Search, Edit, User, X, Loader2 } from 'lucide-react';
 import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
+import {
+  buildClientDocKey,
+  formatDocumentLabel,
+  isValidDni,
+  isValidRuc,
+  loadNormalizedClientesFromStorage,
+  type NormalizedClienteRecord,
+  type NormalizedDocumentType,
+  normalizeDocumentNumber,
+  normalizeDocumentType,
+  persistLegacyClientes,
+  readLegacyClientes,
+} from '../../../shared/form-core/utils/clientNormalization';
+import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../../shared/clienteLookup/clienteLookupService';
 
 export interface ClientePOS {
-  id: number;
+  id: string;
   nombre: string;
-  tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
+  tipoDocumento: NormalizedDocumentType;
   documento: string;
   direccion: string;
+  email?: string;
 }
 
 interface ClientSectionProps {
@@ -21,7 +36,11 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
 }) => {
   const [showClienteForm, setShowClienteForm] = useState(false);
   const [editingCliente, setEditingCliente] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [documentQuery, setDocumentQuery] = useState('');
+  const [nameSearchQuery, setNameSearchQuery] = useState('');
+  const [clientDocError, setClientDocError] = useState<string | null>(null);
+  const [isLookupLoading, setIsLookupLoading] = useState(false);
+  const [clientesRefreshToken, setClientesRefreshToken] = useState(0);
   const [clienteFormData, setClienteFormData] = useState({
     documentNumber: '',
     legalName: '',
@@ -33,6 +52,27 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   });
   const [clienteDocumentType, setClienteDocumentType] = useState('DNI');
   const [clienteType, setClienteType] = useState('Cliente');
+
+  useEffect(() => {
+    if (!clienteSeleccionado) {
+      return;
+    }
+    setDocumentQuery(clienteSeleccionado.documento);
+    setNameSearchQuery(clienteSeleccionado.nombre);
+  }, [clienteSeleccionado]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key.includes('cliente')) {
+        setClientesRefreshToken((token) => token + 1);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const documentTypes = [
     { value: 'RUC', label: 'RUC' },
@@ -52,40 +92,48 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     { value: 'Proveedor', label: 'Proveedor' },
   ];
 
-  const getClientesFromLocalStorage = (): ClientePOS[] => {
-    try {
-      const stored = localStorage.getItem('clientes');
-      if (stored) {
-        type StoredClienteLite = {
-          id: number;
-          name: string;
-          document?: string;
-          address?: string;
-        };
+  const refreshClientes = () => setClientesRefreshToken((token) => token + 1);
 
-        const parsed: StoredClienteLite[] = JSON.parse(stored);
-        return parsed.map((cliente) => ({
-          id: cliente.id,
-          nombre: cliente.name,
-          tipoDocumento: cliente.document?.includes('RUC') ? 'RUC' as const :
-            cliente.document?.includes('DNI') ? 'DNI' as const :
-            'Sin documento' as const,
-          documento: cliente.document?.replace('RUC ', '').replace('DNI ', '').replace('Sin documento', '') ?? '',
-          direccion: cliente.address || 'Dirección no definida',
-        }));
-      }
-      return [];
-    } catch (error) {
-      console.error('Error loading clientes from localStorage:', error);
-      return [];
-    }
+  const selectCliente = (cliente: ClientePOS) => {
+    setClienteSeleccionado(cliente);
+    setDocumentQuery(cliente.documento);
+    setNameSearchQuery(cliente.nombre);
+    setClientDocError(null);
   };
 
-  const mockClientes: ClientePOS[] = useMemo(getClientesFromLocalStorage, []);
+  const selectFromRecord = (record: NormalizedClienteRecord) => {
+    selectCliente({
+      id: record.id,
+      nombre: record.nombre,
+      tipoDocumento: record.tipoDocumento,
+      documento: record.numeroDocumento,
+      direccion: record.direccion,
+      email: record.email,
+    });
+  };
 
-  const clientesFiltrados = mockClientes.filter((c: ClientePOS) =>
-    c.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.documento.includes(searchQuery),
+  const clientesDisponibles = useMemo(
+    () => loadNormalizedClientesFromStorage(),
+    [clientesRefreshToken],
+  );
+
+  const normalizedDocQuery = useMemo(() => normalizeDocumentNumber(documentQuery), [documentQuery]);
+  const normalizedNameQuery = useMemo(() => nameSearchQuery.trim().toLowerCase(), [nameSearchQuery]);
+
+  const clientesFiltrados = useMemo(() => {
+    if (!normalizedDocQuery && !normalizedNameQuery) {
+      return [] as NormalizedClienteRecord[];
+    }
+    return clientesDisponibles.filter((cliente) => {
+      const matchDoc = normalizedDocQuery ? cliente.numeroDocumento.includes(normalizedDocQuery) : false;
+      const matchName = normalizedNameQuery ? cliente.nombreLower.includes(normalizedNameQuery) : false;
+      return matchDoc || matchName;
+    });
+  }, [clientesDisponibles, normalizedDocQuery, normalizedNameQuery]);
+
+  const shouldShowResults = useMemo(
+    () => !clienteSeleccionado && (Boolean(documentQuery.trim()) || Boolean(nameSearchQuery.trim())),
+    [clienteSeleccionado, documentQuery, nameSearchQuery],
   );
 
   const handleClienteInputChange = (field: string, value: string) => {
@@ -105,6 +153,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     });
     setClienteDocumentType('DNI');
     setShowClienteForm(true);
+    setClientDocError(null);
   };
 
   const handleEditarCliente = () => {
@@ -126,71 +175,149 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
 
   const handleSaveCliente = () => {
     try {
-      const clientesLS = localStorage.getItem('clientes');
-      type StoredCliente = {
-        id: number;
-        name: string;
-        document: string;
-        type: string;
-        address?: string;
-        phone?: string;
-        enabled: boolean;
-      };
+      const clientesActuales = readLegacyClientes();
 
-      const clientesActuales: StoredCliente[] = clientesLS ? JSON.parse(clientesLS) : [];
+      const normalizedType = normalizeDocumentType(clienteDocumentType);
+      const rawDocumentInput = clienteFormData.documentNumber.trim();
+      const normalizedNumber =
+        normalizedType === 'RUC' || normalizedType === 'DNI'
+          ? normalizeDocumentNumber(rawDocumentInput)
+          : rawDocumentInput;
 
-      const documentoFormateado = clienteDocumentType !== 'SIN_DOCUMENTO'
-        ? `${clienteDocumentType} ${clienteFormData.documentNumber.trim()}`
-        : 'Sin documento';
+      const documentLabel =
+        normalizedType === 'SIN_DOCUMENTO' || !normalizedNumber
+          ? 'Sin documento'
+          : `${normalizedType} ${normalizedNumber}`;
 
-      const newId = clientesActuales.length > 0
-        ? Math.max(...clientesActuales.map((c) => c.id)) + 1
-        : 1;
+      const nextNumericId = (() => {
+        const numericIds = clientesActuales
+          .map((cliente: Record<string, unknown>) => Number(cliente?.id))
+          .filter((id) => Number.isFinite(id));
+        const maxId = numericIds.length ? Math.max(...numericIds) : 0;
+        return maxId + 1;
+      })();
 
       const nuevoCliente = {
-        id: newId,
+        id: editingCliente && clienteSeleccionado ? Number(clienteSeleccionado.id) || nextNumericId : nextNumericId,
         name: clienteFormData.legalName.trim(),
-        document: documentoFormateado,
+        document: documentLabel,
         type: clienteType,
         address: clienteFormData.address.trim() || 'Sin dirección',
         phone: clienteFormData.phone.trim() || 'Sin teléfono',
         enabled: true,
+        numeroDocumento: normalizedNumber,
+        tipoDocumento: normalizedType,
       };
 
-      clientesActuales.unshift(nuevoCliente);
-      localStorage.setItem('clientes', JSON.stringify(clientesActuales));
+      if (editingCliente && clienteSeleccionado) {
+        const targetIndex = clientesActuales.findIndex(
+          (cliente: Record<string, unknown>) => String(cliente?.id) === clienteSeleccionado.id,
+        );
+        if (targetIndex >= 0) {
+          clientesActuales[targetIndex] = { ...clientesActuales[targetIndex], ...nuevoCliente };
+        } else {
+          clientesActuales.unshift(nuevoCliente);
+        }
+      } else {
+        clientesActuales.unshift(nuevoCliente);
+      }
 
-      setClienteSeleccionado({
-        id: nuevoCliente.id,
+      persistLegacyClientes(clientesActuales);
+
+      selectCliente({
+        id: String(nuevoCliente.id),
         nombre: nuevoCliente.name,
-        tipoDocumento: clienteDocumentType === 'SIN_DOCUMENTO' ? 'Sin documento' : (clienteDocumentType === 'RUC' ? 'RUC' : 'DNI'),
-        documento: clienteFormData.documentNumber,
+        tipoDocumento: normalizedType,
+        documento: normalizedNumber || rawDocumentInput,
         direccion: nuevoCliente.address,
       });
 
+      refreshClientes();
       setShowClienteForm(false);
+      setEditingCliente(false);
     } catch (error) {
       console.error('Error al guardar cliente:', error);
     }
   };
 
-  const handleSeleccionarCliente = (cliente: ClientePOS) => {
-    setClienteSeleccionado(cliente);
-    setSearchQuery(cliente.documento);
-  };
-
-  const selectedClientName: string = clienteSeleccionado ? clienteSeleccionado.nombre : '';
-
   const handleDocumentInputChange = (value: string) => {
     if (clienteSeleccionado) {
       setClienteSeleccionado(null);
+      setNameSearchQuery('');
     }
-    setSearchQuery(value);
+    setDocumentQuery(value);
+    if (!value || clientDocError) {
+      setClientDocError(null);
+    }
   };
 
-  const handleQuickSearch = () => {
-    if (clientesFiltrados.length === 1) {
-      handleSeleccionarCliente(clientesFiltrados[0]);
+  const handleNameInputChange = (value: string) => {
+    if (clienteSeleccionado) {
+      setClienteSeleccionado(null);
+    }
+    setNameSearchQuery(value);
+    if (value && documentQuery) {
+      setDocumentQuery('');
+    }
+    if (clientDocError) {
+      setClientDocError(null);
+    }
+  };
+
+  const handleQuickSearch = async () => {
+    const digits = normalizeDocumentNumber(documentQuery);
+    if (!digits) {
+      setClientDocError('Ingresa un número de documento');
+      return;
+    }
+
+    if (digits !== documentQuery) {
+      setDocumentQuery(digits);
+    }
+
+    const isRucDoc = isValidRuc(digits);
+    const isDniDoc = isValidDni(digits);
+    if (!isRucDoc && !isDniDoc) {
+      setClientDocError('Ingresa un DNI (8) o RUC (11) válido');
+      return;
+    }
+
+    const matches = clientesDisponibles.filter((cliente) => cliente.numeroDocumento === digits);
+    if (matches.length === 1) {
+      selectFromRecord(matches[0]);
+      return;
+    }
+    if (matches.length > 1) {
+      setClientDocError('Selecciona un cliente de la lista');
+      return;
+    }
+
+    setIsLookupLoading(true);
+    try {
+      const lookup = isRucDoc ? await lookupEmpresaPorRuc(digits) : await lookupPersonaPorDni(digits);
+      if (!lookup) {
+        setClientDocError('No se encontraron datos para este documento');
+        return;
+      }
+      const normalizedType = normalizeDocumentType(lookup.tipoDocumento);
+      const numeroDocumento =
+        normalizedType === 'RUC' || normalizedType === 'DNI'
+          ? normalizeDocumentNumber(lookup.documento)
+          : lookup.documento;
+      selectCliente({
+        id: buildClientDocKey(normalizedType, numeroDocumento || lookup.nombre),
+        nombre: lookup.nombre,
+        tipoDocumento: normalizedType,
+        documento: numeroDocumento,
+        direccion: lookup.direccion || 'Dirección no definida',
+        email: lookup.email,
+      });
+      setClientDocError(null);
+    } catch (error) {
+      console.error('Error durante el lookup de cliente', error);
+      setClientDocError('No se pudo buscar el documento. Intenta nuevamente.');
+    } finally {
+      setIsLookupLoading(false);
     }
   };
 
@@ -217,31 +344,43 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div className="flex rounded-full border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleDocumentInputChange(e.target.value)}
-              placeholder="08661874"
-              className="flex-1 px-3 py-1.5 text-[12px] font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={handleQuickSearch}
-              className="w-10 flex items-center justify-center bg-slate-200/40 text-slate-600 hover:text-slate-900 transition"
-              title="Buscar cliente"
-            >
-              <Search className="h-4 w-4" />
-            </button>
+          <div>
+            <div className="flex rounded-full border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <input
+                type="text"
+                value={documentQuery}
+                onChange={(e) => handleDocumentInputChange(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void handleQuickSearch();
+                  }
+                }}
+                placeholder="08661874"
+                className="flex-1 px-3 py-1.5 text-[12px] font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => void handleQuickSearch()}
+                className="w-10 flex items-center justify-center bg-slate-200/40 text-slate-600 hover:text-slate-900 transition disabled:opacity-60"
+                title="Buscar cliente"
+                disabled={isLookupLoading}
+              >
+                {isLookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              </button>
+            </div>
+            {clientDocError && (
+              <p className="mt-1 text-[10px] text-red-600">{clientDocError}</p>
+            )}
           </div>
 
           <div className="flex rounded-full border border-slate-200 bg-white shadow-sm overflow-hidden">
             <input
               type="text"
-              value={selectedClientName}
-              readOnly
+              value={nameSearchQuery}
+              onChange={(e) => handleNameInputChange(e.target.value)}
               placeholder="Nombre del cliente"
-              className="flex-1 px-3 py-1.5 text-[12px] font-semibold text-slate-800 uppercase placeholder:normal-case placeholder:text-slate-400 bg-transparent"
+              className="flex-1 px-3 py-1.5 text-[12px] font-semibold text-slate-800 placeholder:normal-case placeholder:text-slate-400 bg-transparent"
             />
             <button
               type="button"
@@ -255,18 +394,18 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
         </div>
       </div>
 
-      {searchQuery && !clienteSeleccionado && (
+      {shouldShowResults && (
         <div className="mt-2 border border-slate-200 rounded-xl max-h-28 overflow-y-auto bg-white shadow-sm">
           {clientesFiltrados.length > 0 ? (
             clientesFiltrados.map((cliente) => (
               <button
-                key={cliente.id}
-                onClick={() => handleSeleccionarCliente(cliente)}
+                key={cliente.docKey}
+                onClick={() => selectFromRecord(cliente)}
                 className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-b-0"
               >
                 <div className="font-semibold text-[11px] text-slate-900 truncate">{cliente.nombre}</div>
                 <div className="text-[10px] text-slate-600">
-                  {cliente.tipoDocumento}: {cliente.documento}
+                  {cliente.documentLabel}
                 </div>
               </button>
             ))
@@ -279,13 +418,15 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       {clienteSeleccionado && (
         <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500">
           <span className="font-semibold text-slate-600">
-            {clienteSeleccionado.tipoDocumento}: {clienteSeleccionado.documento}
+            {formatDocumentLabel(clienteSeleccionado.tipoDocumento, clienteSeleccionado.documento)}
           </span>
           <button
             type="button"
             onClick={() => {
               setClienteSeleccionado(null);
-              setSearchQuery('');
+              setDocumentQuery('');
+              setNameSearchQuery('');
+              setClientDocError(null);
             }}
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 text-[10px] font-semibold text-slate-600 hover:text-red-600 hover:border-red-200 transition"
           >

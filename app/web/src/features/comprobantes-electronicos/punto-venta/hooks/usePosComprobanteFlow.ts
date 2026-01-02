@@ -6,6 +6,7 @@ import { useAvailableProducts } from '../../hooks/useAvailableProducts';
 import { useCreditTermsConfigurator } from '../../hooks/useCreditTermsConfigurator';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { useDocumentType } from '../../shared/form-core/hooks/useDocumentType';
+import { normalizeDocumentNumber, type NormalizedDocumentType } from '../../shared/form-core/utils/clientNormalization';
 import { validateComprobanteReadyForCobranza } from '../../shared/core/comprobanteValidation';
 import type {
   CartItem,
@@ -73,24 +74,29 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
 
   const [clienteSeleccionado, setClienteSeleccionado] = useState<
     | {
-        id: number;
+        id: string;
         nombre: string;
-        tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
+        tipoDocumento: NormalizedDocumentType;
         documento: string;
         direccion: string;
+        email?: string;
       }
     | null
   >(null);
 
   const clienteDraftData: ClientData | undefined = useMemo(() => {
     if (!clienteSeleccionado) return undefined;
-    const rawTipo = (clienteSeleccionado.tipoDocumento || '').toString().toLowerCase();
-    const tipoDocumento: ClientData['tipoDocumento'] = rawTipo === 'ruc' ? 'ruc' : 'dni';
+    const tipoDocumento: ClientData['tipoDocumento'] = clienteSeleccionado.tipoDocumento === 'RUC' ? 'ruc' : 'dni';
+    const documentoNormalizado =
+      clienteSeleccionado.tipoDocumento === 'RUC' || clienteSeleccionado.tipoDocumento === 'DNI'
+        ? normalizeDocumentNumber(clienteSeleccionado.documento)
+        : clienteSeleccionado.documento;
     return {
       nombre: clienteSeleccionado.nombre,
       tipoDocumento,
-      documento: clienteSeleccionado.documento,
+      documento: documentoNormalizado,
       direccion: clienteSeleccionado.direccion,
+      email: clienteSeleccionado.email,
     };
   }, [clienteSeleccionado]);
 
@@ -316,6 +322,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     if (currentCurrency !== baseCurrency.code) {
       changeCurrency(baseCurrency.code as Currency);
     }
+    setClienteSeleccionado(null);
     setShowSuccessModal(false);
   };
 

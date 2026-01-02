@@ -14,6 +14,7 @@ import { CartItemsList } from './cart/CartItemsList';
 import { ClientSection } from './client/ClientSection';
 import { DiscountSection } from './discount/DiscountSection';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
+import type { NormalizedDocumentType } from '../../shared/form-core/utils/clientNormalization';
 
 export interface CartCheckoutPanelProps extends CartSidebarProps {
   onAddProduct?: (product: Product) => void;
@@ -24,18 +25,20 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   setTipoComprobante: (tipo: 'boleta' | 'factura') => void;
   onCurrencyChange?: (currency: Currency) => void;
   clienteSeleccionado: {
-    id: number;
+    id: string;
     nombre: string;
-    tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
+    tipoDocumento: NormalizedDocumentType;
     documento: string;
     direccion: string;
+    email?: string;
   } | null;
   setClienteSeleccionado: (cliente: {
-    id: number;
+    id: string;
     nombre: string;
-    tipoDocumento: 'DNI' | 'RUC' | 'Sin documento';
+    tipoDocumento: NormalizedDocumentType;
     documento: string;
     direccion: string;
+    email?: string;
   } | null) => void;
   paymentMethods: PaymentMethod[];
   formaPagoId: string;
