@@ -119,7 +119,13 @@ const EmisionTradicional = () => {
     error
   } = useComprobanteActions();
   // ----- Lifted data from CompactDocumentForm (cliente y campos opcionales) -----
-  const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<{ nombre: string; dni: string; direccion: string; email?: string } | null>(null);
+  const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<{
+    nombre: string;
+    dni: string;
+    direccion: string;
+    email?: string;
+    priceProfileId?: string;
+  } | null>(null);
   const [fechaEmision, setFechaEmision] = useState<string>(getBusinessTodayISODate());
   const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
 
@@ -217,6 +223,8 @@ const EmisionTradicional = () => {
       email: clienteSeleccionadoGlobal.email,
     };
   }, [clienteSeleccionadoGlobal]);
+
+  const preferredPriceColumnId = clienteSeleccionadoGlobal?.priceProfileId;
 
   const buildCobranzaValidationInput = useCallback(() => ({
     tipoComprobante,
@@ -626,6 +634,7 @@ const EmisionTradicional = () => {
               removeFromCart={removeFromCart}
               totals={totals}
               refreshKey={productSelectorKey}
+              preferredPriceColumnId={preferredPriceColumnId}
             />
 
             {isCreditMethod && (

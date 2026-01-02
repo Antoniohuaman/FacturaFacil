@@ -146,8 +146,50 @@ export interface NormalizedClienteRecord {
   email?: string;
   docKey: string;
   sunatCode?: string;
+  priceProfileIdHint?: string;
   raw: unknown;
 }
+
+export type LegacyClienteStorageRecord = Record<string, unknown>;
+
+const extractString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const extractPriceProfileCandidate = (record: Record<string, unknown>): string | undefined => {
+  const directKeys = [
+    'listaPrecio',
+    'listaPrecioId',
+    'priceProfileId',
+    'priceProfile',
+    'perfilPrecio',
+    'perfilPrecios',
+  ];
+
+  for (const key of directKeys) {
+    const candidate = extractString(record[key]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  const nestedKeys = ['configuracionVenta', 'configuracionComercial', 'ventas', 'datosComerciales'];
+  for (const key of nestedKeys) {
+    const nested = record[key];
+    if (typeof nested === 'object' && nested !== null) {
+      const candidate = extractString((nested as Record<string, unknown>).listaPrecio);
+      if (candidate) {
+        return candidate;
+      }
+    }
+  }
+
+  return undefined;
+};
 
 const pickNonEmptyString = (...values: unknown[]): string | undefined => {
   for (const value of values) {
@@ -289,6 +331,8 @@ export const normalizeClienteRecord = (entry: unknown): NormalizedClienteRecord 
     ? buildClientDocKey(resolvedType, numeroDocumento)
     : `${resolvedType}:${normalizeKey(nombre) || idString || 'sin-id'}`;
 
+  const priceProfileIdHint = extractPriceProfileCandidate(record);
+
   return {
     id: idString ?? docKey,
     nombre,
@@ -301,6 +345,7 @@ export const normalizeClienteRecord = (entry: unknown): NormalizedClienteRecord 
     email,
     docKey,
     sunatCode,
+    priceProfileIdHint,
     raw: entry,
   };
 };
@@ -324,6 +369,7 @@ export const mergeNormalizedClientes = (
     direccion: mergedDireccion,
     telefono: primary.telefono || candidate.telefono,
     email: primary.email || candidate.email,
+    priceProfileIdHint: primary.priceProfileIdHint || candidate.priceProfileIdHint,
     raw: primary.raw ?? candidate.raw,
   };
 };
@@ -408,7 +454,7 @@ export const loadNormalizedClientesFromStorage = (): NormalizedClienteRecord[] =
   return aggregated;
 };
 
-export const readLegacyClientes = (): any[] => {
+export const readLegacyClientes = (): LegacyClienteStorageRecord[] => {
   if (typeof window === 'undefined' || !('localStorage' in window)) {
     return [];
   }
@@ -419,14 +465,14 @@ export const readLegacyClientes = (): any[] => {
       return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? (parsed as LegacyClienteStorageRecord[]) : [];
   } catch (error) {
     console.error('Error reading legacy clientes from localStorage', error);
     return [];
   }
 };
 
-export const persistLegacyClientes = (clientes: any[]): void => {
+export const persistLegacyClientes = (clientes: LegacyClienteStorageRecord[]): void => {
   if (typeof window === 'undefined' || !('localStorage' in window)) {
     return;
   }

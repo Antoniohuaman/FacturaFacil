@@ -3,7 +3,7 @@
 // Preserva toda la funcionalidad original con mejor UX
 // ===================================================================
 
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 // Hooks POS orquestadores
 import { usePosCartAndTotals } from '../hooks/usePosCartAndTotals';
@@ -89,10 +89,50 @@ const PuntoVenta = () => {
     warning,
   } = usePosComprobanteFlow({ cartItems, totals });
 
+  const basePriceListId = useMemo(() => {
+    const baseOption = priceListOptions.find((option) => option.isBase);
+    return baseOption?.id || priceListOptions[0]?.id || '';
+  }, [priceListOptions]);
+
+  const lastAutoClientIdRef = useRef<string | null>(null);
+  const lastAutoProfileRef = useRef<string | undefined>(undefined);
+
   useEffect(() => {
     registerPricingNotifier(warning);
     return () => registerPricingNotifier(undefined);
   }, [registerPricingNotifier, warning]);
+
+  useEffect(() => {
+    if (!priceListOptions.length) {
+      return;
+    }
+    const clientId = clienteSeleccionado?.id ?? null;
+    const preferredProfileId = clienteSeleccionado?.priceProfileId;
+
+    if (
+      clientId === lastAutoClientIdRef.current &&
+      preferredProfileId === lastAutoProfileRef.current
+    ) {
+      return;
+    }
+
+    lastAutoClientIdRef.current = clientId;
+    lastAutoProfileRef.current = preferredProfileId;
+
+    if (clientId === null) {
+      return;
+    }
+
+    const resolvedProfileId = preferredProfileId && priceListOptions.some((option) => option.id === preferredProfileId)
+      ? preferredProfileId
+      : basePriceListId;
+
+    if (!resolvedProfileId || resolvedProfileId === selectedPriceListId) {
+      return;
+    }
+
+    setSelectedPriceListId(resolvedProfileId);
+  }, [basePriceListId, clienteSeleccionado, priceListOptions, selectedPriceListId, setSelectedPriceListId]);
 
   return (
     <ErrorBoundary>

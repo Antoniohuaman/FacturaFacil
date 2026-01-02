@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import type { Cliente, ClienteArchivo, PersistedFile } from '../models';
 import { CLIENTE_COLUMN_DEFINITIONS, type ClienteColumnId } from '../hooks/useClientesColumns';
+import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 
 export type ClientesTableProps = {
   clients: Cliente[];
@@ -186,6 +187,7 @@ const ClienteAvatar: React.FC<{ name: string; imageUrl?: string }> = ({ name, im
 const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
   ({ clients, visibleColumnIds, onEditClient, onDeleteClient }, ref) => {
     const navigate = useNavigate();
+    const { resolveProfileLabel } = usePriceProfilesCatalog();
     const [menuOpenId, setMenuOpenId] = useState<number | string | null>(null);
     const [menuCoords, setMenuCoords] = useState<{ top: number; left: number } | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
@@ -397,7 +399,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
 
                   {isColumnVisible('formaPago') && <th style={{ width: '100px' }}>Forma pago</th>}
                   {isColumnVisible('monedaPreferida') && <th style={{ width: '90px' }}>Moneda</th>}
-                  {isColumnVisible('listaPrecio') && <th style={{ width: '140px' }}>Lista precios</th>}
+                  {isColumnVisible('listaPrecio') && <th style={{ width: '140px' }}>Perfil de precio</th>}
                   {isColumnVisible('usuarioAsignado') && <th style={{ width: '140px' }}>Usuario asignado</th>}
                   {isColumnVisible('clientePorDefecto') && <th style={{ width: '110px' }}>Cliente default</th>}
 
@@ -439,6 +441,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                   // Actividad económica principal (si existe)
                   const actividadPrincipal = client.actividadesEconomicas?.find(a => a.esPrincipal) 
                     || client.actividadesEconomicas?.[0];
+                  const perfilPrecioLabel = resolveProfileLabel(client.listaPrecio);
 
                   return (
                     <tr 
@@ -489,7 +492,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
 
                       {isColumnVisible('formaPago') && <td>{renderText(client.formaPago)}</td>}
                       {isColumnVisible('monedaPreferida') && <td>{renderText(client.monedaPreferida)}</td>}
-                      {isColumnVisible('listaPrecio') && <td>{renderText(client.listaPrecio)}</td>}
+                      {isColumnVisible('listaPrecio') && <td>{renderText(perfilPrecioLabel)}</td>}
                       {isColumnVisible('usuarioAsignado') && <td>{renderText(client.usuarioAsignado)}</td>}
                       {isColumnVisible('clientePorDefecto') && (
                         <td>

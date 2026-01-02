@@ -25,6 +25,7 @@ import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
+import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 
 type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
 
@@ -43,6 +44,8 @@ const booleanToLabel = (value?: boolean | null): string => {
 	if (value === undefined || value === null) return '';
 	return value ? 'Sí' : 'No';
 };
+
+type PriceProfileLabelResolver = (value?: string | null) => string;
 
 const normalizeDocumentCodeValue = (value?: string | null): DocumentCode | '' => {
 	if (!value) return '';
@@ -228,7 +231,10 @@ const mapClientToBasicRow = (client: Cliente): Record<string, string> => {
 	};
 };
 
-const mapClientToCompleteRow = (client: Cliente): Record<string, string> => {
+const mapClientToCompleteRow = (
+	client: Cliente,
+	resolveProfileLabel: PriceProfileLabelResolver,
+): Record<string, string> => {
 	const documentCode = resolveDocumentCode(client);
 	const documentNumber = resolveDocumentNumber(client, documentCode);
 	const tipoPersona = resolveTipoPersona(client, documentCode);
@@ -273,7 +279,7 @@ const mapClientToCompleteRow = (client: Cliente): Record<string, string> => {
 		motivoDeshabilitacion: client.motivoDeshabilitacion?.trim() ?? '',
 		formaPago: client.formaPago ?? '',
 		monedaPreferida: client.monedaPreferida ?? '',
-		listaPrecio: client.listaPrecio ?? '',
+		listaPrecio: resolveProfileLabel(client.listaPrecio),
 		usuarioAsignado: client.usuarioAsignado ?? '',
 		clientePorDefecto: booleanToLabel(client.clientePorDefecto),
 		exceptuadaPercepcion: booleanToLabel(client.exceptuadaPercepcion),
@@ -349,6 +355,8 @@ function ClientesPage() {
 			const { clientes, transientClientes, transientCount, clearTransientClientes, createCliente, updateCliente, deleteCliente, loading, pagination, fetchClientes } = useClientes();
 			const combinedClients = useMemo(() => [...clientes, ...transientClientes], [clientes, transientClientes]);
 	const { columnDefinitions, visibleColumnIds, toggleColumn, resetColumns, selectAllColumns } = useClientesColumns();
+	const { resolveProfileId, resolveProfileLabel } = usePriceProfilesCatalog();
+	const normalizeProfileSelectionValue = useCallback((value?: string | null) => resolveProfileId(value) ?? '', [resolveProfileId]);
 	const [filters, setFilters] = useState<ClientesFilterValues>(() => ({ ...CLIENTES_FILTERS_INITIAL_STATE }));
 	const hasActiveFilters = useMemo(
 		() => Boolean(filters.search || filters.tipoCuenta || filters.estadoCliente),
@@ -519,7 +527,7 @@ function ClientesPage() {
 			{ header: 'MOTIVO DESHABILITACION', key: 'motivoDeshabilitacion', width: 32 },
 			{ header: 'FORMA PAGO', key: 'formaPago', width: 18 },
 			{ header: 'MONEDA PREFERIDA', key: 'monedaPreferida', width: 20 },
-			{ header: 'LISTA PRECIO', key: 'listaPrecio', width: 20 },
+			{ header: 'PERFIL DE PRECIO', key: 'listaPrecio', width: 20 },
 			{ header: 'USUARIO ASIGNADO', key: 'usuarioAsignado', width: 24 },
 			{ header: 'CLIENTE POR DEFECTO', key: 'clientePorDefecto', width: 24 },
 			{ header: 'EXCEPTUADA PERCEPCION', key: 'exceptuadaPercepcion', width: 26 },
@@ -547,7 +555,10 @@ function ClientesPage() {
 	);
 
 	const basicExportRows = useMemo(() => combinedClients.map(mapClientToBasicRow), [combinedClients]);
-	const completeExportRows = useMemo(() => combinedClients.map(mapClientToCompleteRow), [combinedClients]);
+	const completeExportRows = useMemo(
+		() => combinedClients.map((client) => mapClientToCompleteRow(client, resolveProfileLabel)),
+		[combinedClients, resolveProfileLabel]
+	);
 
 	const exportClientes = async (
 		variant: 'BASICO' | 'COMPLETO',
@@ -762,6 +773,7 @@ function ClientesPage() {
 				tipo: t.tipo || 'Móvil',
 			}));
 		const primaryPhone = sanitizedTelefonos[0]?.numero;
+		const profileForPayload = normalizeProfileSelectionValue(formData.listaPrecio);
 
 		const [serializedAdjuntos, serializedImagenes] = await Promise.all([
 			serializeFiles(formData.adjuntos),
@@ -818,7 +830,7 @@ function ClientesPage() {
 			esBuenContribuyente: formData.esBuenContribuyente,
 			formaPago: formData.formaPago,
 			monedaPreferida: formData.monedaPreferida,
-			listaPrecio: formData.listaPrecio.trim() || undefined,
+			listaPrecio: profileForPayload || undefined,
 			usuarioAsignado: formData.usuarioAsignado.trim() || undefined,
 			clientePorDefecto: formData.clientePorDefecto,
 			exceptuadaPercepcion: formData.exceptuadaPercepcion,
@@ -989,7 +1001,7 @@ function ClientesPage() {
 				esBuenContribuyente: Boolean(client.esBuenContribuyente),
 				formaPago: (client.formaPago as ClienteFormData['formaPago']) || 'Contado',
 				monedaPreferida: (client.monedaPreferida as ClienteFormData['monedaPreferida']) || 'PEN',
-				listaPrecio: client.listaPrecio || '',
+				listaPrecio: normalizeProfileSelectionValue(client.listaPrecio),
 				usuarioAsignado: client.usuarioAsignado || '',
 				clientePorDefecto: Boolean(client.clientePorDefecto),
 				exceptuadaPercepcion: Boolean(client.exceptuadaPercepcion),
@@ -1093,6 +1105,7 @@ function ClientesPage() {
 				tipo: t.tipo || 'Móvil',
 			}));
 		const primaryPhone = sanitizedTelefonos[0]?.numero;
+		const profileForPayload = normalizeProfileSelectionValue(formData.listaPrecio);
 
 		const [serializedAdjuntos, serializedImagenes] = await Promise.all([
 			serializeFiles(formData.adjuntos),
@@ -1150,7 +1163,7 @@ function ClientesPage() {
 			esBuenContribuyente: formData.esBuenContribuyente,
 			formaPago: formData.formaPago,
 			monedaPreferida: formData.monedaPreferida,
-			listaPrecio: formData.listaPrecio.trim() || undefined,
+			listaPrecio: profileForPayload || undefined,
 			usuarioAsignado: formData.usuarioAsignado.trim() || undefined,
 			clientePorDefecto: formData.clientePorDefecto,
 			exceptuadaPercepcion: formData.exceptuadaPercepcion,

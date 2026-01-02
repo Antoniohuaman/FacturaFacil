@@ -75,7 +75,7 @@ export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = [
   { id: 'referenciaDireccion', label: 'Referencia', defaultVisible: false },
   { id: 'formaPago', label: 'Forma pago', defaultVisible: false },
   { id: 'monedaPreferida', label: 'Moneda', defaultVisible: false },
-  { id: 'listaPrecio', label: 'Lista precios', defaultVisible: false },
+  { id: 'listaPrecio', label: 'Perfil de precio', defaultVisible: false },
   { id: 'usuarioAsignado', label: 'Usuario asignado', defaultVisible: false },
   { id: 'clientePorDefecto', label: 'Cliente default', defaultVisible: false },
   { id: 'tipoContribuyente', label: 'Tipo contribuyente', defaultVisible: false },

@@ -33,13 +33,13 @@ import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/cl
 import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
 import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
 import { normalizeKey } from '@/features/gestion-clientes/utils/documents';
+import { usePriceProfilesCatalog } from '../../../../lista-precios/hooks/usePriceProfilesCatalog';
 
 import {
   buildClientDocKey,
   detectDocumentTypeFromDigits,
   formatDocumentLabel,
   loadNormalizedClientesFromStorage,
-  mergeNormalizedClientes,
   type NormalizedClienteRecord,
   type NormalizedDocumentType,
   normalizeClienteRecord,
@@ -58,13 +58,21 @@ type SelectedCliente = {
   tipoDocumento: NormalizedDocumentType;
   email?: string;
   sunatCode?: string;
+  priceProfileId?: string;
 };
 
 
 const inferDocumentTypeFromNumber = (value: string): NormalizedDocumentType => detectDocumentTypeFromDigits(value);
 
 const mapSelectedClienteFromProps = (
-  cliente?: { nombre: string; dni: string; direccion: string; tipoDocumento?: NormalizedDocumentType; email?: string } | null,
+  cliente?: {
+    nombre: string;
+    dni: string;
+    direccion: string;
+    tipoDocumento?: NormalizedDocumentType;
+    email?: string;
+    priceProfileId?: string;
+  } | null,
 ): SelectedCliente | null => {
   if (!cliente) {
     return null;
@@ -85,6 +93,7 @@ const mapSelectedClienteFromProps = (
     tipoDocumento,
     email: cliente.email,
     sunatCode: normalizedTypeToSunatCode(tipoDocumento),
+    priceProfileId: cliente.priceProfileId,
   };
 };
 
@@ -140,11 +149,12 @@ interface CompactDocumentFormProps {
     direccion: string;
     tipoDocumento?: NormalizedDocumentType;
     email?: string;
+    priceProfileId?: string;
   };
   // Callbacks para elevar datos al padre (EmisionTradicional)
   onClienteChange?: (
     cliente:
-      | { nombre: string; dni: string; direccion: string; email?: string; tipoDocumento?: NormalizedDocumentType }
+      | { nombre: string; dni: string; direccion: string; email?: string; tipoDocumento?: NormalizedDocumentType; priceProfileId?: string }
       | null
   ) => void;
   fechaEmision?: string;
@@ -177,6 +187,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   onOptionalFieldsChange,
   onLookupClientSelected,
 }) => {
+  const { resolveProfileId } = usePriceProfilesCatalog();
   const { state } = useConfigurationContext();
   const { paymentMethods } = state;
   const { config } = useFieldsConfiguration();
@@ -390,6 +401,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         tipoDocumento: normalizedType,
         email: nuevoCliente.email,
         sunatCode: documentType,
+        priceProfileId: undefined,
       };
 
       setClienteSeleccionadoLocal(selected);
@@ -400,6 +412,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         direccion: selected.direccion,
         email: selected.email,
         tipoDocumento: selected.tipoDocumento,
+        priceProfileId: selected.priceProfileId,
       });
 
       setShowClienteForm(false);
@@ -417,6 +430,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   };
 
   const handleSeleccionarCliente = (cliente: NormalizedClienteRecord) => {
+    const priceProfileId = resolveProfileId(cliente.priceProfileIdHint);
     const selected: SelectedCliente = {
       nombre: cliente.nombre,
       dni: cliente.numeroDocumento,
@@ -424,6 +438,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       tipoDocumento: cliente.tipoDocumento,
       email: cliente.email,
       sunatCode: cliente.sunatCode ?? normalizedTypeToSunatCode(cliente.tipoDocumento),
+      priceProfileId,
     };
 
     setClienteSeleccionadoLocal(selected);
@@ -434,6 +449,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       direccion: selected.direccion,
       email: selected.email,
       tipoDocumento: selected.tipoDocumento,
+      priceProfileId: selected.priceProfileId,
     });
 
     setSearchQuery('');
@@ -504,6 +520,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         email: fromLookup.email,
         tipoDocumento: lookupType,
         sunatCode: normalizedTypeToSunatCode(lookupType),
+        priceProfileId: undefined,
       };
 
       setClienteSeleccionadoLocal(selectedClient);
@@ -513,6 +530,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         direccion: selectedClient.direccion,
         email: selectedClient.email,
         tipoDocumento: selectedClient.tipoDocumento,
+        priceProfileId: selectedClient.priceProfileId,
       });
       onLookupClientSelected?.({
         data: {
@@ -554,6 +572,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         direccion: clienteSeleccionadoLocal.direccion,
         email: clienteSeleccionadoLocal.email,
         tipoDocumento: clienteSeleccionadoLocal.tipoDocumento,
+        priceProfileId: clienteSeleccionadoLocal.priceProfileId,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

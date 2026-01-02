@@ -64,6 +64,7 @@ const FormularioCotizacion = () => {
     dni: string;
     direccion: string;
     email?: string;
+    priceProfileId?: string;
   } | null>(null);
   
   const [fechaEmision, setFechaEmision] = useState<string>(getBusinessTodayISODate());

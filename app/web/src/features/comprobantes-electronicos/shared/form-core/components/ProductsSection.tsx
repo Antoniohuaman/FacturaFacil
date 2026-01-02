@@ -73,6 +73,7 @@ interface ProductsSectionProps {
   totals: PaymentTotals;
   refreshKey?: number;
   selectedEstablishmentId?: string;
+  preferredPriceColumnId?: string;
 }
 
 // ===================================================================
@@ -136,6 +137,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   removeFromCart,
   totals,
   refreshKey = 0,
+  preferredPriceColumnId,
   // selectedEstablishmentId, // TODO: Usar para filtrar stock por establecimiento
 }) => {
   const { baseCurrency, documentCurrency, formatPrice, convertPrice } = useCurrency();
@@ -420,10 +422,13 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       }
 
       const currentOption = priceOptions.find(option => option.columnId === item.priceColumnId);
+      const preferredOption = preferredPriceColumnId
+        ? priceOptions.find(option => option.columnId === preferredPriceColumnId)
+        : undefined;
       const fallbackOption = priceOptions.length > 0
         ? (priceOptions.find(option => option.columnId === baseColumnId) || priceOptions[0])
         : undefined;
-      const selectedOption = item.isManualPrice ? undefined : (currentOption || fallbackOption);
+      const selectedOption = item.isManualPrice ? undefined : (currentOption || preferredOption || fallbackOption);
 
       const minPrice = hasSelectableColumns ? resolveMinPrice(sku, unitCode) : undefined;
       const roundedMin = typeof minPrice === 'number' ? roundCurrency(minPrice) : undefined;
@@ -473,7 +478,57 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         updateCartItem(item.id, updates);
       }
     });
-  }, [applyGlobalRuleValue, baseColumnId, cartItems, getPriceOptionsFor, hasSelectableColumns, resolveMinPrice, resolveSku, resolveUnitCode, stripGlobalRuleValue, updateCartItem]);
+  }, [applyGlobalRuleValue, baseColumnId, cartItems, getPriceOptionsFor, hasSelectableColumns, preferredPriceColumnId, resolveMinPrice, resolveSku, resolveUnitCode, stripGlobalRuleValue, updateCartItem]);
+
+  const lastPreferredAppliedRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!preferredPriceColumnId) {
+      lastPreferredAppliedRef.current = undefined;
+      return;
+    }
+    if (preferredPriceColumnId === lastPreferredAppliedRef.current) {
+      return;
+    }
+    lastPreferredAppliedRef.current = preferredPriceColumnId;
+
+    cartItems.forEach((item) => {
+      if (item.isManualPrice) {
+        return;
+      }
+      const sku = resolveSku(item);
+      if (!sku) {
+        return;
+      }
+      const unitCode = resolveUnitCode(item);
+      const options = hasSelectableColumns ? getPriceOptionsFor(sku, unitCode) : [];
+      if (options.length === 0) {
+        return;
+      }
+      const targetOption = options.find((option) => option.columnId === preferredPriceColumnId)
+        || options.find((option) => option.columnId === baseColumnId)
+        || options[0];
+      if (!targetOption) {
+        return;
+      }
+      const updates: Partial<CartItem> = {};
+      const roundedBase = roundCurrency(targetOption.price);
+      const appliedPrice = applyGlobalRuleValue(targetOption.price);
+      if (item.priceColumnId !== targetOption.columnId) {
+        updates.priceColumnId = targetOption.columnId;
+        updates.priceColumnLabel = targetOption.label;
+      }
+      if (item.basePrice !== roundedBase) {
+        updates.basePrice = roundedBase;
+      }
+      if (item.price !== appliedPrice) {
+        updates.price = appliedPrice;
+      }
+      if (Object.keys(updates).length > 0) {
+        updateCartItem(item.id, updates);
+      }
+    });
+  }, [applyGlobalRuleValue, baseColumnId, cartItems, getPriceOptionsFor, hasSelectableColumns, preferredPriceColumnId, resolveSku, resolveUnitCode, updateCartItem]);
 
   const clearDraftForItem = useCallback((itemId: string) => {
     setPriceDrafts(prev => {

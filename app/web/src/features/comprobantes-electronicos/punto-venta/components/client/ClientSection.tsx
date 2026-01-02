@@ -15,6 +15,7 @@ import {
   readLegacyClientes,
 } from '../../../shared/form-core/utils/clientNormalization';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../../shared/clienteLookup/clienteLookupService';
+import { usePriceProfilesCatalog } from '../../../../lista-precios/hooks/usePriceProfilesCatalog';
 
 export interface ClientePOS {
   id: string;
@@ -23,6 +24,7 @@ export interface ClientePOS {
   documento: string;
   direccion: string;
   email?: string;
+  priceProfileId?: string;
 }
 
 interface ClientSectionProps {
@@ -34,6 +36,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   clienteSeleccionado,
   setClienteSeleccionado,
 }) => {
+  const { resolveProfileId } = usePriceProfilesCatalog();
   const [showClienteForm, setShowClienteForm] = useState(false);
   const [editingCliente, setEditingCliente] = useState(false);
   const [documentQuery, setDocumentQuery] = useState('');
@@ -102,6 +105,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   };
 
   const selectFromRecord = (record: NormalizedClienteRecord) => {
+    const priceProfileId = resolveProfileId(record.priceProfileIdHint);
     selectCliente({
       id: record.id,
       nombre: record.nombre,
@@ -109,13 +113,15 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       documento: record.numeroDocumento,
       direccion: record.direccion,
       email: record.email,
+      priceProfileId,
     });
   };
 
-  const clientesDisponibles = useMemo(
-    () => loadNormalizedClientesFromStorage(),
-    [clientesRefreshToken],
-  );
+  const [clientesDisponibles, setClientesDisponibles] = useState<NormalizedClienteRecord[]>(() => loadNormalizedClientesFromStorage());
+
+  useEffect(() => {
+    setClientesDisponibles(loadNormalizedClientesFromStorage());
+  }, [clientesRefreshToken]);
 
   const normalizedDocQuery = useMemo(() => normalizeDocumentNumber(documentQuery), [documentQuery]);
   const normalizedNameQuery = useMemo(() => nameSearchQuery.trim().toLowerCase(), [nameSearchQuery]);
@@ -230,6 +236,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
         tipoDocumento: normalizedType,
         documento: normalizedNumber || rawDocumentInput,
         direccion: nuevoCliente.address,
+        priceProfileId: undefined,
       });
 
       refreshClientes();
@@ -311,6 +318,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
         documento: numeroDocumento,
         direccion: lookup.direccion || 'Dirección no definida',
         email: lookup.email,
+        priceProfileId: undefined,
       });
       setClientDocError(null);
     } catch (error) {

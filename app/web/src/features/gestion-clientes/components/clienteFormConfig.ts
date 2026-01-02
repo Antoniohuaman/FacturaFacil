@@ -387,7 +387,7 @@ export const CLIENTE_FIELD_CONFIGS: ClienteFieldConfig[] = [
   },
   {
     id: 'listaPrecio',
-    label: 'Lista de precios',
+    label: 'Perfil de precio',
     section: 'comercial',
     defaultVisible: true,
     defaultRequired: false,

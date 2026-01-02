@@ -12,6 +12,7 @@ import ClienteFormFieldSelector from './ClienteFormFieldSelector';
 import { useClienteFormConfig } from '../hooks/useClienteFormConfig';
 import type { ClienteFieldId } from './clienteFormConfig';
 import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
+import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 
 type ClienteFormProps = {
   formData: ClienteFormData;
@@ -77,6 +78,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   isEditing = false,
 }) => {
   const { consultingReniec, consultingSunat, consultarReniec, consultarSunat } = useConsultasExternas();
+  const { profiles: priceProfiles } = usePriceProfilesCatalog();
   const [showOtrosDocTypes, setShowOtrosDocTypes] = useState(false);
   
   const isConsulting = consultingReniec || consultingSunat;
@@ -1346,18 +1348,30 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   {isFieldRenderable('listaPrecio') && (
                     <div className="col-span-2">
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Lista de precios {shouldShowRequiredIndicator('listaPrecio') && <span className="text-red-500">*</span>}
+                        Perfil de precio
+                        <span className="ml-1 text-[11px] font-normal text-gray-400 dark:text-gray-500">(Opcional)</span>
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={formData.listaPrecio}
                         onChange={(e) => handleFieldChange('listaPrecio', e.target.value, 'listaPrecio')}
+                        disabled={priceProfiles.length === 0}
                         className={getFieldInputClass(
                           'listaPrecio',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-800'
                         )}
-                        placeholder="Seleccionar lista"
-                      />
+                      >
+                        <option value="">Sin perfil (Precio Base)</option>
+                        {priceProfiles.map((profile) => (
+                          <option key={profile.id} value={profile.id}>
+                            {profile.label}
+                          </option>
+                        ))}
+                      </select>
+                      {priceProfiles.length === 0 && (
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          Configura columnas vendibles en Lista de Precios para habilitar perfiles.
+                        </p>
+                      )}
                       {renderFieldError('listaPrecio')}
                     </div>
                   )}

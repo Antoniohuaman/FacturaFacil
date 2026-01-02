@@ -31,6 +31,7 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
     documento: string;
     direccion: string;
     email?: string;
+    priceProfileId?: string;
   } | null;
   setClienteSeleccionado: (cliente: {
     id: string;
@@ -39,6 +40,7 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
     documento: string;
     direccion: string;
     email?: string;
+    priceProfileId?: string;
   } | null) => void;
   paymentMethods: PaymentMethod[];
   formaPagoId: string;

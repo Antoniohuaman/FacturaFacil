@@ -80,6 +80,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
         documento: string;
         direccion: string;
         email?: string;
+        priceProfileId?: string;
       }
     | null
   >(null);
