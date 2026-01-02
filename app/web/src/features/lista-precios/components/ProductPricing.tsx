@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Column, Product, CatalogProduct, PriceForm } from '../models/PriceTypes';
 import type { EffectivePriceMatrix, EffectivePriceResult } from '../utils/priceHelpers';
-import { filterVisibleColumns, isGlobalColumn } from '../utils/priceHelpers';
+import { isGlobalColumn } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
@@ -39,8 +39,11 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   effectivePrices,
   registerAssignHandler
 }) => {
-  const visibleColumns = filterVisibleColumns(columns);
-  const tableColumns = useMemo(() => visibleColumns.filter(column => column.isVisibleInTable !== false), [visibleColumns]);
+  const tableColumns = useMemo(() => (
+    columns
+      .filter((column) => column.isVisibleInTable !== false || column.isBase)
+      .sort((a, b) => a.order - b.order)
+  ), [columns]);
   const orderedColumns = useMemo(() => {
     const base = tableColumns.find(column => column.isBase);
     if (!base) return tableColumns;

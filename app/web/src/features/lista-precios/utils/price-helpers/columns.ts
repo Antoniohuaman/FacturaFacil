@@ -169,6 +169,11 @@ const buildFixedColumn = (definition: FixedColumnDefinition, existing?: Column):
     kind: definition.kind
   };
 
+  if (definition.isBase) {
+    column.visible = true;
+    column.isVisibleInTable = true;
+  }
+
   if (definition.kind === 'global-discount' || definition.kind === 'global-increase') {
     column.globalRuleType = existing?.globalRuleType ?? 'percent';
     column.globalRuleValue = normalizeGlobalRuleValue(existing?.globalRuleValue);
