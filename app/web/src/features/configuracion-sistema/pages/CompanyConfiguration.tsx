@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/CompanyConfiguration.tsx
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Phone,
   Mail,
@@ -17,6 +17,7 @@ import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { RucValidator } from '../components/company/RucValidator';
 import { parseUbigeoCode } from '../data/ubigeo';
+import { useTenant } from '../../../shared/tenant/TenantContext';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
 import type { Warehouse } from '../models/Warehouse';
@@ -37,10 +38,22 @@ interface CompanyFormData {
   economicActivity: string;
 }
 
+type WorkspaceNavigationState = {
+  workspaceMode?: 'create_workspace' | 'edit_workspace';
+  workspaceId?: string;
+} | null;
+
 export function CompanyConfiguration() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { state, dispatch } = useConfigurationContext();
   const { company } = state;
+  const { createOrUpdateWorkspace, activeWorkspace } = useTenant();
+  const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
+  const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
+  const workspaceIdForSubmit = isCreateWorkspaceMode
+    ? undefined
+    : workspaceState?.workspaceId || activeWorkspace?.id;
   
   const [formData, setFormData] = useState<CompanyFormData>({
     ruc: '',
@@ -273,6 +286,14 @@ export function CompanyConfiguration() {
       };
 
       dispatch({ type: 'SET_COMPANY', payload: updatedCompany });
+
+      createOrUpdateWorkspace({
+        id: workspaceIdForSubmit,
+        ruc: formData.ruc,
+        razonSocial: formData.businessName,
+        nombreComercial: formData.tradeName,
+        domicilioFiscal: formData.fiscalAddress,
+      });
 
       // ===================================================================
       // ONBOARDING AUTOMÁTICO: Crear configuración inicial si es nueva empresa

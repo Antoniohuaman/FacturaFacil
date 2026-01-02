@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- archivo mezcla context y utilidades; split diferido */
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useEffect, useReducer } from 'react';
 import type { ReactNode } from 'react';
+import { useTenant } from '../../../../shared/tenant/TenantContext';
 
 // ============================================
 // TIPOS Y INTERFACES
@@ -116,6 +117,11 @@ export function ComprobanteProvider({ children }: ComprobanteProviderProps) {
   const [state, dispatch] = useReducer(comprobanteReducer, {
     comprobantes: INITIAL_COMPROBANTES
   });
+  const { tenantId } = useTenant();
+
+  useEffect(() => {
+    dispatch({ type: 'SET_COMPROBANTES', payload: INITIAL_COMPROBANTES });
+  }, [tenantId]);
 
   // Helper function para agregar un comprobante
   const addComprobante = (comprobante: Comprobante) => {

@@ -1,10 +1,16 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, ChevronDown, MapPin } from 'lucide-react';
 import { useUserSession } from '../contexts/UserSessionContext';
+import { useTenant } from '../shared/tenant/TenantContext';
+import { WorkspaceSwitcherModal } from './WorkspaceSwitcherModal';
 
 const CompanySelector = () => {
   const { session, setCurrentEstablishment } = useUserSession();
+  const { workspaces, tenantId, setTenantId, activeWorkspace } = useTenant();
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
+  const navigate = useNavigate();
 
   const selectedCompany = session?.currentCompany;
   const selectedEstablishment = session?.currentEstablishment;
@@ -16,6 +22,40 @@ const CompanySelector = () => {
       setCurrentEstablishment(establishmentId, establishment);
       setShowCompanyDropdown(false);
     }
+  };
+
+  const workspaceDisplayName = activeWorkspace?.nombreComercial || activeWorkspace?.razonSocial;
+  const displayCompanyName = workspaceDisplayName || selectedCompany?.tradeName || selectedCompany?.businessName;
+  const displayEstablishmentName = activeWorkspace?.domicilioFiscal || selectedEstablishment?.name || 'Sin establecimiento';
+
+  const handleNavigateToWorkspace = (mode: 'create_workspace' | 'edit_workspace', workspaceId?: string) => {
+    navigate('/configuracion/empresa', { state: { workspaceMode: mode, workspaceId } });
+  };
+
+  const handleChangeCompany = () => {
+    setShowCompanyDropdown(false);
+    if (workspaces.length === 0) {
+      handleNavigateToWorkspace('create_workspace');
+      return;
+    }
+    setShowWorkspaceModal(true);
+  };
+
+  const handleSelectWorkspace = (workspaceId: string) => {
+    if (tenantId !== workspaceId) {
+      setTenantId(workspaceId);
+    }
+    setShowWorkspaceModal(false);
+  };
+
+  const handleCreateWorkspace = () => {
+    setShowWorkspaceModal(false);
+    handleNavigateToWorkspace('create_workspace');
+  };
+
+  const handleEditWorkspace = (workspaceId: string) => {
+    setShowWorkspaceModal(false);
+    handleNavigateToWorkspace('edit_workspace', workspaceId);
   };
 
   if (!session || !selectedCompany) {
@@ -40,13 +80,13 @@ const CompanySelector = () => {
             </div>
             <div className="text-left min-w-0 flex-1 overflow-hidden">
               <div className="font-bold text-gray-900 dark:text-gray-100 text-sm truncate w-full" 
-                   title={selectedCompany.tradeName || selectedCompany.businessName}>
-                {selectedCompany.tradeName || selectedCompany.businessName}
+                   title={displayCompanyName || 'Sin empresa'}>
+                {displayCompanyName || 'Sin empresa'}
               </div>
               <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 min-w-0"
-                   title={selectedEstablishment?.name || 'Sin establecimiento'}>
+                   title={displayEstablishmentName}>
                 <MapPin size={11} className="flex-shrink-0" />
-                <span className="truncate">{selectedEstablishment?.name || 'Sin establecimiento'}</span>
+                <span className="truncate">{displayEstablishmentName}</span>
               </div>
             </div>
           </div>
@@ -107,7 +147,7 @@ const CompanySelector = () => {
                 <button
                   onClick={() => {
                     setShowCompanyDropdown(false);
-                    // TODO: Implementar cambio de empresa (redirigir a ContextSelectPage)
+                    handleChangeCompany();
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700/70 transition-colors text-sm text-blue-600 dark:text-blue-400 font-medium"
                 >
@@ -119,6 +159,15 @@ const CompanySelector = () => {
           </div>
         )}
       </div>
+      <WorkspaceSwitcherModal
+        isOpen={showWorkspaceModal}
+        workspaces={workspaces}
+        activeWorkspaceId={tenantId}
+        onClose={() => setShowWorkspaceModal(false)}
+        onSelect={handleSelectWorkspace}
+        onCreate={handleCreateWorkspace}
+        onEdit={handleEditWorkspace}
+      />
     </div>
   );
 };

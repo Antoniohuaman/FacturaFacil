@@ -3,11 +3,14 @@ import "./index.css";
 import App from "./App.tsx";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { FeedbackProvider } from "./shared/feedback/FeedbackProvider";
+import { TenantProvider } from "./shared/tenant/TenantProvider";
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
     <FeedbackProvider>
-      <App />
+      <TenantProvider>
+        <App />
+      </TenantProvider>
     </FeedbackProvider>
   </ThemeProvider>
 );

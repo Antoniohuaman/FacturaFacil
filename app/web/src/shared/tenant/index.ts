@@ -3,6 +3,9 @@
 
 import { useTenantStore } from '../../features/autenticacion/store/TenantStore';
 
+export const WORKSPACES_STORAGE_KEY = 'ff_workspaces';
+export const ACTIVE_WORKSPACE_STORAGE_KEY = 'ff_active_workspace_id';
+
 /**
  * Obtiene el ID de la empresa actual desde TenantStore o, como fallback, desde UserSession.
  * Lanza error si no hay empresa disponible.
