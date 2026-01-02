@@ -41,6 +41,7 @@ import type { ColumnConfig } from '../types/columnConfig';
 import { formatBusinessDateShort, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
+import { lsKey } from '@/shared/tenant';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -156,6 +157,29 @@ const parseExcelDate = (value?: string): Date | null => {
   }
 
   return null;
+};
+const LEGACY_KEY = TABLE_CONFIG.COLUMN_CONFIG_STORAGE_KEY;
+const TENANT_BASE_KEY = 'comprobantes_columns_config';
+
+const resolveColumnsStorageKey = (): string | null => {
+  try {
+    const key = lsKey(TENANT_BASE_KEY);
+    return typeof key === 'string' && key.trim() !== '' ? key : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const parseColumnsConfig = (raw: string | null): ColumnConfig[] | null => {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (error) {
+    return null;
+  }
 };
 
 const mapInvoiceToExportRow = (invoice: Comprobante): ComprobanteExportRow => {
@@ -281,19 +305,47 @@ const InvoiceListDashboard = () => {
 
   // Load persisted visibility or defaults from localStorage (not sessionStorage)
   const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
+    const tenantKey = resolveColumnsStorageKey();
+
+    if (tenantKey) {
+      try {
+        const tenantConfig = parseColumnsConfig(localStorage.getItem(tenantKey));
+        if (tenantConfig) {
+          return tenantConfig;
+        }
+      } catch (error) {}
+    }
+
+    let legacyRaw: string | null = null;
     try {
-      const raw = localStorage.getItem(TABLE_CONFIG.COLUMN_CONFIG_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    // fallback to MASTER_COLUMNS
-    return MASTER_COLUMNS;
+      legacyRaw = localStorage.getItem(LEGACY_KEY);
+    } catch (error) {}
+
+    const legacyConfig = parseColumnsConfig(legacyRaw);
+
+    if (legacyConfig) {
+      if (tenantKey && legacyRaw) {
+        try {
+          localStorage.setItem(tenantKey, legacyRaw);
+          localStorage.removeItem(LEGACY_KEY);
+        } catch (error) {}
+      }
+      return legacyConfig;
+    }
+
+    return MASTER_COLUMNS as ColumnConfig[];
   });
 
   // Persist config to localStorage when changed
   useEffect(() => {
+    const tenantKey = resolveColumnsStorageKey();
+    if (!tenantKey) {
+      return;
+    }
     try {
-      localStorage.setItem(TABLE_CONFIG.COLUMN_CONFIG_STORAGE_KEY, JSON.stringify(columnsConfig));
-    } catch (e) {}
+      localStorage.setItem(tenantKey, JSON.stringify(columnsConfig));
+      localStorage.removeItem(LEGACY_KEY);
+    } catch (error) {}
   }, [columnsConfig]);
 
   // Helper: visible columns in order
