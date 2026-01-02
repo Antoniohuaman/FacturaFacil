@@ -29,6 +29,8 @@ interface ProductStoreState {
   filters: FilterOptions;
   pagination: PaginationConfig;
   loading: boolean;
+  rehydrateFromStorage: () => void;
+  hardReset: () => void;
   addProduct: (data: ProductInput) => Product;
   updateProduct: (id: string, data: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
@@ -55,22 +57,75 @@ if (STORAGE_AVAILABLE) {
   }
 }
 
-const initialProducts = STORAGE_AVAILABLE ? loadProductsFromStorage() : [];
-const initialPackages = STORAGE_AVAILABLE ? loadPackagesFromStorage() : [];
-const initialCategoriesRaw = STORAGE_AVAILABLE ? loadCategoriesFromStorage() : [];
-const defaultFilters = createDefaultFilters();
-const defaultPagination = createDefaultPagination();
-const initialCategories = syncCategoriesWithProducts(initialCategoriesRaw, initialProducts);
-const initialListing = buildListing(initialProducts, defaultFilters, defaultPagination);
+function buildHydratedData() {
+  if (!STORAGE_AVAILABLE) {
+    const filters = createDefaultFilters();
+    const pagination = createDefaultPagination();
+    return {
+      allProducts: [],
+      products: [],
+      categories: [],
+      packages: [],
+      filters,
+      pagination,
+    };
+  }
+
+  const products = loadProductsFromStorage();
+  const packages = loadPackagesFromStorage();
+  const categoriesRaw = loadCategoriesFromStorage();
+  const categories = syncCategoriesWithProducts(categoriesRaw, products);
+  const filters = createDefaultFilters();
+  const pagination = createDefaultPagination();
+  const listing = buildListing(products, filters, pagination);
+
+  return {
+    allProducts: products,
+    products: listing.pageItems,
+    categories,
+    packages,
+    filters,
+    pagination: listing.pagination,
+  };
+}
+
+const initialData = buildHydratedData();
 
 export const useProductStore = create<ProductStoreState>((set) => ({
-  allProducts: initialProducts,
-  products: initialListing.pageItems,
-  categories: initialCategories,
-  packages: initialPackages,
-  filters: defaultFilters,
-  pagination: initialListing.pagination,
+  allProducts: initialData.allProducts,
+  products: initialData.products,
+  categories: initialData.categories,
+  packages: initialData.packages,
+  filters: initialData.filters,
+  pagination: initialData.pagination,
   loading: false,
+
+  rehydrateFromStorage: () => {
+    const next = buildHydratedData();
+    set((state) => ({
+      ...state,
+      allProducts: next.allProducts,
+      products: next.products,
+      categories: next.categories,
+      packages: next.packages,
+      filters: next.filters,
+      pagination: next.pagination,
+    }));
+  },
+
+  hardReset: () => {
+    const filters = createDefaultFilters();
+    const pagination = createDefaultPagination();
+    set((state) => ({
+      ...state,
+      allProducts: [],
+      products: [],
+      categories: [],
+      packages: [],
+      filters,
+      pagination,
+    }));
+  },
 
   addProduct: (data) => {
     let createdProduct: Product | undefined;

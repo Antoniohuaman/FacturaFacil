@@ -1,5 +1,5 @@
-import { Outlet } from "react-router-dom";
-import { useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import SideNav from "../components/SideNav";
 import { ConfigurationProvider } from "../../features/configuracion-sistema/context/ConfigurationContext";
@@ -10,15 +10,30 @@ import { UserSessionProvider } from "../../contexts/UserSessionContext";
 import { SessionInitializer } from "../../contexts/SessionInitializer";
 import { FieldsConfigurationProvider } from "../../features/comprobantes-electronicos/shared/form-core/contexts/FieldsConfigurationContext";
 import { CobranzasProvider } from "../../features/gestion-cobranzas/context/CobranzasContext";
+import { useTenant } from "../../shared/tenant/TenantContext";
+import { TenantDataResetEffect } from "../../shared/tenant/TenantDataResetEffect";
 
 export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { workspaces } = useTenant();
+
+  useEffect(() => {
+    if (workspaces.length === 0 && location.pathname !== "/configuracion/empresa") {
+      navigate("/configuracion/empresa", {
+        replace: true,
+        state: { workspaceMode: "create_workspace" },
+      });
+    }
+  }, [workspaces.length, location.pathname, navigate]);
 
   return (
     <ThemeProvider>
       <UserSessionProvider>
         <ConfigurationProvider>
           <SessionInitializer>
+            <TenantDataResetEffect />
             <FieldsConfigurationProvider>
               <ComprobanteProvider>
                 <CobranzasProvider>

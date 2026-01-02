@@ -19,6 +19,7 @@ import {
   updateInstallmentsWithAllocations,
 } from '../utils/installments';
 import { useSeriesCommands } from '../../configuracion-sistema/hooks/useSeriesCommands';
+import { useTenant } from '../../../shared/tenant/TenantContext';
 
 interface CobranzasState {
   cuentas: CuentaPorCobrarSummary[];
@@ -48,11 +49,14 @@ const STORAGE_KEYS = {
   cobranzas: 'gestion_cobranzas_documentos',
 } as const;
 
-const getStorageKey = (base: string): string => {
+const getStorageKey = (base: string, options?: { allowFallback?: boolean }): string | null => {
   try {
     return lsKey(base);
   } catch {
-    return base;
+    if (options?.allowFallback) {
+      return base;
+    }
+    return null;
   }
 };
 
@@ -62,8 +66,10 @@ const loadStateFromStorage = (): CobranzasState => {
   }
 
   try {
-    const cuentasRaw = window.localStorage.getItem(getStorageKey(STORAGE_KEYS.cuentas));
-    const cobranzasRaw = window.localStorage.getItem(getStorageKey(STORAGE_KEYS.cobranzas));
+    const cuentasKey = getStorageKey(STORAGE_KEYS.cuentas, { allowFallback: true });
+    const cobranzasKey = getStorageKey(STORAGE_KEYS.cobranzas, { allowFallback: true });
+    const cuentasRaw = cuentasKey ? window.localStorage.getItem(cuentasKey) : null;
+    const cobranzasRaw = cobranzasKey ? window.localStorage.getItem(cobranzasKey) : null;
     const cuentas = cuentasRaw ? (JSON.parse(cuentasRaw) as CuentaPorCobrarSummary[]) : [];
     const cobranzas = cobranzasRaw ? (JSON.parse(cobranzasRaw) as CobranzaDocumento[]) : [];
     return { cuentas, cobranzas };
@@ -79,8 +85,13 @@ const persistStateToStorage = (state: CobranzasState) => {
   }
 
   try {
-    window.localStorage.setItem(getStorageKey(STORAGE_KEYS.cuentas), JSON.stringify(state.cuentas));
-    window.localStorage.setItem(getStorageKey(STORAGE_KEYS.cobranzas), JSON.stringify(state.cobranzas));
+    const cuentasKey = getStorageKey(STORAGE_KEYS.cuentas);
+    const cobranzasKey = getStorageKey(STORAGE_KEYS.cobranzas);
+    if (!cuentasKey || !cobranzasKey) {
+      return;
+    }
+    window.localStorage.setItem(cuentasKey, JSON.stringify(state.cuentas));
+    window.localStorage.setItem(cobranzasKey, JSON.stringify(state.cobranzas));
   } catch (persistError) {
     console.warn('[Cobranzas] No se pudo guardar el estado:', persistError);
   }
@@ -183,19 +194,23 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
   const { status: cajaStatus, agregarMovimiento } = useCaja();
   const { session } = useUserSession();
   const { incrementSeriesCorrelative } = useSeriesCommands();
+  const { tenantId } = useTenant();
 
   useEffect(() => {
+    setIsHydrated(false);
     const stored = loadStateFromStorage();
     if (stored.cuentas.length || stored.cobranzas.length) {
       dispatch({ type: 'SET_DATA', payload: stored });
+    } else {
+      dispatch({ type: 'SET_DATA', payload: INITIAL_STATE });
     }
     setIsHydrated(true);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
     if (!isHydrated) return;
     persistStateToStorage(state);
-  }, [state, isHydrated]);
+  }, [state, isHydrated, tenantId]);
 
   const registrarEnCaja = useCallback(
     async (documento: CobranzaDocumento, payload: RegistrarCobranzaInput['payload']) => {

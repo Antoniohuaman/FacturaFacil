@@ -11,24 +11,31 @@ import type {
   BulkImportResponse,
 } from '../models';
 import { useCaja } from '../../control-caja/context/CajaContext';
+import { useTenant } from '../../../shared/tenant/TenantContext';
+
+const INITIAL_PAGINATION = {
+  total: 0,
+  page: 1,
+  limit: 10,
+  totalPages: 0,
+};
 
 export const useClientes = (initialFilters?: ClienteFilters) => {
   const { showToast } = useCaja();
+  const { tenantId } = useTenant();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [transientClientes, setTransientClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    page: 1,
-    limit: 10,
-    totalPages: 0,
-  });
+  const [pagination, setPagination] = useState(INITIAL_PAGINATION);
 
   /**
    * Cargar clientes desde la API
    */
   const fetchClientes = useCallback(async (filters?: ClienteFilters) => {
+    if (!tenantId) {
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -53,7 +60,7 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, tenantId]);
 
   /**
    * Crear nuevo cliente
@@ -172,6 +179,14 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
 
   // Cargar clientes al montar
   useEffect(() => {
+    if (!tenantId) {
+      setClientes([]);
+      setTransientClientes([]);
+      setPagination(INITIAL_PAGINATION);
+      setLoading(false);
+      return;
+    }
+
     const ctrl = new AbortController();
     setLoading(true);
     setError(null);
@@ -195,7 +210,7 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
       })
       .finally(() => setLoading(false));
     return () => ctrl.abort();
-  }, [initialFilters, showToast]);
+  }, [initialFilters, showToast, tenantId]);
 
   /**
    * Inyecta clientes transitorios (no persistidos) en memoria

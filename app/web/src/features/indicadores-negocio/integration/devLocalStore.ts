@@ -164,8 +164,10 @@ class DevLocalIndicadoresStore {
 
   private hydrateFromStorage() {
     if (!isBrowser) {
+      this.ventas = [];
       return;
     }
+    this.ventas = [];
     try {
       const { key, namespaced } = resolveIndicadoresStorageKey();
       let raw = window.localStorage.getItem(key);
@@ -214,6 +216,11 @@ class DevLocalIndicadoresStore {
     } catch (error) {
       console.error('[DevLocalIndicadoresStore] No se pudo persistir el estado local', error);
     }
+  }
+
+  rehydrateFromStorage() {
+    this.hydrateFromStorage();
+    this.notify();
   }
 }
 

@@ -94,6 +94,18 @@ export function TenantProvider({ children }: TenantProviderProps) {
   }, [tenantId]);
 
   useEffect(() => {
+    const globalAny = globalThis as typeof globalThis & {
+      __FF_ACTIVE_WORKSPACE_ID?: string;
+    };
+
+    if (tenantId) {
+      globalAny.__FF_ACTIVE_WORKSPACE_ID = tenantId;
+    } else if ('__FF_ACTIVE_WORKSPACE_ID' in globalAny) {
+      delete globalAny.__FF_ACTIVE_WORKSPACE_ID;
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
     if (workspaces.length === 0) {
       if (tenantId !== null) {
         setTenantIdState(null);

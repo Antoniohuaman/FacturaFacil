@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- archivo mezcla context y utilidades; split diferido */
-import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef, type ReactNode } from "react";
 import type {
   CajaStatus,
   AperturaCaja,
@@ -11,6 +11,7 @@ import type { ToastMessage, ToastType } from "../components/common/Toast";
 import { calcularResumenCaja } from "../utils/calculations";
 import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/errors";
 import { lsKey } from "../../../shared/tenant";
+import { useTenant } from "../../../shared/tenant/TenantContext";
 
 type PersistedMovimiento = Omit<Movimiento, 'fecha'> & { fecha: string };
 
@@ -18,11 +19,14 @@ const STORAGE_KEYS = {
   historialMovimientos: "control_caja_historial_movimientos",
 } as const;
 
-const getStorageKey = (base: string): string => {
+const getStorageKey = (base: string, options?: { allowFallback?: boolean }): string | null => {
   try {
     return lsKey(base);
   } catch {
-    return base;
+    if (options?.allowFallback) {
+      return base;
+    }
+    return null;
   }
 };
 
@@ -95,6 +99,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [historialMovimientos, setHistorialMovimientos] = useState<Movimiento[]>([]);
   const [historialHydrated, setHistorialHydrated] = useState(false);
+  const { tenantId } = useTenant();
+  const lastTenantIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (historialHydrated || typeof window === "undefined") {
@@ -102,7 +108,12 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     }
 
     try {
-      const stored = window.localStorage.getItem(getStorageKey(STORAGE_KEYS.historialMovimientos));
+      const storageKey = getStorageKey(STORAGE_KEYS.historialMovimientos, { allowFallback: true });
+      if (!storageKey) {
+        setHistorialHydrated(true);
+        return;
+      }
+      const stored = window.localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored) as PersistedMovimiento[];
         const movimientosPersistidos = deserializeMovimientos(parsed);
@@ -126,7 +137,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } finally {
       setHistorialHydrated(true);
     }
-  }, [historialHydrated]);
+  }, [historialHydrated, tenantId]);
 
   useEffect(() => {
     if (!historialHydrated || typeof window === "undefined") {
@@ -134,12 +145,29 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     }
 
     try {
+      const storageKey = getStorageKey(STORAGE_KEYS.historialMovimientos);
+      if (!storageKey) {
+        return;
+      }
       const serialized = JSON.stringify(serializeMovimientos(historialMovimientos));
-      window.localStorage.setItem(getStorageKey(STORAGE_KEYS.historialMovimientos), serialized);
+      window.localStorage.setItem(storageKey, serialized);
     } catch (error) {
       console.warn("[Caja] No se pudo persistir el historial de movimientos", error);
     }
-  }, [historialHydrated, historialMovimientos]);
+  }, [historialHydrated, historialMovimientos, tenantId]);
+
+  useEffect(() => {
+    if (lastTenantIdRef.current === tenantId) {
+      return;
+    }
+    lastTenantIdRef.current = tenantId ?? null;
+
+    setStatus("cerrada");
+    setAperturaActual(null);
+    setMovimientos([]);
+    setHistorialMovimientos([]);
+    setHistorialHydrated(false);
+  }, [tenantId]);
 
   const [margenDescuadre, setMargenDescuadre] = useState<number>(1.0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);

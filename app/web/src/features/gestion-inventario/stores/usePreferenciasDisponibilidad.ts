@@ -1,13 +1,14 @@
 // src/features/gestion-inventario/stores/usePreferenciasDisponibilidad.ts
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   PreferenciasDisponibilidad,
   VistaGuardada,
   DensidadTabla,
   ColumnaDisponibilidad
 } from '../models/disponibilidad.types';
+import { lsKey } from '../../../shared/tenant';
 
 /**
  * Columnas por defecto visibles en la tabla
@@ -44,6 +45,57 @@ const PREFERENCIAS_INICIALES: PreferenciasDisponibilidad = {
   columnasVisibles: COLUMNAS_VISIBLES_POR_DEFECTO,
   vistasGuardadas: [],
   itemsPorPagina: 25
+};
+
+const STORAGE_KEY = 'inventario-disponibilidad-preferencias';
+
+const tenantAwareStorage = () => ({
+  getItem: (name: string) => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    const scoped = resolveTenantStorageKey(name);
+    if (!scoped) {
+      return null;
+    }
+    return window.localStorage.getItem(scoped);
+  },
+  setItem: (name: string, value: string) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const scoped = resolveTenantStorageKey(name);
+    if (!scoped) {
+      return;
+    }
+    window.localStorage.setItem(scoped, value);
+  },
+  removeItem: (name: string) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const scoped = resolveTenantStorageKey(name);
+    if (!scoped) {
+      return;
+    }
+    window.localStorage.removeItem(scoped);
+  }
+});
+
+const resolveTenantStorageKey = (base: string): string | null => {
+  try {
+    const scoped = lsKey(base);
+    if (typeof window !== 'undefined') {
+      const legacyValue = window.localStorage.getItem(base);
+      if (legacyValue !== null && window.localStorage.getItem(scoped) === null) {
+        window.localStorage.setItem(scoped, legacyValue);
+        window.localStorage.removeItem(base);
+      }
+    }
+    return scoped;
+  } catch {
+    return null;
+  }
 };
 
 interface PreferenciasDisponibilidadState extends PreferenciasDisponibilidad {
@@ -174,8 +226,9 @@ export const usePreferenciasDisponibilidad = create<PreferenciasDisponibilidadSt
       }
     }),
     {
-      name: 'inventario-disponibilidad-preferencias', // Clave en localStorage
-      version: 1
+      name: STORAGE_KEY,
+      version: 1,
+      storage: createJSONStorage(tenantAwareStorage),
     }
   )
 );

@@ -6,6 +6,11 @@ import { useTenantStore } from '../../features/autenticacion/store/TenantStore';
 export const WORKSPACES_STORAGE_KEY = 'ff_workspaces';
 export const ACTIVE_WORKSPACE_STORAGE_KEY = 'ff_active_workspace_id';
 
+type GlobalSession = {
+  __USER_SESSION__?: { currentCompanyId?: string; currentEstablishmentId?: string };
+  __FF_ACTIVE_WORKSPACE_ID?: string;
+};
+
 /**
  * Obtiene el ID de la empresa actual desde TenantStore o, como fallback, desde UserSession.
  * Lanza error si no hay empresa disponible.
@@ -17,10 +22,13 @@ export function getTenantEmpresaId(): string {
     return contextoActual.empresaId;
   }
 
+  const globalAny = globalThis as typeof globalThis & GlobalSession;
+  const activeWorkspaceId = getFrontendWorkspaceId(globalAny);
+  if (activeWorkspaceId) {
+    return activeWorkspaceId;
+  }
+
   // Fallback opcional: leer de una sesión inyectada globalmente si existe
-  const globalAny = globalThis as typeof globalThis & {
-    __USER_SESSION__?: { currentCompanyId?: string };
-  };
   const sessionCompanyId = globalAny.__USER_SESSION__?.currentCompanyId;
   if (sessionCompanyId && sessionCompanyId.trim() !== '') {
     return sessionCompanyId;
@@ -40,9 +48,7 @@ export function getTenantEstablecimientoId(): string {
     return contextoActual.establecimientoId;
   }
 
-  const globalAny = globalThis as typeof globalThis & {
-    __USER_SESSION__?: { currentEstablishmentId?: string };
-  };
+  const globalAny = globalThis as typeof globalThis & GlobalSession;
   const sessionEstId = globalAny.__USER_SESSION__?.currentEstablishmentId;
   if (sessionEstId && sessionEstId.trim() !== '') {
     return sessionEstId;
@@ -69,4 +75,26 @@ export function ensureEmpresaId(empresaId?: string): string {
  */
 export function lsKey(base: string, empresaId?: string): string {
   return `${ensureEmpresaId(empresaId)}:${base}`;
+}
+
+function getFrontendWorkspaceId(globalAny: typeof globalThis & GlobalSession): string | null {
+  const activeFromGlobal = globalAny.__FF_ACTIVE_WORKSPACE_ID;
+  if (activeFromGlobal && activeFromGlobal.trim() !== '') {
+    return activeFromGlobal;
+  }
+
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+    if (stored && stored.trim() !== '') {
+      return stored;
+    }
+  } catch {
+    // Ignorar errores de acceso a localStorage
+  }
+
+  return null;
 }
