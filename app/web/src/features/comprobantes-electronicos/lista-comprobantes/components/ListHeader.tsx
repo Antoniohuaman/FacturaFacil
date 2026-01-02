@@ -5,15 +5,33 @@
 
 import { useNavigate } from 'react-router-dom';
 import {
-  Filter, RefreshCw, Download, Plus, MoreHorizontal, XCircle, Calendar, ChevronDown
+  Filter,
+  RefreshCw,
+  Download,
+  Plus,
+  MoreHorizontal,
+  XCircle,
+  Calendar,
+  ChevronDown,
+  GripVertical
 } from 'lucide-react';
-
-interface ColumnConfig {
-  id: string;
-  key: string;
-  label: string;
-  visible: boolean;
-}
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type { ColumnConfig } from '../types/columnConfig';
 
 interface DatePreset {
   label: string;
@@ -46,6 +64,9 @@ interface ListHeaderProps {
   onToggleColumnManager: () => void;
   onToggleColumn: (id: string) => void;
   onDensityChange: (density: 'comfortable' | 'intermediate' | 'compact') => void;
+  onResetColumns?: () => void;
+  onReorderColumns?: (sourceId: string, targetId: string) => void;
+  lockedColumnIds?: string[];
 
   // Export
   onExport: () => Promise<void>;
@@ -64,6 +85,62 @@ const DATE_PRESETS: DatePreset[] = [
   { label: 'Mes pasado', value: 'lastMonth' },
   { label: 'Últimos 30 días', value: 'last30days' }
 ];
+
+const DEFAULT_LOCKED_COLUMN_IDS = ['documentNumber', 'actions'];
+
+interface SortableColumnRowProps {
+  column: ColumnConfig;
+  onToggle: (id: string) => void;
+  reorderDisabled: boolean;
+}
+
+const SortableColumnRow = ({ column, onToggle, reorderDisabled }: SortableColumnRowProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({
+    id: column.id,
+    disabled: reorderDisabled
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center justify-between gap-2 p-2 rounded border border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 ${
+        isDragging ? 'shadow-md border-blue-200 bg-blue-50 dark:bg-blue-900/20' : ''
+      }`}
+    >
+      {!reorderDisabled && (
+        <button
+          type="button"
+          className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 cursor-grab"
+          aria-label={`Reordenar ${column.label}`}
+          {...listeners}
+          {...attributes}
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      )}
+      <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">{column.label}</span>
+      <input
+        type="checkbox"
+        checked={column.visible}
+        onChange={() => onToggle(column.id)}
+        className="rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+  );
+};
 
 export const ListHeader: React.FC<ListHeaderProps> = ({
   dateFrom,
@@ -86,12 +163,37 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
   onToggleColumnManager,
   onToggleColumn,
   onDensityChange,
+  onResetColumns,
+  onReorderColumns,
+  lockedColumnIds,
   onExport,
   isExporting = false,
   isExportDisabled = false,
   hideActionButtons = false
 }) => {
   const navigate = useNavigate();
+  const resolvedLockedIds =
+    lockedColumnIds && lockedColumnIds.length > 0 ? lockedColumnIds : DEFAULT_LOCKED_COLUMN_IDS;
+  const managerColumns = columnsConfig.filter((column) => !resolvedLockedIds.includes(column.id));
+  const canReorderColumns = Boolean(onReorderColumns) && managerColumns.length > 1;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    if (!onReorderColumns) {
+      return;
+    }
+
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    onReorderColumns(String(active.id), String(over.id));
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -300,32 +402,50 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Columnas visibles</h3>
-                      <button
-                        onClick={onToggleColumnManager}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        aria-label="Cerrar panel"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto space-y-1">
-                      {columnsConfig.map(c => (
-                        c.id !== 'actions' && c.id !== 'documentNumber' && (
-                          <label
-                            key={c.id}
-                            className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
+                      <div className="flex items-center gap-2">
+                        {onResetColumns && (
+                          <button
+                            type="button"
+                            onClick={onResetColumns}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                           >
-                            <span className="text-sm text-gray-700 dark:text-gray-300">{c.label}</span>
-                            <input
-                              type="checkbox"
-                              checked={c.visible}
-                              onChange={() => onToggleColumn(c.id)}
-                              className="rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
-                            />
-                          </label>
-                        )
-                      ))}
+                            Restablecer
+                          </button>
+                        )}
+                        <button
+                          onClick={onToggleColumnManager}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          aria-label="Cerrar panel"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
+                    {managerColumns.length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No hay columnas configurables.</p>
+                    ) : (
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={managerColumns.map((column) => column.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="max-h-80 overflow-y-auto space-y-1">
+                            {managerColumns.map((column) => (
+                              <SortableColumnRow
+                                key={column.id}
+                                column={column}
+                                onToggle={onToggleColumn}
+                                reorderDisabled={!canReorderColumns}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    )}
                   </div>
                 </div>
               </>

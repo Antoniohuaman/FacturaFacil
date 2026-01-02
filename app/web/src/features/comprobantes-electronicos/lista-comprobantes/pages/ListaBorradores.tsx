@@ -11,12 +11,14 @@ import { filterByDateRange, DATE_PRESETS } from '../../utils/dateUtils';
 import { validateDraftsForBulkEmit } from '../../utils/draftValidation';
 import { PAGINATION_CONFIG } from '../../models/constants';
 import { formatBusinessDateShort, getBusinessTodayISODate } from '@/shared/time/businessTime';
+import type { ColumnConfig } from '../types/columnConfig';
+import { loadColumnsConfig, persistColumnsConfig, resolveTenantColumnsKey } from '../utils/columnPersistence';
 
 type DraftInvoicesModuleProps = {
   hideSidebar?: boolean;
 };
 
-const density = 'comfortable' as const;
+const DRAFT_COLUMNS_STORAGE_KEY = 'drafts_columns_config';
 
 const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }) => {
   const { session } = useUserSession();
@@ -36,6 +38,61 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
   const [invalidDrafts, setInvalidDrafts] = useState<Draft[]>([]);
   const [showTotals, setShowTotals] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [density, setDensity] = useState<'comfortable' | 'intermediate' | 'compact'>('comfortable');
+  const [showColumnManager, setShowColumnManager] = useState(false);
+
+  const DRAFT_MASTER_COLUMNS = useMemo<ColumnConfig[]>(() => ([
+    { id: 'draftNumber', key: 'id', label: 'N° Borrador', visible: true, fixed: 'left', align: 'left', minWidth: '140px', width: 'w-[140px]' },
+    { id: 'type', key: 'type', label: 'Tipo', visible: true, fixed: null, align: 'left', minWidth: '120px' },
+    { id: 'clientDoc', key: 'clientDoc', label: 'N° Doc Cliente', visible: true, fixed: null, align: 'left', minWidth: '150px' },
+    { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '200px', flex: '1 1 0' },
+    { id: 'createdDate', key: 'createdDate', label: 'Creado', visible: true, fixed: null, align: 'left', minWidth: '120px' },
+    { id: 'expiryDate', key: 'expiryDate', label: 'Vence', visible: true, fixed: null, align: 'left', minWidth: '120px' },
+    { id: 'vendor', key: 'vendor', label: 'Vendedor', visible: true, fixed: null, align: 'left', minWidth: '150px' },
+    { id: 'total', key: 'total', label: 'Total', visible: true, fixed: null, align: 'right', minWidth: '110px' },
+    { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'center', minWidth: '150px' },
+    { id: 'actions', key: 'actions', label: 'Acciones', visible: true, fixed: 'right', align: 'center', minWidth: '150px' }
+  ]), []);
+
+  const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
+    const tenantKey = resolveTenantColumnsKey(DRAFT_COLUMNS_STORAGE_KEY);
+    return loadColumnsConfig({ tenantKey, fallback: DRAFT_MASTER_COLUMNS });
+  });
+
+  useEffect(() => {
+    const tenantKey = resolveTenantColumnsKey(DRAFT_COLUMNS_STORAGE_KEY);
+    persistColumnsConfig({ tenantKey, columns: columnsConfig });
+  }, [columnsConfig]);
+
+  const visibleColumns = useMemo(() => columnsConfig.filter(column => column.visible), [columnsConfig]);
+
+  const toggleColumn = (id: string) => {
+    setColumnsConfig(prev => prev.map(column => column.id === id ? { ...column, visible: !column.visible } : column));
+  };
+
+  const reorderColumns = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) {
+      return;
+    }
+
+    setColumnsConfig(prev => {
+      const sourceIndex = prev.findIndex(column => column.id === sourceId);
+      const targetIndex = prev.findIndex(column => column.id === targetId);
+
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return prev;
+      }
+
+      const updated = [...prev];
+      const [moved] = updated.splice(sourceIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
+    });
+  };
+
+  const resetColumns = () => {
+    setColumnsConfig(DRAFT_MASTER_COLUMNS.map(column => ({ ...column })));
+  };
 
   const filteredDrafts = useMemo(() => {
     return filterByDateRange(drafts, draft => draft.createdDate, dateFrom, dateTo);
@@ -235,12 +292,15 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
           }}
           activeFiltersCount={0}
           onOpenFilters={() => {}}
-          showColumnManager={false}
-          columnsConfig={[]}
+          showColumnManager={showColumnManager}
+          columnsConfig={columnsConfig}
           density={density}
-          onToggleColumnManager={() => {}}
-          onToggleColumn={() => {}}
-          onDensityChange={() => {}}
+          onToggleColumnManager={() => setShowColumnManager(!showColumnManager)}
+          onToggleColumn={toggleColumn}
+          onDensityChange={setDensity}
+          onResetColumns={resetColumns}
+          onReorderColumns={reorderColumns}
+          lockedColumnIds={['draftNumber', 'actions']}
           onExport={handleExport}
           hideActionButtons
         />
@@ -259,6 +319,8 @@ const DraftInvoicesModule: React.FC<DraftInvoicesModuleProps> = ({ hideSidebar }
         <div className="flex-1 px-6 py-6">
           <DraftsTable
             drafts={paginatedDrafts}
+            visibleColumns={visibleColumns}
+            density={density}
             selectedDraftIds={selectedDrafts}
             onToggleDraft={toggleDraftSelection}
             onToggleAll={toggleAllDrafts}

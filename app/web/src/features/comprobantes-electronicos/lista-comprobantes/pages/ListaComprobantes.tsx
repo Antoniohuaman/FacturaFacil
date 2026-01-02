@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-/* eslint-disable no-empty -- bloques de captura intencionales; logging diferido */
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -41,7 +40,7 @@ import type { ColumnConfig } from '../types/columnConfig';
 import { formatBusinessDateShort, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
-import { lsKey } from '@/shared/tenant';
+import { loadColumnsConfig, persistColumnsConfig, resolveTenantColumnsKey } from '../utils/columnPersistence';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -161,27 +160,6 @@ const parseExcelDate = (value?: string): Date | null => {
 const LEGACY_KEY = TABLE_CONFIG.COLUMN_CONFIG_STORAGE_KEY;
 const TENANT_BASE_KEY = 'comprobantes_columns_config';
 
-const resolveColumnsStorageKey = (): string | null => {
-  try {
-    const key = lsKey(TENANT_BASE_KEY);
-    return typeof key === 'string' && key.trim() !== '' ? key : null;
-  } catch (error) {
-    return null;
-  }
-};
-
-const parseColumnsConfig = (raw: string | null): ColumnConfig[] | null => {
-  if (!raw) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : null;
-  } catch (error) {
-    return null;
-  }
-};
-
 const mapInvoiceToExportRow = (invoice: Comprobante): ComprobanteExportRow => {
   const { serie, correlativo } = extractSerieCorrelativo(invoice);
 
@@ -279,7 +257,7 @@ const InvoiceListDashboard = () => {
   // Column manager (config local)
   // --------------------
   // Lista maestra en orden (no cambia la keys del modelo de datos)
-  const MASTER_COLUMNS = useMemo(() => ([
+  const MASTER_COLUMNS = useMemo<ColumnConfig[]>(() => ([
     { id: 'documentNumber', key: 'id', label: 'N° Comprobante', visible: true, fixed: 'left', align: 'left', minWidth: '168px', width: 'w-[168px]', shrink: 0 },
     { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '220px', width: 'w-[220px]', flex: '1 1 0' },
     { id: 'clientDoc', key: 'clientDoc', label: 'N° Doc Cliente', visible: true, fixed: null, align: 'left', minWidth: '130px', width: 'w-[130px]' },
@@ -305,47 +283,18 @@ const InvoiceListDashboard = () => {
 
   // Load persisted visibility or defaults from localStorage (not sessionStorage)
   const [columnsConfig, setColumnsConfig] = useState<ColumnConfig[]>(() => {
-    const tenantKey = resolveColumnsStorageKey();
-
-    if (tenantKey) {
-      try {
-        const tenantConfig = parseColumnsConfig(localStorage.getItem(tenantKey));
-        if (tenantConfig) {
-          return tenantConfig;
-        }
-      } catch (error) {}
-    }
-
-    let legacyRaw: string | null = null;
-    try {
-      legacyRaw = localStorage.getItem(LEGACY_KEY);
-    } catch (error) {}
-
-    const legacyConfig = parseColumnsConfig(legacyRaw);
-
-    if (legacyConfig) {
-      if (tenantKey && legacyRaw) {
-        try {
-          localStorage.setItem(tenantKey, legacyRaw);
-          localStorage.removeItem(LEGACY_KEY);
-        } catch (error) {}
-      }
-      return legacyConfig;
-    }
-
-    return MASTER_COLUMNS as ColumnConfig[];
+    const tenantKey = resolveTenantColumnsKey(TENANT_BASE_KEY);
+    return loadColumnsConfig({
+      tenantKey,
+      legacyKey: LEGACY_KEY,
+      fallback: MASTER_COLUMNS
+    });
   });
 
   // Persist config to localStorage when changed
   useEffect(() => {
-    const tenantKey = resolveColumnsStorageKey();
-    if (!tenantKey) {
-      return;
-    }
-    try {
-      localStorage.setItem(tenantKey, JSON.stringify(columnsConfig));
-      localStorage.removeItem(LEGACY_KEY);
-    } catch (error) {}
+    const tenantKey = resolveTenantColumnsKey(TENANT_BASE_KEY);
+    persistColumnsConfig({ tenantKey, legacyKey: LEGACY_KEY, columns: columnsConfig });
   }, [columnsConfig]);
 
   // Helper: visible columns in order
@@ -354,6 +303,30 @@ const InvoiceListDashboard = () => {
   // Column manager toggle
   const toggleColumn = (id: string) => {
     setColumnsConfig(prev => prev.map(c => c.id === id ? { ...c, visible: !c.visible } : c));
+  };
+
+  const reorderColumns = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) {
+      return;
+    }
+
+    setColumnsConfig((prev) => {
+      const sourceIndex = prev.findIndex((column) => column.id === sourceId);
+      const targetIndex = prev.findIndex((column) => column.id === targetId);
+
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return prev;
+      }
+
+      const updated = [...prev];
+      const [moved] = updated.splice(sourceIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
+    });
+  };
+
+  const resetColumns = () => {
+    setColumnsConfig(MASTER_COLUMNS.map((column) => ({ ...column })));
   };
 
   // Aplicar preset de fecha usando las utilidades
@@ -1030,6 +1003,8 @@ const InvoiceListDashboard = () => {
         onToggleColumnManager={() => setShowColumnManager(!showColumnManager)}
         onToggleColumn={toggleColumn}
         onDensityChange={setDensity}
+        onResetColumns={resetColumns}
+        onReorderColumns={reorderColumns}
         onExport={handleExportAll}
         isExporting={isExporting}
         isExportDisabled={!canExportComprobantes || isExporting}
