@@ -580,6 +580,18 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   );
   };
 
+  const STOCK_LOW_THRESHOLD = 10;
+
+  const getStockBadgeClasses = (stock: number): string => {
+    if (stock <= 0) {
+      return 'border border-red-100 bg-red-50 text-red-600';
+    }
+    if (stock < STOCK_LOW_THRESHOLD) {
+      return 'border border-amber-100 bg-amber-50 text-amber-700';
+    }
+    return 'border border-emerald-100 bg-emerald-50 text-emerald-700';
+  };
+
   const renderGridView = () => (
     <div className={getGridClasses()}>
       {displayProducts.map((product) => {
@@ -659,12 +671,13 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
           stockValue,
           formattedPrice,
         } = getProductPresentationData(product);
+        const stockBadgeClasses = getStockBadgeClasses(stockValue);
 
         return (
           <div
             key={product.id}
             className={`flex items-center justify-between gap-3 rounded-md border-l-2 px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${
-              inCart ? 'border-[#2ccdb0] bg-[#2ccdb0]/10' : 'border-transparent hover:bg-gray-50'
+              inCart ? 'border-sky-400 bg-sky-50' : 'border-transparent hover:bg-gray-50'
             }`}
             onClick={() => handleProductClick(product)}
             role="button"
@@ -684,7 +697,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                     {product.name}
                   </span>
                   {quantityInCart > 0 && (
-                    <span className="rounded-full bg-[#2f70b4]/10 px-1.5 py-0 text-[11px] font-semibold leading-5 text-[#2f70b4] shrink-0">
+                    <span className="rounded-full bg-sky-100 px-1.5 py-0 text-[11px] font-semibold leading-5 text-sky-700 shrink-0">
                       x{quantityInCart}
                     </span>
                   )}
@@ -694,7 +707,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
             <div className="flex items-center gap-2 shrink-0">
               <span
-                className="inline-flex items-center gap-1 rounded-full bg-[#2f70b4]/5 px-2 py-0.5 text-xs font-medium text-[#2f70b4]"
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${stockBadgeClasses}`}
                 title={`Stock disponible: ${stockValue}`}
                 aria-label={`Stock disponible: ${stockValue}`}
               >
