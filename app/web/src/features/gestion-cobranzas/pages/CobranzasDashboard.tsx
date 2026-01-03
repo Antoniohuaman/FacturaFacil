@@ -22,7 +22,9 @@ import { CobranzasTable } from '../components/CobranzasTable';
 import { CobranzaDetailModal } from '../components/CobranzaDetailModal';
 import { HistorialCobranzaModal } from '../components/HistorialCobranzaModal';
 import { SeleccionarCuentaModal } from '../components/SeleccionarCuentaModal';
+import { CobranzasColumnsManagerButton } from '../components/CobranzasColumnsManagerButton';
 import { useCobranzasDashboard } from '../hooks/useCobranzasDashboard';
+import { useCobranzaColumnsManager, useCuentasPorCobrarColumnsManager } from '../hooks/useCobranzasColumnsManager';
 import type { CobranzaDocumento, CuentaPorCobrarSummary, CobranzaTabKey } from '../models/cobranzas.types';
 import { DEFAULT_COBRANZA_FILTERS } from '../utils/constants';
 import { buildCobranzasExportRows, buildCuentasExportRows } from '../utils/reporting';
@@ -58,6 +60,8 @@ export const CobranzasDashboard = () => {
     cuentas,
     cobranzas,
   } = useCobranzasDashboard();
+  const cuentasColumnsManager = useCuentasPorCobrarColumnsManager();
+  const cobranzasColumnsManager = useCobranzaColumnsManager();
   const [highlightCuentaId, setHighlightCuentaId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -188,6 +192,28 @@ export const CobranzasDashboard = () => {
 
   const canExport = activeTab === 'cuentas' ? filteredCuentas.length > 0 : filteredCobranzas.length > 0;
 
+  const columnsManagerButton = activeTab === 'cuentas'
+    ? (
+        <CobranzasColumnsManagerButton
+          columns={cuentasColumnsManager.columns}
+          onToggleColumn={cuentasColumnsManager.toggleColumn}
+          onResetColumns={cuentasColumnsManager.resetColumns}
+          onSelectAllColumns={cuentasColumnsManager.selectAllColumns}
+          onReorderColumns={cuentasColumnsManager.reorderColumns}
+          title="Columnas de cuentas por cobrar"
+        />
+      )
+    : (
+        <CobranzasColumnsManagerButton
+          columns={cobranzasColumnsManager.columns}
+          onToggleColumn={cobranzasColumnsManager.toggleColumn}
+          onResetColumns={cobranzasColumnsManager.resetColumns}
+          onSelectAllColumns={cobranzasColumnsManager.selectAllColumns}
+          onReorderColumns={cobranzasColumnsManager.reorderColumns}
+          title="Columnas de cobranzas"
+        />
+      );
+
   const getRangeBounds = () => {
     const defaultRange = DEFAULT_COBRANZA_FILTERS.rangoFechas;
     const from = filters.rangoFechas.from || defaultRange.from;
@@ -308,6 +334,7 @@ export const CobranzasDashboard = () => {
               <Filter className="w-4 h-4" />
               {filtersVisible ? 'Ocultar filtros' : 'Filtros'}
             </button>
+            {columnsManagerButton}
             <button
               type="button"
               onClick={handleExport}
@@ -354,6 +381,7 @@ export const CobranzasDashboard = () => {
           onVerComprobante={(cuenta) => handleVerComprobante(cuenta.comprobanteId)}
           onVerHistorial={(cuenta) => setHistorialCuenta(cuenta)}
           highlightId={highlightCuentaId}
+          visibleColumns={cuentasColumnsManager.visibleColumns}
         />
       ) : (
         <CobranzasTable
@@ -361,6 +389,7 @@ export const CobranzasDashboard = () => {
           formatMoney={formatMoney}
           onVerDetalle={(cobranza) => setDetalleCobranza(cobranza)}
           onVerComprobante={(cobranza) => handleVerComprobante(cobranza.comprobanteId)}
+          visibleColumns={cobranzasColumnsManager.visibleColumns}
         />
       )}
 
