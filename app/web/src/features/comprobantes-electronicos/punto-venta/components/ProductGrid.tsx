@@ -3,7 +3,7 @@
 // ===================================================================
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Search, Scan, Plus, Filter, Package, X } from 'lucide-react';
+import { Search, Scan, Plus, Filter, Package, X, LayoutGrid, List } from 'lucide-react';
 import type { Product, CartItem, Currency } from '../../models/comprobante.types';
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
@@ -51,6 +51,9 @@ export interface ProductGridProps {
 
 const GRID_SCROLL_MIN_HEIGHT = 240;
 const GRID_SCROLL_BOTTOM_OFFSET = 24;
+type CatalogViewMode = 'cards' | 'list';
+const CATALOG_VIEW_STORAGE_KEY = 'pos_catalog_view';
+const isCatalogViewMode = (value: unknown): value is CatalogViewMode => value === 'cards' || value === 'list';
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
   products,
@@ -101,6 +104,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const [gridScrollMaxHeight, setGridScrollMaxHeight] = useState<string>('auto');
+  const [catalogView, setCatalogView] = useState<CatalogViewMode>('cards');
 
   const resolveSku = useCallback((product: Product) => product.code || product.id, []);
 
@@ -118,6 +122,23 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       return next;
     });
   }, [getPreferredUnitForSku, products, resolveSku]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const storedView = window.localStorage.getItem(CATALOG_VIEW_STORAGE_KEY);
+    if (isCatalogViewMode(storedView)) {
+      setCatalogView(storedView);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(CATALOG_VIEW_STORAGE_KEY, catalogView);
+  }, [catalogView]);
 
   const recalcGridScrollArea = useCallback(() => {
     if (!scrollAreaRef.current) {
@@ -187,6 +208,44 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     }
     const preparedProduct = buildProductForSale(product);
     onAddToCart(preparedProduct);
+  };
+
+  const toggleCatalogView = () => {
+    setCatalogView((prev) => (prev === 'cards' ? 'list' : 'cards'));
+  };
+
+  const getProductPresentationData = (product: Product) => {
+    const quantityInCart = getProductQuantityInCart(product.id);
+    const inCart = isProductInCart(product.id);
+    const sku = resolveSku(product);
+    const selectedUnit = unitSelections[sku] || getPreferredUnitForSku(sku, product.unidadMedida || product.unit);
+    const unitOptions = getUnitOptionsForProduct(sku);
+    const fallbackUnitCode = selectedUnit || product.unidadMedida || product.unit || '';
+    const normalizedOptions = unitOptions.length > 0
+      ? unitOptions
+      : fallbackUnitCode
+        ? [{ code: fallbackUnitCode, label: formatUnitLabel(fallbackUnitCode) || fallbackUnitCode, isBase: true }]
+        : [];
+    const baseUnitOption = normalizedOptions[0];
+    const currentUnit = baseUnitOption?.code || fallbackUnitCode || product.unidadMedida || product.unit || '';
+    const resolvedPrice = resolveProductPrice(product, currentUnit);
+    const formattedPrice = formatPrice(resolvedPrice, currency);
+    const unitLabel = baseUnitOption?.label
+      || (currentUnit ? formatUnitLabel(currentUnit) : undefined)
+      || currentUnit
+      || 'Unidad';
+    const stockValue = Math.max(0, typeof product.stock === 'number' ? product.stock : 0);
+
+    return {
+      quantityInCart,
+      inCart,
+      sku,
+      unitLabel,
+      stockValue,
+      formattedPrice,
+      resolvedPrice,
+      currentUnit,
+    };
   };
 
   const getGridClasses = (): string => {
@@ -269,9 +328,13 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   // RENDERIZADO DEL HEADER DE BÚSQUEDA
   // ===================================================================
 
-  const renderSearchHeader = () => (
-    <div className="bg-white border-b border-gray-200 p-3 mb-4">
-      <div className="flex w-full flex-wrap items-center gap-3 xl:flex-nowrap">
+  const renderSearchHeader = () => {
+    const ViewToggleIcon = catalogView === 'cards' ? List : LayoutGrid;
+    const viewToggleLabel = catalogView === 'cards' ? 'Ver en lista' : 'Ver en tarjetas';
+
+    return (
+      <div className="bg-white border-b border-gray-200 p-3 mb-4">
+        <div className="flex w-full flex-wrap items-center gap-3 xl:flex-nowrap">
         {/* Barra de búsqueda y escáner */}
         <div className="relative flex-1 min-w-[260px]">
           <div className="flex items-stretch rounded-lg border border-gray-200 bg-white shadow-sm focus-within:border-[#2f70b4] focus-within:ring-1 focus-within:ring-[#2f70b4]/10">
@@ -410,47 +473,44 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
           </button>
 
           {priceListOptions.length > 0 && (
-            <>
-              <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                <span>Lista de precios</span>
-                <select
-                  value={selectedPriceListId}
-                  onChange={(event) => onPriceListChange(event.target.value)}
-                  className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-800 focus:border-[#2f70b4] focus:outline-none"
-                >
-                  {priceListOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowFilters(!showFilters)}
-                className={`rounded-full border border-transparent p-2 transition-colors focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${
-                  showFilters ? 'bg-[#2ccdb0]/15 text-[#2f70b4]' : 'text-[#2f70b4] hover:bg-slate-50'
-                }`}
-                title="Mostrar filtros"
+            <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              <select
+                value={selectedPriceListId}
+                onChange={(event) => onPriceListChange(event.target.value)}
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-800 focus:border-[#2f70b4] focus:outline-none"
               >
-                <Filter className="h-4 w-4" />
-              </button>
-            </>
+                {priceListOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
 
-          {priceListOptions.length === 0 && (
-            <button
-              type="button"
-              onClick={() => setShowFilters(!showFilters)}
-              className={`rounded-full border border-transparent p-2 transition-colors focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${
-                showFilters ? 'bg-[#2ccdb0]/15 text-[#2f70b4]' : 'text-[#2f70b4] hover:bg-slate-50'
-              }`}
-              title="Mostrar filtros"
-            >
-              <Filter className="h-4 w-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={toggleCatalogView}
+            className={`rounded-full border border-transparent p-2 transition-colors focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${
+              catalogView === 'list' ? 'bg-[#2f70b4]/10 text-[#2f70b4]' : 'text-[#2f70b4] hover:bg-slate-50'
+            }`}
+            title={viewToggleLabel}
+            aria-label={viewToggleLabel}
+            aria-pressed={catalogView === 'list'}
+          >
+            <ViewToggleIcon className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`rounded-full border border-transparent p-2 transition-colors focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${
+              showFilters ? 'bg-[#2ccdb0]/15 text-[#2f70b4]' : 'text-[#2f70b4] hover:bg-slate-50'
+            }`}
+            title="Mostrar filtros"
+          >
+            <Filter className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
@@ -518,6 +578,143 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       )}
     </div>
   );
+  };
+
+  const renderGridView = () => (
+    <div className={getGridClasses()}>
+      {displayProducts.map((product) => {
+        const {
+          quantityInCart,
+          inCart,
+          unitLabel,
+          stockValue,
+          formattedPrice,
+        } = getProductPresentationData(product);
+
+        return (
+          <div 
+            key={product.id}
+            onClick={() => handleProductClick(product)}
+            className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer hover:scale-105 relative group"
+          >
+            {/* Imagen/Placeholder del producto */}
+            <div className="aspect-square bg-[#2f70b4]/10 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
+              {product.image ? (
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div className={`w-12 h-12 bg-[#2f70b4]/40 rounded-full flex items-center justify-center ${product.image ? 'hidden' : ''}`}>
+                <div className="w-6 h-6 border-2 border-white rounded-full"></div>
+              </div>
+
+              {/* Badge de cantidad en carrito */}
+              {showQuantityBadge && inCart && (
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">
+                  {quantityInCart}
+                </div>
+              )}
+            </div>
+
+            {/* Información del producto */}
+            <div className="space-y-1">
+              <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2 group-hover:text-[#2f70b4] transition-colors">
+                {product.name}
+              </h3>
+              
+              <div className="text-lg font-bold text-[#2f70b4]">
+                {formattedPrice}
+              </div>
+              <p className="text-xs text-gray-500 mt-1" title="Unidad base">
+                {unitLabel}
+              </p>
+
+              <p className="text-xs text-gray-600 font-semibold">
+                Stock: {stockValue}
+              </p>
+            </div>
+
+            {/* Indicador de selección */}
+            {inCart && (
+              <div className="absolute top-2 left-2 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderListView = () => (
+    <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
+      {displayProducts.map((product) => {
+        const {
+          quantityInCart,
+          inCart,
+          unitLabel,
+          stockValue,
+          formattedPrice,
+        } = getProductPresentationData(product);
+
+        return (
+          <div
+            key={product.id}
+            className={`flex items-center justify-between gap-3 px-3 py-2 text-sm transition-colors ${inCart ? 'bg-[#2f70b4]/5' : 'hover:bg-gray-50'}`}
+            onClick={() => handleProductClick(product)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                handleProductClick(product);
+              }
+            }}
+            data-in-cart={inCart ? 'true' : 'false'}
+          >
+            <div className="flex items-start gap-2 min-w-0 flex-1">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900 truncate" title={product.name}>
+                    {product.name}
+                  </span>
+                  {quantityInCart > 0 && (
+                    <span className="rounded-full bg-[#2f70b4]/10 px-2 py-0.5 text-[11px] font-semibold text-[#2f70b4]">
+                      x{quantityInCart}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 truncate">
+                  Stock: {stockValue} · {unitLabel}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                {formattedPrice}
+              </span>
+              <button
+                type="button"
+                className="rounded-full border border-gray-200 p-1.5 text-[#2f70b4] hover:bg-[#2f70b4]/10 focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleProductClick(product);
+                }}
+                aria-label={`Agregar ${product.name}`}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   // ===================================================================
   // RENDERIZADO PRINCIPAL
@@ -538,7 +735,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col" data-catalog-view={catalogView}>
       {/* Header de búsqueda */}
       {renderSearchHeader()}
 
@@ -570,87 +767,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
               </div>
             </div>
           ) : (
-            <div className={getGridClasses()}>
-              {displayProducts.map((product) => {
-              const quantityInCart = getProductQuantityInCart(product.id);
-              const inCart = isProductInCart(product.id);
-              const sku = resolveSku(product);
-              const selectedUnit = unitSelections[sku] || getPreferredUnitForSku(sku, product.unidadMedida || product.unit);
-              const unitOptions = getUnitOptionsForProduct(sku);
-              const fallbackUnitCode = selectedUnit || product.unidadMedida || product.unit || '';
-              const normalizedOptions = unitOptions.length > 0
-                ? unitOptions
-                : fallbackUnitCode
-                  ? [{ code: fallbackUnitCode, label: formatUnitLabel(fallbackUnitCode) || fallbackUnitCode, isBase: true }]
-                  : [];
-              const baseUnitOption = normalizedOptions[0];
-              const currentUnit = baseUnitOption?.code || fallbackUnitCode || product.unidadMedida || product.unit || '';
-              const resolvedPrice = resolveProductPrice(product, currentUnit);
-              const formattedPrice = formatPrice(resolvedPrice, currency);
-              const unitLabel = baseUnitOption?.label
-                || (currentUnit ? formatUnitLabel(currentUnit) : undefined)
-                || currentUnit
-                || 'Unidad';
-              const stockValue = Math.max(0, typeof product.stock === 'number' ? product.stock : 0);
-
-              return (
-                <div 
-                  key={product.id}
-                  onClick={() => handleProductClick(product)}
-                  className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer hover:scale-105 relative group"
-                >
-                  {/* Imagen/Placeholder del producto */}
-                  <div className="aspect-square bg-[#2f70b4]/10 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
-                    {product.image ? (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          // Si falla la carga de la imagen, mostrar placeholder
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                        }}
-                      />
-                    ) : null}
-                    <div className={`w-12 h-12 bg-[#2f70b4]/40 rounded-full flex items-center justify-center ${product.image ? 'hidden' : ''}`}>
-                      <div className="w-6 h-6 border-2 border-white rounded-full"></div>
-                    </div>
-
-                    {/* Badge de cantidad en carrito */}
-                    {showQuantityBadge && inCart && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">
-                        {quantityInCart}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Información del producto */}
-                  <div className="space-y-1">
-                    <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2 group-hover:text-[#2f70b4] transition-colors">
-                      {product.name}
-                    </h3>
-                    
-                    <div className="text-lg font-bold text-[#2f70b4]">
-                      {formattedPrice}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1" title="Unidad base">
-                      {unitLabel}
-                    </p>
-
-                    <p className="text-xs text-gray-600 font-semibold">
-                      Stock: {stockValue}
-                    </p>
-                  </div>
-
-                  {/* Indicador de selección */}
-                  {inCart && (
-                    <div className="absolute top-2 left-2 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
-                  )}
-                </div>
-              );
-            })}
-            </div>
+            catalogView === 'list' ? renderListView() : renderGridView()
           )}
         </div>
       </div>
