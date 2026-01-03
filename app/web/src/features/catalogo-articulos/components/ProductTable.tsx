@@ -1,12 +1,12 @@
 import type { Product, FilterOptions } from '../models/types';
 import type { Establishment } from '../../configuracion-sistema/models/Establishment';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import { ColumnSelectorPanel } from './product-table/ColumnSelectorPanel';
 import { ProductTableHeader } from './product-table/ProductTableHeader';
 import { ProductTableRow } from './product-table/ProductTableRow';
 import { ProductTableEmptyState } from './product-table/ProductTableEmptyState';
 import { useProductTableViewModel } from '../hooks/useProductTableViewModel';
+import type { ProductTableColumnState } from '../hooks/useProductColumnsManager';
 
 interface ProductTableProps {
   products: Product[];
@@ -20,9 +20,7 @@ interface ProductTableProps {
   // ✅ Nuevas props para filtro de establecimiento
   establishmentScope?: string;
   establishments?: Establishment[];
-  // Optional: allow parent to control the column selector panel
-  columnSelectorOpen?: boolean;
-  onToggleColumnSelector?: () => void;
+  columns: ProductTableColumnState[];
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({
@@ -36,8 +34,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   onSelectedProductsChange,
   establishmentScope = 'ALL',
   establishments: establishmentsProp,
-  columnSelectorOpen,
-  onToggleColumnSelector
+  columns
 }) => {
   const { state: configState } = useConfigurationContext();
   const establishmentsFromContext = configState.establishments || [];
@@ -46,21 +43,12 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
   const {
     rows,
-    visibleColumns,
-    showColumnSelector,
-    setShowColumnSelector,
-    toggleColumn,
-    resetColumns,
-    showAllColumns,
-    hideAllColumns,
     handleSelectAll,
     handleSelectProduct,
     handleSort,
     getSortState,
     formatCurrency,
-    isAllSelected,
-    columnsByGroup,
-    groupLabels
+    isAllSelected
   } = useProductTableViewModel({
     products,
     filters,
@@ -70,6 +58,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
     establishmentScope,
     establishments
   });
+
+  const visibleColumns = useMemo(() => columns.filter(column => column.visible), [columns]);
 
   if (loading) {
     return (
@@ -96,18 +86,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
   return (
     <>
-      <ColumnSelectorPanel
-        show={columnSelectorOpen ?? showColumnSelector}
-        onTogglePanel={() => (onToggleColumnSelector ? onToggleColumnSelector() : setShowColumnSelector(prev => !prev))}
-        visibleColumns={visibleColumns}
-        columnsByGroup={columnsByGroup}
-        groupLabels={groupLabels}
-        onToggleColumn={toggleColumn}
-        onShowAll={showAllColumns}
-        onHideAll={hideAllColumns}
-        onReset={resetColumns}
-      />
-
       {/* Tabla de productos */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {/* Contenedor con scroll horizontal mejorado */}
@@ -117,7 +95,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
         >
           <table className="min-w-full divide-y divide-gray-200">
             <ProductTableHeader
-              visibleColumns={visibleColumns}
+              columns={visibleColumns}
               onSort={handleSort}
               getSortState={getSortState}
               isAllSelected={isAllSelected}
@@ -129,7 +107,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 <ProductTableRow
                   key={`${row.id}-${row._establishmentId}-${index}`}
                   row={row}
-                  visibleColumns={visibleColumns}
+                  columns={visibleColumns}
                   selected={selectedProducts.has(row.id)}
                   onToggleSelect={handleSelectProduct}
                   onEdit={onEditProduct}

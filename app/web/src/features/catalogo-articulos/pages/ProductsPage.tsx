@@ -1,7 +1,6 @@
 // src/features/catalogo-articulos/pages/ProductsPage.tsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
 import type { Product } from '../models/types';
 import ProductTable from '../components/ProductTable';
 import BulkDeleteToolbar from '../components/BulkDeleteToolbar';
@@ -13,6 +12,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { exportProductsToExcel } from '../utils/excelHelpers';
+import { useProductColumnsManager } from '../hooks/useProductColumnsManager';
+import { ProductColumnsManagerButton } from '../components/product-table/ProductColumnsManagerButton';
 
 const MAIN_EXPORT_COLUMNS: Array<{ key: keyof Product; label: string; type: 'text' | 'currency' | 'number' }> = [
   { key: 'codigo', label: 'Código', type: 'text' },
@@ -87,9 +88,6 @@ const ProductsPage: React.FC = () => {
   // Estado para mostrar el modal de exportación
   const [showExportModal, setShowExportModal] = useState(false);
 
-  // Estado para el selector de columnas (controlado desde el toolbar)
-  const [showColumnSelector, setShowColumnSelector] = useState(false);
-
   // Eliminar productos seleccionados
   const handleBulkDeleteProducts = (productIds: string[]) => {
     productIds.forEach(id => deleteProduct(id));
@@ -104,6 +102,14 @@ const ProductsPage: React.FC = () => {
   const handleClearSelection = () => {
     setSelectedProducts(new Set());
   };
+
+  const {
+    columns: productTableColumns,
+    toggleColumn: toggleProductColumn,
+    reorderColumns: reorderProductColumns,
+    resetColumns: resetProductColumns,
+    selectAllColumns: selectAllProductColumns
+  } = useProductColumnsManager();
 
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
@@ -578,14 +584,13 @@ const ProductsPage: React.FC = () => {
             </button>
 
             <div className="hidden sm:block w-px h-10 bg-gray-200 dark:bg-gray-700" aria-hidden="true"></div>
-            <button
-              onClick={() => setShowColumnSelector(prev => !prev)}
-              aria-label="Personalizar columnas"
-              title="Personalizar columnas"
-              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0 relative z-10"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
+            <ProductColumnsManagerButton
+              columns={productTableColumns}
+              onToggleColumn={toggleProductColumn}
+              onResetColumns={resetProductColumns}
+              onSelectAllColumns={selectAllProductColumns}
+              onReorderColumns={reorderProductColumns}
+            />
 
             <button
               onClick={() => setShowExportModal(true)}
@@ -637,8 +642,7 @@ const ProductsPage: React.FC = () => {
         onSelectedProductsChange={setSelectedProducts}
         establishmentScope={establishmentScope}
         establishments={establishments}
-        columnSelectorOpen={showColumnSelector}
-        onToggleColumnSelector={() => setShowColumnSelector(prev => !prev)}
+        columns={productTableColumns}
       />
 
       {/* Pagination */}

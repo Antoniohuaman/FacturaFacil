@@ -1,14 +1,6 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import type { Product, FilterOptions } from '../models/types';
 import type { Establishment } from '../../configuracion-sistema/models/Establishment';
-import {
-  AVAILABLE_COLUMNS,
-  COLUMN_CONFIG_VERSION,
-  COLUMN_GROUP_LABELS,
-  type ColumnKey,
-  type ColumnConfig
-} from '../components/product-table/columnConfig';
-import { ensureEmpresaId, lsKey } from '../../../shared/tenant';
 
 export interface ProductEstablishmentRow extends Product {
   _establishmentId: string;
@@ -25,79 +17,6 @@ interface UseProductTableViewModelParams {
   establishmentScope?: string;
   establishments: Establishment[];
 }
-
-const getDefaultColumnSet = () =>
-  new Set(AVAILABLE_COLUMNS.filter(col => col.defaultVisible).map(col => col.key));
-
-const migrateLegacyToNamespaced = () => {
-  try {
-    const empresaId = ensureEmpresaId();
-    const markerKey = `${empresaId}:catalog_migrated`;
-    const migrated = localStorage.getItem(markerKey);
-    if (migrated === 'v1') return;
-
-    const legacyKeys = [
-      'catalog_products',
-      'catalog_categories',
-      'catalog_packages',
-      'productTableColumns',
-      'productTableColumnsVersion',
-      'productFieldsConfig'
-    ];
-
-    for (const key of legacyKeys) {
-      const namespaced = `${empresaId}:${key}`;
-      const hasNamespaced = localStorage.getItem(namespaced) !== null;
-      const legacyValue = localStorage.getItem(key);
-      if (!hasNamespaced && legacyValue !== null) {
-        localStorage.setItem(namespaced, legacyValue);
-        localStorage.removeItem(key);
-      }
-    }
-
-    localStorage.setItem(markerKey, 'v1');
-  } catch (error) {
-    console.warn('Migración legacy->namespaced (ProductTable) omitida por empresaId inválido o error:', error);
-  }
-};
-
-const loadVisibleColumns = (): Set<ColumnKey> => {
-  try {
-    migrateLegacyToNamespaced();
-  } catch (error) {
-    console.warn('ProductTable: persist columns failed', error);
-  }
-
-  let saved: string | null = null;
-  let savedVersion: string | null = null;
-  try {
-    saved = localStorage.getItem(lsKey('productTableColumns'));
-    savedVersion = localStorage.getItem(lsKey('productTableColumnsVersion'));
-  } catch {
-    return getDefaultColumnSet();
-  }
-
-  if (savedVersion !== COLUMN_CONFIG_VERSION) {
-    const defaults = getDefaultColumnSet();
-    try {
-      localStorage.setItem(lsKey('productTableColumnsVersion'), COLUMN_CONFIG_VERSION);
-      localStorage.setItem(lsKey('productTableColumns'), JSON.stringify([...defaults]));
-    } catch {
-      // noop si empresaId inválido
-    }
-    return defaults;
-  }
-
-  if (saved) {
-    try {
-      return new Set(JSON.parse(saved));
-    } catch {
-      return getDefaultColumnSet();
-    }
-  }
-
-  return getDefaultColumnSet();
-};
 
 export const useProductTableViewModel = ({
   products,
@@ -146,42 +65,6 @@ export const useProductTableViewModel = ({
 
     return expanded;
   }, [products, establishments, establishmentScope]);
-
-  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(loadVisibleColumns);
-  const [showColumnSelector, setShowColumnSelector] = useState(false);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(lsKey('productTableColumns'), JSON.stringify([...visibleColumns]));
-      localStorage.setItem(lsKey('productTableColumnsVersion'), COLUMN_CONFIG_VERSION);
-    } catch (error) {
-      console.warn('No se pudo persistir preferencias de columnas (empresaId inválido?):', error);
-    }
-  }, [visibleColumns]);
-
-  const toggleColumn = useCallback((columnKey: ColumnKey) => {
-    setVisibleColumns(prev => {
-      const next = new Set(prev);
-      if (next.has(columnKey)) {
-        next.delete(columnKey);
-      } else {
-        next.add(columnKey);
-      }
-      return next;
-    });
-  }, []);
-
-  const resetColumns = useCallback(() => {
-    setVisibleColumns(getDefaultColumnSet());
-  }, []);
-
-  const showAllColumns = useCallback(() => {
-    setVisibleColumns(new Set(AVAILABLE_COLUMNS.map(col => col.key)));
-  }, []);
-
-  const hideAllColumns = useCallback(() => {
-    setVisibleColumns(new Set());
-  }, []);
 
   const handleSelectAll = useCallback(
     (checked: boolean) => {
@@ -240,31 +123,14 @@ export const useProductTableViewModel = ({
     [products.length, selectedProducts]
   );
 
-  const columnsByGroup = useMemo(() => {
-    return AVAILABLE_COLUMNS.reduce<Record<string, ColumnConfig[]>>((acc, column) => {
-      if (!acc[column.group]) acc[column.group] = [];
-      acc[column.group].push(column);
-      return acc;
-    }, {});
-  }, []);
-
   return {
     rows,
-    visibleColumns,
-    showColumnSelector,
-    setShowColumnSelector,
-    toggleColumn,
-    resetColumns,
-    showAllColumns,
-    hideAllColumns,
     handleSelectAll,
     handleSelectProduct,
     handleSort,
     getSortState,
     formatCurrency,
     isAllSelected,
-    columnsByGroup,
-    groupLabels: COLUMN_GROUP_LABELS,
     selectedProducts
   };
 };

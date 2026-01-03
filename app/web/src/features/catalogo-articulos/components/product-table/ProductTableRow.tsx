@@ -3,10 +3,11 @@ import type { Product } from '../../models/types';
 import type { Unit } from '../../../configuracion-sistema/models/Unit';
 import type { ColumnKey } from './columnConfig';
 import type { ProductEstablishmentRow } from '../../hooks/useProductTableViewModel';
+import type { ProductTableColumnState } from '../../hooks/useProductColumnsManager';
 
 interface ProductTableRowProps {
   row: ProductEstablishmentRow;
-  visibleColumns: Set<ColumnKey>;
+  columns: ProductTableColumnState[];
   selected: boolean;
   onToggleSelect: (productId: string, checked: boolean) => void;
   onEdit: (product: Product) => void;
@@ -36,7 +37,7 @@ const formatDate = (value?: Date | string) => {
 
 export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   row,
-  visibleColumns,
+  columns,
   selected,
   onToggleSelect,
   onEdit,
@@ -44,6 +45,225 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   units,
   formatCurrency
 }) => {
+  const renderColumnCell = (columnKey: ColumnKey): React.ReactElement | null => {
+    switch (columnKey) {
+      case 'codigo':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="text-sm font-mono font-medium text-gray-900 dark:text-white">{row.codigo}</div>
+          </td>
+        );
+      case 'nombre':
+        return (
+          <td className="px-6 py-4">
+            <div className="text-sm font-medium text-gray-900 dark:text-white max-w-xs truncate">{row.nombre}</div>
+            {row.descripcion && (
+              <div className="text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">{row.descripcion}</div>
+            )}
+          </td>
+        );
+      case 'establecimiento':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
+            {row._establishmentId === 'UNASSIGNED' ? (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600 italic">
+                Sin asignar
+              </span>
+            ) : (
+              <div>
+                <div className="text-sm font-semibold text-purple-900 dark:text-purple-300">{row._establishmentCode}</div>
+                <div className="text-xs text-purple-600 dark:text-purple-400 truncate max-w-[150px]">{row._establishmentName}</div>
+              </div>
+            )}
+          </td>
+        );
+      case 'imagen':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.imagen ? (
+              <img
+                src={row.imagen}
+                alt={row.nombre}
+                className="h-12 w-12 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
+                onError={(event) => {
+                  (event.target as HTMLImageElement).src =
+                    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Crect width="24" height="24" fill="%23f3f4f6"/%3E%3Cpath stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/%3E%3C/svg%3E';
+                }}
+              />
+            ) : (
+              <div className="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
+          </td>
+        );
+      case 'unidad':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              {getUnitLabel(units, row.unidad)}
+            </span>
+          </td>
+        );
+      case 'categoria':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+              {row.categoria}
+            </span>
+          </td>
+        );
+      case 'descripcion':
+        return (
+          <td className="px-6 py-4">
+            {row.descripcion ? (
+              <div className="text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate">{row.descripcion}</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'impuesto':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.impuesto ? (
+              <span className="text-sm font-medium text-gray-900">{row.impuesto}</span>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'disponibleEnTodos':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                row.disponibleEnTodos ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {row.disponibleEnTodos ? 'Sí' : 'No'}
+            </span>
+          </td>
+        );
+      case 'alias':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.alias ? (
+              <div className="text-sm text-gray-900">{row.alias}</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'precioCompra':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.precioCompra ? (
+              <div className="text-sm font-medium text-gray-900">{formatCurrency(row.precioCompra)}</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'porcentajeGanancia':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {typeof row.porcentajeGanancia === 'number' ? (
+              <div className="text-sm text-gray-900">{row.porcentajeGanancia}%</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'codigoBarras':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.codigoBarras ? (
+              <div className="text-sm font-mono text-gray-900">{row.codigoBarras}</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'codigoFabrica':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.codigoFabrica ? (
+              <div className="text-sm font-mono text-gray-900">{row.codigoFabrica}</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'codigoSunat':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.codigoSunat ? (
+              <div className="text-sm font-mono text-gray-900">{row.codigoSunat}</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'descuentoProducto':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {typeof row.descuentoProducto === 'number' ? (
+              <div className="text-sm text-gray-900">{row.descuentoProducto}%</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'marca':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.marca ? <div className="text-sm text-gray-900">{row.marca}</div> : <span className="text-sm text-gray-400">-</span>}
+          </td>
+        );
+      case 'modelo':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.modelo ? <div className="text-sm text-gray-900">{row.modelo}</div> : <span className="text-sm text-gray-400">-</span>}
+          </td>
+        );
+      case 'peso':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.peso ? <div className="text-sm text-gray-900">{row.peso} kg</div> : <span className="text-sm text-gray-400">-</span>}
+          </td>
+        );
+      case 'tipoExistencia':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.tipoExistencia ? (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {row.tipoExistencia.replace(/_/g, ' ')}
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'fechaCreacion':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+            {formatDate(row.fechaCreacion)}
+          </td>
+        );
+      case 'fechaActualizacion':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+            {formatDate(row.fechaActualizacion)}
+          </td>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <tr
       data-focus={`productos:${row.id}`}
@@ -61,197 +281,13 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
         />
       </td>
 
-      {visibleColumns.has('codigo') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          <div className="text-sm font-mono font-medium text-gray-900 dark:text-white">{row.codigo}</div>
-        </td>
-      )}
-
-      {visibleColumns.has('nombre') && (
-        <td className="px-6 py-4">
-          <div className="text-sm font-medium text-gray-900 dark:text-white max-w-xs truncate">{row.nombre}</div>
-          {row.descripcion && (
-            <div className="text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">{row.descripcion}</div>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('establecimiento') && (
-        <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
-          {row._establishmentId === 'UNASSIGNED' ? (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600 italic">
-              Sin asignar
-            </span>
-          ) : (
-            <div>
-              <div className="text-sm font-semibold text-purple-900 dark:text-purple-300">{row._establishmentCode}</div>
-              <div className="text-xs text-purple-600 dark:text-purple-400 truncate max-w-[150px]">{row._establishmentName}</div>
-            </div>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('imagen') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.imagen ? (
-            <img
-              src={row.imagen}
-              alt={row.nombre}
-              className="h-12 w-12 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
-              onError={(event) => {
-                (event.target as HTMLImageElement).src =
-                  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Crect width="24" height="24" fill="%23f3f4f6"/%3E%3Cpath stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/%3E%3C/svg%3E';
-              }}
-            />
-          ) : (
-            <div className="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-              <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('unidad') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-            {getUnitLabel(units, row.unidad)}
-          </span>
-        </td>
-      )}
-
-      {visibleColumns.has('categoria') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-            {row.categoria}
-          </span>
-        </td>
-      )}
-
-      {visibleColumns.has('disponibleEnTodos') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              row.disponibleEnTodos ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-            }`}
-          >
-            {row.disponibleEnTodos ? 'Sí' : 'No'}
-          </span>
-        </td>
-      )}
-
-      {visibleColumns.has('alias') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.alias ? (
-            <div className="text-sm text-gray-900">{row.alias}</div>
-          ) : (
-            <span className="text-sm text-gray-400">-</span>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('precioCompra') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.precioCompra ? (
-            <div className="text-sm font-medium text-gray-900">{formatCurrency(row.precioCompra)}</div>
-          ) : (
-            <span className="text-sm text-gray-400">-</span>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('porcentajeGanancia') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {typeof row.porcentajeGanancia === 'number' ? (
-            <div className="text-sm text-gray-900">{row.porcentajeGanancia}%</div>
-          ) : (
-            <span className="text-sm text-gray-400">-</span>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('codigoBarras') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.codigoBarras ? (
-            <div className="text-sm font-mono text-gray-900">{row.codigoBarras}</div>
-          ) : (
-            <span className="text-sm text-gray-400">-</span>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('codigoFabrica') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.codigoFabrica ? (
-            <div className="text-sm font-mono text-gray-900">{row.codigoFabrica}</div>
-          ) : (
-            <span className="text-sm text-gray-400">-</span>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('codigoSunat') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.codigoSunat ? (
-            <div className="text-sm font-mono text-gray-900">{row.codigoSunat}</div>
-          ) : (
-            <span className="text-sm text-gray-400">-</span>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('descuentoProducto') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {typeof row.descuentoProducto === 'number' ? (
-            <div className="text-sm text-gray-900">{row.descuentoProducto}%</div>
-          ) : (
-            <span className="text-sm text-gray-400">-</span>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('marca') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.marca ? <div className="text-sm text-gray-900">{row.marca}</div> : <span className="text-sm text-gray-400">-</span>}
-        </td>
-      )}
-
-      {visibleColumns.has('modelo') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.modelo ? <div className="text-sm text-gray-900">{row.modelo}</div> : <span className="text-sm text-gray-400">-</span>}
-        </td>
-      )}
-
-      {visibleColumns.has('peso') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.peso ? <div className="text-sm text-gray-900">{row.peso} kg</div> : <span className="text-sm text-gray-400">-</span>}
-        </td>
-      )}
-
-      {visibleColumns.has('tipoExistencia') && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          {row.tipoExistencia ? (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              {row.tipoExistencia.replace(/_/g, ' ')}
-            </span>
-          ) : (
-            <span className="text-sm text-gray-400">-</span>
-          )}
-        </td>
-      )}
-
-      {visibleColumns.has('fechaCreacion') && (
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-          {formatDate(row.fechaCreacion)}
-        </td>
-      )}
-
-      {visibleColumns.has('fechaActualizacion') && (
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-          {formatDate(row.fechaActualizacion)}
-        </td>
-      )}
+      {columns.map(column => {
+        const cell = renderColumnCell(column.key);
+        if (!cell) {
+          return null;
+        }
+        return React.cloneElement(cell, { key: column.key });
+      })}
 
       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
         <div className="flex items-center space-x-2">
