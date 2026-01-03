@@ -12,7 +12,6 @@ import type { PaymentMethod } from '../../../configuracion-sistema/models/Paymen
 import { CreditScheduleSummaryCard } from '../../shared/payments/CreditScheduleSummaryCard';
 import { CartItemsList } from './cart/CartItemsList';
 import { ClientSection } from './client/ClientSection';
-import { DiscountSection } from './discount/DiscountSection';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
 import type { NormalizedDocumentType } from '../../shared/form-core/utils/clientNormalization';
 
@@ -143,8 +142,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
     onConfirmSale?.();
   };
 
-  const discountState = useState<'amount' | 'percentage'>('amount');
-  const discountValueState = useState<string>('');
   const docOptions = [
     { value: 'boleta', label: 'Boleta' },
     { value: 'factura', label: 'Factura' },
@@ -346,13 +343,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                 paymentMethodName={creditPaymentMethodName || selectedPaymentMethod?.name}
               />
             )}
-
-            <DiscountSection
-              currency={currency}
-              totals={totals}
-              discountTypeState={discountState}
-              discountValueState={discountValueState}
-            />
 
             <div>
               <button
