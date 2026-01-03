@@ -676,8 +676,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         return (
           <div
             key={product.id}
-            className={`group relative flex items-center justify-between gap-2 px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 focus-visible:ring-offset-1 focus-visible:ring-offset-white ${
-              inCart ? 'bg-sky-50/60' : 'bg-white hover:bg-gray-50'
+            className={`group relative flex items-center justify-between gap-2 px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#2f70b4]/15 focus-visible:ring-offset-1 focus-visible:ring-offset-white ${
+              inCart ? 'bg-[4A90E2]/[0.05]' : 'bg-white hover:bg-slate-50'
             }`}
             onClick={() => handleProductClick(product)}
             role="button"
@@ -691,15 +691,15 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             data-in-cart={inCart ? 'true' : 'false'}
           >
             <span
-              className={`pointer-events-none absolute inset-y-1 left-0 w-1 rounded-full transition-opacity ${
-                inCart ? 'opacity-100 bg-[#2f70b4]' : 'opacity-0 bg-[#2f70b4] group-focus-visible:opacity-100'
+              className={`pointer-events-none absolute inset-y-1.5 left-0 w-0.5 rounded-full transition-opacity ${
+                inCart ? 'opacity-100 bg-[#2f70b4]/70' : 'opacity-0 bg-[#2f70b4]/60 group-focus-visible:opacity-100'
               }`}
               aria-hidden="true"
             />
             <div className="flex min-w-0 flex-1 items-start gap-2 pl-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900 truncate" title={product.name}>
+                  <span className="text-sm font-medium text-slate-700 truncate" title={product.name}>
                     {product.name}
                   </span>
                   {quantityInCart > 0 && (
