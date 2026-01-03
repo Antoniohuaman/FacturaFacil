@@ -656,7 +656,6 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         const {
           quantityInCart,
           inCart,
-          unitLabel,
           stockValue,
           formattedPrice,
         } = getProductPresentationData(product);
@@ -664,7 +663,9 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         return (
           <div
             key={product.id}
-            className={`flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${inCart ? 'bg-[#2f70b4]/10' : 'hover:bg-gray-50'}`}
+            className={`flex items-center justify-between gap-3 rounded-md border-l-2 px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${
+              inCart ? 'border-[#2ccdb0] bg-[#2ccdb0]/10' : 'border-transparent hover:bg-gray-50'
+            }`}
             onClick={() => handleProductClick(product)}
             role="button"
             tabIndex={0}
@@ -683,19 +684,24 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                     {product.name}
                   </span>
                   {quantityInCart > 0 && (
-                    <span className="rounded-full bg-[#2f70b4]/10 px-1.5 py-0 text-[11px] font-semibold leading-5 text-[#2f70b4]">
+                    <span className="rounded-full bg-[#2f70b4]/10 px-1.5 py-0 text-[11px] font-semibold leading-5 text-[#2f70b4] shrink-0">
                       x{quantityInCart}
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-gray-500 truncate">
-                  Stock: {stockValue} · {unitLabel}
-                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-900 tabular-nums text-right">
+            <div className="flex items-center gap-2 shrink-0">
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-[#2f70b4]/5 px-2 py-0.5 text-xs font-medium text-[#2f70b4]"
+                title={`Stock disponible: ${stockValue}`}
+                aria-label={`Stock disponible: ${stockValue}`}
+              >
+                <Package className="h-3 w-3" aria-hidden="true" />
+                {stockValue}
+              </span>
+              <span className="text-sm font-semibold text-gray-900 tabular-nums text-right min-w-[72px]">
                 {formattedPrice}
               </span>
               <button
