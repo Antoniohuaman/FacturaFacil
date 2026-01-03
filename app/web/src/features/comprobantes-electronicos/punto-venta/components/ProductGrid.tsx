@@ -676,8 +676,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         return (
           <div
             key={product.id}
-            className={`flex items-center justify-between gap-3 rounded-md border-l-2 px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${
-              inCart ? 'border-sky-400 bg-sky-50' : 'border-transparent hover:bg-gray-50'
+            className={`group relative flex items-center justify-between gap-2 px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 focus-visible:ring-offset-1 focus-visible:ring-offset-white ${
+              inCart ? 'bg-sky-50/60' : 'bg-white hover:bg-gray-50'
             }`}
             onClick={() => handleProductClick(product)}
             role="button"
@@ -690,14 +690,20 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             }}
             data-in-cart={inCart ? 'true' : 'false'}
           >
-            <div className="flex items-start gap-2 min-w-0 flex-1">
+            <span
+              className={`pointer-events-none absolute inset-y-1 left-0 w-1 rounded-full transition-opacity ${
+                inCart ? 'opacity-100 bg-[#2f70b4]' : 'opacity-0 bg-[#2f70b4] group-focus-visible:opacity-100'
+              }`}
+              aria-hidden="true"
+            />
+            <div className="flex min-w-0 flex-1 items-start gap-2 pl-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900 truncate" title={product.name}>
                     {product.name}
                   </span>
                   {quantityInCart > 0 && (
-                    <span className="rounded-full bg-sky-100 px-1.5 py-0 text-[11px] font-semibold leading-5 text-sky-700 shrink-0">
+                    <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sky-700">
                       x{quantityInCart}
                     </span>
                   )}
@@ -705,21 +711,21 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex shrink-0 items-center gap-2 text-xs">
               <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${stockBadgeClasses}`}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${stockBadgeClasses}`}
                 title={`Stock disponible: ${stockValue}`}
                 aria-label={`Stock disponible: ${stockValue}`}
               >
                 <Package className="h-3 w-3" aria-hidden="true" />
                 {stockValue}
               </span>
-              <span className="text-sm font-semibold text-gray-900 tabular-nums text-right min-w-[72px]">
+              <span className="min-w-[70px] text-right text-sm font-semibold text-gray-900 tabular-nums">
                 {formattedPrice}
               </span>
               <button
                 type="button"
-                className="rounded-full border border-gray-300 p-1 text-[#2f70b4] hover:bg-[#2f70b4]/10 focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30"
+                className="rounded-full border border-gray-200 p-1 text-[#2f70b4] transition-colors hover:bg-[#2f70b4]/10 focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30"
                 onClick={(event) => {
                   event.stopPropagation();
                   handleProductClick(product);
