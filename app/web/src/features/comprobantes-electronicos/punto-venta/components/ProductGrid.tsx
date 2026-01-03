@@ -651,7 +651,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   );
 
   const renderListView = () => (
-    <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
+    <div className="divide-y divide-gray-100 border-t border-b border-gray-100">
       {displayProducts.map((product) => {
         const {
           quantityInCart,
@@ -664,7 +664,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         return (
           <div
             key={product.id}
-            className={`flex items-center justify-between gap-3 px-3 py-2 text-sm transition-colors ${inCart ? 'bg-[#2f70b4]/5' : 'hover:bg-gray-50'}`}
+            className={`flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 ${inCart ? 'bg-[#2f70b4]/10' : 'hover:bg-gray-50'}`}
             onClick={() => handleProductClick(product)}
             role="button"
             tabIndex={0}
@@ -683,7 +683,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                     {product.name}
                   </span>
                   {quantityInCart > 0 && (
-                    <span className="rounded-full bg-[#2f70b4]/10 px-2 py-0.5 text-[11px] font-semibold text-[#2f70b4]">
+                    <span className="rounded-full bg-[#2f70b4]/10 px-1.5 py-0 text-[11px] font-semibold leading-5 text-[#2f70b4]">
                       x{quantityInCart}
                     </span>
                   )}
@@ -695,12 +695,12 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-900 tabular-nums">
+              <span className="text-sm font-semibold text-gray-900 tabular-nums text-right">
                 {formattedPrice}
               </span>
               <button
                 type="button"
-                className="rounded-full border border-gray-200 p-1.5 text-[#2f70b4] hover:bg-[#2f70b4]/10 focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30"
+                className="rounded-full border border-gray-300 p-1 text-[#2f70b4] hover:bg-[#2f70b4]/10 focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30"
                 onClick={(event) => {
                   event.stopPropagation();
                   handleProductClick(product);
