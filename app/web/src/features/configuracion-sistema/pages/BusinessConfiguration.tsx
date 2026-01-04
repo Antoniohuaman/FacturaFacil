@@ -26,7 +26,7 @@ type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'catego
 export function BusinessConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { paymentMethods, units, taxes, taxAffectations, categories } = state;
+  const { paymentMethods, units, taxes, taxAffectations, categories, salesPreferences } = state;
 
   const [activeSection, setActiveSection] = useState<BusinessSection>('payments');
   const [accountingView, setAccountingView] = useState<'dashboard' | 'accounts'>('dashboard');
@@ -163,23 +163,9 @@ export function BusinessConfiguration() {
           {/* Preferences Section */}
           {activeSection === 'preferences' && (
             <SalesPreferencesSection
-              preferences={{
-                allowNegativeStock: false,
-                autoCalculateTax: true,
-                defaultTaxId: '1',
-                requireCustomerSelection: true,
-                allowPartialPayments: true,
-                autoGenerateCorrelativeNumber: true,
-                showProductImages: true,
-                enableDiscounts: true,
-                maxDiscountPercentage: 100,
-                requireDiscountReason: false,
-                enablePromotions: false,
-                printReceiptAfterSale: true,
-                openCashDrawerAfterPrint: false
-              }}
+              preferences={salesPreferences}
               onUpdate={async (preferences) => {
-                console.log('Update preferences:', preferences);
+                dispatch({ type: 'SET_SALES_PREFERENCES', payload: preferences });
               }}
             />
           )}

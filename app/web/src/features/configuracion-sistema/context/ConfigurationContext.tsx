@@ -42,6 +42,10 @@ export interface TaxAffectations {
   };
 }
 
+export type SalesPreferences = {
+  allowNegativeStock: boolean;
+};
+
 interface ConfigurationState {
   company: Company | null;
   establishments: Establishment[];
@@ -55,11 +59,13 @@ interface ConfigurationState {
   taxAffectations: TaxAffectations;
   categories: Category[];
   cajas: Caja[];
+  salesPreferences: SalesPreferences;
   isLoading: boolean;
   error: string | null;
 }
 
 const SERIES_STORAGE_KEY = 'config_series_v1';
+const CONFIG_STORAGE_KEY = 'facturaFacilConfig';
 
 const getSeriesStorageKey = () => {
   try {
@@ -119,6 +125,96 @@ const persistSeries = (series: Series[]) => {
   }
 };
 
+type PersistedConfigurationSnapshot = {
+  sales?: {
+    allowNegativeStock?: boolean;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+const DEFAULT_SALES_PREFERENCES: SalesPreferences = {
+  allowNegativeStock: true,
+};
+
+const getConfigurationStorageKeys = (): string[] => {
+  const baseKey = CONFIG_STORAGE_KEY;
+  let namespacedKey: string | null = null;
+
+  try {
+    namespacedKey = lsKey(CONFIG_STORAGE_KEY);
+  } catch {
+    namespacedKey = null;
+  }
+
+  if (!namespacedKey || namespacedKey === baseKey) {
+    return [baseKey];
+  }
+
+  return [namespacedKey, baseKey];
+};
+
+const readPersistedConfiguration = (): PersistedConfigurationSnapshot | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const storageKeys = getConfigurationStorageKeys();
+  for (const key of storageKeys) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw) {
+        return JSON.parse(raw) as PersistedConfigurationSnapshot;
+      }
+    } catch (error) {
+      console.warn(`[Configuration] No se pudo leer el estado de ${key}:`, error);
+    }
+  }
+
+  return null;
+};
+
+const persistConfigurationSnapshot = (snapshot: PersistedConfigurationSnapshot) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const storageKeys = getConfigurationStorageKeys();
+  storageKeys.forEach((key) => {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(snapshot));
+    } catch (error) {
+      console.warn(`[Configuration] No se pudo guardar el estado en ${key}:`, error);
+    }
+  });
+};
+
+const loadSalesPreferencesFromStorage = (): SalesPreferences => {
+  const persisted = readPersistedConfiguration();
+  if (persisted?.sales && typeof persisted.sales.allowNegativeStock === 'boolean') {
+    return { allowNegativeStock: persisted.sales.allowNegativeStock };
+  }
+
+  return DEFAULT_SALES_PREFERENCES;
+};
+
+const persistSalesPreferences = (preferences: SalesPreferences) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const currentSnapshot = readPersistedConfiguration() ?? {};
+  const nextSnapshot: PersistedConfigurationSnapshot = {
+    ...currentSnapshot,
+    sales: {
+      ...currentSnapshot.sales,
+      allowNegativeStock: preferences.allowNegativeStock,
+    },
+  };
+
+  persistConfigurationSnapshot(nextSnapshot);
+};
+
 type ConfigurationAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
@@ -148,7 +244,8 @@ type ConfigurationAction =
   | { type: 'SET_CAJAS'; payload: Caja[] }
   | { type: 'ADD_CAJA'; payload: Caja }
   | { type: 'UPDATE_CAJA'; payload: Caja }
-  | { type: 'DELETE_CAJA'; payload: string };
+  | { type: 'DELETE_CAJA'; payload: string }
+  | { type: 'SET_SALES_PREFERENCES'; payload: SalesPreferences };
 
 const initialState: ConfigurationState = {
   company: null,
@@ -176,6 +273,7 @@ const initialState: ConfigurationState = {
       isDefault: false
     }
   },
+  salesPreferences: DEFAULT_SALES_PREFERENCES,
   isLoading: false,
   error: null,
 };
@@ -327,6 +425,12 @@ function configurationReducer(
         cajas: state.cajas.filter(caja => caja.id !== action.payload)
       };
 
+    case 'SET_SALES_PREFERENCES':
+      return {
+        ...state,
+        salesPreferences: action.payload,
+      };
+
     default:
       return state;
   }
@@ -352,6 +456,7 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
     (baseState) => ({
       ...baseState,
       currencies: currencyManager.getSnapshot().currencies,
+      salesPreferences: loadSalesPreferencesFromStorage(),
     }),
   );
   const seriesHydratedRef = useRef(false);
@@ -390,6 +495,10 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
     if (!seriesHydratedRef.current) return;
     persistSeries(state.series);
   }, [state.series]);
+
+  useEffect(() => {
+    persistSalesPreferences(state.salesPreferences);
+  }, [state.salesPreferences]);
 
   // Initialize with mock data for development
   useEffect(() => {
