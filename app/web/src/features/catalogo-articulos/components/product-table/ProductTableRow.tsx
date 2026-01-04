@@ -10,6 +10,7 @@ interface ProductTableRowProps {
   columns: ProductTableColumnState[];
   selected: boolean;
   onToggleSelect: (productId: string, checked: boolean) => void;
+  onToggleFavorite: (productId: string) => void;
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
   units: Unit[];
@@ -40,6 +41,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   columns,
   selected,
   onToggleSelect,
+  onToggleFavorite,
   onEdit,
   onDelete,
   units,
@@ -47,6 +49,36 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
 }) => {
   const renderColumnCell = (columnKey: ColumnKey): React.ReactElement | null => {
     switch (columnKey) {
+      case 'favorito':
+        return (
+          <td className="px-4 py-4 whitespace-nowrap">
+            <button
+              type="button"
+              onClick={() => onToggleFavorite(row.id)}
+              className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-400 ${
+                row.isFavorite
+                  ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30'
+                  : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              aria-label={row.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
+              aria-pressed={row.isFavorite ? true : false}
+            >
+              <svg
+                className="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill={row.isFavorite ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.518 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.364 1.118l1.518 4.674c.3.921-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.175 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.979 10.1c-.783-.57-.38-1.81.588-1.81h4.915a1 1 0 00.95-.69l1.518-4.674z"
+                />
+              </svg>
+            </button>
+          </td>
+        );
       case 'codigo':
         return (
           <td className="px-6 py-4 whitespace-nowrap">

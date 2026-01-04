@@ -37,6 +37,7 @@ export interface Product {
   descuentoProducto?: number;
   marca?: string;
   modelo?: string;
+  isFavorite?: boolean;
   peso?: number;
   tipoExistencia?: 'MERCADERIAS' | 'PRODUCTOS_TERMINADOS' | 'SERVICIOS' | 'MATERIAS_PRIMAS' | 'ENVASES' | 'MATERIALES_AUXILIARES' | 'SUMINISTROS' | 'REPUESTOS' | 'EMBALAJES' | 'OTROS';
   // Compatibilidad con módulos de inventario/ventas (no usada en UI de catálogo)
@@ -85,6 +86,7 @@ export interface FilterOptions {
   marca?: string;
   modelo?: string;
   impuesto?: string;
+  soloFavoritos: boolean;
   ordenarPor: 'nombre' | 'fechaCreacion' | 'fechaActualizacion';
   direccion: 'asc' | 'desc';
 }

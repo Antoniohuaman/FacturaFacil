@@ -1,4 +1,5 @@
 export type ColumnKey =
+  | 'favorito'
   | 'codigo'
   | 'nombre'
   | 'establecimiento'
@@ -31,6 +32,7 @@ export interface ColumnConfig {
 }
 
 export const AVAILABLE_COLUMNS: ColumnConfig[] = [
+  { key: 'favorito', label: 'Fav', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'codigo', label: 'Código', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'nombre', label: 'Nombre', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'establecimiento', label: 'Establecimiento', defaultVisible: true, filterable: false, group: 'basicas' },
@@ -64,4 +66,4 @@ export const COLUMN_GROUP_LABELS = {
   sistema: 'Información del Sistema'
 } as const;
 
-export const COLUMN_CONFIG_VERSION = '2.1';
+export const COLUMN_CONFIG_VERSION = '2.2';

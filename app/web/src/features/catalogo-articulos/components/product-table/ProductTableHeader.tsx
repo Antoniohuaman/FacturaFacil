@@ -38,6 +38,18 @@ const renderHeaderCell = (
   getSortState: (field: keyof Product) => FilterOptions['direccion'] | null
 ): React.ReactElement | null => {
   switch (columnKey) {
+    case 'favorito':
+      return (
+        <th
+          scope="col"
+          className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+          title="Favoritos"
+        >
+          <span role="img" aria-label="Favorito">
+            ⭐
+          </span>
+        </th>
+      );
     case 'codigo':
       return (
         <th

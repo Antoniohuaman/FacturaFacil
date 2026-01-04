@@ -6,7 +6,7 @@ import ProductTable from '../components/ProductTable';
 import BulkDeleteToolbar from '../components/BulkDeleteToolbar';
 import ProductModal from '../components/ProductModal';
 import ExportProductsModal from '../components/ExportProductsModal';
-import { useProductStore, type ProductInput } from '../hooks/useProductStore';
+import { useProductStore, type ProductInput, FAVORITES_LIMIT } from '../hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
@@ -14,6 +14,8 @@ import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { exportProductsToExcel } from '../utils/excelHelpers';
 import { useProductColumnsManager } from '../hooks/useProductColumnsManager';
 import { ProductColumnsManagerButton } from '../components/product-table/ProductColumnsManagerButton';
+import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
+import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 
 const MAIN_EXPORT_COLUMNS: Array<{ key: keyof Product; label: string; type: 'text' | 'currency' | 'number' }> = [
   { key: 'codigo', label: 'Código', type: 'text' },
@@ -28,6 +30,7 @@ const MAIN_EXPORT_COLUMNS: Array<{ key: keyof Product; label: string; type: 'tex
 ];
 
 const ProductsPage: React.FC = () => {
+  const { toasts, warning, removeToast } = useToast();
   const {
     products,
     allProducts,
@@ -42,7 +45,8 @@ const ProductsPage: React.FC = () => {
     updateFilters,
     resetFilters,
     changePage,
-    changeItemsPerPage
+    changeItemsPerPage,
+    toggleFavorite
   } = useProductStore();
 
   // Configuración y establecimientos
@@ -101,6 +105,13 @@ const ProductsPage: React.FC = () => {
   // Limpiar selección
   const handleClearSelection = () => {
     setSelectedProducts(new Set());
+  };
+
+  const handleToggleFavorite = (productId: string) => {
+    const result = toggleFavorite(productId);
+    if (result.limitReached) {
+      warning(`Límite de favoritos alcanzado (${FAVORITES_LIMIT})`, 'Quita uno para agregar otro.');
+    }
   };
 
   const {
@@ -191,6 +202,7 @@ const ProductsPage: React.FC = () => {
     if (filters.modelo) count++;
   // tipoExistencia eliminado
     if (filters.impuesto) count++;
+    if (filters.soloFavoritos) count++;
     return count;
   }, [establishmentScope, filters]);
 
@@ -399,6 +411,42 @@ const ProductsPage: React.FC = () => {
               </select>
             </div>
           )}
+
+          {/* Solo favoritos */}
+          <div className="md:col-span-2 lg:col-span-1">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                  <span role="img" aria-hidden="true">⭐</span>
+                  Solo favoritos
+                  {filters.soloFavoritos && (
+                    <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-500/30 px-2 py-0.5 text-[11px] font-bold uppercase text-amber-700 dark:text-white">
+                      Activo
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-amber-800/80 dark:text-amber-200/70">Prioriza los productos marcados con ⭐</p>
+              </div>
+              <label className="relative inline-flex h-7 w-12 items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={filters.soloFavoritos}
+                  onChange={(event) => updateFilters({ soloFavoritos: event.target.checked })}
+                />
+                <span
+                  className={`absolute inset-0 rounded-full transition-colors ${
+                    filters.soloFavoritos ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                />
+                <span
+                  className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    filters.soloFavoritos ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </label>
+            </div>
+          </div>
 
           {/* Filtro de Tipo de Existencia eliminado para evitar relación con inventario */}
         </div>
@@ -643,6 +691,7 @@ const ProductsPage: React.FC = () => {
         establishmentScope={establishmentScope}
         establishments={establishments}
         columns={productTableColumns}
+        onToggleFavorite={handleToggleFavorite}
       />
 
       {/* Pagination */}
@@ -659,14 +708,15 @@ const ProductsPage: React.FC = () => {
         product={editingProduct}
         categories={categories}
       />
-    <ExportProductsModal
-      isOpen={showExportModal}
-      onClose={() => setShowExportModal(false)}
-      products={products}
-      totalProductsCount={allProducts.length}
-      currentFilters={filters}
-    />
-  </div>
+      <ExportProductsModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        products={products}
+        totalProductsCount={allProducts.length}
+        currentFilters={filters}
+      />
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </div>
   );
 };
 

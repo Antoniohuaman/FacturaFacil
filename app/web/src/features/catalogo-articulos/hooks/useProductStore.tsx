@@ -21,6 +21,11 @@ import {
 export type ProductInput = Omit<Product, 'id' | 'fechaCreacion' | 'fechaActualizacion' | 'precio'>;
 type PackageInput = Omit<Package, 'id' | 'fechaCreacion'>;
 
+export interface ToggleFavoriteResult {
+  success: boolean;
+  limitReached: boolean;
+}
+
 interface ProductStoreState {
   allProducts: Product[];
   products: Product[];
@@ -29,6 +34,7 @@ interface ProductStoreState {
   filters: FilterOptions;
   pagination: PaginationConfig;
   loading: boolean;
+  favoriteCount: number;
   rehydrateFromStorage: () => void;
   hardReset: () => void;
   addProduct: (data: ProductInput) => Product;
@@ -44,10 +50,12 @@ interface ProductStoreState {
   addPackage: (input: PackageInput) => Package;
   updatePackage: (id: string, data: Partial<PackageInput>) => void;
   deletePackage: (id: string) => void;
+  toggleFavorite: (id: string) => ToggleFavoriteResult;
 }
 
 const STORAGE_AVAILABLE = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 const DEFAULT_ITEMS_PER_PAGE = 10;
+export const FAVORITES_LIMIT = 300;
 
 if (STORAGE_AVAILABLE) {
   try {
@@ -68,6 +76,7 @@ function buildHydratedData() {
       packages: [],
       filters,
       pagination,
+      favoriteCount: 0,
     };
   }
 
@@ -78,6 +87,7 @@ function buildHydratedData() {
   const filters = createDefaultFilters();
   const pagination = createDefaultPagination();
   const listing = buildListing(products, filters, pagination);
+  const favoriteCount = countFavorites(products);
 
   return {
     allProducts: products,
@@ -86,6 +96,7 @@ function buildHydratedData() {
     packages,
     filters,
     pagination: listing.pagination,
+    favoriteCount,
   };
 }
 
@@ -99,6 +110,7 @@ export const useProductStore = create<ProductStoreState>((set) => ({
   filters: initialData.filters,
   pagination: initialData.pagination,
   loading: false,
+  favoriteCount: initialData.favoriteCount,
 
   rehydrateFromStorage: () => {
     const next = buildHydratedData();
@@ -110,6 +122,7 @@ export const useProductStore = create<ProductStoreState>((set) => ({
       packages: next.packages,
       filters: next.filters,
       pagination: next.pagination,
+      favoriteCount: next.favoriteCount,
     }));
   },
 
@@ -124,6 +137,7 @@ export const useProductStore = create<ProductStoreState>((set) => ({
       packages: [],
       filters,
       pagination,
+      favoriteCount: 0,
     }));
   },
 
@@ -135,12 +149,14 @@ export const useProductStore = create<ProductStoreState>((set) => ({
       persistProducts(allProducts);
       const categories = updateCategoriesAfterProductChange(state.categories, allProducts);
       const listing = buildListing(allProducts, state.filters, state.pagination);
+      const favoriteCount = state.favoriteCount + (product.isFavorite ? 1 : 0);
       createdProduct = product;
       return {
         allProducts,
         categories,
         products: listing.pageItems,
-        pagination: listing.pagination
+        pagination: listing.pagination,
+        favoriteCount
       };
     });
     return createdProduct!;
@@ -158,18 +174,23 @@ export const useProductStore = create<ProductStoreState>((set) => ({
       persistProducts(allProducts);
       const categories = updateCategoriesAfterProductChange(state.categories, allProducts);
       const listing = buildListing(allProducts, state.filters, state.pagination);
+      const wasFavorite = state.allProducts[index].isFavorite ? 1 : 0;
+      const isFavorite = updatedProduct.isFavorite ? 1 : 0;
+      const favoriteCount = state.favoriteCount - wasFavorite + isFavorite;
       return {
         allProducts,
         categories,
         products: listing.pageItems,
-        pagination: listing.pagination
+        pagination: listing.pagination,
+        favoriteCount
       };
     });
   },
 
   deleteProduct: (id) => {
     set((state) => {
-      if (!state.allProducts.some((product) => product.id === id)) {
+      const productToDelete = state.allProducts.find((product) => product.id === id);
+      if (!productToDelete) {
         return state;
       }
       const allProducts = state.allProducts.filter((product) => product.id !== id);
@@ -180,12 +201,14 @@ export const useProductStore = create<ProductStoreState>((set) => ({
       persistProducts(allProducts);
       const categories = updateCategoriesAfterProductChange(state.categories, allProducts);
       const listing = buildListing(allProducts, state.filters, state.pagination);
+      const favoriteCount = state.favoriteCount - (productToDelete.isFavorite ? 1 : 0);
       return {
         allProducts,
         categories,
         packages,
         products: listing.pageItems,
-        pagination: listing.pagination
+        pagination: listing.pagination,
+        favoriteCount: Math.max(0, favoriteCount)
       };
     });
   },
@@ -204,7 +227,8 @@ export const useProductStore = create<ProductStoreState>((set) => ({
         products: listing.pageItems,
         pagination: listing.pagination,
         categories,
-        packages: []
+        packages: [],
+        favoriteCount: 0
       };
     });
   },
@@ -333,11 +357,13 @@ export const useProductStore = create<ProductStoreState>((set) => ({
       persistProducts(nextProducts);
       const categories = updateCategoriesAfterProductChange(state.categories, nextProducts);
       const listing = buildListing(nextProducts, state.filters, state.pagination);
+      const favoriteCount = countFavorites(nextProducts);
       return {
         allProducts: nextProducts,
         categories,
         products: listing.pageItems,
-        pagination: listing.pagination
+        pagination: listing.pagination,
+        favoriteCount
       };
     });
 
@@ -379,6 +405,62 @@ export const useProductStore = create<ProductStoreState>((set) => ({
       persistPackages(packages);
       return { packages };
     });
+  },
+
+  toggleFavorite: (id) => {
+    let result: ToggleFavoriteResult = { success: false, limitReached: false };
+
+    set((state) => {
+      const index = state.allProducts.findIndex(product => product.id === id);
+      if (index === -1) {
+        return state;
+      }
+
+      const target = state.allProducts[index];
+      const currentlyFavorite = Boolean(target.isFavorite);
+
+      if (!currentlyFavorite && state.favoriteCount >= FAVORITES_LIMIT) {
+        result = { success: false, limitReached: true };
+        return state;
+      }
+
+      const updatedProduct: Product = {
+        ...target,
+        isFavorite: !currentlyFavorite,
+        fechaActualizacion: new Date()
+      };
+
+      const allProducts = [...state.allProducts];
+      allProducts[index] = updatedProduct;
+      persistProducts(allProducts);
+
+      let productsPage = state.products;
+      let pagination = state.pagination;
+
+      if (state.filters.soloFavoritos) {
+        const listing = buildListing(allProducts, state.filters, state.pagination);
+        productsPage = listing.pageItems;
+        pagination = listing.pagination;
+      } else {
+        productsPage = state.products.map(productItem =>
+          productItem.id === updatedProduct.id ? updatedProduct : productItem
+        );
+      }
+
+      const favoriteDelta = updatedProduct.isFavorite ? 1 : -1;
+      const favoriteCount = Math.max(0, state.favoriteCount + favoriteDelta);
+
+      result = { success: true, limitReached: false };
+
+      return {
+        allProducts,
+        products: productsPage,
+        pagination,
+        favoriteCount
+      };
+    });
+
+    return result;
   }
 }));
 
@@ -390,6 +472,7 @@ function createDefaultFilters(): FilterOptions {
     marca: '',
     modelo: '',
     impuesto: '',
+    soloFavoritos: false,
     ordenarPor: 'fechaCreacion',
     direccion: 'desc'
   };
@@ -433,6 +516,7 @@ function applyFilters(products: Product[], filters: FilterOptions): Product[] {
     if (filters.marca && (product.marca ?? '').toLowerCase() !== filters.marca.toLowerCase()) return false;
     if (filters.modelo && (product.modelo ?? '').toLowerCase() !== filters.modelo.toLowerCase()) return false;
     if (filters.impuesto && (product.impuesto ?? '').toLowerCase() !== filters.impuesto.toLowerCase()) return false;
+    if (filters.soloFavoritos && !product.isFavorite) return false;
 
     return true;
   });
@@ -473,6 +557,10 @@ function computePagination(totalItems: number, itemsPerPage: number, requestedPa
   };
 }
 
+function countFavorites(products: Product[]): number {
+  return products.reduce((count, product) => count + (product.isFavorite ? 1 : 0), 0);
+}
+
 function mergeFilters(current: FilterOptions, changes: Partial<FilterOptions>): FilterOptions {
   return {
     ...current,
@@ -508,6 +596,7 @@ function buildProduct(existing: Product | undefined, input: Partial<ProductInput
     descuentoProducto: toOptionalNumber(input.descuentoProducto, existing?.descuentoProducto),
     marca: input.marca ?? existing?.marca,
     modelo: input.modelo ?? existing?.modelo,
+    isFavorite: input.isFavorite ?? existing?.isFavorite ?? false,
     peso: toOptionalNumber(input.peso, existing?.peso),
     tipoExistencia: input.tipoExistencia ?? existing?.tipoExistencia ?? 'MERCADERIAS',
     cantidad: toOptionalNumber(input.cantidad, existing?.cantidad),
