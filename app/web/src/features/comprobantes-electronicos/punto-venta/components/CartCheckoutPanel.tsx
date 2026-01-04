@@ -140,16 +140,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const isCashBoxClosed = cashBoxStatus === 'closed';
   const hasItems = cartItems.length > 0;
   const canProcessSale = !isProcessing && hasItems;
-  const issueButtonLabel = useMemo(() => {
-    switch (tipoComprobante) {
-      case 'factura':
-        return 'EMITIR FACTURA';
-      case 'boleta':
-        return 'EMITIR BOLETA';
-      default:
-        return 'EMITIR DOCUMENTO';
-    }
-  }, [tipoComprobante]);
+  const issueButtonLabel = 'IR A COBRAR';
 
   const issueDisabled = !canProcessSale || (!isCreditPaymentSelection ? !onConfirmSale : !onEmitCredit);
 
