@@ -31,3 +31,25 @@ export const formatearFechaHora = (fecha: Date): string => {
     minute: '2-digit'
   }).format(fecha);
 };
+
+export const BARCODE_MIN_LENGTH = 8;
+export const BARCODE_MAX_LENGTH = 14;
+
+export const normalizeBarcodeValue = (value?: string | null): string => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const trimmed = value.trim();
+  return trimmed.replace(/[-\s]+/g, '');
+};
+
+export const isBarcodeValueValid = (value?: string | null): boolean => {
+  const normalized = normalizeBarcodeValue(value);
+  if (!normalized) {
+    return true;
+  }
+  if (!/^\d+$/.test(normalized)) {
+    return false;
+  }
+  return normalized.length >= BARCODE_MIN_LENGTH && normalized.length <= BARCODE_MAX_LENGTH;
+};

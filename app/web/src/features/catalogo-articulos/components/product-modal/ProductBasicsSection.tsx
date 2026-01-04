@@ -3,6 +3,7 @@ import { Tag, Quote, Barcode, ScanLine, Folder, Badge as BadgeIcon, Package2 } f
 import type { Category } from '../../../configuracion-sistema/context/ConfigurationContext';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
+import { normalizeBarcodeValue, BARCODE_MAX_LENGTH } from '../../utils/formatters';
 
 interface ProductBasicsSectionProps {
   formData: ProductFormData;
@@ -23,6 +24,11 @@ export const ProductBasicsSection: React.FC<ProductBasicsSectionProps> = ({
   categories,
   onOpenCategoryModal
 }) => {
+  const handleBarcodeChange = (value: string) => {
+    const normalized = normalizeBarcodeValue(value);
+    setFormData(prev => ({ ...prev, codigoBarras: normalized }));
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -114,10 +120,17 @@ export const ProductBasicsSection: React.FC<ProductBasicsSectionProps> = ({
             <input
               type="text"
               id="codigoBarras"
-              value={formData.codigoBarras}
-              onChange={(e) => setFormData(prev => ({ ...prev, codigoBarras: e.target.value }))}
-              className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-              placeholder="EAN-13, UPC, etc."
+              value={formData.codigoBarras ?? ''}
+              onChange={(e) => handleBarcodeChange(e.target.value)}
+              className={`
+                w-full h-10 pl-9 pr-3 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500
+                ${errors.codigoBarras ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+              `}
+              placeholder="8-14 dígitos"
+              inputMode="numeric"
+              maxLength={BARCODE_MAX_LENGTH}
+              autoComplete="off"
+              aria-invalid={errors.codigoBarras ? 'true' : 'false'}
             />
           </div>
           {errors.codigoBarras && <p className="text-red-600 text-xs mt-1">{errors.codigoBarras}</p>}

@@ -8,6 +8,7 @@ import type {
   ProductFormData
 } from '../models/types';
 import { inferUnitMeasureType } from '../utils/unitMeasureHelpers';
+import { normalizeBarcodeValue } from '../utils/formatters';
 import {
   runCatalogStorageMigration,
   loadProductsFromStorage,
@@ -571,6 +572,8 @@ function mergeFilters(current: FilterOptions, changes: Partial<FilterOptions>): 
 function buildProduct(existing: Product | undefined, input: Partial<ProductInput>): Product {
   const now = new Date();
   const unidad = (input.unidad ?? existing?.unidad ?? 'NIU') as Product['unidad'];
+  const rawBarcode = input.codigoBarras ?? existing?.codigoBarras;
+  const normalizedBarcode = normalizeBarcodeValue(rawBarcode);
   const producto: Product = {
     ...existing,
     ...input,
@@ -590,7 +593,7 @@ function buildProduct(existing: Product | undefined, input: Partial<ProductInput
     alias: input.alias ?? existing?.alias,
     precioCompra: toOptionalNumber(input.precioCompra, existing?.precioCompra),
     porcentajeGanancia: toOptionalNumber(input.porcentajeGanancia, existing?.porcentajeGanancia),
-    codigoBarras: input.codigoBarras ?? existing?.codigoBarras,
+    codigoBarras: normalizedBarcode || undefined,
     codigoFabrica: input.codigoFabrica ?? existing?.codigoFabrica,
     codigoSunat: input.codigoSunat ?? existing?.codigoSunat,
     descuentoProducto: toOptionalNumber(input.descuentoProducto, existing?.descuentoProducto),
@@ -628,6 +631,7 @@ function buildPackage(existing: Package | undefined, input: Partial<PackageInput
 }
 
 function mapFormDataToInput(data: ProductFormData): ProductInput {
+  const normalizedBarcode = normalizeBarcodeValue(data.codigoBarras);
   return {
     nombre: data.nombre,
     codigo: data.codigo,
@@ -643,7 +647,7 @@ function mapFormDataToInput(data: ProductFormData): ProductInput {
     alias: data.alias,
     precioCompra: toOptionalNumber(data.precioCompra),
     porcentajeGanancia: toOptionalNumber(data.porcentajeGanancia),
-    codigoBarras: data.codigoBarras,
+    codigoBarras: normalizedBarcode || undefined,
     codigoFabrica: data.codigoFabrica,
     codigoSunat: data.codigoSunat,
     descuentoProducto: toOptionalNumber(data.descuentoProducto),

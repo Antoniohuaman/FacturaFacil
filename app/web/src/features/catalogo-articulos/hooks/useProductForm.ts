@@ -5,6 +5,12 @@ import type { Unit } from '../../configuracion-sistema/models/Unit';
 import type { Product, ProductFormData, UnitMeasureType } from '../models/types';
 import type { ProductInput } from './useProductStore';
 import {
+  BARCODE_MIN_LENGTH,
+  BARCODE_MAX_LENGTH,
+  isBarcodeValueValid,
+  normalizeBarcodeValue
+} from '../utils/formatters';
+import {
   UNIT_MEASURE_TYPE_OPTIONS,
   filterUnitsByMeasureType,
   inferUnitMeasureType,
@@ -352,7 +358,7 @@ export const useProductForm = ({
         alias: productData.alias || '',
         precioCompra: productData.precioCompra || 0,
         porcentajeGanancia: productData.porcentajeGanancia || 0,
-        codigoBarras: productData.codigoBarras || '',
+        codigoBarras: normalizeBarcodeValue(productData.codigoBarras),
         codigoFabrica: productData.codigoFabrica || '',
         codigoSunat: productData.codigoSunat || '',
         descuentoProducto: productData.descuentoProducto || 0,
@@ -447,8 +453,15 @@ export const useProductForm = ({
       newErrors.descripcion = 'La descripción es requerida';
     }
 
-    if (isFieldVisible('codigoBarras') && isFieldRequired('codigoBarras') && !formData.codigoBarras?.trim()) {
-      newErrors.codigoBarras = 'El código de barras es requerido';
+    if (isFieldVisible('codigoBarras')) {
+      const normalizedBarcode = normalizeBarcodeValue(formData.codigoBarras);
+      const hasBarcodeValue = normalizedBarcode.length > 0;
+
+      if (isFieldRequired('codigoBarras') && !hasBarcodeValue) {
+        newErrors.codigoBarras = 'El código de barras es requerido';
+      } else if (hasBarcodeValue && !isBarcodeValueValid(normalizedBarcode)) {
+        newErrors.codigoBarras = `Ingresa ${BARCODE_MIN_LENGTH} a ${BARCODE_MAX_LENGTH} dígitos numéricos`;
+      }
     }
 
     if (isFieldVisible('marca') && isFieldRequired('marca') && !formData.marca?.trim()) {
