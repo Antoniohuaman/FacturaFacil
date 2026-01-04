@@ -66,6 +66,10 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
 
 const CART_LIST_MIN_HEIGHT = 260;
 const CART_LIST_BOTTOM_OFFSET = 32;
+const PERCENT_ERROR_MESSAGE = 'El descuento debe ser menor al 100%.';
+const AMOUNT_ERROR_MESSAGE = 'El descuento debe ser menor al total.';
+
+const sanitizeDecimalInput = (rawValue: string): string => rawValue.replace(/[^0-9.,]/g, '');
 
 export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   cartItems,
@@ -117,6 +121,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const [isDiscountPopoverOpen, setIsDiscountPopoverOpen] = useState(false);
   const [discountInputMode, setDiscountInputMode] = useState<DiscountMode>('amount');
   const [discountInputValue, setDiscountInputValue] = useState('');
+  const [discountInputError, setDiscountInputError] = useState<string | null>(null);
   const MAX_NOTES_CHARS = 500;
 
   const availablePaymentMethods = useMemo(() => (
@@ -170,7 +175,13 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
     }
   };
 
+  const handleDiscountModeChange = useCallback((mode: DiscountMode) => {
+    setDiscountInputMode(mode);
+    setDiscountInputError(null);
+  }, []);
+
   const syncDraftWithApplied = useCallback(() => {
+    setDiscountInputError(null);
     if (discount?.mode === 'percent') {
       setDiscountInputMode('percent');
       setDiscountInputValue(Number.isFinite(discount.value) ? String(discount.value) : '');
@@ -221,7 +232,43 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const displayedTotals = isDiscountPopoverOpen ? previewTotals : totals;
   const discountBaseDocValue = pricesIncludeTax ? totalsBeforeDiscount.total : totalsBeforeDiscount.subtotal;
   const isDiscountActive = Boolean(discount?.value && discount.value > 0);
-  const canApplyDiscount = hasItems && (!!draftDiscount || !!discount);
+  const canApplyDiscount = hasItems && (!!draftDiscount || !!discount) && !discountInputError;
+
+  const handleDiscountInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const sanitized = sanitizeDecimalInput(event.target.value);
+    if (!sanitized) {
+      setDiscountInputValue('');
+      setDiscountInputError(null);
+      return;
+    }
+
+    const normalized = sanitized.replace(',', '.');
+    const parsed = Number.parseFloat(normalized);
+
+    if (!Number.isFinite(parsed)) {
+      setDiscountInputValue(sanitized);
+      setDiscountInputError(null);
+      return;
+    }
+
+    if (discountInputMode === 'percent') {
+      if (parsed >= 100) {
+        setDiscountInputError(PERCENT_ERROR_MESSAGE);
+        return;
+      }
+    } else if (discountBaseDocValue <= 0) {
+      if (parsed > 0) {
+        setDiscountInputError(AMOUNT_ERROR_MESSAGE);
+        return;
+      }
+    } else if (parsed >= discountBaseDocValue) {
+      setDiscountInputError(AMOUNT_ERROR_MESSAGE);
+      return;
+    }
+
+    setDiscountInputValue(sanitized);
+    setDiscountInputError(null);
+  }, [discountBaseDocValue, discountInputMode]);
 
   const handleCancelDraft = useCallback(() => {
     syncDraftWithApplied();
@@ -231,11 +278,13 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const handleClearDraft = useCallback(() => {
     onClearDiscount();
     setDiscountInputValue('');
+    setDiscountInputError(null);
     setIsDiscountPopoverOpen(false);
   }, [onClearDiscount]);
 
   const handleApplyDraft = useCallback(() => {
     onApplyDiscount(draftDiscount);
+    setDiscountInputError(null);
     setIsDiscountPopoverOpen(false);
   }, [draftDiscount, onApplyDiscount]);
 
@@ -415,7 +464,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                     <button
                       key={mode}
                       type="button"
-                      onClick={() => setDiscountInputMode(mode)}
+                      onClick={() => handleDiscountModeChange(mode)}
                       className={`flex-1 rounded-full px-2.5 py-1 transition ${
                         discountInputMode === mode
                           ? 'bg-white text-[#2f70b4] shadow'
@@ -438,10 +487,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                       type="text"
                       inputMode="decimal"
                       value={discountInputValue}
-                      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                        const nextValue = event.target.value.replace(/[^0-9.,]/g, '');
-                        setDiscountInputValue(nextValue);
-                      }}
+                      onChange={handleDiscountInputChange}
                       className={`w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 focus:border-[#2ccdb0] focus:outline-none focus:ring-2 focus:ring-[#2ccdb0]/20 ${
                         discountInputMode === 'amount' ? 'pl-10' : ''
                       }`}
@@ -452,6 +498,9 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                   <p className="mt-1 text-[11px] text-slate-400">
                     Máximo {formatPrice(discountBaseDocValue, currency)}
                   </p>
+                  {discountInputError && (
+                    <p className="mt-1 text-[11px] text-red-500">{discountInputError}</p>
+                  )}
                 </div>
                 <div className="mb-3 space-y-1 rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
                   <div className="flex items-center justify-between">
