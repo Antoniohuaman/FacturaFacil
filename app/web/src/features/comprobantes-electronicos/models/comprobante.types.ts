@@ -73,6 +73,7 @@ export interface Product {
   basePrice?: number;
   minAllowedPrice?: number;
   isManualPrice?: boolean;
+  isFavorite?: boolean;
   // Datos adicionales del catálogo (opcional)
   catalogData?: {
     impuesto?: string;

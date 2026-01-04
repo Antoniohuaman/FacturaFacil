@@ -110,6 +110,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         unit: mappedUnit,
         unidadMedida: mappedUnit,
         requiresStockControl,
+        isFavorite: Boolean(product.isFavorite),
         // Datos adicionales del catálogo
         catalogData: {
           impuesto: product.impuesto,

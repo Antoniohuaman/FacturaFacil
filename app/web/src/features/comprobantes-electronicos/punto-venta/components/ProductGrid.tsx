@@ -2,8 +2,8 @@
 // COMPONENTE GRID DE PRODUCTOS PARA MODO POS - VERSIÓN MEJORADA
 // ===================================================================
 
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Search, Scan, Plus, Filter, Package, X, LayoutGrid, List } from 'lucide-react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Search, Scan, Plus, Filter, Package, X, LayoutGrid, List, Star } from 'lucide-react';
 import type { Product, CartItem, Currency } from '../../models/comprobante.types';
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
@@ -96,15 +96,35 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     clearSearch
   } = useProductSearch();
 
+  const favoriteProducts = useMemo(() => products.filter((product) => product.isFavorite), [products]);
+  const hasFavoriteProducts = favoriteProducts.length > 0;
+
   const [showProductModal, setShowProductModal] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [unitSelections, setUnitSelections] = useState<Record<string, string>>({});
   const [searchMode, setSearchMode] = useState<'text' | 'barcode'>('text');
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const favoritesPreferenceInitializedRef = useRef(false);
   const [gridScrollMaxHeight, setGridScrollMaxHeight] = useState<string>('auto');
   const [catalogView, setCatalogView] = useState<CatalogViewMode>('cards');
+
+  useEffect(() => {
+    if (hasFavoriteProducts) {
+      if (!favoritesPreferenceInitializedRef.current) {
+        favoritesPreferenceInitializedRef.current = true;
+        setShowOnlyFavorites(true);
+      }
+      return;
+    }
+
+    favoritesPreferenceInitializedRef.current = false;
+    if (showOnlyFavorites) {
+      setShowOnlyFavorites(false);
+    }
+  }, [hasFavoriteProducts, showOnlyFavorites]);
 
   const resolveSku = useCallback((product: Product) => product.code || product.id, []);
 
@@ -318,15 +338,25 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     setShowResults(true);
   };
 
+  const catalogProductsToShow = useMemo(() => (
+    showOnlyFavorites ? favoriteProducts : products
+  ), [favoriteProducts, products, showOnlyFavorites]);
 
-  // Usar productos filtrados o todos los productos
-  const displayProducts = (hasSearchQuery || selectedCategory || searchFilters.category)
-    ? searchResults
-    : products;
+  const displayProducts = useMemo(() => (
+    hasSearchQuery || selectedCategory || searchFilters.category
+      ? searchResults
+      : catalogProductsToShow
+  ), [catalogProductsToShow, hasSearchQuery, searchResults, searchFilters.category, selectedCategory]);
 
   // ===================================================================
   // RENDERIZADO DEL HEADER DE BÚSQUEDA
   // ===================================================================
+
+  const favoritesToggleTitle = !hasFavoriteProducts
+    ? 'No hay favoritos'
+    : showOnlyFavorites
+      ? 'Ver todos'
+      : 'Ver favoritos';
 
   const renderSearchHeader = () => {
     const ViewToggleIcon = catalogView === 'cards' ? List : LayoutGrid;
@@ -510,6 +540,24 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             title="Mostrar filtros"
           >
             <Filter className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              favoritesPreferenceInitializedRef.current = true;
+              setShowOnlyFavorites((prev) => !prev);
+            }}
+            className="p-1.5 text-[#2f70b4] transition-colors focus-visible:ring-2 focus-visible:ring-[#2f70b4]/30 disabled:cursor-not-allowed disabled:opacity-40"
+            title={favoritesToggleTitle}
+            aria-pressed={showOnlyFavorites}
+            disabled={!hasFavoriteProducts}
+          >
+            <Star
+              className={`h-4 w-4 ${showOnlyFavorites ? 'text-yellow-500' : 'text-[#2f70b4]'}`}
+              fill={showOnlyFavorites ? 'currentColor' : 'none'}
+              strokeWidth={showOnlyFavorites ? 2 : 1.5}
+            />
           </button>
         </div>
       </div>
