@@ -127,11 +127,37 @@ export interface CartItem {
 // INTERFACES DE PAGOS
 // ===================================================================
 
+export type DiscountMode = 'amount' | 'percent';
+
+export interface DiscountInput {
+  mode: DiscountMode;
+  value: number;
+  /**
+   * Moneda asociada al valor cuando el modo es monto.
+   * Si se omite, se asume la moneda del documento actual.
+   */
+  currency?: Currency;
+}
+
+export interface DiscountDetails {
+  mode: DiscountMode;
+  /** Valor porcentual aplicado cuando el modo es "%" */
+  percent?: number;
+  /** Monto descontado expresado en la moneda actual */
+  amount: number;
+}
+
 export interface PaymentTotals {
   subtotal: number;
   igv: number;
   total: number;
   currency?: Currency; // Nueva propiedad
+  discount?: DiscountDetails;
+  breakdown?: {
+    subtotalBeforeDiscount: number;
+    igvBeforeDiscount: number;
+    totalBeforeDiscount: number;
+  };
 }
 
 export interface PaymentMethod {

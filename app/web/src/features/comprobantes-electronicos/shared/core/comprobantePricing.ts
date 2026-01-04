@@ -236,6 +236,7 @@ const deriveIgvRate = (item: CartItem): number => {
 export const buildLinePricingInputFromCartItem = (
   item: CartItem,
   catalogProduct?: CatalogProduct,
+  options?: { priceIncludesTax?: boolean },
 ): LinePricingInput => {
   const unitCode = item.unidadMedida || item.unit || '';
   const descriptor = describeUnitConversion(catalogProduct, unitCode);
@@ -255,7 +256,7 @@ export const buildLinePricingInputFromCartItem = (
     precioBaseUnidadMinima,
     precioPresentacionOpcional: selectedUnitPrice,
     igvRate: deriveIgvRate(item),
-    precioIncluyeIgv: true,
+    precioIncluyeIgv: options?.priceIncludesTax ?? true,
     currencyPrecision: 2,
   };
 };

@@ -9,6 +9,7 @@ export interface CurrencyTotalsOptions {
   baseCurrencyCode: CurrencyCode;
   documentCurrencyCode: CurrencyCode;
   convert: (amount: number, from: CurrencyCode, to: CurrencyCode) => number;
+  pricesIncludeTax?: boolean;
 }
 
 export interface CurrencyTotalsResult {
@@ -24,7 +25,9 @@ export const calculateCurrencyAwareTotals = ({
   baseCurrencyCode,
   documentCurrencyCode,
   convert,
+  pricesIncludeTax,
 }: CurrencyTotalsOptions): CurrencyTotalsResult => {
+  const priceIncludesTax = pricesIncludeTax ?? true;
   if (!items?.length) {
     return {
       subtotal: 0,
@@ -36,7 +39,7 @@ export const calculateCurrencyAwareTotals = ({
 
   const lineResults = items.map((item) => {
     const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
-    return calculateLineaComprobante(buildLinePricingInputFromCartItem(item, catalogProduct));
+    return calculateLineaComprobante(buildLinePricingInputFromCartItem(item, catalogProduct, { priceIncludesTax }));
   });
 
   const subtotalBase = lineResults.reduce((sum, line) => sum + line.subtotal, 0);

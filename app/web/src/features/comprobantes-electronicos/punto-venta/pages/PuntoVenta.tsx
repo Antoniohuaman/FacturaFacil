@@ -26,6 +26,8 @@ const PuntoVenta = () => {
   const {
     cartItems,
     totals,
+    totalsBeforeDiscount,
+    pricesIncludeTax,
     addToCart,
     removeFromCart,
     updateCartQuantity,
@@ -42,6 +44,10 @@ const PuntoVenta = () => {
     getPriceForProduct,
     onCartItemUnitChange,
     activePriceListLabel,
+    discount,
+    applyDiscount,
+    clearDiscount,
+    getDiscountPreviewTotals,
   } = usePosCartAndTotals();
 
   const {
@@ -203,6 +209,8 @@ const PuntoVenta = () => {
                   <CartCheckoutPanel
                     cartItems={cartItems}
                     totals={totals}
+                    totalsBeforeDiscount={totalsBeforeDiscount}
+                    pricesIncludeTax={pricesIncludeTax}
                     onRemoveItem={removeFromCart}
                     onUpdateQuantity={updateCartQuantity}
                     onSetQuantity={setCartItemQuantity}
@@ -210,6 +218,10 @@ const PuntoVenta = () => {
                     onCartItemUnitChange={onCartItemUnitChange}
                     getUnitOptionsForProduct={getUnitOptionsForProduct}
                     formatUnitLabel={formatUnitLabel}
+                    discount={discount}
+                    onApplyDiscount={applyDiscount}
+                    onClearDiscount={clearDiscount}
+                    getDiscountPreviewTotals={getDiscountPreviewTotals}
                     onConfirmSale={handleConfirmSale}
                     onClearCart={clearCart}
                     onViewFullForm={() => navigate('/comprobantes/emision')}

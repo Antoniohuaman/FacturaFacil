@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, SlidersHorizontal, ShoppingCart } from 'lucide-react';
-import type { CartSidebarProps, Product, ComprobanteCreditTerms, Currency } from '../../models/comprobante.types';
+import type { CartSidebarProps, Product, ComprobanteCreditTerms, Currency, DiscountInput, DiscountMode, PaymentTotals } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { UI_MESSAGES } from '../../models/constants';
 import type { PaymentMethod } from '../../../configuracion-sistema/models/PaymentMethod';
@@ -20,6 +20,12 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   onUpdatePrice?: (id: string, newPrice: number) => void;
   onSetQuantity?: (id: string, quantity: number) => void;
   currency?: Currency;
+  totalsBeforeDiscount: PaymentTotals;
+  pricesIncludeTax: boolean;
+  discount: DiscountInput | null;
+  onApplyDiscount: (discount: DiscountInput | null) => void;
+  onClearDiscount: () => void;
+  getDiscountPreviewTotals: (discount: DiscountInput | null) => PaymentTotals;
   tipoComprobante: 'boleta' | 'factura';
   setTipoComprobante: (tipo: 'boleta' | 'factura') => void;
   onCurrencyChange?: (currency: Currency) => void;
@@ -64,6 +70,8 @@ const CART_LIST_BOTTOM_OFFSET = 32;
 export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   cartItems,
   totals,
+  totalsBeforeDiscount,
+  pricesIncludeTax,
   onUpdateQuantity,
   onUpdatePrice,
   onSetQuantity,
@@ -93,13 +101,22 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   onCartItemUnitChange,
   getUnitOptionsForProduct,
   formatUnitLabel,
+  discount,
+  onApplyDiscount,
+  onClearDiscount,
+  getDiscountPreviewTotals,
 }) => {
   const { formatPrice, changeCurrency, availableCurrencies } = useCurrency();
   const [showNotes, setShowNotes] = useState(false);
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
   const docMenuRef = useRef<HTMLDivElement>(null);
+  const discountButtonRef = useRef<HTMLButtonElement>(null);
+  const discountPopoverRef = useRef<HTMLDivElement>(null);
   const itemsScrollRef = useRef<HTMLDivElement>(null);
   const [cartItemsMaxHeight, setCartItemsMaxHeight] = useState<string>('auto');
+  const [isDiscountPopoverOpen, setIsDiscountPopoverOpen] = useState(false);
+  const [discountInputMode, setDiscountInputMode] = useState<DiscountMode>('amount');
+  const [discountInputValue, setDiscountInputValue] = useState('');
   const MAX_NOTES_CHARS = 500;
 
   const availablePaymentMethods = useMemo(() => (
@@ -153,16 +170,121 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
     }
   };
 
-  const igvPercentageLabel = useMemo(() => {
-    if (!totals?.subtotal || totals.subtotal <= 0) {
+  const syncDraftWithApplied = useCallback(() => {
+    if (discount?.mode === 'percent') {
+      setDiscountInputMode('percent');
+      setDiscountInputValue(Number.isFinite(discount.value) ? String(discount.value) : '');
+      return;
+    }
+    if (discount?.mode === 'amount') {
+      setDiscountInputMode('amount');
+      setDiscountInputValue(Number.isFinite(discount.value) ? String(discount.value) : '');
+      return;
+    }
+    setDiscountInputMode('amount');
+    setDiscountInputValue('');
+  }, [discount]);
+
+  const draftNumericValue = useMemo(() => {
+    if (!discountInputValue) {
+      return 0;
+    }
+    const normalized = discountInputValue.replace(',', '.');
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }, [discountInputValue]);
+
+  const draftDiscount = useMemo<DiscountInput | null>(() => {
+    if (draftNumericValue <= 0) {
       return null;
     }
-    const rawValue = (totals.igv / totals.subtotal) * 100;
+    if (discountInputMode === 'percent') {
+      return {
+        mode: 'percent',
+        value: draftNumericValue,
+      };
+    }
+    return {
+      mode: 'amount',
+      value: draftNumericValue,
+      currency,
+    };
+  }, [currency, discountInputMode, draftNumericValue]);
+
+  const previewTotals = useMemo(() => {
+    if (!isDiscountPopoverOpen) {
+      return totals;
+    }
+    return getDiscountPreviewTotals(draftDiscount);
+  }, [draftDiscount, getDiscountPreviewTotals, isDiscountPopoverOpen, totals]);
+
+  const displayedTotals = isDiscountPopoverOpen ? previewTotals : totals;
+  const discountBaseDocValue = pricesIncludeTax ? totalsBeforeDiscount.total : totalsBeforeDiscount.subtotal;
+  const isDiscountActive = Boolean(discount?.value && discount.value > 0);
+  const canApplyDiscount = hasItems && (!!draftDiscount || !!discount);
+
+  const handleCancelDraft = useCallback(() => {
+    syncDraftWithApplied();
+    setIsDiscountPopoverOpen(false);
+  }, [syncDraftWithApplied]);
+
+  const handleClearDraft = useCallback(() => {
+    onClearDiscount();
+    setDiscountInputValue('');
+    setIsDiscountPopoverOpen(false);
+  }, [onClearDiscount]);
+
+  const handleApplyDraft = useCallback(() => {
+    onApplyDiscount(draftDiscount);
+    setIsDiscountPopoverOpen(false);
+  }, [draftDiscount, onApplyDiscount]);
+
+  useEffect(() => {
+    if (!isDiscountPopoverOpen) {
+      return;
+    }
+    syncDraftWithApplied();
+  }, [isDiscountPopoverOpen, syncDraftWithApplied]);
+
+  useEffect(() => {
+    if (!isDiscountPopoverOpen) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleCancelDraft();
+      }
+    };
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        discountPopoverRef.current?.contains(target) ||
+        discountButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+      handleCancelDraft();
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [handleCancelDraft, isDiscountPopoverOpen]);
+
+  const igvPercentageLabel = useMemo(() => {
+    if (!displayedTotals?.subtotal || displayedTotals.subtotal <= 0) {
+      return null;
+    }
+    const rawValue = (displayedTotals.igv / displayedTotals.subtotal) * 100;
     if (!Number.isFinite(rawValue) || rawValue <= 0) {
       return null;
     }
     return `${rawValue.toFixed(2)}%`;
-  }, [totals.igv, totals.subtotal]);
+  }, [displayedTotals.igv, displayedTotals.subtotal]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -258,11 +380,126 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
             </select>
             <Wallet2 className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           </div>
-          {[
-            { icon: Percent, label: 'Aplicar descuento' },
-            { icon: Printer, label: 'Imprimir' },
-            { icon: SlidersHorizontal, label: 'Configuración' },
-          ].map(({ icon: Icon, label }) => (
+          <div className="relative">
+            <button
+              ref={discountButtonRef}
+              type="button"
+              onClick={() => {
+                if (isDiscountPopoverOpen) {
+                  handleCancelDraft();
+                  return;
+                }
+                setIsDiscountPopoverOpen(true);
+              }}
+              className={`relative inline-flex h-8 w-8 items-center justify-center rounded-full border text-slate-500 transition ${
+                isDiscountPopoverOpen || isDiscountActive
+                  ? 'border-[#2ccdb0]/60 text-[#2f70b4]'
+                  : 'border-transparent hover:border-slate-200 hover:text-slate-700'
+              }`}
+              title="Aplicar descuento"
+              aria-haspopup="dialog"
+              aria-expanded={isDiscountPopoverOpen}
+            >
+              <Percent className="h-4 w-4" />
+              {isDiscountActive && (
+                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#2ccdb0]" />
+              )}
+            </button>
+            {isDiscountPopoverOpen && (
+              <div
+                ref={discountPopoverRef}
+                className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-slate-100 bg-white p-3 shadow-2xl"
+              >
+                <div className="mb-3 flex rounded-full bg-slate-100 p-0.5 text-[11px] font-semibold text-slate-500">
+                  {(['amount', 'percent'] as DiscountMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setDiscountInputMode(mode)}
+                      className={`flex-1 rounded-full px-2.5 py-1 transition ${
+                        discountInputMode === mode
+                          ? 'bg-white text-[#2f70b4] shadow'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      {mode === 'amount' ? 'Monto' : '%'}
+                    </button>
+                  ))}
+                </div>
+                <div className="mb-3">
+                  <label className="sr-only">Valor de descuento</label>
+                  <div className="relative">
+                    {discountInputMode === 'amount' && (
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                        {currency}
+                      </span>
+                    )}
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={discountInputValue}
+                      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                        const nextValue = event.target.value.replace(/[^0-9.,]/g, '');
+                        setDiscountInputValue(nextValue);
+                      }}
+                      className={`w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 focus:border-[#2ccdb0] focus:outline-none focus:ring-2 focus:ring-[#2ccdb0]/20 ${
+                        discountInputMode === 'amount' ? 'pl-10' : ''
+                      }`}
+                      placeholder={discountInputMode === 'amount' ? '0.00' : '0'}
+                      aria-label="Valor de descuento"
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Máximo {formatPrice(discountBaseDocValue, currency)}
+                  </p>
+                </div>
+                <div className="mb-3 space-y-1 rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+                  <div className="flex items-center justify-between">
+                    <span>Descuento</span>
+                    <span className="font-semibold text-[#2f70b4]">
+                      {previewTotals.discount?.amount
+                        ? `-${formatPrice(previewTotals.discount.amount, currency)}`
+                        : formatPrice(0, currency)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span>Total estimado</span>
+                    <span className="text-sm font-bold text-slate-900">
+                      {formatPrice(previewTotals.total, currency)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleApplyDraft}
+                    disabled={!canApplyDiscount}
+                    className={`flex-1 rounded-xl px-3 py-1.5 text-sm font-semibold text-white transition ${
+                      canApplyDiscount ? 'bg-[#2ccdb0] hover:bg-[#28b59c]' : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Aplicar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelDraft}
+                    className="rounded-xl px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-slate-900"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearDraft}
+                    disabled={!discount}
+                    className={`text-sm font-semibold ${discount ? 'text-red-500 hover:text-red-600' : 'text-slate-300 cursor-not-allowed'}`}
+                  >
+                    Borrar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          {[{ icon: Printer, label: 'Imprimir' }, { icon: SlidersHorizontal, label: 'Configuración' }].map(({ icon: Icon, label }) => (
             <button
               key={label}
               type="button"
@@ -410,12 +647,12 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
             <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-inner">
               <div className="flex items-center justify-between text-[11px] text-gray-500">
                 <span>Subtotal</span>
-                <span className="font-semibold text-gray-900">{formatPrice(totals.subtotal, currency)}</span>
+                <span className="font-semibold text-gray-900">{formatPrice(displayedTotals.subtotal, currency)}</span>
               </div>
               <div className="my-2 border-t border-dashed border-gray-200" />
               <div className="flex items-center justify-between text-[11px] text-gray-500">
                 <span>{`IGV${igvPercentageLabel ? ` (${igvPercentageLabel})` : ''}`}</span>
-                <span className="font-semibold text-gray-900">{formatPrice(totals.igv, currency)}</span>
+                <span className="font-semibold text-gray-900">{formatPrice(displayedTotals.igv, currency)}</span>
               </div>
             </div>
 
@@ -438,7 +675,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                   <span className="text-sm font-semibold">{issueButtonLabel}</span>
                   {!isCreditPaymentSelection && (
                     <span className="text-lg font-black">
-                      {formatPrice(totals.total, currency)}
+                      {formatPrice(displayedTotals.total, currency)}
                     </span>
                   )}
                 </div>
