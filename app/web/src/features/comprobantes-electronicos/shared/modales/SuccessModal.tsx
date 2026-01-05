@@ -79,16 +79,18 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
   };
 
   const handlePrintAndClose = () => {
-    onPrint();
-    setTimeout(() => {
-      onClose();
-      onNewSale();
-    }, 500);
+    onClose();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        onPrint();
+        onNewSale();
+      });
+    });
   };
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn print:hidden"
       onClick={(e) => {
         // Cerrar solo si se hace clic en el backdrop (no en el modal)
         if (e.target === e.currentTarget) {

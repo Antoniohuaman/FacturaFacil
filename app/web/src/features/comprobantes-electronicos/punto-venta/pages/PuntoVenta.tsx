@@ -21,6 +21,10 @@ import { CobranzaModal } from '../../shared/modales/CobranzaModal';
 import { CreditScheduleModal } from '../../shared/payments/CreditScheduleModal';
 
 import { LayoutDashboard, ShoppingCart } from 'lucide-react';
+import { PreviewTicket } from '../../shared/ui/PreviewTicket';
+import type { PreviewData } from '../../models/comprobante.types';
+
+const BLANK_QR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
 const PuntoVenta = () => {
   const {
@@ -95,6 +99,65 @@ const PuntoVenta = () => {
     warning,
   } = usePosComprobanteFlow({ cartItems, totals });
 
+  const selectedPaymentLabel = selectedPaymentMethod?.name ?? 'CONTADO';
+
+  const previewData = useMemo<PreviewData>(() => {
+    const resolvedClient =
+      clienteDraftData ??
+      (lastComprobante
+        ? {
+            nombre: lastComprobante.cliente ?? 'Cliente',
+            tipoDocumento: 'dni',
+            documento: '----------',
+            direccion: undefined,
+            email: undefined,
+          }
+        : {
+            nombre: 'Cliente',
+            tipoDocumento: 'dni',
+            documento: '----------',
+            direccion: undefined,
+            email: undefined,
+          });
+
+    return {
+      companyData: {
+        name: 'FacturaFácil',
+        businessName: 'FacturaFácil',
+        ruc: '00000000000',
+        address: 'TODO: Reemplazar con la dirección real de la empresa',
+        phone: '---',
+        email: '---',
+      },
+      clientData: resolvedClient,
+      documentType: tipoComprobante,
+      series: serieSeleccionada || 'SERIE',
+      number: lastComprobante?.numero ?? null,
+      issueDate: fechaEmision,
+      dueDate: creditTerms?.fechaVencimientoGlobal,
+      currency: totals.currency ?? currentCurrency,
+      paymentMethod: selectedPaymentLabel,
+      cartItems,
+      totals,
+      observations: observaciones,
+      internalNotes: notaInterna,
+      creditTerms,
+    };
+  }, [
+    cartItems,
+    clienteDraftData,
+    creditTerms,
+    currentCurrency,
+    fechaEmision,
+    lastComprobante,
+    notaInterna,
+    observaciones,
+    selectedPaymentLabel,
+    serieSeleccionada,
+    tipoComprobante,
+    totals,
+  ]);
+
   const basePriceListId = useMemo(() => {
     const baseOption = priceListOptions.find((option) => option.isBase);
     return baseOption?.id || priceListOptions[0]?.id || '';
@@ -142,7 +205,8 @@ const PuntoVenta = () => {
 
   return (
     <ErrorBoundary>
-      <div className="h-full bg-gradient-to-br from-gray-50 via-[#2ccdb0]/10 to-gray-50 flex flex-col overflow-hidden">
+      <div className="print:hidden">
+        <div className="h-full bg-gradient-to-br from-gray-50 via-[#2ccdb0]/10 to-gray-50 flex flex-col overflow-hidden">
 
         {/* Header Mejorado con mejor diseño */}
         <div className="bg-white border-b border-gray-200 shadow-sm shrink-0">
@@ -303,6 +367,12 @@ const PuntoVenta = () => {
             onNewSale={() => handleNewSale(clearCart)}
           />
         )}
+        </div>
+      </div>
+      <div className="hidden print:block bg-white text-gray-900 print:m-0 print:p-0">
+        <div className="max-w-2xl mx-auto p-6 print:p-4">
+          <PreviewTicket data={previewData} qrUrl={BLANK_QR_DATA_URL} />
+        </div>
       </div>
     </ErrorBoundary>
   );

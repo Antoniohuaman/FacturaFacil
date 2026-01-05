@@ -7,6 +7,7 @@
 
 // ✅ FEATURE FLAG - Side Preview
 const ENABLE_SIDE_PREVIEW_EMISION = true; // ✅ ACTIVADO para ver el panel
+const BLANK_QR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
 // Importar hooks del form-core y hooks específicos
 import { useCart } from '../punto-venta/hooks/useCart';
@@ -35,6 +36,7 @@ import { PreviewModal } from '../shared/modales/PreviewModal';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../shared/modales/SuccessModal';
 import { PostIssueOptionsModal } from '../shared/modales/PostIssueOptionsModal';
+import { PreviewDocument } from '../shared/ui/PreviewDocument';
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
@@ -43,7 +45,7 @@ import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
-import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency } from '../models/comprobante.types';
+import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
@@ -302,6 +304,58 @@ const EmisionTradicional = () => {
     }
   }, [tipoComprobante]);
 
+  const paymentMethodLabel = getPaymentMethodLabel(formaPago);
+
+  const printPreviewData = useMemo<PreviewData>(() => {
+    const resolvedClient: ClientData = draftClientData ?? {
+      nombre: 'Cliente',
+      tipoDocumento: 'dni',
+      documento: '----------',
+      direccion: undefined,
+      email: undefined,
+    };
+
+    const totalsWithCurrency = totals.currency ? totals : { ...totals, currency: currentCurrency };
+
+    return {
+      companyData: {
+        name: 'FacturaFácil',
+        businessName: 'FacturaFácil',
+        ruc: '00000000000',
+        address: 'TODO: Reemplazar con la dirección real de la empresa',
+        phone: '---',
+        email: '---',
+      },
+      clientData: resolvedClient,
+      documentType: tipoComprobante,
+      series: serieSeleccionada || 'SERIE',
+      number: lastComprobante?.numero ?? null,
+      issueDate: fechaEmision,
+      dueDate: optionalFields?.fechaVencimiento,
+      currency: currentCurrency,
+      paymentMethod: paymentMethodLabel || 'CONTADO',
+      cartItems,
+      totals: totalsWithCurrency,
+      observations: observaciones,
+      internalNotes: notaInterna,
+      creditTerms,
+    };
+  }, [
+    cartItems,
+    creditTerms,
+    currentCurrency,
+    draftClientData,
+    fechaEmision,
+    lastComprobante,
+    notaInterna,
+    observaciones,
+    optionalFields,
+    paymentMethodLabel,
+    serieSeleccionada,
+    tipoComprobante,
+    totals,
+  ]);
+
   const ensureDataBeforeCobranza = (paymentMode?: PaymentCollectionMode) => {
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
       onError: (validationError) => error('Faltan datos para continuar', validationError.message),
@@ -555,7 +609,8 @@ const EmisionTradicional = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/20 to-gray-50 flex flex-col">
+      <div className="print:hidden">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/20 to-gray-50 flex flex-col">
 
         {/* Header Mejorado con mejor diseño */}
         <div className="bg-white border-b border-gray-200 shadow-sm">
@@ -759,7 +814,7 @@ const EmisionTradicional = () => {
           documentType={tipoComprobante}
           series={serieSeleccionada}
           totals={totals}
-          paymentMethod={getPaymentMethodLabel(formaPago)}
+          paymentMethod={paymentMethodLabel}
           currency={currentCurrency}
           observations={observaciones}
           internalNotes={notaInterna}
@@ -816,6 +871,13 @@ const EmisionTradicional = () => {
           onToggleOptionalFieldRequired={toggleOptionalFieldRequired}
           onResetToDefaults={resetFieldsConfig}
         />
+      </div>
+      </div>
+
+      <div className="hidden print:block bg-white text-gray-900">
+        <div className="max-w-3xl mx-auto p-10 print:p-6">
+          <PreviewDocument data={printPreviewData} qrUrl={BLANK_QR_DATA_URL} />
+        </div>
       </div>
     </ErrorBoundary>
   );
