@@ -98,7 +98,10 @@ export function ToastContainer({ toasts, onClose }: ToastContainerProps) {
 
   // ✅ FIX: Portal local para evitar insertBefore errors durante navegación
   return createPortal(
-    <div className="fixed top-4 right-4 z-50 w-full max-w-sm pointer-events-none">
+    <div
+      data-app-toast-portal
+      className="fixed top-4 right-4 z-50 w-full max-w-sm pointer-events-none print:hidden"
+    >
       <div className="pointer-events-auto">
         {toasts.map((toast) => (
           <Toast key={toast.id} {...toast} onClose={onClose} />

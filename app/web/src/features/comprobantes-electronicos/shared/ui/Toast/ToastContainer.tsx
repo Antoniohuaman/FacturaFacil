@@ -187,7 +187,10 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
         }
       `}</style>
 
-      <div className="fixed top-4 right-4 z-[100] space-y-3 pointer-events-none">
+      <div
+        data-app-toast-container
+        className="fixed top-4 right-4 z-[100] space-y-3 pointer-events-none print:hidden"
+      >
         {toasts.map((toast) => (
           <Toast
             key={toast.id}

@@ -217,3 +217,18 @@
     animation: toast-slide-out 0.3s ease-in forwards;
   }
 }
+
+@media print {
+  [data-app-toast-container],
+  [data-app-toast-portal],
+  [data-sonner-toaster],
+  .sonner-toaster,
+  .react-hot-toast,
+  #toast-root,
+  .Toastify,
+  .Toastify__toast-container,
+  .hot-toast-container,
+  .toast-container {
+    display: none !important;
+  }
+}
