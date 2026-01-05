@@ -128,7 +128,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     clearSearch
   } = useProductSearch();
 
-  const { success: showSuccessToast, warning: showWarningToast } = useFeedback();
+  const { warning: showWarningToast } = useFeedback();
 
   const favoriteProducts = useMemo(() => products.filter((product) => product.isFavorite), [products]);
   const hasFavoriteProducts = favoriteProducts.length > 0;
@@ -321,14 +321,13 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       const preparedProduct = buildProductForSale(matchedProduct);
       onAddToCart(preparedProduct);
       finalizeScan();
-      showSuccessToast('Producto agregado', matchedProduct.name || trimmedValue, { durationMs: 2000 });
       return true;
     }
 
     showWarningToast('Código no encontrado', trimmedValue, { durationMs: 2500 });
     finalizeScan();
     return false;
-  }, [buildProductForSale, focusSearchInput, onAddToCart, productLookupByCode, resetSearchState, showSuccessToast, showWarningToast]);
+  }, [buildProductForSale, focusSearchInput, onAddToCart, productLookupByCode, resetSearchState, showWarningToast]);
 
   const evaluateScanBurst = useCallback(() => {
     const state = scanBurstRef.current;
