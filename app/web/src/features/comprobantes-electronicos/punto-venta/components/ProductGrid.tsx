@@ -7,6 +7,7 @@ import { Search, Scan, Plus, Filter, Package, X, LayoutGrid, List, Star } from '
 import type { Product, CartItem, Currency } from '../../models/comprobante.types';
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
+import { useFeedback } from '../../../../shared/feedback';
 
 // Importar el modal REAL de productos del catálogo
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
@@ -54,6 +55,38 @@ const GRID_SCROLL_BOTTOM_OFFSET = 24;
 type CatalogViewMode = 'cards' | 'list';
 const CATALOG_VIEW_STORAGE_KEY = 'pos_catalog_view';
 const isCatalogViewMode = (value: unknown): value is CatalogViewMode => value === 'cards' || value === 'list';
+const DIGIT_SCAN_MIN_LENGTH = 5;
+const ALPHANUMERIC_SCAN_MIN_LENGTH = 8;
+const SCAN_IDLE_THRESHOLD_MS = 100;
+const SCAN_BURST_MAX_DURATION_MS = 250;
+const SCAN_AUTO_MIN_LENGTH = 8;
+
+type ScanBurstState = {
+  startTime: number;
+  lastTime: number;
+  length: number;
+  timeoutId: number | null;
+};
+
+const sanitizeScanCandidate = (value: string): string => value.trim().replace(/[\s-]+/g, '');
+const normalizeScanKey = (value?: string | null): string => {
+  if (!value) {
+    return '';
+  }
+  const normalized = sanitizeScanCandidate(String(value));
+  return normalized ? normalized.toUpperCase() : '';
+};
+
+const looksLikeScanCode = (value: string): boolean => {
+  const compact = sanitizeScanCandidate(value);
+  if (compact.length < DIGIT_SCAN_MIN_LENGTH) {
+    return false;
+  }
+  if (/^\d+$/.test(compact)) {
+    return true;
+  }
+  return compact.length >= ALPHANUMERIC_SCAN_MIN_LENGTH && /^[A-Z0-9]+$/i.test(compact);
+};
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
   products,
@@ -91,10 +124,11 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     selectedCategory,
     searchFilters,
     setSearchQuery,
-    searchByBarcode,
     searchByCategory,
     clearSearch
   } = useProductSearch();
+
+  const { success: showSuccessToast, warning: showWarningToast } = useFeedback();
 
   const favoriteProducts = useMemo(() => products.filter((product) => product.isFavorite), [products]);
   const hasFavoriteProducts = favoriteProducts.length > 0;
@@ -110,6 +144,43 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const favoritesPreferenceInitializedRef = useRef(false);
   const [gridScrollMaxHeight, setGridScrollMaxHeight] = useState<string>('auto');
   const [catalogView, setCatalogView] = useState<CatalogViewMode>('cards');
+  const scanBurstRef = useRef<ScanBurstState>({
+    startTime: 0,
+    lastTime: 0,
+    length: 0,
+    timeoutId: null,
+  });
+
+  const focusSearchInput = useCallback(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    focusSearchInput();
+  }, [focusSearchInput]);
+
+  const resetScanBurst = useCallback(() => {
+    const state = scanBurstRef.current;
+    if (state.timeoutId) {
+      clearTimeout(state.timeoutId);
+    }
+    state.startTime = 0;
+    state.lastTime = 0;
+    state.length = 0;
+    state.timeoutId = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      resetScanBurst();
+    };
+  }, [resetScanBurst]);
+
+  useEffect(() => {
+    if (searchMode !== 'barcode') {
+      resetScanBurst();
+    }
+  }, [resetScanBurst, searchMode]);
 
   useEffect(() => {
     if (hasFavoriteProducts) {
@@ -209,6 +280,131 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     };
   }, [activePriceListLabel, getPreferredUnitForSku, resolveProductPrice, resolveSku, selectedPriceListId, unitSelections]);
 
+  const productLookupByCode = useMemo(() => {
+    const lookup = new Map<string, Product>();
+    products.forEach((productItem) => {
+      const barcodeKey = normalizeScanKey(productItem.barcode);
+      if (barcodeKey) {
+        lookup.set(barcodeKey, productItem);
+      }
+      const codeKey = normalizeScanKey(productItem.code);
+      if (codeKey) {
+        lookup.set(codeKey, productItem);
+      }
+    });
+    return lookup;
+  }, [products]);
+
+  const resetSearchState = useCallback(() => {
+    clearSearch();
+    setShowResults(false);
+  }, [clearSearch]);
+
+  const tryScanAndAddToCart = useCallback((rawValue: string): boolean => {
+    const trimmedValue = rawValue.trim();
+    if (!trimmedValue) {
+      return false;
+    }
+
+    const normalizedKey = normalizeScanKey(trimmedValue);
+    if (!normalizedKey) {
+      return false;
+    }
+
+    const matchedProduct = productLookupByCode.get(normalizedKey);
+    const finalizeScan = () => {
+      resetSearchState();
+      focusSearchInput();
+    };
+
+    if (matchedProduct) {
+      const preparedProduct = buildProductForSale(matchedProduct);
+      onAddToCart(preparedProduct);
+      finalizeScan();
+      showSuccessToast('Producto agregado', matchedProduct.name || trimmedValue, { durationMs: 2000 });
+      return true;
+    }
+
+    showWarningToast('Código no encontrado', trimmedValue, { durationMs: 2500 });
+    finalizeScan();
+    return false;
+  }, [buildProductForSale, focusSearchInput, onAddToCart, productLookupByCode, resetSearchState, showSuccessToast, showWarningToast]);
+
+  const evaluateScanBurst = useCallback(() => {
+    const state = scanBurstRef.current;
+    if (state.length === 0) {
+      return;
+    }
+    const duration = state.lastTime - state.startTime;
+    const candidateValue = searchInputRef.current?.value ?? '';
+    resetScanBurst();
+    if (searchMode !== 'barcode') {
+      return;
+    }
+    if (duration > SCAN_BURST_MAX_DURATION_MS) {
+      return;
+    }
+    if (candidateValue.length < SCAN_AUTO_MIN_LENGTH) {
+      return;
+    }
+    if (!looksLikeScanCode(candidateValue)) {
+      return;
+    }
+    tryScanAndAddToCart(candidateValue);
+  }, [resetScanBurst, searchMode, tryScanAndAddToCart]);
+
+  const scheduleScanEvaluation = useCallback(() => {
+    const state = scanBurstRef.current;
+    if (state.timeoutId) {
+      clearTimeout(state.timeoutId);
+    }
+    state.timeoutId = window.setTimeout(() => {
+      evaluateScanBurst();
+    }, SCAN_IDLE_THRESHOLD_MS);
+  }, [evaluateScanBurst]);
+
+  const trackScanKeystroke = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (searchMode !== 'barcode') {
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      resetScanBurst();
+      return;
+    }
+    if (event.key.length !== 1) {
+      return;
+    }
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const state = scanBurstRef.current;
+    if (state.length === 0) {
+      state.startTime = now;
+    }
+    state.lastTime = now;
+    state.length += 1;
+    scheduleScanEvaluation();
+  }, [resetScanBurst, scheduleScanEvaluation, searchMode]);
+
+  const handleBarcodePaste = useCallback((event: React.ClipboardEvent<HTMLInputElement>) => {
+    if (searchMode !== 'barcode') {
+      return;
+    }
+    resetScanBurst();
+    const pastedText = event.clipboardData?.getData('text') ?? '';
+    if (!pastedText) {
+      return;
+    }
+    setTimeout(() => {
+      const candidateValue = searchInputRef.current?.value ?? pastedText;
+      if (candidateValue.length < SCAN_AUTO_MIN_LENGTH) {
+        return;
+      }
+      if (!looksLikeScanCode(candidateValue)) {
+        return;
+      }
+      tryScanAndAddToCart(candidateValue);
+    }, 0);
+  }, [resetScanBurst, searchMode, tryScanAndAddToCart]);
+
   // ===================================================================
   // FUNCIONES DE UTILIDAD
   // ===================================================================
@@ -284,7 +480,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   // FUNCIONES DE BÚSQUEDA
   // ===================================================================
 
-  const handleSearch = (query: string, mode: 'text' | 'barcode' = searchMode) => {
+  const handleSearch = useCallback((query: string, mode: 'text' | 'barcode' = searchMode) => {
     setSearchQuery(query);
     const normalized = query.trim();
     if (mode === 'text') {
@@ -292,7 +488,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     } else {
       setShowResults(false);
     }
-  };
+  }, [searchMode, setSearchQuery, setShowResults]);
 
   const handleProductSelect = (product: Product) => {
     const preparedProduct = buildProductForSale(product);
@@ -302,19 +498,42 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   };
 
   const handleScanBarcode = (barcode: string) => {
-    const normalized = barcode.trim();
-    if (!normalized) {
+    if (!barcode.trim()) {
       return;
     }
-    searchByBarcode(normalized).then(product => {
-      if (product) {
-        const preparedProduct = buildProductForSale(product);
-        onAddToCart(preparedProduct);
-        setShowResults(false);
-        setSearchQuery('');
-      }
-    });
+    tryScanAndAddToCart(barcode);
   };
+
+  const handleSearchInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    trackScanKeystroke(event);
+    if (event.key !== 'Enter' && event.key !== 'Tab') {
+      return;
+    }
+
+    const rawValue = event.currentTarget.value;
+    const trimmedValue = rawValue.trim();
+    if (!trimmedValue) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+      }
+      return;
+    }
+
+    const shouldTryScan = searchMode === 'barcode' || looksLikeScanCode(rawValue);
+    if (!shouldTryScan) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        handleSearch(rawValue, 'text');
+      }
+      return;
+    }
+
+    event.preventDefault();
+    if (event.key === 'Tab') {
+      event.stopPropagation();
+    }
+    tryScanAndAddToCart(rawValue);
+  }, [handleSearch, searchMode, trackScanKeystroke, tryScanAndAddToCart]);
 
   const handleCreateProduct = () => {
     setShowProductModal(true);
@@ -407,20 +626,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    const normalized = searchQuery.trim();
-                    if (!normalized) {
-                      return;
-                    }
-                    if (searchMode === 'barcode') {
-                      handleScanBarcode(normalized);
-                    } else {
-                      handleSearch(searchQuery, 'text');
-                    }
-                  }
-                }}
+                onKeyDown={handleSearchInputKeyDown}
+                onPaste={handleBarcodePaste}
                 placeholder={searchMode === 'barcode' ? 'Código de barras' : 'Buscar productos'}
                 className="w-full border-0 bg-transparent py-2.5 pl-3 pr-16 text-sm placeholder-gray-500 focus:outline-none"
               />
