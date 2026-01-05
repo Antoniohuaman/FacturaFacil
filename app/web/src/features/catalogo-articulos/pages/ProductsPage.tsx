@@ -16,6 +16,8 @@ import { useProductColumnsManager } from '../hooks/useProductColumnsManager';
 import { ProductColumnsManagerButton } from '../components/product-table/ProductColumnsManagerButton';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
+import { MasterDetailLayout } from '@/components/layouts/master-detail';
+import ProductDetailPanel from '../components/ProductDetailPanel';
 
 const MAIN_EXPORT_COLUMNS: Array<{ key: keyof Product; label: string; type: 'text' | 'currency' | 'number' }> = [
   { key: 'codigo', label: 'Código', type: 'text' },
@@ -91,6 +93,26 @@ const ProductsPage: React.FC = () => {
 
   // Estado para mostrar el modal de exportación
   const [showExportModal, setShowExportModal] = useState(false);
+  const [activeProductId, setActiveProductId] = useState<string | null>(null);
+
+  const activeProduct = useMemo(() => {
+    if (!activeProductId) {
+      return null;
+    }
+    return allProducts.find(product => product.id === activeProductId) ?? null;
+  }, [activeProductId, allProducts]);
+
+  const isDetailOpen = Boolean(activeProduct);
+
+  useEffect(() => {
+    if (!activeProductId) {
+      return;
+    }
+    const stillExists = allProducts.some(product => product.id === activeProductId);
+    if (!stillExists) {
+      setActiveProductId(null);
+    }
+  }, [activeProductId, allProducts]);
 
   // Eliminar productos seleccionados
   const handleBulkDeleteProducts = (productIds: string[]) => {
@@ -105,6 +127,14 @@ const ProductsPage: React.FC = () => {
   // Limpiar selección
   const handleClearSelection = () => {
     setSelectedProducts(new Set());
+  };
+
+  const handleOpenProductDetail = (productId: string) => {
+    setActiveProductId(productId);
+  };
+
+  const handleCloseProductDetail = () => {
+    setActiveProductId(null);
   };
 
   const handleToggleFavorite = (productId: string) => {
@@ -577,8 +607,8 @@ const ProductsPage: React.FC = () => {
     void runAutoExport();
   }, [autoExportRequest, establishmentScope, finishAutoExport, loading]);
 
-  return (
-    <div className="space-y-6 pt-4">
+  const masterSections = (
+    <>
       {/* Toolbar principal */}
       <div className="bg-white/95 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 shadow-sm rounded-2xl p-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
@@ -692,12 +722,54 @@ const ProductsPage: React.FC = () => {
         establishments={establishments}
         columns={productTableColumns}
         onToggleFavorite={handleToggleFavorite}
+        onRowClick={handleOpenProductDetail}
+        activeProductId={activeProductId}
       />
 
       {/* Pagination */}
       {pagination.totalItems > 0 && renderPagination()}
+    </>
+  );
 
-      {/* Product Modal */}
+  const masterContent = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex-1 min-h-0 overflow-auto">
+        <div className="space-y-6 pt-4 pb-8">{masterSections}</div>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="flex h-full min-h-0 flex-col">
+        <MasterDetailLayout
+          className="flex-1"
+          isOpen={isDetailOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              handleCloseProductDetail();
+            }
+          }}
+          overlayBreakpoint={1280}
+          minDetailWidth={360}
+          maxDetailWidth={640}
+          defaultDetailWidth={420}
+          storageKey="catalogo/products/detail-width"
+          master={masterContent}
+          detail={
+            activeProduct ? (
+              <ProductDetailPanel
+                product={activeProduct}
+                establishments={establishments}
+                units={configState.units}
+                onEdit={handleEditProduct}
+                onClose={handleCloseProductDetail}
+              />
+            ) : null
+          }
+        />
+      </div>
+
       <ProductModal
         isOpen={showProductModal}
         onClose={() => {
@@ -716,7 +788,7 @@ const ProductsPage: React.FC = () => {
         currentFilters={filters}
       />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-    </div>
+    </>
   );
 };
 

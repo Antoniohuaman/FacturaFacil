@@ -18,6 +18,7 @@ import { useResizablePane } from './useResizablePane';
 		detailClassName?: string;
 		overlayBreakpoint?: number;
 		closeOnBackdrop?: boolean;
+		storageKey?: string;
 	};
 
 	const combine = (...classes: Array<string | undefined>): string => classes.filter(Boolean).join(' ');
@@ -44,6 +45,7 @@ import { useResizablePane } from './useResizablePane';
 		detailClassName,
 		overlayBreakpoint = DEFAULT_OVERLAY_BREAKPOINT,
 		closeOnBackdrop = true,
+		storageKey,
 	}: MasterDetailLayoutProps) {
 		const resolvedDefault = defaultDetailWidth ?? DEFAULT_WIDTH;
 		const resolvedMin = minDetailWidth ?? DEFAULT_MIN;
@@ -51,7 +53,9 @@ import { useResizablePane } from './useResizablePane';
 		const viewportWidth = useViewportWidth();
 		const isOverlayMode = viewportWidth !== null && viewportWidth < overlayBreakpoint;
 		const shouldControlWidth = detailWidth === undefined;
-		const storageKey = shouldControlWidth ? buildStorageKey(className, detailClassName) : undefined;
+		const resolvedStorageKey = shouldControlWidth
+			? storageKey ?? buildStorageKey(className, detailClassName)
+			: undefined;
 
 		const clampWidth = useMemo(
 			() => (value: number) => Math.min(resolvedMax, Math.max(resolvedMin, value)),
@@ -63,7 +67,7 @@ import { useResizablePane } from './useResizablePane';
 			minWidth: resolvedMin,
 			maxWidth: resolvedMax,
 			isEnabled: isOpen && shouldControlWidth && !isOverlayMode,
-			storageKey,
+			storageKey: resolvedStorageKey,
 		});
 
 		const effectiveWidth = shouldControlWidth ? pane.width : clampWidth(detailWidth);

@@ -22,6 +22,8 @@ interface ProductTableProps {
   establishments?: Establishment[];
   columns: ProductTableColumnState[];
   onToggleFavorite: (productId: string) => void;
+  onRowClick?: (productId: string) => void;
+  activeProductId?: string | null;
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({
@@ -36,7 +38,9 @@ const ProductTable: React.FC<ProductTableProps> = ({
   establishmentScope = 'ALL',
   establishments: establishmentsProp,
   columns,
-  onToggleFavorite
+  onToggleFavorite,
+  onRowClick,
+  activeProductId
 }) => {
   const { state: configState } = useConfigurationContext();
   const establishmentsFromContext = configState.establishments || [];
@@ -117,6 +121,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   onDelete={onDeleteProduct}
                   units={units}
                   formatCurrency={formatCurrency}
+                  onRowClick={onRowClick}
+                  isActive={activeProductId === row.id}
                 />
               ))}
             </tbody>

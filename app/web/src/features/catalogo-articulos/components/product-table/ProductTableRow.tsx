@@ -15,6 +15,8 @@ interface ProductTableRowProps {
   onDelete: (productId: string) => void;
   units: Unit[];
   formatCurrency: (amount: number) => string;
+  onRowClick?: (productId: string) => void;
+  isActive?: boolean;
 }
 
 const getUnitLabel = (units: Unit[], code?: string) => {
@@ -45,8 +47,23 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   onEdit,
   onDelete,
   units,
-  formatCurrency
+  formatCurrency,
+  onRowClick,
+  isActive = false
 }) => {
+  const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
+    if (!onRowClick) {
+      return;
+    }
+    const interactiveElement = (event.target as HTMLElement).closest(
+      'button, a, input, label, select, textarea, [role="button"], [data-no-row-click="true"]'
+    );
+    if (interactiveElement) {
+      return;
+    }
+    onRowClick(row.id);
+  };
+
   const renderColumnCell = (columnKey: ColumnKey): React.ReactElement | null => {
     switch (columnKey) {
       case 'favorito':
@@ -299,9 +316,11 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   return (
     <tr
       data-focus={`productos:${row.id}`}
+      onClick={handleRowClick}
       className={`
-        hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors
+        hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${onRowClick ? 'cursor-pointer' : ''}
         ${selected ? 'bg-red-50 dark:bg-red-900/20' : ''}
+        ${isActive ? 'ring-1 ring-violet-200 bg-violet-50/60 dark:bg-violet-900/20 dark:ring-violet-500/40' : ''}
       `}
     >
       <td className="px-6 py-4 whitespace-nowrap">
