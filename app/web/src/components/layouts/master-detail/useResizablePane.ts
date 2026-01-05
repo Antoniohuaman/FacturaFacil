@@ -7,6 +7,7 @@ type UseResizablePaneOptions = {
 	maxWidth: number;
 	isEnabled?: boolean;
 	onWidthChange?: (width: number) => void;
+	storageKey?: string;
 };
 
 type UseResizablePaneResult = {
@@ -23,6 +24,7 @@ export function useResizablePane(options: UseResizablePaneOptions): UseResizable
 		maxWidth,
 		isEnabled = true,
 		onWidthChange,
+		storageKey,
 	} = options;
 
 	const clampWidth = useMemo(() => {
@@ -31,14 +33,17 @@ export function useResizablePane(options: UseResizablePaneOptions): UseResizable
 		return (value: number) => Math.min(safeMax, Math.max(safeMin, value));
 	}, [minWidth, maxWidth]);
 
-	const [width, setWidthState] = useState(() => clampWidth(defaultWidth));
+	const [width, setWidthState] = useState(() => {
+		const storedWidth = readStoredWidthValue(storageKey, clampWidth);
+		return storedWidth ?? clampWidth(defaultWidth);
+	});
 	const [isDragging, setIsDragging] = useState(false);
 
 	const dragDataRef = useRef<{ startX: number; startWidth: number } | null>(null);
 	const frameRef = useRef<number | null>(null);
-	const moveHandlerRef = useRef<(event: PointerEvent) => void>();
-	const upHandlerRef = useRef<(event: PointerEvent) => void>();
-	const cancelHandlerRef = useRef<(event: PointerEvent) => void>();
+	const moveHandlerRef = useRef<((event: PointerEvent) => void) | undefined>(undefined);
+	const upHandlerRef = useRef<((event: PointerEvent) => void) | undefined>(undefined);
+	const cancelHandlerRef = useRef<((event: PointerEvent) => void) | undefined>(undefined);
 	const bodySelectRef = useRef<string>('');
 
 	const updateWidth = useCallback(
@@ -63,8 +68,13 @@ export function useResizablePane(options: UseResizablePaneOptions): UseResizable
 	);
 
 	useEffect(() => {
+		const storedWidth = readStoredWidthValue(storageKey, clampWidth);
+		if (storedWidth !== null) {
+			updateWidth(storedWidth);
+			return;
+		}
 		updateWidth(defaultWidth);
-	}, [defaultWidth, updateWidth]);
+	}, [clampWidth, defaultWidth, storageKey, updateWidth]);
 
 	useEffect(() => () => {
 		if (frameRef.current) {
@@ -87,6 +97,24 @@ export function useResizablePane(options: UseResizablePaneOptions): UseResizable
 			bodySelectRef.current = '';
 		}
 	}, []);
+
+	useEffect(() => {
+		if (!storageKey || typeof window === 'undefined') {
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			try {
+				window.localStorage.setItem(storageKey, String(clampWidth(width)));
+			} catch {
+				// ignore write failures (private mode, quota, etc.)
+			}
+		}, 120);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	}, [clampWidth, storageKey, width]);
 
 	const stopDragging = useCallback(() => {
 		dragDataRef.current = null;
@@ -188,4 +216,28 @@ export function useResizablePane(options: UseResizablePaneOptions): UseResizable
 		handlePointerDown,
 		isDragging,
 	};
+}
+
+function readStoredWidthValue(
+	storageKey: string | undefined,
+	clampWidth: (value: number) => number,
+): number | null {
+	if (!storageKey || typeof window === 'undefined') {
+		return null;
+	}
+
+	try {
+		const stored = window.localStorage.getItem(storageKey);
+		if (stored == null) {
+			return null;
+		}
+		const parsed = Number(stored);
+		if (Number.isFinite(parsed)) {
+			return clampWidth(parsed);
+		}
+	} catch {
+		return null;
+	}
+
+	return null;
 }
