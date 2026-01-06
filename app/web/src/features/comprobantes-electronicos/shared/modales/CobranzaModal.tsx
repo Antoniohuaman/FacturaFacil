@@ -469,7 +469,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       if (deltaDocument < -tolerance) {
         return { label: 'Falta', className: 'bg-amber-100 text-amber-800', amountDocument: Math.abs(deltaDocument) };
       }
-      return { label: 'Diferencia', className: 'bg-emerald-100 text-emerald-700', amountDocument: 0 };
+      return { label: 'Exacto', className: 'bg-emerald-100 text-emerald-700', amountDocument: 0 };
     }
 
     const referenceAmountDocument = isCobranzasContext ? amountToApply : totalRecibidoDocument;
@@ -481,7 +481,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       ? 'Falta'
       : differenceStatus === 'vuelto'
       ? 'Vuelto'
-      : 'Diferencia';
+      : 'Exacto';
     const amountDocument = clampCurrency(
       isCobranzasContext ? Math.max(0, rawDifferenceDocument) : Math.abs(rawDifferenceDocument),
     );
