@@ -129,8 +129,12 @@ export const useCart = (): UseCartReturn => {
   // ===================================================================
   // CONFIGURACIÓN Y ESTADO
   // ===================================================================
-  // Obtener configuración de stock desde localStorage o usar valor por defecto
-  const allowNegativeStock = (() => {
+  const { state: { warehouses, salesPreferences } } = useConfigurationContext();
+  const allowNegativeStock = useMemo(() => {
+    if (typeof salesPreferences?.allowNegativeStock === 'boolean') {
+      return salesPreferences.allowNegativeStock;
+    }
+
     try {
       const config = localStorage.getItem('facturaFacilConfig');
       if (config) {
@@ -140,11 +144,11 @@ export const useCart = (): UseCartReturn => {
     } catch (e) {
       console.error('Error reading stock configuration:', e);
     }
-    return false; // Por defecto, stock estricto (no permite negativo)
-  })();
+
+    return false;
+  }, [salesPreferences]);
   
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const { state: { warehouses } } = useConfigurationContext();
   const { session } = useUserSession();
   const { allProducts: catalogProducts } = useProductStore();
   const establishmentId = session?.currentEstablishmentId;
@@ -203,7 +207,7 @@ export const useCart = (): UseCartReturn => {
       return false;
     }
 
-    return confirm(`⚠️ Advertencia de stock\n\n${message}\n\n¿Deseas continuar?`);
+    return true;
   }, [allowNegativeStock, establishmentId, findCatalogProduct, warehouses]);
 
   const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
