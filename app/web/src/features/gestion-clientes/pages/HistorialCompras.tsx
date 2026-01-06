@@ -251,7 +251,7 @@ const HistorialCompras: React.FC = () => {
       totalDocumentos,
       montoTotal: singleCurrency ? montoTotal : null,
       ticketPromedio: singleCurrency && totalDocumentos ? montoTotal / totalDocumentos : null,
-      ultimaVenta: sortedCompras[0]?.fecha ?? null,
+      ultimaVenta: sortedCompras[0]?.fechaDisplay ?? null,
       currency: singleCurrency,
     };
   }, [sortedCompras]);
@@ -356,7 +356,7 @@ const HistorialCompras: React.FC = () => {
     const rows = [
       ['Fecha', 'Tipo', 'Serie-Número', 'Moneda', 'Importe', 'Estado (Comprobante)', 'Cobro'],
       ...filteredVentas.map((venta) => [
-        formatShortDate(venta.fecha),
+        venta.fechaDisplay ?? '—',
         venta.tipoComprobante,
         venta.comprobante,
         venta.moneda ?? '—',
@@ -388,7 +388,7 @@ const HistorialCompras: React.FC = () => {
     const rows = [
       ['Fecha', 'Tipo', 'Serie-Número', 'Moneda', 'Importe', 'Estado (Comprobante)'],
       ...anulacionesFiltered.map((venta) => [
-        formatShortDate(venta.fecha),
+        venta.fechaDisplay ?? '—',
         venta.tipoComprobante,
         venta.comprobante,
         venta.moneda ?? '—',
@@ -478,7 +478,7 @@ const HistorialCompras: React.FC = () => {
           icon={Calendar}
           loading={loadingList}
           error={Boolean(error)}
-          value={metrics.ultimaVenta ? formatShortDate(metrics.ultimaVenta) : '—'}
+          value={metrics.ultimaVenta ?? '—'}
         />
       </div>
 
@@ -591,7 +591,7 @@ const HistorialCompras: React.FC = () => {
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                       {ventasPageItems.map((venta) => (
                         <tr key={venta.id} className="text-gray-700 dark:text-gray-200">
-                          <td className="px-4 py-3">{formatShortDate(venta.fecha)}</td>
+                          <td className="px-4 py-3">{venta.fechaDisplay ?? '—'}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${tipoColor(venta.tipoComprobante)}`}>
                               {venta.tipoComprobante}
@@ -758,7 +758,7 @@ const HistorialCompras: React.FC = () => {
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                       {anulacionesFiltered.map((venta) => (
                         <tr key={venta.id} className="text-gray-700 dark:text-gray-200">
-                          <td className="px-4 py-3">{formatShortDate(venta.fecha)}</td>
+                          <td className="px-4 py-3">{venta.fechaDisplay ?? '—'}</td>
                           <td className="px-4 py-3">{venta.tipoComprobante}</td>
                           <td className="px-4 py-3 font-medium">{venta.comprobante}</td>
                           <td className="px-4 py-3 text-right">{formatCurrency(venta.monto, venta.moneda)}</td>

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, FileText, User, Calendar, CreditCard, Package } from 'lucide-react';
 import type { CompraDetalle } from '../models';
+import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 
 interface DetalleCompraModalProps {
   open: boolean;
@@ -21,17 +22,6 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
   }, [open, onClose]);
 
   if (!open) return null;
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('es-PE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
   const currencySymbol = (currency?: string) => {
     const code = currency?.toUpperCase();
@@ -89,6 +79,7 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
   };
 
   const c = compra;
+  const fechaEmisionLabel = c?.fechaDisplay ?? (c?.fecha ? formatBusinessDateTimeForTicket(c.fecha) || '—' : '—');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" aria-hidden={false}>
@@ -143,7 +134,7 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
                     Información del Comprobante
                   </h3>
                   <div className="space-y-2 text-sm">
-                    <div><span className="font-medium">Fecha:</span> {formatDate(c.fecha)}</div>
+                    <div><span className="font-medium">Fecha:</span> {fechaEmisionLabel}</div>
                     <div><span className="font-medium">Vendedor:</span> {c.vendedor}</div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">Tipo:</span>
@@ -171,9 +162,9 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
               <div className="bg-blue-50 rounded-lg p-4 mb-6">
                 <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
                   <CreditCard className="w-4 h-4" />
-                  Método de Pago
+                  Forma de pago
                 </h3>
-                <p className="text-sm text-gray-700">{c.metodoPago ?? '—'}</p>
+                <p className="text-sm text-gray-700">{c.formaPago ?? '—'}</p>
               </div>
 
               {/* Productos */}

@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { devLocalIndicadoresStore } from '../../indicadores-negocio/integration/devLocalStore';
 import type { DevVentaSnapshot } from '../../indicadores-negocio/integration/devLocalStore';
-import type { CobroResumen, Compra, CompraDetalle, Producto } from '../models';
+import type { CobroResumen, Compra, CompraDetalle, Producto, EstadoCobro, CompraFormaPago } from '../models';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { useCobranzasContext } from '../../gestion-cobranzas/context/CobranzasContext';
 import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../../gestion-cobranzas/models/cobranzas.types';
 import { useComprobanteContext } from '../../comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import type { Comprobante } from '../../comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
+import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 
 const normalize = (value?: string | number | null) => {
   if (value === undefined || value === null) return '';
@@ -50,9 +51,52 @@ const resolveEstadoComprobante = (venta: DevVentaSnapshot, comprobante?: Comprob
   return venta.estado === 'anulado' ? 'Anulado' : 'Emitido';
 };
 
-const resolveMetodoPago = (venta: DevVentaSnapshot, comprobante?: Comprobante): string => (
-  comprobante?.paymentMethod || venta.formaPago || '—'
-);
+const CREDIT_LABEL: CompraFormaPago = 'Crédito';
+const CASH_LABEL: CompraFormaPago = 'Contado';
+
+const includesCreditoKeyword = (value?: string | null): boolean => {
+  if (!value) {
+    return false;
+  }
+  const normalized = value.toLowerCase();
+  return normalized.includes('crédito') || normalized.includes('credito');
+};
+
+const resolveFormaPago = (
+  venta: DevVentaSnapshot,
+  cuenta?: CuentaPorCobrarSummary
+): CompraFormaPago => {
+  if (cuenta?.formaPago === 'credito' || includesCreditoKeyword(cuenta?.formaPago)) {
+    return CREDIT_LABEL;
+  }
+  if (includesCreditoKeyword(venta.formaPago)) {
+    return CREDIT_LABEL;
+  }
+  return CASH_LABEL;
+};
+
+const resolveEstadoCobroFromFormaPago = (
+  formaPago: CompraFormaPago,
+  cuenta?: CuentaPorCobrarSummary
+): EstadoCobro | undefined => {
+  if (formaPago === CASH_LABEL) {
+    return 'cancelado';
+  }
+  return (cuenta?.estado ?? 'pendiente') as EstadoCobro;
+};
+
+const resolveFechaDisplay = (venta: DevVentaSnapshot, comprobante?: Comprobante): string | undefined => {
+  if (comprobante?.date?.trim()) {
+    return comprobante.date;
+  }
+  if (venta.fechaEmision) {
+    const parsed = new Date(venta.fechaEmision);
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatBusinessDateTimeForTicket(parsed);
+    }
+  }
+  return undefined;
+};
 
 const toSafeNumber = (value?: number | null) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
 
@@ -126,20 +170,24 @@ export const useCompras = (clienteId?: number | string, clienteNombre?: string) 
         const cuenta = cuentasPorComprobante.get(venta.numeroComprobante) ?? cuentasPorComprobante.get(venta.id);
         const comprobante = comprobantesPorId.get(venta.numeroComprobante) ?? comprobantesPorId.get(venta.id);
         const items = mapProductos(venta);
+        const formaPago = resolveFormaPago(venta, cuenta);
+        const estadoCobro = resolveEstadoCobroFromFormaPago(formaPago, cuenta);
+        const fechaDisplay = resolveFechaDisplay(venta, comprobante);
         return {
           id: venta.id,
           fecha: venta.fechaEmision,
+          fechaDisplay,
           comprobante: venta.numeroComprobante,
           tipoComprobante: resolveTipoComprobanteLabel(venta, comprobante),
           monto: venta.total,
           moneda: comprobante?.currency ?? venta.moneda,
           estadoComprobante: resolveEstadoComprobante(venta, comprobante),
           estadoComprobanteColor: comprobante?.statusColor,
-          estadoCobro: cuenta?.estado,
+          estadoCobro,
           productos: items.length,
           clienteId: venta.clienteId ?? venta.clienteDocumento ?? venta.numeroComprobante,
           items,
-          metodoPago: resolveMetodoPago(venta, comprobante),
+          formaPago,
           cuentaId: cuenta?.id,
         } satisfies Compra;
       })
@@ -184,23 +232,27 @@ export const useCompras = (clienteId?: number | string, clienteNombre?: string) 
       }
       const cuenta = cuentasPorComprobante.get(venta.numeroComprobante) ?? cuentasPorComprobante.get(venta.id);
       const comprobante = comprobantesPorId.get(venta.numeroComprobante) ?? comprobantesPorId.get(venta.id);
+      const formaPago = resolveFormaPago(venta, cuenta);
+      const estadoCobro = resolveEstadoCobroFromFormaPago(formaPago, cuenta);
+      const fechaDisplay = resolveFechaDisplay(venta, comprobante);
       const detalle: CompraDetalle = {
         id: venta.id,
         fecha: venta.fechaEmision,
+        fechaDisplay,
         comprobante: venta.numeroComprobante,
         tipoComprobante: resolveTipoComprobanteLabel(venta, comprobante),
         monto: venta.total,
         moneda: comprobante?.currency ?? venta.moneda,
         estadoComprobante: resolveEstadoComprobante(venta, comprobante),
         estadoComprobanteColor: comprobante?.statusColor,
-        estadoCobro: cuenta?.estado,
+        estadoCobro,
         productos: mapProductos(venta),
         cliente: {
           nombre: venta.clienteNombre,
           documento: venta.clienteDocumento ?? '—',
         },
         vendedor: venta.vendedorNombre,
-        metodoPago: resolveMetodoPago(venta, comprobante),
+        formaPago,
         subtotal: toSafeNumber(venta.subtotal),
         igv: toSafeNumber(venta.igv),
         total: venta.total,

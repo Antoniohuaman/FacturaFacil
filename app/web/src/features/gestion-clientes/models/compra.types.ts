@@ -5,6 +5,7 @@ export type TipoComprobante = string;
 export type EstadoComprobante = Comprobante['status'];
 export type EstadoComprobanteColor = Comprobante['statusColor'];
 export type EstadoCobro = CobranzaStatus;
+export type CompraFormaPago = 'Contado' | 'Crédito';
 
 export interface Producto {
   id: number | string;
@@ -17,6 +18,7 @@ export interface Producto {
 export interface Compra {
   id: number | string;
   fecha: string;
+  fechaDisplay?: string;
   comprobante: string;
   tipoComprobante: TipoComprobante;
   monto: number;
@@ -27,13 +29,14 @@ export interface Compra {
   productos: number;
   clienteId: number | string;
   items?: Producto[];
-  metodoPago?: string;
+  formaPago?: CompraFormaPago;
   cuentaId?: string;
 }
 
 export interface CompraDetalle {
   id: number | string;
   fecha: string;
+  fechaDisplay?: string;
   comprobante: string;
   tipoComprobante: TipoComprobante;
   monto: number;
@@ -47,7 +50,7 @@ export interface CompraDetalle {
     documento: string;
   };
   vendedor: string;
-  metodoPago?: string;
+  formaPago?: CompraFormaPago;
   observaciones?: string;
   subtotal?: number | null;
   igv?: number | null;
