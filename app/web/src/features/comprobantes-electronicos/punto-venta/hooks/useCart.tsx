@@ -236,27 +236,26 @@ export const useCart = (): UseCartReturn => {
    * Agregar producto al carrito con validación de stock
    */
   const addToCart = useCallback((product: Product, quantity: number = 1) => {
-    const existing = cartItems.find(item => item.id === product.id);
-    const nextQuantity = (existing?.quantity || 0) + quantity;
-
-    if (!validateStockAvailability(product, nextQuantity)) {
-      return;
-    }
-
     setCartItems(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
+      const existingItem = prev.find(item => item.id === product.id);
+      const nextQuantity = (existingItem?.quantity ?? 0) + quantity;
+
+      if (!validateStockAvailability(product, nextQuantity)) {
+        return prev;
+      }
+
+      if (existingItem) {
         // Si ya existe, incrementar cantidad
-        return prev.map(item => 
-          item.id === product.id 
-            ? { ...item, quantity: item.quantity + quantity }
+        return prev.map(item =>
+          item.id === product.id
+            ? { ...item, quantity: nextQuantity }
             : item
         );
       }
       // Si no existe, agregar nuevo con cálculos
       return [...prev, createCartItem(product, quantity)];
     });
-  }, [cartItems, createCartItem, validateStockAvailability]);
+  }, [createCartItem, validateStockAvailability]);
 
   /**
    * Remover producto del carrito
@@ -380,8 +379,9 @@ export const useCart = (): UseCartReturn => {
         const updated = [...prev];
         products.forEach(({ product, quantity }) => {
           const idx = updated.findIndex(item => item.id === product.id);
-          const referenceProduct = idx !== -1 ? updated[idx] : product;
-          const nextQuantity = (idx !== -1 ? updated[idx].quantity : 0) + quantity;
+          const existingItem = idx !== -1 ? updated[idx] : undefined;
+          const referenceProduct = existingItem ?? product;
+          const nextQuantity = (existingItem?.quantity ?? 0) + quantity;
 
           if (!validateStockAvailability(referenceProduct, nextQuantity)) {
             return;
