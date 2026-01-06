@@ -14,10 +14,19 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'anulaciones', label: 'Anulaciones' },
 ];
 
-const estadoOptions = ['Todos', 'Pagado', 'Pendiente', 'Parcial', 'Vencido', 'Anulado', 'Cancelado'] as const;
+const BASE_ESTADO_FILTER = 'Todos';
 
-const formatCurrency = (value: number) =>
-  `S/ ${value.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const currencySymbol = (currency?: string) => {
+  const code = currency?.toUpperCase();
+  if (code === 'USD') return '$';
+  if (code === 'EUR') return '€';
+  if (code === 'CLP') return '$';
+  if (code === 'MXN') return '$';
+  return 'S/';
+};
+
+const formatCurrency = (value: number, currency?: string) =>
+  `${currencySymbol(currency)} ${value.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const formatShortDate = (value: string) =>
   new Date(value).toLocaleDateString('es-PE', {
@@ -26,28 +35,53 @@ const formatShortDate = (value: string) =>
     year: 'numeric',
   });
 
-const estadoColor = (estado: string) => {
-  switch (estado) {
-    case 'Pagado':
+const estadoComprobanteBadge = (color?: string) => {
+  switch (color) {
+    case 'green':
       return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    case 'Pendiente':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-    case 'Parcial':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-    case 'Vencido':
+    case 'orange':
       return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
-    case 'Anulado':
-    case 'Cancelado':
+    case 'red':
+      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+    case 'blue':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+    default:
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+  }
+};
+
+const cobroBadgeClass = (estado?: string) => {
+  switch (estado?.toLowerCase()) {
+    case 'cancelado':
+      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+    case 'pendiente':
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+    case 'parcial':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+    case 'vencido':
+      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+    case 'anulado':
       return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
   }
 };
 
-const tipoColor = (tipo: string) =>
-  tipo === 'Factura'
-    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-    : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
+const tipoColor = (tipo: string) => {
+  const normalized = tipo.toLowerCase();
+  if (normalized.includes('fact')) {
+    return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+  }
+  if (normalized.includes('boleta')) {
+    return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
+  }
+  return 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300';
+};
+
+const formatEstadoLabel = (value?: string) => {
+  if (!value) return '—';
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
 
 const LoadingSpinner = ({ message }: { message?: string }) => (
   <div className="flex items-center justify-center py-10">
@@ -159,6 +193,7 @@ const HistorialCompras: React.FC = () => {
   const decodedClienteName = clienteName ? decodeURIComponent(clienteName) : undefined;
   const {
     compras,
+    cobranzas,
     loadingList,
     loadingDetalle,
     error,
@@ -170,7 +205,7 @@ const HistorialCompras: React.FC = () => {
   const [compraSeleccionada, setCompraSeleccionada] = useState<CompraDetalle | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('ventas');
   const [ventasSearch, setVentasSearch] = useState('');
-  const [estadoFilter, setEstadoFilter] = useState<(typeof estadoOptions)[number]>('Todos');
+  const [estadoFilter, setEstadoFilter] = useState<string>(BASE_ESTADO_FILTER);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [ventasPage, setVentasPage] = useState(1);
@@ -188,22 +223,36 @@ const HistorialCompras: React.FC = () => {
     [compras]
   );
 
+  const estadoOptions = useMemo(() => {
+    const uniqueEstados = new Set<string>();
+    compras.forEach((compra) => {
+      if (compra.estadoComprobante) {
+        uniqueEstados.add(compra.estadoComprobante);
+      }
+    });
+    return [BASE_ESTADO_FILTER, ...Array.from(uniqueEstados)];
+  }, [compras]);
+
   const metrics = useMemo(() => {
     if (!sortedCompras.length) {
       return {
         totalDocumentos: 0,
-        montoTotal: 0,
-        ticketPromedio: 0,
+        montoTotal: null as number | null,
+        ticketPromedio: null as number | null,
         ultimaVenta: null as string | null,
+        currency: null as string | null,
       };
     }
     const totalDocumentos = sortedCompras.length;
+    const currencies = new Set(sortedCompras.map((compra) => compra.moneda ?? 'PEN'));
+    const singleCurrency = currencies.size === 1 ? currencies.values().next().value : null;
     const montoTotal = sortedCompras.reduce((sum, compra) => sum + compra.monto, 0);
     return {
       totalDocumentos,
-      montoTotal,
-      ticketPromedio: totalDocumentos ? montoTotal / totalDocumentos : 0,
+      montoTotal: singleCurrency ? montoTotal : null,
+      ticketPromedio: singleCurrency && totalDocumentos ? montoTotal / totalDocumentos : null,
       ultimaVenta: sortedCompras[0]?.fecha ?? null,
+      currency: singleCurrency,
     };
   }, [sortedCompras]);
 
@@ -211,12 +260,12 @@ const HistorialCompras: React.FC = () => {
     const search = ventasSearch.trim().toLowerCase();
     return sortedCompras.filter((compra) => {
       if (search) {
-        const searchTarget = `${compra.comprobante} ${compra.tipoComprobante} ${compra.monto}`.toLowerCase();
+        const searchTarget = `${compra.comprobante} ${compra.tipoComprobante} ${compra.monto} ${compra.estadoComprobante}`.toLowerCase();
         if (!searchTarget.includes(search)) {
           return false;
         }
       }
-      if (estadoFilter !== 'Todos' && compra.estado !== estadoFilter) {
+      if (estadoFilter !== BASE_ESTADO_FILTER && compra.estadoComprobante !== estadoFilter) {
         return false;
       }
       if (dateFrom && new Date(compra.fecha) < new Date(dateFrom)) {
@@ -235,18 +284,21 @@ const HistorialCompras: React.FC = () => {
   }, [filteredVentas, ventasPage, pageSize]);
 
   const aggregatedProductos = useMemo(() => {
-    const summary = new Map<string, { producto: Producto; cantidad: number; monto: number; ultimaFecha: string | null }>();
+    const summary = new Map<string, { producto: Producto; cantidad: number; monto: number; ultimaFecha: string | null; moneda?: string }>();
     sortedCompras.forEach((compra) => {
       (compra.items ?? []).forEach((item) => {
         const current = summary.get(String(item.id));
         const subtotal = item.subtotal ?? item.cantidad * item.precioUnitario;
         const existingFecha = current?.ultimaFecha ?? null;
         const newestFecha = !existingFecha || new Date(compra.fecha) > new Date(existingFecha) ? compra.fecha : existingFecha;
+        const compraCurrency = compra.moneda ?? current?.moneda;
+        const moneda = current && compra.moneda && current.moneda && current.moneda !== compra.moneda ? undefined : compraCurrency;
         summary.set(String(item.id), {
           producto: item,
           cantidad: (current?.cantidad ?? 0) + item.cantidad,
           monto: Number(((current?.monto ?? 0) + subtotal).toFixed(2)),
           ultimaFecha: newestFecha,
+          moneda,
         });
       });
     });
@@ -280,7 +332,7 @@ const HistorialCompras: React.FC = () => {
   }, [filteredProductos.length, pageSize, productosPage]);
 
   const anulaciones = useMemo(
-    () => sortedCompras.filter((compra) => compra.estado === 'Anulado' || compra.estado === 'Cancelado'),
+    () => sortedCompras.filter((compra) => compra.estadoComprobante?.toLowerCase() === 'anulado'),
     [sortedCompras]
   );
 
@@ -291,16 +343,26 @@ const HistorialCompras: React.FC = () => {
     );
   }, [anulaciones, anulacionesSearch]);
 
+  const filteredCobros = useMemo(() => {
+    const search = cobrosSearch.trim().toLowerCase();
+    if (!search) return cobranzas;
+    return cobranzas.filter((cobro) =>
+      `${cobro.numero} ${cobro.comprobanteNumero ?? ''} ${cobro.medioPago} ${cobro.estado}`.toLowerCase().includes(search)
+    );
+  }, [cobranzas, cobrosSearch]);
+
   const handleExportVentas = useCallback(() => {
     if (!filteredVentas.length) return;
     const rows = [
-      ['Fecha', 'Tipo', 'Serie-Número', 'Importe', 'Estado'],
+      ['Fecha', 'Tipo', 'Serie-Número', 'Moneda', 'Importe', 'Estado (Comprobante)', 'Cobro'],
       ...filteredVentas.map((venta) => [
         formatShortDate(venta.fecha),
         venta.tipoComprobante,
         venta.comprobante,
+        venta.moneda ?? '—',
         venta.monto.toFixed(2),
-        venta.estado,
+        venta.estadoComprobante,
+        formatEstadoLabel(venta.estadoCobro),
       ]),
     ];
     downloadCsv(rows, `ventas-${clienteId ?? 'cliente'}.csv`);
@@ -309,11 +371,12 @@ const HistorialCompras: React.FC = () => {
   const handleExportProductos = useCallback(() => {
     if (!filteredProductos.length) return;
     const rows = [
-      ['Producto', 'Cantidad total', 'Monto total', 'Última compra'],
+      ['Producto', 'Cantidad total', 'Monto total', 'Moneda', 'Última compra'],
       ...filteredProductos.map((item) => [
         item.producto.nombre,
         String(item.cantidad),
-        item.monto.toFixed(2),
+        item.moneda ? item.monto.toFixed(2) : '—',
+        item.moneda ?? '—',
         item.ultimaFecha ? formatShortDate(item.ultimaFecha) : 'Sin registro',
       ]),
     ];
@@ -323,17 +386,35 @@ const HistorialCompras: React.FC = () => {
   const handleExportAnulaciones = useCallback(() => {
     if (!anulacionesFiltered.length) return;
     const rows = [
-      ['Fecha', 'Tipo', 'Serie-Número', 'Importe', 'Estado'],
+      ['Fecha', 'Tipo', 'Serie-Número', 'Moneda', 'Importe', 'Estado (Comprobante)'],
       ...anulacionesFiltered.map((venta) => [
         formatShortDate(venta.fecha),
         venta.tipoComprobante,
         venta.comprobante,
+        venta.moneda ?? '—',
         venta.monto.toFixed(2),
-        venta.estado,
+        venta.estadoComprobante,
       ]),
     ];
     downloadCsv(rows, `anulaciones-${clienteId ?? 'cliente'}.csv`);
   }, [anulacionesFiltered, clienteId]);
+
+  const handleExportCobros = useCallback(() => {
+    if (!filteredCobros.length) return;
+    const rows = [
+      ['Fecha', 'Documento Cobranza', 'Comprobante', 'Medio de pago', 'Moneda', 'Importe', 'Estado'],
+      ...filteredCobros.map((cobro) => [
+        formatShortDate(cobro.fecha),
+        cobro.numero,
+        cobro.comprobanteNumero ?? cobro.comprobanteId,
+        cobro.medioPago,
+        cobro.moneda ?? '—',
+        cobro.monto.toFixed(2),
+        formatEstadoLabel(cobro.estado),
+      ]),
+    ];
+    downloadCsv(rows, `cobros-${clienteId ?? 'cliente'}.csv`);
+  }, [filteredCobros, clienteId]);
 
   const verDetalles = useCallback(
     async (compraId: number | string) => {
@@ -379,14 +460,18 @@ const HistorialCompras: React.FC = () => {
           icon={DollarSign}
           loading={loadingList}
           error={Boolean(error)}
-          value={formatCurrency(metrics.montoTotal)}
+          value={metrics.montoTotal !== null && metrics.currency
+            ? formatCurrency(metrics.montoTotal, metrics.currency)
+            : '—'}
         />
         <MetricCard
           label="Ticket promedio"
           icon={FileText}
           loading={loadingList}
           error={Boolean(error)}
-          value={metrics.totalDocumentos ? formatCurrency(metrics.ticketPromedio) : '—'}
+          value={metrics.ticketPromedio !== null && metrics.currency
+            ? formatCurrency(metrics.ticketPromedio, metrics.currency)
+            : '—'}
         />
         <MetricCard
           label="Última venta"
@@ -450,7 +535,7 @@ const HistorialCompras: React.FC = () => {
                   className="h-10 rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
                   value={estadoFilter}
                   onChange={(event) => {
-                    setEstadoFilter(event.target.value as (typeof estadoOptions)[number]);
+                    setEstadoFilter(event.target.value);
                     setVentasPage(1);
                   }}
                 >
@@ -497,7 +582,8 @@ const HistorialCompras: React.FC = () => {
                         <th className="px-4 py-3 text-left">Tipo</th>
                         <th className="px-4 py-3 text-left">Serie-Número</th>
                         <th className="px-4 py-3 text-right">Importe</th>
-                        <th className="px-4 py-3 text-center">Estado</th>
+                        <th className="px-4 py-3 text-center">Estado (Comprobante)</th>
+                        <th className="px-4 py-3 text-center">Cobro</th>
                         <th className="px-4 py-3 text-center">Productos</th>
                         <th className="px-4 py-3 text-right">Acción</th>
                       </tr>
@@ -512,10 +598,15 @@ const HistorialCompras: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3 font-medium">{venta.comprobante}</td>
-                          <td className="px-4 py-3 text-right font-semibold">{formatCurrency(venta.monto)}</td>
+                          <td className="px-4 py-3 text-right font-semibold">{formatCurrency(venta.monto, venta.moneda)}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${estadoColor(venta.estado)}`}>
-                              {venta.estado}
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${estadoComprobanteBadge(venta.estadoComprobanteColor)}`}>
+                              {venta.estadoComprobante}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${cobroBadgeClass(venta.estadoCobro)}`}>
+                              {formatEstadoLabel(venta.estadoCobro)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">{venta.productos}</td>
@@ -576,7 +667,7 @@ const HistorialCompras: React.FC = () => {
                         <tr key={item.producto.id} className="text-gray-700 dark:text-gray-200">
                           <td className="px-4 py-3 font-medium">{item.producto.nombre}</td>
                           <td className="px-4 py-3 text-center">{item.cantidad}</td>
-                          <td className="px-4 py-3 text-right">{formatCurrency(item.monto)}</td>
+                          <td className="px-4 py-3 text-right">{item.moneda ? formatCurrency(item.monto, item.moneda) : '—'}</td>
                           <td className="px-4 py-3">{item.ultimaFecha ? formatShortDate(item.ultimaFecha) : 'Sin registro'}</td>
                         </tr>
                       ))}
@@ -600,9 +691,43 @@ const HistorialCompras: React.FC = () => {
                 searchValue={cobrosSearch}
                 onSearchChange={setCobrosSearch}
                 exportLabel="Exportar cobros"
-                disableExport
+                onExport={handleExportCobros}
+                disableExport={!filteredCobros.length}
               />
-              <EmptyState title="Cobros pendientes" description="Cobros: pendiente de integración con el módulo de pagos." />
+              {filteredCobros.length === 0 ? (
+                <EmptyState title="Sin cobranzas registradas" description="Todavía no registramos pagos asociados a este cliente." />
+              ) : (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700">
+                    <thead className="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Fecha</th>
+                        <th className="px-4 py-3 text-left">Documento Cobranza</th>
+                        <th className="px-4 py-3 text-left">Comprobante</th>
+                        <th className="px-4 py-3 text-left">Medio de pago</th>
+                        <th className="px-4 py-3 text-right">Importe</th>
+                        <th className="px-4 py-3 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {filteredCobros.map((cobro) => (
+                        <tr key={cobro.id} className="text-gray-700 dark:text-gray-200">
+                          <td className="px-4 py-3">{formatShortDate(cobro.fecha)}</td>
+                          <td className="px-4 py-3 font-medium">{cobro.numero}</td>
+                          <td className="px-4 py-3">{cobro.comprobanteNumero ?? cobro.comprobanteId}</td>
+                          <td className="px-4 py-3">{cobro.medioPago}</td>
+                          <td className="px-4 py-3 text-right font-semibold">{formatCurrency(cobro.monto, cobro.moneda)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${cobroBadgeClass(cobro.estado)}`}>
+                              {formatEstadoLabel(cobro.estado)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </>
           )}
 
@@ -636,10 +761,10 @@ const HistorialCompras: React.FC = () => {
                           <td className="px-4 py-3">{formatShortDate(venta.fecha)}</td>
                           <td className="px-4 py-3">{venta.tipoComprobante}</td>
                           <td className="px-4 py-3 font-medium">{venta.comprobante}</td>
-                          <td className="px-4 py-3 text-right">{formatCurrency(venta.monto)}</td>
+                          <td className="px-4 py-3 text-right">{formatCurrency(venta.monto, venta.moneda)}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${estadoColor(venta.estado)}`}>
-                              {venta.estado}
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${estadoComprobanteBadge(venta.estadoComprobanteColor)}`}>
+                              {venta.estadoComprobante}
                             </span>
                           </td>
                         </tr>

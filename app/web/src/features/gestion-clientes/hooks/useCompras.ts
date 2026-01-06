@@ -1,70 +1,16 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { devLocalIndicadoresStore } from '../../indicadores-negocio/integration/devLocalStore';
 import type { DevVentaSnapshot } from '../../indicadores-negocio/integration/devLocalStore';
-import type { Compra, CompraDetalle, EstadoCompra, Producto, TipoComprobante } from '../models';
+import type { CobroResumen, Compra, CompraDetalle, Producto } from '../models';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { useCobranzasContext } from '../../gestion-cobranzas/context/CobranzasContext';
-import type { CuentaPorCobrarSummary } from '../../gestion-cobranzas/models/cobranzas.types';
+import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../../gestion-cobranzas/models/cobranzas.types';
+import { useComprobanteContext } from '../../comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
+import type { Comprobante } from '../../comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 
 const normalize = (value?: string | number | null) => {
   if (value === undefined || value === null) return '';
   return String(value).trim().toLowerCase();
-};
-
-const matchesCliente = (venta: DevVentaSnapshot, targetId?: number | string, targetName?: string) => {
-  const normalizedId = normalize(targetId);
-  const normalizedName = normalize(targetName);
-  if (!normalizedId && !normalizedName) {
-    return true;
-  }
-  const candidateIds = [normalize(venta.clienteId), normalize(venta.clienteDocumento)];
-  if (normalizedId && candidateIds.some((candidate) => candidate && candidate === normalizedId)) {
-    return true;
-  }
-  if (normalizedName && normalize(venta.clienteNombre) === normalizedName) {
-    return true;
-  }
-  return false;
-};
-
-const mapTipoComprobante = (tipo: string): TipoComprobante => {
-  const normalized = tipo?.toLowerCase?.() ?? '';
-  if (normalized.includes('nota') && normalized.includes('credito')) {
-    return 'NotaCredito';
-  }
-  if (normalized.includes('nota') && normalized.includes('debito')) {
-    return 'NotaDebito';
-  }
-  if (normalized.includes('fact')) {
-    return 'Factura';
-  }
-  return 'Boleta';
-};
-
-const estadoFromCuenta = (cuenta?: CuentaPorCobrarSummary): EstadoCompra | undefined => {
-  if (!cuenta) return undefined;
-  switch (cuenta.estado) {
-    case 'cancelado':
-      return 'Pagado';
-    case 'pendiente':
-      return 'Pendiente';
-    case 'parcial':
-      return 'Parcial';
-    case 'vencido':
-      return 'Vencido';
-    case 'anulado':
-      return 'Anulado';
-    default:
-      return undefined;
-  }
-};
-
-const mapEstadoCompra = (venta: DevVentaSnapshot, cuenta?: CuentaPorCobrarSummary): EstadoCompra => {
-  if (venta.estado === 'anulado') {
-    return 'Anulado';
-  }
-  const estado = estadoFromCuenta(cuenta);
-  return estado ?? 'Pendiente';
 };
 
 const mapProductos = (venta: DevVentaSnapshot): Producto[] => (
@@ -73,23 +19,67 @@ const mapProductos = (venta: DevVentaSnapshot): Producto[] => (
     nombre: producto.name,
     cantidad: producto.quantity,
     precioUnitario: producto.unitPrice,
-    subtotal: producto.subtotal,
+    subtotal: producto.subtotal ?? producto.unitPrice * producto.quantity,
   }))
 );
 
-const formatMetodoPago = (cuenta?: CuentaPorCobrarSummary, venta?: DevVentaSnapshot) => {
-  if (!cuenta) {
-    return venta?.formaPago || 'Sin definir';
+const resolveTipoComprobanteLabel = (venta: DevVentaSnapshot, comprobante?: Comprobante): string => {
+  if (comprobante?.type) {
+    return comprobante.type;
   }
-  if (cuenta.formaPago === 'credito') {
-    return 'Crédito';
+  const normalized = venta.tipoComprobante?.toLowerCase?.() ?? '';
+  if (normalized.includes('nota') && normalized.includes('credito')) {
+    return 'Nota de crédito';
   }
-  return venta?.formaPago || 'Contado';
+  if (normalized.includes('nota') && normalized.includes('debito')) {
+    return 'Nota de débito';
+  }
+  if (normalized.includes('fact')) {
+    return 'Factura';
+  }
+  if (normalized.includes('boleta')) {
+    return 'Boleta';
+  }
+  return venta.tipoComprobante || 'Documento';
 };
+
+const resolveEstadoComprobante = (venta: DevVentaSnapshot, comprobante?: Comprobante): string => {
+  if (comprobante?.status) {
+    return comprobante.status;
+  }
+  return venta.estado === 'anulado' ? 'Anulado' : 'Emitido';
+};
+
+const resolveMetodoPago = (venta: DevVentaSnapshot, comprobante?: Comprobante): string => (
+  comprobante?.paymentMethod || venta.formaPago || '—'
+);
+
+const toSafeNumber = (value?: number | null) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
 
 export const useCompras = (clienteId?: number | string, clienteNombre?: string) => {
   const { showToast } = useCaja();
-  const { cuentas } = useCobranzasContext();
+  const { cuentas, cobranzas } = useCobranzasContext();
+  const { state: comprobanteState } = useComprobanteContext();
+
+  const normalizedTarget = useMemo(() => ({
+    id: normalize(clienteId),
+    nombre: normalize(clienteNombre),
+  }), [clienteId, clienteNombre]);
+
+  const matchesCliente = useCallback((candidate: { id?: string | number | null; documento?: string | null; nombre?: string | null }) => {
+    if (!normalizedTarget.id && !normalizedTarget.nombre) {
+      return true;
+    }
+    const candidateIds = [normalize(candidate.id), normalize(candidate.documento)].filter(Boolean);
+    if (normalizedTarget.id && candidateIds.some((value) => value === normalizedTarget.id)) {
+      return true;
+    }
+    if (normalizedTarget.nombre && normalize(candidate.nombre) === normalizedTarget.nombre) {
+      return true;
+    }
+    return false;
+  }, [normalizedTarget.id, normalizedTarget.nombre]);
+
   const [ventas, setVentas] = useState<DevVentaSnapshot[]>(() => devLocalIndicadoresStore.obtenerVentas());
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
@@ -113,30 +103,48 @@ export const useCompras = (clienteId?: number | string, clienteNombre?: string) 
     return map;
   }, [cuentas]);
 
+  const comprobantesPorId = useMemo(() => {
+    const map = new Map<string, Comprobante>();
+    comprobanteState.comprobantes.forEach((comprobante) => {
+      map.set(comprobante.id, comprobante);
+    });
+    return map;
+  }, [comprobanteState.comprobantes]);
+
   const ventasFiltradas = useMemo(
-    () => ventas.filter((venta) => matchesCliente(venta, clienteId, clienteNombre)),
-    [ventas, clienteId, clienteNombre]
+    () => ventas.filter((venta) => matchesCliente({
+      id: venta.clienteId ?? venta.clienteDocumento ?? venta.numeroComprobante,
+      documento: venta.clienteDocumento,
+      nombre: venta.clienteNombre,
+    })),
+    [ventas, matchesCliente]
   );
 
   const compras = useMemo(() =>
     ventasFiltradas
       .map((venta) => {
         const cuenta = cuentasPorComprobante.get(venta.numeroComprobante) ?? cuentasPorComprobante.get(venta.id);
+        const comprobante = comprobantesPorId.get(venta.numeroComprobante) ?? comprobantesPorId.get(venta.id);
         const items = mapProductos(venta);
         return {
           id: venta.id,
           fecha: venta.fechaEmision,
           comprobante: venta.numeroComprobante,
-          tipoComprobante: mapTipoComprobante(venta.tipoComprobante),
+          tipoComprobante: resolveTipoComprobanteLabel(venta, comprobante),
           monto: venta.total,
-          estado: mapEstadoCompra(venta, cuenta),
+          moneda: comprobante?.currency ?? venta.moneda,
+          estadoComprobante: resolveEstadoComprobante(venta, comprobante),
+          estadoComprobanteColor: comprobante?.statusColor,
+          estadoCobro: cuenta?.estado,
           productos: items.length,
           clienteId: venta.clienteId ?? venta.clienteDocumento ?? venta.numeroComprobante,
           items,
+          metodoPago: resolveMetodoPago(venta, comprobante),
+          cuentaId: cuenta?.id,
         } satisfies Compra;
       })
       .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
-    [ventasFiltradas, cuentasPorComprobante]
+    [ventasFiltradas, cuentasPorComprobante, comprobantesPorId]
   );
 
   const ventaPorId = useMemo(() => {
@@ -175,23 +183,28 @@ export const useCompras = (clienteId?: number | string, clienteNombre?: string) 
         return null;
       }
       const cuenta = cuentasPorComprobante.get(venta.numeroComprobante) ?? cuentasPorComprobante.get(venta.id);
+      const comprobante = comprobantesPorId.get(venta.numeroComprobante) ?? comprobantesPorId.get(venta.id);
       const detalle: CompraDetalle = {
         id: venta.id,
         fecha: venta.fechaEmision,
         comprobante: venta.numeroComprobante,
-        tipoComprobante: mapTipoComprobante(venta.tipoComprobante),
+        tipoComprobante: resolveTipoComprobanteLabel(venta, comprobante),
         monto: venta.total,
-        estado: mapEstadoCompra(venta, cuenta),
+        moneda: comprobante?.currency ?? venta.moneda,
+        estadoComprobante: resolveEstadoComprobante(venta, comprobante),
+        estadoComprobanteColor: comprobante?.statusColor,
+        estadoCobro: cuenta?.estado,
         productos: mapProductos(venta),
         cliente: {
           nombre: venta.clienteNombre,
           documento: venta.clienteDocumento ?? '—',
         },
         vendedor: venta.vendedorNombre,
-        metodoPago: formatMetodoPago(cuenta, venta),
-        subtotal: venta.subtotal,
-        igv: venta.igv,
+        metodoPago: resolveMetodoPago(venta, comprobante),
+        subtotal: toSafeNumber(venta.subtotal),
+        igv: toSafeNumber(venta.igv),
         total: venta.total,
+        observaciones: comprobante?.observations,
       };
       return detalle;
     } catch (detalleError) {
@@ -203,10 +216,38 @@ export const useCompras = (clienteId?: number | string, clienteNombre?: string) 
     } finally {
       setLoadingDetalle(false);
     }
-  }, [ventaPorId, cuentasPorComprobante, showToast]);
+  }, [ventaPorId, cuentasPorComprobante, comprobantesPorId, showToast]);
+
+  const cobranzasCliente: CobroResumen[] = useMemo(() => {
+    const documentosFiltrados = cobranzas.filter((documento: CobranzaDocumento) => {
+      const cuenta = cuentasPorComprobante.get(documento.comprobanteId);
+      return matchesCliente({
+        id: cuenta?.clienteDocumento ?? documento.comprobanteId,
+        documento: cuenta?.clienteDocumento,
+        nombre: cuenta?.clienteNombre ?? documento.clienteNombre,
+      });
+    });
+
+    return documentosFiltrados
+      .map((documento) => ({
+        id: documento.id,
+        numero: documento.numero,
+        fecha: documento.fechaCobranza,
+        comprobanteId: documento.comprobanteId,
+        comprobanteNumero: documento.comprobanteSerie && documento.comprobanteNumero
+          ? `${documento.comprobanteSerie}-${documento.comprobanteNumero}`
+          : documento.comprobanteNumero || documento.comprobanteId,
+        medioPago: documento.medioPago,
+        monto: documento.monto,
+        moneda: documento.moneda,
+        estado: documento.estado,
+      }))
+      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+  }, [cobranzas, cuentasPorComprobante, matchesCliente]);
 
   return {
     compras,
+    cobranzas: cobranzasCliente,
     loadingList,
     loadingDetalle,
     error,

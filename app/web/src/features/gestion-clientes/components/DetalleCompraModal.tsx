@@ -33,23 +33,59 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
     });
   };
 
-  const getEstadoColor = (estado: string) => {
-    switch (estado) {
-      case 'Pagado':
+  const currencySymbol = (currency?: string) => {
+    const code = currency?.toUpperCase();
+    if (code === 'USD') return '$';
+    if (code === 'EUR') return '€';
+    if (code === 'CLP') return '$';
+    if (code === 'MXN') return '$';
+    return 'S/';
+  };
+
+  const formatCurrency = (value: number, currency?: string) =>
+    `${currencySymbol(currency)} ${value.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const getEstadoComprobanteColor = (color?: string) => {
+    switch (color) {
+      case 'green':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'Pendiente':
+      case 'orange':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'red':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'blue':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getCobroColor = (estado?: string) => {
+    switch (estado?.toLowerCase()) {
+      case 'cancelado':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'pendiente':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Cancelado':
+      case 'parcial':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'vencido':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'anulado':
         return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  const getTipoComprobanteColor = (tipo: string) => {
-    return tipo === 'Factura' 
-      ? 'bg-blue-100 text-blue-800 border-blue-200' 
-      : 'bg-purple-100 text-purple-800 border-purple-200';
+  const getTipoComprobanteColor = (tipo: string) => (
+    tipo.toLowerCase().includes('fact')
+      ? 'bg-blue-100 text-blue-800 border-blue-200'
+      : 'bg-purple-100 text-purple-800 border-purple-200'
+  );
+
+  const formatEstadoLabel = (value?: string) => {
+    if (!value) return '—';
+    return value.charAt(0).toUpperCase() + value.slice(1);
   };
 
   const c = compra;
@@ -116,9 +152,15 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">Estado:</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getEstadoColor(c.estado)}`}>
-                        {c.estado}
+                      <span className="font-medium">Estado (Comprobante):</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getEstadoComprobanteColor(c.estadoComprobanteColor)}`}>
+                        {c.estadoComprobante}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Cobro:</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getCobroColor(c.estadoCobro)}`}>
+                        {formatEstadoLabel(c.estadoCobro)}
                       </span>
                     </div>
                   </div>
@@ -131,7 +173,7 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
                   <CreditCard className="w-4 h-4" />
                   Método de Pago
                 </h3>
-                <p className="text-sm text-gray-700">{c.metodoPago}</p>
+                <p className="text-sm text-gray-700">{c.metodoPago ?? '—'}</p>
               </div>
 
               {/* Productos */}
@@ -168,10 +210,10 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
                             {producto.cantidad}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                            S/ {producto.precioUnitario.toLocaleString()}
+                            {formatCurrency(producto.precioUnitario, c.moneda)}
                           </td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
-                            S/ {producto.subtotal.toLocaleString()}
+                            {formatCurrency(producto.subtotal, c.moneda)}
                           </td>
                         </tr>
                       ))}
@@ -186,16 +228,20 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal:</span>
-                    <span>S/ {c.subtotal.toLocaleString()}</span>
+                    <span>{typeof c.subtotal === 'number' && Number.isFinite(c.subtotal)
+                      ? formatCurrency(c.subtotal, c.moneda)
+                      : '—'}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>IGV (18%):</span>
-                    <span>S/ {c.igv.toLocaleString()}</span>
+                    <span>{typeof c.igv === 'number' && Number.isFinite(c.igv)
+                      ? formatCurrency(c.igv, c.moneda)
+                      : '—'}</span>
                   </div>
                   <div className="border-t pt-2 mt-2">
                     <div className="flex justify-between font-bold text-lg">
                       <span>Total:</span>
-                      <span className="text-blue-600">S/ {c.total.toLocaleString()}</span>
+                      <span className="text-blue-600">{formatCurrency(c.total, c.moneda)}</span>
                     </div>
                   </div>
                 </div>

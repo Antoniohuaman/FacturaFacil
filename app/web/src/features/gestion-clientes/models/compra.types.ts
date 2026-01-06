@@ -1,5 +1,10 @@
-export type TipoComprobante = 'Factura' | 'Boleta' | 'NotaCredito' | 'NotaDebito';
-export type EstadoCompra = 'Pagado' | 'Pendiente' | 'Parcial' | 'Vencido' | 'Cancelado' | 'Anulado';
+import type { Comprobante } from '../../comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
+import type { CobranzaStatus } from '../../gestion-cobranzas/models/cobranzas.types';
+
+export type TipoComprobante = string;
+export type EstadoComprobante = Comprobante['status'];
+export type EstadoComprobanteColor = Comprobante['statusColor'];
+export type EstadoCobro = CobranzaStatus;
 
 export interface Producto {
   id: number | string;
@@ -15,10 +20,15 @@ export interface Compra {
   comprobante: string;
   tipoComprobante: TipoComprobante;
   monto: number;
-  estado: EstadoCompra;
+  moneda?: string;
+  estadoComprobante: EstadoComprobante | 'Emitido' | 'Anulado';
+  estadoComprobanteColor?: EstadoComprobanteColor;
+  estadoCobro?: EstadoCobro;
   productos: number;
   clienteId: number | string;
   items?: Producto[];
+  metodoPago?: string;
+  cuentaId?: string;
 }
 
 export interface CompraDetalle {
@@ -27,18 +37,33 @@ export interface CompraDetalle {
   comprobante: string;
   tipoComprobante: TipoComprobante;
   monto: number;
-  estado: EstadoCompra;
+  moneda?: string;
+  estadoComprobante: EstadoComprobante | 'Emitido' | 'Anulado';
+  estadoComprobanteColor?: EstadoComprobanteColor;
+  estadoCobro?: EstadoCobro;
   productos: Producto[];
   cliente: {
     nombre: string;
     documento: string;
   };
   vendedor: string;
-  metodoPago: string;
+  metodoPago?: string;
   observaciones?: string;
-  subtotal: number;
-  igv: number;
+  subtotal?: number | null;
+  igv?: number | null;
   total: number;
+}
+
+export interface CobroResumen {
+  id: string;
+  numero: string;
+  fecha: string;
+  comprobanteId: string;
+  comprobanteNumero?: string;
+  medioPago: string;
+  monto: number;
+  moneda?: string;
+  estado: EstadoCobro;
 }
 
 export interface ImportHistory {
