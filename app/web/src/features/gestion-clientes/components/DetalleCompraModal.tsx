@@ -80,7 +80,7 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
         <div className="flex-1 overflow-y-auto p-6">
           {backendPendiente ? (
             <div className="py-10 text-center text-gray-700">
-              Detalle no disponible (backend pendiente)
+              Detalle no disponible en este momento.
             </div>
           ) : loading ? (
             <div className="py-10 text-center text-gray-700">Cargando…</div>

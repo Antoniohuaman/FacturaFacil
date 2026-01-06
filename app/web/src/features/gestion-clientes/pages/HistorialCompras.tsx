@@ -14,7 +14,7 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'anulaciones', label: 'Anulaciones' },
 ];
 
-const estadoOptions = ['Todos', 'Pagado', 'Pendiente', 'Parcial', 'Anulado', 'Cancelado'] as const;
+const estadoOptions = ['Todos', 'Pagado', 'Pendiente', 'Parcial', 'Vencido', 'Anulado', 'Cancelado'] as const;
 
 const formatCurrency = (value: number) =>
   `S/ ${value.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -34,6 +34,8 @@ const estadoColor = (estado: string) => {
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
     case 'Parcial':
       return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+    case 'Vencido':
+      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
     case 'Anulado':
     case 'Cancelado':
       return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
@@ -154,6 +156,7 @@ const downloadCsv = (rows: string[][], filename: string) => {
 const HistorialCompras: React.FC = () => {
   const navigate = useNavigate();
   const { clienteId, clienteName } = useParams();
+  const decodedClienteName = clienteName ? decodeURIComponent(clienteName) : undefined;
   const {
     compras,
     loadingList,
@@ -161,7 +164,7 @@ const HistorialCompras: React.FC = () => {
     error,
     getCompraDetalle,
     reload,
-  } = useCompras(clienteId);
+  } = useCompras(clienteId, decodedClienteName);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [compraSeleccionada, setCompraSeleccionada] = useState<CompraDetalle | null>(null);
@@ -358,7 +361,7 @@ const HistorialCompras: React.FC = () => {
         <div>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Historial de Ventas</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {clienteName ? decodeURIComponent(clienteName) : 'Cliente desconocido'}
+            {decodedClienteName ?? 'Cliente desconocido'}
           </p>
         </div>
       </div>

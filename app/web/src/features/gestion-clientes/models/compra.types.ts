@@ -1,5 +1,5 @@
 export type TipoComprobante = 'Factura' | 'Boleta' | 'NotaCredito' | 'NotaDebito';
-export type EstadoCompra = 'Pagado' | 'Pendiente' | 'Cancelado' | 'Anulado';
+export type EstadoCompra = 'Pagado' | 'Pendiente' | 'Parcial' | 'Vencido' | 'Cancelado' | 'Anulado';
 
 export interface Producto {
   id: number | string;
