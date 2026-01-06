@@ -475,7 +475,13 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     const referenceAmountDocument = isCobranzasContext ? amountToApply : totalRecibidoDocument;
     const rawDifferenceDocument = totals.total - referenceAmountDocument;
     const differenceStatus = rawDifferenceDocument > tolerance ? 'faltante' : rawDifferenceDocument < -tolerance ? 'vuelto' : 'ajustado';
-    const label = isCobranzasContext ? 'Saldo restante' : 'Diferencia';
+    const label = isCobranzasContext
+      ? 'Saldo restante'
+      : differenceStatus === 'faltante'
+      ? 'Falta'
+      : differenceStatus === 'vuelto'
+      ? 'Vuelto'
+      : 'Diferencia';
     const amountDocument = clampCurrency(
       isCobranzasContext ? Math.max(0, rawDifferenceDocument) : Math.abs(rawDifferenceDocument),
     );
