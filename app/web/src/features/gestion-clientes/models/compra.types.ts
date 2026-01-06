@@ -18,6 +18,7 @@ export interface Compra {
   estado: EstadoCompra;
   productos: number;
   clienteId: number | string;
+  items?: Producto[];
 }
 
 export interface CompraDetalle {

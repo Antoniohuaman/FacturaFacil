@@ -7,28 +7,34 @@ import { useCaja } from '../../control-caja/context/CajaContext';
 export const useCompras = (clienteId?: number | string) => {
   const { showToast } = useCaja();
   const [compras, setCompras] = useState<Compra[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
    * Cargar compras de un cliente
    */
-  const fetchCompras = useCallback(async (id: number | string) => {
-    setLoading(true);
+  const fetchCompras = useCallback(async (
+    id: number | string,
+    options?: { signal?: AbortSignal }
+  ) => {
+    setLoadingList(true);
     setError(null);
-    const ctrl = new AbortController();
 
     try {
-      const response = await comprasClient.getComprasByCliente(id, { signal: ctrl.signal });
-      setCompras(response.data);
+      const response = await comprasClient.getComprasByCliente(id, { signal: options?.signal });
+      setCompras(response.data ?? []);
     } catch (err: any) {
-      if (err?.name !== 'AbortError') {
-        const errorMessage = err.message || 'Error al cargar historial de compras';
-        setError(errorMessage);
-        showToast('error', 'Error', errorMessage);
+      if (err?.name === 'AbortError') {
+        return;
       }
+      const errorMessage = err?.message || 'Error al cargar historial de ventas';
+      setError(errorMessage);
+      showToast('error', 'Error', errorMessage);
     } finally {
-      setLoading(false);
+      if (!options?.signal?.aborted) {
+        setLoadingList(false);
+      }
     }
   }, [showToast]);
 
@@ -39,51 +45,47 @@ export const useCompras = (clienteId?: number | string) => {
     clienteIdParam: number | string,
     compraId: number | string
   ): Promise<CompraDetalle | null> => {
-    setLoading(true);
+    setLoadingDetalle(true);
     setError(null);
-    const ctrl = new AbortController();
 
     try {
-      const detalle = await comprasClient.getCompraDetalle(clienteIdParam, compraId, { signal: ctrl.signal });
+      const detalle = await comprasClient.getCompraDetalle(clienteIdParam, compraId);
       return detalle;
     } catch (err: any) {
-      if (err?.name !== 'AbortError') {
-        const errorMessage = err.message || 'Error al cargar detalle de compra';
-        setError(errorMessage);
-        showToast('error', 'Error', errorMessage);
+      if (err?.name === 'AbortError') {
+        return null;
       }
+      const errorMessage = err?.message || 'Error al cargar detalle de venta';
+      setError(errorMessage);
+      showToast('error', 'Error', errorMessage);
       return null;
     } finally {
-      setLoading(false);
+      setLoadingDetalle(false);
     }
   }, [showToast]);
 
   // Cargar compras al montar si se proporciona clienteId
   useEffect(() => {
-    const ctrl = new AbortController();
-    if (clienteId) {
-      setLoading(true);
-      setError(null);
-      comprasClient
-        .getComprasByCliente(clienteId, { signal: ctrl.signal })
-        .then((response) => setCompras(response.data))
-        .catch((err: any) => {
-          if (err?.name !== 'AbortError') {
-            const errorMessage = err.message || 'Error al cargar historial de compras';
-            setError(errorMessage);
-            showToast('error', 'Error', errorMessage);
-          }
-        })
-        .finally(() => setLoading(false));
+    if (!clienteId) {
+      return undefined;
     }
+    const ctrl = new AbortController();
+    fetchCompras(clienteId, { signal: ctrl.signal });
     return () => ctrl.abort();
-  }, [clienteId, showToast]);
+  }, [clienteId, fetchCompras]);
+
+  const reload = useCallback(() => {
+    if (!clienteId) return;
+    fetchCompras(clienteId);
+  }, [clienteId, fetchCompras]);
 
   return {
     compras,
-    loading,
+    loadingList,
+    loadingDetalle,
     error,
     fetchCompras,
     getCompraDetalle,
+    reload,
   };
 };
