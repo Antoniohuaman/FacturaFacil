@@ -35,52 +35,65 @@ export function ConfigurationCard({
   contentClassName
 }: ConfigurationCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const hasTitle = Boolean(title);
+  const hasDescription = Boolean(description);
+  const isCompactHeader = !hasTitle && !hasDescription;
+  const headerPadding = isCompactHeader ? 'px-4 py-2.5' : 'px-6 py-4';
+  const iconWrapperSize = isCompactHeader ? 'w-7 h-7' : 'w-8 h-8';
+  const iconSize = isCompactHeader ? 'w-3.5 h-3.5' : 'w-4 h-4';
+  const renderCollapsibleButton = () => (
+    <button className="ml-2 p-1 text-gray-400 hover:text-gray-600 rounded transition-colors">
+      {isExpanded ? (
+        <ChevronUp className="w-4 h-4" />
+      ) : (
+        <ChevronDown className="w-4 h-4" />
+      )}
+    </button>
+  );
 
   return (
     <div className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow ${className}`}>
       {/* Header */}
-      <div className={`px-6 py-4 border-b border-gray-200 ${collapsible ? 'cursor-pointer' : ''}`}
+      <div
+        className={`${headerPadding} border-b border-gray-200 ${collapsible ? 'cursor-pointer' : ''}`}
            onClick={collapsible ? () => setIsExpanded(!isExpanded) : undefined}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {Icon && (
-              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                <Icon className="w-4 h-4 text-blue-600" />
+              <div className={`${iconWrapperSize} bg-blue-50 rounded-lg flex items-center justify-center`}>
+                <Icon className={`${iconSize} text-blue-600`} />
               </div>
             )}
 
-            <div className="flex-1">
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {title}
-                </h3>
+            {!isCompactHeader && (
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  {hasTitle && (
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {title}
+                    </h3>
+                  )}
 
-                {badge && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {badge}
-                  </span>
-                )}
+                  {badge && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {badge}
+                    </span>
+                  )}
 
-                {collapsible && (
-                  <button className="ml-2 p-1 text-gray-400 hover:text-gray-600 rounded transition-colors">
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
+                  {collapsible && renderCollapsibleButton()}
+                </div>
+
+                {hasDescription && (
+                  <p className="mt-1 text-sm text-gray-500">
+                    {description}
+                  </p>
                 )}
               </div>
-
-              {description && (
-                <p className="mt-1 text-sm text-gray-500">
-                  {description}
-                </p>
-              )}
-            </div>
+            )}
           </div>
 
           <div className="flex items-center space-x-2">
+            {collapsible && isCompactHeader && renderCollapsibleButton()}
             {actions && (
               <div className="flex items-center space-x-2">
                 {actions}

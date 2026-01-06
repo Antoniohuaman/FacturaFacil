@@ -591,7 +591,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {/* Pill buttons para tipo de comprobante (estado) */}
             <div className="flex items-center gap-1.5">
               <button
-                className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all ${
+                className={`px-3 py-1 rounded-full text-[13px] font-medium transition-all ${
                   tipoComprobante === 'factura'
                     ? 'bg-indigo-50 text-indigo-700'
                     : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
@@ -602,7 +602,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 Factura
               </button>
               <button
-                className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all ${
+                className={`px-3 py-1 rounded-full text-[13px] font-medium transition-all ${
                   tipoComprobante === 'boleta'
                     ? 'bg-indigo-50 text-indigo-700'
                     : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
@@ -649,14 +649,14 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         }
       >
         {/* ========== GRID OPTIMIZADO: Proporciones ~42/34/24 ========== */}
-        <div className="grid grid-cols-12 gap-3 text-[13px]">
+        <div className="grid grid-cols-12 gap-2 text-[13px]">
 
           {/* COLUMNA 1: Cliente/Dirección/Email/Envío (~42% → xl:col-span-5) */}
-          <div className="col-span-12 xl:col-span-5 space-y-3">
+          <div className="col-span-12 xl:col-span-5 space-y-2">
             {/* Cliente (reducido ~10-12%, lupa compacta) */}
             {!clienteSeleccionadoLocal ? (
               <div>
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="cliente-buscar">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="cliente-buscar">
                   <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Cliente<span className="ml-0.5 text-red-500">*</span>
                 </label>
@@ -666,7 +666,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     type="text"
                     placeholder="Buscar por nombre o documento..."
                     id="cliente-buscar"
-                    className="h-9 flex-1 w-full pl-9 pr-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                    className="h-9 flex-1 w-full pl-9 pr-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -690,7 +690,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
                 {/* Resultados de búsqueda */}
                 {searchQuery && (
-                  <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg shadow-sm bg-white">
+                  <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-white">
                     {clientesFiltrados.length > 0 ? (
                       clientesFiltrados.map((cliente) => (
                         <button
@@ -718,11 +718,11 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               </div>
             ) : (
               <div>
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5">
                   <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Cliente Seleccionado
                 </label>
-                <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg px-3 py-2.5 border border-violet-200 shadow-sm">
+                <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg px-3 py-2.5 border border-violet-200">
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <div className="flex items-center gap-2 min-w-0 flex-1 text-[13px]">
                       <span className="inline-flex items-center rounded-full border border-violet-100 bg-white/70 px-2 py-0.5 text-[12px] font-semibold text-violet-700">
@@ -764,7 +764,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {/* Dirección */}
             {config.optionalFields.direccion.visible && (
               <div>
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="direccion">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="direccion">
                   <MapPin className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Dirección
                   {config.optionalFields.direccion.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -775,7 +775,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   value={localDireccion}
                   onChange={(e) => { setLocalDireccion(e.target.value); onOptionalFieldsChange?.({ direccion: e.target.value }); }}
                   id="direccion"
-                  className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                  className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                   placeholder="Dirección del cliente"
                 />
               </div>
@@ -784,7 +784,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {/* Email (ahora w-full sin max-w) */}
             {config.optionalFields.correo.visible && (
               <div>
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="email">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="email">
                   <Mail className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Email
                   {config.optionalFields.correo.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -795,7 +795,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   value={localCorreo}
                   onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChange?.({ correo: e.target.value }); }}
                   id="email"
-                  className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                  className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                   placeholder="cliente@empresa.com"
                 />
               </div>
@@ -804,7 +804,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {/* Dirección de Envío */}
             {config.optionalFields.direccionEnvio.visible && (
               <div>
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="direccion-envio">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="direccion-envio">
                   <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Dirección de Envío
                   {config.optionalFields.direccionEnvio.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -815,7 +815,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   value={localDireccionEnvio}
                   onChange={(e) => { setLocalDireccionEnvio(e.target.value); onOptionalFieldsChange?.({ direccionEnvio: e.target.value }); }}
                   id="direccion-envio"
-                  className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                  className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                   placeholder="Ej: Av. Principal 123, Lima"
                 />
               </div>
@@ -824,10 +824,10 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
           {/* COLUMNA 2: Serie → Emisión → Forma → Moneda → Vencimiento (~34% → xl:col-span-4) */}
           <div className="col-span-12 xl:col-span-4 xl:border-s xl:border-slate-200/60 xl:ps-3">
-            <div className="grid grid-cols-12 gap-x-3 gap-y-3 items-end">
+            <div className="grid grid-cols-12 gap-x-2 gap-y-2 items-end">
               {/* Fila 1: Serie + Fecha Emisión */}
               <div className="col-span-6">
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="serie">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="serie">
                   <Hash className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Serie<span className="ml-0.5 text-red-500">*</span>
                 </label>
@@ -836,7 +836,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     <>
                       <select
                         id="serie"
-                        className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white appearance-none cursor-pointer shadow-sm text-[13px]"
+                        className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white appearance-none cursor-pointer text-[13px]"
                         value={serieSeleccionada}
                         onChange={e => setSerieSeleccionada(e.target.value)}
                       >
@@ -852,10 +852,9 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     </div>
                   )}
                 </div>
-                <div className="min-h-[20px]"></div>
               </div>
               <div className="col-span-6">
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="fecha-emision">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="fecha-emision">
                   <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Fecha de Emisión<span className="ml-0.5 text-red-500">*</span>
                 </label>
@@ -868,34 +867,36 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     onOptionalFieldsChange?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
                   }}
                   id="fecha-emision"
-                  className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
+                  className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                 />
-                <div className="min-h-[20px]"></div>
               </div>
               
               {/* Fila 2: Forma de Pago + Moneda (perfectamente alineados) */}
               <div className="col-span-6">
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="forma-pago">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="forma-pago">
                   <CreditCard className="w-3.5 h-3.5 mr-1 text-purple-600" />
                   Forma de Pago
                 </label>
-                <select
-                  id="forma-pago"
-                  className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white shadow-sm text-[13px]"
-                  value={formaPago}
-                  onChange={e => setFormaPago?.(e.target.value)}
-                >
-                  {paymentMethods.length > 0 ? (
-                    paymentMethods
-                      .filter(pm => pm.isActive)
-                      .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
-                      .map(pm => (
-                        <option key={pm.id} value={pm.id}>{pm.name}</option>
-                      ))
-                  ) : (
-                    <option value="contado">Contado (por defecto)</option>
-                  )}
-                </select>
+                <div className="relative">
+                  <select
+                    id="forma-pago"
+                    className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                    value={formaPago}
+                    onChange={e => setFormaPago?.(e.target.value)}
+                  >
+                    {paymentMethods.length > 0 ? (
+                      paymentMethods
+                        .filter(pm => pm.isActive)
+                        .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
+                        .map(pm => (
+                          <option key={pm.id} value={pm.id}>{pm.name}</option>
+                        ))
+                    ) : (
+                      <option value="contado">Contado (por defecto)</option>
+                    )}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
                 {onNuevaFormaPago && (
                   <a 
                     className="mt-1 block text-[12px] text-slate-500 hover:text-slate-700 cursor-pointer"
@@ -906,22 +907,25 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 )}
               </div>
               <div className="col-span-6">
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="moneda">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="moneda">
                   <DollarSign className="w-3.5 h-3.5 mr-1 text-green-600" />
                   Moneda
                 </label>
-                <select
-                  id="moneda"
-                  className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white shadow-sm text-[13px]"
-                  value={moneda}
-                  onChange={(e) => setMoneda?.(e.target.value as Currency)}
-                >
-                  {selectableCurrencies.map((option) => (
-                    <option key={option.code} value={option.code}>
-                      {option.code} - {option.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    id="moneda"
+                    className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                    value={moneda}
+                    onChange={(e) => setMoneda?.(e.target.value as Currency)}
+                  >
+                    {selectableCurrencies.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.code} - {option.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
                 {showExchangeRateBanner && selectedCurrencyDescriptor && (
                   <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-blue-900">
                     <p className="font-semibold text-blue-900">Tipo de cambio (solo lectura)</p>
@@ -933,13 +937,12 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     <p className="text-[11px] text-blue-700">Actualiza el tipo de cambio en Configuración → Monedas.</p>
                   </div>
                 )}
-                <div className="min-h-[20px]"></div>
               </div>
 
               {/* Fila 3: Fecha Vencimiento + Placeholder */}
               {config.optionalFields.fechaVencimiento.visible && (
                 <div className="col-span-6">
-                  <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="fecha-vencimiento">
+                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="fecha-vencimiento">
                     <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
                     Fecha de Vencimiento
                     {config.optionalFields.fechaVencimiento.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -950,9 +953,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     value={localFechaVencimiento}
                     onChange={(e) => { setLocalFechaVencimiento(e.target.value); onOptionalFieldsChange?.({ fechaVencimiento: e.target.value }); }}
                     id="fecha-vencimiento"
-                    className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
+                    className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                   />
-                  <div className="min-h-[20px]"></div>
                 </div>
               )}
               <div className="col-span-6" aria-hidden="true">
@@ -963,10 +965,10 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
           {/* COLUMNA 3: Vendedor → OC → (Guía + Centro en misma fila) (~24% → xl:col-span-3) */}
           <div className="col-span-12 xl:col-span-3 xl:border-s xl:border-slate-200/60 xl:ps-3">
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* Vendedor (select simple 1 línea, 36px) */}
               <div>
-                <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="vendedor">
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="vendedor">
                   <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Vendedor
                 </label>
@@ -981,7 +983,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               {/* Orden de Compra (full-width) */}
               {config.optionalFields.ordenCompra.visible && (
                 <div>
-                  <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="orden-compra">
+                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="orden-compra">
                     <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
                     Orden de Compra
                     {config.optionalFields.ordenCompra.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -992,18 +994,18 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     value={localOrdenCompra}
                     onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChange?.({ ordenCompra: e.target.value }); }}
                     id="orden-compra"
-                    className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all shadow-sm text-[13px]"
+                    className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                     placeholder="Ej: OC01-0000236"
                   />
                 </div>
               )}
 
               {/* Fila compartida: Guía + Centro (col-span-6 cada uno) */}
-              <div className="grid grid-cols-12 gap-x-2 gap-y-3 items-end">
+              <div className="grid grid-cols-12 gap-x-2 gap-y-2 items-end">
                 {/* Guía de Remisión */}
                 {config.optionalFields.guiaRemision.visible && (
                   <div className="col-span-12 md:col-span-6">
-                    <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="guia-remision">
+                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="guia-remision">
                       <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
                       N° Guía
                       {config.optionalFields.guiaRemision.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -1014,7 +1016,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                       value={localGuiaRemision}
                       onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChange?.({ guiaRemision: e.target.value }); }}
                       id="guia-remision"
-                      className="h-9 w-full rounded-xl border border-slate-300 px-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
+                      className="h-9 w-full rounded-xl border border-slate-300 px-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                       placeholder="T001-000256"
                     />
                   </div>
@@ -1023,7 +1025,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 {/* Centro de Costo */}
                 {config.optionalFields.centroCosto.visible && (
                   <div className="col-span-12 md:col-span-6">
-                    <label className="flex items-center text-[12px] font-medium text-slate-600 mb-1" htmlFor="centro-costo">
+                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="centro-costo">
                       <Building2 className="w-3.5 h-3.5 mr-1 text-violet-600" />
                       Centro
                       {config.optionalFields.centroCosto.required && <span className="ml-0.5 text-red-500">*</span>}
@@ -1034,7 +1036,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                       value={localCentroCosto}
                       onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChange?.({ centroCosto: e.target.value }); }}
                       id="centro-costo"
-                      className="h-9 w-full rounded-xl border border-slate-300 px-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm text-[13px]"
+                      className="h-9 w-full rounded-xl border border-slate-300 px-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                       placeholder="CC-001"
                     />
                   </div>
