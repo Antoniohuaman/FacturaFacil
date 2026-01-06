@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Calendar, DollarSign, FileText, Search, ShoppingCart, Download } from 'lucide-react';
+import { exportDatasetToExcel, type SimpleExcelColumn } from '@/shared/export/exportToExcel';
 import DetalleCompraModal from '../components/DetalleCompraModal';
 import { useCompras } from '../hooks';
 import type { CompraDetalle, Producto } from '../models';
@@ -15,6 +16,16 @@ const tabs: Array<{ id: TabId; label: string }> = [
 ];
 
 const BASE_ESTADO_FILTER = 'Todos';
+
+const sanitizeFilenameSegment = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[/:*?"<>|]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_-]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
 
 const currencySymbol = (currency?: string) => {
   const code = currency?.toUpperCase();
@@ -103,7 +114,7 @@ const TabToolbar: React.FC<{
   searchValue: string;
   onSearchChange: (value: string) => void;
   children?: React.ReactNode;
-  onExport?: () => void;
+  onExport?: () => void | Promise<void>;
   disableExport?: boolean;
   exportLabel: string;
 }> = ({ searchPlaceholder, searchValue, onSearchChange, children, onExport, disableExport, exportLabel }) => (
@@ -173,20 +184,6 @@ const Pagination: React.FC<{
   );
 };
 
-const downloadCsv = (rows: string[][], filename: string) => {
-  if (typeof window === 'undefined' || !rows.length) return;
-  const csv = rows
-    .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', filename);
-  link.click();
-  URL.revokeObjectURL(url);
-};
-
 const HistorialCompras: React.FC = () => {
   const navigate = useNavigate();
   const { clienteId, clienteName } = useParams();
@@ -200,6 +197,17 @@ const HistorialCompras: React.FC = () => {
     getCompraDetalle,
     reload,
   } = useCompras(clienteId, decodedClienteName);
+
+  const buildHistorialFilename = useCallback(
+    (tabId: TabId) => {
+      const tabLabel = tabs.find((tab) => tab.id === tabId)?.label ?? tabId;
+      const clienteSegment = sanitizeFilenameSegment(decodedClienteName ?? 'Cliente') || 'Cliente';
+      const tabSegment = sanitizeFilenameSegment(tabLabel) || tabId;
+      const todayIso = new Date().toISOString().split('T')[0];
+      return `Historial_${clienteSegment}_${tabSegment}_${todayIso}`;
+    },
+    [decodedClienteName]
+  );
 
   const [modalOpen, setModalOpen] = useState(false);
   const [compraSeleccionada, setCompraSeleccionada] = useState<CompraDetalle | null>(null);
@@ -351,70 +359,121 @@ const HistorialCompras: React.FC = () => {
     );
   }, [cobranzas, cobrosSearch]);
 
-  const handleExportVentas = useCallback(() => {
-    if (!filteredVentas.length) return;
-    const rows = [
-      ['Fecha', 'Tipo', 'Serie-Número', 'Moneda', 'Importe', 'Estado (Comprobante)', 'Cobro'],
-      ...filteredVentas.map((venta) => [
-        venta.fechaDisplay ?? '—',
-        venta.tipoComprobante,
-        venta.comprobante,
-        venta.moneda ?? '—',
-        venta.monto.toFixed(2),
-        venta.estadoComprobante,
-        formatEstadoLabel(venta.estadoCobro),
-      ]),
+  const handleExportVentas = useCallback(async () => {
+    if (!ventasPageItems.length) return;
+    const columns: SimpleExcelColumn[] = [
+      { header: 'Fecha', key: 'fecha' },
+      { header: 'Tipo', key: 'tipo' },
+      { header: 'Serie-Número', key: 'serieNumero' },
+      { header: 'Importe', key: 'importe' },
+      { header: 'Estado (Comprobante)', key: 'estadoComprobante' },
+      { header: 'Cobro', key: 'cobro' },
+      { header: 'Productos', key: 'productos' },
     ];
-    downloadCsv(rows, `ventas-${clienteId ?? 'cliente'}.csv`);
-  }, [filteredVentas, clienteId]);
+    const rows = ventasPageItems.map((venta) => ({
+      fecha: venta.fechaDisplay ?? '—',
+      tipo: venta.tipoComprobante,
+      serieNumero: venta.comprobante,
+      importe: formatCurrency(venta.monto, venta.moneda),
+      estadoComprobante: venta.estadoComprobante,
+      cobro: formatEstadoLabel(venta.estadoCobro),
+      productos: String(venta.productos ?? '—'),
+    }));
+    try {
+      await exportDatasetToExcel({
+        rows,
+        columns,
+        filename: buildHistorialFilename('ventas'),
+        worksheetName: 'Ventas',
+      });
+    } catch (error) {
+      console.error('Error al exportar ventas del historial:', error);
+    }
+  }, [ventasPageItems, buildHistorialFilename]);
 
-  const handleExportProductos = useCallback(() => {
-    if (!filteredProductos.length) return;
-    const rows = [
-      ['Producto', 'Cantidad total', 'Monto total', 'Moneda', 'Última compra'],
-      ...filteredProductos.map((item) => [
-        item.producto.nombre,
-        String(item.cantidad),
-        item.moneda ? item.monto.toFixed(2) : '—',
-        item.moneda ?? '—',
-        item.ultimaFecha ? formatShortDate(item.ultimaFecha) : 'Sin registro',
-      ]),
+  const handleExportProductos = useCallback(async () => {
+    if (!productosPageItems.length) return;
+    const columns: SimpleExcelColumn[] = [
+      { header: 'Producto', key: 'producto' },
+      { header: 'Cantidad total', key: 'cantidadTotal' },
+      { header: 'Monto total', key: 'montoTotal' },
+      { header: 'Última compra', key: 'ultimaCompra' },
     ];
-    downloadCsv(rows, `productos-${clienteId ?? 'cliente'}.csv`);
-  }, [filteredProductos, clienteId]);
+    const rows = productosPageItems.map((item) => ({
+      producto: item.producto.nombre,
+      cantidadTotal: item.cantidad,
+      montoTotal: item.moneda ? formatCurrency(item.monto, item.moneda) : '—',
+      ultimaCompra: item.ultimaFecha ? formatShortDate(item.ultimaFecha) : 'Sin registro',
+    }));
+    try {
+      await exportDatasetToExcel({
+        rows,
+        columns,
+        filename: buildHistorialFilename('productos'),
+        worksheetName: 'Productos',
+      });
+    } catch (error) {
+      console.error('Error al exportar productos del historial:', error);
+    }
+  }, [productosPageItems, buildHistorialFilename]);
 
-  const handleExportAnulaciones = useCallback(() => {
+  const handleExportAnulaciones = useCallback(async () => {
     if (!anulacionesFiltered.length) return;
-    const rows = [
-      ['Fecha', 'Tipo', 'Serie-Número', 'Moneda', 'Importe', 'Estado (Comprobante)'],
-      ...anulacionesFiltered.map((venta) => [
-        venta.fechaDisplay ?? '—',
-        venta.tipoComprobante,
-        venta.comprobante,
-        venta.moneda ?? '—',
-        venta.monto.toFixed(2),
-        venta.estadoComprobante,
-      ]),
+    const columns: SimpleExcelColumn[] = [
+      { header: 'Fecha', key: 'fecha' },
+      { header: 'Tipo', key: 'tipo' },
+      { header: 'Serie-Número', key: 'serieNumero' },
+      { header: 'Importe', key: 'importe' },
+      { header: 'Estado', key: 'estado' },
     ];
-    downloadCsv(rows, `anulaciones-${clienteId ?? 'cliente'}.csv`);
-  }, [anulacionesFiltered, clienteId]);
+    const rows = anulacionesFiltered.map((venta) => ({
+      fecha: venta.fechaDisplay ?? '—',
+      tipo: venta.tipoComprobante,
+      serieNumero: venta.comprobante,
+      importe: formatCurrency(venta.monto, venta.moneda),
+      estado: venta.estadoComprobante,
+    }));
+    try {
+      await exportDatasetToExcel({
+        rows,
+        columns,
+        filename: buildHistorialFilename('anulaciones'),
+        worksheetName: 'Anulaciones',
+      });
+    } catch (error) {
+      console.error('Error al exportar anulaciones del historial:', error);
+    }
+  }, [anulacionesFiltered, buildHistorialFilename]);
 
-  const handleExportCobros = useCallback(() => {
+  const handleExportCobros = useCallback(async () => {
     if (!filteredCobros.length) return;
-    const rows = [
-      ['Fecha', 'Documento Cobranza', 'Comprobante', 'Medio de pago', 'Moneda', 'Importe', 'Estado'],
-      ...filteredCobros.map((cobro) => [
-        formatShortDate(cobro.fecha),
-        cobro.numero,
-        cobro.comprobanteNumero ?? cobro.comprobanteId,
-        cobro.medioPago,
-        cobro.moneda ?? '—',
-        cobro.monto.toFixed(2),
-        formatEstadoLabel(cobro.estado),
-      ]),
+    const columns: SimpleExcelColumn[] = [
+      { header: 'Fecha', key: 'fecha' },
+      { header: 'Documento Cobranza', key: 'documentoCobranza' },
+      { header: 'Comprobante', key: 'comprobante' },
+      { header: 'Medio de pago', key: 'medioPago' },
+      { header: 'Importe', key: 'importe' },
+      { header: 'Estado', key: 'estado' },
     ];
-    downloadCsv(rows, `cobros-${clienteId ?? 'cliente'}.csv`);
-  }, [filteredCobros, clienteId]);
+    const rows = filteredCobros.map((cobro) => ({
+      fecha: formatShortDate(cobro.fecha),
+      documentoCobranza: cobro.numero,
+      comprobante: String(cobro.comprobanteNumero ?? cobro.comprobanteId ?? '—'),
+      medioPago: cobro.medioPago,
+      importe: formatCurrency(cobro.monto, cobro.moneda),
+      estado: formatEstadoLabel(cobro.estado),
+    }));
+    try {
+      await exportDatasetToExcel({
+        rows,
+        columns,
+        filename: buildHistorialFilename('cobros'),
+        worksheetName: 'Cobros',
+      });
+    } catch (error) {
+      console.error('Error al exportar cobros del historial:', error);
+    }
+  }, [filteredCobros, buildHistorialFilename]);
 
   const verDetalles = useCallback(
     async (compraId: number | string) => {
@@ -528,7 +587,7 @@ const HistorialCompras: React.FC = () => {
                 }}
                 exportLabel="Exportar ventas"
                 onExport={handleExportVentas}
-                disableExport={!filteredVentas.length}
+                disableExport={!ventasPageItems.length}
               >
                 <select
                   aria-label="Filtrar por estado"
@@ -644,7 +703,7 @@ const HistorialCompras: React.FC = () => {
                   setProductosPage(1);
                 }}
                 onExport={handleExportProductos}
-                disableExport={!filteredProductos.length}
+                disableExport={!productosPageItems.length}
                 exportLabel="Exportar productos"
               />
               {showProductosPlaceholder ? (

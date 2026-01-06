@@ -251,16 +251,7 @@ const DetalleCompraModal: React.FC<DetalleCompraModalProps> = ({ open, onClose, 
 
         {/* Footer */}
         <div className="border-t border-gray-200 p-6 bg-gray-50 flex-shrink-0">
-          <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
-            <button
-              aria-disabled="true"
-              disabled
-              title="Próximamente"
-              className="px-6 py-2 text-white rounded-lg opacity-60 cursor-not-allowed font-medium"
-              style={{ backgroundColor: '#1478D4' }}
-            >
-              📄 Descargar PDF
-            </button>
+          <div className="flex justify-end">
             <button
               onClick={onClose}
               className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
