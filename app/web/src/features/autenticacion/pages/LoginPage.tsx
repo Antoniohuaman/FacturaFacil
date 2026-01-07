@@ -44,9 +44,9 @@ export function LoginPage() {
           {/* Logo SenciYO - Arriba */}
           <div className="flex justify-center mb-8">
             <img 
-              src="/SenciYO.svg" 
+              src="/Senciyo_Logo.png" 
               alt="SenciYO" 
-              className="h-10 w-auto"
+              className="h-10 w-auto object-contain"
             />
           </div>
           

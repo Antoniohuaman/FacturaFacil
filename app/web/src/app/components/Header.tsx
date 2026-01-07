@@ -128,9 +128,9 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
         className="flex items-center ml-1 hover:opacity-80 transition-opacity"
       >
         <img 
-          src="/SenciYO.svg" 
+          src="/Senciyo_Logo.png"
           alt="SenciYO"
-          className="h-[38px] dark:filter dark:invert dark:brightness-0 dark:contrast-100"
+          className="h-8 w-auto object-contain dark:filter dark:invert dark:brightness-0 dark:contrast-100"
         />
       </button>
       
