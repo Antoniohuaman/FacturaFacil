@@ -119,9 +119,7 @@ const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
             )}
           </div>
         </div>
-        <div className="mt-2 text-[12px] text-slate-600">
-          Tip: Ctrl+P vista previa, Ctrl+S guardar, Ctrl+Enter crear.
-        </div>
+        {/* Footer tip removed per design request */}
       </div>
     </div>
   );
