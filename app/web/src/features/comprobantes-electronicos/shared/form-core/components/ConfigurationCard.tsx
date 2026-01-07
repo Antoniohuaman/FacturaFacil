@@ -20,6 +20,10 @@ interface ConfigurationCardProps {
   actions?: ReactNode;
   contentClassName?: string; // permite ajustar padding interno por caso de uso
   compactLabel?: string;
+  headerPaddingClassName?: string;
+  titleClassName?: string;
+  iconWrapperClassName?: string;
+  iconClassName?: string;
 }
 
 export function ConfigurationCard({
@@ -34,15 +38,20 @@ export function ConfigurationCard({
   badge,
   actions,
   contentClassName,
-  compactLabel
+  compactLabel,
+  headerPaddingClassName,
+  titleClassName,
+  iconWrapperClassName,
+  iconClassName
 }: ConfigurationCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const hasTitle = Boolean(title);
   const hasDescription = Boolean(description);
   const isCompactHeader = !hasTitle && !hasDescription;
-  const headerPadding = isCompactHeader ? 'px-4 py-2.5' : 'px-6 py-4';
+  const headerPadding = headerPaddingClassName ?? (isCompactHeader ? 'px-4 py-2.5' : 'px-6 py-4');
   const iconWrapperSize = isCompactHeader ? 'w-7 h-7' : 'w-8 h-8';
-  const iconSize = isCompactHeader ? 'w-3.5 h-3.5' : 'w-4 h-4';
+  const baseIconClass = iconClassName ?? (isCompactHeader ? 'w-3.5 h-3.5 text-blue-600' : 'w-4 h-4 text-blue-600');
+  const baseIconWrapperClass = iconWrapperClassName ?? `${iconWrapperSize} bg-blue-50 rounded-lg flex items-center justify-center`;
   const renderCollapsibleButton = () => (
     <button className="ml-2 p-1 text-gray-400 hover:text-gray-600 rounded transition-colors">
       {isExpanded ? (
@@ -64,14 +73,14 @@ export function ConfigurationCard({
             {Icon && (
               isCompactHeader && compactLabel ? (
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 max-w-[160px]">
-                  <Icon className="w-3.5 h-3.5 text-sky-600" />
+                  <Icon className={baseIconClass} />
                   <span className="text-xs font-medium text-slate-600 truncate leading-none">
                     {compactLabel}
                   </span>
                 </div>
               ) : (
-                <div className={`${iconWrapperSize} bg-blue-50 rounded-lg flex items-center justify-center`}>
-                  <Icon className={`${iconSize} text-blue-600`} />
+                <div className={baseIconWrapperClass}>
+                  <Icon className={baseIconClass} />
                 </div>
               )
             )}
@@ -80,7 +89,7 @@ export function ConfigurationCard({
               <div className="flex-1">
                 <div className="flex items-center space-x-2">
                   {hasTitle && (
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className={titleClassName ?? 'text-lg font-semibold text-gray-900'}>
                       {title}
                     </h3>
                   )}

@@ -24,7 +24,11 @@ const NotesSection: React.FC<NotesSectionProps> = ({
       helpText="Las observaciones aparecen en el comprobante impreso"
       collapsible
       defaultExpanded={false}
-      contentClassName="p-4"
+      headerPaddingClassName="px-4 py-2"
+      titleClassName="text-[15px] font-semibold text-slate-700 leading-tight"
+      iconWrapperClassName="w-7 h-7 bg-slate-50 rounded-lg flex items-center justify-center"
+      iconClassName="w-4 h-4 text-slate-500"
+      contentClassName="p-3"
     >
       <div className="grid grid-cols-12 gap-4 text-[13px]">
         <div className="col-span-12 lg:col-span-6">

@@ -1054,12 +1054,12 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
       {/* Header compacto */}
-      <div className="mb-3 pb-3 border-b border-gray-200">
+      <div className="mb-2.5 pb-2.5 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">Productos del Comprobante</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-[15px] font-semibold text-slate-700 leading-tight">Productos del Comprobante</h3>
           </div>
           <div className="flex items-center gap-2">
             {/* Icono de sliders para configuración */}
