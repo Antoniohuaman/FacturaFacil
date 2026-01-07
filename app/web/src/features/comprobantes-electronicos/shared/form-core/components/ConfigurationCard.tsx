@@ -48,7 +48,11 @@ export function ConfigurationCard({
   const hasTitle = Boolean(title);
   const hasDescription = Boolean(description);
   const isCompactHeader = !hasTitle && !hasDescription;
-  const headerPadding = headerPaddingClassName ?? (isCompactHeader ? 'px-4 py-2.5' : 'px-6 py-4');
+  const headerPadding = headerPaddingClassName ?? (
+    isCompactHeader
+      ? (compactLabel ? 'px-6 py-2' : 'px-4 py-2.5')
+      : 'px-6 py-4'
+  );
   const iconWrapperSize = isCompactHeader ? 'w-7 h-7' : 'w-8 h-8';
   const baseIconClass = iconClassName ?? (isCompactHeader ? 'w-3.5 h-3.5 text-blue-600' : 'w-4 h-4 text-blue-600');
   const baseIconWrapperClass = iconWrapperClassName ?? `${iconWrapperSize} bg-blue-50 rounded-lg flex items-center justify-center`;
@@ -72,9 +76,9 @@ export function ConfigurationCard({
           <div className="flex items-center space-x-3">
             {Icon && (
               isCompactHeader && compactLabel ? (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 max-w-[160px]">
-                  <Icon className={baseIconClass} />
-                  <span className="text-xs font-medium text-slate-600 truncate leading-none">
+                <div className="inline-flex items-center gap-2 px-0 py-0 max-w-[200px]">
+                  <Icon className="w-4 h-4 text-sky-600" />
+                  <span className="text-[15px] font-semibold text-slate-700 leading-tight truncate">
                     {compactLabel}
                   </span>
                 </div>
