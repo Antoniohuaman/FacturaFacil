@@ -19,6 +19,7 @@ interface ConfigurationCardProps {
   badge?: string | number;
   actions?: ReactNode;
   contentClassName?: string; // permite ajustar padding interno por caso de uso
+  compactLabel?: string;
 }
 
 export function ConfigurationCard({
@@ -32,7 +33,8 @@ export function ConfigurationCard({
   icon: Icon,
   badge,
   actions,
-  contentClassName
+  contentClassName,
+  compactLabel
 }: ConfigurationCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const hasTitle = Boolean(title);
@@ -60,9 +62,18 @@ export function ConfigurationCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {Icon && (
-              <div className={`${iconWrapperSize} bg-blue-50 rounded-lg flex items-center justify-center`}>
-                <Icon className={`${iconSize} text-blue-600`} />
-              </div>
+              isCompactHeader && compactLabel ? (
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 max-w-[160px]">
+                  <Icon className="w-3.5 h-3.5 text-sky-600" />
+                  <span className="text-xs font-medium text-slate-600 truncate leading-none">
+                    {compactLabel}
+                  </span>
+                </div>
+              ) : (
+                <div className={`${iconWrapperSize} bg-blue-50 rounded-lg flex items-center justify-center`}>
+                  <Icon className={`${iconSize} text-blue-600`} />
+                </div>
+              )
             )}
 
             {!isCompactHeader && (

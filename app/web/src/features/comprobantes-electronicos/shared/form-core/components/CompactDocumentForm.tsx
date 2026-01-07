@@ -584,6 +584,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         title=""
         description=""
         icon={FileText}
+        compactLabel="Nuevo comprobante"
         helpText="Completa la información del comprobante electrónico siguiendo las normas de SUNAT"
         contentClassName="p-4"
         actions={
