@@ -39,7 +39,6 @@ import { PostIssueOptionsModal } from '../shared/modales/PostIssueOptionsModal';
 import { PreviewDocument } from '../shared/ui/PreviewDocument';
 
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useUserSession } from '../../../contexts/UserSessionContext';
@@ -611,36 +610,6 @@ const EmisionTradicional = () => {
     <ErrorBoundary>
       <div className="print:hidden">
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/20 to-gray-50 flex flex-col">
-
-        {/* Header Mejorado con mejor diseño */}
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              {/* Left side */}
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => navigate('/comprobantes')}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Volver a comprobantes"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <FileText className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                      Nueva Emision
-                    </h1>
-                    
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* ✅ Main Content - Layout Flex con Splitter cuando panel está abierto */}
         <div className="flex-1 overflow-hidden">
