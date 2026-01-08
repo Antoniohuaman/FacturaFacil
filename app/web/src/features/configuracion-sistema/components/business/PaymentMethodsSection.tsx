@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { CreditCard, Plus, Edit3, Trash2, Star, Eye, EyeOff, X } from 'lucide-react';
 import type { PaymentMethod } from '../../models/PaymentMethod';
 import { DefaultSelector } from '../common/DefaultSelector';
-import { ConfigurationCard } from '../common/ConfigurationCard';
 import CreditScheduleEditor from './CreditScheduleEditor';
 import type { CreditInstallmentDefinition } from '../../../../shared/payments/paymentTerms';
 import { buildCreditPaymentMethodName, validateCreditScheduleTemplate } from '../../../../shared/payments/paymentTerms';
@@ -63,7 +62,6 @@ export function PaymentMethodsSection({
   const [formData, setFormData] = useState<{ code: string; name: string; creditSchedule: CreditInstallmentDefinition[] }>({ code: 'CREDITO', name: '', creditSchedule: [] });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
-  const isCredit = formData.code === 'CREDITO';
 
   useEffect(() => {
     savePaymentMeansPreferences({
@@ -101,31 +99,36 @@ export function PaymentMethodsSection({
     setFormErrors([]);
   };
 
+  const openNewCreditForm = () => {
+    setFormData({ code: 'CREDITO', name: '', creditSchedule: [] });
+    setEditingId(null);
+    setFormErrors([]);
+    setShowForm(true);
+  };
+
   const handleEdit = (method: PaymentMethod) => {
     const schedule = method.creditSchedule ? [...method.creditSchedule] : [];
-    const normalizedName = method.code === 'CREDITO'
-      ? buildCreditPaymentMethodName(schedule)
-      : method.name;
-    setFormData({ code: method.code, name: normalizedName, creditSchedule: schedule });
+    setFormData({ code: method.code, name: method.name, creditSchedule: schedule });
     setEditingId(method.id);
     setShowForm(true);
     setFormErrors([]);
   };
 
   const handleCreditScheduleChange = (schedule: CreditInstallmentDefinition[]) => {
+    const hasMeaningfulInstallment = schedule.some((item) =>
+      ((item.diasCredito ?? 0) !== 0) || ((item.porcentaje ?? 0) !== 0)
+    );
+
     setFormData(prev => ({
       ...prev,
       creditSchedule: schedule,
-      name: prev.code === 'CREDITO' ? buildCreditPaymentMethodName(schedule) : prev.name,
+      name: hasMeaningfulInstallment
+        ? buildCreditPaymentMethodName(schedule)
+        : (editingId ? prev.name : ''),
     }));
     if (formErrors.length) {
       setFormErrors([]);
     }
-  };
-
-  const handleNameInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const nextName = event.target.value;
-    setFormData(prev => (prev.code === 'CREDITO' ? prev : { ...prev, name: nextName }));
   };
 
   const toggleVisibleMean = (code: string) => {
@@ -187,7 +190,7 @@ export function PaymentMethodsSection({
 
     const normalizedName =
       formData.code === 'CREDITO'
-        ? buildCreditPaymentMethodName(formData.creditSchedule)
+        ? formData.name.trim()
         : formData.name.trim();
 
     if (!formData.code.trim() || !normalizedName.trim()) return;
@@ -333,10 +336,10 @@ export function PaymentMethodsSection({
     if (isLoading) {
       return (
         <div className="space-y-3">
-          <div className="h-10 w-full animate-pulse rounded bg-gray-200"></div>
+          <div className="h-8 w-full animate-pulse rounded bg-gray-200"></div>
           <div className="space-y-2">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-16 animate-pulse rounded bg-gray-200"></div>
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-12 animate-pulse rounded bg-gray-200"></div>
             ))}
           </div>
         </div>
@@ -345,86 +348,6 @@ export function PaymentMethodsSection({
 
     return (
       <>
-        {/* Form */}
-        {showForm && (
-          <ConfigurationCard
-            title={editingId ? 'Editar crédito' : 'Nuevo crédito'}
-          >
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {/* Informational help removed per request */}
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                    Código normativo
-                  </label>
-                  <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800">
-                    <span>CRÉDITO</span>
-                    <span className="text-xs font-normal text-slate-500">Fijo para creación de cuotas</span>
-                  </div>
-                  <input type="hidden" value="CREDITO" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                    Nombre personalizado
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={handleNameInputChange}
-                    readOnly={isCredit}
-                    className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500 ${
-                      isCredit ? 'cursor-not-allowed bg-gray-50 text-gray-600' : ''
-                    }`}
-                    placeholder={isCredit ? 'Crédito - define días de crédito' : 'Ej: Efectivo, Yape, Tarjeta Visa, Crédito 30 días...'}
-                    required
-                    maxLength={50}
-                  />
-                </div>
-              </div>
-
-              {formData.code === 'CREDITO' && (
-                <div className="space-y-2 rounded-lg border border-slate-200 bg-white/50 p-3">
-                  <div>
-                    <h5 className="text-sm font-semibold text-slate-700">Cronograma por defecto (opcional)</h5>
-                    <p className="text-xs text-slate-500">Define cuotas sugeridas para este crédito. Podrás ajustarlas durante la emisión.</p>
-                  </div>
-                  <CreditScheduleEditor value={formData.creditSchedule} onChange={handleCreditScheduleChange} />
-                  {formErrors.length > 0 && (
-                    <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-                      <ul className="list-disc pl-4">
-                        {formErrors.map((error) => (
-                          <li key={error}>{error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex items-center justify-end space-x-2 border-t border-gray-200 pt-3">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  disabled={isSubmitting}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !formData.code.trim() || !formData.name.trim()}
-                  className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isSubmitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
-                  <span>{editingId ? 'Actualizar' : 'Crear'}</span>
-                </button>
-              </div>
-            </form>
-          </ConfigurationCard>
-        )}
-
         {/* Métodos de CONTADO */}
         {contadoMethods.length > 0 && (
           <div>
@@ -434,7 +357,7 @@ export function PaymentMethodsSection({
             </h4>
             <div className="space-y-2">
               {contadoMethods.map((method) => (
-                <div key={method.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-green-300">
+                <div key={method.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 transition-colors hover:border-green-300">
                   <div className="flex items-center space-x-4">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
                       <CreditCard className="h-4 w-4 text-green-600" />
@@ -515,7 +438,7 @@ export function PaymentMethodsSection({
             </h4>
             <div className="space-y-2">
               {creditoMethods.map((method) => (
-                <div key={method.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-blue-300">
+                <div key={method.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 transition-colors hover:border-blue-300">
                   <div className="flex items-center space-x-4">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
                       <CreditCard className="h-4 w-4 text-blue-600" />
@@ -706,9 +629,9 @@ export function PaymentMethodsSection({
 
         {activeTab === 'forms' && (
           <button
-            onClick={() => setShowForm(true)}
+            onClick={openNewCreditForm}
             disabled={isSubmitting}
-            className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             <span>Nuevo crédito</span>
@@ -810,6 +733,85 @@ export function PaymentMethodsSection({
                   className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
                 >
                   Guardar cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
+          <div
+            className="w-full overflow-hidden rounded-2xl bg-white shadow-2xl"
+            style={{ width: 'min(92vw, 520px)' }}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">{editingId ? 'Editar crédito' : 'Nuevo crédito'}</h3>
+                <p className="text-[11px] text-slate-500">Se genera automáticamente según tus cuotas.</p>
+              </div>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="max-h-[80vh] overflow-y-auto px-4 py-3 space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">Nombre</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  readOnly
+                  className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+                  placeholder=""
+                  required
+                  maxLength={50}
+                />
+                <p className="text-[11px] text-slate-500">Se autogenera según las cuotas.</p>
+              </div>
+
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-white/60 p-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h5 className="text-sm font-semibold text-slate-800">Cronograma por defecto</h5>
+                    <p className="text-[11px] text-slate-500">Define cuotas sugeridas (editable durante emisión).</p>
+                  </div>
+                  <span className="text-[11px] text-slate-500">Opcional</span>
+                </div>
+                <CreditScheduleEditor value={formData.creditSchedule} onChange={handleCreditScheduleChange} compact />
+                {formErrors.length > 0 && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                    <ul className="list-disc pl-4 space-y-1">
+                      {formErrors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  disabled={isSubmitting}
+                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !formData.code.trim() || !formData.name.trim()}
+                  className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSubmitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                  <span>{editingId ? 'Actualizar' : 'Crear'}</span>
                 </button>
               </div>
             </form>
