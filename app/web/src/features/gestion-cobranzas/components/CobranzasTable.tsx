@@ -2,11 +2,18 @@ import { Eye, FileText, Receipt } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { TableColumnState } from '../columns/types';
 import type { CobranzasColumnKey } from '../columns/columnConfig';
-import type { CobranzaDocumento } from '../models/cobranzas.types';
-import { getCobranzaInstallmentSnapshot } from '../utils/reporting';
+import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../models/cobranzas.types';
+import {
+  getCobranzaEstadoDocumentoLabel,
+  getCobranzaInstallmentSnapshot,
+  getCobranzaMedioPagoLabel,
+  getCobranzaOperacionLabel,
+  getCobranzaTipoCobroLabel,
+} from '../utils/reporting';
+
 
 interface CobranzasTableProps {
-  data: Array<CobranzaDocumento & { displayAmount?: number }>;
+  data: Array<CobranzaDocumento & { displayAmount?: number; relatedCuenta?: CuentaPorCobrarSummary }>;
   formatMoney: (value: number, currency?: string) => string;
   onVerDetalle: (cobranza: CobranzaDocumento) => void;
   onVerComprobante: (cobranza: CobranzaDocumento) => void;
@@ -15,14 +22,10 @@ interface CobranzasTableProps {
 
 const estadoBadge = (estado: CobranzaDocumento['estado']) => {
   switch (estado) {
-    case 'cancelado':
-      return 'bg-emerald-100 text-emerald-700';
-    case 'parcial':
-      return 'bg-amber-100 text-amber-700';
     case 'anulado':
-      return 'bg-slate-200 text-slate-600';
+      return 'bg-red-100 text-red-700';
     default:
-      return 'bg-slate-100 text-slate-700';
+      return 'bg-emerald-100 text-emerald-700';
   }
 };
 
@@ -47,7 +50,7 @@ type RenderHelpers = {
 };
 
 type CobranzasCellRenderer = (
-  cobranza: CobranzaDocumento & { displayAmount?: number },
+  cobranza: CobranzaDocumento & { displayAmount?: number; relatedCuenta?: CuentaPorCobrarSummary },
   helpers: RenderHelpers
 ) => ReactNode;
 
@@ -73,8 +76,16 @@ const cobranzasColumnRenderers: Record<CobranzasColumnKey, CobranzasCellRenderer
       <span className="font-medium">{cobranza.clienteNombre}</span>
     </div>
   ),
-  medioPago: (cobranza) => <span className="text-xs font-medium">{cobranza.medioPago}</span>,
+  medioPago: (cobranza) => <span className="text-xs font-medium">{getCobranzaMedioPagoLabel(cobranza)}</span>,
   caja: (cobranza) => <span className="text-xs">{cobranza.cajaDestino}</span>,
+  tipoCobro: (cobranza) => (
+    <span className="text-xs font-medium">{getCobranzaTipoCobroLabel(cobranza, cobranza.relatedCuenta)}</span>
+  ),
+  operacion: (cobranza) => (
+    <span className="text-xs font-medium" title={cobranza.referencia || undefined}>
+      {getCobranzaOperacionLabel(cobranza)}
+    </span>
+  ),
   cuotas: (cobranza) => renderInstallmentsSnapshot(cobranza),
   importe: (cobranza, { formatMoney }) => (
     <span className="font-semibold">
@@ -83,7 +94,7 @@ const cobranzasColumnRenderers: Record<CobranzasColumnKey, CobranzasCellRenderer
   ),
   estado: (cobranza) => (
     <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${estadoBadge(cobranza.estado)}`}>
-      {cobranza.estado}
+      {getCobranzaEstadoDocumentoLabel(cobranza)}
     </span>
   ),
   acciones: (cobranza, { onVerDetalle, onVerComprobante }) => (

@@ -66,7 +66,7 @@ const shouldDisplayCuenta = (cuenta: CuentaPorCobrarSummary) => {
   return hasPendingInstallments(cuenta) || hasOutstandingBalance(cuenta);
 };
 
-type CobranzaWithDisplayAmount = CobranzaDocumento & { displayAmount: number };
+type CobranzaWithDisplayAmount = CobranzaDocumento & { displayAmount: number; relatedCuenta?: CuentaPorCobrarSummary };
 
 export const useCobranzasDashboard = () => {
   const { cuentas, cobranzas, registerCobranza } = useCobranzasContext();
@@ -164,6 +164,7 @@ export const useCobranzasDashboard = () => {
       .map((cobranza) => ({
         ...cobranza,
         displayAmount: resolveDisplayAmount(cobranza),
+        relatedCuenta: cuentasPorComprobante[cobranza.comprobanteId],
       }));
   }, [cobranzas, cuentasPorComprobante, filters.cliente, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
 

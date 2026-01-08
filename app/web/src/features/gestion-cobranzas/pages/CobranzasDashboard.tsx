@@ -113,7 +113,7 @@ export const CobranzasDashboard = () => {
   const [selectedCuenta, setSelectedCuenta] = useState<CuentaPorCobrarSummary | null>(null);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
   const [showCuentaPicker, setShowCuentaPicker] = useState(false);
-  const [detalleCobranza, setDetalleCobranza] = useState<CobranzaDocumento | null>(null);
+  const [detalleCobranza, setDetalleCobranza] = useState<(CobranzaDocumento & { displayAmount?: number; relatedCuenta?: CuentaPorCobrarSummary }) | null>(null);
   const [historialCuenta, setHistorialCuenta] = useState<CuentaPorCobrarSummary | null>(null);
   const [filtersVisible, setFiltersVisible] = useState(false);
   const { request: autoExportRequest, finish: finishAutoExport } = useAutoExportRequest('cobranzas-estado');
@@ -252,10 +252,12 @@ export const CobranzasDashboard = () => {
             { wch: 14 },
             { wch: 26 },
             { wch: 26 },
+            { wch: 14 },
+            { wch: 16 },
             { wch: 16 },
             { wch: 18 },
-            { wch: 16 },
-            { wch: 16 },
+            { wch: 14 },
+            { wch: 14 },
             { wch: 14 },
           ];
 

@@ -11,8 +11,8 @@ interface CobranzasFiltersBarProps {
 const estadoOptions = [
   { value: 'todos', label: 'Todos los estados' },
   { value: 'pendiente', label: 'Pendiente' },
-  { value: 'parcial', label: 'Parcial' },
-  { value: 'cancelado', label: 'Cancelado' },
+  { value: 'parcial', label: 'Abono' },
+  { value: 'cancelado', label: 'Cobrado' },
   { value: 'vencido', label: 'Vencido' },
   { value: 'anulado', label: 'Anulado' },
 ];

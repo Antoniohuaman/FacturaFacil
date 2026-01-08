@@ -17,6 +17,23 @@ export interface CobranzaInstallmentSnapshot {
   paid: number;
 }
 
+const splitOperationRefs = (raw?: string | null): string[] => {
+  if (!raw) return [];
+  return raw
+    .split(/[,;\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const isCuentaContado = (cuenta?: CuentaPorCobrarSummary) => cuenta?.formaPago === 'contado' || !cuenta?.creditTerms;
+
+const isAbonoPago = (cobranza: CobranzaDocumento): boolean => {
+  if (cobranza.estado === 'parcial') return true;
+  const info = cobranza.installmentsInfo;
+  if (!info || !info.total) return false;
+  return info.pending > 0 && info.pending < info.total;
+};
+
 export const getCuentaInstallmentStats = (cuenta: CuentaPorCobrarSummary): CuentaInstallmentStats | null => {
   let total = cuenta.totalInstallments;
   let pending = cuenta.pendingInstallmentsCount;
@@ -113,8 +130,56 @@ export const buildCuentasExportRows = (
   });
 };
 
+export const getCobranzaEstadoDocumentoLabel = (cobranza: CobranzaDocumento): string =>
+  cobranza.estado === 'anulado' ? 'anulado' : 'cobrado';
+
+export const getCobranzaTipoCobroLabel = (
+  cobranza: CobranzaDocumento,
+  relatedCuenta?: CuentaPorCobrarSummary
+): string => {
+  if (isCuentaContado(relatedCuenta)) {
+    return 'venta al contado';
+  }
+
+  if (isAbonoPago(cobranza)) {
+    return 'abono parcial';
+  }
+
+  const info = cobranza.installmentsInfo;
+  if (info && info.total > 0 && info.pending === 0) {
+    return 'cuota cancelada';
+  }
+
+  return 'cuota cancelada';
+};
+
+export const getCobranzaOperacionLabel = (cobranza: CobranzaDocumento): string => {
+  const refs = splitOperationRefs(cobranza.referencia);
+  if (!refs.length) return '—';
+  if (refs.length === 1) return refs[0];
+  return `${refs[0]} (+${refs.length - 1})`;
+};
+
+export const getCobranzaOperacionDetailLabel = (cobranza: CobranzaDocumento): string => {
+  const refs = splitOperationRefs(cobranza.referencia);
+  if (!refs.length) return '—';
+  return `${cobranza.medioPago || 'Medio'}: ${refs.join(', ')}`;
+};
+
+export const getCobranzaMedioPagoLabel = (cobranza: CobranzaDocumento): string => {
+  const medio = cobranza.medioPago?.trim();
+  if (!medio) return '—';
+
+  if (medio.toLowerCase() === 'mixto') {
+    const refs = splitOperationRefs(cobranza.referencia);
+    return refs.length > 1 ? `Mixto (${refs.length})` : 'Mixto';
+  }
+
+  return medio;
+};
+
 export const buildCobranzasExportRows = (
-  cobranzas: CobranzaWithAmount[],
+  cobranzas: Array<CobranzaWithAmount & { relatedCuenta?: CuentaPorCobrarSummary }>,
   formatMoney: (value: number, currency?: string) => string,
 ) => {
   return cobranzas.map((cobranza) => {
@@ -124,11 +189,13 @@ export const buildCobranzasExportRows = (
       Fecha: cobranza.fechaCobranza,
       'Comprobante relacionado': `${cobranza.comprobanteSerie}-${cobranza.comprobanteNumero}`,
       Cliente: cobranza.clienteNombre,
-      'Medio de pago': cobranza.medioPago,
+      'Estado (documento)': getCobranzaEstadoDocumentoLabel(cobranza),
+      'Tipo de cobro': getCobranzaTipoCobroLabel(cobranza, (cobranza as { relatedCuenta?: CuentaPorCobrarSummary }).relatedCuenta),
+      'Medio de pago': getCobranzaMedioPagoLabel(cobranza),
+      'N° operación': getCobranzaOperacionDetailLabel(cobranza),
       Caja: cobranza.cajaDestino,
       'Cuotas': formatCobranzaCuotasLabel(snapshot),
       Importe: formatMoney(cobranza.displayAmount ?? cobranza.monto, cobranza.moneda),
-      Estado: cobranza.estado,
     } as const;
   });
 };

@@ -1,8 +1,14 @@
 import { Printer, X } from 'lucide-react';
-import type { CobranzaDocumento } from '../models/cobranzas.types';
+import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../models/cobranzas.types';
+import {
+  getCobranzaEstadoDocumentoLabel,
+  getCobranzaMedioPagoLabel,
+  getCobranzaOperacionLabel,
+  getCobranzaTipoCobroLabel,
+} from '../utils/reporting';
 
 interface CobranzaDetailModalProps {
-  cobranza: CobranzaDocumento | null;
+  cobranza: (CobranzaDocumento & { relatedCuenta?: CuentaPorCobrarSummary }) | null;
   isOpen: boolean;
   onClose: () => void;
   formatMoney: (value: number, currency?: string) => string;
@@ -10,6 +16,12 @@ interface CobranzaDetailModalProps {
 
 export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: CobranzaDetailModalProps) => {
   if (!isOpen || !cobranza) return null;
+
+  const estadoLabel = getCobranzaEstadoDocumentoLabel(cobranza);
+  const tipoCobroLabel = getCobranzaTipoCobroLabel(cobranza, cobranza.relatedCuenta);
+  const medioLabel = getCobranzaMedioPagoLabel(cobranza);
+  const operacionRefs = cobranza.referencia;
+  const operacionLabel = getCobranzaOperacionLabel(cobranza);
 
   const handlePrintConstancia = () => {
     if (typeof window === 'undefined' || !cobranza) {
@@ -44,10 +56,12 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
     <div class="summary">
       <p>Comprobante relacionado: <strong>${cobranza.comprobanteSerie}-${cobranza.comprobanteNumero}</strong></p>
       <p>Cliente: <strong>${cobranza.clienteNombre}</strong></p>
-      <p>Medio de pago: <strong>${cobranza.medioPago}</strong></p>
+      <p>Medio de pago: <strong>${medioLabel}</strong></p>
+      <p>N° operación: <strong title="${operacionRefs ?? ''}">${operacionLabel}</strong></p>
       <p>Caja: <strong>${cobranza.cajaDestino}</strong></p>
       <p>Importe registrado: <strong>${formattedAmount}</strong></p>
-      <p>Estado: <span class="badge">${cobranza.estado}</span></p>
+      <p>Tipo de cobro: <strong>${tipoCobroLabel}</strong></p>
+      <p>Estado: <span class="badge">${estadoLabel}</span></p>
     </div>
     ${cobranza.notas ? `<h2>Notas</h2><p>${cobranza.notas}</p>` : ''}
     <p style="margin-top:32px;font-size:12px;color:#475569;">Documento emitido automáticamente por FacturaFácil.</p>
@@ -90,17 +104,25 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
             </div>
             <div>
               <p className="text-xs uppercase text-slate-500 dark:text-gray-400">Medio de pago</p>
-              <p className="font-semibold capitalize">{cobranza.medioPago}</p>
+              <p className="font-semibold capitalize">{medioLabel}</p>
             </div>
             <div>
               <p className="text-xs uppercase text-slate-500 dark:text-gray-400">Caja destino</p>
               <p className="font-semibold">{cobranza.cajaDestino}</p>
             </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500 dark:text-gray-400">Tipo de cobro</p>
+              <p className="font-semibold capitalize">{tipoCobroLabel}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500 dark:text-gray-400">N° operación</p>
+              <p className="font-semibold" title={operacionRefs || undefined}>{operacionLabel}</p>
+            </div>
           </div>
           <div className="bg-slate-50 dark:bg-gray-800 border border-slate-100 dark:border-gray-800 rounded-xl p-4">
             <p className="text-xs uppercase text-slate-500 dark:text-gray-400 font-semibold">Importe cobrado</p>
             <p className="text-3xl font-bold text-slate-900 dark:text-white">{formatMoney(cobranza.monto)}</p>
-            <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Estado: <span className="font-semibold capitalize">{cobranza.estado}</span></p>
+            <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Estado: <span className="font-semibold capitalize">{estadoLabel}</span></p>
           </div>
           {cobranza.notas && (
             <div>

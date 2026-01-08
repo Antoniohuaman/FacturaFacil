@@ -20,6 +20,8 @@ export type CobranzasColumnKey =
   | 'cliente'
   | 'medioPago'
   | 'caja'
+  | 'tipoCobro'
+  | 'operacion'
   | 'cuotas'
   | 'importe'
   | 'estado'
@@ -35,7 +37,7 @@ export const CUENTAS_POR_COBRAR_COLUMNS: TableColumnDefinition<CuentasPorCobrarC
   { key: 'total', label: 'Total', defaultVisible: true, headerClassName: 'text-right', cellClassName: 'px-4 py-3 text-right font-medium' },
   { key: 'cobrado', label: 'Cobrado', defaultVisible: true, headerClassName: 'text-right', cellClassName: 'px-4 py-3 text-right text-slate-500' },
   { key: 'saldo', label: 'Saldo', defaultVisible: true, headerClassName: 'text-right', cellClassName: 'px-4 py-3 text-right font-semibold' },
-  { key: 'estado', label: 'Estado', defaultVisible: true, headerClassName: 'text-center', cellClassName: 'px-4 py-3 text-center' },
+  { key: 'estado', label: 'Estado (documento)', defaultVisible: true, headerClassName: 'text-center', cellClassName: 'px-4 py-3 text-center' },
   { key: 'acciones', label: 'Acciones', defaultVisible: true, fixed: true, headerClassName: 'text-center', cellClassName: 'px-4 py-3 text-center' }
 ];
 
@@ -46,6 +48,8 @@ export const COBRANZAS_COLUMNS: TableColumnDefinition<CobranzasColumnKey>[] = [
   { key: 'cliente', label: 'Cliente', defaultVisible: true, headerClassName: 'text-left', cellClassName: 'px-4 py-3' },
   { key: 'medioPago', label: 'Medio de pago', defaultVisible: true, headerClassName: 'text-left', cellClassName: 'px-4 py-3 text-xs font-medium' },
   { key: 'caja', label: 'Caja', defaultVisible: true, headerClassName: 'text-left', cellClassName: 'px-4 py-3 text-xs' },
+  { key: 'tipoCobro', label: 'Tipo de cobro', defaultVisible: true, headerClassName: 'text-left', cellClassName: 'px-4 py-3 text-xs' },
+  { key: 'operacion', label: 'N° operación', defaultVisible: true, headerClassName: 'text-left', cellClassName: 'px-4 py-3 text-xs' },
   { key: 'cuotas', label: 'Cuotas', defaultVisible: true, headerClassName: 'text-center', cellClassName: 'px-4 py-3 text-center text-xs' },
   { key: 'importe', label: 'Importe', defaultVisible: true, headerClassName: 'text-right', cellClassName: 'px-4 py-3 text-right font-semibold' },
   { key: 'estado', label: 'Estado', defaultVisible: true, headerClassName: 'text-center', cellClassName: 'px-4 py-3 text-center' },
