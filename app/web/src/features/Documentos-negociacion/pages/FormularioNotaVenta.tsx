@@ -540,7 +540,6 @@ const FormularioNotaVenta = () => {
               fechaEmision={fechaEmision}
               onFechaEmisionChange={setFechaEmision}
               onOptionalFieldsChange={setOptionalFields}
-              onNuevaFormaPago={() => {}}
             />
 
             {/* Sección de Productos */}

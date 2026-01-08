@@ -42,8 +42,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useUserSession } from '../../../contexts/UserSessionContext';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import { PaymentMethodFormModal } from '../../configuracion-sistema/components/business/PaymentMethodFormModal';
+// useConfigurationContext removed from this page (not needed)
 import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
@@ -62,7 +61,6 @@ const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInsta
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
-  const { state, dispatch } = useConfigurationContext();
 
   // ✅ Hook para side preview (solo si flag habilitado)
   const sidePreview = ENABLE_SIDE_PREVIEW_EMISION ? useSidePreviewPane() : null;
@@ -145,7 +143,6 @@ const EmisionTradicional = () => {
   // Estado para el modal de éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
-  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
   const [showPostIssueOptionsModal, setShowPostIssueOptionsModal] = useState(false);
   const [cobranzaMode, setCobranzaMode] = useState<PaymentCollectionMode>('contado');
@@ -267,15 +264,7 @@ const EmisionTradicional = () => {
   };
 
 
-  // Handler para abrir modal de nueva forma de pago
-  const handleNuevaFormaPago = () => {
-    setShowPaymentMethodModal(true);
-  };
-
-  // Handler para actualizar payment methods
-  const handleUpdatePaymentMethods = async (updatedMethods: any[]) => {
-    dispatch({ type: 'SET_PAYMENT_METHODS', payload: updatedMethods });
-  };
+  // Nota: la acción de crear un nuevo método de pago desde este formulario fue removida.
 
   // Handlers (SIN CAMBIOS - exactamente igual que antes)
   const handleVistaPrevia = () => {
@@ -640,7 +629,6 @@ const EmisionTradicional = () => {
               baseCurrencyCode={baseCurrency.code as Currency}
               formaPago={formaPago}
               setFormaPago={setFormaPago}
-              onNuevaFormaPago={handleNuevaFormaPago}
               onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
               onVistaPrevia={sidePreview?.togglePane}
               onClienteChange={setClienteSeleccionadoGlobal}
@@ -821,13 +809,7 @@ const EmisionTradicional = () => {
           paymentMethodName={selectedPaymentMethod?.name}
         />
 
-        {/* Modal para crear nueva forma de pago */}
-        <PaymentMethodFormModal
-          isOpen={showPaymentMethodModal}
-          onClose={() => setShowPaymentMethodModal(false)}
-          paymentMethods={state.paymentMethods}
-          onUpdate={handleUpdatePaymentMethods}
-        />
+        {/* El modal de creación de métodos de pago no se instancia aquí */}
 
         {/* ✅ Modal de configuración de campos */}
         <FieldsConfigModal

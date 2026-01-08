@@ -136,7 +136,6 @@ interface CompactDocumentFormProps {
   baseCurrencyCode?: Currency;
   formaPago?: string;
   setFormaPago?: (value: string) => void;
-  onNuevaFormaPago?: () => void;
 
   // Modal de configuración
   onOpenFieldsConfig?: () => void;
@@ -177,7 +176,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   baseCurrencyCode,
   formaPago = "contado",
   setFormaPago,
-  onNuevaFormaPago,
   onOpenFieldsConfig,
   onVistaPrevia,
   clienteSeleccionado,
@@ -898,14 +896,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   </select>
                   <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
-                {onNuevaFormaPago && (
-                  <a 
-                    className="mt-1 block text-[12px] text-slate-500 hover:text-slate-700 cursor-pointer"
-                    onClick={onNuevaFormaPago}
-                  >
-                    + Nueva forma de pago
-                  </a>
-                )}
+                  {/* link intentionally removed from compact form */}
               </div>
               <div className="col-span-6">
                 <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="moneda">

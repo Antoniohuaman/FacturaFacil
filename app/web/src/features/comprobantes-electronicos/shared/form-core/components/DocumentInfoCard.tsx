@@ -21,7 +21,6 @@ interface DocumentInfoCardProps {
   setMoneda?: (value: string) => void;
   formaPago?: string;
   setFormaPago?: (value: string) => void;
-  onNuevaFormaPago?: () => void;
   // ✅ Props para modal de configuración
   onOpenFieldsConfig?: () => void;
 }
@@ -35,7 +34,6 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
   setMoneda,
   formaPago = "contado",
   setFormaPago,
-  onNuevaFormaPago,
   onOpenFieldsConfig,
 }) => {
   const { state } = useConfigurationContext();
@@ -166,15 +164,7 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
               <option value="contado">Contado (por defecto)</option>
             )}
           </select>
-          {onNuevaFormaPago && (
-            <button
-              type="button"
-              className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium hover:underline"
-              onClick={onNuevaFormaPago}
-            >
-              + Nueva Forma de Pago
-            </button>
-          )}
+          {/* crear nuevo método de pago desde este componente fue removido del UI */}
         </div>
       </div>
 
