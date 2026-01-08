@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRightCircle, Clock, FileText, Wallet } from 'lucide-react';
+import { AlertTriangle, Clock, FileText, Wallet } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { TableColumnState } from '../columns/types';
 import type { CuentasPorCobrarColumnKey } from '../columns/columnConfig';
@@ -55,14 +55,24 @@ const cuentasColumnRenderers: Record<CuentasPorCobrarColumnKey, CuentaCellRender
   fechaVencimiento: (cuenta) => (
     <span className={cuenta.vencido ? 'text-red-600 font-semibold' : ''}>{cuenta.fechaVencimiento || '-'}</span>
   ),
-  formaPago: (cuenta) => (
-    <div className="flex flex-col items-center gap-0.5">
-      <span className="font-medium text-slate-900 dark:text-white">{cuenta.formaPago}</span>
-      {cuenta.creditTerms && (
-        <span className="text-[11px] text-slate-500">{formatCuentaFormaPago(cuenta)}</span>
-      )}
-    </div>
-  ),
+  formaPago: (cuenta) => {
+    const fullLabel = cuenta.formaPago === 'credito' && cuenta.creditTerms ? formatCuentaFormaPago(cuenta) : '';
+    const planLabel = fullLabel ? fullLabel.replace(/\s*·\s*vence\s.+$/, '') : '';
+
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="font-medium text-slate-900 dark:text-white">{cuenta.formaPago}</span>
+        {planLabel && planLabel !== cuenta.formaPago && (
+          <span
+            className="max-w-[120px] truncate text-[11px] text-slate-500 whitespace-nowrap"
+            title={planLabel}
+          >
+            {planLabel}
+          </span>
+        )}
+      </div>
+    );
+  },
   cuotas: (cuenta) => {
     const installmentStats = getCuentaInstallmentStats(cuenta);
     if (installmentStats && installmentStats.total > 0) {
@@ -106,7 +116,7 @@ const cuentasColumnRenderers: Record<CuentasPorCobrarColumnKey, CuentaCellRender
       <button
         type="button"
         onClick={() => onRegistrarCobranza(cuenta)}
-        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
+        className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-md border border-blue-200 px-3 text-[11px] font-semibold text-blue-700 hover:bg-blue-50"
         title="Registrar Cobranza"
       >
         <Wallet className="w-3.5 h-3.5" />
@@ -196,12 +206,6 @@ export const CuentasPorCobrarTable = ({
           )}
         </tbody>
       </table>
-      <footer className="px-4 py-3 text-xs text-slate-500 flex items-center justify-between border-t border-slate-100 dark:border-gray-700">
-        <span>Mostrando {data.length} registros</span>
-        <span className="inline-flex items-center gap-1 text-slate-400">
-          <ArrowRightCircle className="w-3.5 h-3.5" /> Actualizado al {new Date().toLocaleDateString('es-PE')}
-        </span>
-      </footer>
     </div>
   );
 };
