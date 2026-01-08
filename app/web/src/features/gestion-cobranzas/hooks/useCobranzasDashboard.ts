@@ -66,18 +66,6 @@ const shouldDisplayCuenta = (cuenta: CuentaPorCobrarSummary) => {
   return hasPendingInstallments(cuenta) || hasOutstandingBalance(cuenta);
 };
 
-const isFullyPaidCobranza = (cobranza: CobranzaDocumento) => {
-  if (cobranza.estado === 'cancelado') {
-    return true;
-  }
-
-  if (typeof cobranza.installmentsInfo?.pending === 'number') {
-    return cobranza.installmentsInfo.pending <= 0;
-  }
-
-  return false;
-};
-
 type CobranzaWithDisplayAmount = CobranzaDocumento & { displayAmount: number };
 
 export const useCobranzasDashboard = () => {
@@ -155,19 +143,11 @@ export const useCobranzasDashboard = () => {
 
     return cobranzas
       .filter((cobranza) => {
-        if (!isFullyPaidCobranza(cobranza)) {
-          return false;
-        }
-
         if (!isInBusinessRange(cobranza.fechaCobranza, filters.rangoFechas.from, filters.rangoFechas.to)) {
           return false;
         }
 
         if (filters.cliente && !textIncludes(cobranza.clienteNombre, filters.cliente)) {
-          return false;
-        }
-
-        if (filters.estado !== 'todos' && cobranza.estado !== filters.estado) {
           return false;
         }
 
@@ -185,7 +165,7 @@ export const useCobranzasDashboard = () => {
         ...cobranza,
         displayAmount: resolveDisplayAmount(cobranza),
       }));
-  }, [cobranzas, cuentasPorComprobante, filters.cliente, filters.estado, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
+  }, [cobranzas, cuentasPorComprobante, filters.cliente, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
 
   const resumen = useMemo<CobranzasSummary>(() => {
     const totalDocumentosPendientes = filteredCuentas.length;
