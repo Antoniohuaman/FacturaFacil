@@ -31,7 +31,7 @@ export const CUENTAS_POR_COBRAR_COLUMNS: TableColumnDefinition<CuentasPorCobrarC
   { key: 'fechaEmision', label: 'F. emisión', defaultVisible: true, headerClassName: 'text-center', cellClassName: 'px-4 py-3 text-center' },
   { key: 'fechaVencimiento', label: 'F. vencimiento', defaultVisible: true, headerClassName: 'text-center', cellClassName: 'px-4 py-3 text-center' },
   { key: 'formaPago', label: 'Forma', defaultVisible: true, headerClassName: 'text-center', cellClassName: 'px-4 py-3 text-center' },
-  { key: 'cuotas', label: 'Cuotas', defaultVisible: true, headerClassName: 'text-center', cellClassName: 'px-4 py-3 text-center' },
+  { key: 'cuotas', label: 'CUOTAS PENDIENTES', defaultVisible: true, headerClassName: 'text-center whitespace-nowrap px-2 text-[11px] w-28', cellClassName: 'px-3 py-3 text-center w-28' },
   { key: 'total', label: 'Total', defaultVisible: true, headerClassName: 'text-right', cellClassName: 'px-4 py-3 text-right font-medium' },
   { key: 'cobrado', label: 'Cobrado', defaultVisible: true, headerClassName: 'text-right', cellClassName: 'px-4 py-3 text-right text-slate-500' },
   { key: 'saldo', label: 'Saldo', defaultVisible: true, headerClassName: 'text-right', cellClassName: 'px-4 py-3 text-right font-semibold' },

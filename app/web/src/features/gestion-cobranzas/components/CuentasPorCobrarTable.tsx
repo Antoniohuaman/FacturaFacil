@@ -67,19 +67,22 @@ const cuentasColumnRenderers: Record<CuentasPorCobrarColumnKey, CuentaCellRender
     const installmentStats = getCuentaInstallmentStats(cuenta);
     if (installmentStats && installmentStats.total > 0) {
       return (
-        <div className="flex flex-col items-center gap-0.5 text-slate-600">
+        <div className="flex flex-col items-center gap-1 text-slate-600">
           <span className="font-semibold text-slate-900 dark:text-white">
             {formatCuentaCuotasLabel(installmentStats)}
           </span>
-          <span className="text-[11px] text-slate-500">Cuotas pendientes</span>
-          {installmentStats.partial > 0 && (
-            <span className="text-[11px] text-amber-600">{installmentStats.partial} en parcial</span>
-          )}
-          {installmentStats.canceled > 0 && (
-            <span className="text-[11px] text-emerald-600">
-              {installmentStats.canceled} cancelada{installmentStats.canceled === 1 ? '' : 's'}
-            </span>
-          )}
+          <div className="flex flex-wrap items-center justify-center gap-1">
+            {installmentStats.partial > 0 && (
+              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-[2px] text-[11px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                {installmentStats.partial} en parcial
+              </span>
+            )}
+            {installmentStats.canceled > 0 && (
+              <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-[2px] text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                {installmentStats.canceled} cancelada{installmentStats.canceled === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
         </div>
       );
     }
