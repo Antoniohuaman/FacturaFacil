@@ -146,7 +146,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
             <tbody>
               {installments.map((installment) => {
                 const saldo = getSaldo(installment);
-                const estado = (installment.estado || 'pendiente').toUpperCase();
+                const estado = saldo <= TOLERANCE ? 'CANCELADO' : (installment.estado || 'pendiente').toUpperCase();
                 const allocatedAmount = allocationMap.get(installment.numeroCuota) ?? 0;
                 const isSelected = allocatedAmount > TOLERANCE;
                 const remainingAfterAllocation = Number(Math.max(0, saldo - allocatedAmount).toFixed(2));
