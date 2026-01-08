@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { normalizePaymentMethodLabel } from '@/shared/payments/normalizePaymentMethodLabel';
 
 // Hook consolidado para manejar el estado del comprobante
 export const useComprobanteState = () => {
@@ -25,9 +26,15 @@ export const useComprobanteState = () => {
     // Si no hay forma recién creada, usar el método por defecto
     const activePaymentMethods = paymentMethods.filter(pm => pm.isActive);
     if (activePaymentMethods.length > 0) {
-      // Buscar el método por defecto o el primero
-      const defaultPm = activePaymentMethods.find(pm => pm.isDefault) || activePaymentMethods[0];
-      return defaultPm.id;
+      const contadoMethod = activePaymentMethods.find(pm => pm.code === 'CONTADO');
+      if (contadoMethod) {
+        return contadoMethod.id;
+      }
+      const defaultPm = activePaymentMethods.find(pm => pm.isDefault);
+      if (defaultPm) {
+        return defaultPm.id;
+      }
+      return activePaymentMethods[0].id;
     }
     return 'pm-efectivo'; // Fallback
   }, [paymentMethods]);
@@ -57,7 +64,7 @@ export const useComprobanteState = () => {
   const getPaymentMethodLabel = useCallback((formaPagoId: string) => {
     const paymentMethod = paymentMethods.find(pm => pm.id === formaPagoId);
     if (paymentMethod) {
-      return paymentMethod.name.toUpperCase();
+      return normalizePaymentMethodLabel(paymentMethod.name).toUpperCase();
     }
     // Fallback para compatibilidad con valores antiguos
     const legacyPaymentMethods: { [key: string]: string } = {

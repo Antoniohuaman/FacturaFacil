@@ -264,7 +264,7 @@ const EmisionTradicional = () => {
   };
 
 
-  // Nota: la acción de crear un nuevo método de pago desde este formulario fue removida.
+  // Crear nuevo método de pago se gestiona ahora desde el dropdown de Forma de Pago (modal reutilizado).
 
   // Handlers (SIN CAMBIOS - exactamente igual que antes)
   const handleVistaPrevia = () => {

@@ -3,28 +3,13 @@ import { useEffect, useState } from 'react';
 import { CreditCard, Plus, Edit3, Trash2, Star, Eye, EyeOff, X } from 'lucide-react';
 import type { PaymentMethod } from '../../models/PaymentMethod';
 import { DefaultSelector } from '../common/DefaultSelector';
-import CreditScheduleEditor from './CreditScheduleEditor';
-import type { CreditInstallmentDefinition } from '../../../../shared/payments/paymentTerms';
-import { buildCreditPaymentMethodName, validateCreditScheduleTemplate } from '../../../../shared/payments/paymentTerms';
 import {
   PAYMENT_MEANS_CATALOG,
   loadPaymentMeansPreferences,
   savePaymentMeansPreferences,
 } from '../../../../shared/payments/paymentMeans';
-
-const normalizeLabel = (text: string) => {
-  const fallback = text
-    .replace(/Cr�dito/g, 'Crédito')
-    .replace(/d�as/g, 'días');
-  try {
-    // Attempt to recover UTF-8 strings that arrived mojibake-encoded
-    return decodeURIComponent(escape(fallback));
-  } catch {
-    return fallback;
-  }
-};
-
-// Catálogo SUNAT de medios de pago se mueve a shared/payments/paymentMeans
+import { normalizePaymentMethodLabel } from '../../../../shared/payments/normalizePaymentMethodLabel';
+import { CreditPaymentMethodModal } from '../../../../shared/payments/CreditPaymentMethodModal';
 
 interface PaymentMethodsSectionProps {
   paymentMethods: PaymentMethod[];
@@ -32,36 +17,25 @@ interface PaymentMethodsSectionProps {
   isLoading?: boolean;
 }
 
-export function PaymentMethodsSection({ 
-  paymentMethods, 
-  onUpdate, 
-  isLoading = false 
-}: PaymentMethodsSectionProps) {
+export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = false }: PaymentMethodsSectionProps) {
   const initialPrefs = loadPaymentMeansPreferences();
 
   const [activeTab, setActiveTab] = useState<'forms' | 'means'>('forms');
-  const [labelByCode, setLabelByCode] = useState<Record<string, string>>(() =>
-    ({ ...initialPrefs.labelByCode })
-  );
-  const [visibleByCode, setVisibleByCode] = useState<Record<string, boolean>>(() =>
-    ({ ...initialPrefs.visibleByCode })
-  );
-  const [favoriteByCode, setFavoriteByCode] = useState<Record<string, boolean>>(() =>
-    ({ ...initialPrefs.favoriteByCode })
-  );
+  const [labelByCode, setLabelByCode] = useState<Record<string, string>>(() => ({ ...initialPrefs.labelByCode }));
+  const [visibleByCode, setVisibleByCode] = useState<Record<string, boolean>>(() => ({ ...initialPrefs.visibleByCode }));
+  const [favoriteByCode, setFavoriteByCode] = useState<Record<string, boolean>>(() => ({ ...initialPrefs.favoriteByCode }));
   const [defaultCode, setDefaultCode] = useState<string | null>(initialPrefs.defaultCode);
   const [editingMeanCode, setEditingMeanCode] = useState<string | null>(null);
-  const [meanDraft, setMeanDraft] = useState<{ label: string; visible: boolean; favorite: boolean; isDefault: boolean }>({
-    label: '',
-    visible: true,
-    favorite: false,
-    isDefault: false,
-  });
+  const [meanDraft, setMeanDraft] = useState<{ label: string; visible: boolean; favorite: boolean; isDefault: boolean }>(
+    {
+      label: '',
+      visible: true,
+      favorite: false,
+      isDefault: false,
+    }
+  );
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<{ code: string; name: string; creditSchedule: CreditInstallmentDefinition[] }>({ code: 'CREDITO', name: '', creditSchedule: [] });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [editingCredit, setEditingCredit] = useState<PaymentMethod | null>(null);
 
   useEffect(() => {
     savePaymentMeansPreferences({
@@ -72,7 +46,6 @@ export function PaymentMethodsSection({
     });
   }, [labelByCode, visibleByCode, favoriteByCode, defaultCode]);
 
-  // Agrupar métodos por código normativo (CONTADO vs CREDITO)
   const contadoMethods = paymentMethods.filter(pm => pm.code === 'CONTADO');
   const creditoMethods = paymentMethods.filter(pm => pm.code === 'CREDITO');
   const editingMean = editingMeanCode
@@ -92,43 +65,19 @@ export function PaymentMethodsSection({
     });
   }, [editingMeanCode, labelByCode, visibleByCode, favoriteByCode, defaultCode]);
 
-  const resetForm = () => {
-    setFormData({ code: 'CREDITO', name: '', creditSchedule: [] });
-    setEditingId(null);
+  const handleCloseCreditModal = () => {
     setShowForm(false);
-    setFormErrors([]);
+    setEditingCredit(null);
   };
 
   const openNewCreditForm = () => {
-    setFormData({ code: 'CREDITO', name: '', creditSchedule: [] });
-    setEditingId(null);
-    setFormErrors([]);
+    setEditingCredit(null);
     setShowForm(true);
   };
 
   const handleEdit = (method: PaymentMethod) => {
-    const schedule = method.creditSchedule ? [...method.creditSchedule] : [];
-    setFormData({ code: method.code, name: method.name, creditSchedule: schedule });
-    setEditingId(method.id);
+    setEditingCredit(method);
     setShowForm(true);
-    setFormErrors([]);
-  };
-
-  const handleCreditScheduleChange = (schedule: CreditInstallmentDefinition[]) => {
-    const hasMeaningfulInstallment = schedule.some((item) =>
-      ((item.diasCredito ?? 0) !== 0) || ((item.porcentaje ?? 0) !== 0)
-    );
-
-    setFormData(prev => ({
-      ...prev,
-      creditSchedule: schedule,
-      name: hasMeaningfulInstallment
-        ? buildCreditPaymentMethodName(schedule)
-        : (editingId ? prev.name : ''),
-    }));
-    if (formErrors.length) {
-      setFormErrors([]);
-    }
   };
 
   const toggleVisibleMean = (code: string) => {
@@ -185,101 +134,6 @@ export function PaymentMethodsSection({
     closeMeanEditor();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const normalizedName =
-      formData.code === 'CREDITO'
-        ? formData.name.trim()
-        : formData.name.trim();
-
-    if (!formData.code.trim() || !normalizedName.trim()) return;
-
-    if (!['CONTADO', 'CREDITO'].includes(formData.code)) {
-      alert('El codigo debe ser CONTADO o CREDITO');
-      return;
-    }
-
-    if (formData.code === 'CREDITO' && formData.creditSchedule.length > 0) {
-      const scheduleErrors = validateCreditScheduleTemplate(formData.creditSchedule);
-      if (scheduleErrors.length > 0) {
-        setFormErrors(scheduleErrors);
-        return;
-      }
-    }
-
-    setFormErrors([]);
-    setIsSubmitting(true);
-
-    try {
-      const normalizedSchedule =
-        formData.code === 'CREDITO' && formData.creditSchedule.length > 0
-          ? formData.creditSchedule
-          : undefined;
-      let updatedMethods: PaymentMethod[];
-
-      if (editingId) {
-        updatedMethods = paymentMethods.map(pm =>
-          pm.id === editingId
-            ? {
-                ...pm,
-                name: normalizedName,
-                creditSchedule: pm.code === 'CREDITO' ? normalizedSchedule : undefined
-              }
-            : pm
-        );
-      } else {
-        const newMethod: PaymentMethod = {
-          id: Date.now().toString(),
-          code: formData.code, // CONTADO o CREDITO
-          name: normalizedName,
-          type: formData.code === 'CONTADO' ? 'CASH' : 'CREDIT',
-          sunatCode: formData.code === 'CONTADO' ? '001' : '002', // C�digo SUNAT
-          sunatDescription: normalizedName,
-          configuration: {
-            requiresReference: false,
-            allowsPartialPayments: true,
-            requiresValidation: false,
-            hasCommission: false,
-            requiresCustomerData: false,
-            allowsCashBack: false,
-            requiresSignature: false
-          },
-          financial: {
-            affectsCashFlow: true,
-            settlementPeriod: 'IMMEDIATE'
-          },
-          display: {
-            icon: 'MoreHorizontal',
-            color: '#6b7280',
-            displayOrder: paymentMethods.length + 1,
-            isVisible: true,
-            showInPos: true,
-            showInInvoicing: true
-          },
-          validation: {
-            documentTypes: [],
-            customerTypes: ['INDIVIDUAL', 'BUSINESS'],
-            allowedCurrencies: ['PEN']
-          },
-          creditSchedule: normalizedSchedule,
-          isDefault: false,
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        updatedMethods = [...paymentMethods, newMethod];
-
-        sessionStorage.setItem('lastCreatedPaymentMethod', newMethod.id);
-      }
-
-      await onUpdate(updatedMethods);
-      resetForm();
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const toggleDefault = async (methodId: string) => {
     const updatedMethods = paymentMethods.map(pm => ({
       ...pm,
@@ -289,12 +143,9 @@ export function PaymentMethodsSection({
   };
 
   const toggleFavorite = async (methodId: string) => {
-    // Since isFavorite doesn't exist in the interface, we'll use displayOrder as a workaround
-    // Methods with lower displayOrder (1-5) could be considered "favorites"
     const updatedMethods = paymentMethods.map(pm => {
       if (pm.id === methodId) {
         const currentOrder = pm.display.displayOrder;
-        // Toggle between favorite (low number) and normal (high number)
         const newOrder = currentOrder <= 5 ? currentOrder + 100 : currentOrder - 100;
         return { 
           ...pm, 
@@ -308,7 +159,7 @@ export function PaymentMethodsSection({
 
   const toggleVisibility = async (methodId: string) => {
     const method = paymentMethods.find(pm => pm.id === methodId);
-    if (method?.isDefault) return; // Can't hide default method
+    if (method?.isDefault) return;
 
     const updatedMethods = paymentMethods.map(pm =>
       pm.id === methodId ? { 
@@ -348,7 +199,6 @@ export function PaymentMethodsSection({
 
     return (
       <>
-        {/* Métodos de CONTADO */}
         {contadoMethods.length > 0 && (
           <div>
             <h4 className="mb-3 flex items-center space-x-2 text-sm font-semibold text-gray-700">
@@ -364,7 +214,7 @@ export function PaymentMethodsSection({
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">{normalizeLabel(method.name)}</span>
+                        <span className="font-medium text-gray-900">{normalizePaymentMethodLabel(method.name)}</span>
                         <span className="rounded bg-green-50 px-2 py-1 font-mono text-xs text-gray-500">
                           {method.code}
                         </span>
@@ -404,20 +254,10 @@ export function PaymentMethodsSection({
 
                     <button
                       onClick={() => handleEdit(method)}
-                      className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100"
-                      title={method.id === 'pm-efectivo' ? 'No editable' : 'Editar'}
-                      disabled={method.id === 'pm-efectivo'}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
                     >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      onClick={() => deleteMethod(method.id)}
-                      disabled={method.isDefault}
-                      className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="h-4 w-4" />
+                      <Edit3 className="mr-1 h-4 w-4" />
+                      Editar
                     </button>
                   </div>
                 </div>
@@ -426,100 +266,84 @@ export function PaymentMethodsSection({
           </div>
         )}
 
-        {/* Métodos de CREDITO */}
-        {creditoMethods.length > 0 && (
-          <div>
-            <h4 className="mb-3 flex items-center space-x-2 text-md font-medium text-gray-700">
-              <CreditCard className="h-4 w-4 text-blue-600" />
-              <span>Créditos</span>
-              <span className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800">
-                {creditoMethods.length} crédito{creditoMethods.length !== 1 ? 's' : ''}
-              </span>
-            </h4>
-            <div className="space-y-2">
-              {creditoMethods.map((method) => (
-                <div key={method.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 transition-colors hover:border-blue-300">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
-                      <CreditCard className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">{normalizeLabel(method.name)}</span>
-                        <span className="rounded bg-blue-50 px-2 py-1 font-mono text-xs text-gray-500">
-                          {method.code}
-                        </span>
-                        {method.display.displayOrder <= 5 && <Star className="h-4 w-4 fill-current text-yellow-500" />}
-                        {!method.display.isVisible && <EyeOff className="h-4 w-4 text-gray-400" />}
-                      </div>
-                    </div>
+        <div>
+          <h4 className="mb-3 flex items-center space-x-2 text-sm font-semibold text-gray-700">
+            <CreditCard className="h-4 w-4 text-blue-600" />
+            <span>Pagos a crédito</span>
+          </h4>
+          <div className="space-y-2">
+            {creditoMethods.map((method) => (
+              <div key={method.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 transition-colors hover:border-blue-300">
+                <div className="flex items-center space-x-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                    <CreditCard className="h-4 w-4 text-blue-600" />
                   </div>
-
-                  <div className="flex items-center space-x-2">
-                    <DefaultSelector
-                      isDefault={method.isDefault}
-                      onSetDefault={() => toggleDefault(method.id)}
-                      size="sm"
-                    />
-
-                    <button
-                      onClick={() => toggleFavorite(method.id)}
-                      className={`rounded-lg p-2 transition-colors ${
-                        method.display.displayOrder <= 5
-                          ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
-                          : 'text-gray-400 hover:bg-gray-100 hover:text-yellow-500'
-                      }`}
-                      title={method.display.displayOrder <= 5 ? 'Quitar de favoritos' : 'Marcar como favorito'}
-                    >
-                      <Star className={`h-4 w-4 ${method.display.displayOrder <= 5 ? 'fill-current' : ''}`} />
-                    </button>
-
-                    <button
-                      onClick={() => toggleVisibility(method.id)}
-                      disabled={method.isDefault}
-                      className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={method.display.isVisible ? 'Ocultar' : 'Mostrar'}
-                    >
-                      {method.display.isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                    </button>
-
-                    <button
-                      onClick={() => handleEdit(method)}
-                      className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100"
-                      title="Editar"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      onClick={() => deleteMethod(method.id)}
-                      disabled={method.isDefault}
-                      className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium text-gray-900">{normalizePaymentMethodLabel(method.name)}</span>
+                      <span className="rounded bg-blue-50 px-2 py-1 font-mono text-xs text-gray-500">
+                        {method.code}
+                      </span>
+                      {method.display.displayOrder <= 5 && <Star className="h-4 w-4 fill-current text-yellow-500" />}
+                      {!method.display.isVisible && <EyeOff className="h-4 w-4 text-gray-400" />}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Empty State */}
-        {paymentMethods.length === 0 && (
-          <div className="py-12 text-center">
-            <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">No hay créditos</h3>
-            <p className="mt-2 text-gray-500">Agrega tu primer crédito</p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
-            >
-              Nuevo crédito
-            </button>
+                <div className="flex items-center space-x-2">
+                  <DefaultSelector
+                    isDefault={method.isDefault}
+                    onSetDefault={() => toggleDefault(method.id)}
+                    size="sm"
+                  />
+
+                  <button
+                    onClick={() => toggleFavorite(method.id)}
+                    className={`rounded-lg p-2 transition-colors ${
+                      method.display.displayOrder <= 5
+                        ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
+                        : 'text-gray-400 hover:bg-gray-100 hover:text-yellow-500'
+                    }`}
+                    title={method.display.displayOrder <= 5 ? 'Quitar de favoritos' : 'Marcar como favorito'}
+                  >
+                    <Star className={`h-4 w-4 ${method.display.displayOrder <= 5 ? 'fill-current' : ''}`} />
+                  </button>
+
+                  <button
+                    onClick={() => toggleVisibility(method.id)}
+                    disabled={method.isDefault}
+                    className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    title={method.display.isVisible ? 'Ocultar' : 'Mostrar'}
+                  >
+                    {method.display.isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </button>
+
+                  <button
+                    onClick={() => handleEdit(method)}
+                    className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                  >
+                    <Edit3 className="mr-1 h-4 w-4" />
+                    Editar
+                  </button>
+
+                  <button
+                    onClick={() => deleteMethod(method.id)}
+                    disabled={method.isDefault}
+                    className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-500 transition-colors hover:border-red-300 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    <Trash2 className="mr-1 h-4 w-4" />
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+            {paymentMethods.length === 0 && (
+              <div className="rounded-lg border border-dashed border-gray-300 bg-white p-3 text-sm text-gray-500">
+                No hay formas de pago registradas.
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </>
     );
   };
@@ -630,7 +454,6 @@ export function PaymentMethodsSection({
         {activeTab === 'forms' && (
           <button
             onClick={openNewCreditForm}
-            disabled={isSubmitting}
             className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
@@ -740,84 +563,13 @@ export function PaymentMethodsSection({
         </div>
       )}
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
-          <div
-            className="w-full overflow-hidden rounded-2xl bg-white shadow-2xl"
-            style={{ width: 'min(92vw, 520px)' }}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">{editingId ? 'Editar crédito' : 'Nuevo crédito'}</h3>
-                <p className="text-[11px] text-slate-500">Se genera automáticamente según tus cuotas.</p>
-              </div>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Cerrar"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="max-h-[80vh] overflow-y-auto px-4 py-3 space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">Nombre</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  readOnly
-                  className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
-                  placeholder=""
-                  required
-                  maxLength={50}
-                />
-                <p className="text-[11px] text-slate-500">Se autogenera según las cuotas.</p>
-              </div>
-
-              <div className="space-y-2 rounded-xl border border-slate-200 bg-white/60 p-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h5 className="text-sm font-semibold text-slate-800">Cronograma por defecto</h5>
-                    <p className="text-[11px] text-slate-500">Define cuotas sugeridas (editable durante emisión).</p>
-                  </div>
-                  <span className="text-[11px] text-slate-500">Opcional</span>
-                </div>
-                <CreditScheduleEditor value={formData.creditSchedule} onChange={handleCreditScheduleChange} compact />
-                {formErrors.length > 0 && (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-                    <ul className="list-disc pl-4 space-y-1">
-                      {formErrors.map((error) => (
-                        <li key={error}>{error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  disabled={isSubmitting}
-                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !formData.code.trim() || !formData.name.trim()}
-                  className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isSubmitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-                  <span>{editingId ? 'Actualizar' : 'Crear'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CreditPaymentMethodModal
+        open={showForm}
+        onClose={handleCloseCreditModal}
+        paymentMethods={paymentMethods}
+        editingMethod={editingCredit}
+        onUpdatePaymentMethods={onUpdate}
+      />
     </div>
   );
 }

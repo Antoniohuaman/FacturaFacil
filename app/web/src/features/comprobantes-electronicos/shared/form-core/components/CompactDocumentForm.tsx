@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
+import type { PaymentMethod as ConfigurationPaymentMethod } from '../../../../configuracion-sistema/models/PaymentMethod';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
 import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
 import type { TipoComprobante, Currency } from '../../../models/comprobante.types';
@@ -34,6 +35,8 @@ import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
 import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
 import { normalizeKey } from '@/features/gestion-clientes/utils/documents';
 import { usePriceProfilesCatalog } from '../../../../lista-precios/hooks/usePriceProfilesCatalog';
+import { CreditPaymentMethodModal } from '@/shared/payments/CreditPaymentMethodModal';
+import { normalizePaymentMethodLabel } from '@/shared/payments/normalizePaymentMethodLabel';
 
 import {
   buildClientDocKey,
@@ -186,9 +189,10 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   onLookupClientSelected,
 }) => {
   const { resolveProfileId } = usePriceProfilesCatalog();
-  const { state } = useConfigurationContext();
+  const { state, dispatch } = useConfigurationContext();
   const { paymentMethods } = state;
   const { config } = useFieldsConfiguration();
+  const CREATE_CREDIT_OPTION = '__create_credit__';
 
   // Estados para cliente
   const [showClienteForm, setShowClienteForm] = useState(false);
@@ -219,6 +223,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     email: '',
     additionalData: ''
   });
+  const [showCreditPaymentMethodModal, setShowCreditPaymentMethodModal] = useState(false);
+  const [lastValidFormaPago, setLastValidFormaPago] = useState<string>(formaPago);
 
   useEffect(() => {
     const mapped = mapSelectedClienteFromProps(clienteSeleccionado);
@@ -242,6 +248,34 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       return mapped;
     });
   }, [clienteSeleccionado]);
+
+  useEffect(() => {
+    setLastValidFormaPago(formaPago);
+  }, [formaPago]);
+
+  const handlePersistPaymentMethods = (methods: ConfigurationPaymentMethod[]) => {
+    dispatch({ type: 'SET_PAYMENT_METHODS', payload: methods });
+  };
+
+  const handleCloseCreditModal = () => setShowCreditPaymentMethodModal(false);
+
+  const handleCreditCreated = (createdMethod: ConfigurationPaymentMethod) => {
+    setFormaPago?.(createdMethod.id);
+    setLastValidFormaPago(createdMethod.id);
+    setShowCreditPaymentMethodModal(false);
+  };
+
+  const handleFormaPagoChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = event.target.value;
+    if (value === CREATE_CREDIT_OPTION) {
+      setShowCreditPaymentMethodModal(true);
+      return;
+    }
+    setLastValidFormaPago(value);
+    setFormaPago?.(value);
+  };
+
+  const resolvedFormaPago = formaPago || lastValidFormaPago || (paymentMethods.find(pm => pm.isActive)?.id ?? '');
 
   // Tipos de documento y cliente
   const documentTypes = [
@@ -880,18 +914,24 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <select
                     id="forma-pago"
                     className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
-                    value={formaPago}
-                    onChange={e => setFormaPago?.(e.target.value)}
+                    value={resolvedFormaPago || CREATE_CREDIT_OPTION}
+                    onChange={handleFormaPagoChange}
                   >
                     {paymentMethods.length > 0 ? (
-                      paymentMethods
-                        .filter(pm => pm.isActive)
-                        .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
-                        .map(pm => (
-                          <option key={pm.id} value={pm.id}>{pm.name}</option>
-                        ))
+                      <>
+                        {paymentMethods
+                          .filter(pm => pm.isActive)
+                          .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
+                          .map(pm => (
+                            <option key={pm.id} value={pm.id}>{normalizePaymentMethodLabel(pm.name)}</option>
+                          ))}
+                        <option value={CREATE_CREDIT_OPTION}>+ Crear crédito (cuotas)</option>
+                      </>
                     ) : (
-                      <option value="contado">Contado (por defecto)</option>
+                      <>
+                        <option value="contado">Contado (por defecto)</option>
+                        <option value={CREATE_CREDIT_OPTION}>+ Crear crédito (cuotas)</option>
+                      </>
                     )}
                   </select>
                   <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -1038,6 +1078,15 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
           </div>
         </div>
       </ConfigurationCard>
+
+      <CreditPaymentMethodModal
+        open={showCreditPaymentMethodModal}
+        onClose={handleCloseCreditModal}
+        paymentMethods={paymentMethods}
+        onUpdatePaymentMethods={handlePersistPaymentMethods}
+        editingMethod={null}
+        onCreated={handleCreditCreated}
+      />
 
       {/* Modal para crear/editar cliente */}
       {showClienteForm && (
