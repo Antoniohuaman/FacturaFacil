@@ -30,7 +30,7 @@ export const ProductNameField: React.FC<SharedFieldProps> = ({ formData, setForm
           value={formData.nombre}
           onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
           className={`
-            w-full h-10 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+            w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
             ${errors.nombre ? 'border-red-300 bg-red-50' : 'border-gray-300'}
           `}
           placeholder="Ingresa el nombre del producto"
@@ -56,7 +56,7 @@ export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setForm
             value={formData.codigo}
             onChange={(e) => setFormData(prev => ({ ...prev, codigo: e.target.value }))}
             className={`
-              w-full h-10 pl-9 pr-3 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+              w-full h-9 pl-9 pr-3 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
               ${errors.codigo ? 'border-red-300 bg-red-50' : 'border-gray-300'}
             `}
             placeholder="Código único"
@@ -64,7 +64,7 @@ export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setForm
         </div>
         <button
           type="button"
-          className="px-3 h-8 bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors self-end"
+          className="px-3 h-9 bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors"
           onClick={() => {
             const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
             setFormData(prev => ({ ...prev, codigo: randomCode }));
@@ -106,7 +106,7 @@ export const ProductBarcodeField: React.FC<SharedFieldProps & VisibilityProps> =
           value={formData.codigoBarras ?? ''}
           onChange={(e) => handleBarcodeChange(e.target.value)}
           className={`
-            w-full h-10 pl-9 pr-3 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500
+            w-full h-9 pl-9 pr-3 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500
             ${errors.codigoBarras ? 'border-red-300 bg-red-50' : 'border-gray-300'}
           `}
           placeholder="8-14 dígitos"
@@ -144,7 +144,7 @@ export const ProductAliasField: React.FC<SharedFieldProps & VisibilityProps> = (
           value={formData.alias}
           onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
           className={`
-            w-full h-10 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+            w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
             ${errors.alias ? 'border-red-300 bg-red-50' : 'border-gray-300'}
           `}
           placeholder="Nombre alternativo"
@@ -185,7 +185,7 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
             value={formData.categoria}
             onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
             className={`
-              w-full h-10 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+              w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
               ${errors.categoria ? 'border-red-300 bg-red-50' : 'border-gray-300'}
             `}
           >
@@ -199,7 +199,7 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
         </div>
         <button
           type="button"
-          className="px-3 h-10 text-xs text-violet-600 border border-violet-300 rounded-md hover:bg-violet-50 transition-colors whitespace-nowrap"
+          className="px-3 h-9 text-xs text-violet-600 border border-violet-300 rounded-md hover:bg-violet-50 transition-colors whitespace-nowrap"
           onClick={onOpenCategoryModal}
         >
           Crear categoría
@@ -232,7 +232,7 @@ export const ProductBrandField: React.FC<SharedFieldProps & VisibilityProps> = (
           id="marca"
           value={formData.marca}
           onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
-          className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Marca del producto"
         />
       </div>
@@ -263,7 +263,7 @@ export const ProductModelField: React.FC<SharedFieldProps & VisibilityProps> = (
           id="modelo"
           value={formData.modelo}
           onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
-          className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Modelo del producto"
         />
       </div>

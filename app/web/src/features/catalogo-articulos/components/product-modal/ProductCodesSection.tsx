@@ -34,7 +34,7 @@ export const ProductFactoryCodeField: React.FC<ProductCodesFieldProps> = ({
           id="codigoFabrica"
           value={formData.codigoFabrica}
           onChange={(e) => setFormData(prev => ({ ...prev, codigoFabrica: e.target.value }))}
-          className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Código del fabricante"
         />
       </div>
@@ -65,7 +65,7 @@ export const ProductSunatCodeField: React.FC<ProductCodesFieldProps> = ({
           id="codigoSunat"
           value={formData.codigoSunat}
           onChange={(e) => setFormData(prev => ({ ...prev, codigoSunat: e.target.value }))}
-          className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Código tributario"
         />
       </div>
@@ -98,7 +98,7 @@ export const ProductExistenceTypeField: React.FC<ProductCodesFieldProps> = ({
             setFormData(prev => ({ ...prev, tipoExistencia: e.target.value as ProductFormData['tipoExistencia'] }))
           }
           className={`
-            w-full h-10 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+            w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
             ${errors.tipoExistencia ? 'border-red-300 bg-red-50' : 'border-gray-300'}
           `}
         >

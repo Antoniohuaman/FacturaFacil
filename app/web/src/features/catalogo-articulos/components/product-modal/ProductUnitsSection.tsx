@@ -82,7 +82,7 @@ export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
             id="unidad"
             value={formData.unidad}
             onChange={(e) => handleBaseUnitChange(e.target.value as ProductFormData['unidad'])}
-            className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+            className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           >
             {baseUnitOptions.length > 0 ? (
               baseUnitOptions.map(unit => (

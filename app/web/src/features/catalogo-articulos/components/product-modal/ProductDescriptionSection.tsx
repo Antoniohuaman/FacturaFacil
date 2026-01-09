@@ -89,7 +89,7 @@ export const ProductWeightField: React.FC<ProductWeightFieldProps> = ({
           min="0"
           value={formData.peso}
           onChange={(e) => setFormData(prev => ({ ...prev, peso: parseFloat(e.target.value) || 0 }))}
-          className="w-full h-10 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="0.000"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">KG</div>

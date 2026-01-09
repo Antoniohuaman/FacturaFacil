@@ -36,7 +36,7 @@ export const ProductPurchasePriceField: React.FC<ProductFinancialSectionProps> =
           min="0"
           value={formData.precioCompra}
           onChange={(e) => setFormData(prev => ({ ...prev, precioCompra: parseFloat(e.target.value) || 0 }))}
-          className="w-full h-10 pl-16 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-16 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="0.00"
         />
       </div>
@@ -72,7 +72,7 @@ export const ProductProfitPercentField: React.FC<ProductFinancialSectionProps> =
           onChange={(e) =>
             setFormData(prev => ({ ...prev, porcentajeGanancia: parseFloat(e.target.value) || 0 }))
           }
-          className="w-full h-10 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="0.00"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>
@@ -109,7 +109,7 @@ export const ProductDiscountField: React.FC<ProductFinancialSectionProps> = ({
           onChange={(e) =>
             setFormData(prev => ({ ...prev, descuentoProducto: parseFloat(e.target.value) || 0 }))
           }
-          className="w-full h-10 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="0.00"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>

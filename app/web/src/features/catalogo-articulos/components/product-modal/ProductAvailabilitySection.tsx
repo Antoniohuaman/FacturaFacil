@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Building2 } from 'lucide-react';
 import type { Establishment } from '../../../configuracion-sistema/models/Establishment';
 import type { ProductFormData } from '../../models/types';
@@ -17,6 +17,10 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
   establishments,
   errors
 }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
   const handleToggleAll = () => {
     const allSelected = formData.establecimientoIds.length === establishments.length;
     setFormData(prev => ({
@@ -35,118 +39,156 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
     }));
   };
 
+  const selectedCount = formData.disponibleEnTodos ? establishments.length : formData.establecimientoIds.length;
+
+  const triggerLabel = useMemo(() => {
+    if (establishments.length === 0) return 'No hay establecimientos activos';
+    if (formData.disponibleEnTodos) return 'Disponible en todos';
+    if (selectedCount === 0) return 'Seleccionar establecimientos';
+    return `${selectedCount} seleccionado(s)`;
+  }, [establishments.length, formData.disponibleEnTodos, selectedCount]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    const onMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if (triggerRef.current?.contains(target)) return;
+      setIsOpen(false);
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('mousedown', onMouseDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [isOpen]);
+
   return (
-    <div className="border border-purple-300 rounded-md bg-purple-50/30 p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-gray-900 flex items-center gap-1.5">
-          <Building2 className="w-3.5 h-3.5 text-purple-600" />
-          Establecimientos <span className="text-red-500">*</span>
-        </label>
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-gray-900 flex items-center gap-1.5">
+        <Building2 className="w-3.5 h-3.5 text-violet-600" />
+        Establecimientos <span className="text-red-500">*</span>
+      </label>
+
+      <div className="relative">
         <button
+          ref={triggerRef}
           type="button"
-          onClick={handleToggleAll}
-          className={`
-            relative inline-flex h-4 w-8 items-center rounded-full transition-colors focus:outline-none focus:ring-1 focus:ring-purple-500
-            ${allSelected ? 'bg-purple-600' : 'bg-gray-300'}
-          `}
-          title={allSelected ? 'Desmarcar todos' : 'Marcar todos'}
+          disabled={establishments.length === 0}
+          onClick={() => setIsOpen(prev => !prev)}
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          aria-label="Seleccionar establecimientos"
+          className="w-full h-9 px-3 rounded-md border border-gray-300 bg-white text-sm text-left flex items-center justify-between gap-3 hover:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500/30 disabled:bg-gray-50 disabled:text-gray-400"
         >
-          <span
-            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-              allSelected ? 'translate-x-4.5' : 'translate-x-0.5'
-            }`}
-          />
+          <span className="truncate">{triggerLabel}</span>
+          <span className="text-xs text-gray-500">{isOpen ? '▲' : '▼'}</span>
         </button>
-      </div>
 
-      <button
-        type="button"
-        onClick={handleDisponibleEnTodos}
-        className={`w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-medium border rounded transition-colors ${
-          formData.disponibleEnTodos
-            ? 'bg-purple-100 border-purple-300 text-purple-800'
-            : 'bg-white border-gray-200 text-gray-700 hover:border-purple-200'
-        }`}
-      >
-        Disponible en todos los establecimientos
-        <span
-          className={`inline-flex h-4 w-7 items-center rounded-full transition-colors ${
-            formData.disponibleEnTodos ? 'bg-purple-600' : 'bg-gray-300'
-          }`}
-        >
-          <span
-            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-              formData.disponibleEnTodos ? 'translate-x-3' : 'translate-x-0.5'
-            }`}
-          />
-        </span>
-      </button>
-
-      <div className="space-y-1.5 max-h-40 overflow-y-auto">
-        {establishments.length === 0 ? (
-          <div className="text-center py-4 text-gray-500">
-            <Building2 className="w-8 h-8 mx-auto mb-1 text-gray-300" />
-            <p className="text-xs font-medium">No hay establecimientos activos</p>
-          </div>
-        ) : (
-          establishments.map(est => {
-            const isSelected = formData.establecimientoIds.includes(est.id);
-            return (
-              <label
-                key={est.id}
-                className={`
-                  flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer transition-all
-                  ${
-                    isSelected
-                      ? 'bg-purple-100 border-purple-300'
-                      : 'bg-white border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
-                  }
-                `}
+        {isOpen && (
+          <div
+            ref={panelRef}
+            role="dialog"
+            aria-label="Lista de establecimientos"
+            className="absolute z-20 mt-2 w-full rounded-lg border border-gray-200 bg-white shadow-lg"
+          >
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+              <button
+                type="button"
+                onClick={handleDisponibleEnTodos}
+                className={`inline-flex items-center gap-2 text-[11px] font-semibold px-2 py-1 rounded-md border transition-colors ${
+                  formData.disponibleEnTodos
+                    ? 'bg-violet-50 border-violet-200 text-violet-800'
+                    : 'bg-white border-gray-200 text-gray-700 hover:border-violet-200'
+                }`}
               >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  disabled={formData.disponibleEnTodos}
-                  onChange={(e) => {
-                    const newIds = e.target.checked
-                      ? [...formData.establecimientoIds, est.id]
-                      : formData.establecimientoIds.filter(id => id !== est.id);
-                    setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
-                  }}
-                  className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-1 disabled:opacity-50"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-200 text-purple-800 rounded">
+                Disponible en todos
+                <span
+                  className={`inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                    formData.disponibleEnTodos ? 'bg-violet-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                      formData.disponibleEnTodos ? 'translate-x-3' : 'translate-x-0.5'
+                    }`}
+                  />
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleToggleAll}
+                disabled={establishments.length === 0}
+                className="text-[11px] font-semibold text-gray-700 hover:text-violet-700 disabled:text-gray-400"
+                title={allSelected ? 'Desmarcar todos' : 'Marcar todos'}
+              >
+                {allSelected ? 'Desmarcar todos' : 'Marcar todos'}
+              </button>
+            </div>
+
+            <div className="max-h-56 overflow-y-auto p-2">
+              {establishments.map(est => {
+                const isSelected = formData.establecimientoIds.includes(est.id);
+                return (
+                  <label
+                    key={est.id}
+                    className={`flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer transition-colors ${
+                      isSelected ? 'bg-violet-50' : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={formData.disponibleEnTodos}
+                      onChange={(e) => {
+                        const newIds = e.target.checked
+                          ? [...formData.establecimientoIds, est.id]
+                          : formData.establecimientoIds.filter(id => id !== est.id);
+                        setFormData(prev => ({ ...prev, establecimientoIds: newIds }));
+                      }}
+                      className="w-3.5 h-3.5 text-violet-600 border-gray-300 rounded focus:ring-violet-500 focus:ring-1 disabled:opacity-50"
+                    />
+                    <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-gray-100 text-gray-700 rounded">
                       {est.code}
                     </span>
-                    <p className="text-xs font-medium text-gray-900 truncate">{est.name}</p>
-                  </div>
-                </div>
-                {isSelected && (
-                  <svg className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )}
-              </label>
-            );
-          })
+                    <span className="text-xs font-medium text-gray-900 truncate">{est.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100">
+              <p className="text-[10px] text-gray-600">
+                {formData.disponibleEnTodos
+                  ? 'Disponible en todos los establecimientos activos'
+                  : `${formData.establecimientoIds.length} de ${establishments.length} seleccionado(s)`}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  triggerRef.current?.focus();
+                }}
+                className="text-[11px] font-semibold text-violet-700 hover:text-violet-800"
+              >
+                Listo
+              </button>
+            </div>
+          </div>
         )}
       </div>
-
-      {establishments.length > 0 && (
-        <div className="flex items-center justify-between pt-1.5 border-t border-purple-200">
-          <p className="text-[10px] text-gray-600">
-            {formData.disponibleEnTodos
-              ? 'Disponible en todos los establecimientos activos'
-              : `${formData.establecimientoIds.length} de ${establishments.length} seleccionado(s)`}
-          </p>
-        </div>
-      )}
 
       {errors.establecimientoIds && (
         <div className="flex items-center gap-1.5 p-2 bg-red-50 border border-red-300 rounded">

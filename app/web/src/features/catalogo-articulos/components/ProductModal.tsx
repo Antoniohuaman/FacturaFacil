@@ -120,8 +120,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
-      <div className="relative w-full max-w-[1120px] max-h-[80vh] flex flex-col bg-white rounded-lg shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white rounded-t-lg">
+      <div className="relative w-full max-w-[1040px] max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-200 bg-white rounded-t-lg">
           <h3 className="text-base font-semibold text-gray-900">
             {product ? 'Editar producto' : 'Nuevo producto / servicio'}
           </h3>
@@ -146,12 +146,12 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-3">
           <ProductTypeSelector productType={productType} onChange={setProductType} />
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* A) DEFAULT / OBLIGATORIO */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
               <div className="lg:col-span-7 space-y-4">
                 {/* 2. Código (+ barcode cerca si aplica) */}
                 <ProductCodeField formData={formData} setFormData={setFormData} errors={errors} />
@@ -195,7 +195,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
             <ProductNameField formData={formData} setFormData={setFormData} errors={errors} />
 
             {/* 6-7. Unidades: familia + unidad mínima (fila) + presentaciones debajo */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <ProductUnitsSection
                 formData={formData}
                 errors={errors}
@@ -221,7 +221,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
             </div>
 
             {/* B) CAMPOS COMPLEMENTARIOS */}
-            <div className="space-y-5">
+            <div className="space-y-4">
               {/* 8. Categoría + Alias */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div className="md:col-span-6">

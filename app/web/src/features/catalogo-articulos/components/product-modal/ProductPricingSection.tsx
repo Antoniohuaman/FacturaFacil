@@ -32,7 +32,7 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
           id="impuesto"
           value={formData.impuesto}
           onChange={(e) => setFormData(prev => ({ ...prev, impuesto: e.target.value }))}
-          className="w-full h-10 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
         >
           <option value="IGV (18.00%)">IGV (18.00%)</option>
           <option value="IGV (10.00%)">IGV (10.00%)</option>

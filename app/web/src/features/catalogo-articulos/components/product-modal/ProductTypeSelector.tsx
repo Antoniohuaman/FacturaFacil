@@ -9,7 +9,7 @@ interface ProductTypeSelectorProps {
 
 export const ProductTypeSelector: React.FC<ProductTypeSelectorProps> = ({ productType, onChange }) => {
   return (
-    <div className="mb-4">
+    <div className="mb-3">
       <div className="flex items-center gap-2 mb-2">
         <Boxes className="w-3.5 h-3.5 text-gray-500" />
         <label className="text-xs font-medium text-gray-700">Tipo de producto</label>

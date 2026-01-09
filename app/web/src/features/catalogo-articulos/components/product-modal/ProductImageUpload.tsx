@@ -26,7 +26,7 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
       </label>
 
       <div className="rounded-lg border border-gray-200 bg-gray-50/40 p-3">
-        <div className="aspect-square w-full max-h-[320px] overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="aspect-square w-full max-h-[280px] overflow-hidden rounded-lg border border-gray-200 bg-white">
           {imagePreview ? (
             <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
           ) : (
@@ -50,7 +50,7 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
             <input type="file" accept="image/*" onChange={onUpload} className="hidden" id="image-upload" />
             <label
               htmlFor="image-upload"
-              className="cursor-pointer inline-flex items-center gap-2 px-3 h-10 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+              className="cursor-pointer inline-flex items-center gap-2 px-3 h-9 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
             >
               <ImageIcon className="w-3.5 h-3.5" />
               Subir imagen
