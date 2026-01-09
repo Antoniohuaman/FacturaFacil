@@ -62,6 +62,7 @@ export const CobranzasDashboard = () => {
     registerCobranza,
     cuentas,
     cobranzas,
+    paymentMeansOptions,
   } = useCobranzasDashboard();
   const cuentasColumnsManager = useCuentasPorCobrarColumnsManager();
   const cobranzasColumnsManager = useCobranzaColumnsManager();
@@ -272,6 +273,7 @@ export const CobranzasDashboard = () => {
             { wch: 14 },
             { wch: 14 },
             { wch: 14 },
+            { wch: 30 },
           ]
         : [
             { wch: 26 },
@@ -400,6 +402,7 @@ export const CobranzasDashboard = () => {
             onFilterChange={handleFilterChange}
             onDateChange={handleDateChange}
             onReset={resetFilters}
+            paymentMeans={paymentMeansOptions}
           />
         </div>
       )}

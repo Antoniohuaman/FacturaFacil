@@ -6,7 +6,6 @@ import type {
 
 export type CobranzaTabKey = 'cuentas' | 'cobranzas' | 'creditosPagados';
 export type FormaPagoKey = 'contado' | 'credito';
-export type MedioPagoKey = 'efectivo' | 'tarjeta' | 'transferencia' | 'yape' | 'plin' | 'deposito' | 'mixto';
 export type CobranzaStatus = 'pendiente' | 'parcial' | 'cancelado' | 'anulado' | 'vencido';
 
 export interface DateRangeFilter {
@@ -51,6 +50,14 @@ export interface CobranzaInstallmentState {
   status: 'PENDIENTE' | 'PARCIAL' | 'CANCELADA';
 }
 
+export interface CobranzaPaymentLineSnapshot {
+  id: string;
+  method: string;
+  methodLabel?: string;
+  amount: number;
+  operationNumber?: string;
+}
+
 export interface CobranzaDocumento {
   id: string;
   numero: string;
@@ -74,6 +81,7 @@ export interface CobranzaDocumento {
     paid: number;
   };
   installmentApplication?: 'cuota_cancelada' | 'abono_parcial';
+  paymentLines?: CobranzaPaymentLineSnapshot[];
 }
 
 export interface CobranzaFilters {
@@ -81,7 +89,7 @@ export interface CobranzaFilters {
   cliente: string;
   estado: CobranzaStatus | 'todos';
   formaPago: FormaPagoKey | 'todos';
-  medioPago: MedioPagoKey | 'todos';
+  medioPago: string | 'todos';
   sucursal?: string;
   cajero?: string;
 }

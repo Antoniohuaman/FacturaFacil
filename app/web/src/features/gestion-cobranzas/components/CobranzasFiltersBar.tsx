@@ -1,11 +1,13 @@
 import { Calendar, Filter, RefreshCw, Search } from 'lucide-react';
 import type { CobranzaFilters } from '../models/cobranzas.types';
+import type { PaymentMeanOption } from '@/shared/payments/paymentMeans';
 
 interface CobranzasFiltersBarProps {
   filters: CobranzaFilters;
   onFilterChange: <K extends keyof CobranzaFilters>(key: K, value: CobranzaFilters[K]) => void;
   onDateChange: (key: 'from' | 'to', value: string) => void;
   onReset: () => void;
+  paymentMeans: PaymentMeanOption[];
 }
 
 const estadoOptions = [
@@ -23,17 +25,6 @@ const formaPagoOptions = [
   { value: 'credito', label: 'Crédito' },
 ];
 
-const medioPagoOptions = [
-  { value: 'todos', label: 'Cualquier medio' },
-  { value: 'efectivo', label: 'Efectivo' },
-  { value: 'tarjeta', label: 'Tarjeta' },
-  { value: 'transferencia', label: 'Transferencia' },
-  { value: 'yape', label: 'Yape' },
-  { value: 'plin', label: 'Plin' },
-  { value: 'deposito', label: 'Depósito' },
-  { value: 'mixto', label: 'Mixto' },
-];
-
 const genericOptions = [
   { value: 'todos', label: 'Todos' },
   { value: 'Principal', label: 'Principal' },
@@ -41,7 +32,13 @@ const genericOptions = [
   { value: 'Caja Principal', label: 'Caja Principal' },
 ];
 
-export const CobranzasFiltersBar = ({ filters, onFilterChange, onDateChange, onReset }: CobranzasFiltersBarProps) => (
+export const CobranzasFiltersBar = ({ filters, onFilterChange, onDateChange, onReset, paymentMeans }: CobranzasFiltersBarProps) => {
+  const medioPagoOptions = [
+    { value: 'todos', label: 'Cualquier medio' },
+    ...paymentMeans.map((option) => ({ value: option.code, label: option.label })),
+  ];
+
+  return (
   <section className="mt-6 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-sm">
     <header className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-gray-700">
       <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-gray-200">
@@ -167,4 +164,5 @@ export const CobranzasFiltersBar = ({ filters, onFilterChange, onDateChange, onR
       </label>
     </div>
   </section>
-);
+  );
+};

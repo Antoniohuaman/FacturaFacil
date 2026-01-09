@@ -1,4 +1,5 @@
 import type { CuentaPorCobrarSummary, CobranzaDocumento, CreditoPagadoResumen } from '../models/cobranzas.types';
+import { resolveCobranzaPaymentMeans, formatCobranzaPaymentMeansDetail } from './paymentMeans';
 
 type CobranzaWithAmount = CobranzaDocumento & { displayAmount?: number };
 
@@ -175,19 +176,8 @@ export const getCobranzaOperacionLabel = (cobranza: CobranzaDocumento): string =
 export const getCobranzaOperacionDetailLabel = (cobranza: CobranzaDocumento): string => {
   const refs = splitOperationRefs(cobranza.referencia);
   if (!refs.length) return '—';
-  return `${cobranza.medioPago || 'Medio'}: ${refs.join(', ')}`;
-};
-
-export const getCobranzaMedioPagoLabel = (cobranza: CobranzaDocumento): string => {
-  const medio = cobranza.medioPago?.trim();
-  if (!medio) return '—';
-
-  if (medio.toLowerCase() === 'mixto') {
-    const refs = splitOperationRefs(cobranza.referencia);
-    return refs.length > 1 ? `Mixto (${refs.length})` : 'Mixto';
-  }
-
-  return medio;
+  const medioSummary = resolveCobranzaPaymentMeans(cobranza).summaryLabel || 'Medio';
+  return `${medioSummary}: ${refs.join(', ')}`;
 };
 
 export const buildCobranzasExportRows = (
@@ -196,6 +186,8 @@ export const buildCobranzasExportRows = (
 ) => {
   return cobranzas.map((cobranza) => {
     const snapshot = getCobranzaInstallmentSnapshot(cobranza);
+    const paymentMeans = resolveCobranzaPaymentMeans(cobranza);
+    const detailText = formatCobranzaPaymentMeansDetail(paymentMeans.detailLines, (value) => formatMoney(value, cobranza.moneda));
     return {
       Documento: cobranza.numero,
       Fecha: cobranza.fechaCobranza,
@@ -203,7 +195,8 @@ export const buildCobranzasExportRows = (
       Cliente: cobranza.clienteNombre,
       'Estado (documento)': getCobranzaEstadoDocumentoLabel(cobranza),
       'Tipo de cobro': getCobranzaTipoCobroLabel(cobranza, (cobranza as { relatedCuenta?: CuentaPorCobrarSummary }).relatedCuenta),
-      'Medio de pago': getCobranzaMedioPagoLabel(cobranza),
+      'Medio de pago': paymentMeans.summaryLabel,
+      'Detalle medios': detailText || paymentMeans.summaryLabel,
       'N° operación': getCobranzaOperacionDetailLabel(cobranza),
       Caja: cobranza.cajaDestino,
       'Cuotas': formatCobranzaCuotasLabel(snapshot),

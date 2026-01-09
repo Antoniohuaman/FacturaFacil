@@ -20,6 +20,7 @@ import {
 } from '../utils/installments';
 import { useSeriesCommands } from '../../configuracion-sistema/hooks/useSeriesCommands';
 import { useTenant } from '../../../shared/tenant/TenantContext';
+import { resolveCobranzaPaymentMeans } from '../utils/paymentMeans';
 
 interface CobranzasState {
   cuentas: CuentaPorCobrarSummary[];
@@ -231,6 +232,8 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
           continue;
         }
 
+        const medioPagoNombre = line.methodLabel ?? line.method;
+
         const observaciones = [
           line.bank ? `Caja: ${line.bank}` : null,
           line.reference ? `Ref: ${line.reference}` : null,
@@ -244,7 +247,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
           await agregarMovimiento({
             tipo: 'Ingreso',
             concepto: `Cobranza ${documento.numero}`,
-            medioPago: mapPaymentMethodToMedioPago(line.method),
+            medioPago: mapPaymentMethodToMedioPago(medioPagoNombre),
             monto,
             referencia: line.reference || documento.numero,
             usuarioId,
@@ -342,6 +345,19 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
       const numeroDocumento = collectionDocument?.fullNumber || fallbackCollectionNumber();
       const fechaCobranza = collectionDocument?.issuedAt || input.payload.fechaCobranza || getBusinessTodayISODate();
 
+      const paymentLinesSnapshot = input.payload.lines.map((line) => ({
+        id: line.id,
+        method: line.method,
+        methodLabel: line.methodLabel,
+        amount: Number(Number(line.amount ?? 0).toFixed(2)),
+        operationNumber: line.operationNumber,
+      }));
+
+      const paymentMeansSummary = resolveCobranzaPaymentMeans({
+        paymentLines: paymentLinesSnapshot,
+        medioPago: undefined,
+      });
+
       const documento: CobranzaDocumento = {
         id: `cbza-${Date.now()}`,
         numero: numeroDocumento,
@@ -351,12 +367,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         comprobanteSerie: input.cuenta.comprobanteSerie,
         comprobanteNumero: input.cuenta.comprobanteNumero,
         clienteNombre: input.cuenta.clienteNombre,
-        medioPago:
-          input.payload.lines.length === 0
-            ? 'Sin definir'
-            : input.payload.lines.length === 1
-              ? mapPaymentMethodToMedioPago(input.payload.lines[0].method)
-              : 'Mixto',
+        medioPago: paymentMeansSummary.summaryLabel,
         cajaDestino: input.payload.cajaDestino || input.payload.lines[0]?.bank || 'Caja Principal',
         moneda: input.cuenta.moneda,
         monto: montoRedondeado,
@@ -366,6 +377,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         collectionSeriesId: collectionDocument?.seriesId,
         installmentsInfo: documentInstallmentsInfo,
         installmentApplication,
+        paymentLines: paymentLinesSnapshot,
       };
 
       const cuentaUpdate: Partial<CuentaPorCobrarSummary> = {

@@ -12,6 +12,8 @@ import type {
 import { DEFAULT_COBRANZA_FILTERS } from '../utils/constants';
 import { ensureBusinessDateIso } from '@/shared/time/businessTime';
 import { normalizeCreditTermsToInstallments } from '../utils/installments';
+import { getConfiguredPaymentMeans, type PaymentMeanOption } from '@/shared/payments/paymentMeans';
+import { matchesPaymentMeansFilter, resolveCobranzaPaymentMeans, type CobranzaPaymentMeansSummary } from '../utils/paymentMeans';
 
 const textIncludes = (value: string, search: string) =>
   value.toLowerCase().includes(search.trim().toLowerCase());
@@ -108,12 +110,21 @@ const shouldDisplayCuenta = (cuenta: CuentaPorCobrarSummary) => {
   return hasPendingInstallments(cuenta) || hasOutstandingBalance(cuenta);
 };
 
-type CobranzaWithDisplayAmount = CobranzaDocumento & { displayAmount: number; relatedCuenta?: CuentaPorCobrarSummary };
+type CobranzaWithDisplayAmount = CobranzaDocumento & {
+  displayAmount: number;
+  relatedCuenta?: CuentaPorCobrarSummary;
+  paymentMeansSummary: CobranzaPaymentMeansSummary;
+};
 
 export const useCobranzasDashboard = () => {
   const { cuentas, cobranzas, registerCobranza } = useCobranzasContext();
   const [activeTab, setActiveTab] = useState<CobranzaTabKey>('cuentas');
   const [filters, setFilters] = useState<CobranzaFilters>(DEFAULT_COBRANZA_FILTERS);
+  const allPaymentMeans = useMemo<PaymentMeanOption[]>(() => getConfiguredPaymentMeans(), []);
+  const paymentMeansOptions = useMemo<PaymentMeanOption[]>(
+    () => allPaymentMeans.filter((option) => option.isVisible),
+    [allPaymentMeans],
+  );
 
   const handleFilterChange = <K extends keyof CobranzaFilters>(key: K, value: CobranzaFilters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -184,6 +195,15 @@ export const useCobranzasDashboard = () => {
     };
 
     return cobranzas
+      .map((cobranza) => {
+        const paymentMeansSummary = resolveCobranzaPaymentMeans(cobranza, allPaymentMeans);
+        return {
+          ...cobranza,
+          paymentMeansSummary,
+          displayAmount: resolveDisplayAmount(cobranza),
+          relatedCuenta: cuentasPorComprobante[cobranza.comprobanteId],
+        };
+      })
       .filter((cobranza) => {
         if (!isInBusinessRange(cobranza.fechaCobranza, filters.rangoFechas.from, filters.rangoFechas.to)) {
           return false;
@@ -193,7 +213,10 @@ export const useCobranzasDashboard = () => {
           return false;
         }
 
-        if (filters.medioPago !== 'todos' && cobranza.medioPago.toLowerCase() !== filters.medioPago) {
+        if (
+          filters.medioPago !== 'todos' &&
+          !matchesPaymentMeansFilter(cobranza.paymentMeansSummary, filters.medioPago, allPaymentMeans)
+        ) {
           return false;
         }
 
@@ -202,13 +225,8 @@ export const useCobranzasDashboard = () => {
         }
 
         return true;
-      })
-      .map((cobranza) => ({
-        ...cobranza,
-        displayAmount: resolveDisplayAmount(cobranza),
-        relatedCuenta: cuentasPorComprobante[cobranza.comprobanteId],
-      }));
-  }, [cobranzas, cuentasPorComprobante, filters.cliente, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
+      });
+  }, [cobranzas, cuentasPorComprobante, filters.cliente, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal, allPaymentMeans]);
 
   const creditosPagados = useMemo<CreditoPagadoResumen[]>(() => {
     return cuentas
@@ -252,7 +270,16 @@ export const useCobranzasDashboard = () => {
           .filter((cobranza) => {
             if (cobranza.comprobanteId !== cuenta.comprobanteId) return false;
             if (cobranza.estado === 'anulado') return false;
-            if (filters.medioPago !== 'todos' && cobranza.medioPago.toLowerCase() !== filters.medioPago) return false;
+            if (
+              filters.medioPago !== 'todos' &&
+              !matchesPaymentMeansFilter(
+                resolveCobranzaPaymentMeans(cobranza, allPaymentMeans),
+                filters.medioPago,
+                allPaymentMeans,
+              )
+            ) {
+              return false;
+            }
             return true;
           })
           .slice()
@@ -283,7 +310,7 @@ export const useCobranzasDashboard = () => {
       })
       .filter((item): item is CreditoPagadoResumen => Boolean(item))
       .sort((a, b) => (b.cancelacion || '').localeCompare(a.cancelacion || ''));
-  }, [cobranzas, cuentas, filters.cajero, filters.cliente, filters.estado, filters.formaPago, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
+  }, [cobranzas, cuentas, filters.cajero, filters.cliente, filters.estado, filters.formaPago, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal, allPaymentMeans]);
 
   const resumen = useMemo<CobranzasSummary>(() => {
     const totalDocumentosPendientes = filteredCuentas.length;
@@ -317,5 +344,6 @@ export const useCobranzasDashboard = () => {
     registerCobranza,
     cuentas,
     cobranzas,
+    paymentMeansOptions,
   };
 };

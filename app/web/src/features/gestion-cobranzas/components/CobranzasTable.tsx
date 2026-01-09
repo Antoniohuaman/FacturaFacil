@@ -6,14 +6,14 @@ import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../models/cobran
 import {
   getCobranzaEstadoDocumentoLabel,
   getCobranzaInstallmentSnapshot,
-  getCobranzaMedioPagoLabel,
   getCobranzaOperacionLabel,
   getCobranzaTipoCobroLabel,
 } from '../utils/reporting';
+import { resolveCobranzaPaymentMeans, type CobranzaPaymentMeansSummary } from '../utils/paymentMeans';
 
 
 interface CobranzasTableProps {
-  data: Array<CobranzaDocumento & { displayAmount?: number; relatedCuenta?: CuentaPorCobrarSummary }>;
+  data: Array<CobranzaDocumento & { displayAmount?: number; relatedCuenta?: CuentaPorCobrarSummary; paymentMeansSummary?: CobranzaPaymentMeansSummary }>;
   formatMoney: (value: number, currency?: string) => string;
   onVerDetalle: (cobranza: CobranzaDocumento) => void;
   onVerComprobante: (cobranza: CobranzaDocumento) => void;
@@ -50,9 +50,13 @@ type RenderHelpers = {
 };
 
 type CobranzasCellRenderer = (
-  cobranza: CobranzaDocumento & { displayAmount?: number; relatedCuenta?: CuentaPorCobrarSummary },
+  cobranza: CobranzaDocumento & { displayAmount?: number; relatedCuenta?: CuentaPorCobrarSummary; paymentMeansSummary?: CobranzaPaymentMeansSummary },
   helpers: RenderHelpers
 ) => ReactNode;
+
+const resolvePaymentMeansLabel = (
+  cobranza: CobranzaDocumento & { paymentMeansSummary?: CobranzaPaymentMeansSummary }
+) => (cobranza.paymentMeansSummary ?? resolveCobranzaPaymentMeans(cobranza)).summaryLabel;
 
 const cobranzasColumnRenderers: Record<CobranzasColumnKey, CobranzasCellRenderer> = {
   documento: (cobranza) => (
@@ -76,7 +80,9 @@ const cobranzasColumnRenderers: Record<CobranzasColumnKey, CobranzasCellRenderer
       <span className="font-medium">{cobranza.clienteNombre}</span>
     </div>
   ),
-  medioPago: (cobranza) => <span className="text-xs font-medium">{getCobranzaMedioPagoLabel(cobranza)}</span>,
+  medioPago: (cobranza) => (
+    <span className="text-xs font-medium">{resolvePaymentMeansLabel(cobranza)}</span>
+  ),
   caja: (cobranza) => <span className="text-xs">{cobranza.cajaDestino}</span>,
   tipoCobro: (cobranza) => (
     <span className="text-xs font-medium">{getCobranzaTipoCobroLabel(cobranza, cobranza.relatedCuenta)}</span>

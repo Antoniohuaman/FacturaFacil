@@ -98,7 +98,16 @@ export const cobranzasMock: CobranzaDocumento[] = [
     monto: 2500,
     estado: 'cancelado',
     referencia: 'TRX-893331',
-    notas: 'Pago cuota 1'
+    notas: 'Pago cuota 1',
+    paymentLines: [
+      {
+        id: 'line-1',
+        method: '003',
+        methodLabel: 'Transferencia',
+        amount: 2500,
+        operationNumber: 'TRX-893331',
+      },
+    ],
   },
   {
     id: 'cbza-002',
@@ -114,6 +123,15 @@ export const cobranzasMock: CobranzaDocumento[] = [
     moneda: 'PEN',
     monto: 1890.34,
     estado: 'cancelado',
-    referencia: 'VISA-99812'
+    referencia: 'VISA-99812',
+    paymentLines: [
+      {
+        id: 'line-1',
+        method: '005',
+        methodLabel: 'Tarjeta débito',
+        amount: 1890.34,
+        operationNumber: 'VISA-99812',
+      },
+    ],
   }
 ];

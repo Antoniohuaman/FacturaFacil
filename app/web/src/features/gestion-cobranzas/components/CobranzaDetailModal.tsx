@@ -2,10 +2,10 @@ import { Printer, X } from 'lucide-react';
 import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../models/cobranzas.types';
 import {
   getCobranzaEstadoDocumentoLabel,
-  getCobranzaMedioPagoLabel,
   getCobranzaOperacionLabel,
   getCobranzaTipoCobroLabel,
 } from '../utils/reporting';
+import { resolveCobranzaPaymentMeans } from '../utils/paymentMeans';
 
 interface CobranzaDetailModalProps {
   cobranza: (CobranzaDocumento & { relatedCuenta?: CuentaPorCobrarSummary }) | null;
@@ -19,7 +19,9 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
 
   const estadoLabel = getCobranzaEstadoDocumentoLabel(cobranza);
   const tipoCobroLabel = getCobranzaTipoCobroLabel(cobranza, cobranza.relatedCuenta);
-  const medioLabel = getCobranzaMedioPagoLabel(cobranza);
+  const paymentMeans = resolveCobranzaPaymentMeans(cobranza);
+  const medioLabel = paymentMeans.summaryLabel;
+  const medioLines = paymentMeans.detailLines;
   const operacionRefs = cobranza.referencia;
   const operacionLabel = getCobranzaOperacionLabel(cobranza);
 
@@ -34,6 +36,11 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
     }
 
     const formattedAmount = formatMoney(cobranza.monto, cobranza.moneda);
+    const mediosDetalleTemplate = medioLines.length
+      ? `<ul>${medioLines
+          .map((line) => `<li>${line.label}: ${formatMoney(line.amount, cobranza.moneda)}</li>`)
+          .join('')}</ul>`
+      : '';
     const template = `<!DOCTYPE html>
 <html>
   <head>
@@ -57,6 +64,7 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
       <p>Comprobante relacionado: <strong>${cobranza.comprobanteSerie}-${cobranza.comprobanteNumero}</strong></p>
       <p>Cliente: <strong>${cobranza.clienteNombre}</strong></p>
       <p>Medio de pago: <strong>${medioLabel}</strong></p>
+      ${mediosDetalleTemplate}
       <p>N° operación: <strong title="${operacionRefs ?? ''}">${operacionLabel}</strong></p>
       <p>Caja: <strong>${cobranza.cajaDestino}</strong></p>
       <p>Importe registrado: <strong>${formattedAmount}</strong></p>
@@ -105,6 +113,19 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
             <div>
               <p className="text-xs uppercase text-slate-500 dark:text-gray-400">Medio de pago</p>
               <p className="font-semibold capitalize">{medioLabel}</p>
+              {medioLines.length > 0 ? (
+                <ul className="mt-1 space-y-1 text-xs text-slate-500">
+                  {medioLines.map((line) => (
+                    <li key={`${line.code}-${line.label}-${line.amount}`}>
+                      <span className="font-medium text-slate-700 dark:text-gray-100">{line.label}</span>
+                      {' '}
+                      · {formatMoney(line.amount, cobranza.moneda)}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-gray-400">Sin desglose disponible</p>
+              )}
             </div>
             <div>
               <p className="text-xs uppercase text-slate-500 dark:text-gray-400">Caja destino</p>

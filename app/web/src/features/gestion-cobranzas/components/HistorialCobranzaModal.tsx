@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import type { CobranzaDocumento, CobranzaInstallmentState, CuentaPorCobrarSummary } from '../models/cobranzas.types';
 import { normalizeCreditTermsToInstallments } from '../utils/installments';
+import { resolveCobranzaPaymentMeans } from '../utils/paymentMeans';
 
 interface HistorialCobranzaModalProps {
   cuenta: CuentaPorCobrarSummary | null;
@@ -154,7 +155,7 @@ export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, for
                     <tr key={item.id}>
                       <td className="px-3 py-2 font-semibold">{item.numero}</td>
                       <td className="px-3 py-2">{item.fechaCobranza}</td>
-                      <td className="px-3 py-2 capitalize">{item.medioPago}</td>
+                      <td className="px-3 py-2 capitalize">{resolveCobranzaPaymentMeans(item).summaryLabel}</td>
                       <td className="px-3 py-2">{item.cajaDestino}</td>
                       <td className="px-3 py-2 text-right font-semibold">{formatMoney(item.monto, item.moneda)}</td>
                       <td className="px-3 py-2 text-center">

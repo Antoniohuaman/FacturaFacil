@@ -173,6 +173,7 @@ export type PaymentCollectionMode = 'contado' | 'credito';
 export interface PaymentLineInput {
   id: string;
   method: string;
+  methodLabel?: string;
   amount: number;
   reference?: string;
   bank?: string;

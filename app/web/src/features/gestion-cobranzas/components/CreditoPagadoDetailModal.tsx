@@ -1,11 +1,8 @@
 import { X } from 'lucide-react';
 import type { CreditInstallmentPaymentTrace, CreditInstallment } from '@/shared/payments/paymentTerms';
 import type { CreditoPagadoResumen, CobranzaDocumento } from '../models/cobranzas.types';
-import {
-  getCobranzaMedioPagoLabel,
-  getCobranzaOperacionLabel,
-  getCobranzaTipoCobroLabel,
-} from '../utils/reporting';
+import { getCobranzaOperacionLabel, getCobranzaTipoCobroLabel } from '../utils/reporting';
+import { resolveCobranzaPaymentMeans } from '../utils/paymentMeans';
 
 interface CreditoPagadoDetailModalProps {
   credito: CreditoPagadoResumen | null;
@@ -169,7 +166,7 @@ export const CreditoPagadoDetailModal = ({ credito, isOpen, onClose, formatMoney
                       <td className="px-3 py-2">{item.fechaCobranza}</td>
                       <td className="px-3 py-2">{item.cajaDestino}</td>
                       <td className="px-3 py-2 text-right font-semibold">{formatMoney(item.monto, item.moneda)}</td>
-                      <td className="px-3 py-2">{getCobranzaMedioPagoLabel(item)}</td>
+                      <td className="px-3 py-2">{resolveCobranzaPaymentMeans(item).summaryLabel}</td>
                       <td className="px-3 py-2" title={item.referencia || undefined}>{getCobranzaOperacionLabel(item)}</td>
                       <td className="px-3 py-2">{getCobranzaTipoCobroLabel(item, cuenta)}</td>
                       <td className="px-3 py-2 text-center">
