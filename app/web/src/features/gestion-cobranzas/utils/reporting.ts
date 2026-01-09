@@ -30,6 +30,15 @@ const isCuentaContado = (cuenta?: CuentaPorCobrarSummary) => {
   return cuenta.formaPago === 'contado' || !cuenta.creditTerms;
 };
 
+const isVentaContadoFallback = (cobranza: CobranzaDocumento, cuenta?: CuentaPorCobrarSummary) => {
+  if (isCuentaContado(cuenta)) return true;
+
+  const hasFlag = Boolean((cobranza as { installmentApplication?: InstallmentApplicationFlag }).installmentApplication);
+  const hasInstallmentsSnapshot = Boolean(cobranza.installmentsInfo && Number(cobranza.installmentsInfo.total) > 0);
+
+  return !cuenta && !hasFlag && !hasInstallmentsSnapshot;
+};
+
 type InstallmentApplicationFlag = 'cuota_cancelada' | 'abono_parcial';
 
 const getAplicacionFromDocument = (cobranza: CobranzaDocumento): InstallmentApplicationFlag | null => {
@@ -141,7 +150,7 @@ export const getCobranzaTipoCobroLabel = (
   cobranza: CobranzaDocumento,
   relatedCuenta?: CuentaPorCobrarSummary
 ): string => {
-  if (isCuentaContado(relatedCuenta)) {
+  if (isVentaContadoFallback(cobranza, relatedCuenta)) {
     return 'venta al contado';
   }
 
