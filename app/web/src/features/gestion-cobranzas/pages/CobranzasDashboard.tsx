@@ -23,11 +23,13 @@ import { CobranzaDetailModal } from '../components/CobranzaDetailModal';
 import { HistorialCobranzaModal } from '../components/HistorialCobranzaModal';
 import { SeleccionarCuentaModal } from '../components/SeleccionarCuentaModal';
 import { CobranzasColumnsManagerButton } from '../components/CobranzasColumnsManagerButton';
+import { CreditosPagadosTable } from '../components/CreditosPagadosTable';
+import { CreditoPagadoDetailModal } from '../components/CreditoPagadoDetailModal';
 import { useCobranzasDashboard } from '../hooks/useCobranzasDashboard';
 import { useCobranzaColumnsManager, useCuentasPorCobrarColumnsManager } from '../hooks/useCobranzasColumnsManager';
-import type { CobranzaDocumento, CuentaPorCobrarSummary, CobranzaTabKey } from '../models/cobranzas.types';
+import type { CobranzaDocumento, CuentaPorCobrarSummary, CobranzaTabKey, CreditoPagadoResumen } from '../models/cobranzas.types';
 import { DEFAULT_COBRANZA_FILTERS } from '../utils/constants';
-import { buildCobranzasExportRows, buildCuentasExportRows } from '../utils/reporting';
+import { buildCobranzasExportRows, buildCuentasExportRows, buildCreditosPagadosExportRows } from '../utils/reporting';
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
@@ -55,6 +57,7 @@ export const CobranzasDashboard = () => {
     resetFilters,
     filteredCuentas,
     filteredCobranzas,
+    creditosPagados,
     resumen,
     registerCobranza,
     cuentas,
@@ -114,6 +117,7 @@ export const CobranzasDashboard = () => {
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
   const [showCuentaPicker, setShowCuentaPicker] = useState(false);
   const [detalleCobranza, setDetalleCobranza] = useState<(CobranzaDocumento & { displayAmount?: number; relatedCuenta?: CuentaPorCobrarSummary }) | null>(null);
+  const [detalleCreditoPagado, setDetalleCreditoPagado] = useState<CreditoPagadoResumen | null>(null);
   const [historialCuenta, setHistorialCuenta] = useState<CuentaPorCobrarSummary | null>(null);
   const [filtersVisible, setFiltersVisible] = useState(false);
   const { request: autoExportRequest, finish: finishAutoExport } = useAutoExportRequest('cobranzas-estado');
@@ -190,7 +194,11 @@ export const CobranzasDashboard = () => {
 
   const tipoComprobante = selectedCuenta ? resolveTipoComprobante(selectedCuenta.tipoComprobante) : 'factura';
 
-  const canExport = activeTab === 'cuentas' ? filteredCuentas.length > 0 : filteredCobranzas.length > 0;
+  const canExport = activeTab === 'cuentas'
+    ? filteredCuentas.length > 0
+    : activeTab === 'cobranzas'
+    ? filteredCobranzas.length > 0
+    : creditosPagados.length > 0;
 
   const columnsManagerButton = activeTab === 'cuentas'
     ? (
@@ -203,7 +211,8 @@ export const CobranzasDashboard = () => {
           title="Columnas de cuentas por cobrar"
         />
       )
-    : (
+    : activeTab === 'cobranzas'
+    ? (
         <CobranzasColumnsManagerButton
           columns={cobranzasColumnsManager.columns}
           onToggleColumn={cobranzasColumnsManager.toggleColumn}
@@ -212,7 +221,8 @@ export const CobranzasDashboard = () => {
           onReorderColumns={cobranzasColumnsManager.reorderColumns}
           title="Columnas de cobranzas"
         />
-      );
+      )
+    : null;
 
   const getRangeBounds = () => {
     const defaultRange = DEFAULT_COBRANZA_FILTERS.rangoFechas;
@@ -230,7 +240,9 @@ export const CobranzasDashboard = () => {
     try {
       const rows = activeTab === 'cuentas'
         ? buildCuentasExportRows(filteredCuentas, formatMoney)
-        : buildCobranzasExportRows(filteredCobranzas, formatMoney);
+        : activeTab === 'cobranzas'
+        ? buildCobranzasExportRows(filteredCobranzas, formatMoney)
+        : buildCreditosPagadosExportRows(creditosPagados, formatMoney);
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
       worksheet['!cols'] = activeTab === 'cuentas'
@@ -247,7 +259,8 @@ export const CobranzasDashboard = () => {
             { wch: 14 },
             { wch: 14 },
           ]
-        : [
+        : activeTab === 'cobranzas'
+        ? [
             { wch: 20 },
             { wch: 14 },
             { wch: 26 },
@@ -259,15 +272,32 @@ export const CobranzasDashboard = () => {
             { wch: 14 },
             { wch: 14 },
             { wch: 14 },
+          ]
+        : [
+            { wch: 26 },
+            { wch: 16 },
+            { wch: 30 },
+            { wch: 12 },
+            { wch: 16 },
+            { wch: 16 },
+            { wch: 12 },
+            { wch: 12 },
           ];
 
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, activeTab === 'cuentas' ? 'Cuentas por cobrar' : 'Cobranzas');
+      const sheetName = activeTab === 'cuentas'
+        ? 'Cuentas por cobrar'
+        : activeTab === 'cobranzas'
+        ? 'Cobranzas'
+        : 'Créditos pagados';
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
       const { from, to } = getRangeBounds();
       const filename = activeTab === 'cuentas'
         ? `cobranzas_cuentas_por_cobrar_${from}_${to}.xlsx`
-        : `cobranzas_cobranzas_${from}_${to}.xlsx`;
+        : activeTab === 'cobranzas'
+        ? `cobranzas_cobranzas_${from}_${to}.xlsx`
+        : `cobranzas_creditos_pagados_${from}_${to}.xlsx`;
 
       XLSX.writeFile(workbook, filename);
       success('Exportación completa', `${rows.length} registros exportados.`);
@@ -385,13 +415,20 @@ export const CobranzasDashboard = () => {
           highlightId={highlightCuentaId}
           visibleColumns={cuentasColumnsManager.visibleColumns}
         />
-      ) : (
+      ) : activeTab === 'cobranzas' ? (
         <CobranzasTable
           data={filteredCobranzas}
           formatMoney={formatMoney}
           onVerDetalle={(cobranza) => setDetalleCobranza(cobranza)}
           onVerComprobante={(cobranza) => handleVerComprobante(cobranza.comprobanteId)}
           visibleColumns={cobranzasColumnsManager.visibleColumns}
+        />
+      ) : (
+        <CreditosPagadosTable
+          data={creditosPagados}
+          formatMoney={formatMoney}
+          onVerDetalle={(credito) => setDetalleCreditoPagado(credito)}
+          onVerComprobante={(comprobanteId) => handleVerComprobante(comprobanteId)}
         />
       )}
 
@@ -412,6 +449,14 @@ export const CobranzasDashboard = () => {
         creditPaymentMethodLabel={selectedCuenta?.formaPago === 'credito' ? 'Crédito del comprobante' : selectedCuenta?.formaPago}
         installmentsState={selectedCuenta?.installments}
         context="cobranzas"
+      />
+
+      <CreditoPagadoDetailModal
+        credito={detalleCreditoPagado}
+        isOpen={Boolean(detalleCreditoPagado)}
+        onClose={() => setDetalleCreditoPagado(null)}
+        formatMoney={formatMoney}
+        onVerConstancia={(doc) => setDetalleCobranza({ ...doc, relatedCuenta: detalleCreditoPagado?.cuenta })}
       />
 
       <CobranzaDetailModal

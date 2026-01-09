@@ -7,9 +7,11 @@ import type {
   CobranzasSummary,
   CobranzaStatus,
   CuentaPorCobrarSummary,
+  CreditoPagadoResumen,
 } from '../models/cobranzas.types';
 import { DEFAULT_COBRANZA_FILTERS } from '../utils/constants';
 import { ensureBusinessDateIso } from '@/shared/time/businessTime';
+import { normalizeCreditTermsToInstallments } from '../utils/installments';
 
 const textIncludes = (value: string, search: string) =>
   value.toLowerCase().includes(search.trim().toLowerCase());
@@ -57,6 +59,46 @@ const hasPendingInstallments = (cuenta: CuentaPorCobrarSummary) => {
 };
 
 const hasOutstandingBalance = (cuenta: CuentaPorCobrarSummary) => cuenta.saldo > INSTALLMENT_TOLERANCE;
+
+const resolveInstallments = (cuenta: CuentaPorCobrarSummary) => {
+  if (cuenta.installments?.length) {
+    return cuenta.installments;
+  }
+  return normalizeCreditTermsToInstallments(cuenta.creditTerms);
+};
+
+const isCuentaCreditoPagada = (cuenta: CuentaPorCobrarSummary) => {
+  if (cuenta.formaPago !== 'credito') {
+    return false;
+  }
+
+  const saldoCero = !hasOutstandingBalance(cuenta);
+  const installments = resolveInstallments(cuenta);
+
+  if (installments.length) {
+    const allPaid = installments.every((installment) => installment.remaining <= INSTALLMENT_TOLERANCE);
+    return allPaid || saldoCero;
+  }
+
+  if (typeof cuenta.pendingInstallmentsCount === 'number') {
+    return cuenta.pendingInstallmentsCount === 0 && saldoCero;
+  }
+
+  return saldoCero;
+};
+
+const isCobranzaParcial = (cobranza: CobranzaDocumento) => {
+  if (cobranza.estado === 'parcial') {
+    return true;
+  }
+
+  const info = cobranza.installmentsInfo;
+  if (!info || !info.total) {
+    return false;
+  }
+
+  return info.pending > 0 && info.pending < info.total;
+};
 
 const shouldDisplayCuenta = (cuenta: CuentaPorCobrarSummary) => {
   if (!ALLOWED_ACCOUNT_STATES.includes(cuenta.estado)) {
@@ -168,6 +210,81 @@ export const useCobranzasDashboard = () => {
       }));
   }, [cobranzas, cuentasPorComprobante, filters.cliente, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
 
+  const creditosPagados = useMemo<CreditoPagadoResumen[]>(() => {
+    return cuentas
+      .filter((cuenta) => {
+        if (!isCuentaCreditoPagada(cuenta)) {
+          return false;
+        }
+
+        if (!isInBusinessRange(cuenta.fechaEmision, filters.rangoFechas.from, filters.rangoFechas.to)) {
+          return false;
+        }
+
+        if (filters.cliente && !textIncludes(`${cuenta.clienteNombre} ${cuenta.clienteDocumento}`, filters.cliente)) {
+          return false;
+        }
+
+        if (filters.estado !== 'todos' && cuenta.estado !== filters.estado) {
+          return false;
+        }
+
+        if (filters.formaPago !== 'todos' && cuenta.formaPago !== filters.formaPago) {
+          return false;
+        }
+
+        if (filters.sucursal && filters.sucursal !== 'todos' && cuenta.sucursal !== filters.sucursal) {
+          return false;
+        }
+
+        if (filters.cajero && filters.cajero !== 'todos' && cuenta.cajero !== filters.cajero) {
+          return false;
+        }
+
+        return true;
+      })
+      .map((cuenta) => {
+        const installments = resolveInstallments(cuenta).slice().sort((a, b) => a.installmentNumber - b.installmentNumber);
+        const totalCuotas = installments.length || cuenta.totalInstallments || 0;
+        const cuotasLabel = totalCuotas ? `${totalCuotas}/${totalCuotas}` : '—';
+
+        const relatedCobranzas = cobranzas
+          .filter((cobranza) => {
+            if (cobranza.comprobanteId !== cuenta.comprobanteId) return false;
+            if (cobranza.estado === 'anulado') return false;
+            if (filters.medioPago !== 'todos' && cobranza.medioPago.toLowerCase() !== filters.medioPago) return false;
+            return true;
+          })
+          .slice()
+          .sort((a, b) => a.fechaCobranza.localeCompare(b.fechaCobranza));
+
+        if (filters.medioPago !== 'todos' && relatedCobranzas.length === 0) {
+          return null;
+        }
+
+        const cancelacion = relatedCobranzas.reduce<string | undefined>((latest, current) => {
+          const fecha = current.fechaCobranza;
+          if (!latest) return fecha;
+          return fecha > latest ? fecha : latest;
+        }, undefined);
+
+        const abonosParciales = relatedCobranzas.filter(isCobranzaParcial).length;
+
+        return {
+          cuenta,
+          installments,
+          cuotasLabel,
+          totalCuotas,
+          cancelacion,
+          cobranzas: relatedCobranzas,
+          cobrosCount: relatedCobranzas.length,
+          abonosParciales,
+        } as CreditoPagadoResumen;
+      })
+      .filter((item): item is CreditoPagadoResumen => Boolean(item))
+      .sort((a, b) => (b.cancelacion || '').localeCompare(a.cancelacion || ''));
+  }, [cobranzas, cuentas, filters.cajero, filters.cliente, filters.estado, filters.formaPago, filters.medioPago, filters.rangoFechas.from, filters.rangoFechas.to, filters.sucursal]);
+
   const resumen = useMemo<CobranzasSummary>(() => {
     const totalDocumentosPendientes = filteredCuentas.length;
     const totalSaldoPendiente = filteredCuentas.reduce((acc, cuenta) => acc + cuenta.saldo, 0);
@@ -195,6 +312,7 @@ export const useCobranzasDashboard = () => {
     resetFilters,
     filteredCuentas,
     filteredCobranzas,
+    creditosPagados,
     resumen,
     registerCobranza,
     cuentas,

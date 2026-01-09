@@ -8,6 +8,7 @@ interface CobranzasTabsProps {
 const tabs: { id: CobranzaTabKey; label: string }[] = [
   { id: 'cuentas', label: 'Cuentas por cobrar' },
   { id: 'cobranzas', label: 'Cobranzas' },
+  { id: 'creditosPagados', label: 'Créditos pagados' },
 ];
 
 export const CobranzasTabs = ({ activeTab, onChange }: CobranzasTabsProps) => (

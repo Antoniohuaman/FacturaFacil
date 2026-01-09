@@ -1,4 +1,4 @@
-import type { CuentaPorCobrarSummary, CobranzaDocumento } from '../models/cobranzas.types';
+import type { CuentaPorCobrarSummary, CobranzaDocumento, CreditoPagadoResumen } from '../models/cobranzas.types';
 
 type CobranzaWithAmount = CobranzaDocumento & { displayAmount?: number };
 
@@ -198,4 +198,19 @@ export const buildCobranzasExportRows = (
       Importe: formatMoney(cobranza.displayAmount ?? cobranza.monto, cobranza.moneda),
     } as const;
   });
+};
+
+export const buildCreditosPagadosExportRows = (
+  creditos: CreditoPagadoResumen[],
+  formatMoney: (value: number, currency?: string) => string,
+) => {
+  return creditos.map((item) => ({
+    Comprobante: `${item.cuenta.comprobanteSerie}-${item.cuenta.comprobanteNumero}`,
+    Emisión: item.cuenta.fechaEmision,
+    Cliente: item.cuenta.clienteNombre,
+    Cuotas: item.cuotasLabel,
+    Total: formatMoney(item.cuenta.total, item.cuenta.moneda),
+    Cancelación: item.cancelacion ?? '',
+    Cobros: item.cobrosCount,
+  } as const));
 };

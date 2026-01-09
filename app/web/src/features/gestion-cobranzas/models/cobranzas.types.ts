@@ -4,7 +4,7 @@ import type {
   ComprobanteCreditTerms,
 } from '../../comprobantes-electronicos/models/comprobante.types';
 
-export type CobranzaTabKey = 'cuentas' | 'cobranzas';
+export type CobranzaTabKey = 'cuentas' | 'cobranzas' | 'creditosPagados';
 export type FormaPagoKey = 'contado' | 'credito';
 export type MedioPagoKey = 'efectivo' | 'tarjeta' | 'transferencia' | 'yape' | 'plin' | 'deposito' | 'mixto';
 export type CobranzaStatus = 'pendiente' | 'parcial' | 'cancelado' | 'anulado' | 'vencido';
@@ -91,6 +91,17 @@ export interface CobranzasSummary {
   totalVencido: number;
   totalCobranzas: number;
   totalCobrado: number;
+}
+
+export interface CreditoPagadoResumen {
+  cuenta: CuentaPorCobrarSummary;
+  installments: CobranzaInstallmentState[];
+  cuotasLabel: string;
+  totalCuotas: number;
+  cancelacion?: string;
+  cobranzas: CobranzaDocumento[];
+  cobrosCount: number;
+  abonosParciales: number;
 }
 
 export interface RegistrarCobranzaInput {
