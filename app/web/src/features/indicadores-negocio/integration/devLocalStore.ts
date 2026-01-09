@@ -51,6 +51,7 @@ export interface DevVentaSnapshot {
   fechaEmision: string;
   productos: DevVentaProductoSnapshot[];
   formaPago?: string;
+  medioPago?: string;
   estado: DevVentaEstado;
   source: 'emision' | 'pos' | 'otros';
 }
@@ -75,6 +76,7 @@ interface VentaRecordOptions {
   fechaEmision: string;
   productos: DevVentaProductoSnapshot[];
   formaPago?: string;
+  medioPago?: string;
   source?: 'emision' | 'pos' | 'otros';
 }
 
@@ -111,6 +113,7 @@ class DevLocalIndicadoresStore {
       fechaEmision: venta.fechaEmision,
       productos: venta.productos,
       formaPago: venta.formaPago,
+      medioPago: venta.medioPago,
       estado: 'emitido',
       source: venta.source ?? 'otros'
     };

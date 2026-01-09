@@ -117,21 +117,23 @@ export const useComprobanteActions = () => {
 
   const paymentMethods: ConfigPaymentMethod[] = [];
 
-  const buildPaymentLabel = useCallback((paymentDetails?: PaymentCollectionPayload, fallbackFormaPago?: string) => {
-    if (paymentDetails?.mode === 'credito') {
-      return 'Crédito';
+  const buildPaymentLabel = useCallback((paymentDetails?: PaymentCollectionPayload) => {
+    if (!paymentDetails?.lines?.length) {
+      return 'Sin medio';
     }
 
-    if (paymentDetails?.mode === 'contado' && paymentDetails.lines.length > 0) {
-      const labels = Array.from(new Set(paymentDetails.lines.map((line) => mapPaymentMethodToMedioPago(line.method))));
-      return labels.join(' + ');
+    const labels = new Set<string>();
+    paymentDetails.lines.forEach((line) => {
+      if (typeof line?.method === 'string' && line.method.trim().length > 0) {
+        labels.add(mapPaymentMethodToMedioPago(line.method));
+      }
+    });
+
+    if (!labels.size) {
+      return 'Sin medio';
     }
 
-    if (fallbackFormaPago) {
-      return mapPaymentMethodToMedioPago(fallbackFormaPago);
-    }
-
-    return 'Efectivo';
+    return Array.from(labels).join(' + ');
   }, []);
 
   // Validar datos del comprobante
@@ -222,7 +224,7 @@ export const useComprobanteActions = () => {
       // Simular respuesta exitosa
       const numeroComprobante = `${data.serieSeleccionada}-${String(Math.floor(Math.random() * 10000)).padStart(8, '0')}`;
 
-      const paymentSummaryLabel = buildPaymentLabel(data.paymentDetails, data.formaPago);
+      const paymentSummaryLabel = buildPaymentLabel(data.paymentDetails);
       const [serieCode, correlativoParte] = numeroComprobante.split('-');
       const resolvedCurrency: Currency = (data.currency as Currency) || 'PEN';
       const tipoComprobanteDisplay = (() => {
@@ -238,7 +240,8 @@ export const useComprobanteActions = () => {
       const cajeroNombre = session?.userName || 'Usuario';
       const fechaEmisionIso = data.fechaEmision || getBusinessTodayISODate();
       const fechaVencimientoIso = data.creditTerms?.fechaVencimientoGlobal || data.fechaVencimiento;
-      const isCreditSale = Boolean(data.creditTerms);
+      const normalizedFormaPago = data.formaPago?.toLowerCase?.().trim();
+      const isCreditSale = normalizedFormaPago === 'credito' || Boolean(data.creditTerms);
       const paymentModeLabel = buildPaymentModeLabel(isCreditSale, data.creditTerms);
       let createdCuenta: CuentaPorCobrarSummary | null = null;
 
@@ -596,7 +599,8 @@ export const useComprobanteActions = () => {
           igv: data.totals.igv,
           fechaEmision: formatBusinessDateTimeIso(fechaEmisionDate),
           productos: mapCartItemsToVentaProductos(data.cartItems),
-          formaPago: paymentSummaryLabel,
+          formaPago: paymentModeLabel,
+          medioPago: paymentSummaryLabel,
           source: data.source ?? 'otros'
         });
       } catch (indicadoresError) {
