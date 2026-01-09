@@ -49,9 +49,6 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
           <Plus className="w-3 h-3" /> Agregar presentación
         </button>
       </div>
-      <p className="text-[11px] text-gray-500">
-        Define cómo también vendes este producto: cajas, bolsas, kilos, sacos, etc. El stock se calcula a partir de la unidad mínima.
-      </p>
 
       {unitInfoMessage && (
         <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800">
@@ -68,9 +65,7 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
         </div>
       )}
 
-      {unidadesMedidaAdicionales.length === 0 ? (
-        <p className="text-[11px] text-gray-500">Aún no registras presentaciones comerciales.</p>
-      ) : (
+      {unidadesMedidaAdicionales.length > 0 && (
         <div className="divide-y divide-gray-100 border border-gray-100 rounded-md">
           {unidadesMedidaAdicionales.map((unit, index) => {
             const options = getAdditionalUnitOptions(index);

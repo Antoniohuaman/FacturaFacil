@@ -156,7 +156,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 formData={formData}
                 errors={errors}
                 baseUnitOptions={baseUnitOptions}
-                availableUnits={availableUnits}
                 isUsingFallbackUnits={isUsingFallbackUnits}
                 handleMeasureTypeChange={handleMeasureTypeChange}
                 handleBaseUnitChange={handleBaseUnitChange}

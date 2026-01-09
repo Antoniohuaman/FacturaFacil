@@ -21,7 +21,6 @@ interface ProductUnitsSectionProps {
   formData: ProductFormData;
   errors: FormError;
   baseUnitOptions: Unit[];
-  availableUnits: Unit[];
   isUsingFallbackUnits: boolean;
   handleMeasureTypeChange: (nextType: UnitMeasureType) => void;
   handleBaseUnitChange: (nextUnit: ProductFormData['unidad']) => void;
@@ -31,7 +30,6 @@ export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
   formData,
   errors,
   baseUnitOptions,
-  availableUnits,
   isUsingFallbackUnits,
   handleMeasureTypeChange,
   handleBaseUnitChange
@@ -100,14 +98,7 @@ export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
             )}
           </select>
         </div>
-        <p className="text-[11px] text-gray-500 mt-1">
-          Es la unidad con la que se controla el stock interno (1, 2, 3…). Las demás presentaciones se convierten a partir de esta unidad.
-        </p>
-        <p className="text-xs text-gray-500 mt-1">
-          {availableUnits.length > 0
-            ? `${availableUnits.length} unidad${availableUnits.length !== 1 ? 'es' : ''} disponible${availableUnits.length !== 1 ? 's' : ''}`
-            : 'Ve a Configuración → Negocio para gestionar unidades'}
-        </p>
+        {/* Texto informativo removido */}
       </div>
     </div>
   );
