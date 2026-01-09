@@ -71,6 +71,30 @@ interface ComprobanteData {
   registrarPago?: boolean;
 }
 
+const buildPaymentModeLabel = (isCreditSale: boolean, creditTerms?: ComprobanteCreditTerms): string => {
+  if (!isCreditSale) {
+    return 'Contado';
+  }
+
+  const days = new Set<number>();
+  creditTerms?.schedule?.forEach((installment) => {
+    const normalized = Number(installment?.diasCredito);
+    if (Number.isFinite(normalized)) {
+      days.add(Math.max(0, Math.trunc(normalized)));
+    }
+  });
+
+  if (!days.size) {
+    return 'Crédito';
+  }
+
+  const orderedDays = Array.from(days).sort((a, b) => a - b);
+  if (orderedDays.length === 1) {
+    return `Crédito ${orderedDays[0]} días`;
+  }
+  return `Crédito ${orderedDays.join('-')} días`;
+};
+
 export const useComprobanteActions = () => {
   const toast = useToast();
   const { addMovimiento: addMovimientoStock } = useInventoryFacade();
@@ -215,6 +239,7 @@ export const useComprobanteActions = () => {
       const fechaEmisionIso = data.fechaEmision || getBusinessTodayISODate();
       const fechaVencimientoIso = data.creditTerms?.fechaVencimientoGlobal || data.fechaVencimiento;
       const isCreditSale = Boolean(data.creditTerms);
+      const paymentModeLabel = buildPaymentModeLabel(isCreditSale, data.creditTerms);
       let createdCuenta: CuentaPorCobrarSummary | null = null;
 
       if (isCreditSale) {
@@ -455,8 +480,7 @@ export const useComprobanteActions = () => {
             })()
           : formattedDate;
 
-
-        const paymentMethodLabel = paymentSummaryLabel;
+  const paymentMethodLabel = paymentModeLabel;
 
         // ✅ VERIFICAR SI VIENE DE CONVERSIÓN PARA AGREGAR CORRELACIÓN
         const conversionSourceId = sessionStorage.getItem('conversionSourceId');
