@@ -73,6 +73,7 @@ export interface CobranzaDocumento {
     pending: number;
     paid: number;
   };
+  installmentApplication?: 'cuota_cancelada' | 'abono_parcial';
 }
 
 export interface CobranzaFilters {

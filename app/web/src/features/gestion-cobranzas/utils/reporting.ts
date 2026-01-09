@@ -25,13 +25,17 @@ const splitOperationRefs = (raw?: string | null): string[] => {
     .filter(Boolean);
 };
 
-const isCuentaContado = (cuenta?: CuentaPorCobrarSummary) => cuenta?.formaPago === 'contado' || !cuenta?.creditTerms;
+const isCuentaContado = (cuenta?: CuentaPorCobrarSummary) => {
+  if (!cuenta) return false;
+  return cuenta.formaPago === 'contado' || !cuenta.creditTerms;
+};
 
-const isAbonoPago = (cobranza: CobranzaDocumento): boolean => {
-  if (cobranza.estado === 'parcial') return true;
-  const info = cobranza.installmentsInfo;
-  if (!info || !info.total) return false;
-  return info.pending > 0 && info.pending < info.total;
+type InstallmentApplicationFlag = 'cuota_cancelada' | 'abono_parcial';
+
+const getAplicacionFromDocument = (cobranza: CobranzaDocumento): InstallmentApplicationFlag | null => {
+  const flag = (cobranza as { installmentApplication?: InstallmentApplicationFlag }).installmentApplication;
+  if (!flag) return null;
+  return flag;
 };
 
 export const getCuentaInstallmentStats = (cuenta: CuentaPorCobrarSummary): CuentaInstallmentStats | null => {
@@ -141,16 +145,15 @@ export const getCobranzaTipoCobroLabel = (
     return 'venta al contado';
   }
 
-  if (isAbonoPago(cobranza)) {
+  const flag = getAplicacionFromDocument(cobranza);
+  if (flag === 'cuota_cancelada') {
+    return 'cuota cancelada';
+  }
+  if (flag === 'abono_parcial') {
     return 'abono parcial';
   }
 
-  const info = cobranza.installmentsInfo;
-  if (info && info.total > 0 && info.pending === 0) {
-    return 'cuota cancelada';
-  }
-
-  return 'cuota cancelada';
+  return cobranza.estado === 'parcial' ? 'abono parcial' : 'cuota cancelada';
 };
 
 export const getCobranzaOperacionLabel = (cobranza: CobranzaDocumento): string => {

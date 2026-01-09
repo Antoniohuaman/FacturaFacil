@@ -327,6 +327,18 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
           ? 'cancelado'
           : 'parcial';
 
+      const installmentApplication: CobranzaDocumento['installmentApplication'] | undefined = hasAllocations
+        ? allocations.some((allocation) => {
+            if (typeof allocation.remaining === 'number') {
+              return allocation.remaining <= 0;
+            }
+            const status = allocation.status?.toLowerCase();
+            return status === 'cancelado' || status === 'cancelada';
+          })
+          ? 'cuota_cancelada'
+          : 'abono_parcial'
+        : undefined;
+
       const numeroDocumento = collectionDocument?.fullNumber || fallbackCollectionNumber();
       const fechaCobranza = collectionDocument?.issuedAt || input.payload.fechaCobranza || getBusinessTodayISODate();
 
@@ -353,6 +365,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         notas: input.payload.notes,
         collectionSeriesId: collectionDocument?.seriesId,
         installmentsInfo: documentInstallmentsInfo,
+        installmentApplication,
       };
 
       const cuentaUpdate: Partial<CuentaPorCobrarSummary> = {
