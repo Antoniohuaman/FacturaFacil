@@ -11,92 +11,110 @@ interface ProductFinancialSectionProps {
   isFieldRequired: (fieldId: string) => boolean;
 }
 
-export const ProductFinancialSection: React.FC<ProductFinancialSectionProps> = ({
+export const ProductPurchasePriceField: React.FC<ProductFinancialSectionProps> = ({
   formData,
   setFormData,
   errors,
   isFieldVisible,
   isFieldRequired
 }) => {
+  if (!isFieldVisible('precioCompra')) return null;
+
   return (
-    <div className="space-y-4">
-      {isFieldVisible('precioCompra') && (
-        <div>
-          <label htmlFor="precioCompra" className="block text-xs font-medium text-gray-700 mb-1">
-            Precio inicial de compra
-            {isFieldRequired('precioCompra') && <span className="text-red-500 ml-1">*</span>}
-          </label>
-          <div className="relative">
-            <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <div className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">S/</div>
-            <input
-              type="number"
-              id="precioCompra"
-              step="0.01"
-              min="0"
-              value={formData.precioCompra}
-              onChange={(e) => setFormData(prev => ({ ...prev, precioCompra: parseFloat(e.target.value) || 0 }))}
-              className="w-full h-10 pl-16 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-              placeholder="0.00"
-            />
-          </div>
-          {errors.precioCompra && <p className="text-red-600 text-xs mt-1">{errors.precioCompra}</p>}
-        </div>
-      )}
+    <div>
+      <label htmlFor="precioCompra" className="block text-xs font-medium text-gray-700 mb-1">
+        Precio inicial de compra
+        {isFieldRequired('precioCompra') && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className="relative">
+        <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+        <div className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">S/</div>
+        <input
+          type="number"
+          id="precioCompra"
+          step="0.01"
+          min="0"
+          value={formData.precioCompra}
+          onChange={(e) => setFormData(prev => ({ ...prev, precioCompra: parseFloat(e.target.value) || 0 }))}
+          className="w-full h-10 pl-16 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          placeholder="0.00"
+        />
+      </div>
+      {errors.precioCompra && <p className="text-red-600 text-xs mt-1">{errors.precioCompra}</p>}
+    </div>
+  );
+};
 
-      {isFieldVisible('porcentajeGanancia') && (
-        <div>
-          <label htmlFor="porcentajeGanancia" className="block text-xs font-medium text-gray-700 mb-1">
-            Porcentaje de ganancia
-            {isFieldRequired('porcentajeGanancia') && <span className="text-red-500 ml-1">*</span>}
-          </label>
-          <div className="relative">
-            <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="number"
-              id="porcentajeGanancia"
-              step="0.01"
-              min="0"
-              max="100"
-              value={formData.porcentajeGanancia}
-              onChange={(e) =>
-                setFormData(prev => ({ ...prev, porcentajeGanancia: parseFloat(e.target.value) || 0 }))
-              }
-              className="w-full h-10 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-              placeholder="0.00"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>
-          </div>
-          {errors.porcentajeGanancia && <p className="text-red-600 text-xs mt-1">{errors.porcentajeGanancia}</p>}
-        </div>
-      )}
+export const ProductProfitPercentField: React.FC<ProductFinancialSectionProps> = ({
+  formData,
+  setFormData,
+  errors,
+  isFieldVisible,
+  isFieldRequired
+}) => {
+  if (!isFieldVisible('porcentajeGanancia')) return null;
 
-      {isFieldVisible('descuentoProducto') && (
-        <div>
-          <label htmlFor="descuentoProducto" className="block text-xs font-medium text-gray-700 mb-1">
-            Descuento del producto
-            {isFieldRequired('descuentoProducto') && <span className="text-red-500 ml-1">*</span>}
-          </label>
-          <div className="relative">
-            <TicketPercent className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="number"
-              id="descuentoProducto"
-              step="0.01"
-              min="0"
-              max="100"
-              value={formData.descuentoProducto}
-              onChange={(e) =>
-                setFormData(prev => ({ ...prev, descuentoProducto: parseFloat(e.target.value) || 0 }))
-              }
-              className="w-full h-10 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-              placeholder="0.00"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>
-          </div>
-          {errors.descuentoProducto && <p className="text-red-600 text-xs mt-1">{errors.descuentoProducto}</p>}
-        </div>
-      )}
+  return (
+    <div>
+      <label htmlFor="porcentajeGanancia" className="block text-xs font-medium text-gray-700 mb-1">
+        Porcentaje de ganancia
+        {isFieldRequired('porcentajeGanancia') && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className="relative">
+        <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+        <input
+          type="number"
+          id="porcentajeGanancia"
+          step="0.01"
+          min="0"
+          max="100"
+          value={formData.porcentajeGanancia}
+          onChange={(e) =>
+            setFormData(prev => ({ ...prev, porcentajeGanancia: parseFloat(e.target.value) || 0 }))
+          }
+          className="w-full h-10 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          placeholder="0.00"
+        />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>
+      </div>
+      {errors.porcentajeGanancia && <p className="text-red-600 text-xs mt-1">{errors.porcentajeGanancia}</p>}
+    </div>
+  );
+};
+
+export const ProductDiscountField: React.FC<ProductFinancialSectionProps> = ({
+  formData,
+  setFormData,
+  errors,
+  isFieldVisible,
+  isFieldRequired
+}) => {
+  if (!isFieldVisible('descuentoProducto')) return null;
+
+  return (
+    <div>
+      <label htmlFor="descuentoProducto" className="block text-xs font-medium text-gray-700 mb-1">
+        Descuento del producto
+        {isFieldRequired('descuentoProducto') && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className="relative">
+        <TicketPercent className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+        <input
+          type="number"
+          id="descuentoProducto"
+          step="0.01"
+          min="0"
+          max="100"
+          value={formData.descuentoProducto}
+          onChange={(e) =>
+            setFormData(prev => ({ ...prev, descuentoProducto: parseFloat(e.target.value) || 0 }))
+          }
+          className="w-full h-10 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          placeholder="0.00"
+        />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>
+      </div>
+      {errors.descuentoProducto && <p className="text-red-600 text-xs mt-1">{errors.descuentoProducto}</p>}
     </div>
   );
 };

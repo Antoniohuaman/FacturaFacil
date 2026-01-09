@@ -13,7 +13,7 @@ interface ProductDescriptionSectionProps {
   onToggleDescription: () => void;
 }
 
-export const ProductDescriptionSection: React.FC<ProductDescriptionSectionProps> = ({
+export const ProductDescriptionField: React.FC<ProductDescriptionSectionProps> = ({
   formData,
   setFormData,
   errors,
@@ -53,30 +53,48 @@ export const ProductDescriptionSection: React.FC<ProductDescriptionSectionProps>
           {errors.descripcion && <p className="text-red-600 text-xs mt-1">{errors.descripcion}</p>}
         </div>
       )}
-
-      {isFieldVisible('peso') && (
-        <div>
-          <label htmlFor="peso" className="block text-xs font-medium text-gray-700 mb-1">
-            Peso (KGM)
-            {isFieldRequired('peso') && <span className="text-red-500 ml-1">*</span>}
-          </label>
-          <div className="relative">
-            <Weight className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="number"
-              id="peso"
-              step="0.001"
-              min="0"
-              value={formData.peso}
-              onChange={(e) => setFormData(prev => ({ ...prev, peso: parseFloat(e.target.value) || 0 }))}
-              className="w-full h-10 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-              placeholder="0.000"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">KG</div>
-          </div>
-          {errors.peso && <p className="text-red-600 text-xs mt-1">{errors.peso}</p>}
-        </div>
-      )}
     </>
+  );
+};
+
+interface ProductWeightFieldProps {
+  formData: ProductFormData;
+  setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>;
+  errors: FormError;
+  isFieldVisible: (fieldId: string) => boolean;
+  isFieldRequired: (fieldId: string) => boolean;
+}
+
+export const ProductWeightField: React.FC<ProductWeightFieldProps> = ({
+  formData,
+  setFormData,
+  errors,
+  isFieldVisible,
+  isFieldRequired
+}) => {
+  if (!isFieldVisible('peso')) return null;
+
+  return (
+    <div>
+      <label htmlFor="peso" className="block text-xs font-medium text-gray-700 mb-1">
+        Peso (KGM)
+        {isFieldRequired('peso') && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      <div className="relative">
+        <Weight className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+        <input
+          type="number"
+          id="peso"
+          step="0.001"
+          min="0"
+          value={formData.peso}
+          onChange={(e) => setFormData(prev => ({ ...prev, peso: parseFloat(e.target.value) || 0 }))}
+          className="w-full h-10 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          placeholder="0.000"
+        />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">KG</div>
+      </div>
+      {errors.peso && <p className="text-red-600 text-xs mt-1">{errors.peso}</p>}
+    </div>
   );
 };

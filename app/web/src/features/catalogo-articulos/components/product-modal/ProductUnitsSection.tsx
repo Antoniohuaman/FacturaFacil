@@ -35,8 +35,8 @@ export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
   handleBaseUnitChange
 }) => {
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+      <div className="md:col-span-8">
         <div className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-1">
           <span>Familia de unidades</span>
         </div>
@@ -72,7 +72,7 @@ export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
         {errors.tipoUnidadMedida && <p className="text-red-600 text-xs mt-1">{errors.tipoUnidadMedida}</p>}
       </div>
 
-      <div>
+      <div className="md:col-span-4">
         <label htmlFor="unidad" className="block text-xs font-medium text-gray-700 mb-1">
           Unidad mínima <span className="text-red-500">*</span>
         </label>

@@ -3,15 +3,31 @@ import { Sliders, X } from 'lucide-react';
 import CategoryModal from './CategoryModal';
 import { FieldsConfigPanel } from './FieldsConfigPanel';
 import { ProductTypeSelector } from './product-modal/ProductTypeSelector';
-import { ProductBasicsSection } from './product-modal/ProductBasicsSection';
+import {
+  ProductBarcodeField,
+  ProductCategoryField,
+  ProductAliasField,
+  ProductBrandField,
+  ProductCodeField,
+  ProductModelField,
+  ProductNameField
+} from './product-modal/ProductBasicsSection';
 import { ProductPricingSection } from './product-modal/ProductPricingSection';
 import { ProductUnitsSection } from './product-modal/ProductUnitsSection';
 import { ProductAdditionalUnitsTable } from './product-modal/ProductAdditionalUnitsTable';
 import { ProductAvailabilitySection } from './product-modal/ProductAvailabilitySection';
-import { ProductDescriptionSection } from './product-modal/ProductDescriptionSection';
+import { ProductDescriptionField, ProductWeightField } from './product-modal/ProductDescriptionSection';
 import { ProductImageUpload } from './product-modal/ProductImageUpload';
-import { ProductFinancialSection } from './product-modal/ProductFinancialSection';
-import { ProductCodesSection } from './product-modal/ProductCodesSection';
+import {
+  ProductDiscountField,
+  ProductProfitPercentField,
+  ProductPurchasePriceField
+} from './product-modal/ProductFinancialSection';
+import {
+  ProductExistenceTypeField,
+  ProductFactoryCodeField,
+  ProductSunatCodeField
+} from './product-modal/ProductCodesSection';
 import { ProductActions } from './product-modal/ProductActions';
 import { useProductStore, type ProductInput } from '../hooks/useProductStore';
 import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
@@ -133,25 +149,53 @@ const ProductModal: React.FC<ProductModalProps> = ({
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4">
           <ProductTypeSelector productType={productType} onChange={setProductType} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            <div className="lg:col-span-6 space-y-4">
-              <ProductBasicsSection
-                formData={formData}
-                setFormData={setFormData}
-                errors={errors}
-                isFieldVisible={isFieldVisible}
-                isFieldRequired={isFieldRequired}
-                categories={globalCategories}
-                onOpenCategoryModal={() => setShowCategoryModal(true)}
-              />
+          <div className="space-y-6">
+            {/* A) DEFAULT / OBLIGATORIO */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              <div className="lg:col-span-7 space-y-4">
+                {/* 2. Código (+ barcode cerca si aplica) */}
+                <ProductCodeField formData={formData} setFormData={setFormData} errors={errors} />
+                <ProductBarcodeField
+                  formData={formData}
+                  setFormData={setFormData}
+                  errors={errors}
+                  isFieldVisible={isFieldVisible}
+                  isFieldRequired={isFieldRequired}
+                />
 
-              <ProductPricingSection
-                formData={formData}
-                setFormData={setFormData}
-                isFieldVisible={isFieldVisible}
-                isFieldRequired={isFieldRequired}
-              />
+                {/* 3. Impuesto */}
+                <ProductPricingSection
+                  formData={formData}
+                  setFormData={setFormData}
+                  isFieldVisible={isFieldVisible}
+                  isFieldRequired={isFieldRequired}
+                />
 
+                {/* 4. Establecimiento */}
+                <ProductAvailabilitySection
+                  formData={formData}
+                  setFormData={setFormData}
+                  establishments={establishments}
+                  errors={errors}
+                />
+              </div>
+
+              {/* Imagen a la derecha */}
+              <div className="lg:col-span-5">
+                <ProductImageUpload
+                  imagePreview={imagePreview}
+                  onUpload={handleImageUpload}
+                  isFieldVisible={isFieldVisible}
+                  isFieldRequired={isFieldRequired}
+                />
+              </div>
+            </div>
+
+            {/* 5. Nombre (full width) */}
+            <ProductNameField formData={formData} setFormData={setFormData} errors={errors} />
+
+            {/* 6-7. Unidades: familia + unidad mínima (fila) + presentaciones debajo */}
+            <div className="space-y-3">
               <ProductUnitsSection
                 formData={formData}
                 errors={errors}
@@ -160,7 +204,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 handleMeasureTypeChange={handleMeasureTypeChange}
                 handleBaseUnitChange={handleBaseUnitChange}
               />
-
               <ProductAdditionalUnitsTable
                 unidadesMedidaAdicionales={formData.unidadesMedidaAdicionales}
                 baseUnitCode={formData.unidad}
@@ -175,15 +218,36 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 unitInfoMessage={unitInfoMessage}
                 setUnitInfoMessage={setUnitInfoMessage}
               />
+            </div>
 
-              <ProductAvailabilitySection
-                formData={formData}
-                setFormData={setFormData}
-                establishments={establishments}
-                errors={errors}
-              />
+            {/* B) CAMPOS COMPLEMENTARIOS */}
+            <div className="space-y-5">
+              {/* 8. Categoría + Alias */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-6">
+                  <ProductCategoryField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                    categories={globalCategories}
+                    onOpenCategoryModal={() => setShowCategoryModal(true)}
+                  />
+                </div>
+                <div className="md:col-span-6">
+                  <ProductAliasField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+              </div>
 
-              <ProductDescriptionSection
+              {/* 9. Descripción (full) */}
+              <ProductDescriptionField
                 formData={formData}
                 setFormData={setFormData}
                 errors={errors}
@@ -192,31 +256,99 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 isDescriptionExpanded={isDescriptionExpanded}
                 onToggleDescription={() => setIsDescriptionExpanded(prev => !prev)}
               />
-            </div>
 
-            <div className="lg:col-span-6 space-y-4">
-              <ProductImageUpload
-                imagePreview={imagePreview}
-                onUpload={handleImageUpload}
-                isFieldVisible={isFieldVisible}
-                isFieldRequired={isFieldRequired}
-              />
+              {/* 10. Código SUNAT (medio ancho) */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-6">
+                  <ProductSunatCodeField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+              </div>
 
-              <ProductFinancialSection
-                formData={formData}
-                setFormData={setFormData}
-                errors={errors}
-                isFieldVisible={isFieldVisible}
-                isFieldRequired={isFieldRequired}
-              />
+              {/* 11. Fila compacta: Peso + Marca + Modelo + Código fábrica */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-3">
+                  <ProductWeightField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <ProductBrandField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <ProductModelField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <ProductFactoryCodeField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+              </div>
 
-              <ProductCodesSection
-                formData={formData}
-                setFormData={setFormData}
-                errors={errors}
-                isFieldVisible={isFieldVisible}
-                isFieldRequired={isFieldRequired}
-              />
+              {/* 12. Fila compacta 4: Tipo existencia + Descuento + % Ganancia + Precio compra */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-3">
+                  <ProductExistenceTypeField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <ProductDiscountField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <ProductProfitPercentField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <ProductPurchasePriceField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </form>
