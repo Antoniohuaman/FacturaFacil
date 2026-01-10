@@ -137,7 +137,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const [showResults, setShowResults] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [unitSelections, setUnitSelections] = useState<Record<string, string>>({});
-  const [searchMode, setSearchMode] = useState<'text' | 'barcode'>('text');
+  const [searchMode, setSearchMode] = useState<'text' | 'barcode'>('barcode');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
@@ -151,12 +151,24 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     timeoutId: null,
   });
 
-  const focusSearchInput = useCallback(() => {
-    searchInputRef.current?.focus();
+  const focusSearchInput = useCallback((force = false) => {
+    const input = searchInputRef.current;
+    if (!input) {
+      return;
+    }
+
+    if (!force && typeof document !== 'undefined') {
+      const active = document.activeElement;
+      if (active && active !== document.body) {
+        return;
+      }
+    }
+
+    input.focus();
   }, []);
 
   useEffect(() => {
-    focusSearchInput();
+    focusSearchInput(false);
   }, [focusSearchInput]);
 
   const resetScanBurst = useCallback(() => {
@@ -314,7 +326,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     const matchedProduct = productLookupByCode.get(normalizedKey);
     const finalizeScan = () => {
       resetSearchState();
-      focusSearchInput();
+      focusSearchInput(true);
     };
 
     if (matchedProduct) {
@@ -882,7 +894,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
               {/* Badge de cantidad en carrito */}
               {showQuantityBadge && inCart && (
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">
+                <div className="pointer-events-none absolute top-2 right-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white shadow-md">
                   {quantityInCart}
                 </div>
               )}
@@ -908,7 +920,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
             {/* Indicador de selección */}
             {inCart && (
-              <div className="absolute top-2 left-2 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
+              <div className="pointer-events-none absolute top-2 left-2 z-20 h-3 w-3 rounded-full border-2 border-white bg-green-500 shadow-sm"></div>
             )}
           </div>
         );
