@@ -123,10 +123,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
       <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
-      <div className="relative w-full max-w-[820px] max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl">
+      <div className="relative w-full max-w-[780px] max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-3 border-b border-gray-200 bg-white rounded-t-lg">
           <h3 className="text-base font-semibold text-gray-900">
             {product ? 'Editar producto' : 'Nuevo producto / servicio'}
@@ -158,7 +158,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           <div className="space-y-2.5">
             {/* A) DEFAULT / OBLIGATORIO */}
             <div className="flex flex-col lg:flex-row gap-2 items-start">
-              <div className="w-full lg:flex-1 lg:max-w-[520px] space-y-2.5">
+              <div className="w-full lg:flex-1 lg:max-w-[500px] space-y-2.5">
                 {/* Nombre (obligatorio) */}
                 <ProductNameField formData={formData} setFormData={setFormData} errors={errors} />
 
@@ -189,6 +189,50 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                   />
                 </div>
+
+                {/* Familia de unidades (se mantiene igual) */}
+                <ProductUnitFamilyField
+                  formData={formData}
+                  errors={errors}
+                  isUsingFallbackUnits={isUsingFallbackUnits}
+                  handleMeasureTypeChange={handleMeasureTypeChange}
+                />
+
+                {/* Unidad mínima + Categoría (misma fila) */}
+                <div className={`grid grid-cols-1 gap-2 ${showCategory ? 'lg:grid-cols-2' : ''}`}>
+                  <ProductMinimumUnitField
+                    formData={formData}
+                    baseUnitOptions={baseUnitOptions}
+                    handleBaseUnitChange={handleBaseUnitChange}
+                  />
+                  <ProductCategoryField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                    categories={globalCategories}
+                    onOpenCategoryModal={() => setShowCategoryModal(true)}
+                  />
+                </div>
+
+                {/* Alias + Código SUNAT (misma fila) */}
+                <div className={`grid grid-cols-1 gap-2 ${showAlias && showSunat ? 'lg:grid-cols-2' : ''}`}>
+                  <ProductAliasField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                  <ProductSunatCodeField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
               </div>
 
               {/* Imagen a la derecha */}
@@ -202,69 +246,23 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
             </div>
 
-            {/* 6-7. Unidades: familia + unidad mínima (fila) + presentaciones debajo */}
-            <div className="space-y-2">
-              <ProductUnitFamilyField
-                formData={formData}
-                errors={errors}
-                isUsingFallbackUnits={isUsingFallbackUnits}
-                handleMeasureTypeChange={handleMeasureTypeChange}
-              />
-
-              {/* Unidad mínima + Categoría (misma fila) */}
-              <div className={`grid grid-cols-1 gap-2 ${showCategory ? 'lg:grid-cols-2' : ''}`}>
-                <ProductMinimumUnitField
-                  formData={formData}
-                  baseUnitOptions={baseUnitOptions}
-                  handleBaseUnitChange={handleBaseUnitChange}
-                />
-                <ProductCategoryField
-                  formData={formData}
-                  setFormData={setFormData}
-                  errors={errors}
-                  isFieldVisible={isFieldVisible}
-                  isFieldRequired={isFieldRequired}
-                  categories={globalCategories}
-                  onOpenCategoryModal={() => setShowCategoryModal(true)}
-                />
-              </div>
-
-              <ProductAdditionalUnitsTable
-                unidadesMedidaAdicionales={formData.unidadesMedidaAdicionales}
-                baseUnitCode={formData.unidad}
-                additionalUnitErrors={additionalUnitErrors}
-                addAdditionalUnit={addAdditionalUnit}
-                removeAdditionalUnit={removeAdditionalUnit}
-                updateAdditionalUnit={updateAdditionalUnit}
-                getAdditionalUnitOptions={getAdditionalUnitOptions}
-                remainingUnitsForAdditional={remainingUnitsForAdditional}
-                findUnitByCode={findUnitByCode}
-                formatFactorValue={formatFactorValue}
-                unitInfoMessage={unitInfoMessage}
-                setUnitInfoMessage={setUnitInfoMessage}
-              />
-            </div>
+            <ProductAdditionalUnitsTable
+              unidadesMedidaAdicionales={formData.unidadesMedidaAdicionales}
+              baseUnitCode={formData.unidad}
+              additionalUnitErrors={additionalUnitErrors}
+              addAdditionalUnit={addAdditionalUnit}
+              removeAdditionalUnit={removeAdditionalUnit}
+              updateAdditionalUnit={updateAdditionalUnit}
+              getAdditionalUnitOptions={getAdditionalUnitOptions}
+              remainingUnitsForAdditional={remainingUnitsForAdditional}
+              findUnitByCode={findUnitByCode}
+              formatFactorValue={formatFactorValue}
+              unitInfoMessage={unitInfoMessage}
+              setUnitInfoMessage={setUnitInfoMessage}
+            />
 
             {/* B) CAMPOS COMPLEMENTARIOS */}
             <div className="space-y-2.5">
-              {/* Alias + Código SUNAT (misma fila) */}
-              <div className={`grid grid-cols-1 gap-2 ${showAlias && showSunat ? 'lg:grid-cols-2' : ''}`}>
-                <ProductAliasField
-                  formData={formData}
-                  setFormData={setFormData}
-                  errors={errors}
-                  isFieldVisible={isFieldVisible}
-                  isFieldRequired={isFieldRequired}
-                />
-                <ProductSunatCodeField
-                  formData={formData}
-                  setFormData={setFormData}
-                  errors={errors}
-                  isFieldVisible={isFieldVisible}
-                  isFieldRequired={isFieldRequired}
-                />
-              </div>
-
               {/* 9. Descripción (full) */}
               <ProductDescriptionField
                 formData={formData}

@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Building2 } from 'lucide-react';
 import type { Establishment } from '../../../configuracion-sistema/models/Establishment';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
@@ -76,8 +75,7 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
 
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-gray-900 flex items-center gap-1.5">
-        <Building2 className="w-3.5 h-3.5 text-violet-600" />
+      <label className="block text-xs font-medium text-gray-700">
         Establecimientos <span className="text-red-500">*</span>
       </label>
 

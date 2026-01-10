@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tag, Quote, Barcode, ScanLine, Folder, Badge as BadgeIcon, Package2 } from 'lucide-react';
+import { Tag, Quote, Barcode, ScanLine, Folder, Badge as BadgeIcon, Package2, Wand2, Plus } from 'lucide-react';
 import type { Category } from '../../../configuracion-sistema/context/ConfigurationContext';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
@@ -64,13 +64,15 @@ export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setForm
         </div>
         <button
           type="button"
-          className="shrink-0 px-3 h-9 bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors whitespace-nowrap"
+          className="shrink-0 h-9 w-9 inline-flex items-center justify-center bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors"
+          aria-label="Generar código"
+          title="Generar código"
           onClick={() => {
             const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
             setFormData(prev => ({ ...prev, codigo: randomCode }));
           }}
         >
-          Generar
+          <Wand2 className="w-4 h-4 text-gray-700" />
         </button>
       </div>
       {errors.codigo && <p className="text-red-600 text-xs mt-1">{errors.codigo}</p>}
@@ -199,10 +201,12 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
         </div>
         <button
           type="button"
-          className="shrink-0 px-3 h-9 text-xs text-violet-600 border border-violet-300 rounded-md hover:bg-violet-50 transition-colors whitespace-nowrap"
+          className="shrink-0 h-9 w-9 inline-flex items-center justify-center text-violet-700 border border-violet-300 rounded-md hover:bg-violet-50 transition-colors"
+          aria-label="Crear categoría"
+          title="Crear categoría"
           onClick={onOpenCategoryModal}
         >
-          Crear categoría
+          <Plus className="w-4 h-4" />
         </button>
       </div>
       {errors.categoria && <p className="text-red-600 text-xs mt-1">{errors.categoria}</p>}

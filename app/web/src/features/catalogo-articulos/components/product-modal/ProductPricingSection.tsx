@@ -21,8 +21,8 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
   }
 
   return (
-    <div className="space-y-3">
-      <label htmlFor="impuesto" className="block text-xs font-medium text-gray-700 mb-1">
+    <div className="space-y-1.5">
+      <label htmlFor="impuesto" className="block text-xs font-medium text-gray-700">
         Impuesto
         {isFieldRequired('impuesto') && <span className="text-red-500 ml-1">*</span>}
       </label>
