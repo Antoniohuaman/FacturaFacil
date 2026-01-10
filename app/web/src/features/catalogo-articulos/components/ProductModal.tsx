@@ -190,14 +190,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   />
                 </div>
 
-                {/* Familia de unidades (se mantiene igual) */}
-                <ProductUnitFamilyField
-                  formData={formData}
-                  errors={errors}
-                  isUsingFallbackUnits={isUsingFallbackUnits}
-                  handleMeasureTypeChange={handleMeasureTypeChange}
-                />
-
                 {/* Unidad mínima + Categoría (misma fila) */}
                 <div className={`grid grid-cols-1 gap-2 ${showCategory ? 'lg:grid-cols-2' : ''}`}>
                   <ProductMinimumUnitField
@@ -215,6 +207,14 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     onOpenCategoryModal={() => setShowCategoryModal(true)}
                   />
                 </div>
+
+                {/* Familia de unidades (se mantiene igual) */}
+                <ProductUnitFamilyField
+                  formData={formData}
+                  errors={errors}
+                  isUsingFallbackUnits={isUsingFallbackUnits}
+                  handleMeasureTypeChange={handleMeasureTypeChange}
+                />
 
                 {/* Alias + Código SUNAT (misma fila) */}
                 <div className={`grid grid-cols-1 gap-2 ${showAlias && showSunat ? 'lg:grid-cols-2' : ''}`}>
