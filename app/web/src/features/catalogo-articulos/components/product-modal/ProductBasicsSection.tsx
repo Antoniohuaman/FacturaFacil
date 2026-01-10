@@ -47,8 +47,8 @@ export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setForm
       <label htmlFor="codigo" className="block text-xs font-medium text-gray-700 mb-1">
         Código <span className="text-red-500">*</span>
       </label>
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      <div className="flex gap-2 w-full">
+        <div className="relative flex-1 min-w-0">
           <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
             type="text"
@@ -64,7 +64,7 @@ export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setForm
         </div>
         <button
           type="button"
-          className="px-3 h-9 bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors"
+          className="shrink-0 px-3 h-9 bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors whitespace-nowrap"
           onClick={() => {
             const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
             setFormData(prev => ({ ...prev, codigo: randomCode }));
@@ -177,8 +177,8 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
         Categoría
         {isFieldRequired('categoria') && <span className="text-red-500 ml-1">*</span>}
       </label>
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      <div className="flex gap-2 w-full">
+        <div className="relative flex-1 min-w-0">
           <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <select
             id="categoria"
@@ -199,7 +199,7 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
         </div>
         <button
           type="button"
-          className="px-3 h-9 text-xs text-violet-600 border border-violet-300 rounded-md hover:bg-violet-50 transition-colors whitespace-nowrap"
+          className="shrink-0 px-3 h-9 text-xs text-violet-600 border border-violet-300 rounded-md hover:bg-violet-50 transition-colors whitespace-nowrap"
           onClick={onOpenCategoryModal}
         >
           Crear categoría

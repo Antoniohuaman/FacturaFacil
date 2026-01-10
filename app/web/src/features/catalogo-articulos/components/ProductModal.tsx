@@ -13,7 +13,7 @@ import {
   ProductNameField
 } from './product-modal/ProductBasicsSection';
 import { ProductPricingSection } from './product-modal/ProductPricingSection';
-import { ProductUnitsSection } from './product-modal/ProductUnitsSection';
+import { ProductMinimumUnitField, ProductUnitFamilyField } from './product-modal/ProductUnitsSection';
 import { ProductAdditionalUnitsTable } from './product-modal/ProductAdditionalUnitsTable';
 import { ProductAvailabilitySection } from './product-modal/ProductAvailabilitySection';
 import { ProductDescriptionField, ProductWeightField } from './product-modal/ProductDescriptionSection';
@@ -114,6 +114,12 @@ const ProductModal: React.FC<ProductModalProps> = ({
     onClose
   });
 
+  const showBarcode = isFieldVisible('codigoBarras');
+  const showTax = isFieldVisible('impuesto');
+  const showCategory = isFieldVisible('categoria');
+  const showAlias = isFieldVisible('alias');
+  const showSunat = isFieldVisible('codigoSunat');
+
   if (!isOpen) return null;
 
   return (
@@ -156,31 +162,33 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 {/* Nombre (obligatorio) */}
                 <ProductNameField formData={formData} setFormData={setFormData} errors={errors} />
 
-                {/* 2. Código (+ barcode cerca si aplica) */}
-                <ProductCodeField formData={formData} setFormData={setFormData} errors={errors} />
-                <ProductBarcodeField
-                  formData={formData}
-                  setFormData={setFormData}
-                  errors={errors}
-                  isFieldVisible={isFieldVisible}
-                  isFieldRequired={isFieldRequired}
-                />
+                {/* Código + Código de barras (misma fila) */}
+                <div className={`grid grid-cols-1 gap-2 ${showBarcode ? 'lg:grid-cols-2' : ''}`}>
+                  <ProductCodeField formData={formData} setFormData={setFormData} errors={errors} />
+                  <ProductBarcodeField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                </div>
 
-                {/* 3. Impuesto */}
-                <ProductPricingSection
-                  formData={formData}
-                  setFormData={setFormData}
-                  isFieldVisible={isFieldVisible}
-                  isFieldRequired={isFieldRequired}
-                />
-
-                {/* 4. Establecimiento */}
-                <ProductAvailabilitySection
-                  formData={formData}
-                  setFormData={setFormData}
-                  establishments={establishments}
-                  errors={errors}
-                />
+                {/* Impuesto + Establecimientos (misma fila) */}
+                <div className={`grid grid-cols-1 gap-2 ${showTax ? 'lg:grid-cols-2' : ''}`}>
+                  <ProductPricingSection
+                    formData={formData}
+                    setFormData={setFormData}
+                    isFieldVisible={isFieldVisible}
+                    isFieldRequired={isFieldRequired}
+                  />
+                  <ProductAvailabilitySection
+                    formData={formData}
+                    setFormData={setFormData}
+                    establishments={establishments}
+                    errors={errors}
+                  />
+                </div>
               </div>
 
               {/* Imagen a la derecha */}
@@ -196,14 +204,31 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
             {/* 6-7. Unidades: familia + unidad mínima (fila) + presentaciones debajo */}
             <div className="space-y-2">
-              <ProductUnitsSection
+              <ProductUnitFamilyField
                 formData={formData}
                 errors={errors}
-                baseUnitOptions={baseUnitOptions}
                 isUsingFallbackUnits={isUsingFallbackUnits}
                 handleMeasureTypeChange={handleMeasureTypeChange}
-                handleBaseUnitChange={handleBaseUnitChange}
               />
+
+              {/* Unidad mínima + Categoría (misma fila) */}
+              <div className={`grid grid-cols-1 gap-2 ${showCategory ? 'lg:grid-cols-2' : ''}`}>
+                <ProductMinimumUnitField
+                  formData={formData}
+                  baseUnitOptions={baseUnitOptions}
+                  handleBaseUnitChange={handleBaseUnitChange}
+                />
+                <ProductCategoryField
+                  formData={formData}
+                  setFormData={setFormData}
+                  errors={errors}
+                  isFieldVisible={isFieldVisible}
+                  isFieldRequired={isFieldRequired}
+                  categories={globalCategories}
+                  onOpenCategoryModal={() => setShowCategoryModal(true)}
+                />
+              </div>
+
               <ProductAdditionalUnitsTable
                 unidadesMedidaAdicionales={formData.unidadesMedidaAdicionales}
                 baseUnitCode={formData.unidad}
@@ -222,28 +247,22 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
             {/* B) CAMPOS COMPLEMENTARIOS */}
             <div className="space-y-2.5">
-              {/* 8. Categoría + Alias */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                <div className="md:col-span-6">
-                  <ProductCategoryField
-                    formData={formData}
-                    setFormData={setFormData}
-                    errors={errors}
-                    isFieldVisible={isFieldVisible}
-                    isFieldRequired={isFieldRequired}
-                    categories={globalCategories}
-                    onOpenCategoryModal={() => setShowCategoryModal(true)}
-                  />
-                </div>
-                <div className="md:col-span-6">
-                  <ProductAliasField
-                    formData={formData}
-                    setFormData={setFormData}
-                    errors={errors}
-                    isFieldVisible={isFieldVisible}
-                    isFieldRequired={isFieldRequired}
-                  />
-                </div>
+              {/* Alias + Código SUNAT (misma fila) */}
+              <div className={`grid grid-cols-1 gap-2 ${showAlias && showSunat ? 'lg:grid-cols-2' : ''}`}>
+                <ProductAliasField
+                  formData={formData}
+                  setFormData={setFormData}
+                  errors={errors}
+                  isFieldVisible={isFieldVisible}
+                  isFieldRequired={isFieldRequired}
+                />
+                <ProductSunatCodeField
+                  formData={formData}
+                  setFormData={setFormData}
+                  errors={errors}
+                  isFieldVisible={isFieldVisible}
+                  isFieldRequired={isFieldRequired}
+                />
               </div>
 
               {/* 9. Descripción (full) */}
@@ -256,19 +275,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 isDescriptionExpanded={isDescriptionExpanded}
                 onToggleDescription={() => setIsDescriptionExpanded(prev => !prev)}
               />
-
-              {/* 10. Código SUNAT (medio ancho) */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                <div className="md:col-span-6">
-                  <ProductSunatCodeField
-                    formData={formData}
-                    setFormData={setFormData}
-                    errors={errors}
-                    isFieldVisible={isFieldVisible}
-                    isFieldRequired={isFieldRequired}
-                  />
-                </div>
-              </div>
 
               {/* 11. Fila compacta: Peso + Marca + Modelo + Código fábrica */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
