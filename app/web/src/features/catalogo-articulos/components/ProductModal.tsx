@@ -120,7 +120,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
-      <div className="relative w-full max-w-[880px] max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl">
+      <div className="relative w-full max-w-[820px] max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-3 border-b border-gray-200 bg-white rounded-t-lg">
           <h3 className="text-base font-semibold text-gray-900">
             {product ? 'Editar producto' : 'Nuevo producto / servicio'}
@@ -149,10 +149,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-3 py-3">
           <ProductTypeSelector productType={productType} onChange={setProductType} />
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {/* A) DEFAULT / OBLIGATORIO */}
             <div className="flex flex-col lg:flex-row gap-2 items-start">
-              <div className="w-full lg:flex-1 space-y-3">
+              <div className="w-full lg:flex-1 lg:max-w-[520px] space-y-2.5">
                 {/* Nombre (obligatorio) */}
                 <ProductNameField formData={formData} setFormData={setFormData} errors={errors} />
 
@@ -184,7 +184,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
 
               {/* Imagen a la derecha */}
-              <div className="w-full lg:w-[260px] lg:flex-shrink-0">
+              <div className="w-full lg:w-[240px] lg:flex-shrink-0">
                 <ProductImageUpload
                   imagePreview={imagePreview}
                   onUpload={handleImageUpload}
@@ -221,7 +221,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
             </div>
 
             {/* B) CAMPOS COMPLEMENTARIOS */}
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {/* 8. Categoría + Alias */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-6">

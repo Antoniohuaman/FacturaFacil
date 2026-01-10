@@ -26,7 +26,7 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
       </label>
 
       <div className="rounded-lg border border-gray-200 bg-gray-50/40 p-2.5">
-        <div className="aspect-square w-full max-h-[320px] overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="aspect-square w-full max-h-[260px] overflow-hidden rounded-lg border border-gray-200 bg-white">
           {imagePreview ? (
             <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
           ) : (
