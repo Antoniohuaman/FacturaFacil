@@ -25,8 +25,8 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
         {isFieldRequired('imagen') && <span className="text-red-500 ml-1">*</span>}
       </label>
 
-      <div className="rounded-lg border border-gray-200 bg-gray-50/40 p-3">
-        <div className="aspect-square w-full max-h-[280px] overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-lg border border-gray-200 bg-gray-50/40 p-2.5">
+        <div className="aspect-square w-full max-h-[320px] overflow-hidden rounded-lg border border-gray-200 bg-white">
           {imagePreview ? (
             <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
           ) : (
@@ -42,7 +42,7 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
           )}
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="mt-2.5 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] text-gray-500">PNG, JPG, GIF hasta 5MB</p>
           </div>

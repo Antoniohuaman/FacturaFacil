@@ -90,7 +90,7 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
           aria-haspopup="dialog"
           aria-expanded={isOpen}
           aria-label="Seleccionar establecimientos"
-          className="w-full h-9 px-3 rounded-md border border-gray-300 bg-white text-sm text-left flex items-center justify-between gap-3 hover:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500/30 disabled:bg-gray-50 disabled:text-gray-400"
+          className="w-full h-9 px-2.5 rounded-md border border-gray-300 bg-white text-sm text-left flex items-center justify-between gap-3 hover:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500/30 disabled:bg-gray-50 disabled:text-gray-400"
         >
           <span className="truncate">{triggerLabel}</span>
           <span className="text-xs text-gray-500">{isOpen ? '▲' : '▼'}</span>
@@ -103,7 +103,7 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
             aria-label="Lista de establecimientos"
             className="absolute z-20 mt-2 w-full rounded-lg border border-gray-200 bg-white shadow-lg"
           >
-            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+            <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-gray-100">
               <button
                 type="button"
                 onClick={handleDisponibleEnTodos}
@@ -138,13 +138,13 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
               </button>
             </div>
 
-            <div className="max-h-56 overflow-y-auto p-2">
+            <div className="max-h-56 overflow-y-auto p-1.5">
               {establishments.map(est => {
                 const isSelected = formData.establecimientoIds.includes(est.id);
                 return (
                   <label
                     key={est.id}
-                    className={`flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer transition-colors ${
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
                       isSelected ? 'bg-violet-50' : 'hover:bg-gray-50'
                     }`}
                   >
@@ -169,7 +169,7 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
               })}
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100">
+            <div className="flex items-center justify-between px-2.5 py-1.5 border-t border-gray-100">
               <p className="text-[10px] text-gray-600">
                 {formData.disponibleEnTodos
                   ? 'Disponible en todos los establecimientos activos'

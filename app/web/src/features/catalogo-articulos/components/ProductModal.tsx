@@ -120,8 +120,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
-      <div className="relative w-full max-w-[1040px] max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-200 bg-white rounded-t-lg">
+      <div className="relative w-full max-w-[960px] max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white rounded-t-lg">
           <h3 className="text-base font-semibold text-gray-900">
             {product ? 'Editar producto' : 'Nuevo producto / servicio'}
           </h3>
@@ -146,13 +146,13 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-3">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-4 py-3">
           <ProductTypeSelector productType={productType} onChange={setProductType} />
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* A) DEFAULT / OBLIGATORIO */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-              <div className="lg:col-span-7 space-y-4">
+            <div className="flex flex-col lg:flex-row gap-3 items-start">
+              <div className="w-full lg:flex-1 space-y-3">
                 {/* Nombre (obligatorio) */}
                 <ProductNameField formData={formData} setFormData={setFormData} errors={errors} />
 
@@ -184,7 +184,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
 
               {/* Imagen a la derecha */}
-              <div className="lg:col-span-5">
+              <div className="w-full lg:w-[300px] lg:flex-shrink-0">
                 <ProductImageUpload
                   imagePreview={imagePreview}
                   onUpload={handleImageUpload}
@@ -221,9 +221,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
             </div>
 
             {/* B) CAMPOS COMPLEMENTARIOS */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* 8. Categoría + Alias */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-6">
                   <ProductCategoryField
                     formData={formData}
@@ -258,7 +258,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               />
 
               {/* 10. Código SUNAT (medio ancho) */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-6">
                   <ProductSunatCodeField
                     formData={formData}
@@ -271,7 +271,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
 
               {/* 11. Fila compacta: Peso + Marca + Modelo + Código fábrica */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-3">
                   <ProductWeightField
                     formData={formData}
@@ -311,7 +311,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
 
               {/* 12. Fila compacta 4: Tipo existencia + Descuento + % Ganancia + Precio compra */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-3">
                   <ProductExistenceTypeField
                     formData={formData}
