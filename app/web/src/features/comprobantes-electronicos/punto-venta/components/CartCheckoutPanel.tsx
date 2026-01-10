@@ -3,7 +3,7 @@
 // Fusiona CartSidebar con selección de Boleta/Factura y Cliente
 // ===================================================================
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, SlidersHorizontal, ShoppingCart } from 'lucide-react';
 import type { CartSidebarProps, Product, ComprobanteCreditTerms, Currency, DiscountInput, DiscountMode, PaymentTotals } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
@@ -64,8 +64,6 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   formatUnitLabel: (code?: string) => string;
 }
 
-const CART_LIST_MIN_HEIGHT = 260;
-const CART_LIST_BOTTOM_OFFSET = 32;
 const PERCENT_ERROR_MESSAGE = 'El descuento debe ser menor al 100%.';
 const AMOUNT_ERROR_MESSAGE = 'El descuento debe ser menor al total.';
 
@@ -116,8 +114,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const docMenuRef = useRef<HTMLDivElement>(null);
   const discountButtonRef = useRef<HTMLButtonElement>(null);
   const discountPopoverRef = useRef<HTMLDivElement>(null);
-  const itemsScrollRef = useRef<HTMLDivElement>(null);
-  const [cartItemsMaxHeight, setCartItemsMaxHeight] = useState<string>('auto');
   const [isDiscountPopoverOpen, setIsDiscountPopoverOpen] = useState(false);
   const [discountInputMode, setDiscountInputMode] = useState<DiscountMode>('amount');
   const [discountInputValue, setDiscountInputValue] = useState('');
@@ -341,33 +337,8 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
 
   const currentDocLabel = docOptions.find(option => option.value === tipoComprobante)?.label || 'Documento';
 
-  const recalcCartItemsHeight = useCallback(() => {
-    if (!itemsScrollRef.current) {
-      return;
-    }
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-    const { top } = itemsScrollRef.current.getBoundingClientRect();
-    const available = viewportHeight - top - CART_LIST_BOTTOM_OFFSET;
-    setCartItemsMaxHeight(`${Math.max(available, CART_LIST_MIN_HEIGHT)}px`);
-  }, []);
-
-  useLayoutEffect(() => {
-    recalcCartItemsHeight();
-    const handleResize = () => recalcCartItemsHeight();
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleResize);
-    };
-  }, [recalcCartItemsHeight]);
-
-  useEffect(() => {
-    recalcCartItemsHeight();
-  }, [recalcCartItemsHeight, cashBoxStatus, clienteSeleccionado, hasItems]);
-
   return (
-    <div className="bg-white flex h-full w-full flex-col">
+    <div className="bg-white flex h-full min-h-0 w-full flex-col overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between" ref={docMenuRef}>
         <div className="relative">
           <button
@@ -567,8 +538,8 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
       )}
 
       {/* Contenido estructurado: header + lista scrollable + acciones */}
-      <div className="flex-1 min-h-0 bg-gray-50">
-        <div className="flex h-full min-h-0 flex-col">
+      <div className="flex-1 min-h-0 bg-gray-50 overflow-hidden">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="shrink-0">
             <ClientSection
               clienteSeleccionado={clienteSeleccionado}
@@ -576,12 +547,10 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
             />
           </div>
 
-          <div className="flex-1 min-h-0 px-3 pb-3">
+          <div className="flex-1 min-h-0 px-3 pb-3 overflow-hidden">
             {hasItems ? (
               <div
-                ref={itemsScrollRef}
-                className="h-full overflow-hidden rounded-2xl border border-gray-100 bg-white"
-                style={{ maxHeight: cartItemsMaxHeight }}
+                className="h-full min-h-0 overflow-hidden rounded-2xl border border-gray-100 bg-white"
               >
                 <div className="h-full min-h-0 overflow-y-auto thin-scrollbar pr-1">
                   <CartItemsList

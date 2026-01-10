@@ -2,7 +2,7 @@
 // COMPONENTE GRID DE PRODUCTOS PARA MODO POS - VERSIÓN MEJORADA
 // ===================================================================
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Scan, Plus, Filter, Package, X, LayoutGrid, List, Star } from 'lucide-react';
 import type { Product, CartItem, Currency } from '../../models/comprobante.types';
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
@@ -50,8 +50,6 @@ export interface ProductGridProps {
   showQuantityBadge?: boolean;
 }
 
-const GRID_SCROLL_MIN_HEIGHT = 240;
-const GRID_SCROLL_BOTTOM_OFFSET = 24;
 type CatalogViewMode = 'cards' | 'list';
 const CATALOG_VIEW_STORAGE_KEY = 'pos_catalog_view';
 const isCatalogViewMode = (value: unknown): value is CatalogViewMode => value === 'cards' || value === 'list';
@@ -142,7 +140,6 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const favoritesPreferenceInitializedRef = useRef(false);
-  const [gridScrollMaxHeight, setGridScrollMaxHeight] = useState<string>('auto');
   const [catalogView, setCatalogView] = useState<CatalogViewMode>('cards');
   const scanBurstRef = useRef<ScanBurstState>({
     startTime: 0,
@@ -244,25 +241,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   }, [catalogView]);
 
   const recalcGridScrollArea = useCallback(() => {
-    if (!scrollAreaRef.current) {
-      return;
-    }
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-    const { top } = scrollAreaRef.current.getBoundingClientRect();
-    const available = viewportHeight - top - GRID_SCROLL_BOTTOM_OFFSET;
-    setGridScrollMaxHeight(`${Math.max(available, GRID_SCROLL_MIN_HEIGHT)}px`);
+    // no-op: altura del grid controlada solo por flexbox y overflow
   }, []);
-
-  useLayoutEffect(() => {
-    recalcGridScrollArea();
-    const handleResize = () => recalcGridScrollArea();
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleResize);
-    };
-  }, [recalcGridScrollArea]);
 
   useEffect(() => {
     recalcGridScrollArea();
@@ -1034,7 +1014,6 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       <div
         ref={scrollAreaRef}
         className="flex-1 min-h-0 overflow-y-auto pb-4 thin-scrollbar"
-        style={{ maxHeight: gridScrollMaxHeight }}
       >
         <div className="h-full w-full px-2 sm:px-3 lg:px-4">
           {!displayProducts || displayProducts.length === 0 ? (
