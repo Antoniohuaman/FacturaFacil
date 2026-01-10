@@ -557,7 +557,10 @@ export const useProductForm = ({
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setImagePreview('');
+      return;
+    }
 
     const reader = new FileReader();
     reader.onloadend = () => {
