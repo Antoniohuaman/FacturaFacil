@@ -153,6 +153,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
             {/* A) DEFAULT / OBLIGATORIO */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
               <div className="lg:col-span-7 space-y-4">
+                {/* Nombre (obligatorio) */}
+                <ProductNameField formData={formData} setFormData={setFormData} errors={errors} />
+
                 {/* 2. Código (+ barcode cerca si aplica) */}
                 <ProductCodeField formData={formData} setFormData={setFormData} errors={errors} />
                 <ProductBarcodeField
@@ -190,9 +193,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 />
               </div>
             </div>
-
-            {/* 5. Nombre (full width) */}
-            <ProductNameField formData={formData} setFormData={setFormData} errors={errors} />
 
             {/* 6-7. Unidades: familia + unidad mínima (fila) + presentaciones debajo */}
             <div className="space-y-2">
