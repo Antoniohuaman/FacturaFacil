@@ -9,6 +9,7 @@ import type { PaymentMethod } from '../models/PaymentMethod';
 import type { Currency } from '../models/Currency';
 import type { Unit } from '../models/Unit';
 import type { Tax } from '../models/Tax';
+import { PERU_TAX_TYPES, normalizeTaxes } from '../models/Tax';
 import { SUNAT_UNITS } from '../models/Unit';
 import type { Warehouse } from '../models/Warehouse';
 import type { Caja } from '../models/Caja';
@@ -26,24 +27,13 @@ export interface Category {
   fechaCreacion: Date;
 }
 
-// Temporary interface for tax affectations until officially added to Tax model
-export interface TaxAffectations {
-  igv: {
-    isActive: boolean;
-    isDefault: boolean;
-  };
-  exempt: {
-    isActive: boolean;
-    isDefault: boolean;
-  };
-  unaffected: {
-    isActive: boolean;
-    isDefault: boolean;
-  };
-}
-
 export type SalesPreferences = {
   allowNegativeStock: boolean;
+  /**
+   * Preferencia global: si los precios de lista incluyen IGV.
+   * No depende del impuesto por defecto ni de su tasa (puede ser 0%).
+   */
+  pricesIncludeTax: boolean;
 };
 
 interface ConfigurationState {
@@ -56,7 +46,6 @@ interface ConfigurationState {
   currencies: Currency[];
   units: Unit[];
   taxes: Tax[];
-  taxAffectations: TaxAffectations;
   categories: Category[];
   cajas: Caja[];
   salesPreferences: SalesPreferences;
@@ -135,6 +124,7 @@ type PersistedConfigurationSnapshot = {
 
 const DEFAULT_SALES_PREFERENCES: SalesPreferences = {
   allowNegativeStock: true,
+  pricesIncludeTax: true,
 };
 
 const getConfigurationStorageKeys = (): string[] => {
@@ -191,11 +181,18 @@ const persistConfigurationSnapshot = (snapshot: PersistedConfigurationSnapshot) 
 
 const loadSalesPreferencesFromStorage = (): SalesPreferences => {
   const persisted = readPersistedConfiguration();
-  if (persisted?.sales && typeof persisted.sales.allowNegativeStock === 'boolean') {
-    return { allowNegativeStock: persisted.sales.allowNegativeStock };
-  }
+  const allowNegativeStock =
+    typeof persisted?.sales?.allowNegativeStock === 'boolean'
+      ? persisted.sales.allowNegativeStock
+      : DEFAULT_SALES_PREFERENCES.allowNegativeStock;
 
-  return DEFAULT_SALES_PREFERENCES;
+  const pricesIncludeTax =
+    typeof (persisted?.sales as { pricesIncludeTax?: boolean } | undefined)?.pricesIncludeTax ===
+    'boolean'
+      ? (persisted!.sales as { pricesIncludeTax?: boolean }).pricesIncludeTax!
+      : DEFAULT_SALES_PREFERENCES.pricesIncludeTax;
+
+  return { allowNegativeStock, pricesIncludeTax };
 };
 
 const persistSalesPreferences = (preferences: SalesPreferences) => {
@@ -209,6 +206,7 @@ const persistSalesPreferences = (preferences: SalesPreferences) => {
     sales: {
       ...currentSnapshot.sales,
       allowNegativeStock: preferences.allowNegativeStock,
+      pricesIncludeTax: preferences.pricesIncludeTax,
     },
   };
 
@@ -239,7 +237,6 @@ type ConfigurationAction =
   | { type: 'SET_CURRENCIES'; payload: Currency[] }
   | { type: 'SET_UNITS'; payload: Unit[] }
   | { type: 'SET_TAXES'; payload: Tax[] }
-  | { type: 'SET_TAX_AFFECTATIONS'; payload: TaxAffectations }
   | { type: 'SET_CATEGORIES'; payload: Category[] }
   | { type: 'SET_CAJAS'; payload: Caja[] }
   | { type: 'ADD_CAJA'; payload: Caja }
@@ -259,20 +256,6 @@ const initialState: ConfigurationState = {
   taxes: [],
   categories: [],
   cajas: [],
-  taxAffectations: {
-    igv: {
-      isActive: true,
-      isDefault: true
-    },
-    exempt: {
-      isActive: true,
-      isDefault: false
-    },
-    unaffected: {
-      isActive: true,
-      isDefault: false
-    }
-  },
   salesPreferences: DEFAULT_SALES_PREFERENCES,
   isLoading: false,
   error: null,
@@ -394,10 +377,7 @@ function configurationReducer(
       return { ...state, units: action.payload };
     
     case 'SET_TAXES':
-      return { ...state, taxes: action.payload };
-
-    case 'SET_TAX_AFFECTATIONS':
-      return { ...state, taxAffectations: action.payload };
+      return { ...state, taxes: normalizeTaxes(action.payload) };
 
     case 'SET_CATEGORIES':
       return { ...state, categories: action.payload };
@@ -568,46 +548,24 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
       payload: sunatUnitsWithDefaults
     });
 
-    // Mock taxes - Using a basic structure that can be adapted
-    // Note: The TaxesSection component uses a different interface (TaxConfiguration)
-    // So we'll provide a minimal Tax object that matches the system model
+    // Mock taxes aligned with canonical PERU_TAX_TYPES definitions
+    const now = new Date();
+    const defaultCodes = ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'];
+    const defaultTaxes: Tax[] = PERU_TAX_TYPES
+      .filter((tax) => defaultCodes.includes(tax.code))
+      .map((tax, index) => ({
+        ...tax,
+        id: tax.code ?? `tax-${index + 1}`,
+        // Semánticamente includeInPrice es una preferencia global; aquí solo se inicializa.
+        includeInPrice: true,
+        isDefault: tax.code === 'IGV18',
+        createdAt: now,
+        updatedAt: now,
+      }));
+
     dispatch({
       type: 'SET_TAXES',
-      payload: [
-        {
-          id: '1',
-          code: 'IGV',
-          name: 'Impuesto General a las Ventas',
-          shortName: 'IGV',
-          type: 'PERCENTAGE',
-          rate: 18.0,
-          sunatCode: '1000',
-          sunatName: 'IGV - Impuesto General a las Ventas',
-          sunatType: 'VAT',
-          category: 'SALES',
-          includeInPrice: true,
-          isCompound: false,
-          applicableTo: {
-            products: true,
-            services: true,
-            both: true,
-          },
-          rules: {
-            roundingMethod: 'ROUND',
-            roundingPrecision: 2,
-          },
-          jurisdiction: {
-            country: 'PE',
-          },
-          isDefault: true,
-          isActive: true,
-          validFrom: new Date('2011-03-01'),
-          validTo: null,
-          description: 'Impuesto General a las Ventas del 18%',
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ]
+      payload: defaultTaxes,
     });
 
     // Mock employees with roles

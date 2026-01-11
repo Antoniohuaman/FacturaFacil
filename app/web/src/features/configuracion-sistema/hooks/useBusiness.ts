@@ -5,6 +5,7 @@ import { SUNAT_PAYMENT_METHODS } from '../models/PaymentMethod';
 import type { Currency, CreateCurrencyRequest, ExchangeRate } from '../models/Currency';
 import type { Unit } from '../models/Unit';
 import type { Tax } from '../models/Tax';
+import { PERU_TAX_TYPES } from '../models/Tax';
 
 interface UseBusinessReturn {
   // Payment Methods
@@ -171,72 +172,22 @@ const MOCK_UNITS: Unit[] = [
   },
 ];
 
-const MOCK_TAXES: Tax[] = [
-  {
-    id: 'tax-1',
-    code: 'IGV',
-    name: 'Impuesto General a las Ventas',
-    shortName: 'IGV',
-    type: 'PERCENTAGE',
-    rate: 18.0,
-    sunatCode: '1000',
-    sunatName: 'IGV - Impuesto General a las Ventas',
-    sunatType: 'VAT',
-    category: 'SALES',
-    includeInPrice: false,
-    isCompound: false,
-    applicableTo: {
-      products: true,
-      services: true,
-      both: true
-    },
-    rules: {
-      roundingMethod: 'ROUND',
-      roundingPrecision: 2
-    },
-    jurisdiction: {
-      country: 'PE'
-    },
-    isDefault: true,
-    isActive: true,
-    validFrom: new Date('2025-01-01'),
-    validTo: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'tax-2',
-    code: 'EXONERADO',
-    name: 'Exonerado',
-    shortName: 'EXO',
-    type: 'PERCENTAGE',
-    rate: 0.0,
-    sunatCode: '9997',
-    sunatName: 'EXO - Exonerado',
-    sunatType: 'OTHER',
-    category: 'EXEMPTION',
-    includeInPrice: false,
-    isCompound: false,
-    applicableTo: {
-      products: true,
-      services: true,
-      both: true
-    },
-    rules: {
-      roundingMethod: 'ROUND',
-      roundingPrecision: 2
-    },
-    jurisdiction: {
-      country: 'PE'
-    },
-    isDefault: false,
-    isActive: true,
-    validFrom: new Date('2025-01-01'),
-    validTo: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+// Canonical default tax options for business configuration, derived from PERU_TAX_TYPES
+// to avoid mantener múltiples listas divergentes. La normalización de invariantes se
+// realiza también en el reducer global, pero aquí generamos un set coherente.
+const MOCK_TAXES: Tax[] = PERU_TAX_TYPES
+  .filter(tax => ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'].includes(tax.code))
+  .map<Tax>((tax, index) => {
+    const now = new Date();
+    return {
+      ...tax,
+      id: `tax-${index + 1}`,
+      isDefault: tax.code === 'IGV18',
+      includeInPrice: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+  });
 
 export function useBusiness(): UseBusinessReturn {
   const { state, dispatch } = useConfigurationContext();

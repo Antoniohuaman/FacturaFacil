@@ -10,6 +10,28 @@ export interface Tax {
   sunatCode: string;
   sunatName: string;
   sunatType: 'VAT' | 'EXCISE' | 'OTHER';
+  /**
+   * Opcional: esquema tributario SUNAT (por ejemplo IGV 1000 / VAT).
+   * Mantiene compatibilidad con los campos sunatCode/sunatType existentes
+   * pero ofrece un modelo más explícito para integraciones.
+   */
+  taxScheme?: {
+    id: string; // e.g. '1000' para IGV
+    name: string; // e.g. 'IGV'
+    taxTypeCode: 'VAT' | 'EXCISE' | 'OTHER';
+  };
+
+  /**
+   * Código de afectación del IGV (Catálogo N° 07 SUNAT), por ejemplo:
+   *  - '10' Gravado - Operación Onerosa
+   *  - '20' Exonerado
+   *  - '30' Inafecto
+   *  - '40' Exportación
+   * Es opcional para no romper usos existentes, pero se utilizará como
+   * fuente de verdad para los desplegables de impuesto.
+   */
+  affectationCode?: string;
+  affectationName?: string;
   
   // Tax behavior
   category: 'SALES' | 'PURCHASE' | 'WITHHOLDING' | 'PERCEPTION' | 'EXEMPTION' | 'OTHER';
@@ -97,9 +119,9 @@ export interface TaxSummary {
 // Predefined tax types for Peru
 export const PERU_TAX_TYPES: Omit<Tax, 'id' | 'createdAt' | 'updatedAt' | 'isDefault'>[] = [
   {
-    code: 'IGV',
-    name: 'Impuesto General a las Ventas',
-    shortName: 'IGV',
+    code: 'IGV18',
+    name: 'IGV 18%',
+    shortName: 'IGV 18%',
     type: 'PERCENTAGE',
     rate: 18.0,
     sunatCode: '1000',
@@ -124,11 +146,54 @@ export const PERU_TAX_TYPES: Omit<Tax, 'id' | 'createdAt' | 'updatedAt' | 'isDef
     validFrom: new Date('2011-03-01'), // IGV rate change date
     validTo: null,
     description: 'Impuesto General a las Ventas del 18% aplicable a la mayoría de bienes y servicios',
+    taxScheme: {
+      id: '1000',
+      name: 'IGV',
+      taxTypeCode: 'VAT',
+    },
+    affectationCode: '10',
+    affectationName: 'Gravado - Operación Onerosa',
+  },
+  {
+    code: 'IGV10',
+    name: 'IGV 10%',
+    shortName: 'IGV 10%',
+    type: 'PERCENTAGE',
+    rate: 10.0,
+    sunatCode: '1000',
+    sunatName: 'IGV - Impuesto General a las Ventas',
+    sunatType: 'VAT',
+    category: 'SALES',
+    includeInPrice: false,
+    isCompound: false,
+    applicableTo: {
+      products: true,
+      services: true,
+      both: true,
+    },
+    rules: {
+      roundingMethod: 'ROUND',
+      roundingPrecision: 2,
+    },
+    jurisdiction: {
+      country: 'PE',
+    },
+    isActive: true,
+    validFrom: new Date('2021-07-01'),
+    validTo: null,
+    description: 'IGV 10% aplicable a restaurantes, hoteles y servicios turísticos',
+    taxScheme: {
+      id: '1000',
+      name: 'IGV',
+      taxTypeCode: 'VAT',
+    },
+    affectationCode: '10',
+    affectationName: 'Gravado - Operación Onerosa',
   },
   {
     code: 'IGV_EXP',
-    name: 'IGV - Exportación',
-    shortName: 'IGV EXP',
+    name: 'Exportación',
+    shortName: 'EXP',
     type: 'PERCENTAGE',
     rate: 0.0,
     sunatCode: '9995',
@@ -152,7 +217,14 @@ export const PERU_TAX_TYPES: Omit<Tax, 'id' | 'createdAt' | 'updatedAt' | 'isDef
     isActive: true,
     validFrom: new Date('2000-01-01'),
     validTo: null,
-    description: 'Tasa 0% para exportaciones',
+    description: 'Operaciones de exportación gravadas con IGV a tasa 0%',
+    taxScheme: {
+      id: '9995',
+      name: 'EXP',
+      taxTypeCode: 'VAT',
+    },
+    affectationCode: '40',
+    affectationName: 'Exportación',
   },
   {
     code: 'EXO',
@@ -182,6 +254,13 @@ export const PERU_TAX_TYPES: Omit<Tax, 'id' | 'createdAt' | 'updatedAt' | 'isDef
     validFrom: new Date('2000-01-01'),
     validTo: null,
     description: 'Productos y servicios exonerados del IGV',
+    taxScheme: {
+      id: '1000',
+      name: 'IGV',
+      taxTypeCode: 'VAT',
+    },
+    affectationCode: '20',
+    affectationName: 'Exonerado',
   },
   {
     code: 'INA',
@@ -211,6 +290,13 @@ export const PERU_TAX_TYPES: Omit<Tax, 'id' | 'createdAt' | 'updatedAt' | 'isDef
     validFrom: new Date('2000-01-01'),
     validTo: null,
     description: 'Operaciones inafectas al IGV',
+    taxScheme: {
+      id: '1000',
+      name: 'IGV',
+      taxTypeCode: 'VAT',
+    },
+    affectationCode: '30',
+    affectationName: 'Inafecto',
   },
   {
     code: 'ISC',
@@ -280,6 +366,63 @@ export const TAX_CATEGORIES = [
   { value: 'EXEMPTION', label: 'Exención', description: 'Exonerado, inafecto, exportación' },
   { value: 'OTHER', label: 'Otros', description: 'Otros tipos de impuestos' },
 ] as const;
+
+/**
+ * Normaliza una lista de impuestos garantizando las invariantes de configuración:
+ * - Siempre existe exactamente un impuesto marcado como por defecto (isDefault).
+ * - El impuesto por defecto siempre está visible (isActive = true).
+ * - Siempre hay al menos un impuesto visible; si no, se fuerza IGV 18 o el primero.
+ */
+export function normalizeTaxes(taxes: Tax[]): Tax[] {
+  if (!taxes.length) {
+    return taxes;
+  }
+
+  const cloned = taxes.map((tax) => ({ ...tax }));
+
+  // Asegurar que haya al menos un impuesto visible (isActive = true)
+  let visibleTaxes = cloned.filter((tax) => tax.isActive);
+  if (visibleTaxes.length === 0) {
+    const igv18Index = cloned.findIndex((tax) => tax.code === 'IGV18');
+    const indexToActivate = igv18Index >= 0 ? igv18Index : 0;
+    cloned[indexToActivate].isActive = true;
+    visibleTaxes = [cloned[indexToActivate]];
+  }
+
+  // Asegurar exactamente un impuesto por defecto y que esté visible
+  const defaultTaxes = cloned.filter((tax) => tax.isDefault);
+
+  let chosenDefault: Tax | null = null;
+
+  if (defaultTaxes.length === 0) {
+    // No hay ninguno marcado: priorizar IGV18 visible, si no, el primero visible
+    chosenDefault =
+      cloned.find((tax) => tax.code === 'IGV18' && tax.isActive) ??
+      visibleTaxes[0];
+  } else if (defaultTaxes.length === 1) {
+    chosenDefault = defaultTaxes[0];
+  } else {
+    // Hay más de uno: reducir a uno solo, priorizando IGV18 visible
+    chosenDefault =
+      defaultTaxes.find((tax) => tax.code === 'IGV18' && tax.isActive) ??
+      defaultTaxes.find((tax) => tax.isActive) ??
+      defaultTaxes[0];
+  }
+
+  if (chosenDefault) {
+    // Forzar visibilidad del impuesto por defecto
+    if (!chosenDefault.isActive) {
+      chosenDefault.isActive = true;
+    }
+
+    // Aplicar exclusividad de por defecto
+    cloned.forEach((tax) => {
+      tax.isDefault = tax === chosenDefault;
+    });
+  }
+
+  return cloned;
+}
 
 export const TAX_TYPES = [
   { value: 'PERCENTAGE', label: 'Porcentaje', description: 'Impuesto basado en porcentaje' },

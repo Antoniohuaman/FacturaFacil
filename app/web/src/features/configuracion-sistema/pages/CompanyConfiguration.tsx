@@ -24,6 +24,7 @@ import type { Warehouse } from '../models/Warehouse';
 import type { Series } from '../models/Series';
 import type { Currency } from '../models/Currency';
 import type { Tax } from '../models/Tax';
+import { PERU_TAX_TYPES } from '../models/Tax';
 
 interface CompanyFormData {
   ruc: string;
@@ -561,44 +562,20 @@ export function CompanyConfiguration() {
           dispatch({ type: 'SET_CURRENCIES', payload: defaultCurrencies });
         }
 
-        // 4. CONFIGURAR IMPUESTO IGV POR DEFECTO
+        // 4. CONFIGURAR IMPUESTOS POR DEFECTO (IGV 18%, IGV 10%, Exonerado, Inafecto, Exportación)
         if (state.taxes.length === 0) {
-          const defaultTaxes: Tax[] = [
-            {
-              id: 'IGV',
-              code: '1000',
-              name: 'IGV',
-              shortName: 'IGV',
-              description: 'Impuesto General a las Ventas',
-              rate: 18.0,
-              type: 'PERCENTAGE',
-              sunatCode: '1000',
-              sunatName: 'IGV - Impuesto General a las Ventas',
-              sunatType: 'VAT',
-              category: 'SALES',
+          const now = new Date();
+          const defaultTaxes: Tax[] = PERU_TAX_TYPES
+            .filter((tax) => ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'].includes(tax.code))
+            .map<Tax>((tax) => ({
+              ...tax,
+              id: tax.code,
               includeInPrice: true,
-              isCompound: false,
-              applicableTo: {
-                products: true,
-                services: true,
-                both: true,
-              },
-              rules: {
-                roundingMethod: 'ROUND',
-                roundingPrecision: 2,
-              },
-              jurisdiction: {
-                country: 'PE',
-                region: 'Nacional',
-              },
-              isDefault: true,
-              isActive: true,
-              validFrom: new Date(),
-              validTo: null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          ];
+              isDefault: tax.code === 'IGV18',
+              createdAt: now,
+              updatedAt: now,
+            }));
+
           dispatch({ type: 'SET_TAXES', payload: defaultTaxes });
         }
 

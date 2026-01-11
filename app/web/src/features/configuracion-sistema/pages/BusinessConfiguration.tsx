@@ -26,7 +26,7 @@ type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'catego
 export function BusinessConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { paymentMethods, units, taxes, taxAffectations, categories, salesPreferences } = state;
+  const { paymentMethods, units, taxes, categories, salesPreferences } = state;
 
   const [activeSection, setActiveSection] = useState<BusinessSection>('payments');
   const [accountingView, setAccountingView] = useState<'dashboard' | 'accounts'>('dashboard');
@@ -123,21 +123,25 @@ export function BusinessConfiguration() {
           {/* Taxes Section */}
           {activeSection === 'taxes' && (
             <TaxesSection
-              taxConfiguration={{
-                pricesIncludeTax: taxes[0]?.includeInPrice || false,
-                affectations: taxAffectations
-              }}
-              onUpdate={async (config) => {
-                // Update the main tax configuration
-                if (taxes[0]) {
-                  const updatedTax = {
-                    ...taxes[0],
-                    includeInPrice: config.pricesIncludeTax
-                  };
-                  dispatch({ type: 'SET_TAXES', payload: [updatedTax] });
+              taxes={taxes}
+              pricesIncludeTax={salesPreferences.pricesIncludeTax}
+              onUpdate={async ({ taxes: nextTaxes, pricesIncludeTax }) => {
+                // Sincronizar includeInPrice en todos los impuestos con la preferencia global
+                const syncedTaxes = nextTaxes.map((tax) => ({
+                  ...tax,
+                  includeInPrice: pricesIncludeTax,
+                }));
+                dispatch({ type: 'SET_TAXES', payload: syncedTaxes });
+
+                if (pricesIncludeTax !== salesPreferences.pricesIncludeTax) {
+                  dispatch({
+                    type: 'SET_SALES_PREFERENCES',
+                    payload: {
+                      ...salesPreferences,
+                      pricesIncludeTax,
+                    },
+                  });
                 }
-                // Update tax affectations
-                dispatch({ type: 'SET_TAX_AFFECTATIONS', payload: config.affectations });
               }}
             />
           )}
@@ -165,7 +169,13 @@ export function BusinessConfiguration() {
             <SalesPreferencesSection
               preferences={salesPreferences}
               onUpdate={async (preferences) => {
-                dispatch({ type: 'SET_SALES_PREFERENCES', payload: preferences });
+                dispatch({
+                  type: 'SET_SALES_PREFERENCES',
+                  payload: {
+                    ...salesPreferences,
+                    ...preferences,
+                  },
+                });
               }}
             />
           )}
