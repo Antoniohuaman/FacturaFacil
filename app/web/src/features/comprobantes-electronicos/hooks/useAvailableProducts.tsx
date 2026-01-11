@@ -107,6 +107,10 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         stock: stockInfo.availableInUnidadSeleccionada,
         barcode: product.codigoBarras,
         image: product.imagen,
+        // Propagar el impuesto configurado en el catálogo al producto POS
+        // para que el flujo de carrito pueda resolver correctamente igvType
+        // y tasa de IGV por ítem.
+        impuesto: product.impuesto,
         unit: mappedUnit,
         unidadMedida: mappedUnit,
         requiresStockControl,

@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { X, CreditCard, FileText, User, Calculator, Search, Plus, Edit, Building2, Smartphone, Banknote, DollarSign, Trash2 } from 'lucide-react';
 import type { PaymentModalProps, Currency } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
+import { TaxBreakdownSummary } from '../ui/TaxBreakdownSummary';
 import ClienteForm from '../../../gestion-clientes/components/ClienteForm.tsx';
 
 // Interfaz para cliente en formato POS
@@ -582,14 +583,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     {/* Totales dentro del listado */}
                     <div className="bg-white rounded-lg p-3 border-2 border-blue-300 mt-3">
                       <div className="space-y-1.5">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600 font-medium">Gravado:</span>
-                          <span className="font-semibold text-gray-900">{formatPrice(totals.subtotal, currency)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600 font-medium">IGV (18%):</span>
-                          <span className="font-semibold text-gray-900">{formatPrice(totals.igv, currency)}</span>
-                        </div>
+                        <TaxBreakdownSummary
+                          taxBreakdown={totals.taxBreakdown}
+                          currency={currency}
+                          variant="compact"
+                          subtotalFallback={totals.subtotal}
+                          igvFallback={totals.igv}
+                          totalFallback={totals.total}
+                        />
                         <div className="border-t-2 border-blue-200 pt-2 mt-2">
                           <div className="flex justify-between items-center">
                             <span className="text-base font-bold text-gray-900">Total a Pagar:</span>

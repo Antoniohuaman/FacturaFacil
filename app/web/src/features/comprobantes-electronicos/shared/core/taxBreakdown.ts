@@ -11,6 +11,27 @@ const inferKindFromIgv = (igvType: IgvType | undefined, hasTax: boolean): TaxBre
   return 'inafecto';
 };
 
+const getNominalRateFromIgvType = (igvType: IgvType | undefined, hasTax: boolean): number => {
+  if (!igvType) {
+    if (!hasTax) {
+      return 0;
+    }
+    // Si hubiera tipos futuros no tipados, preferimos 0 como valor seguro
+    return 0;
+  }
+
+  switch (igvType) {
+    case 'igv18':
+      return 0.18;
+    case 'igv10':
+      return 0.10;
+    case 'exonerado':
+    case 'inafecto':
+    default:
+      return 0;
+  }
+};
+
 /**
  * Construye un desglose de impuestos agrupado por tipo/tasa
  * a partir de los resultados de línea ya calculados por el core.
@@ -47,13 +68,11 @@ export const buildTaxBreakdownFromLineResults = (
       return;
     }
 
-    const effectiveRate = baseAmount > 0 ? taxAmount / baseAmount : 0;
-
     rowsByKey.set(key, {
       key,
       igvType,
       kind,
-      igvRate: effectiveRate,
+      igvRate: getNominalRateFromIgvType(igvType, hasTax),
       taxableBase: baseAmount,
       taxAmount,
       totalAmount,

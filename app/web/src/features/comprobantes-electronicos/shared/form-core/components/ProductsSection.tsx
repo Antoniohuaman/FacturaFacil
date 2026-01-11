@@ -9,6 +9,7 @@ import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pri
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
 import type { Product } from '../../../../catalogo-articulos/models/types';
 import { useCurrency } from '../hooks/useCurrency';
+import { TaxBreakdownSummary } from '../../ui/TaxBreakdownSummary';
 
 type UnitOption = {
   code: string;
@@ -1288,20 +1289,14 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                 <span className="text-gray-700 font-medium">{formatPrice(0, totalsCurrencyCode)}</span>
               </div>
 
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="text-gray-900 font-semibold">{formatPrice(totals.subtotal ?? 0, totalsCurrencyCode)}</span>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">I.G.V. (18%)</span>
-                <span className="text-gray-900 font-semibold">{formatPrice(totals.igv ?? 0, totalsCurrencyCode)}</span>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Redondeo</span>
-                <span className="text-gray-700 font-medium">{formatPrice(0, totalsCurrencyCode)}</span>
-              </div>
+              <TaxBreakdownSummary
+                taxBreakdown={totals.taxBreakdown}
+                currency={totalsCurrencyCode}
+                variant="default"
+                subtotalFallback={totals.subtotal ?? 0}
+                igvFallback={totals.igv ?? 0}
+                totalFallback={totals.total ?? 0}
+              />
 
               <div className="pt-2.5 mt-2.5 border-t-2 border-dashed border-gray-300">
                 <div className="bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg p-3 shadow-md">

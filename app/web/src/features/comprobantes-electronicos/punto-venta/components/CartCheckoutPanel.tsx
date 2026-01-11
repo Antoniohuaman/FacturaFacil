@@ -14,6 +14,7 @@ import { CartItemsList } from './cart/CartItemsList';
 import { ClientSection } from './client/ClientSection';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
 import type { NormalizedDocumentType } from '../../shared/form-core/utils/clientNormalization';
+import { TaxBreakdownSummary } from '../../shared/ui/TaxBreakdownSummary';
 
 export interface CartCheckoutPanelProps extends CartSidebarProps {
   onAddProduct?: (product: Product) => void;
@@ -310,17 +311,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [handleCancelDraft, isDiscountPopoverOpen]);
-
-  const igvPercentageLabel = useMemo(() => {
-    if (!displayedTotals?.subtotal || displayedTotals.subtotal <= 0) {
-      return null;
-    }
-    const rawValue = (displayedTotals.igv / displayedTotals.subtotal) * 100;
-    if (!Number.isFinite(rawValue) || rawValue <= 0) {
-      return null;
-    }
-    return `${rawValue.toFixed(2)}%`;
-  }, [displayedTotals.igv, displayedTotals.subtotal]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -653,19 +643,18 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
         }`}
       >
         <div className="p-3 space-y-3">
-            <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-inner">
-              <div className="flex items-center justify-between text-[11px] text-gray-500">
-                <span>Subtotal</span>
-                <span className="font-semibold text-gray-900">{formatPrice(displayedTotals.subtotal, currency)}</span>
-              </div>
-              <div className="my-2 border-t border-dashed border-gray-200" />
-              <div className="flex items-center justify-between text-[11px] text-gray-500">
-                <span>{`IGV${igvPercentageLabel ? ` (${igvPercentageLabel})` : ''}`}</span>
-                <span className="font-semibold text-gray-900">{formatPrice(displayedTotals.igv, currency)}</span>
-              </div>
-            </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-inner">
+            <TaxBreakdownSummary
+              taxBreakdown={displayedTotals.taxBreakdown}
+              currency={currency}
+              variant="compact"
+              subtotalFallback={displayedTotals.subtotal}
+              igvFallback={displayedTotals.igv}
+              totalFallback={displayedTotals.total}
+            />
+          </div>
 
-            <button
+          <button
               onClick={handleIssueAction}
               disabled={issueDisabled}
               className={`w-full py-3 rounded-xl font-bold text-base shadow-lg transition-all ${
@@ -690,19 +679,18 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                 </div>
               )}
             </button>
-
-            <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600">
-              <span>
-                {cartItems.length} {cartItems.length === 1 ? 'Producto' : 'Productos'}
-              </span>
-              <button
-                onClick={onClearCart}
-                className={`text-[#2ccdb0] hover:text-[#26b79c] ${!hasItems ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={isProcessing || !hasItems}
-              >
-                Borrar todo
-              </button>
-            </div>
+          <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600">
+            <span>
+              {cartItems.length} {cartItems.length === 1 ? 'Producto' : 'Productos'}
+            </span>
+            <button
+              onClick={onClearCart}
+              className={`text-[#2ccdb0] hover:text-[#26b79c] ${!hasItems ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isProcessing || !hasItems}
+            >
+              Borrar todo
+            </button>
+          </div>
         </div>
       </div>
     </div>

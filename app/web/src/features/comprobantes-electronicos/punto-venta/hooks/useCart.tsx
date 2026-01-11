@@ -53,9 +53,9 @@ const IGV_PERCENT_BY_TYPE: Record<IgvType, number> = {
   inafecto: 0
 };
 
-const resolveIgvConfigFromLabel = (label?: string): IgvConfig => {
+const resolveIgvConfigFromLabel = (label: string | undefined, defaultConfig: IgvConfig = DEFAULT_IGV_CONFIG): IgvConfig => {
   if (!label) {
-    return DEFAULT_IGV_CONFIG;
+    return defaultConfig;
   }
 
   const normalized = label.toLowerCase();
@@ -89,7 +89,7 @@ const resolveIgvConfigFromLabel = (label?: string): IgvConfig => {
     return { igvType: 'igv18', igvPercent: 18, impuestoLabel: label };
   }
 
-  return { ...DEFAULT_IGV_CONFIG, impuestoLabel: label };
+  return { ...defaultConfig, impuestoLabel: label };
 };
 
 const inferIgvPercent = (item: { igv?: number; igvType?: IgvType }): number => {
@@ -129,7 +129,7 @@ export const useCart = (): UseCartReturn => {
   // ===================================================================
   // CONFIGURACIÓN Y ESTADO
   // ===================================================================
-  const { state: { warehouses, salesPreferences } } = useConfigurationContext();
+  const { state: { warehouses, salesPreferences, taxes } } = useConfigurationContext();
   const allowNegativeStock = useMemo(() => {
     if (typeof salesPreferences?.allowNegativeStock === 'boolean') {
       return salesPreferences.allowNegativeStock;
@@ -148,6 +148,44 @@ export const useCart = (): UseCartReturn => {
     return false;
   }, [salesPreferences]);
   
+  const defaultIgvFromConfiguration: IgvConfig | null = useMemo(() => {
+    if (!taxes || taxes.length === 0) {
+      return null;
+    }
+
+    // Priorizar impuesto por defecto y activo
+    const defaultTax =
+      taxes.find(t => t.isDefault && t.isActive) ||
+      taxes.find(t => t.isDefault) ||
+      taxes.find(t => t.isActive && t.category === 'SALES' && t.sunatCode === '1000') ||
+      null;
+
+    if (!defaultTax) {
+      return null;
+    }
+
+    const percent = typeof defaultTax.rate === 'number' ? defaultTax.rate : DEFAULT_IGV_CONFIG.igvPercent;
+
+    let igvType: IgvType = 'igv18';
+    if (defaultTax.category === 'EXEMPTION' || percent === 0) {
+      igvType = 'exonerado';
+    } else if (percent >= 9 && percent <= 11) {
+      igvType = 'igv10';
+    } else if (percent >= 17 && percent <= 19) {
+      igvType = 'igv18';
+    }
+
+    const label = defaultTax.name || defaultTax.shortName || defaultTax.code;
+
+    return {
+      igvType,
+      igvPercent: percent,
+      impuestoLabel: label,
+    };
+  }, [taxes]);
+
+  const effectiveDefaultIgvConfig = defaultIgvFromConfiguration ?? DEFAULT_IGV_CONFIG;
+
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const { session } = useUserSession();
   const { allProducts: catalogProducts } = useProductStore();
@@ -213,7 +251,7 @@ export const useCart = (): UseCartReturn => {
   const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
     const price = Number.isFinite(product.price) ? product.price : 0;
     const resolvedUnit = product.unidadMedida || product.unit;
-    const igvConfig = resolveIgvConfigFromLabel(product.impuesto);
+    const igvConfig = resolveIgvConfigFromLabel(product.impuesto, effectiveDefaultIgvConfig);
     return {
       ...product,
       unidadMedida: resolvedUnit,
@@ -226,7 +264,7 @@ export const useCart = (): UseCartReturn => {
       igvType: igvConfig.igvType,
       impuesto: igvConfig.impuestoLabel
     };
-  }, []);
+  }, [effectiveDefaultIgvConfig]);
 
   // ===================================================================
   // FUNCIONES BÁSICAS DEL CARRITO

@@ -3,6 +3,7 @@ import type { PreviewData } from '../../models/comprobante.types';
 import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useVoucherDesignConfig';
 import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/models/VoucherDesignUnified';
 import { formatMoney } from '@/shared/currency';
+import { TaxBreakdownSummary } from './TaxBreakdownSummary';
 
 interface PreviewTicketProps {
   data: PreviewData;
@@ -241,49 +242,13 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         {/* Totals */}
         <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
           <div className="space-y-1 text-xs">
-            {taxBreakdown.length > 0 ? (
-              <>
-                {taxBreakdown.filter(row => row.kind === 'gravado' && row.taxableBase > 0).map((row) => {
-                  const percentLabel = row.igvRate > 0 ? ` (${(row.igvRate * 100).toFixed(2)}%)` : '';
-                  return (
-                    <div key={row.key} className="space-y-0.5">
-                      <div className="flex justify-between">
-                        <span>Op. Gravadas{percentLabel}:</span>
-                        <span>{formatCurrencyValue(row.taxableBase)}</span>
-                      </div>
-                      {row.taxAmount > 0 && (
-                        <div className="flex justify-between">
-                          <span>IGV{percentLabel}:</span>
-                          <span>{formatCurrencyValue(row.taxAmount)}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {taxBreakdown.filter(row => row.kind === 'exonerado' && row.taxableBase > 0).map((row) => (
-                  <div key={row.key} className="flex justify-between">
-                    <span>Op. Exoneradas:</span>
-                    <span>{formatCurrencyValue(row.taxableBase)}</span>
-                  </div>
-                ))}
-                {taxBreakdown.filter(row => row.kind === 'inafecto' && row.taxableBase > 0).map((row) => (
-                  <div key={row.key} className="flex justify-between">
-                    <span>Op. Inafectas:</span>
-                    <span>{formatCurrencyValue(row.taxableBase)}</span>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <>
-                {/* Fallback al comportamiento anterior si no hay breakdown disponible */}
-                {cartItems.length > 0 && (
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrencyValue(totals.subtotal)}</span>
-                  </div>
-                )}
-              </>
-            )}
+            <TaxBreakdownSummary
+              taxBreakdown={taxBreakdown}
+              currency={currency}
+              variant="compact"
+              subtotalFallback={cartItems.length > 0 ? totals.subtotal : undefined}
+              igvFallback={totals.igv}
+            />
             <div className="flex justify-between font-bold text-sm pt-2 border-t border-gray-400">
               <span>TOTAL:</span>
               <span>{formatCurrencyValue(totals.total)}</span>
