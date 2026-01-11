@@ -1,26 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Edit, User, X, Loader2 } from 'lucide-react';
 import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
+import type { Cliente } from '@/features/gestion-clientes/models';
+import { clientesClient } from '@/features/gestion-clientes/api';
+import { useClientes } from '@/features/gestion-clientes/hooks/useClientes';
 import {
-  buildClientDocKey,
-  formatDocumentLabel,
-  isValidDni,
-  isValidRuc,
-  loadNormalizedClientesFromStorage,
-  type NormalizedClienteRecord,
-  type NormalizedDocumentType,
-  normalizeDocumentNumber,
-  normalizeDocumentType,
-  persistLegacyClientes,
-  readLegacyClientes,
-} from '../../../shared/form-core/utils/clientNormalization';
+  buildUpdateClienteDtoFromLegacyForm,
+  clienteToSaleSnapshot,
+  formatSaleDocumentLabel,
+  type SaleDocumentType,
+} from '@/features/gestion-clientes/utils/saleClienteMapping';
+import { onlyDigits } from '@/features/gestion-clientes/utils/documents';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../../shared/clienteLookup/clienteLookupService';
 import { usePriceProfilesCatalog } from '../../../../lista-precios/hooks/usePriceProfilesCatalog';
 
 export interface ClientePOS {
-  id: string;
+  id?: number | string;
   nombre: string;
-  tipoDocumento: NormalizedDocumentType;
+  tipoDocumento: SaleDocumentType;
   documento: string;
   direccion: string;
   email?: string;
@@ -30,20 +27,25 @@ export interface ClientePOS {
 interface ClientSectionProps {
   clienteSeleccionado: ClientePOS | null;
   setClienteSeleccionado: (cliente: ClientePOS | null) => void;
+  onLookupClientSelected?: (client: {
+    data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string };
+    origen: 'RENIEC' | 'SUNAT';
+  } | null) => void;
 }
 
 export const ClientSection: React.FC<ClientSectionProps> = ({
   clienteSeleccionado,
   setClienteSeleccionado,
+  onLookupClientSelected,
 }) => {
   const { resolveProfileId } = usePriceProfilesCatalog();
+  const { clientes, fetchClientes, updateCliente } = useClientes();
   const [showClienteForm, setShowClienteForm] = useState(false);
   const [editingCliente, setEditingCliente] = useState(false);
   const [documentQuery, setDocumentQuery] = useState('');
   const [nameSearchQuery, setNameSearchQuery] = useState('');
   const [clientDocError, setClientDocError] = useState<string | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
-  const [clientesRefreshToken, setClientesRefreshToken] = useState(0);
   const [clienteFormData, setClienteFormData] = useState({
     documentNumber: '',
     legalName: '',
@@ -65,17 +67,18 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   }, [clienteSeleccionado]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (!documentQuery.trim() && !nameSearchQuery.trim()) {
       return;
     }
-    const handleStorage = (event: StorageEvent) => {
-      if (!event.key || event.key.includes('cliente')) {
-        setClientesRefreshToken((token) => token + 1);
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+
+    const query = documentQuery.trim() ? documentQuery.trim() : nameSearchQuery.trim();
+
+    const handle = window.setTimeout(() => {
+      void fetchClientes({ search: query, limit: 25, page: 1 });
+    }, 250);
+
+    return () => window.clearTimeout(handle);
+  }, [documentQuery, fetchClientes, nameSearchQuery]);
 
   const documentTypes = [
     { value: 'RUC', label: 'RUC' },
@@ -95,8 +98,6 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     { value: 'Proveedor', label: 'Proveedor' },
   ];
 
-  const refreshClientes = () => setClientesRefreshToken((token) => token + 1);
-
   const selectCliente = (cliente: ClientePOS) => {
     setClienteSeleccionado(cliente);
     setDocumentQuery(cliente.documento);
@@ -104,38 +105,15 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     setClientDocError(null);
   };
 
-  const selectFromRecord = (record: NormalizedClienteRecord) => {
-    const priceProfileId = resolveProfileId(record.priceProfileIdHint);
-    selectCliente({
-      id: record.id,
-      nombre: record.nombre,
-      tipoDocumento: record.tipoDocumento,
-      documento: record.numeroDocumento,
-      direccion: record.direccion,
-      email: record.email,
-      priceProfileId,
-    });
-  };
-
-  const [clientesDisponibles, setClientesDisponibles] = useState<NormalizedClienteRecord[]>(() => loadNormalizedClientesFromStorage());
-
-  useEffect(() => {
-    setClientesDisponibles(loadNormalizedClientesFromStorage());
-  }, [clientesRefreshToken]);
-
-  const normalizedDocQuery = useMemo(() => normalizeDocumentNumber(documentQuery), [documentQuery]);
+  const normalizedDocQuery = useMemo(() => onlyDigits(documentQuery), [documentQuery]);
   const normalizedNameQuery = useMemo(() => nameSearchQuery.trim().toLowerCase(), [nameSearchQuery]);
 
   const clientesFiltrados = useMemo(() => {
     if (!normalizedDocQuery && !normalizedNameQuery) {
-      return [] as NormalizedClienteRecord[];
+      return [] as Cliente[];
     }
-    return clientesDisponibles.filter((cliente) => {
-      const matchDoc = normalizedDocQuery ? cliente.numeroDocumento.includes(normalizedDocQuery) : false;
-      const matchName = normalizedNameQuery ? cliente.nombreLower.includes(normalizedNameQuery) : false;
-      return matchDoc || matchName;
-    });
-  }, [clientesDisponibles, normalizedDocQuery, normalizedNameQuery]);
+    return clientes;
+  }, [clientes, normalizedDocQuery, normalizedNameQuery]);
 
   const shouldShowResults = useMemo(
     () => !clienteSeleccionado && (Boolean(documentQuery.trim()) || Boolean(nameSearchQuery.trim())),
@@ -179,67 +157,54 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     setShowClienteForm(true);
   };
 
-  const handleSaveCliente = () => {
+  const handleSaveCliente = async () => {
     try {
-      const clientesActuales = readLegacyClientes();
-
-      const normalizedType = normalizeDocumentType(clienteDocumentType);
-      const rawDocumentInput = clienteFormData.documentNumber.trim();
-      const normalizedNumber =
-        normalizedType === 'RUC' || normalizedType === 'DNI'
-          ? normalizeDocumentNumber(rawDocumentInput)
-          : rawDocumentInput;
-
-      const documentLabel =
-        normalizedType === 'SIN_DOCUMENTO' || !normalizedNumber
-          ? 'Sin documento'
-          : `${normalizedType} ${normalizedNumber}`;
-
-      const nextNumericId = (() => {
-        const numericIds = clientesActuales
-          .map((cliente: Record<string, unknown>) => Number(cliente?.id))
-          .filter((id) => Number.isFinite(id));
-        const maxId = numericIds.length ? Math.max(...numericIds) : 0;
-        return maxId + 1;
-      })();
-
-      const nuevoCliente = {
-        id: editingCliente && clienteSeleccionado ? Number(clienteSeleccionado.id) || nextNumericId : nextNumericId,
-        name: clienteFormData.legalName.trim(),
-        document: documentLabel,
-        type: clienteType,
-        address: clienteFormData.address.trim() || 'Sin dirección',
-        phone: clienteFormData.phone.trim() || 'Sin teléfono',
-        enabled: true,
-        numeroDocumento: normalizedNumber,
-        tipoDocumento: normalizedType,
-      };
-
-      if (editingCliente && clienteSeleccionado) {
-        const targetIndex = clientesActuales.findIndex(
-          (cliente: Record<string, unknown>) => String(cliente?.id) === clienteSeleccionado.id,
-        );
-        if (targetIndex >= 0) {
-          clientesActuales[targetIndex] = { ...clientesActuales[targetIndex], ...nuevoCliente };
-        } else {
-          clientesActuales.unshift(nuevoCliente);
-        }
-      } else {
-        clientesActuales.unshift(nuevoCliente);
-      }
-
-      persistLegacyClientes(clientesActuales);
-
-      selectCliente({
-        id: String(nuevoCliente.id),
-        nombre: nuevoCliente.name,
-        tipoDocumento: normalizedType,
-        documento: normalizedNumber || rawDocumentInput,
-        direccion: nuevoCliente.address,
-        priceProfileId: undefined,
+      const dto = buildUpdateClienteDtoFromLegacyForm({
+        documentTypeToken: clienteDocumentType,
+        documentNumber: clienteFormData.documentNumber,
+        legalName: clienteFormData.legalName,
+        address: clienteFormData.address,
+        phone: clienteFormData.phone,
+        email: clienteFormData.email,
+        additionalData: clienteFormData.additionalData,
+        clientType: clienteType,
       });
 
-      refreshClientes();
+      const selectedId = clienteSeleccionado?.id;
+      if (editingCliente && selectedId !== undefined && selectedId !== null) {
+        const updated = await updateCliente(selectedId, dto);
+        if (updated) {
+          const snap = clienteToSaleSnapshot(updated);
+          selectCliente({
+            id: snap.clienteId,
+            nombre: snap.nombre,
+            tipoDocumento: snap.tipoDocumento,
+            documento: snap.dni,
+            direccion: snap.direccion,
+            email: snap.email,
+            priceProfileId: resolveProfileId(snap.priceProfileId),
+          });
+        }
+      } else {
+        // No persistir aquí: si la venta se emite OK, el contenedor hará createCliente.
+        const draftType: SaleDocumentType = clienteDocumentType.trim().toUpperCase() === 'RUC'
+          ? 'RUC'
+          : clienteDocumentType.trim().toUpperCase() === 'DNI'
+            ? 'DNI'
+            : 'SIN_DOCUMENTO';
+        const rawDocument = clienteFormData.documentNumber.trim();
+        const draftNumber = draftType === 'RUC' || draftType === 'DNI' ? onlyDigits(rawDocument) : rawDocument;
+        selectCliente({
+          id: undefined,
+          nombre: clienteFormData.legalName.trim(),
+          tipoDocumento: draftType,
+          documento: draftNumber,
+          direccion: clienteFormData.address.trim() || 'Sin dirección',
+          email: clienteFormData.email.trim() || undefined,
+          priceProfileId: undefined,
+        });
+      }
+
       setShowClienteForm(false);
       setEditingCliente(false);
     } catch (error) {
@@ -272,7 +237,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   };
 
   const handleQuickSearch = async () => {
-    const digits = normalizeDocumentNumber(documentQuery);
+    const digits = onlyDigits(documentQuery);
     if (!digits) {
       setClientDocError('Ingresa un número de documento');
       return;
@@ -282,19 +247,34 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       setDocumentQuery(digits);
     }
 
-    const isRucDoc = isValidRuc(digits);
-    const isDniDoc = isValidDni(digits);
+    const isRucDoc = digits.length === 11 && (digits.startsWith('10') || digits.startsWith('20'));
+    const isDniDoc = digits.length === 8;
     if (!isRucDoc && !isDniDoc) {
       setClientDocError('Ingresa un DNI (8) o RUC (11) válido');
       return;
     }
 
-    const matches = clientesDisponibles.filter((cliente) => cliente.numeroDocumento === digits);
-    if (matches.length === 1) {
-      selectFromRecord(matches[0]);
+    const response = await clientesClient.getClientes({ search: digits, limit: 25, page: 1 });
+    const exactMatches = response.data.filter((item) => {
+      const snap = clienteToSaleSnapshot(item);
+      return (snap.tipoDocumento === 'RUC' || snap.tipoDocumento === 'DNI') && snap.dni === digits;
+    });
+
+    if (exactMatches.length === 1) {
+      const snap = clienteToSaleSnapshot(exactMatches[0]);
+      selectCliente({
+        id: snap.clienteId,
+        nombre: snap.nombre,
+        tipoDocumento: snap.tipoDocumento,
+        documento: snap.dni,
+        direccion: snap.direccion,
+        email: snap.email,
+        priceProfileId: resolveProfileId(snap.priceProfileId),
+      });
       return;
     }
-    if (matches.length > 1) {
+
+    if (exactMatches.length > 1) {
       setClientDocError('Selecciona un cliente de la lista');
       return;
     }
@@ -306,19 +286,26 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
         setClientDocError('No se encontraron datos para este documento');
         return;
       }
-      const normalizedType = normalizeDocumentType(lookup.tipoDocumento);
-      const numeroDocumento =
-        normalizedType === 'RUC' || normalizedType === 'DNI'
-          ? normalizeDocumentNumber(lookup.documento)
-          : lookup.documento;
+      const normalizedType: SaleDocumentType = isRucDoc ? 'RUC' : 'DNI';
+      const numeroDocumento = onlyDigits(lookup.documento);
       selectCliente({
-        id: buildClientDocKey(normalizedType, numeroDocumento || lookup.nombre),
+        id: undefined,
         nombre: lookup.nombre,
         tipoDocumento: normalizedType,
         documento: numeroDocumento,
         direccion: lookup.direccion || 'Dirección no definida',
         email: lookup.email,
         priceProfileId: undefined,
+      });
+      onLookupClientSelected?.({
+        data: {
+          nombre: lookup.nombre,
+          documento: numeroDocumento,
+          tipoDocumento: normalizedType,
+          direccion: lookup.direccion,
+          email: lookup.email,
+        },
+        origen: lookup.origen,
       });
       setClientDocError(null);
     } catch (error) {
@@ -405,18 +392,27 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       {shouldShowResults && (
         <div className="mt-2 border border-slate-200 rounded-xl max-h-28 overflow-y-auto bg-white shadow-sm">
           {clientesFiltrados.length > 0 ? (
-            clientesFiltrados.map((cliente) => (
+            clientesFiltrados.map((cliente) => {
+              const snap = clienteToSaleSnapshot(cliente);
+              return (
               <button
-                key={cliente.docKey}
-                onClick={() => selectFromRecord(cliente)}
+                key={String(cliente.id)}
+                onClick={() => selectCliente({
+                  id: snap.clienteId,
+                  nombre: snap.nombre,
+                  tipoDocumento: snap.tipoDocumento,
+                  documento: snap.dni,
+                  direccion: snap.direccion,
+                  email: snap.email,
+                  priceProfileId: resolveProfileId(snap.priceProfileId),
+                })}
                 className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-b-0"
               >
-                <div className="font-semibold text-[11px] text-slate-900 truncate">{cliente.nombre}</div>
-                <div className="text-[10px] text-slate-600">
-                  {cliente.documentLabel}
-                </div>
+                <div className="font-semibold text-[11px] text-slate-900 truncate">{snap.nombre}</div>
+                <div className="text-[10px] text-slate-600">{formatSaleDocumentLabel(snap.tipoDocumento, snap.dni)}</div>
               </button>
-            ))
+              );
+            })
           ) : (
             <div className="p-2 text-center text-[10px] text-slate-500">Sin resultados</div>
           )}
@@ -426,7 +422,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       {clienteSeleccionado && (
         <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500">
           <span className="font-semibold text-slate-600">
-            {formatDocumentLabel(clienteSeleccionado.tipoDocumento, clienteSeleccionado.documento)}
+            {formatSaleDocumentLabel(clienteSeleccionado.tipoDocumento, clienteSeleccionado.documento)}
           </span>
           <button
             type="button"

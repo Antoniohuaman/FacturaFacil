@@ -86,6 +86,7 @@ const PuntoVenta = () => {
     fechaEmision,
     clienteSeleccionado,
     setClienteSeleccionado,
+    onLookupClientSelected,
     clienteDraftData,
     handleOpenCreditScheduleModal,
     handleCancelCreditScheduleModal,
@@ -163,7 +164,7 @@ const PuntoVenta = () => {
     return baseOption?.id || priceListOptions[0]?.id || '';
   }, [priceListOptions]);
 
-  const lastAutoClientIdRef = useRef<string | null>(null);
+  const lastAutoClientIdRef = useRef<string | number | null>(null);
   const lastAutoProfileRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -295,6 +296,7 @@ const PuntoVenta = () => {
                   onCurrencyChange={undefined}
                   clienteSeleccionado={clienteSeleccionado}
                   setClienteSeleccionado={setClienteSeleccionado}
+                  onLookupClientSelected={onLookupClientSelected}
                   cashBoxStatus={cajaStatus === 'abierta' ? 'open' : cajaStatus === 'cerrada' ? 'closed' : 'unknown'}
                   isProcessing={isProcessing}
                   paymentMethods={paymentMethods}

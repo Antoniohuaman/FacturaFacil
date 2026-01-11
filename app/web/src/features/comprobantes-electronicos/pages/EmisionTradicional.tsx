@@ -45,6 +45,9 @@ import { useUserSession } from '../../../contexts/UserSessionContext';
 // useConfigurationContext removed from this page (not needed)
 import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
+import { clientesClient } from '../../gestion-clientes/api';
+import { clienteToSaleSnapshot, type SaleDocumentType } from '../../gestion-clientes/utils/saleClienteMapping';
+import { onlyDigits } from '../../gestion-clientes/utils/documents';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
 import { validateComprobanteNormativa, validateComprobanteReadyForCobranza } from '../shared/core/comprobanteValidation';
@@ -119,10 +122,12 @@ const EmisionTradicional = () => {
   } = useComprobanteActions();
   // ----- Lifted data from CompactDocumentForm (cliente y campos opcionales) -----
   const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<{
+    clienteId?: number | string;
     nombre: string;
     dni: string;
     direccion: string;
     email?: string;
+    tipoDocumento?: SaleDocumentType;
     priceProfileId?: string;
   } | null>(null);
   const [fechaEmision, setFechaEmision] = useState<string>(getBusinessTodayISODate());
@@ -349,10 +354,17 @@ const EmisionTradicional = () => {
 
   const draftClientData: ClientData | undefined = useMemo(() => {
     if (!clienteSeleccionadoGlobal) return undefined;
+    const normalizedType = clienteSeleccionadoGlobal.tipoDocumento
+      ? clienteSeleccionadoGlobal.tipoDocumento
+      : (clienteSeleccionadoGlobal.dni && clienteSeleccionadoGlobal.dni.length === 11 ? 'RUC' : 'DNI');
+    const normalizedNumber =
+      normalizedType === 'RUC' || normalizedType === 'DNI'
+        ? onlyDigits(clienteSeleccionadoGlobal.dni)
+        : clienteSeleccionadoGlobal.dni;
     return {
       nombre: clienteSeleccionadoGlobal.nombre,
-      tipoDocumento: clienteSeleccionadoGlobal.dni && clienteSeleccionadoGlobal.dni.length === 11 ? 'ruc' : 'dni',
-      documento: clienteSeleccionadoGlobal.dni,
+      tipoDocumento: normalizedType === 'RUC' ? 'ruc' : 'dni',
+      documento: normalizedNumber,
       direccion: clienteSeleccionadoGlobal.direccion,
       email: clienteSeleccionadoGlobal.email,
     };
@@ -645,21 +657,66 @@ const EmisionTradicional = () => {
 
       if (success) {
         setShowCobranzaModal(false);
-        if (lookupClient) {
+        if (lookupClient && !(clienteSeleccionadoGlobal?.clienteId !== undefined && clienteSeleccionadoGlobal?.clienteId !== null)) {
           const { data } = lookupClient;
-          await createCliente({
-            documentType: data.tipoDocumento.toUpperCase() === 'RUC' ? 'RUC' : 'DNI',
-            documentNumber: data.documento,
-            name: data.nombre,
-            type: 'Cliente',
-            direccion: data.direccion,
-            email: data.email,
-            tipoDocumento: data.tipoDocumento.toUpperCase(),
-            numeroDocumento: data.documento,
-            razonSocial: data.tipoDocumento.toLowerCase() === 'ruc' ? data.nombre : undefined,
-            nombreCompleto: data.tipoDocumento.toLowerCase() === 'dni' ? data.nombre : undefined,
-            tipoCuenta: 'Cliente'
-          });
+          const rawTipo = (data.tipoDocumento || '').toString().trim().toUpperCase();
+          const documentType = rawTipo === 'RUC' ? 'RUC' : 'DNI';
+          const documentNumber = onlyDigits(data.documento || '');
+
+          if (documentNumber) {
+            const searchResponse = await clientesClient.getClientes({ search: documentNumber, limit: 25, page: 1 });
+            const existing = searchResponse.data.find((candidate) => {
+              const snap = clienteToSaleSnapshot(candidate);
+              return (snap.tipoDocumento === 'RUC' || snap.tipoDocumento === 'DNI') && snap.dni === documentNumber;
+            });
+
+            if (existing) {
+              const snap = clienteToSaleSnapshot(existing);
+              setClienteSeleccionadoGlobal((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  clienteId: snap.clienteId,
+                  tipoDocumento: snap.tipoDocumento,
+                  dni: snap.dni,
+                  direccion: snap.direccion,
+                  email: snap.email,
+                  priceProfileId: snap.priceProfileId,
+                };
+              });
+            } else {
+              const created = await createCliente({
+                documentType,
+                documentNumber,
+                name: data.nombre,
+                type: 'Cliente',
+                direccion: data.direccion,
+                email: data.email,
+                tipoDocumento: documentType,
+                numeroDocumento: documentNumber,
+                razonSocial: rawTipo === 'RUC' ? data.nombre : undefined,
+                nombreCompleto: rawTipo === 'DNI' ? data.nombre : undefined,
+                tipoCuenta: 'Cliente'
+              });
+
+              if (created) {
+                const snap = clienteToSaleSnapshot(created);
+                setClienteSeleccionadoGlobal((prev) => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    clienteId: snap.clienteId,
+                    tipoDocumento: snap.tipoDocumento,
+                    dni: snap.dni,
+                    direccion: snap.direccion,
+                    email: snap.email,
+                    priceProfileId: snap.priceProfileId,
+                  };
+                });
+              }
+            }
+          }
+
           setLookupClient(null);
         }
 

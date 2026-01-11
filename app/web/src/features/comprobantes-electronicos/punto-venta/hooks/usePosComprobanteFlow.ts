@@ -6,7 +6,10 @@ import { useAvailableProducts } from '../../hooks/useAvailableProducts';
 import { useCreditTermsConfigurator } from '../../hooks/useCreditTermsConfigurator';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { useDocumentType } from '../../shared/form-core/hooks/useDocumentType';
-import { normalizeDocumentNumber, type NormalizedDocumentType } from '../../shared/form-core/utils/clientNormalization';
+import { onlyDigits } from '@/features/gestion-clientes/utils/documents';
+import { clientesClient } from '@/features/gestion-clientes/api';
+import { useClientes } from '@/features/gestion-clientes/hooks/useClientes';
+import { clienteToSaleSnapshot, type SaleDocumentType } from '@/features/gestion-clientes/utils/saleClienteMapping';
 import { validateComprobanteReadyForCobranza } from '../../shared/core/comprobanteValidation';
 import type {
   CartItem,
@@ -34,6 +37,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
 
   const { currentCurrency, currencyInfo, baseCurrency, changeCurrency } = useCurrency();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada } = useDocumentType();
+  const { createCliente } = useClientes();
 
   const {
     formaPago,
@@ -72,11 +76,11 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
   const [fechaEmision] = useState(() => getBusinessTodayISODate());
   const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
 
-  const [clienteSeleccionado, setClienteSeleccionado] = useState<
+  const [clienteSeleccionadoState, setClienteSeleccionadoState] = useState<
     | {
-        id: string;
+        id?: number | string;
         nombre: string;
-        tipoDocumento: NormalizedDocumentType;
+        tipoDocumento: SaleDocumentType;
         documento: string;
         direccion: string;
         email?: string;
@@ -85,12 +89,32 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     | null
   >(null);
 
+  const [lookupClient, setLookupClient] = useState<
+    | {
+        data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string };
+        origen: 'RENIEC' | 'SUNAT';
+      }
+    | null
+  >(null);
+
+  const setClienteSeleccionado = useCallback(
+    (cliente: typeof clienteSeleccionadoState) => {
+      setClienteSeleccionadoState(cliente);
+      if (!cliente || (cliente.id !== undefined && cliente.id !== null)) {
+        setLookupClient(null);
+      }
+    },
+    [],
+  );
+
   const clienteDraftData: ClientData | undefined = useMemo(() => {
+    const clienteSeleccionado = clienteSeleccionadoState;
     if (!clienteSeleccionado) return undefined;
+
     const tipoDocumento: ClientData['tipoDocumento'] = clienteSeleccionado.tipoDocumento === 'RUC' ? 'ruc' : 'dni';
     const documentoNormalizado =
       clienteSeleccionado.tipoDocumento === 'RUC' || clienteSeleccionado.tipoDocumento === 'DNI'
-        ? normalizeDocumentNumber(clienteSeleccionado.documento)
+        ? onlyDigits(clienteSeleccionado.documento)
         : clienteSeleccionado.documento;
     return {
       nombre: clienteSeleccionado.nombre,
@@ -99,7 +123,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
       direccion: clienteSeleccionado.direccion,
       email: clienteSeleccionado.email,
     };
-  }, [clienteSeleccionado]);
+  }, [clienteSeleccionadoState]);
 
   const availableProducts = useAvailableProducts({
     establecimientoId: currentEstablishmentId,
@@ -260,6 +284,61 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
       });
 
       if (success) {
+        if (lookupClient && !(clienteSeleccionadoState?.id !== undefined && clienteSeleccionadoState?.id !== null)) {
+          const rawTipo = (lookupClient.data.tipoDocumento || '').toString().trim().toUpperCase();
+          const documentType = rawTipo === 'RUC' ? 'RUC' : 'DNI';
+          const documentNumber = onlyDigits(lookupClient.data.documento || '');
+
+          if (documentNumber) {
+            const searchResponse = await clientesClient.getClientes({ search: documentNumber, limit: 25, page: 1 });
+            const existing = searchResponse.data.find((candidate) => {
+              const snap = clienteToSaleSnapshot(candidate);
+              return (snap.tipoDocumento === 'RUC' || snap.tipoDocumento === 'DNI') && snap.dni === documentNumber;
+            });
+
+            if (existing) {
+              const snap = clienteToSaleSnapshot(existing);
+              setClienteSeleccionado({
+                id: snap.clienteId,
+                nombre: snap.nombre,
+                tipoDocumento: snap.tipoDocumento,
+                documento: snap.dni,
+                direccion: snap.direccion,
+                email: snap.email,
+                priceProfileId: snap.priceProfileId,
+              });
+            } else {
+              const created = await createCliente({
+                documentType,
+                documentNumber,
+                name: lookupClient.data.nombre,
+                type: 'Cliente',
+                address: lookupClient.data.direccion,
+                email: lookupClient.data.email,
+                tipoDocumento: documentType,
+                numeroDocumento: documentNumber,
+                direccion: lookupClient.data.direccion,
+                tipoCuenta: 'Cliente',
+              });
+
+              if (created) {
+                const snap = clienteToSaleSnapshot(created);
+                setClienteSeleccionado({
+                  id: snap.clienteId,
+                  nombre: snap.nombre,
+                  tipoDocumento: snap.tipoDocumento,
+                  documento: snap.dni,
+                  direccion: snap.direccion,
+                  email: snap.email,
+                  priceProfileId: snap.priceProfileId,
+                });
+              }
+            }
+          }
+
+          setLookupClient(null);
+        }
+
         const received = paymentPayload?.mode === 'contado'
           ? paymentPayload.lines.reduce((sum, line) => sum + line.amount, 0)
           : 0;
@@ -363,8 +442,9 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     showCreditScheduleModal,
     setShowCreditScheduleModal,
     fechaEmision,
-    clienteSeleccionado,
+    clienteSeleccionado: clienteSeleccionadoState,
     setClienteSeleccionado,
+    onLookupClientSelected: setLookupClient,
     clienteDraftData,
     handleOpenCreditScheduleModal,
     handleCancelCreditScheduleModal,

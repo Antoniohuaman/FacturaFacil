@@ -13,7 +13,7 @@ import { CreditScheduleSummaryCard } from '../../shared/payments/CreditScheduleS
 import { CartItemsList } from './cart/CartItemsList';
 import { ClientSection } from './client/ClientSection';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
-import type { NormalizedDocumentType } from '../../shared/form-core/utils/clientNormalization';
+import type { SaleDocumentType } from '@/features/gestion-clientes/utils/saleClienteMapping';
 import { TaxBreakdownSummary } from '../../shared/ui/TaxBreakdownSummary';
 
 export interface CartCheckoutPanelProps extends CartSidebarProps {
@@ -31,22 +31,26 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   setTipoComprobante: (tipo: 'boleta' | 'factura') => void;
   onCurrencyChange?: (currency: Currency) => void;
   clienteSeleccionado: {
-    id: string;
+    id?: number | string;
     nombre: string;
-    tipoDocumento: NormalizedDocumentType;
+    tipoDocumento: SaleDocumentType;
     documento: string;
     direccion: string;
     email?: string;
     priceProfileId?: string;
   } | null;
   setClienteSeleccionado: (cliente: {
-    id: string;
+    id?: number | string;
     nombre: string;
-    tipoDocumento: NormalizedDocumentType;
+    tipoDocumento: SaleDocumentType;
     documento: string;
     direccion: string;
     email?: string;
     priceProfileId?: string;
+  } | null) => void;
+  onLookupClientSelected?: (client: {
+    data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string };
+    origen: 'RENIEC' | 'SUNAT';
   } | null) => void;
   paymentMethods: PaymentMethod[];
   formaPagoId: string;
@@ -89,6 +93,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   onCurrencyChange,
   clienteSeleccionado,
   setClienteSeleccionado,
+  onLookupClientSelected,
   paymentMethods,
   formaPagoId,
   isCreditMethod,
@@ -534,6 +539,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
             <ClientSection
               clienteSeleccionado={clienteSeleccionado}
               setClienteSeleccionado={setClienteSeleccionado}
+              onLookupClientSelected={(value) => onLookupClientSelected?.(value)}
             />
           </div>
 

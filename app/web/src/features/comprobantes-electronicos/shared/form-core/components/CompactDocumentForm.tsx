@@ -33,46 +33,72 @@ import type { TipoComprobante, Currency } from '../../../models/comprobante.type
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';
 import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
 import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
-import { normalizeKey } from '@/features/gestion-clientes/utils/documents';
 import { usePriceProfilesCatalog } from '../../../../lista-precios/hooks/usePriceProfilesCatalog';
 import { CreditPaymentMethodModal } from '@/shared/payments/CreditPaymentMethodModal';
 import { normalizePaymentMethodLabel } from '@/shared/payments/normalizePaymentMethodLabel';
 
+import type { Cliente } from '@/features/gestion-clientes/models';
+import { useClientes } from '@/features/gestion-clientes/hooks/useClientes';
 import {
-  buildClientDocKey,
-  detectDocumentTypeFromDigits,
-  formatDocumentLabel,
-  loadNormalizedClientesFromStorage,
-  type NormalizedClienteRecord,
-  type NormalizedDocumentType,
-  normalizeClienteRecord,
-  normalizeDocumentNumber as normalizeDocNumber,
-  normalizeDocumentType,
-  normalizedTypeToSunatCode,
-  persistLegacyClientes,
-  readLegacyClientes,
-  sunatCodeToNormalizedType,
-} from '../utils/clientNormalization';
+  buildUpdateClienteDtoFromLegacyForm,
+  clienteToSaleSnapshot,
+  formatSaleDocumentLabel,
+  type SaleDocumentType,
+} from '@/features/gestion-clientes/utils/saleClienteMapping';
 
 type SelectedCliente = {
+  clienteId?: number | string;
   nombre: string;
   dni: string;
   direccion: string;
-  tipoDocumento: NormalizedDocumentType;
+  tipoDocumento: SaleDocumentType;
   email?: string;
   sunatCode?: string;
   priceProfileId?: string;
 };
 
+const inferDocumentTypeFromNumber = (value: string): SaleDocumentType => {
+  const digits = value.replace(/\D+/g, '');
+  if (!digits) {
+    return 'SIN_DOCUMENTO';
+  }
+  if (digits.length === 11) {
+    return 'RUC';
+  }
+  if (digits.length === 8) {
+    return 'DNI';
+  }
+  return 'OTROS';
+};
 
-const inferDocumentTypeFromNumber = (value: string): NormalizedDocumentType => detectDocumentTypeFromDigits(value);
+const saleDocTypeToSunatCode = (type: SaleDocumentType): string => {
+  switch (type) {
+    case 'RUC':
+      return '6';
+    case 'DNI':
+      return '1';
+    case 'SIN_DOCUMENTO':
+      return '0';
+    default:
+      return '0';
+  }
+};
+
+const sunatCodeToSaleDocType = (code?: string): SaleDocumentType => {
+  const token = (code ?? '').trim().toUpperCase();
+  if (token === '6' || token === 'RUC') return 'RUC';
+  if (token === '1' || token === 'DNI') return 'DNI';
+  if (token === '0') return 'SIN_DOCUMENTO';
+  return 'OTROS';
+};
 
 const mapSelectedClienteFromProps = (
   cliente?: {
+    clienteId?: number | string;
     nombre: string;
     dni: string;
     direccion: string;
-    tipoDocumento?: NormalizedDocumentType;
+    tipoDocumento?: SaleDocumentType;
     email?: string;
     priceProfileId?: string;
   } | null,
@@ -82,44 +108,23 @@ const mapSelectedClienteFromProps = (
   }
 
   const tipoDocumento = cliente.tipoDocumento
-    ? normalizeDocumentType(cliente.tipoDocumento)
+    ? cliente.tipoDocumento
     : inferDocumentTypeFromNumber(cliente.dni);
 
   const numeroDocumento = tipoDocumento === 'RUC' || tipoDocumento === 'DNI'
-    ? normalizeDocNumber(cliente.dni)
+    ? cliente.dni.replace(/\D+/g, '')
     : (cliente.dni || '').trim();
 
   return {
+    clienteId: cliente.clienteId,
     nombre: cliente.nombre,
     dni: numeroDocumento,
     direccion: cliente.direccion,
     tipoDocumento,
     email: cliente.email,
-    sunatCode: normalizedTypeToSunatCode(tipoDocumento),
+    sunatCode: saleDocTypeToSunatCode(tipoDocumento),
     priceProfileId: cliente.priceProfileId,
   };
-};
-
-const resolveSunatLegacyToken = (code?: string): string => {
-  if (!code) {
-    return 'OTROS';
-  }
-
-  const upperCased = code.toString().trim().toUpperCase();
-  switch (upperCased) {
-    case '1':
-      return 'DNI';
-    case '6':
-      return 'RUC';
-    case '0':
-      return 'SIN_DOCUMENTO';
-    case '4':
-      return 'CE';
-    case '7':
-      return 'PAS';
-    default:
-      return upperCased;
-  }
 };
 
 interface CompactDocumentFormProps {
@@ -146,17 +151,18 @@ interface CompactDocumentFormProps {
 
   // Cliente
   clienteSeleccionado?: {
+    clienteId?: number | string;
     nombre: string;
     dni: string;
     direccion: string;
-    tipoDocumento?: NormalizedDocumentType;
+    tipoDocumento?: SaleDocumentType;
     email?: string;
     priceProfileId?: string;
   };
   // Callbacks para elevar datos al padre (EmisionTradicional)
   onClienteChange?: (
     cliente:
-      | { nombre: string; dni: string; direccion: string; email?: string; tipoDocumento?: NormalizedDocumentType; priceProfileId?: string }
+      | { clienteId?: number | string; nombre: string; dni: string; direccion: string; email?: string; tipoDocumento?: SaleDocumentType; priceProfileId?: string }
       | null
   ) => void;
   fechaEmision?: string;
@@ -189,6 +195,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   onLookupClientSelected,
 }) => {
   const { resolveProfileId } = usePriceProfilesCatalog();
+  const { clientes, fetchClientes, updateCliente } = useClientes();
   const { state, dispatch } = useConfigurationContext();
   const { paymentMethods } = state;
   const { config } = useFieldsConfiguration();
@@ -307,145 +314,120 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     baseCurrencyCode && moneda && baseCurrencyCode !== moneda && selectedCurrencyDescriptor,
   );
 
-  const clientesDisponibles = loadNormalizedClientesFromStorage();
-
   const searchLower = searchQuery.trim().toLowerCase();
-  const searchDigits = normalizeDocNumber(searchQuery);
+  const searchDigits = searchQuery.replace(/\D+/g, '');
 
-  const clientesFiltrados = clientesDisponibles.filter((cliente) => {
-    const matchName = searchLower ? cliente.nombreLower.includes(searchLower) : false;
-    const matchDocument = searchDigits ? cliente.numeroDocumento.includes(searchDigits) : false;
-    return matchName || matchDocument;
-  });
+  useEffect(() => {
+    if (!searchLower && !searchDigits) {
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      void fetchClientes({ search: searchQuery.trim(), limit: 25, page: 1 });
+    }, 250);
+
+    return () => window.clearTimeout(handle);
+  }, [fetchClientes, searchDigits, searchLower, searchQuery]);
+
+  const clientesFiltrados = useMemo(() => {
+    if (!searchLower && !searchDigits) {
+      return [] as Cliente[];
+    }
+    return clientes;
+  }, [clientes, searchDigits, searchLower]);
 
   // Handlers para cliente
 
   const handleEditarCliente = () => {
     if (!clienteSeleccionadoLocal) return;
 
-    const docKey = buildClientDocKey(clienteSeleccionadoLocal.tipoDocumento, clienteSeleccionadoLocal.dni);
-    const cliente = clientesDisponibles.find((item) => item.docKey === docKey);
-    if (!cliente) {
-      return;
-    }
-
     setIsEditing(true);
 
-    const docCodeForForm = cliente.sunatCode ?? normalizedTypeToSunatCode(cliente.tipoDocumento);
-    const normalizedDocType = sunatCodeToNormalizedType(docCodeForForm);
+    const docCodeForForm = clienteSeleccionadoLocal.sunatCode ?? saleDocTypeToSunatCode(clienteSeleccionadoLocal.tipoDocumento);
+    const normalizedDocType = sunatCodeToSaleDocType(docCodeForForm);
 
     setDocumentType(docCodeForForm);
     setClientType(normalizedDocType === 'RUC' ? 'juridica' : 'natural');
 
     setFormData({
-      documentNumber: cliente.numeroDocumento,
-      legalName: cliente.nombre,
-      address: cliente.direccion || '',
+      documentNumber: clienteSeleccionadoLocal.dni,
+      legalName: clienteSeleccionadoLocal.nombre,
+      address: clienteSeleccionadoLocal.direccion || '',
       gender: 'M',
-      phone: cliente.telefono || '',
-      email: cliente.email || '',
+      phone: '',
+      email: clienteSeleccionadoLocal.email || '',
       additionalData: ''
     });
     setShowClienteForm(true);
   };
 
-  const handleSaveCliente = () => {
+  const handleSaveCliente = async () => {
     try {
-      const normalizedType = sunatCodeToNormalizedType(documentType);
+      const normalizedType = sunatCodeToSaleDocType(documentType);
       const rawDocumentInput = formData.documentNumber.trim();
       const normalizedNumber =
         normalizedType === 'RUC' || normalizedType === 'DNI'
-          ? normalizeDocNumber(rawDocumentInput)
+          ? rawDocumentInput.replace(/\D+/g, '')
           : rawDocumentInput;
 
-      const docNumberForKey = normalizedNumber || rawDocumentInput;
-
-      const candidateDocKey =
-        normalizedType === 'SIN_DOCUMENTO'
-          ? `${normalizedType}:${normalizeKey(formData.legalName.trim() || 'cliente')}`
-          : buildClientDocKey(normalizedType, docNumberForKey);
-
-      const clientesActuales = readLegacyClientes();
-
-      let matchedIndex = -1;
-      for (let index = 0; index < clientesActuales.length; index += 1) {
-        const normalized = normalizeClienteRecord(clientesActuales[index]);
-        if (normalized.docKey === candidateDocKey) {
-          matchedIndex = index;
-          break;
-        }
-      }
-
-      const nextNumericId = (() => {
-        const numericIds = clientesActuales
-          .map((cliente: any) => Number(cliente?.id))
-          .filter((id) => Number.isFinite(id));
-        const maxId = numericIds.length ? Math.max(...numericIds) : 0;
-        return maxId + 1;
-      })();
-
-      const persistedNumeroDocumento =
-        normalizedType === 'RUC' || normalizedType === 'DNI'
-          ? normalizedNumber
-          : rawDocumentInput;
-
-      const tipoDocumentoPersistido =
-        normalizedType === 'OTROS' ? resolveSunatLegacyToken(documentType) : normalizedType;
-
-      const legacyBase = matchedIndex >= 0 ? clientesActuales[matchedIndex] : {};
-      const legacyDocumentToken =
-        normalizedType === 'OTROS' ? resolveSunatLegacyToken(documentType) : normalizedType;
-      const documentValue =
-        normalizedType === 'SIN_DOCUMENTO' || !persistedNumeroDocumento
-          ? 'Sin documento'
-          : `${legacyDocumentToken} ${persistedNumeroDocumento}`.trim();
-
-      const nuevoCliente = {
-        ...legacyBase,
-        id: matchedIndex >= 0 ? legacyBase.id : nextNumericId,
-        name: formData.legalName.trim(),
-        document: documentValue,
-        type: clientType === 'natural' ? 'Cliente' : 'Cliente',
-        address: formData.address.trim() || 'Sin dirección',
-        phone: formData.phone.trim() || 'Sin teléfono',
-        enabled: legacyBase.enabled ?? true,
-        tipoDocumento: tipoDocumentoPersistido,
-        tipoDocumentoCodigoSunat: documentType,
-        documentCode: documentType,
-        numeroDocumento: persistedNumeroDocumento,
+      const selectedDraft: SelectedCliente = {
+        clienteId: clienteSeleccionadoLocal?.clienteId,
+        nombre: formData.legalName.trim(),
+        dni: normalizedNumber,
         direccion: formData.address.trim() || 'Sin dirección',
-        telefono: formData.phone.trim() || 'Sin teléfono',
-        email: formData.email.trim() || undefined,
-      };
-
-      if (matchedIndex >= 0) {
-        clientesActuales[matchedIndex] = nuevoCliente;
-      } else {
-        clientesActuales.unshift(nuevoCliente);
-      }
-
-      persistLegacyClientes(clientesActuales);
-
-      const selected: SelectedCliente = {
-        nombre: nuevoCliente.name,
-        dni: persistedNumeroDocumento,
-        direccion: nuevoCliente.address,
         tipoDocumento: normalizedType,
-        email: nuevoCliente.email,
+        email: formData.email.trim() || undefined,
         sunatCode: documentType,
-        priceProfileId: undefined,
+        priceProfileId: clienteSeleccionadoLocal?.priceProfileId,
       };
 
-      setClienteSeleccionadoLocal(selected);
-
-      onClienteChange?.({
-        nombre: selected.nombre,
-        dni: selected.dni,
-        direccion: selected.direccion,
-        email: selected.email,
-        tipoDocumento: selected.tipoDocumento,
-        priceProfileId: selected.priceProfileId,
-      });
+      if (selectedDraft.clienteId !== undefined && selectedDraft.clienteId !== null) {
+        const dto = buildUpdateClienteDtoFromLegacyForm({
+          documentTypeToken: documentType,
+          documentNumber: formData.documentNumber,
+          legalName: formData.legalName,
+          address: formData.address,
+          phone: formData.phone,
+          email: formData.email,
+          additionalData: formData.additionalData,
+          clientType: 'Cliente',
+        });
+        const updated = await updateCliente(selectedDraft.clienteId, dto);
+        if (updated) {
+          const snap = clienteToSaleSnapshot(updated);
+          const selected: SelectedCliente = {
+            clienteId: snap.clienteId,
+            nombre: snap.nombre,
+            dni: snap.dni,
+            direccion: snap.direccion,
+            tipoDocumento: snap.tipoDocumento,
+            email: snap.email,
+            sunatCode: saleDocTypeToSunatCode(snap.tipoDocumento),
+            priceProfileId: resolveProfileId(snap.priceProfileId),
+          };
+          setClienteSeleccionadoLocal(selected);
+          onClienteChange?.({
+            clienteId: selected.clienteId,
+            nombre: selected.nombre,
+            dni: selected.dni,
+            direccion: selected.direccion,
+            email: selected.email,
+            tipoDocumento: selected.tipoDocumento,
+            priceProfileId: selected.priceProfileId,
+          });
+        }
+      } else {
+        setClienteSeleccionadoLocal(selectedDraft);
+        onClienteChange?.({
+          clienteId: undefined,
+          nombre: selectedDraft.nombre,
+          dni: selectedDraft.dni,
+          direccion: selectedDraft.direccion,
+          email: selectedDraft.email,
+          tipoDocumento: selectedDraft.tipoDocumento,
+          priceProfileId: selectedDraft.priceProfileId,
+        });
+      }
 
       setShowClienteForm(false);
       setSearchQuery('');
@@ -461,21 +443,24 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     }));
   };
 
-  const handleSeleccionarCliente = (cliente: NormalizedClienteRecord) => {
-    const priceProfileId = resolveProfileId(cliente.priceProfileIdHint);
+  const handleSeleccionarCliente = (cliente: Cliente) => {
+    const snap = clienteToSaleSnapshot(cliente);
+    const priceProfileId = resolveProfileId(snap.priceProfileId);
     const selected: SelectedCliente = {
-      nombre: cliente.nombre,
-      dni: cliente.numeroDocumento,
-      direccion: cliente.direccion || 'Dirección no definida',
-      tipoDocumento: cliente.tipoDocumento,
-      email: cliente.email,
-      sunatCode: cliente.sunatCode ?? normalizedTypeToSunatCode(cliente.tipoDocumento),
+      clienteId: snap.clienteId,
+      nombre: snap.nombre,
+      dni: snap.dni,
+      direccion: snap.direccion || 'Dirección no definida',
+      tipoDocumento: snap.tipoDocumento,
+      email: snap.email,
+      sunatCode: saleDocTypeToSunatCode(snap.tipoDocumento),
       priceProfileId,
     };
 
     setClienteSeleccionadoLocal(selected);
 
     onClienteChange?.({
+      clienteId: selected.clienteId,
       nombre: selected.nombre,
       dni: selected.dni,
       direccion: selected.direccion,
@@ -489,7 +474,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   };
 
   const isValidDocumentForLookup = () => {
-    const digitsOnly = normalizeDocNumber(searchQuery);
+    const digitsOnly = searchQuery.replace(/\D+/g, '');
     if (!digitsOnly) {
       return false;
     }
@@ -516,16 +501,17 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       return;
     }
 
-    const digitsOnly = normalizeDocNumber(searchQuery);
-    const expectedType: NormalizedDocumentType = tipoComprobante === 'factura' ? 'RUC' : 'DNI';
+    const digitsOnly = searchQuery.replace(/\D+/g, '');
+    const expectedType: SaleDocumentType = tipoComprobante === 'factura' ? 'RUC' : 'DNI';
     setIsLookupLoading(true);
     try {
-      // 1) Buscar en clientes locales existentes
-      const existing = clientesDisponibles.find(
-        (cliente) => cliente.tipoDocumento === expectedType && cliente.numeroDocumento === digitsOnly,
-      );
+      // 1) Buscar en clientes actuales (ya filtrados por /clientes si el usuario venía tipeando)
+      const existing = clientes
+        .map((item) => ({ cliente: item, parsed: clienteToSaleSnapshot(item) }))
+        .find(({ parsed }) => parsed.tipoDocumento === expectedType && parsed.dni === digitsOnly);
+
       if (existing) {
-        handleSeleccionarCliente(existing);
+        handleSeleccionarCliente(existing.cliente);
         return;
       }
 
@@ -539,24 +525,26 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         return;
       }
 
-      const lookupType = normalizeDocumentType(fromLookup.tipoDocumento);
+      const lookupType = inferDocumentTypeFromNumber(fromLookup.documento);
       const normalizedLookupNumber =
         lookupType === 'RUC' || lookupType === 'DNI'
-          ? normalizeDocNumber(fromLookup.documento)
+          ? fromLookup.documento.replace(/\D+/g, '')
           : fromLookup.documento;
 
       const selectedClient: SelectedCliente = {
+        clienteId: undefined,
         nombre: fromLookup.nombre,
         dni: normalizedLookupNumber,
         direccion: fromLookup.direccion || 'Dirección no definida',
         email: fromLookup.email,
         tipoDocumento: lookupType,
-        sunatCode: normalizedTypeToSunatCode(lookupType),
+        sunatCode: saleDocTypeToSunatCode(lookupType),
         priceProfileId: undefined,
       };
 
       setClienteSeleccionadoLocal(selectedClient);
       onClienteChange?.({
+        clienteId: selectedClient.clienteId,
         nombre: selectedClient.nombre,
         dni: selectedClient.dni,
         direccion: selectedClient.direccion,
@@ -725,20 +713,23 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 {searchQuery && (
                   <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-white">
                     {clientesFiltrados.length > 0 ? (
-                      clientesFiltrados.map((cliente) => (
+                      clientesFiltrados.map((cliente) => {
+                        const snap = clienteToSaleSnapshot(cliente);
+                        return (
                         <button
-                          key={cliente.docKey}
+                          key={String(cliente.id)}
                           onClick={() => handleSeleccionarCliente(cliente)}
                           className="w-full text-left px-3 py-2 hover:bg-violet-50 border-b border-gray-100 last:border-b-0 transition-colors"
                         >
                           <p className="text-xs font-semibold text-gray-900">
-                            {cliente.nombre}
+                            {snap.nombre}
                           </p>
                           <p className="text-[11px] text-gray-500 mt-0.5">
-                            {cliente.documentLabel}
+                            {formatSaleDocumentLabel(snap.tipoDocumento, snap.dni)}
                           </p>
                         </button>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="px-3 py-3 text-center">
                         <p className="text-[12px] text-gray-500">No se encontraron clientes</p>
@@ -759,7 +750,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <div className="flex items-center gap-2 min-w-0 flex-1 text-[13px]">
                       <span className="inline-flex items-center rounded-full border border-violet-100 bg-white/70 px-2 py-0.5 text-[12px] font-semibold text-violet-700">
-                        {formatDocumentLabel(clienteSeleccionadoLocal.tipoDocumento, clienteSeleccionadoLocal.dni)}
+                        {formatSaleDocumentLabel(clienteSeleccionadoLocal.tipoDocumento, clienteSeleccionadoLocal.dni)}
                       </span>
                       <span
                         className="font-semibold text-gray-900 truncate"
