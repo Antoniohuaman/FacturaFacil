@@ -43,7 +43,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 // useConfigurationContext removed from this page (not needed)
-import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData } from '../models/comprobante.types';
+import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
@@ -162,8 +162,8 @@ const EmisionTradicional = () => {
     return map;
   }, [catalogProducts]);
 
-  // Calculate totals sincronizados con la moneda del documento
-  const totals = useMemo(
+  // Calculate totals sincronizados con la moneda del documento (antes de descuento global)
+  const baseTotals = useMemo(
     () =>
       calculateCurrencyAwareTotals({
         items: cartItems,
@@ -174,6 +174,142 @@ const EmisionTradicional = () => {
       }),
     [baseCurrency.code, cartItems, catalogLookup, convertPrice, documentCurrency.code],
   );
+
+  // Descuento global manual aplicado sobre los totales
+  const [appliedGlobalDiscount, setAppliedGlobalDiscount] = useState<DiscountInput | null>(null);
+
+  const totalsBeforeDiscount: PaymentTotals = useMemo(
+    () => ({
+      subtotal: baseTotals.subtotal,
+      igv: baseTotals.igv,
+      total: baseTotals.total,
+      currency: (baseTotals.currency as Currency) || currentCurrency,
+      taxBreakdown: baseTotals.taxBreakdown,
+    }),
+    [baseTotals.igv, baseTotals.subtotal, baseTotals.total, baseTotals.currency, baseTotals.taxBreakdown, currentCurrency],
+  );
+
+  const normalizeGlobalDiscount = useCallback(
+    (input: DiscountInput | null): {
+      mode: DiscountMode;
+      percent: number;
+      amount: number;
+      target: 'subtotal' | 'total';
+    } | null => {
+      if (!input) return null;
+
+      const pricesIncludeTax = true;
+      const target: 'subtotal' | 'total' = pricesIncludeTax ? 'total' : 'subtotal';
+      const referenceBase = target === 'total' ? totalsBeforeDiscount.total : totalsBeforeDiscount.subtotal;
+
+      if (!Number.isFinite(referenceBase) || referenceBase <= 0) {
+        return null;
+      }
+
+      if (input.mode === 'percent') {
+        const rawPercent = Number.isFinite(input.value) ? input.value : 0;
+        const percent = Math.min(100, Math.max(0, rawPercent));
+        if (percent <= 0) return null;
+        const amount = (referenceBase * percent) / 100;
+        return { mode: 'percent', percent, amount, target };
+      }
+
+      const rawAmount = Number.isFinite(input.value) ? input.value : 0;
+      const safeAmount = Math.min(Math.max(rawAmount, 0), referenceBase);
+      if (safeAmount <= 0) return null;
+      const percent = referenceBase > 0 ? (safeAmount / referenceBase) * 100 : 0;
+      return { mode: 'amount', percent, amount: safeAmount, target };
+    },
+    [totalsBeforeDiscount.subtotal, totalsBeforeDiscount.total],
+  );
+
+  const applyGlobalDiscountToTotals = useCallback(
+    (discount: DiscountInput | null): PaymentTotals => {
+      const normalized = normalizeGlobalDiscount(discount);
+
+      const base: PaymentTotals = {
+        ...totalsBeforeDiscount,
+        breakdown: {
+          subtotalBeforeDiscount: totalsBeforeDiscount.subtotal,
+          igvBeforeDiscount: totalsBeforeDiscount.igv,
+          totalBeforeDiscount: totalsBeforeDiscount.total,
+        },
+      };
+
+      if (!normalized) {
+        return {
+          ...base,
+          discount: undefined,
+        };
+      }
+
+      const { amount, target, mode, percent } = normalized;
+
+      let newSubtotal = totalsBeforeDiscount.subtotal;
+      let newIgv = totalsBeforeDiscount.igv;
+      let newTotal = totalsBeforeDiscount.total;
+
+      if (target === 'subtotal') {
+        const updatedSubtotal = Math.max(totalsBeforeDiscount.subtotal - amount, 0);
+        const factorSubtotal = totalsBeforeDiscount.subtotal > 0 ? updatedSubtotal / totalsBeforeDiscount.subtotal : 1;
+        const updatedIgv = totalsBeforeDiscount.igv * factorSubtotal;
+        newSubtotal = updatedSubtotal;
+        newIgv = updatedIgv;
+        newTotal = newSubtotal + newIgv;
+      } else {
+        const updatedTotal = Math.max(totalsBeforeDiscount.total - amount, 0);
+        const factorTotal = totalsBeforeDiscount.total > 0 ? updatedTotal / totalsBeforeDiscount.total : 1;
+        const updatedSubtotal = totalsBeforeDiscount.subtotal * factorTotal;
+        const updatedIgv = totalsBeforeDiscount.igv * factorTotal;
+        newSubtotal = updatedSubtotal;
+        newIgv = updatedIgv;
+        newTotal = updatedTotal;
+      }
+
+      const factorSubtotal = totalsBeforeDiscount.subtotal > 0 ? newSubtotal / totalsBeforeDiscount.subtotal : 1;
+      const factorIgv = totalsBeforeDiscount.igv > 0 ? newIgv / totalsBeforeDiscount.igv : factorSubtotal;
+      const factorTotal = totalsBeforeDiscount.total > 0 ? newTotal / totalsBeforeDiscount.total : factorSubtotal;
+
+      const scaledTaxBreakdown = totalsBeforeDiscount.taxBreakdown?.map((row) => ({
+        ...row,
+        taxableBase: row.taxableBase * factorSubtotal,
+        taxAmount: row.taxAmount * factorIgv,
+        totalAmount: row.totalAmount * factorTotal,
+      }));
+
+      return {
+        ...base,
+        subtotal: newSubtotal,
+        igv: newIgv,
+        total: newTotal,
+        discount: {
+          mode,
+          percent,
+          amount,
+        },
+        taxBreakdown: scaledTaxBreakdown ?? totalsBeforeDiscount.taxBreakdown,
+      };
+    },
+    [normalizeGlobalDiscount, totalsBeforeDiscount],
+  );
+
+  const totals: PaymentTotals = useMemo(
+    () => applyGlobalDiscountToTotals(appliedGlobalDiscount),
+    [appliedGlobalDiscount, applyGlobalDiscountToTotals],
+  );
+
+  const getDiscountPreviewTotals = useCallback(
+    (draft: DiscountInput | null): PaymentTotals => applyGlobalDiscountToTotals(draft),
+    [applyGlobalDiscountToTotals],
+  );
+
+  const handleApplyGlobalDiscount = useCallback((draft: DiscountInput | null) => {
+    setAppliedGlobalDiscount(draft);
+  }, []);
+
+  const handleClearGlobalDiscount = useCallback(() => {
+    setAppliedGlobalDiscount(null);
+  }, []);
 
   const {
     paymentMethod: selectedPaymentMethod,
@@ -645,6 +781,11 @@ const EmisionTradicional = () => {
               updateCartItem={updateCartItem}
               removeFromCart={removeFromCart}
               totals={totals}
+              totalsBeforeDiscount={totalsBeforeDiscount}
+              globalDiscount={appliedGlobalDiscount}
+              onApplyGlobalDiscount={handleApplyGlobalDiscount}
+              onClearGlobalDiscount={handleClearGlobalDiscount}
+              getGlobalDiscountPreviewTotals={getDiscountPreviewTotals}
               refreshKey={productSelectorKey}
               preferredPriceColumnId={preferredPriceColumnId}
             />

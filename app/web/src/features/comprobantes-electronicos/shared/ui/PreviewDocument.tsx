@@ -399,6 +399,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
                     variant="compact"
                     subtotalFallback={cartItems.length > 0 ? totals.subtotal : undefined}
                     igvFallback={totals.igv}
+                    discountAmount={totals.discount?.amount}
                   />
                   <div className="flex justify-between items-center pt-2 border-t border-gray-300">
                     <span className="text-sm font-bold">TOTAL:</span>

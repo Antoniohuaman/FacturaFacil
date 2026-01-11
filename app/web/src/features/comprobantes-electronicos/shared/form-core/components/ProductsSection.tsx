@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { CartItem, Currency, PaymentTotals } from '../../../models/comprobante.types';
+import type { CartItem, Currency, PaymentTotals, DiscountInput, DiscountMode } from '../../../models/comprobante.types';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
 import { CheckSquare, Square, SlidersHorizontal, Percent } from 'lucide-react';
 import { usePriceBook } from '../hooks/usePriceBook';
@@ -72,6 +72,11 @@ interface ProductsSectionProps {
   updateCartItem: (id: string, updates: Partial<CartItem>) => void;
   removeFromCart: (id: string) => void;
   totals: PaymentTotals;
+  totalsBeforeDiscount?: PaymentTotals;
+  globalDiscount?: DiscountInput | null;
+  onApplyGlobalDiscount?: (discount: DiscountInput | null) => void;
+  onClearGlobalDiscount?: () => void;
+  getGlobalDiscountPreviewTotals?: (discount: DiscountInput | null) => PaymentTotals;
   refreshKey?: number;
   selectedEstablishmentId?: string;
   preferredPriceColumnId?: string;
@@ -137,6 +142,11 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   updateCartItem,
   removeFromCart,
   totals,
+   totalsBeforeDiscount,
+   globalDiscount,
+   onApplyGlobalDiscount,
+   onClearGlobalDiscount,
+   getGlobalDiscountPreviewTotals,
   refreshKey = 0,
   preferredPriceColumnId,
   // selectedEstablishmentId, // TODO: Usar para filtrar stock por establecimiento
@@ -165,6 +175,9 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   );
 
   const totalsCurrencyCode = (totals.currency ?? documentCurrency.code) as Currency;
+  const globalDiscountAmount = totals.discount?.amount ?? 0;
+  const canEditGlobalDiscount =
+    Boolean(totalsBeforeDiscount && onApplyGlobalDiscount && onClearGlobalDiscount && getGlobalDiscountPreviewTotals);
   // ===================================================================
   // ESTADO DE CONFIGURACIÓN DE COLUMNAS
   // ===================================================================
@@ -1308,9 +1321,24 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         <div className="flex justify-end">
           <div className="w-80 bg-white rounded-lg border border-gray-200 p-4 shadow-sm md:sticky md:top-4">
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Descuentos</span>
-                <span className="text-gray-700 font-medium">{formatPrice(0, totalsCurrencyCode)}</span>
+              <div className="flex justify-between items-center text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-600">Descuentos</span>
+                  {canEditGlobalDiscount && (
+                    <GlobalDiscountPopover
+                      currency={totalsCurrencyCode}
+                      totals={totals}
+                      totalsBeforeDiscount={totalsBeforeDiscount!}
+                      discount={globalDiscount ?? null}
+                      onApplyDiscount={onApplyGlobalDiscount!}
+                      onClearDiscount={onClearGlobalDiscount!}
+                      getDiscountPreviewTotals={getGlobalDiscountPreviewTotals!}
+                    />
+                  )}
+                </div>
+                <span className="text-gray-700 font-medium">
+                  {formatPrice(globalDiscountAmount || 0, totalsCurrencyCode)}
+                </span>
               </div>
 
               <TaxBreakdownSummary
@@ -1340,3 +1368,307 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 };
 
 export default ProductsSection;
+
+interface GlobalDiscountPopoverProps {
+  currency: Currency;
+  totals: PaymentTotals;
+  totalsBeforeDiscount: PaymentTotals;
+  discount: DiscountInput | null;
+  onApplyDiscount: (discount: DiscountInput | null) => void;
+  onClearDiscount: () => void;
+  getDiscountPreviewTotals: (draft: DiscountInput | null) => PaymentTotals;
+}
+
+const PERCENT_ERROR_MESSAGE = 'El descuento debe ser menor al 100%.';
+const AMOUNT_ERROR_MESSAGE = 'El descuento debe ser menor al total.';
+
+const sanitizeDecimalInput = (rawValue: string): string => rawValue.replace(/[^0-9.,]/g, '');
+
+const GlobalDiscountPopover: React.FC<GlobalDiscountPopoverProps> = ({
+  currency,
+  totals,
+  totalsBeforeDiscount,
+  discount,
+  onApplyDiscount,
+  onClearDiscount,
+  getDiscountPreviewTotals,
+}) => {
+  const { formatPrice } = useCurrency();
+  const discountButtonRef = useRef<HTMLButtonElement | null>(null);
+  const discountPopoverRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [discountInputMode, setDiscountInputMode] = useState<DiscountMode>('amount');
+  const [discountInputValue, setDiscountInputValue] = useState('');
+  const [discountInputError, setDiscountInputError] = useState<string | null>(null);
+
+  const hasItems = totalsBeforeDiscount.total > 0;
+  const discountBaseDocValue = totalsBeforeDiscount.total;
+  const isDiscountActive = Boolean(discount?.value && discount.value > 0);
+
+  const handleDiscountModeChange = useCallback((mode: DiscountMode) => {
+    setDiscountInputMode(mode);
+    setDiscountInputError(null);
+  }, []);
+
+  const syncDraftWithApplied = useCallback(() => {
+    setDiscountInputError(null);
+    if (discount?.mode === 'percent') {
+      setDiscountInputMode('percent');
+      setDiscountInputValue(Number.isFinite(discount.value) ? String(discount.value) : '');
+      return;
+    }
+    if (discount?.mode === 'amount') {
+      setDiscountInputMode('amount');
+      setDiscountInputValue(Number.isFinite(discount.value) ? String(discount.value) : '');
+      return;
+    }
+    setDiscountInputMode('amount');
+    setDiscountInputValue('');
+  }, [discount]);
+
+  const draftNumericValue = useMemo(() => {
+    if (!discountInputValue) {
+      return 0;
+    }
+    const normalized = discountInputValue.replace(',', '.');
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }, [discountInputValue]);
+
+  const draftDiscount = useMemo<DiscountInput | null>(() => {
+    if (draftNumericValue <= 0) {
+      return null;
+    }
+    if (discountInputMode === 'percent') {
+      return {
+        mode: 'percent',
+        value: draftNumericValue,
+      };
+    }
+    return {
+      mode: 'amount',
+      value: draftNumericValue,
+      currency,
+    };
+  }, [currency, discountInputMode, draftNumericValue]);
+
+  const previewTotals = useMemo(() => {
+    if (!isOpen) {
+      return totals;
+    }
+    return getDiscountPreviewTotals(draftDiscount);
+  }, [draftDiscount, getDiscountPreviewTotals, isOpen, totals]);
+
+  const canApplyDiscount = hasItems && (!!draftDiscount || !!discount) && !discountInputError;
+
+  const handleDiscountInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const sanitized = sanitizeDecimalInput(event.target.value);
+    if (!sanitized) {
+      setDiscountInputValue('');
+      setDiscountInputError(null);
+      return;
+    }
+
+    const normalized = sanitized.replace(',', '.');
+    const parsed = Number.parseFloat(normalized);
+
+    if (!Number.isFinite(parsed)) {
+      setDiscountInputValue(sanitized);
+      setDiscountInputError(null);
+      return;
+    }
+
+    if (discountInputMode === 'percent') {
+      if (parsed >= 100) {
+        setDiscountInputError(PERCENT_ERROR_MESSAGE);
+        return;
+      }
+    } else if (discountBaseDocValue <= 0) {
+      if (parsed > 0) {
+        setDiscountInputError(AMOUNT_ERROR_MESSAGE);
+        return;
+      }
+    } else if (parsed >= discountBaseDocValue) {
+      setDiscountInputError(AMOUNT_ERROR_MESSAGE);
+      return;
+    }
+
+    setDiscountInputValue(sanitized);
+    setDiscountInputError(null);
+  }, [discountBaseDocValue, discountInputMode]);
+
+  const handleCancelDraft = useCallback(() => {
+    syncDraftWithApplied();
+    setIsOpen(false);
+  }, [syncDraftWithApplied]);
+
+  const handleClearDraft = useCallback(() => {
+    onClearDiscount();
+    setDiscountInputValue('');
+    setDiscountInputError(null);
+    setIsOpen(false);
+  }, [onClearDiscount]);
+
+  const handleApplyDraft = useCallback(() => {
+    onApplyDiscount(draftDiscount);
+    setDiscountInputError(null);
+    setIsOpen(false);
+  }, [draftDiscount, onApplyDiscount]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    syncDraftWithApplied();
+  }, [isOpen, syncDraftWithApplied]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleCancelDraft();
+      }
+    };
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        discountPopoverRef.current?.contains(target) ||
+        discountButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+      handleCancelDraft();
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [handleCancelDraft, isOpen]);
+
+  const currencySymbol = currency === 'USD' ? '$' : 'S/';
+
+  return (
+    <div className="relative inline-block">
+      <button
+        ref={discountButtonRef}
+        type="button"
+        onClick={() => {
+          if (isOpen) {
+            handleCancelDraft();
+            return;
+          }
+          setIsOpen(true);
+        }}
+        className={`relative inline-flex h-6 w-6 items-center justify-center rounded-full border text-slate-500 transition text-[11px] ${
+          isOpen || isDiscountActive
+            ? 'border-[#2ccdb0]/60 text-[#2f70b4]'
+            : 'border-transparent hover:border-slate-200 hover:text-slate-700'
+        }`}
+        title="Aplicar descuento global"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+      >
+        <Percent className="h-3 w-3" />
+      </button>
+      {isOpen && (
+        <div
+          ref={discountPopoverRef}
+          className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-slate-100 bg-white p-3 shadow-2xl"
+        >
+          <div className="mb-3 flex rounded-full bg-slate-100 p-0.5 text-[11px] font-semibold text-slate-500">
+            {(['amount', 'percent'] as DiscountMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => handleDiscountModeChange(mode)}
+                className={`flex-1 rounded-full px-2.5 py-1 transition ${
+                  discountInputMode === mode
+                    ? 'bg-white text-[#2f70b4] shadow'
+                    : 'text-slate-500'
+                }`}
+              >
+                {mode === 'amount' ? 'Monto' : '%'}
+              </button>
+            ))}
+          </div>
+          <div className="mb-3">
+            <label className="sr-only">Valor de descuento</label>
+            <div className="relative">
+              {discountInputMode === 'amount' && (
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                  {currencySymbol}
+                </span>
+              )}
+              <input
+                type="text"
+                inputMode="decimal"
+                value={discountInputValue}
+                onChange={handleDiscountInputChange}
+                className={`w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 focus:border-[#2ccdb0] focus:outline-none focus:ring-2 focus:ring-[#2ccdb0]/20 ${
+                  discountInputMode === 'amount' ? 'pl-10' : ''
+                }`}
+                placeholder={discountInputMode === 'amount' ? '0.00' : '0'}
+                aria-label="Valor de descuento"
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Máximo {formatPrice(discountBaseDocValue, currency)}
+            </p>
+            {discountInputError && (
+              <p className="mt-1 text-[11px] text-red-500">{discountInputError}</p>
+            )}
+          </div>
+          <div className="mb-3 space-y-1 rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+            <div className="flex items-center justify-between">
+              <span>Descuento</span>
+              <span className="font-semibold text-[#2f70b4]">
+                {previewTotals.discount?.amount
+                  ? `-${formatPrice(previewTotals.discount.amount, currency)}`
+                  : formatPrice(0, currency)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span>Total estimado</span>
+              <span className="text-sm font-bold text-slate-900">
+                {formatPrice(previewTotals.total, currency)}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleApplyDraft}
+              disabled={!canApplyDiscount}
+              className={`flex-1 rounded-xl px-3 py-1.5 text-sm font-semibold text-white transition ${
+                canApplyDiscount ? 'bg-[#2ccdb0] hover:bg-[#28b59c]' : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+              }`}
+            >
+              Aplicar
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelDraft}
+              className="rounded-xl px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-slate-900"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleClearDraft}
+              disabled={!discount}
+              className={`text-sm font-semibold ${discount ? 'text-red-500 hover:text-red-600' : 'text-slate-300 cursor-not-allowed'}`}
+            >
+              Borrar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

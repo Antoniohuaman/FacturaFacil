@@ -8,6 +8,11 @@ export interface TaxBreakdownSummaryProps {
   currency: Currency;
   variant?: 'compact' | 'default';
   /**
+   * Descuento global ya calculado (en moneda del documento).
+   * Se mostrará sólo si es > 0.
+   */
+  discountAmount?: number;
+  /**
    * Cuando se proporciona, se usará como fallback compacto
    * si no hay taxBreakdown disponible.
    */
@@ -20,6 +25,7 @@ export const TaxBreakdownSummary: React.FC<TaxBreakdownSummaryProps> = ({
   taxBreakdown,
   currency,
   variant = 'default',
+  discountAmount,
   subtotalFallback,
   igvFallback,
 }) => {
@@ -32,6 +38,8 @@ export const TaxBreakdownSummary: React.FC<TaxBreakdownSummaryProps> = ({
     variant === 'compact'
       ? 'space-y-1 text-xs'
       : 'space-y-2 text-xs';
+
+  const hasDiscount = typeof discountAmount === 'number' && discountAmount > 0;
 
   if (!hasRows && subtotalFallback === undefined && igvFallback === undefined) {
     return null;
@@ -47,6 +55,12 @@ export const TaxBreakdownSummary: React.FC<TaxBreakdownSummaryProps> = ({
         <div className="flex justify-between">
           <span>Subtotal:</span>
           <span>{formatValue(subtotalFallback)}</span>
+        </div>
+      )}
+      {hasDiscount && (
+        <div className="flex justify-between">
+          <span>Descuento:</span>
+          <span>-{formatValue(discountAmount)}</span>
         </div>
       )}
       {!hasRows && igvFallback !== undefined && (

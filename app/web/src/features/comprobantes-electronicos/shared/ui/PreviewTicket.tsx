@@ -248,6 +248,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
               variant="compact"
               subtotalFallback={cartItems.length > 0 ? totals.subtotal : undefined}
               igvFallback={totals.igv}
+              discountAmount={totals.discount?.amount}
             />
             <div className="flex justify-between font-bold text-sm pt-2 border-t border-gray-400">
               <span>TOTAL:</span>

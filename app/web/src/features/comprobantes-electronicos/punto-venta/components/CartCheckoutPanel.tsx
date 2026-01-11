@@ -651,6 +651,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               subtotalFallback={displayedTotals.subtotal}
               igvFallback={displayedTotals.igv}
               totalFallback={displayedTotals.total}
+              discountAmount={displayedTotals.discount?.amount}
             />
           </div>
 
