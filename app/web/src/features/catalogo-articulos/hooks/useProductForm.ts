@@ -24,6 +24,7 @@ export type FormError = {
 } & {
   establecimientoIds?: string;
   tipoUnidadMedida?: string;
+  defaultTaxLabel?: string;
 };
 
 export type AdditionalUnitError = { unidad?: string; factor?: string };
@@ -38,12 +39,14 @@ interface UseProductFormParams {
   isFieldRequired: (fieldId: string) => boolean;
   onSave: (productData: ProductInput) => void;
   onClose: () => void;
+  defaultTaxLabel?: string;
 }
 
 const buildDefaultFormData = (
   defaultUnit: Product['unidad'],
   inferredType: UnitMeasureType,
-  defaultCategoryName: string
+  defaultCategoryName: string,
+  defaultTaxLabel?: string
 ): ProductFormData => ({
   nombre: '',
   codigo: '',
@@ -51,7 +54,7 @@ const buildDefaultFormData = (
   tipoUnidadMedida: inferredType,
   unidadesMedidaAdicionales: [],
   categoria: defaultCategoryName,
-  impuesto: 'IGV (18.00%)',
+  impuesto: defaultTaxLabel ?? 'IGV (18.00%)',
   descripcion: '',
   establecimientoIds: [],
   disponibleEnTodos: false,
@@ -70,6 +73,7 @@ const buildDefaultFormData = (
 
 export const useProductForm = ({
   isOpen,
+  defaultTaxLabel,
   product,
   categories,
   availableUnits,
@@ -121,7 +125,7 @@ export const useProductForm = ({
   const initialMeasureType = inferMeasureTypeFromUnitCode(initialUnit);
 
   const [formData, setFormData] = useState<ProductFormData>(
-    () => buildDefaultFormData(initialUnit, initialMeasureType, defaultCategoryName)
+    () => buildDefaultFormData(initialUnit, initialMeasureType, defaultCategoryName, defaultTaxLabel)
   );
   const [productType, setProductType] = useState<ProductType>('BIEN');
   const [errors, setErrors] = useState<FormError>({});
@@ -134,7 +138,6 @@ export const useProductForm = ({
   const [hasInitializedForm, setHasInitializedForm] = useState(false);
 
   const filteredUnitsForType = useMemo(() => {
-    if (!formData.tipoUnidadMedida) return [];
     return filterUnitsByMeasureType(sortedUnits, formData.tipoUnidadMedida);
   }, [sortedUnits, formData.tipoUnidadMedida]);
 
@@ -156,7 +159,6 @@ export const useProductForm = ({
     },
     [sortedUnits]
   );
-
   const formatFactorValue = useCallback((value?: number) => {
     if (!value) return '0';
     const formatter = new Intl.NumberFormat('es-PE', {
@@ -323,14 +325,14 @@ export const useProductForm = ({
   const initializeFormForNewProduct = useCallback(() => {
     const defaultUnit = getDefaultUnitForType('BIEN');
     const inferredType = inferMeasureTypeFromUnitCode(defaultUnit);
-    setFormData(buildDefaultFormData(defaultUnit, inferredType, defaultCategoryName));
+    setFormData(buildDefaultFormData(defaultUnit, inferredType, defaultCategoryName, defaultTaxLabel));
     setImagePreview('');
     setProductType('BIEN');
     setAdditionalUnitErrors([]);
     setErrors({});
     setUnitInfoMessage(null);
     setIsDescriptionExpanded(false);
-  }, [defaultCategoryName, getDefaultUnitForType, inferMeasureTypeFromUnitCode]);
+  }, [defaultCategoryName, defaultTaxLabel, getDefaultUnitForType, inferMeasureTypeFromUnitCode]);
 
   const initializeFormFromProduct = useCallback(
     (productData: Product) => {
@@ -351,7 +353,7 @@ export const useProductForm = ({
         tipoUnidadMedida: inferredType,
         unidadesMedidaAdicionales: sanitizedUnits,
         categoria: productData.categoria,
-        impuesto: productData.impuesto || 'IGV (18.00%)',
+        impuesto: productData.impuesto || defaultTaxLabel || 'IGV (18.00%)',
         descripcion: productData.descripcion || '',
         establecimientoIds: productData.establecimientoIds || [],
         disponibleEnTodos: productData.disponibleEnTodos || false,
@@ -374,8 +376,7 @@ export const useProductForm = ({
       setErrors({});
       setUnitInfoMessage(null);
       setIsDescriptionExpanded(false);
-    },
-    [inferMeasureTypeFromUnitCode, sortedUnits]
+    }, [defaultTaxLabel, inferMeasureTypeFromUnitCode, sortedUnits]
   );
 
   useEffect(() => {

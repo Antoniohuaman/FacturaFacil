@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Percent } from 'lucide-react';
 import type { ProductFormData } from '../../models/types';
 
@@ -7,14 +7,35 @@ interface ProductPricingSectionProps {
   setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>;
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
+  taxOptions: { id: string; code: string; value: string; label: string }[];
 }
 
 export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
   formData,
   setFormData,
   isFieldVisible,
-  isFieldRequired
+  isFieldRequired,
+  taxOptions,
 }) => {
+  const optionsWithLegacy = useMemo(() => {
+    const trimmedValue = formData.impuesto?.trim();
+    if (!trimmedValue) return taxOptions;
+
+    const existsInVisible = taxOptions.some(option => option.value === trimmedValue);
+    if (existsInVisible) return taxOptions;
+
+    // Producto con impuesto ya guardado que ahora no es visible en la configuración
+    return [
+      {
+        id: 'legacy-impuesto',
+        code: 'LEGACY',
+        value: trimmedValue,
+        label: `${trimmedValue} (no visible)`,
+      },
+      ...taxOptions,
+    ];
+  }, [formData.impuesto, taxOptions]);
+
   const impuestoVisible = isFieldVisible('impuesto');
   if (!impuestoVisible) {
     return null;
@@ -34,10 +55,11 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
           onChange={(e) => setFormData(prev => ({ ...prev, impuesto: e.target.value }))}
           className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
         >
-          <option value="IGV (18.00%)">IGV (18.00%)</option>
-          <option value="IGV (10.00%)">IGV (10.00%)</option>
-          <option value="Exonerado (0.00%)">Exonerado (0.00%)</option>
-          <option value="Inafecto (0.00%)">Inafecto (0.00%)</option>
+          {optionsWithLegacy.map(option => (
+            <option key={option.id} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </div>
     </div>

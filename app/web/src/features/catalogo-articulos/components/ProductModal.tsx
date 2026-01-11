@@ -63,6 +63,52 @@ const ProductModal: React.FC<ProductModalProps> = ({
     [configState.units]
   );
 
+  const taxOptions = useMemo(() => {
+    const taxes = configState.taxes ?? [];
+    const visible = taxes.filter(tax => tax.isActive);
+    const order = ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'];
+    const sorted = [...visible].sort((a, b) => {
+      const ai = order.indexOf(a.code);
+      const bi = order.indexOf(b.code);
+      const sa = ai === -1 ? Number.MAX_SAFE_INTEGER : ai;
+      const sb = bi === -1 ? Number.MAX_SAFE_INTEGER : bi;
+      if (sa !== sb) return sa - sb;
+      return (a.name ?? '').localeCompare(b.name ?? '');
+    });
+
+    const formatLabel = (rate: number, name: string): string => {
+      const rateFixed = rate.toFixed(2);
+      if (name.toLowerCase().startsWith('igv')) {
+        return `IGV (${rateFixed}%)`;
+      }
+      return `${name} (${rateFixed}%)`;
+    };
+
+    return sorted.map(tax => ({
+      id: tax.id,
+      code: tax.code,
+      value: formatLabel(tax.rate, tax.name),
+      label: formatLabel(tax.rate, tax.name),
+    }));
+  }, [configState.taxes]);
+
+  const defaultTaxLabel = useMemo(() => {
+    if (!configState.taxes || configState.taxes.length === 0) {
+      return undefined;
+    }
+    const order = ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'];
+    const taxes = configState.taxes;
+    const explicitDefault = taxes.find(tax => tax.isDefault);
+    const byOrder = taxes.find(tax => order.includes(tax.code));
+    const fallback = explicitDefault ?? byOrder ?? taxes[0];
+
+    const rateFixed = fallback.rate.toFixed(2);
+    if (fallback.name.toLowerCase().startsWith('igv')) {
+      return `IGV (${rateFixed}%)`;
+    }
+    return `${fallback.name} (${rateFixed}%)`;
+  }, [configState.taxes]);
+
   const {
     fieldsConfig,
     isPanelOpen,
@@ -111,7 +157,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
     isFieldVisible,
     isFieldRequired,
     onSave,
-    onClose
+    onClose,
+    defaultTaxLabel
   });
 
   const showBarcode = isFieldVisible('codigoBarras');
@@ -181,6 +228,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     setFormData={setFormData}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    taxOptions={taxOptions}
                   />
                   <ProductAvailabilitySection
                     formData={formData}
