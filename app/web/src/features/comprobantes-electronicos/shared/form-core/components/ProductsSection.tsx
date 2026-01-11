@@ -870,11 +870,35 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         const igvPercent = getIgvPercent(item);
         const fallbackLabel = igvPercent > 0 ? `IGV (${igvPercent.toFixed(2)}%)` : item.igvType === 'inafecto' ? 'Inafecto (0.00%)' : 'Exonerado (0.00%)';
         const igvLabel = item.impuesto || fallbackLabel;
+        const subtitle = `(${igvPercent.toFixed(2)}%)`;
+
+        const shouldShowSubtitle = (() => {
+          if (!subtitle || !subtitle.trim()) {
+            return false;
+          }
+
+          if (!igvLabel) {
+            return true;
+          }
+
+          const normalizedTitle = igvLabel.trim().toLowerCase();
+          const normalizedSubtitle = subtitle.trim().toLowerCase();
+
+          if (normalizedTitle === normalizedSubtitle) {
+            return false;
+          }
+
+          if (normalizedTitle.includes(normalizedSubtitle)) {
+            return false;
+          }
+
+          return true;
+        })();
         return (
           <td className="px-4 py-4 text-center text-sm">
             <div className="inline-flex flex-col items-center px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full min-w-[120px] leading-tight">
               <span>{igvLabel}</span>
-              <span className="text-[10px] text-gray-500">({igvPercent.toFixed(2)}%)</span>
+              {shouldShowSubtitle && <span className="text-[10px] text-gray-500">{subtitle}</span>}
             </div>
           </td>
         );
