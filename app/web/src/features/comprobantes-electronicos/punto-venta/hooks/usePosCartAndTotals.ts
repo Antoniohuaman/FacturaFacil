@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CartItem, Currency, DiscountInput } from '../../models/comprobante.types';
+import type { CartItem, Currency, DiscountInput, TaxBreakdownRow } from '../../models/comprobante.types';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
 import { roundCurrency } from '../../../lista-precios/utils/price-helpers/pricing';
 import { useCart } from '../hooks/useCart';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { calculateLineaComprobante, buildLinePricingInputFromCartItem } from '../../shared/core/comprobantePricing';
+import { buildTaxBreakdownFromLineResults } from '../../shared/core/taxBreakdown';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
@@ -332,11 +333,26 @@ export const usePosCartAndTotals = () => {
     };
   }, [linePricingResults]);
 
+  const taxBreakdownBase: TaxBreakdownRow[] = useMemo(
+    () => buildTaxBreakdownFromLineResults(cartItems, linePricingResults),
+    [cartItems, linePricingResults],
+  );
+
   const baseTotalsDoc = useMemo(() => ({
     subtotal: roundCurrency(convertPrice(baseSummary.subtotal, baseCurrencyCode, documentCurrencyCode)),
     igv: roundCurrency(convertPrice(baseSummary.igv, baseCurrencyCode, documentCurrencyCode)),
     total: roundCurrency(convertPrice(baseSummary.total, baseCurrencyCode, documentCurrencyCode)),
   }), [baseSummary, baseCurrencyCode, documentCurrencyCode, convertPrice]);
+
+  const taxBreakdownDocBase: TaxBreakdownRow[] = useMemo(
+    () => taxBreakdownBase.map((row) => ({
+      ...row,
+      taxableBase: roundCurrency(convertPrice(row.taxableBase, baseCurrencyCode, documentCurrencyCode)),
+      taxAmount: roundCurrency(convertPrice(row.taxAmount, baseCurrencyCode, documentCurrencyCode)),
+      totalAmount: roundCurrency(convertPrice(row.totalAmount, baseCurrencyCode, documentCurrencyCode)),
+    })),
+    [baseCurrencyCode, documentCurrencyCode, convertPrice, taxBreakdownBase],
+  );
 
   type DiscountTarget = 'subtotal' | 'total';
 
@@ -473,6 +489,35 @@ export const usePosCartAndTotals = () => {
     const normalized = normalizeDiscountInput(input);
     const adjustedBase = normalized ? recalcBaseTotalsWithDiscount(normalized.baseAmount, normalized.target) : baseSummary;
 
+    // Escalar el desglose de impuestos proporcionalmente al descuento aplicado
+    const taxBreakdownDoc: TaxBreakdownRow[] = (() => {
+      if (!taxBreakdownDocBase.length || !normalized) {
+        return taxBreakdownDocBase;
+      }
+
+      const target = normalized.target;
+      const factorSubtotal = baseSummary.subtotal > 0 ? adjustedBase.subtotal / baseSummary.subtotal : 1;
+      const factorIgv = baseSummary.igv > 0 ? adjustedBase.igv / baseSummary.igv : factorSubtotal;
+      const factorTotal = baseSummary.total > 0 ? adjustedBase.total / baseSummary.total : factorSubtotal;
+
+      return taxBreakdownDocBase.map((row) => {
+        if (target === 'subtotal') {
+          return {
+            ...row,
+            taxableBase: roundCurrency(row.taxableBase * factorSubtotal),
+            taxAmount: roundCurrency(row.taxAmount * factorIgv),
+            totalAmount: roundCurrency(row.totalAmount * factorTotal),
+          };
+        }
+        return {
+          ...row,
+          taxableBase: roundCurrency(row.taxableBase * factorSubtotal),
+          taxAmount: roundCurrency(row.taxAmount * factorIgv),
+          totalAmount: roundCurrency(row.totalAmount * factorTotal),
+        };
+      });
+    })();
+
     const subtotalDoc = roundCurrency(convertPrice(adjustedBase.subtotal, baseCurrencyCode, documentCurrencyCode));
     const igvDoc = roundCurrency(convertPrice(adjustedBase.igv, baseCurrencyCode, documentCurrencyCode));
     const totalDoc = roundCurrency(convertPrice(adjustedBase.total, baseCurrencyCode, documentCurrencyCode));
@@ -494,8 +539,9 @@ export const usePosCartAndTotals = () => {
         igvBeforeDiscount: baseTotalsDoc.igv,
         totalBeforeDiscount: baseTotalsDoc.total,
       },
+      taxBreakdown: taxBreakdownDoc,
     };
-  }, [baseSummary, baseTotalsDoc, baseCurrencyCode, documentCurrencyCode, convertPrice, normalizeDiscountInput, recalcBaseTotalsWithDiscount]);
+  }, [baseSummary, baseTotalsDoc, baseCurrencyCode, documentCurrencyCode, convertPrice, normalizeDiscountInput, recalcBaseTotalsWithDiscount, taxBreakdownDocBase]);
 
   const totalsBeforeDiscount = useMemo(() => computeTotalsWithDiscount(null), [computeTotalsWithDiscount]);
 

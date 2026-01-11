@@ -1,7 +1,8 @@
 import type { CurrencyCode } from '@/shared/currency';
-import type { CartItem } from '../../models/comprobante.types';
+import type { CartItem, TaxBreakdownRow } from '../../models/comprobante.types';
 import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
 import { buildLinePricingInputFromCartItem, calculateLineaComprobante } from './comprobantePricing';
+import { buildTaxBreakdownFromLineResults } from './taxBreakdown';
 
 export interface CurrencyTotalsOptions {
   items: CartItem[];
@@ -17,6 +18,7 @@ export interface CurrencyTotalsResult {
   igv: number;
   total: number;
   currency: CurrencyCode;
+  taxBreakdown?: TaxBreakdownRow[];
 }
 
 export const calculateCurrencyAwareTotals = ({
@@ -46,10 +48,20 @@ export const calculateCurrencyAwareTotals = ({
   const igvBase = lineResults.reduce((sum, line) => sum + line.igv, 0);
   const totalBase = lineResults.reduce((sum, line) => sum + line.total, 0);
 
+   // Desglose de impuestos en moneda del documento, derivado del core
+  const breakdownBase = buildTaxBreakdownFromLineResults(items, lineResults);
+  const taxBreakdown = breakdownBase.map((row) => ({
+    ...row,
+    taxableBase: convert(row.taxableBase, baseCurrencyCode, documentCurrencyCode),
+    taxAmount: convert(row.taxAmount, baseCurrencyCode, documentCurrencyCode),
+    totalAmount: convert(row.totalAmount, baseCurrencyCode, documentCurrencyCode),
+  }));
+
   return {
     subtotal: convert(subtotalBase, baseCurrencyCode, documentCurrencyCode),
     igv: convert(igvBase, baseCurrencyCode, documentCurrencyCode),
     total: convert(totalBase, baseCurrencyCode, documentCurrencyCode),
     currency: documentCurrencyCode,
+    taxBreakdown,
   };
 };

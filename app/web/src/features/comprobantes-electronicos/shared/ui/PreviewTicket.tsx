@@ -36,8 +36,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
     second: '2-digit'
   });
 
-  const subtotalGravado = cartItems.filter(item => item.igvType === 'igv18').reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const subtotalExonerado = cartItems.filter(item => item.igvType === 'exonerado').reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const taxBreakdown = totals.taxBreakdown ?? [];
 
   const productFields = config.productFields as VoucherDesignTicketConfig['productFields'];
   const descriptionMaxLength = productFields.descripcion?.maxLength ?? 30;
@@ -242,23 +241,48 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
         {/* Totals */}
         <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
           <div className="space-y-1 text-xs">
-            {subtotalGravado > 0 && (
+            {taxBreakdown.length > 0 ? (
               <>
-                <div className="flex justify-between">
-                  <span>Op. Gravadas:</span>
-                  <span>{formatCurrencyValue(subtotalGravado / 1.18)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>IGV (18%):</span>
-                  <span>{formatCurrencyValue(subtotalGravado - subtotalGravado / 1.18)}</span>
-                </div>
+                {taxBreakdown.filter(row => row.kind === 'gravado' && row.taxableBase > 0).map((row) => {
+                  const percentLabel = row.igvRate > 0 ? ` (${(row.igvRate * 100).toFixed(2)}%)` : '';
+                  return (
+                    <div key={row.key} className="space-y-0.5">
+                      <div className="flex justify-between">
+                        <span>Op. Gravadas{percentLabel}:</span>
+                        <span>{formatCurrencyValue(row.taxableBase)}</span>
+                      </div>
+                      {row.taxAmount > 0 && (
+                        <div className="flex justify-between">
+                          <span>IGV{percentLabel}:</span>
+                          <span>{formatCurrencyValue(row.taxAmount)}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {taxBreakdown.filter(row => row.kind === 'exonerado' && row.taxableBase > 0).map((row) => (
+                  <div key={row.key} className="flex justify-between">
+                    <span>Op. Exoneradas:</span>
+                    <span>{formatCurrencyValue(row.taxableBase)}</span>
+                  </div>
+                ))}
+                {taxBreakdown.filter(row => row.kind === 'inafecto' && row.taxableBase > 0).map((row) => (
+                  <div key={row.key} className="flex justify-between">
+                    <span>Op. Inafectas:</span>
+                    <span>{formatCurrencyValue(row.taxableBase)}</span>
+                  </div>
+                ))}
               </>
-            )}
-            {subtotalExonerado > 0 && (
-              <div className="flex justify-between">
-                <span>Op. Exoneradas:</span>
-                <span>{formatCurrencyValue(subtotalExonerado)}</span>
-              </div>
+            ) : (
+              <>
+                {/* Fallback al comportamiento anterior si no hay breakdown disponible */}
+                {cartItems.length > 0 && (
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>{formatCurrencyValue(totals.subtotal)}</span>
+                  </div>
+                )}
+              </>
             )}
             <div className="flex justify-between font-bold text-sm pt-2 border-t border-gray-400">
               <span>TOTAL:</span>

@@ -148,6 +148,22 @@ export interface DiscountDetails {
   amount: number;
 }
 
+export type TaxBreakdownKind = 'gravado' | 'exonerado' | 'inafecto';
+
+export interface TaxBreakdownRow {
+  key: string;
+  igvType?: IgvType;
+  kind: TaxBreakdownKind;
+  /** Tasa de IGV aplicada (0.18, 0.10, etc.) */
+  igvRate: number;
+  /** Base imponible de la afectación (si aplica) */
+  taxableBase: number;
+  /** Monto de impuesto correspondiente a la afectación */
+  taxAmount: number;
+  /** Total (base + impuesto) para la afectación */
+  totalAmount: number;
+}
+
 export interface PaymentTotals {
   subtotal: number;
   igv: number;
@@ -159,6 +175,8 @@ export interface PaymentTotals {
     igvBeforeDiscount: number;
     totalBeforeDiscount: number;
   };
+  /** Desglose de impuestos por tipo/tasa en la moneda del documento */
+  taxBreakdown?: TaxBreakdownRow[];
 }
 
 export interface PaymentMethod {

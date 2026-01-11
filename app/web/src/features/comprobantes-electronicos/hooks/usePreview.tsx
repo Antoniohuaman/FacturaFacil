@@ -93,34 +93,6 @@ export const usePreview = () => {
     };
   };
 
-  // Función para calcular totales detallados
-  const calculateDetailedTotals = (cartItems: CartItem[]) => {
-    const subtotalGravado = cartItems
-      .filter(item => item.igvType === 'igv18')
-      .reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-    const subtotalExonerado = cartItems
-      .filter(item => item.igvType === 'exonerado')
-      .reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-    const subtotalInafecto = cartItems
-      .filter(item => item.igvType === 'inafecto')
-      .reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-    const igv = subtotalGravado * 0.18;
-    const total = subtotalGravado + subtotalExonerado + subtotalInafecto + igv;
-
-    return {
-      subtotalGravado,
-      subtotalExonerado, 
-      subtotalInafecto,
-      igv,
-      total,
-      descuentos: 0,
-      recargos: 0
-    };
-  };
-
   // Función para convertir número a texto (para el formato ticket)
   const numberToText = (amount: number): string => {
     // Implementación básica - en producción usarías una librería
@@ -165,7 +137,6 @@ export const usePreview = () => {
     toggleFormat,
     setFormat,
     generatePreviewData,
-    calculateDetailedTotals,
     numberToText,
     generateQRUrl,
     getCompanyData,

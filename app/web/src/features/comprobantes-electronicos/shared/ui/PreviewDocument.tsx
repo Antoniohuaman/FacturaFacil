@@ -27,11 +27,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
 
   const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
   const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
-
-  // Calcular subtotales
-  const subtotalGravado = cartItems.filter(item => item.igvType === 'igv18').reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const subtotalExonerado = cartItems.filter(item => item.igvType === 'exonerado').reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const subtotalInafecto = cartItems.filter(item => item.igvType === 'inafecto').reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const taxBreakdown = totals.taxBreakdown ?? [];
 
   // Obtener columnas visibles
   const visibleColumns = Object.entries(config.productFields).filter(([_, value]) => value.visible);
@@ -396,29 +392,48 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl })
             <div className="flex justify-end">
               <div className="min-w-[300px]">
                 <div className="space-y-2">
-                  {subtotalGravado > 0 && (
+                  {taxBreakdown.length > 0 ? (
                     <>
-                      <div className="flex justify-between text-xs">
-                        <span>Op. Gravadas:</span>
-                        <span>{formatCurrencyValue(subtotalGravado / 1.18)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span>IGV (18%):</span>
-                        <span>{formatCurrencyValue(subtotalGravado - subtotalGravado / 1.18)}</span>
-                      </div>
+                      {taxBreakdown.filter(row => row.kind === 'gravado' && row.taxableBase > 0).map((row) => {
+                        const percentLabel = row.igvRate > 0 ? ` (${(row.igvRate * 100).toFixed(2)}%)` : '';
+                        return (
+                          <div key={row.key} className="space-y-0.5">
+                            <div className="flex justify-between text-xs">
+                              <span>Op. Gravadas{percentLabel}:</span>
+                              <span>{formatCurrencyValue(row.taxableBase)}</span>
+                            </div>
+                            {row.taxAmount > 0 && (
+                              <div className="flex justify-between text-xs">
+                                <span>IGV{percentLabel}:</span>
+                                <span>{formatCurrencyValue(row.taxAmount)}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {taxBreakdown.filter(row => row.kind === 'exonerado' && row.taxableBase > 0).map((row) => (
+                        <div key={row.key} className="flex justify-between text-xs">
+                          <span>Op. Exoneradas:</span>
+                          <span>{formatCurrencyValue(row.taxableBase)}</span>
+                        </div>
+                      ))}
+                      {taxBreakdown.filter(row => row.kind === 'inafecto' && row.taxableBase > 0).map((row) => (
+                        <div key={row.key} className="flex justify-between text-xs">
+                          <span>Op. Inafectas:</span>
+                          <span>{formatCurrencyValue(row.taxableBase)}</span>
+                        </div>
+                      ))}
                     </>
-                  )}
-                  {subtotalExonerado > 0 && (
-                    <div className="flex justify-between text-xs">
-                      <span>Op. Exoneradas:</span>
-                      <span>{formatCurrencyValue(subtotalExonerado)}</span>
-                    </div>
-                  )}
-                  {subtotalInafecto > 0 && (
-                    <div className="flex justify-between text-xs">
-                      <span>Op. Inafectas:</span>
-                      <span>{formatCurrencyValue(subtotalInafecto)}</span>
-                    </div>
+                  ) : (
+                    <>
+                      {/* Fallback al comportamiento anterior si no hay breakdown disponible */}
+                      {cartItems.length > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span>Subtotal:</span>
+                          <span>{formatCurrencyValue(totals.subtotal)}</span>
+                        </div>
+                      )}
+                    </>
                   )}
                   <div className="flex justify-between items-center pt-2 border-t border-gray-300">
                     <span className="text-sm font-bold">TOTAL:</span>
