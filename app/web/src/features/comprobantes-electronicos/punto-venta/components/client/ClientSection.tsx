@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Edit, User, X, Loader2 } from 'lucide-react';
 import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
+import { toSunatDocCode } from '@/features/gestion-clientes/utils/saleClienteMapping';
 import type { Cliente } from '@/features/gestion-clientes/models';
 import { clientesClient } from '@/features/gestion-clientes/api';
 import { useClientes } from '@/features/gestion-clientes/hooks/useClientes';
@@ -166,7 +167,10 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       email: '',
       additionalData: '',
     });
-    setClienteDocumentType(clienteSeleccionado.tipoDocumento === 'RUC' ? 'RUC' : 'DNI');
+    // Usar códigos SUNAT aceptados por ClienteFormNew ('6' para RUC, '1' para DNI, '0' para SIN DOCUMENTO, otros códigos se respetan)
+    // Reutilizamos el helper centralizado para evitar duplicación de lógica
+    const code = toSunatDocCode(clienteSeleccionado.tipoDocumento);
+    setClienteDocumentType(code || (clienteSeleccionado.tipoDocumento === 'RUC' ? '6' : clienteSeleccionado.tipoDocumento === 'DNI' ? '1' : '0'));
     setShowClienteForm(true);
   };
 

@@ -104,3 +104,16 @@ const buildClienteDtoFromLegacyForm = (input: {
 export const buildUpdateClienteDtoFromLegacyForm = (input: Parameters<typeof buildClienteDtoFromLegacyForm>[0]): UpdateClienteDTO => {
   return buildClienteDtoFromLegacyForm(input);
 };
+
+// Mapeo mínimo para abrir el formulario con códigos SUNAT
+// Convierte tokens comunes ('RUC'|'DNI'|'SIN_DOCUMENTO') o códigos ya numéricos a códigos SUNAT aceptados por ClienteFormNew
+export const toSunatDocCode = (token?: string | null): string => {
+  const t = (token ?? '').trim().toUpperCase();
+  if (!t) return '';
+  if (t === 'RUC' || t === '6') return '6';
+  if (t === 'DNI' || t === '1') return '1';
+  if (t === 'SIN_DOCUMENTO' || t === 'SIN DOCUMENTO' || t === '0') return '0';
+  // Si ya viene un código válido distinto, se respeta tal cual (ej. '4', '7', 'A', ...)
+  // En ausencia de un mapeo específico, devolver el token original para no adivinar
+  return t;
+};
