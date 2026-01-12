@@ -9,10 +9,9 @@ import { useClientes } from '@/features/gestion-clientes/hooks/useClientes';
 import {
   buildUpdateClienteDtoFromLegacyForm,
   clienteToSaleSnapshot,
-  formatSaleDocumentLabel,
   type SaleDocumentType,
 } from '@/features/gestion-clientes/utils/saleClienteMapping';
-import { onlyDigits } from '@/features/gestion-clientes/utils/documents';
+import { getDocLabelFromCode, onlyDigits } from '@/features/gestion-clientes/utils/documents';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../../shared/clienteLookup/clienteLookupService';
 import { usePriceProfilesCatalog } from '../../../../lista-precios/hooks/usePriceProfilesCatalog';
 
@@ -23,6 +22,7 @@ interface ClientePOS {
   documento: string;
   direccion: string;
   email?: string;
+  sunatCode?: string;
   priceProfileId?: string;
 }
 
@@ -167,10 +167,21 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       email: '',
       additionalData: '',
     });
-    // Usar códigos SUNAT aceptados por ClienteFormNew ('6' para RUC, '1' para DNI, '0' para SIN DOCUMENTO, otros códigos se respetan)
-    // Reutilizamos el helper centralizado para evitar duplicación de lógica
-    const code = toSunatDocCode(clienteSeleccionado.tipoDocumento);
-    setClienteDocumentType(code || (clienteSeleccionado.tipoDocumento === 'RUC' ? '6' : clienteSeleccionado.tipoDocumento === 'DNI' ? '1' : '0'));
+    const explicitCode = (clienteSeleccionado.sunatCode || '').trim();
+    let code = explicitCode;
+    if (!code) {
+      // Fallback solo para RUC/DNI/SIN_DOCUMENTO cuando no tenemos código SUNAT explícito
+      if (clienteSeleccionado.tipoDocumento === 'RUC') {
+        code = '6';
+      } else if (clienteSeleccionado.tipoDocumento === 'DNI') {
+        code = '1';
+      } else if (clienteSeleccionado.tipoDocumento === 'SIN_DOCUMENTO') {
+        code = '0';
+      } else {
+        code = '';
+      }
+    }
+    setClienteDocumentType(code);
     setShowClienteForm(true);
   };
 
@@ -199,16 +210,23 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
             documento: snap.dni,
             direccion: snap.direccion,
             email: snap.email,
+            sunatCode: snap.sunatCode,
             priceProfileId: resolveProfileId(snap.priceProfileId),
           });
         }
       } else {
         // No persistir aquí: si la venta se emite OK, el contenedor hará createCliente.
-        const draftType: SaleDocumentType = clienteDocumentType.trim().toUpperCase() === 'RUC'
-          ? 'RUC'
-          : clienteDocumentType.trim().toUpperCase() === 'DNI'
-            ? 'DNI'
-            : 'SIN_DOCUMENTO';
+        const token = clienteDocumentType.trim().toUpperCase();
+        let draftType: SaleDocumentType;
+        if (token === 'RUC' || token === '6') {
+          draftType = 'RUC';
+        } else if (token === 'DNI' || token === '1') {
+          draftType = 'DNI';
+        } else if (token === 'SIN_DOCUMENTO' || token === 'SIN DOCUMENTO' || token === '0') {
+          draftType = 'SIN_DOCUMENTO';
+        } else {
+          draftType = 'OTROS';
+        }
         const rawDocument = clienteFormData.documentNumber.trim();
         const draftNumber = draftType === 'RUC' || draftType === 'DNI' ? onlyDigits(rawDocument) : rawDocument;
         selectCliente({
@@ -218,6 +236,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
           documento: draftNumber,
           direccion: clienteFormData.address.trim() || 'Sin dirección',
           email: clienteFormData.email.trim() || undefined,
+          sunatCode: toSunatDocCode(clienteDocumentType),
           priceProfileId: undefined,
         });
       }
@@ -286,6 +305,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
         documento: snap.dni,
         direccion: snap.direccion,
         email: snap.email,
+        sunatCode: snap.sunatCode,
         priceProfileId: resolveProfileId(snap.priceProfileId),
       });
       return;
@@ -312,6 +332,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
         documento: numeroDocumento,
         direccion: lookup.direccion || 'Dirección no definida',
         email: lookup.email,
+        sunatCode: normalizedType === 'RUC' ? '6' : '1',
         priceProfileId: undefined,
       });
       onLookupClientSelected?.({
@@ -411,6 +432,12 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
           {clientesFiltrados.length > 0 ? (
             clientesFiltrados.map((cliente) => {
               const snap = clienteToSaleSnapshot(cliente);
+              const docCode = snap.sunatCode || (snap.tipoDocumento === 'RUC' ? '6' : snap.tipoDocumento === 'DNI' ? '1' : snap.tipoDocumento === 'SIN_DOCUMENTO' ? '0' : undefined);
+              const trimmedNumber = snap.dni.trim();
+              const label = getDocLabelFromCode(docCode);
+              const docLabel = !trimmedNumber || docCode === '0' || !docCode
+                ? 'Sin documento'
+                : `${label} ${trimmedNumber}`;
               return (
               <button
                 key={String(cliente.id)}
@@ -421,12 +448,13 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
                   documento: snap.dni,
                   direccion: snap.direccion,
                   email: snap.email,
+                  sunatCode: snap.sunatCode,
                   priceProfileId: resolveProfileId(snap.priceProfileId),
                 })}
                 className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-b-0"
               >
                 <div className="font-semibold text-[11px] text-slate-900 truncate">{snap.nombre}</div>
-                <div className="text-[10px] text-slate-600">{formatSaleDocumentLabel(snap.tipoDocumento, snap.dni)}</div>
+                <div className="text-[10px] text-slate-600">{docLabel}</div>
               </button>
               );
             })
@@ -439,7 +467,19 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       {clienteSeleccionado && (
         <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500">
           <span className="font-semibold text-slate-600">
-            {formatSaleDocumentLabel(clienteSeleccionado.tipoDocumento, clienteSeleccionado.documento)}
+            {(() => {
+              const code = (clienteSeleccionado.sunatCode || '').trim() || (clienteSeleccionado.tipoDocumento === 'RUC'
+                ? '6'
+                : clienteSeleccionado.tipoDocumento === 'DNI'
+                  ? '1'
+                  : clienteSeleccionado.tipoDocumento === 'SIN_DOCUMENTO'
+                    ? '0'
+                    : undefined);
+              const trimmedNumber = clienteSeleccionado.documento.trim();
+              const label = getDocLabelFromCode(code);
+              if (!trimmedNumber || code === '0' || !code) return 'Sin documento';
+              return `${label} ${trimmedNumber}`;
+            })()}
           </span>
           <button
             type="button"

@@ -37,7 +37,7 @@ import { usePriceProfilesCatalog } from '../../../../lista-precios/hooks/usePric
 import { CreditPaymentMethodModal } from '@/shared/payments/CreditPaymentMethodModal';
 import { normalizePaymentMethodLabel } from '@/shared/payments/normalizePaymentMethodLabel';
 
-import type { Cliente } from '@/features/gestion-clientes/models';
+import type { Cliente, ClientType } from '@/features/gestion-clientes/models';
 import { useClientes } from '@/features/gestion-clientes/hooks/useClientes';
 import {
   buildUpdateClienteDtoFromLegacyForm,
@@ -54,6 +54,7 @@ type SelectedCliente = {
   tipoDocumento: SaleDocumentType;
   email?: string;
   sunatCode?: string;
+   tipoCuenta?: ClientType;
   priceProfileId?: string;
 };
 
@@ -80,7 +81,7 @@ const saleDocTypeToSunatCode = (type: SaleDocumentType): string => {
     case 'SIN_DOCUMENTO':
       return '0';
     default:
-      return '0';
+      return '';
   }
 };
 
@@ -220,7 +221,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [documentType, setDocumentType] = useState('1');
-  const [clientType, setClientType] = useState('natural');
+  const [clientType, setClientType] = useState('Cliente');
   const [formData, setFormData] = useState({
     documentNumber: '',
     legalName: '',
@@ -343,11 +344,16 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
     setIsEditing(true);
 
-    const docCodeForForm = clienteSeleccionadoLocal.sunatCode ?? saleDocTypeToSunatCode(clienteSeleccionadoLocal.tipoDocumento);
-    const normalizedDocType = sunatCodeToSaleDocType(docCodeForForm);
-
+    const docCodeForForm = clienteSeleccionadoLocal.sunatCode && clienteSeleccionadoLocal.sunatCode.trim()
+      ? clienteSeleccionadoLocal.sunatCode
+      : (clienteSeleccionadoLocal.tipoDocumento === 'RUC' ||
+        clienteSeleccionadoLocal.tipoDocumento === 'DNI' ||
+        clienteSeleccionadoLocal.tipoDocumento === 'SIN_DOCUMENTO'
+      )
+        ? saleDocTypeToSunatCode(clienteSeleccionadoLocal.tipoDocumento)
+        : '';
     setDocumentType(docCodeForForm);
-    setClientType(normalizedDocType === 'RUC' ? 'juridica' : 'natural');
+    setClientType((clienteSeleccionadoLocal.tipoCuenta as ClientType) || 'Cliente');
 
     setFormData({
       documentNumber: clienteSeleccionadoLocal.dni,
@@ -453,7 +459,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       direccion: snap.direccion || 'Dirección no definida',
       tipoDocumento: snap.tipoDocumento,
       email: snap.email,
-      sunatCode: saleDocTypeToSunatCode(snap.tipoDocumento),
+      sunatCode: snap.sunatCode ?? saleDocTypeToSunatCode(snap.tipoDocumento),
+      tipoCuenta: (cliente.tipoCuenta as ClientType) || 'Cliente',
       priceProfileId,
     };
 

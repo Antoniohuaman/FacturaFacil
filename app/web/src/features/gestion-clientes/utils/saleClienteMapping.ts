@@ -1,5 +1,6 @@
 import type { Cliente, ClientType, CreateClienteDTO, DocumentType, UpdateClienteDTO } from '../models';
 import { onlyDigits, parseLegacyDocumentString } from './documents';
+import type { DocumentCode } from './documents';
 
 export type SaleDocumentType = 'RUC' | 'DNI' | 'SIN_DOCUMENTO' | 'OTROS';
 
@@ -13,31 +14,32 @@ const resolveDocumentTypeForDto = (raw: string): DocumentType => {
   return 'DOC_IDENTIF_PERS_NAT_NO_DOM';
 };
 
-const parseClienteDocument = (document?: string | null): { type: SaleDocumentType; number: string } => {
+const parseClienteDocument = (document?: string | null): { type: SaleDocumentType; number: string; code?: DocumentCode } => {
   if (!document || document === 'Sin documento') {
     return { type: 'SIN_DOCUMENTO', number: '' };
   }
 
   const parsed = parseLegacyDocumentString(document);
   const rawNumber = (parsed.number ?? '').trim();
+  const code = parsed.code;
+
+  if (!parsed.type && !code && !rawNumber) {
+    return { type: 'SIN_DOCUMENTO', number: '' };
+  }
 
   if (parsed.type === 'RUC') {
-    return { type: 'RUC', number: onlyDigits(rawNumber) };
+    return { type: 'RUC', number: onlyDigits(rawNumber), code };
   }
 
   if (parsed.type === 'DNI') {
-    return { type: 'DNI', number: onlyDigits(rawNumber) };
-  }
-
-  if (parsed.type === 'SIN_DOCUMENTO') {
-    return { type: 'SIN_DOCUMENTO', number: '' };
+    return { type: 'DNI', number: onlyDigits(rawNumber), code };
   }
 
   if (!rawNumber) {
-    return { type: 'SIN_DOCUMENTO', number: '' };
+    return { type: 'SIN_DOCUMENTO', number: '', code };
   }
 
-  return { type: 'OTROS', number: rawNumber };
+  return { type: 'OTROS', number: rawNumber, code };
 };
 
 export const formatSaleDocumentLabel = (type: SaleDocumentType, number: string): string => {
@@ -55,6 +57,7 @@ export const clienteToSaleSnapshot = (cliente: Cliente): {
   tipoDocumento: SaleDocumentType;
   email?: string;
   priceProfileId?: string;
+  sunatCode?: DocumentCode;
 } => {
   const parsed = parseClienteDocument(cliente.document);
 
@@ -66,6 +69,7 @@ export const clienteToSaleSnapshot = (cliente: Cliente): {
     tipoDocumento: parsed.type,
     email: cliente.email,
     priceProfileId: cliente.listaPrecio,
+    sunatCode: parsed.code,
   };
 };
 

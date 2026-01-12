@@ -32,34 +32,63 @@ interface ClienteFormLegacyProps {
 
 const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
   // Convertir del formato legacy al nuevo formato
-  const adaptedFormData: ClienteFormData = useMemo(() => ({
-    // Identificación
-    // Fuente de verdad interna: código SUNAT ('6','1','7','4','A',...)
-    // Aceptar tanto tokens legacy ('RUC'|'DNI'|...) como códigos ya normalizados.
-    tipoDocumento: (() => {
-      const raw = (props.documentType || '').trim();
-      if (!raw) return '6';
-      const asCode = documentTypeFromCode(raw.toUpperCase()) ? raw.toUpperCase() : documentCodeFromType(raw as DocumentType);
-      return (asCode as string) || '6';
-    })(),
-    numeroDocumento: props.formData.documentNumber || '',
-    tipoPersona: (() => {
-      const raw = (props.documentType || '').trim();
-      const code = documentTypeFromCode(raw.toUpperCase()) ? raw.toUpperCase() : documentCodeFromType(raw as DocumentType);
-      return code === '6' ? 'Juridica' : 'Natural';
-    })(),
-    tipoCuenta: (props.clientType as ClienteFormData['tipoCuenta']) || 'Cliente',
-    
-    // Razón Social (Jurídica)
-    razonSocial: props.formData.legalName || '',
-    nombreComercial: '',
-    
-    // Nombres (Natural)
-    primerNombre: '',
-    segundoNombre: '',
-    apellidoPaterno: '',
-    apellidoMaterno: '',
-    nombreCompleto: props.formData.legalName || '',
+  const adaptedFormData: ClienteFormData = useMemo(() => {
+    const rawDocType = (props.documentType || '').trim();
+    const upperRaw = rawDocType.toUpperCase();
+    const code = documentTypeFromCode(upperRaw) ? upperRaw : documentCodeFromType(rawDocType as DocumentType);
+
+    const legalName = props.formData.legalName || '';
+
+    let razonSocial = '';
+    let primerNombre = '';
+    let segundoNombre = '';
+    let apellidoPaterno = '';
+    let apellidoMaterno = '';
+    const nombreCompleto = legalName;
+
+    if (code === '6') {
+      // RUC → tratar legalName como razón social
+      razonSocial = legalName;
+      primerNombre = '';
+      segundoNombre = '';
+      apellidoPaterno = '';
+      apellidoMaterno = '';
+    } else if (legalName) {
+      // Persona natural → mapear legalName a nombres y apellidos
+      const parts = legalName.trim().split(/\s+/);
+      if (parts.length === 1) {
+        primerNombre = parts[0];
+      } else if (parts.length === 2) {
+        [primerNombre, apellidoPaterno] = parts;
+      } else if (parts.length === 3) {
+        [primerNombre, apellidoPaterno, apellidoMaterno] = parts;
+      } else if (parts.length > 3) {
+        primerNombre = parts[0];
+        apellidoPaterno = parts[parts.length - 2];
+        apellidoMaterno = parts[parts.length - 1];
+        segundoNombre = parts.slice(1, parts.length - 2).join(' ');
+      }
+    }
+
+    return {
+      // Identificación
+      // Fuente de verdad interna: código SUNAT ('6','1','7','4','A',...)
+      // Aceptar tanto tokens legacy ('RUC'|'DNI'|...) como códigos ya normalizados.
+      tipoDocumento: (code as string) || '6',
+      numeroDocumento: props.formData.documentNumber || '',
+      tipoPersona: code === '6' ? 'Juridica' : 'Natural',
+      tipoCuenta: (props.clientType as ClienteFormData['tipoCuenta']) || 'Cliente',
+      
+      // Razón Social (Jurídica)
+      razonSocial,
+      nombreComercial: '',
+      
+      // Nombres (Natural)
+      primerNombre,
+      segundoNombre,
+      apellidoPaterno,
+      apellidoMaterno,
+      nombreCompleto,
     
     // Contacto
     emails: props.formData.email ? [props.formData.email] : [],
@@ -76,7 +105,7 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
     referenciaDireccion: '',
     
     // Estado
-    tipoCliente: 'Natural',
+    tipoCliente: code === '6' ? 'Juridica' : 'Natural',
     estadoCliente: 'Habilitado',
     motivoDeshabilitacion: '',
     
@@ -113,7 +142,8 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
     // Legacy
     gender: props.formData.gender || '',
     additionalData: props.formData.additionalData || '',
-  }), [props.formData, props.documentType, props.clientType]);
+  };
+}, [props.formData, props.documentType, props.clientType]);
 
   // Adaptador para el onChange
   const handleInputChange = (field: keyof ClienteFormData, value: ClienteFormValue) => {

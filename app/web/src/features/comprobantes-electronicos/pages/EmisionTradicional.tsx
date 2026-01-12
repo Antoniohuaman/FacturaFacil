@@ -354,13 +354,25 @@ const EmisionTradicional = () => {
 
   const draftClientData: ClientData | undefined = useMemo(() => {
     if (!clienteSeleccionadoGlobal) return undefined;
-    const normalizedType = clienteSeleccionadoGlobal.tipoDocumento
-      ? clienteSeleccionadoGlobal.tipoDocumento
-      : (clienteSeleccionadoGlobal.dni && clienteSeleccionadoGlobal.dni.length === 11 ? 'RUC' : 'DNI');
+
+    const rawType = clienteSeleccionadoGlobal.tipoDocumento;
+    const rawNumber = clienteSeleccionadoGlobal.dni || '';
+    const hasNumber = Boolean(rawNumber.trim());
+
+    let normalizedType: 'RUC' | 'DNI' | 'SIN_DOCUMENTO' | 'OTROS';
+    if (rawType === 'RUC' || rawType === 'DNI' || rawType === 'SIN_DOCUMENTO' || rawType === 'OTROS') {
+      normalizedType = rawType;
+    } else if (!hasNumber) {
+      normalizedType = 'SIN_DOCUMENTO';
+    } else {
+      normalizedType = 'OTROS';
+    }
+
     const normalizedNumber =
       normalizedType === 'RUC' || normalizedType === 'DNI'
-        ? onlyDigits(clienteSeleccionadoGlobal.dni)
-        : clienteSeleccionadoGlobal.dni;
+        ? onlyDigits(rawNumber)
+        : rawNumber;
+
     return {
       nombre: clienteSeleccionadoGlobal.nombre,
       tipoDocumento: normalizedType === 'RUC' ? 'ruc' : 'dni',
