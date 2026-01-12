@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Edit, User, X, Loader2 } from 'lucide-react';
 import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
 import type { Cliente } from '@/features/gestion-clientes/models';
@@ -57,6 +58,18 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   });
   const [clienteDocumentType, setClienteDocumentType] = useState('DNI');
   const [clienteType, setClienteType] = useState('Cliente');
+
+  // Accesibilidad: cerrar con ESC cuando el modal está abierto
+  useEffect(() => {
+    if (!showClienteForm) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowClienteForm(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showClienteForm]);
 
   useEffect(() => {
     if (!clienteSeleccionado) {
@@ -440,20 +453,23 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
         </div>
       )}
 
-      {showClienteForm && (
-        <ClienteForm
-          formData={clienteFormData}
-          documentType={clienteDocumentType}
-          clientType={clienteType}
-          documentTypes={documentTypes}
-          clientTypes={clientTypes}
-          onInputChange={handleClienteInputChange}
-          onDocumentTypeChange={setClienteDocumentType}
-          onClientTypeChange={setClienteType}
-          onSave={handleSaveCliente}
-          onCancel={() => setShowClienteForm(false)}
-          isEditing={editingCliente}
-        />
+      {showClienteForm && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4" role="dialog" aria-modal="true">
+          <ClienteForm
+            formData={clienteFormData}
+            documentType={clienteDocumentType}
+            clientType={clienteType}
+            documentTypes={documentTypes}
+            clientTypes={clientTypes}
+            onInputChange={handleClienteInputChange}
+            onDocumentTypeChange={setClienteDocumentType}
+            onClientTypeChange={setClienteType}
+            onSave={handleSaveCliente}
+            onCancel={() => setShowClienteForm(false)}
+            isEditing={editingCliente}
+          />
+        </div>,
+        document.body
       )}
     </div>
   );
