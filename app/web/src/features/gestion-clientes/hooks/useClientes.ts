@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { clientesClient } from '../api';
 import type {
   Cliente,
@@ -12,6 +12,7 @@ import type {
 } from '../models';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { useTenant } from '../../../shared/tenant/TenantContext';
+import { emitClientesChanged, onClientesChanged } from '../utils/clientesEvents';
 
 const INITIAL_PAGINATION = {
   total: 0,
@@ -28,6 +29,11 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
+  const instanceId = useRef<string>(
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
+  );
 
   /**
    * Cargar clientes desde la API
@@ -78,8 +84,9 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
         `${newCliente.name} fue creado exitosamente`
       );
 
-      // Recargar lista
+      // Recargar lista y notificar a otros módulos
       await fetchClientes(initialFilters);
+      emitClientesChanged({ reason: 'create', sourceId: instanceId.current });
 
       return newCliente;
     } catch (err: any) {
@@ -116,6 +123,9 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
         prev.map((c) => (c.id === id ? updatedCliente : c))
       );
 
+      // Notificar a otros módulos para refrescar
+      emitClientesChanged({ reason: 'update', sourceId: instanceId.current });
+
       return updatedCliente;
     } catch (err: any) {
       const errorMessage = err.message || 'Error al actualizar cliente';
@@ -145,6 +155,9 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
 
       // Remover de la lista local
       setClientes((prev) => prev.filter((c) => c.id !== id));
+
+      // Notificar a otros módulos
+      emitClientesChanged({ reason: 'delete', sourceId: instanceId.current });
 
       return true;
     } catch (err: any) {
@@ -212,6 +225,37 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     return () => ctrl.abort();
   }, [initialFilters, showToast, tenantId]);
 
+  // Escucha global para sincronizar cambios realizados en otros módulos
+  useEffect(() => {
+    let debounceHandle: number | null = null;
+    let refreshing = false;
+
+    const cleanup = onClientesChanged((detail) => {
+      if (!detail) return;
+      if (detail.sourceId === instanceId.current) return; // ignora eventos propios
+      if (loading || refreshing) return; // evita duplicados
+
+      if (debounceHandle) {
+        window.clearTimeout(debounceHandle);
+      }
+      debounceHandle = window.setTimeout(() => {
+        refreshing = true;
+        void (async () => {
+          try {
+            await fetchClientes(initialFilters);
+          } finally {
+            refreshing = false;
+          }
+        })();
+      }, 150);
+    });
+
+    return () => {
+      if (debounceHandle) window.clearTimeout(debounceHandle);
+      cleanup();
+    };
+  }, [fetchClientes, initialFilters, loading]);
+
   // (applyTransientClientes removido: sin referencias externas)
 
   /**
@@ -231,6 +275,7 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     try {
       const result = await clientesClient.bulkImportClientes(payload);
       await fetchClientes(initialFilters);
+      emitClientesChanged({ reason: 'update', sourceId: instanceId.current });
 
       const { summary } = result;
       const createdLabel = summary.created === 1 ? '1 cliente creado' : `${summary.created} clientes creados`;
