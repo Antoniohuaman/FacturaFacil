@@ -317,6 +317,8 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
                 email: lookupClient.data.email,
                 tipoDocumento: documentType,
                 numeroDocumento: documentNumber,
+                // Si es RUC, asegurar razonSocial consistente con name
+                razonSocial: documentType === 'RUC' ? lookupClient.data.nombre : undefined,
                 direccion: lookupClient.data.direccion,
                 tipoCuenta: 'Cliente',
               });

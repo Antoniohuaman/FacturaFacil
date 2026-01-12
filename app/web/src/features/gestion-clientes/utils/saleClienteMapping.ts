@@ -90,6 +90,8 @@ const buildClienteDtoFromLegacyForm = (input: {
     documentType,
     documentNumber: normalizedNumber,
     name,
+    // Si es RUC, persistir también razonSocial con el mismo valor que name/legalName
+    razonSocial: documentType === 'RUC' ? name : undefined,
     type,
     address: input.address?.trim() || undefined,
     phone: input.phone?.trim() || undefined,
