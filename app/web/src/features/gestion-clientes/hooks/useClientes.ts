@@ -212,19 +212,7 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     return () => ctrl.abort();
   }, [initialFilters, showToast, tenantId]);
 
-  /**
-   * Inyecta clientes transitorios (no persistidos) en memoria
-   */
-  const applyTransientClientes = useCallback((items: Cliente[]) => {
-    const stamped = items.map((c, idx) => ({
-      ...c,
-      id: c.id ?? `t-${Date.now()}-${idx}`,
-      transient: true as const,
-    }));
-    setTransientClientes(stamped);
-    const count = stamped.length;
-    showToast('success', 'Importación aplicada', `${count} cliente${count === 1 ? '' : 's'} transitorio${count === 1 ? '' : 's'} agregado${count === 1 ? '' : 's'} al listado`);
-  }, [showToast]);
+  // (applyTransientClientes removido: sin referencias externas)
 
   /**
    * Limpia los clientes transitorios
@@ -278,7 +266,6 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     updateCliente,
     deleteCliente,
     getClienteById,
-    applyTransientClientes,
     clearTransientClientes,
     transientCount,
     bulkImportClientes,

@@ -5,14 +5,14 @@ import type { Cliente, ClienteArchivo, PersistedFile } from '../models';
 import { CLIENTE_COLUMN_DEFINITIONS, type ClienteColumnId } from '../hooks/useClientesColumns';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 
-export type ClientesTableProps = {
+type ClientesTableProps = {
   clients: Cliente[];
   visibleColumnIds: ClienteColumnId[];
   onEditClient?: (client: Cliente) => void;
   onDeleteClient?: (client: Cliente) => void;
 };
 
-export interface ClientesTableRef {
+interface ClientesTableRef {
   clearAllFilters: () => void;
   hasActiveFilters: () => boolean;
 }

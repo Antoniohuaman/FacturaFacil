@@ -197,16 +197,7 @@ export interface ClienteFormData {
   additionalData: string;
 }
 
-// Tipo legacy para compatibilidad con código existente
-export interface ClienteFormDataLegacy {
-  documentNumber: string;
-  legalName: string;
-  address: string;
-  gender: string;
-  phone: string;
-  email: string;
-  additionalData: string;
-}
+// (ClienteFormDataLegacy removido: sin referencias en la codebase)
 
 export interface CreateClienteDTO {
   // Campos legacy básicos (retrocompatibilidad)

@@ -13,7 +13,7 @@ const resolveDocumentTypeForDto = (raw: string): DocumentType => {
   return 'DOC_IDENTIF_PERS_NAT_NO_DOM';
 };
 
-export const parseClienteDocument = (document?: string | null): { type: SaleDocumentType; number: string } => {
+const parseClienteDocument = (document?: string | null): { type: SaleDocumentType; number: string } => {
   if (!document || document === 'Sin documento') {
     return { type: 'SIN_DOCUMENTO', number: '' };
   }
@@ -69,7 +69,7 @@ export const clienteToSaleSnapshot = (cliente: Cliente): {
   };
 };
 
-export const buildClienteDtoFromLegacyForm = (input: {
+const buildClienteDtoFromLegacyForm = (input: {
   documentTypeToken: string;
   documentNumber: string;
   legalName: string;

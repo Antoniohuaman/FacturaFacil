@@ -18,7 +18,7 @@ const CLIENTES_TABS = [
   },
 ];
 
-export type ClientesModuleTab = (typeof CLIENTES_TABS)[number]['key'];
+type ClientesModuleTab = (typeof CLIENTES_TABS)[number]['key'];
 
 interface ClientesModuleLayoutProps {
   activeTab: ClientesModuleTab;

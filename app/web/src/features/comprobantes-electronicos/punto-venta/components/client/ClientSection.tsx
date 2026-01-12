@@ -14,7 +14,7 @@ import { onlyDigits } from '@/features/gestion-clientes/utils/documents';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../../shared/clienteLookup/clienteLookupService';
 import { usePriceProfilesCatalog } from '../../../../lista-precios/hooks/usePriceProfilesCatalog';
 
-export interface ClientePOS {
+interface ClientePOS {
   id?: number | string;
   nombre: string;
   tipoDocumento: SaleDocumentType;

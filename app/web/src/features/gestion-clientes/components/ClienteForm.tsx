@@ -157,4 +157,4 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
 };
 
 export default ClienteForm;
-export type { ClienteFormData };
+// (Re-export de ClienteFormData removido: no hay imports desde este path)
