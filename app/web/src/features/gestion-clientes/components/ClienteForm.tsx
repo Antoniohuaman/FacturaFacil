@@ -1,8 +1,9 @@
 // Wrapper de compatibilidad para módulos legacy que usan la interfaz antigua de ClienteForm
 import React, { useMemo } from 'react';
 import ClienteFormNew from './ClienteFormNew';
-import type { ClienteFormData } from '../models';
+import type { ClienteFormData, DocumentType } from '../models';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
+import { documentCodeFromType, documentTypeFromCode } from '../utils/documents';
 
 type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
 
@@ -33,9 +34,20 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
   // Convertir del formato legacy al nuevo formato
   const adaptedFormData: ClienteFormData = useMemo(() => ({
     // Identificación
-    tipoDocumento: props.documentType || '6',
+    // Fuente de verdad interna: código SUNAT ('6','1','7','4','A',...)
+    // Aceptar tanto tokens legacy ('RUC'|'DNI'|...) como códigos ya normalizados.
+    tipoDocumento: (() => {
+      const raw = (props.documentType || '').trim();
+      if (!raw) return '6';
+      const asCode = documentTypeFromCode(raw.toUpperCase()) ? raw.toUpperCase() : documentCodeFromType(raw as DocumentType);
+      return (asCode as string) || '6';
+    })(),
     numeroDocumento: props.formData.documentNumber || '',
-    tipoPersona: (props.documentType === '6') ? 'Juridica' : 'Natural',
+    tipoPersona: (() => {
+      const raw = (props.documentType || '').trim();
+      const code = documentTypeFromCode(raw.toUpperCase()) ? raw.toUpperCase() : documentCodeFromType(raw as DocumentType);
+      return code === '6' ? 'Juridica' : 'Natural';
+    })(),
     tipoCuenta: (props.clientType as ClienteFormData['tipoCuenta']) || 'Cliente',
     
     // Razón Social (Jurídica)
@@ -119,7 +131,9 @@ const ClienteForm: React.FC<ClienteFormLegacyProps> = (props) => {
     
     // Manejar campos especiales
     if (field === 'tipoDocumento' && props.onDocumentTypeChange && typeof value === 'string') {
-      props.onDocumentTypeChange(value);
+      // Convertir el código elegido a token legacy cuando sea posible (RUC/DNI/...).
+      const legacyType = documentTypeFromCode((value as string).toUpperCase());
+      props.onDocumentTypeChange(legacyType || (value as string));
       return;
     }
 

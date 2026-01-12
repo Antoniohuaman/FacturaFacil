@@ -81,6 +81,49 @@ export const normalizeKey = (value: string): string =>
     .replace(/[^a-zA-Z0-9]/g, '')
     .toLowerCase();
 
+/** Verifica si un valor es un código SUNAT válido (Catálogo 06). */
+export const isSunatDocCode = (code?: string | null): boolean => {
+  if (!code) return false;
+  const normalized = code.trim().toUpperCase();
+  return DOCUMENT_DEFINITIONS.some((def) => def.code === (normalized as DocumentCode));
+};
+
+/** Devuelve una etiqueta corta para el código SUNAT dado. */
+export const getDocLabelFromCode = (code?: string | null): string => {
+  if (!code) return 'Sin documento';
+  const normalized = code.trim().toUpperCase() as DocumentCode;
+  switch (normalized) {
+    case '6':
+      return 'RUC';
+    case '1':
+      return 'DNI';
+    case '0':
+      return 'Sin documento';
+    case '4':
+      return 'Carnet de extranjería';
+    case '7':
+      return 'Pasaporte';
+    case 'A':
+      return 'Cédula Diplomática';
+    case 'B':
+      return 'Doc. país residencia';
+    case 'C':
+      return 'TIN - PP.NN';
+    case 'D':
+      return 'IN - PP.JJ';
+    case 'E':
+      return 'Tarjeta Andina (TAM)';
+    case 'F':
+      return 'Permiso Temp. Permanencia';
+    case 'G':
+      return 'Salvoconducto';
+    case 'H':
+      return 'Carné Permiso Temporal';
+    default:
+      return 'Documento';
+  }
+};
+
 export const findDocumentDefinition = (value: string): DocumentDefinition | undefined => {
   const token = normalizeKey(value);
   return DOCUMENT_DEFINITIONS.find((definition) => definition.tokens.some((candidate) => candidate === token));

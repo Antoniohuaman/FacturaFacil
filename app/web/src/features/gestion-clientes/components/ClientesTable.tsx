@@ -1,7 +1,8 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import type { Cliente, ClienteArchivo, PersistedFile } from '../models';
+import type { Cliente, ClienteArchivo, PersistedFile, DocumentType } from '../models';
+import { getDocLabelFromCode, isSunatDocCode, documentCodeFromType } from '../utils/documents';
 import { CLIENTE_COLUMN_DEFINITIONS, type ClienteColumnId } from '../hooks/useClientesColumns';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 
@@ -25,34 +26,37 @@ interface ClientesTableRef {
  * Extrae el tipo de documento del campo "document" legacy
  * Formato: "RUC 20123456789" o "DNI 12345678"
  */
-const extractDocumentType = (document: string): string => {
-  if (!document || document === 'Sin documento') return '-';
-  
-  const parts = document.split(' ');
-  if (parts.length > 1) {
-    const typeMap: Record<string, string> = {
-      'RUC': 'RUC',
-      'DNI': 'DNI',
-      'CARNET_EXTRANJERIA': 'CE',
-      'PASAPORTE': 'PAS',
-      'NO_DOMICILIADO': 'OTRO'
-    };
-    return typeMap[parts[0]] || parts[0];
+const extractDocumentType = (client: Cliente): string => {
+  const code = (client.tipoDocumento ?? '').trim();
+  const number = (client.numeroDocumento ?? '').trim();
+  if (isSunatDocCode(code)) {
+    if (code === '6') return 'RUC';
+    if (code === '1') return 'DNI';
+    if (code === '0' || !number) return 'Sin documento';
+    return getDocLabelFromCode(code);
   }
-  
-  // Inferir por longitud si no tiene prefijo
-  if (document.length === 11) return 'RUC';
-  if (document.length === 8) return 'DNI';
-  return '-';
+  const legacy = (client.document ?? '').trim();
+  if (!legacy || legacy === 'Sin documento') return 'Sin documento';
+  const firstToken = legacy.split(' ')[0]?.toUpperCase();
+  if (firstToken === 'RUC') return 'RUC';
+  if (firstToken === 'DNI') return 'DNI';
+  const normalizedCode = documentCodeFromType(firstToken as DocumentType);
+  return normalizedCode ? getDocLabelFromCode(normalizedCode) : 'Documento';
 };
 
 /**
  * Extrae el número de documento del campo "document" legacy
  */
-const extractDocumentNumber = (document: string): string => {
-  if (!document || document === 'Sin documento') return '-';
-  const parts = document.split(' ');
-  return parts.length > 1 ? parts.slice(1).join(' ') : document;
+const extractDocumentNumber = (client: Cliente): string => {
+  const number = (client.numeroDocumento ?? '').trim();
+  const code = (client.tipoDocumento ?? '').trim();
+  if (isSunatDocCode(code)) {
+    return number || '-';
+  }
+  const legacy = (client.document ?? '').trim();
+  if (!legacy || legacy === 'Sin documento') return '-';
+  const parts = legacy.split(' ');
+  return parts.length > 1 ? parts.slice(1).join(' ') : legacy;
 };
 
 /**
@@ -187,7 +191,7 @@ const buildCellContent = (columnId: ClienteColumnId, context: RowRenderContext):
         )
       };
     case 'tipoDocumento':
-      return { content: tipoDoc };
+      return { content: tipoDoc, title: tipoDoc };
     case 'numeroDocumento':
       return { content: numeroDoc };
     case 'nombreRazonSocial':
@@ -636,8 +640,8 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                 {clientes.map((client) => {
-                  const tipoDoc = extractDocumentType(client.document);
-                  const numeroDoc = extractDocumentNumber(client.document);
+                  const tipoDoc = extractDocumentType(client);
+                  const numeroDoc = extractDocumentNumber(client);
                   const direccion = client.address === 'Sin dirección' ? '-' : client.address;
                   const avatarUrl = getClienteAvatarUrl(client.imagenes);
                   const focusKey = client.id ?? client.numeroDocumento ?? client.document ?? 'sin-id';

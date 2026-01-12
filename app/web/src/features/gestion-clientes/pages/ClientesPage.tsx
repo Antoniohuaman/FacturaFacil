@@ -20,6 +20,7 @@ import {
 	documentTypeFromCode,
 	normalizeDocumentNumber,
 	parseLegacyDocumentString,
+	isSunatDocCode,
 } from '../utils/documents';
 import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
 import { useFocusFromQuery } from '../../../hooks/useFocusFromQuery';
@@ -764,13 +765,8 @@ function ClientesPage() {
 		const nombreCliente = esRUC ? formData.razonSocial.trim() : formData.nombreCompleto.trim();
 		
 		// Mapeo de tipo de documento nuevo a antiguo
-		const docTypeMap: Record<string, DocumentType> = {
-			'0': 'NO_DOMICILIADO',
-			'1': 'DNI',
-			'4': 'CARNET_EXTRANJERIA',
-			'6': 'RUC',
-			'7': 'PASAPORTE',
-		};
+		// Determinar DocumentType legacy desde el código SUNAT
+		const legacyDocType = documentTypeFromCode(formData.tipoDocumento) || 'SIN_DOCUMENTO';
 
 		const sanitizedEmails = formData.emails.filter(email => email.trim() !== '');
 		const sanitizedTelefonos = formData.telefonos
@@ -789,7 +785,7 @@ function ClientesPage() {
 
 		const result = await createCliente({
 			// Campos legacy (retrocompatibilidad)
-			documentType: (docTypeMap[formData.tipoDocumento] || 'SIN_DOCUMENTO') as DocumentType,
+			documentType: legacyDocType as DocumentType,
 			documentNumber: formData.numeroDocumento.trim(),
 			name: nombreCliente,
 			type: formData.tipoCuenta as ClientType,
@@ -875,36 +871,17 @@ function ClientesPage() {
 		try {
 			setEditingClient(client);
 
-			const legacyToNuevoMap: Record<string, string> = {
-				'NO_DOMICILIADO': '0',
-				'DNI': '1',
-				'CARNET_EXTRANJERIA': '4',
-				'RUC': '6',
-				'PASAPORTE': '7',
-			};
+			const parsed = parseLegacyDocumentString(client.document);
+			const resolvedCode: string = (() => {
+				if (isSunatDocCode(client.tipoDocumento)) return client.tipoDocumento as string;
+				if (parsed.code) return parsed.code;
+				const fromType = documentCodeFromType(parsed.type!);
+				if (fromType) return fromType;
+				return '6';
+			})();
 
-			let docType = client.tipoDocumento || '6';
-			let docNumber = client.numeroDocumento || '';
-
-			if (client.tipoDocumento && client.tipoDocumento.length > 1 && client.tipoDocumento.length <= 12) {
-				docType = legacyToNuevoMap[client.tipoDocumento] || client.tipoDocumento;
-			}
-
-			if ((!client.tipoDocumento || !client.numeroDocumento) && client.document) {
-				if (client.document.includes(' ')) {
-					const parts = client.document.split(' ');
-					const legacyType = parts[0];
-					const legacyNumber = parts.slice(1).join(' ');
-					if (!client.tipoDocumento) {
-						docType = legacyToNuevoMap[legacyType] || docType;
-					}
-					if (!docNumber) {
-						docNumber = legacyNumber;
-					}
-				} else if (client.document !== 'Sin documento' && !docNumber) {
-					docNumber = client.document;
-				}
-			}
+			const docType = resolvedCode;
+			const docNumber = client.numeroDocumento?.trim() || (parsed.number?.trim() || (client.document && client.document !== 'Sin documento' ? client.document : ''));
 
 			const esRUC = docType === '6';
 			const nombreBase = client.nombreCompleto || client.name || '';
@@ -1096,13 +1073,7 @@ function ClientesPage() {
 
 		const nombreCliente = esRUC ? formData.razonSocial.trim() : formData.nombreCompleto.trim();
 		
-		const docTypeMap: Record<string, DocumentType> = {
-			'0': 'NO_DOMICILIADO',
-			'1': 'DNI',
-			'4': 'CARNET_EXTRANJERIA',
-			'6': 'RUC',
-			'7': 'PASAPORTE',
-		};
+		const legacyDocType = documentTypeFromCode(formData.tipoDocumento) || 'SIN_DOCUMENTO';
 
 		const sanitizedEmails = formData.emails.filter(email => email.trim() !== '');
 		const sanitizedTelefonos = formData.telefonos
@@ -1121,7 +1092,7 @@ function ClientesPage() {
 
 		const result = await updateCliente(editingClient.id, {
 			// Campos legacy (retrocompatibilidad)
-			documentType: (docTypeMap[formData.tipoDocumento] || 'SIN_DOCUMENTO') as DocumentType,
+			documentType: legacyDocType as DocumentType,
 			documentNumber: formData.numeroDocumento.trim(),
 			name: nombreCliente,
 			type: formData.tipoCuenta as ClientType,

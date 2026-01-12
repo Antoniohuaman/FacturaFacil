@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useConsultasExternas } from '../hooks';
 import type { ClienteFormData } from '../models';
-import { onlyDigits } from '../utils/documents';
+import { onlyDigits, getDocLabelFromCode } from '../utils/documents';
 import TelefonosInput from './TelefonosInput';
 import EmailsInput from './EmailsInput';
 import ActividadesEconomicasInput from './ActividadesEconomicasInput';
@@ -529,13 +529,13 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowOtrosDocTypes(!showOtrosDocTypes)}
-                  className={`px-4 py-1.5 rounded-md border text-sm font-medium transition-colors flex items-center gap-1 ${
+                  className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors flex items-center gap-1 ${
                     formData.tipoDocumento !== '6' && formData.tipoDocumento !== '1'
                       ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                       : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                 >
-                  OTROS
+                  {formData.tipoDocumento !== '6' && formData.tipoDocumento !== '1' ? getDocLabelFromCode(formData.tipoDocumento) : 'Más'}
                   <span className="text-xs">{showOtrosDocTypes ? '▴' : '▾'}</span>
                 </button>
               </div>
@@ -557,7 +557,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                         setShowOtrosDocTypes(false);
                       }}
                     >
-                      <span className="font-mono text-[10px] mr-2 text-gray-500 dark:text-gray-400">{type.value}</span>
                       <span className="text-xs">{type.label}</span>
                     </button>
                   ))}
