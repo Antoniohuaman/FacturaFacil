@@ -1,13 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Search, Edit, User, X, Loader2 } from 'lucide-react';
-import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
-import { toSunatDocCode } from '@/features/gestion-clientes/utils/saleClienteMapping';
+import { Search, User, X, Loader2 } from 'lucide-react';
 import type { Cliente } from '@/features/gestion-clientes/models';
 import { clientesClient } from '@/features/gestion-clientes/api';
 import { useClientes } from '@/features/gestion-clientes/hooks/useClientes';
 import {
-  buildUpdateClienteDtoFromLegacyForm,
   clienteToSaleSnapshot,
   type SaleDocumentType,
 } from '@/features/gestion-clientes/utils/saleClienteMapping';
@@ -41,36 +37,11 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   onLookupClientSelected,
 }) => {
   const { resolveProfileId } = usePriceProfilesCatalog();
-  const { clientes, fetchClientes, updateCliente } = useClientes();
-  const [showClienteForm, setShowClienteForm] = useState(false);
-  const [editingCliente, setEditingCliente] = useState(false);
+  const { clientes, fetchClientes } = useClientes();
   const [documentQuery, setDocumentQuery] = useState('');
   const [nameSearchQuery, setNameSearchQuery] = useState('');
   const [clientDocError, setClientDocError] = useState<string | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
-  const [clienteFormData, setClienteFormData] = useState({
-    documentNumber: '',
-    legalName: '',
-    address: '',
-    gender: '',
-    phone: '',
-    email: '',
-    additionalData: '',
-  });
-  const [clienteDocumentType, setClienteDocumentType] = useState('DNI');
-  const [clienteType, setClienteType] = useState('Cliente');
-
-  // Accesibilidad: cerrar con ESC cuando el modal está abierto
-  useEffect(() => {
-    if (!showClienteForm) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowClienteForm(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showClienteForm]);
 
   useEffect(() => {
     if (!clienteSeleccionado) {
@@ -94,24 +65,6 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     return () => window.clearTimeout(handle);
   }, [documentQuery, fetchClientes, nameSearchQuery]);
 
-  const documentTypes = [
-    { value: 'RUC', label: 'RUC' },
-    { value: 'DNI', label: 'DNI' },
-    { value: 'SIN_DOCUMENTO', label: 'SIN DOCUMENTO' },
-    { value: 'NO_DOMICILIADO', label: 'NO DOMICILIADO' },
-    { value: 'PASAPORTE', label: 'PASAPORTE' },
-    { value: 'CARNET_EXTRANJERIA', label: 'CARNET EXTRANJERÍA' },
-    { value: 'CARNET_IDENTIDAD', label: 'CARNET DE IDENTIDAD' },
-    { value: 'DOC_IDENTIF_PERS_NAT_NO_DOM', label: 'DOC.IDENTIF.PERS.NAT.NO DOM.' },
-    { value: 'TAM_TARJETA_ANDINA', label: 'TAM - TARJETA ANDINA DE MIGRACIÓN' },
-    { value: 'CARNET_PERMISO_TEMP_PERMANENCIA', label: 'CARNET PERMISO TEMP.PERMANENCIA' },
-  ];
-
-  const clientTypes = [
-    { value: 'Cliente', label: 'Cliente' },
-    { value: 'Proveedor', label: 'Proveedor' },
-  ];
-
   const selectCliente = (cliente: ClientePOS) => {
     setClienteSeleccionado(cliente);
     setDocumentQuery(cliente.documento);
@@ -133,120 +86,6 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     () => !clienteSeleccionado && (Boolean(documentQuery.trim()) || Boolean(nameSearchQuery.trim())),
     [clienteSeleccionado, documentQuery, nameSearchQuery],
   );
-
-  const handleClienteInputChange = (field: string, value: string) => {
-    setClienteFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleNuevoCliente = () => {
-    setEditingCliente(false);
-    setClienteFormData({
-      documentNumber: '',
-      legalName: '',
-      address: '',
-      gender: '',
-      phone: '',
-      email: '',
-      additionalData: '',
-    });
-    setClienteDocumentType('DNI');
-    setShowClienteForm(true);
-    setClientDocError(null);
-  };
-
-  const handleEditarCliente = () => {
-    if (!clienteSeleccionado) return;
-
-    setEditingCliente(true);
-    setClienteFormData({
-      documentNumber: clienteSeleccionado.documento,
-      legalName: clienteSeleccionado.nombre,
-      address: clienteSeleccionado.direccion,
-      gender: '',
-      phone: '',
-      email: '',
-      additionalData: '',
-    });
-    const explicitCode = (clienteSeleccionado.sunatCode || '').trim();
-    let code = explicitCode;
-    if (!code) {
-      // Fallback solo para RUC/DNI/SIN_DOCUMENTO cuando no tenemos código SUNAT explícito
-      if (clienteSeleccionado.tipoDocumento === 'RUC') {
-        code = '6';
-      } else if (clienteSeleccionado.tipoDocumento === 'DNI') {
-        code = '1';
-      } else if (clienteSeleccionado.tipoDocumento === 'SIN_DOCUMENTO') {
-        code = '0';
-      } else {
-        code = '';
-      }
-    }
-    setClienteDocumentType(code);
-    setShowClienteForm(true);
-  };
-
-  const handleSaveCliente = async () => {
-    try {
-      const dto = buildUpdateClienteDtoFromLegacyForm({
-        documentTypeToken: clienteDocumentType,
-        documentNumber: clienteFormData.documentNumber,
-        legalName: clienteFormData.legalName,
-        address: clienteFormData.address,
-        phone: clienteFormData.phone,
-        email: clienteFormData.email,
-        additionalData: clienteFormData.additionalData,
-        clientType: clienteType,
-      });
-
-      const selectedId = clienteSeleccionado?.id;
-      if (editingCliente && selectedId !== undefined && selectedId !== null) {
-        const updated = await updateCliente(selectedId, dto);
-        if (updated) {
-          const snap = clienteToSaleSnapshot(updated);
-          selectCliente({
-            id: snap.clienteId,
-            nombre: snap.nombre,
-            tipoDocumento: snap.tipoDocumento,
-            documento: snap.dni,
-            direccion: snap.direccion,
-            email: snap.email,
-            sunatCode: snap.sunatCode,
-            priceProfileId: resolveProfileId(snap.priceProfileId),
-          });
-        }
-      } else {
-        // No persistir aquí: si la venta se emite OK, el contenedor hará createCliente.
-        const token = clienteDocumentType.trim().toUpperCase();
-        let draftType: SaleDocumentType;
-        if (token === 'RUC' || token === '6') {
-          draftType = 'RUC';
-        } else if (token === 'DNI' || token === '1') {
-          draftType = 'DNI';
-        } else if (token === 'SIN_DOCUMENTO' || token === 'SIN DOCUMENTO' || token === '0') {
-          draftType = 'SIN_DOCUMENTO';
-        } else {
-          draftType = 'OTROS';
-        }
-        const rawDocument = clienteFormData.documentNumber.trim();
-        const draftNumber = draftType === 'RUC' || draftType === 'DNI' ? onlyDigits(rawDocument) : rawDocument;
-        selectCliente({
-          id: undefined,
-          nombre: clienteFormData.legalName.trim(),
-          tipoDocumento: draftType,
-          documento: draftNumber,
-          direccion: clienteFormData.address.trim() || 'Sin dirección',
-          email: clienteFormData.email.trim() || undefined,
-          sunatCode: toSunatDocCode(clienteDocumentType),
-          priceProfileId: undefined,
-        });
-      }
-
-      setShowClienteForm(false);
-      setEditingCliente(false);
-    } catch (error) {
-      console.error('Error al guardar cliente:', error);
-    }
-  };
 
   const handleDocumentInputChange = (value: string) => {
     if (clienteSeleccionado) {
@@ -354,14 +193,6 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     }
   };
 
-  const handleEditAction = () => {
-    if (clienteSeleccionado) {
-      handleEditarCliente();
-    } else {
-      handleNuevoCliente();
-    }
-  };
-
   return (
     <div className="p-2.5 bg-white border-b border-gray-200">
       <div className="space-y-1.5">
@@ -415,14 +246,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
               placeholder="Nombre del cliente"
               className="flex-1 px-3 py-1.5 text-[12px] font-semibold text-slate-800 placeholder:normal-case placeholder:text-slate-400 bg-transparent"
             />
-            <button
-              type="button"
-              onClick={handleEditAction}
-              className="w-10 flex items-center justify-center bg-indigo-200/60 text-indigo-700 hover:bg-indigo-200 transition"
-              title={clienteSeleccionado ? 'Editar cliente' : 'Crear cliente'}
-            >
-              <Edit className="h-4 w-4" />
-            </button>
+            {/* Botón de editar/crear cliente eliminado: edición solo desde /clientes */}
           </div>
         </div>
       </div>
@@ -495,25 +319,6 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
             Limpiar
           </button>
         </div>
-      )}
-
-      {showClienteForm && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4" role="dialog" aria-modal="true">
-          <ClienteForm
-            formData={clienteFormData}
-            documentType={clienteDocumentType}
-            clientType={clienteType}
-            documentTypes={documentTypes}
-            clientTypes={clientTypes}
-            onInputChange={handleClienteInputChange}
-            onDocumentTypeChange={setClienteDocumentType}
-            onClientTypeChange={setClienteType}
-            onSave={handleSaveCliente}
-            onCancel={() => setShowClienteForm(false)}
-            isEditing={editingCliente}
-          />
-        </div>,
-        document.body
       )}
     </div>
   );

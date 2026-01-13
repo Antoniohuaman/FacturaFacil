@@ -1,18 +1,8 @@
-import type { Cliente, ClientType, CreateClienteDTO, DocumentType, UpdateClienteDTO } from '../models';
+import type { Cliente } from '../models';
 import { onlyDigits, parseLegacyDocumentString } from './documents';
 import type { DocumentCode } from './documents';
 
 export type SaleDocumentType = 'RUC' | 'DNI' | 'SIN_DOCUMENTO' | 'OTROS';
-
-const resolveDocumentTypeForDto = (raw: string): DocumentType => {
-  const token = (raw ?? '').trim().toUpperCase();
-  if (token === '6' || token === 'RUC') return 'RUC';
-  if (token === '1' || token === 'DNI') return 'DNI';
-  if (token === '0' || token === 'SIN_DOCUMENTO' || token === 'SIN DOCUMENTO') return 'SIN_DOCUMENTO';
-  if (token === '7' || token === 'PASAPORTE' || token === 'PAS') return 'PASAPORTE';
-  if (token === '4' || token === 'CE' || token === 'CARNET_EXTRANJERIA') return 'CARNET_EXTRANJERIA';
-  return 'DOC_IDENTIF_PERS_NAT_NO_DOM';
-};
 
 const parseClienteDocument = (document?: string | null): { type: SaleDocumentType; number: string; code?: DocumentCode } => {
   if (!document || document === 'Sin documento') {
@@ -71,55 +61,4 @@ export const clienteToSaleSnapshot = (cliente: Cliente): {
     priceProfileId: cliente.listaPrecio,
     sunatCode: parsed.code,
   };
-};
-
-const buildClienteDtoFromLegacyForm = (input: {
-  documentTypeToken: string;
-  documentNumber: string;
-  legalName: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  additionalData?: string;
-  clientType?: string;
-}): CreateClienteDTO => {
-  const documentType = resolveDocumentTypeForDto(input.documentTypeToken);
-  const rawNumber = (input.documentNumber ?? '').trim();
-  const normalizedNumber = documentType === 'RUC' || documentType === 'DNI' ? onlyDigits(rawNumber) : rawNumber;
-
-  const name = (input.legalName ?? '').trim() || 'Cliente';
-  const type: ClientType = (input.clientType as ClientType) || 'Cliente';
-
-  return {
-    documentType,
-    documentNumber: normalizedNumber,
-    name,
-    // Si es RUC, persistir también razonSocial con el mismo valor que name/legalName
-    razonSocial: documentType === 'RUC' ? name : undefined,
-    type,
-    address: input.address?.trim() || undefined,
-    phone: input.phone?.trim() || undefined,
-    email: input.email?.trim() || undefined,
-    additionalData: input.additionalData?.trim() || undefined,
-    tipoDocumento: documentType,
-    numeroDocumento: normalizedNumber,
-    direccion: input.address?.trim() || undefined,
-  };
-};
-
-export const buildUpdateClienteDtoFromLegacyForm = (input: Parameters<typeof buildClienteDtoFromLegacyForm>[0]): UpdateClienteDTO => {
-  return buildClienteDtoFromLegacyForm(input);
-};
-
-// Mapeo mínimo para abrir el formulario con códigos SUNAT
-// Convierte tokens comunes ('RUC'|'DNI'|'SIN_DOCUMENTO') o códigos ya numéricos a códigos SUNAT aceptados por ClienteFormNew
-export const toSunatDocCode = (token?: string | null): string => {
-  const t = (token ?? '').trim().toUpperCase();
-  if (!t) return '';
-  if (t === 'RUC' || t === '6') return '6';
-  if (t === 'DNI' || t === '1') return '1';
-  if (t === 'SIN_DOCUMENTO' || t === 'SIN DOCUMENTO' || t === '0') return '0';
-  // Si ya viene un código válido distinto, se respeta tal cual (ej. '4', '7', 'A', ...)
-  // En ausencia de un mapeo específico, devolver el token original para no adivinar
-  return t;
 };

@@ -15,7 +15,6 @@ import {
   User,
   Search,
   Plus,
-  Edit,
   MapPin,
   Truck,
   FileText as FileIcon,
@@ -28,7 +27,6 @@ import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
 import type { PaymentMethod as ConfigurationPaymentMethod } from '../../../../configuracion-sistema/models/PaymentMethod';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
-import ClienteForm from '../../../../gestion-clientes/components/ClienteForm.tsx';
 import type { TipoComprobante, Currency } from '../../../models/comprobante.types';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';
 import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
@@ -40,7 +38,6 @@ import { normalizePaymentMethodLabel } from '@/shared/payments/normalizePaymentM
 import type { Cliente, ClientType } from '@/features/gestion-clientes/models';
 import { useClientes } from '@/features/gestion-clientes/hooks/useClientes';
 import {
-  buildUpdateClienteDtoFromLegacyForm,
   clienteToSaleSnapshot,
   formatSaleDocumentLabel,
   type SaleDocumentType,
@@ -83,14 +80,6 @@ const saleDocTypeToSunatCode = (type: SaleDocumentType): string => {
     default:
       return '';
   }
-};
-
-const sunatCodeToSaleDocType = (code?: string): SaleDocumentType => {
-  const token = (code ?? '').trim().toUpperCase();
-  if (token === '6' || token === 'RUC') return 'RUC';
-  if (token === '1' || token === 'DNI') return 'DNI';
-  if (token === '0') return 'SIN_DOCUMENTO';
-  return 'OTROS';
 };
 
 const mapSelectedClienteFromProps = (
@@ -196,14 +185,13 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   onLookupClientSelected,
 }) => {
   const { resolveProfileId } = usePriceProfilesCatalog();
-  const { clientes, fetchClientes, updateCliente } = useClientes();
+  const { clientes, fetchClientes } = useClientes();
   const { state, dispatch } = useConfigurationContext();
   const { paymentMethods } = state;
   const { config } = useFieldsConfiguration();
   const CREATE_CREDIT_OPTION = '__create_credit__';
 
   // Estados para cliente
-  const [showClienteForm, setShowClienteForm] = useState(false);
   const [clienteSeleccionadoLocal, setClienteSeleccionadoLocal] = useState<SelectedCliente | null>(
     () => mapSelectedClienteFromProps(clienteSeleccionado)
   );
@@ -219,18 +207,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [clientDocError, setClientDocError] = useState<string | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [documentType, setDocumentType] = useState('1');
-  const [clientType, setClientType] = useState('Cliente');
-  const [formData, setFormData] = useState({
-    documentNumber: '',
-    legalName: '',
-    address: '',
-    gender: 'M',
-    phone: '',
-    email: '',
-    additionalData: ''
-  });
   const [showCreditPaymentMethodModal, setShowCreditPaymentMethodModal] = useState(false);
   const [lastValidFormaPago, setLastValidFormaPago] = useState<string>(formaPago);
 
@@ -286,19 +262,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const resolvedFormaPago = formaPago || lastValidFormaPago || (paymentMethods.find(pm => pm.isActive)?.id ?? '');
 
   // Tipos de documento y cliente
-  const documentTypes = [
-    { value: '1', label: 'DNI' },
-    { value: '6', label: 'RUC' },
-    { value: '0', label: 'Sin documento' },
-    { value: '4', label: 'Carnet de Extranjería' },
-    { value: '7', label: 'Pasaporte' }
-  ];
-
-  const clientTypes = [
-    { value: 'natural', label: 'Persona Natural' },
-    { value: 'juridica', label: 'Persona Jurídica' }
-  ];
-
   const fallbackCurrencyOptions = useMemo(
     () => [
       { code: 'PEN' as Currency, name: 'Sol Peruano', symbol: 'S/', rate: 1 },
@@ -338,117 +301,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   }, [clientes, searchDigits, searchLower]);
 
   // Handlers para cliente
-
-  const handleEditarCliente = () => {
-    if (!clienteSeleccionadoLocal) return;
-
-    setIsEditing(true);
-
-    const docCodeForForm = clienteSeleccionadoLocal.sunatCode && clienteSeleccionadoLocal.sunatCode.trim()
-      ? clienteSeleccionadoLocal.sunatCode
-      : (clienteSeleccionadoLocal.tipoDocumento === 'RUC' ||
-        clienteSeleccionadoLocal.tipoDocumento === 'DNI' ||
-        clienteSeleccionadoLocal.tipoDocumento === 'SIN_DOCUMENTO'
-      )
-        ? saleDocTypeToSunatCode(clienteSeleccionadoLocal.tipoDocumento)
-        : '';
-    setDocumentType(docCodeForForm);
-    setClientType((clienteSeleccionadoLocal.tipoCuenta as ClientType) || 'Cliente');
-
-    setFormData({
-      documentNumber: clienteSeleccionadoLocal.dni,
-      legalName: clienteSeleccionadoLocal.nombre,
-      address: clienteSeleccionadoLocal.direccion || '',
-      gender: 'M',
-      phone: '',
-      email: clienteSeleccionadoLocal.email || '',
-      additionalData: ''
-    });
-    setShowClienteForm(true);
-  };
-
-  const handleSaveCliente = async () => {
-    try {
-      const normalizedType = sunatCodeToSaleDocType(documentType);
-      const rawDocumentInput = formData.documentNumber.trim();
-      const normalizedNumber =
-        normalizedType === 'RUC' || normalizedType === 'DNI'
-          ? rawDocumentInput.replace(/\D+/g, '')
-          : rawDocumentInput;
-
-      const selectedDraft: SelectedCliente = {
-        clienteId: clienteSeleccionadoLocal?.clienteId,
-        nombre: formData.legalName.trim(),
-        dni: normalizedNumber,
-        direccion: formData.address.trim() || 'Sin dirección',
-        tipoDocumento: normalizedType,
-        email: formData.email.trim() || undefined,
-        sunatCode: documentType,
-        priceProfileId: clienteSeleccionadoLocal?.priceProfileId,
-      };
-
-      if (selectedDraft.clienteId !== undefined && selectedDraft.clienteId !== null) {
-        const dto = buildUpdateClienteDtoFromLegacyForm({
-          documentTypeToken: documentType,
-          documentNumber: formData.documentNumber,
-          legalName: formData.legalName,
-          address: formData.address,
-          phone: formData.phone,
-          email: formData.email,
-          additionalData: formData.additionalData,
-          clientType: 'Cliente',
-        });
-        const updated = await updateCliente(selectedDraft.clienteId, dto);
-        if (updated) {
-          const snap = clienteToSaleSnapshot(updated);
-          const selected: SelectedCliente = {
-            clienteId: snap.clienteId,
-            nombre: snap.nombre,
-            dni: snap.dni,
-            direccion: snap.direccion,
-            tipoDocumento: snap.tipoDocumento,
-            email: snap.email,
-            sunatCode: saleDocTypeToSunatCode(snap.tipoDocumento),
-            priceProfileId: resolveProfileId(snap.priceProfileId),
-          };
-          setClienteSeleccionadoLocal(selected);
-          onClienteChange?.({
-            clienteId: selected.clienteId,
-            nombre: selected.nombre,
-            dni: selected.dni,
-            direccion: selected.direccion,
-            email: selected.email,
-            tipoDocumento: selected.tipoDocumento,
-            priceProfileId: selected.priceProfileId,
-          });
-        }
-      } else {
-        setClienteSeleccionadoLocal(selectedDraft);
-        onClienteChange?.({
-          clienteId: undefined,
-          nombre: selectedDraft.nombre,
-          dni: selectedDraft.dni,
-          direccion: selectedDraft.direccion,
-          email: selectedDraft.email,
-          tipoDocumento: selectedDraft.tipoDocumento,
-          priceProfileId: selectedDraft.priceProfileId,
-        });
-      }
-
-      setShowClienteForm(false);
-      setSearchQuery('');
-    } catch (error) {
-      console.error('Error al guardar cliente:', error);
-    }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   const handleSeleccionarCliente = (cliente: Cliente) => {
     const snap = clienteToSaleSnapshot(cliente);
     const priceProfileId = resolveProfileId(snap.priceProfileId);
@@ -768,14 +620,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     </div>
                     <div className="flex items-center gap-1.5 ml-auto">
                       <button
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-violet-200 bg-white text-violet-700 hover:bg-violet-50 transition"
-                        onClick={handleEditarCliente}
-                        title="Editar cliente"
-                        aria-label="Editar cliente"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
-                      <button
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 transition"
                         onClick={() => {
                           setClienteSeleccionadoLocal(null);
@@ -1086,24 +930,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         onCreated={handleCreditCreated}
       />
 
-      {/* Modal para crear/editar cliente */}
-      {showClienteForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-          <ClienteForm
-            formData={formData}
-            documentType={documentType}
-            clientType={clientType}
-            documentTypes={documentTypes}
-            clientTypes={clientTypes}
-            onInputChange={handleInputChange}
-            onDocumentTypeChange={setDocumentType}
-            onClientTypeChange={setClientType}
-            onSave={handleSaveCliente}
-            onCancel={() => setShowClienteForm(false)}
-            isEditing={isEditing}
-          />
-        </div>
-      )}
+      {/* Modal para crear/editar cliente eliminado: edición solo desde /clientes */}
     </>
   );
 };
