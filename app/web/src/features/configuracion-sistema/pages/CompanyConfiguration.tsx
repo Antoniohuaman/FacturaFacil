@@ -18,6 +18,7 @@ import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { RucValidator } from '../components/company/RucValidator';
 import { parseUbigeoCode } from '../data/ubigeo';
 import { useTenant } from '../../../shared/tenant/TenantContext';
+import { useUserSession } from '../../../contexts/UserSessionContext';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
 import type { Warehouse } from '../models/Warehouse';
@@ -25,6 +26,9 @@ import type { Series } from '../models/Series';
 import type { Currency } from '../models/Currency';
 import type { Tax } from '../models/Tax';
 import { PERU_TAX_TYPES } from '../models/Tax';
+import type { Caja, CreateCajaInput } from '../models/Caja';
+import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../models/Caja';
+import { cajasDataSource } from '../api/cajasDataSource';
 
 interface CompanyFormData {
   ruc: string;
@@ -44,11 +48,113 @@ type WorkspaceNavigationState = {
   workspaceId?: string;
 } | null;
 
+type EnsureDefaultOperationalSetupParams = {
+  company: Company | null;
+  establishment: Establishment | null;
+  userId: string | null;
+  configState: {
+    cajas: Caja[];
+    currencies: Currency[];
+  };
+  dispatch: (action: { type: 'ADD_CAJA' | 'UPDATE_CAJA'; payload: Caja }) => void;
+};
+
+async function ensureDefaultOperationalSetup({
+  company,
+  establishment,
+  userId,
+  configState,
+  dispatch,
+}: EnsureDefaultOperationalSetupParams): Promise<void> {
+  if (!company?.id || !establishment?.id) {
+    return;
+  }
+
+  const empresaId = company.id;
+  const establecimientoId = establishment.id;
+
+  const deriveBaseCurrencyId = (): string => {
+    const preferredCode = company.baseCurrency || 'PEN';
+
+    const byId = configState.currencies.find((currency) => currency.id === preferredCode);
+    if (byId) return byId.id;
+
+    const byCode = configState.currencies.find((currency) => currency.code === preferredCode);
+    if (byCode) return byCode.id;
+
+    const penCurrency = configState.currencies.find(
+      (currency) => currency.id === 'PEN' || currency.code === 'PEN',
+    );
+    if (penCurrency) return penCurrency.id;
+
+    return preferredCode;
+  };
+
+  const monedaId = deriveBaseCurrencyId();
+
+  let existingDefaultCaja: Caja | undefined;
+
+  try {
+    const storedCajas = await cajasDataSource.list(empresaId, establecimientoId);
+    existingDefaultCaja = storedCajas.find((caja) => {
+      if (caja.empresaId !== empresaId || caja.establecimientoId !== establecimientoId) {
+        return false;
+      }
+      return caja.nombre.trim().toLowerCase() === 'caja 1';
+    });
+  } catch {
+    existingDefaultCaja = undefined;
+  }
+
+  if (!existingDefaultCaja) {
+    existingDefaultCaja = configState.cajas.find((caja) => {
+      if (caja.empresaId !== empresaId || caja.establecimientoId !== establecimientoId) {
+        return false;
+      }
+      return caja.nombre.trim().toLowerCase() === 'caja 1';
+    });
+  }
+
+  if (existingDefaultCaja) {
+    if (!userId) {
+      return;
+    }
+
+    if (existingDefaultCaja.usuariosAutorizados.includes(userId)) {
+      return;
+    }
+
+    const updated = await cajasDataSource.update(empresaId, establecimientoId, existingDefaultCaja.id, {
+      usuariosAutorizados: [...existingDefaultCaja.usuariosAutorizados, userId],
+    });
+
+    dispatch({ type: 'UPDATE_CAJA', payload: updated });
+    return;
+  }
+
+  const mediosPagoPermitidos = [...MEDIOS_PAGO_DISPONIBLES];
+
+  const createInput: CreateCajaInput = {
+    establecimientoId,
+    nombre: 'Caja 1',
+    monedaId,
+    mediosPagoPermitidos,
+    limiteMaximo: CAJA_CONSTRAINTS.LIMITE_MIN,
+    margenDescuadre: CAJA_CONSTRAINTS.MARGEN_MIN,
+    habilitada: true,
+    usuariosAutorizados: userId ? [userId] : [],
+  };
+
+  const nuevaCaja = await cajasDataSource.create(empresaId, establecimientoId, createInput);
+  dispatch({ type: 'ADD_CAJA', payload: nuevaCaja });
+}
+
 export function CompanyConfiguration() {
   const navigate = useNavigate();
   const location = useLocation();
   const { state, dispatch } = useConfigurationContext();
   const { company } = state;
+  const { session } = useUserSession();
   const { createOrUpdateWorkspace, activeWorkspace } = useTenant();
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
   const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
@@ -300,13 +406,14 @@ export function CompanyConfiguration() {
       // ONBOARDING AUTOMÁTICO: Crear configuración inicial si es nueva empresa
       // ===================================================================
       const isNewCompany = !company?.id;
-      
+      let defaultEstablishment: Establishment | null = null;
+
       if (isNewCompany && state.establishments.length === 0) {
         // Parsear ubigeo para obtener Departamento, Provincia y Distrito
         const location = parseUbigeoCode(formData.ubigeo);
         
         // 1. CREAR ESTABLECIMIENTO POR DEFECTO
-        const defaultEstablishment: Establishment = {
+        const createdEstablishment: Establishment = {
           id: 'est-main',
           code: '0001',
           name: 'Establecimiento',
@@ -371,7 +478,8 @@ export function CompanyConfiguration() {
           isActive: true,
         };
 
-        dispatch({ type: 'ADD_ESTABLISHMENT', payload: defaultEstablishment });
+        defaultEstablishment = createdEstablishment;
+        dispatch({ type: 'ADD_ESTABLISHMENT', payload: createdEstablishment });
 
         // 2. CREAR ALMACÉN POR DEFECTO
         const defaultWarehouse: Warehouse = {
@@ -581,6 +689,17 @@ export function CompanyConfiguration() {
 
         // Las formas de pago ya están creadas en ConfigurationContext
         // No es necesario crearlas aquí
+
+        await ensureDefaultOperationalSetup({
+          company: updatedCompany,
+          establishment: defaultEstablishment,
+          userId: session?.userId ?? null,
+          configState: {
+            cajas: state.cajas,
+            currencies: state.currencies,
+          },
+          dispatch,
+        });
       }
 
       // Show success and redirect
