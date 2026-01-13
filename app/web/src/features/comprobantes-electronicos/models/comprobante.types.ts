@@ -223,7 +223,12 @@ export interface PaymentCollectionPayload {
   mode: PaymentCollectionMode;
   lines: PaymentLineInput[];
   notes?: string;
+  // Nombre amigable de la caja destino (solo display / compatibilidad)
   cajaDestino?: string;
+  // Identificador real de la caja destino configurada
+  cajaDestinoId?: string;
+  // Label asociado a la caja destino (por ejemplo, nombre)
+  cajaDestinoLabel?: string;
   fechaCobranza?: string;
   collectionDocument?: CollectionDocumentPayload;
   allocations?: CreditInstallmentAllocation[];

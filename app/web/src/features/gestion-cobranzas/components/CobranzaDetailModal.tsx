@@ -66,7 +66,7 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
       <p>Medio de pago: <strong>${medioLabel}</strong></p>
       ${mediosDetalleTemplate}
       <p>N° operación: <strong title="${operacionRefs ?? ''}">${operacionLabel}</strong></p>
-      <p>Caja: <strong>${cobranza.cajaDestino}</strong></p>
+      <p>Caja: <strong>${cobranza.cajaDestino ?? '-'}</strong></p>
       <p>Importe registrado: <strong>${formattedAmount}</strong></p>
       <p>Tipo de cobro: <strong>${tipoCobroLabel}</strong></p>
       <p>Estado: <span class="badge">${estadoLabel}</span></p>

@@ -192,7 +192,7 @@ const fallbackCollectionNumber = () => {
 export function CobranzasProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cobranzasReducer, INITIAL_STATE);
   const [isHydrated, setIsHydrated] = useState(false);
-  const { status: cajaStatus, agregarMovimiento } = useCaja();
+  const { status: cajaStatus, agregarMovimiento, activeCajaId, activeCajaMediosPago } = useCaja();
   const { session } = useUserSession();
   const { incrementSeriesCorrelative } = useSeriesCommands();
   const { tenantId } = useTenant();
@@ -223,13 +223,26 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         throw new Error('Abre una caja para registrar el cobro.');
       }
 
+      // Validar que la caja destino del payload coincida con la caja abierta (cuando se especifica ID).
+      if (payload.cajaDestinoId && payload.cajaDestinoId !== activeCajaId) {
+        throw new Error('La caja destino seleccionada no coincide con la caja abierta.');
+      }
+
       const usuarioId = session?.userId || 'usuario-desconocido';
       const usuarioNombre = session?.userName || 'Usuario';
 
-      for (const line of payload.lines) {
+      // Primera pasada: validar todas las líneas y resolver medios de pago SIN registrar movimientos.
+      const movimientosARegistrar = payload.lines.reduce<{
+        lineId: string;
+        monto: number;
+        medioPago: ReturnType<typeof mapPaymentMethodToMedioPago>;
+        medioPagoNombre: string;
+        referencia: string | undefined;
+        observaciones?: string;
+      }[]>((acc, line) => {
         const monto = Number(line.amount) || 0;
         if (monto <= 0) {
-          continue;
+          return acc;
         }
 
         const medioPagoNombre = line.methodLabel ?? line.method;
@@ -243,17 +256,39 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
           .filter(Boolean)
           .join(' | ') || undefined;
 
+        const medioPago = mapPaymentMethodToMedioPago(line.method, medioPagoNombre);
+
+        // Validar que el medio de pago esté permitido por la caja activa
+        if (Array.isArray(activeCajaMediosPago) && activeCajaMediosPago.length > 0 && !activeCajaMediosPago.includes(medioPago)) {
+          throw new Error(`El medio de pago "${medioPago}" no está permitido en la caja seleccionada.`);
+        }
+
+        acc.push({
+          lineId: line.id,
+          monto,
+          medioPago,
+          medioPagoNombre,
+          referencia: line.reference || documento.numero,
+          observaciones,
+        });
+        return acc;
+      }, []);
+
+      // Segunda pasada: ya todo validado, registrar movimientos en caja.
+      for (const mov of movimientosARegistrar) {
         try {
           await agregarMovimiento({
             tipo: 'Ingreso',
             concepto: `Cobranza ${documento.numero}`,
-            medioPago: mapPaymentMethodToMedioPago(medioPagoNombre),
-            monto,
-            referencia: line.reference || documento.numero,
+            medioPago: mov.medioPago,
+            paymentMeanCode: payload.lines.find((line) => line.id === mov.lineId)?.method,
+            paymentMeanLabel: mov.medioPagoNombre,
+            monto: mov.monto,
+            referencia: mov.referencia,
             usuarioId,
             usuarioNombre,
             comprobante: documento.comprobanteId,
-            observaciones,
+            observaciones: mov.observaciones,
           });
         } catch (error) {
           console.error('Error registrando movimiento en caja para cobranza:', error);
@@ -261,7 +296,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [agregarMovimiento, cajaStatus, session?.userId, session?.userName]
+    [activeCajaId, activeCajaMediosPago, agregarMovimiento, cajaStatus, session?.userId, session?.userName]
   );
 
   const upsertCuenta = useCallback((cuenta: CuentaPorCobrarSummary) => {
@@ -368,7 +403,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         comprobanteNumero: input.cuenta.comprobanteNumero,
         clienteNombre: input.cuenta.clienteNombre,
         medioPago: paymentMeansSummary.summaryLabel,
-        cajaDestino: input.payload.cajaDestino || input.payload.lines[0]?.bank || 'Caja Principal',
+        cajaDestino: input.payload.cajaDestino || input.payload.lines[0]?.bank,
         moneda: input.cuenta.moneda,
         monto: montoRedondeado,
         estado: estadoDocumento,

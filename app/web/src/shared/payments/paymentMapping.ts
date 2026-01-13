@@ -1,13 +1,19 @@
-import type { MedioPago } from '../../features/control-caja/models/Caja';
+import type { MedioPago } from './medioPago';
 
 /**
- * Normaliza cualquier identificador de forma de pago (pm-*, etiquetas, etc.)
- * y lo mapea a los medios aceptados por el módulo de Caja.
+ * TODO LEGACY: Este helper existe solo como compatibilidad para flujos antiguos
+ * que mezclan códigos (pm-*) y etiquetas libres. Idealmente, los nuevos flujos
+ * deberían pasar siempre un código estable y eliminar esta heurística.
  */
-export const mapPaymentMethodToMedioPago = (formaPagoRaw?: string): MedioPago => {
-  const normalized = formaPagoRaw
-    ? formaPagoRaw.toLowerCase().replace(/^pm-/, '')
-    : 'efectivo';
+export const mapPaymentMethodToMedioPago = (
+  codeOrLabelRaw?: string,
+  fallbackLabelRaw?: string,
+): MedioPago => {
+  const primary = codeOrLabelRaw ? codeOrLabelRaw.toLowerCase().replace(/^pm-/, '') : undefined;
+  const fallback = fallbackLabelRaw ? fallbackLabelRaw.toLowerCase() : undefined;
+
+  const candidates = [primary, fallback].filter(Boolean) as string[];
+  const normalized = candidates[0] ?? 'efectivo';
 
   if (normalized.includes('yape')) return 'Yape';
   if (normalized.includes('plin')) return 'Plin';

@@ -27,7 +27,7 @@ const AperturaCaja: React.FC = () => {
   const [fechaApertura, setFechaApertura] = useState(() => formatBusinessDateTimeLocal());
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  const { status, abrirCaja, isLoading } = useCaja();
+  const { status, abrirCaja, isLoading, activeCajaId } = useCaja();
 
   // Obtener usuario desde el contexto de sesión
   const usuarioActual = session?.userName || 'Usuario';
@@ -56,7 +56,6 @@ const AperturaCaja: React.FC = () => {
   const handleConfirmApertura = async () => {
     const fechaHoraApertura = parseBusinessDateTimeLocal(fechaApertura) ?? new Date(formatBusinessDateTimeIso());
     const aperturaData = {
-      cajaId: 'caja-1',
       usuarioId: usuarioId,
       usuarioNombre: usuarioActual,
       fechaHoraApertura,
@@ -69,6 +68,10 @@ const AperturaCaja: React.FC = () => {
     };
 
     try {
+      if (!activeCajaId) {
+        // La validación principal se hace en CajaContext, aquí solo evitamos llamar sin caja.
+        return;
+      }
       await abrirCaja(aperturaData);
       setShowConfirmModal(false);
       

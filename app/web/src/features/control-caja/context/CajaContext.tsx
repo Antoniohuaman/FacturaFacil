@@ -12,6 +12,10 @@ import { calcularResumenCaja } from "../utils/calculations";
 import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/errors";
 import { lsKey } from "../../../shared/tenant";
 import { useTenant } from "../../../shared/tenant/TenantContext";
+import { useConfigurationContext } from "../../configuracion-sistema/context/ConfigurationContext";
+import { useCurrentCompanyId, useCurrentEstablishmentId } from "../../../contexts/UserSessionContext";
+import { resolveActiveCajaForEstablecimiento, NoActiveCajaError } from "../../configuracion-sistema/utils/cajaSelection";
+import type { MedioPago } from "../../../shared/payments/medioPago";
 
 type PersistedMovimiento = Omit<Movimiento, 'fecha'> & { fecha: string };
 
@@ -51,6 +55,8 @@ interface CajaContextValue {
   // Estado de caja
   status: CajaStatus;
   aperturaActual: AperturaCaja | null;
+  activeCajaId: string | null;
+  activeCajaMediosPago: MedioPago[];
   movimientos: Movimiento[];
   historialMovimientos: Movimiento[];
   historialCargado: boolean;
@@ -60,7 +66,7 @@ interface CajaContextValue {
   setMargenDescuadre: (margen: number) => void;
 
   // Acciones de caja
-  abrirCaja: (apertura: Omit<AperturaCaja, 'id'>) => Promise<void>;
+  abrirCaja: (apertura: Omit<AperturaCaja, 'id' | 'cajaId'>) => Promise<void>;
   cerrarCaja: (cierreCaja: Omit<CierreCaja, 'id' | 'aperturaId'>) => Promise<void>;
 
   // Movimientos
@@ -96,10 +102,15 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   // Estados principales
   const [status, setStatus] = useState<CajaStatus>("cerrada");
   const [aperturaActual, setAperturaActual] = useState<AperturaCaja | null>(null);
+  const [activeCajaId, setActiveCajaId] = useState<string | null>(null);
+  const [activeCajaMediosPago, setActiveCajaMediosPago] = useState<MedioPago[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [historialMovimientos, setHistorialMovimientos] = useState<Movimiento[]>([]);
   const [historialHydrated, setHistorialHydrated] = useState(false);
   const { tenantId } = useTenant();
+  const { state: configurationState } = useConfigurationContext();
+  const empresaId = useCurrentCompanyId();
+  const establecimientoId = useCurrentEstablishmentId();
   const lastTenantIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -173,6 +184,38 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Resolver caja activa desde configuración de sistema
+  useEffect(() => {
+    // Si aún no hay empresa/establecimiento seleccionados (onboarding, tenant recién creado),
+    // dejamos la caja en un estado seguro sin intentar resolver configuración.
+    if (!empresaId || !establecimientoId) {
+      setActiveCajaId(null);
+      setActiveCajaMediosPago([]);
+      return;
+    }
+
+    try {
+      const activeCaja = resolveActiveCajaForEstablecimiento({
+        empresaId,
+        establecimientoId,
+        cajas: configurationState.cajas ?? [],
+      });
+      setActiveCajaId(activeCaja.id);
+      setActiveCajaMediosPago(activeCaja.mediosPagoPermitidos);
+      // Margen de descuadre se interpreta como porcentaje (0-50).
+      // Margen permitido en monto = (margenDescuadre / 100) * saldoEsperado.
+      setMargenDescuadre(activeCaja.margenDescuadre);
+    } catch (error) {
+      if (error instanceof NoActiveCajaError) {
+        console.error('[Caja] No se pudo resolver caja activa:', error.message);
+      } else {
+        console.error('[Caja] Error inesperado al resolver caja activa:', error);
+      }
+      setActiveCajaId(null);
+      setActiveCajaMediosPago([]);
+    }
+  }, [empresaId, establecimientoId, configurationState.cajas]);
+
   // Funciones de toast
   const showToast = useCallback((type: ToastType, title: string, message: string, duration: number = 5000) => {
     const id = `toast-${Date.now()}-${Math.random()}`;
@@ -185,7 +228,13 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   }, []);
 
   // Funciones de caja
-  const abrirCaja = useCallback(async (apertura: Omit<AperturaCaja, 'id'>) => {
+  const abrirCaja = useCallback(async (apertura: Omit<AperturaCaja, 'id' | 'cajaId'>) => {
+    if (!activeCajaId) {
+      const error = new NoActiveCajaError();
+      showToast("error", "Error", error.message);
+      throw error;
+    }
+
     setIsLoading(true);
     try {
       // TODO: Validación de autorización debe hacerse en la página que llama a abrirCaja
@@ -197,6 +246,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       const nuevaApertura: AperturaCaja = {
         ...apertura,
         id: `apertura-${Date.now()}`,
+        cajaId: activeCajaId,
       };
 
       setAperturaActual(nuevaApertura);
@@ -221,7 +271,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [showToast]);
+  }, [activeCajaId, showToast]);
 
   const cerrarCaja = useCallback(async (cierreCaja: Omit<CierreCaja, 'id' | 'aperturaId'>) => {
     if (!aperturaActual) {
@@ -238,9 +288,12 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       const resumen = calcularResumenCaja(aperturaActual, movimientos);
       const descuadre = cierreCaja.montoFinalTotal - resumen.saldo;
 
-      // Validar descuadre
-      if (Math.abs(descuadre) > margenDescuadre) {
-        throw new DescuadreError(descuadre, margenDescuadre);
+      // Interpretar margenDescuadre como porcentaje (0-50).
+      // Margen permitido en monto = (margenDescuadre / 100) * saldo esperado.
+      const margenPermitidoEnMonto = (margenDescuadre / 100) * Math.abs(resumen.saldo);
+
+      if (Math.abs(descuadre) > margenPermitidoEnMonto) {
+        throw new DescuadreError(descuadre, margenPermitidoEnMonto);
       }
 
       setStatus("cerrada");
@@ -310,6 +363,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     () => ({
       status,
       aperturaActual,
+      activeCajaId,
+      activeCajaMediosPago,
       movimientos,
       margenDescuadre,
       historialMovimientos,
@@ -327,6 +382,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     [
       status,
       aperturaActual,
+      activeCajaId,
+      activeCajaMediosPago,
       movimientos,
       margenDescuadre,
       historialMovimientos,

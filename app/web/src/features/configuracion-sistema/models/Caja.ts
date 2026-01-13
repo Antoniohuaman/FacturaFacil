@@ -1,7 +1,8 @@
 // Model for cash register (Caja) configuration within System Configuration
 // Scoped by empresaId and establecimientoId
+import type { MedioPago as SharedMedioPago } from '../../../shared/payments/medioPago';
 
-export type MedioPago = 'Efectivo' | 'Tarjeta' | 'Yape' | 'Plin' | 'Transferencia' | 'Deposito';
+export type MedioPago = SharedMedioPago;
 
 export interface DispositivosCaja {
   impresoraPorDefecto?: string;

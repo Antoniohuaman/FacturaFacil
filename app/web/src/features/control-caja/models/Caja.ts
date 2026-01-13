@@ -1,8 +1,10 @@
 // Tipos y modelos para el módulo de Control de Caja
 
+import type { MedioPago as SharedMedioPago } from '../../../shared/payments/medioPago';
+
+export type MedioPago = SharedMedioPago;
 export type CajaStatus = 'abierta' | 'cerrada';
 export type TipoMovimiento = 'Ingreso' | 'Egreso' | 'Transferencia' | 'Apertura' | 'Cierre';
-export type MedioPago = 'Efectivo' | 'Tarjeta' | 'Yape' | 'Transferencia' | 'Plin' | 'Deposito';
 
 export interface AperturaCaja {
   id: string;
@@ -52,6 +54,8 @@ export interface Movimiento {
   tipo: TipoMovimiento;
   concepto: string;
   medioPago: MedioPago;
+  paymentMeanCode?: string;
+  paymentMeanLabel?: string;
   monto: number;
   referencia?: string;
   fecha: Date;

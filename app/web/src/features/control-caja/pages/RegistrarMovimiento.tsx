@@ -7,7 +7,7 @@ import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import type { TipoMovimiento, MedioPago } from '../models';
 
 const RegistrarMovimiento: React.FC = () => {
-  const { status, agregarMovimiento, isLoading, aperturaActual } = useCaja();
+  const { status, agregarMovimiento, isLoading, aperturaActual, activeCajaMediosPago } = useCaja();
   
   const [tipo, setTipo] = useState<TipoMovimiento>('Ingreso');
   const [concepto, setConcepto] = useState('');
@@ -159,12 +159,9 @@ const RegistrarMovimiento: React.FC = () => {
                 required
                 disabled={isLoading}
               >
-                <option value="Efectivo">Efectivo</option>
-                <option value="Tarjeta">Tarjeta</option>
-                <option value="Yape">Yape</option>
-                <option value="Plin">Plin</option>
-                <option value="Transferencia">Transferencia</option>
-                <option value="Deposito">Depósito</option>
+                {activeCajaMediosPago.map((medio) => (
+                  <option key={medio} value={medio}>{medio}</option>
+                ))}
               </select>
             </div>
           </div>

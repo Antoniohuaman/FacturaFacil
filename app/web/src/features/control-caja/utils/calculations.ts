@@ -89,12 +89,9 @@ export const calcularResumenCaja = (
     aperturaActual.montoInicialYape
   );
 
-  // Calcular otros medios (Plin, Transferencia, Deposito)
   const totalOtros = movimientos
-    .filter(m => !['Efectivo', 'Tarjeta', 'Yape'].includes(m.medioPago))
-    .reduce((sum, m) => {
-      return m.tipo === 'Ingreso' ? sum + m.monto : sum - m.monto;
-    }, aperturaActual.montoInicialOtros);
+    .filter((m) => !['Efectivo', 'Tarjeta', 'Yape'].includes(m.medioPago))
+    .reduce((sum, m) => (m.tipo === 'Ingreso' ? sum + m.monto : sum - m.monto), aperturaActual.montoInicialOtros);
 
   return {
     apertura: aperturaActual.montoInicialTotal,

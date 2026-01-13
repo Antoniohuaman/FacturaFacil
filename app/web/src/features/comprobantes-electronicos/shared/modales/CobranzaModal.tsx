@@ -28,9 +28,6 @@ import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { getRate } from '@/shared/currency';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '../../../../shared/payments/paymentMeans';
 import { AttachmentsSection } from '../components/AttachmentsSection';
-
-const CAJA_GENERAL_NAME = 'Caja general';
-const normalizeCajaName = (value?: string) => (value ?? '').trim().toLowerCase();
 const tolerance = 0.01;
 const UNSET_PAYMENT_AMOUNT = Number.NaN;
 type CobranzaModalContextType = 'emision' | 'cobranzas';
@@ -276,25 +273,18 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   );
   const [collectionSeriesId, setCollectionSeriesId] = useState('');
 
-  const cajaOptions = useMemo(() => {
-    const generalCaja = cajas.find(
-      (caja) => caja.habilitada && normalizeCajaName(caja.nombre) === normalizeCajaName(CAJA_GENERAL_NAME),
-    );
-    return [generalCaja?.nombre ?? CAJA_GENERAL_NAME];
-  }, [cajas]);
+  const cajaOptions = useMemo(() => cajas.filter((caja) => caja.habilitada), [cajas]);
 
-  const cajaAbiertaNombre = useMemo(() => {
+  const cajaAbierta = useMemo(() => {
     if (!aperturaActual) return undefined;
-    const found = cajas.find((caja) => caja.id === aperturaActual.cajaId);
-    if (found?.nombre && normalizeCajaName(found.nombre) === normalizeCajaName(CAJA_GENERAL_NAME)) {
-      return found.nombre;
-    }
-    return undefined;
+    return cajas.find((caja) => caja.id === aperturaActual.cajaId);
   }, [aperturaActual, cajas]);
 
+  const cajaAbiertaNombre = cajaAbierta?.nombre ?? null;
+
   const defaultCajaDestino = useMemo(
-    () => cajaAbiertaNombre || cajaOptions[0] || CAJA_GENERAL_NAME,
-    [cajaAbiertaNombre, cajaOptions],
+    () => (cajaAbierta && cajaAbierta.habilitada ? cajaAbierta : cajaOptions[0] ?? null),
+    [cajaAbierta, cajaOptions],
   );
 
   const selectedCollectionSeries = useMemo(() => {
@@ -380,7 +370,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   }, [esBoleta, hasCreditSchedule, isCajaOpen, isCobranzasContext, modeIntent]);
   const [paymentLines, setPaymentLines] = useState<PaymentLineForm[]>([]);
   const [fechaCobranza, setFechaCobranza] = useState(() => fechaEmision || getBusinessTodayISODate());
-  const [cajaDestino, setCajaDestino] = useState(defaultCajaDestino);
+  const [cajaDestinoId, setCajaDestinoId] = useState<string | null>(defaultCajaDestino?.id ?? null);
   const [notas, setNotas] = useState('');
   const [bancoDocumento, setBancoDocumento] = useState('');
   const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
@@ -744,7 +734,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       },
     ]);
     setFechaCobranza(fechaEmision || getBusinessTodayISODate());
-    setCajaDestino(defaultCajaDestino);
+    setCajaDestinoId(defaultCajaDestino?.id ?? null);
     setNotas('');
     setBancoDocumento('');
     setSelectedBankAccountId(null);
@@ -835,11 +825,13 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   }, [defaultPaymentMeanOption, isOpen, paymentMeansOptionsMap]);
 
   useEffect(() => {
-    if (!isOpen || !cajaAbiertaNombre) {
+    if (!isOpen) {
       return;
     }
-    setCajaDestino(cajaAbiertaNombre);
-  }, [cajaAbiertaNombre, isOpen]);
+    if (cajaAbierta && cajaAbierta.habilitada) {
+      setCajaDestinoId(cajaAbierta.id);
+    }
+  }, [cajaAbierta, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -1001,13 +993,22 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
       const attachmentsPayload = attachments.length ? attachments.map((file) => buildAttachmentMetadata(file)) : undefined;
 
+      const resolvedCajaDestinoId = enforcedMode === 'contado' ? cajaDestinoId ?? cajaAbierta?.id ?? null : null;
+      const resolvedCajaDestinoLabel = (() => {
+        if (enforcedMode !== 'contado') return undefined;
+        const found = cajas.find((caja) => caja.id === resolvedCajaDestinoId);
+        return found?.nombre ?? undefined;
+      })();
+
       const payload: PaymentCollectionPayload = {
         mode: enforcedMode,
         lines:
           enforcedMode === 'contado'
             ? buildPaymentLinesPayload(enforcedMode, amountToApplyInCollection)
             : [],
-        cajaDestino: enforcedMode === 'contado' ? cajaDestino || undefined : undefined,
+        cajaDestino: resolvedCajaDestinoLabel,
+        cajaDestinoId: resolvedCajaDestinoId ?? undefined,
+        cajaDestinoLabel: resolvedCajaDestinoLabel,
         fechaCobranza: enforcedMode === 'contado' ? fechaCobranza || undefined : undefined,
         notes: notas || undefined,
         collectionDocument:
@@ -1038,7 +1039,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         setSubmitting(false);
       }
     },
-    [amountToApplyInCollection, attachments, buildAllocationPayload, buildPaymentLinesPayload, cajaDestino, collectionCurrencyCode, collectionDocumentPreview, collectionExchangeRate, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
+    [amountToApplyInCollection, attachments, buildAllocationPayload, buildPaymentLinesPayload, cajaAbierta, cajaDestinoId, cajas, collectionCurrencyCode, collectionDocumentPreview, collectionExchangeRate, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
   );
 
   const cobrarButtonLabel = 'COBRAR';
@@ -1289,7 +1290,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                             {cajaAbiertaNombre ? (
                               <div className="mt-1 space-y-1">
                                 <input
-                                  value={CAJA_GENERAL_NAME}
+                                  value={cajaAbiertaNombre}
                                   readOnly
                                   className="w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
                                 />
@@ -1297,13 +1298,13 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               </div>
                             ) : (
                               <select
-                                value={cajaDestino}
-                                onChange={(event) => setCajaDestino(event.target.value)}
+                                value={cajaDestinoId ?? ''}
+                                onChange={(event) => setCajaDestinoId(event.target.value || null)}
                                 className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
                               >
                                 {cajaOptions.map((option) => (
-                                  <option key={option} value={option}>
-                                    {CAJA_GENERAL_NAME}
+                                  <option key={option.id} value={option.id}>
+                                    {option.nombre}
                                   </option>
                                 ))}
                               </select>

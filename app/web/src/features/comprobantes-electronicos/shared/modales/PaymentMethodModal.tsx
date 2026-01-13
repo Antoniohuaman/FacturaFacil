@@ -42,7 +42,7 @@ export const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
     const currencyDecimals = documentCurrency.decimalPlaces ?? 2;
 
   const [paymentLines, setPaymentLines] = useState<PaymentLine[]>([
-    { id: '1', method: 'efectivo', amount: '', bank: 'Caja general' }
+    { id: '1', method: 'efectivo', amount: '', bank: 'Caja' }
   ]);
   const [showMethodSelector, setShowMethodSelector] = useState(false);
 
@@ -138,7 +138,7 @@ export const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
   ];
 
   const bankOptions = [
-    'Caja general',
+    'Caja',
     'BCP',
     'BBVA',
     'Interbank',
@@ -165,7 +165,7 @@ export const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({
       id: Date.now().toString(),
       method: methodId,
       amount: remaining > 0 ? remaining.toFixed(currencyDecimals) : '',
-      bank: methodId === 'efectivo' ? 'Caja general' : ''
+      bank: methodId === 'efectivo' ? 'Caja' : ''
     };
     setPaymentLines([...paymentLines, newLine]);
     setShowMethodSelector(false);

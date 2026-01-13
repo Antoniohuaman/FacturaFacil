@@ -68,7 +68,7 @@ export interface CobranzaDocumento {
   comprobanteNumero: string;
   clienteNombre: string;
   medioPago: string;
-  cajaDestino: string;
+  cajaDestino?: string;
   moneda: Currency;
   monto: number;
   estado: CobranzaStatus;

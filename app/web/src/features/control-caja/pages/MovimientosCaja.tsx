@@ -5,7 +5,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import type { TipoMovimiento, MedioPago } from '../models';
 
 const MovimientosCaja: React.FC = () => {
-  const { movimientos, status } = useCaja();
+  const { movimientos, status, activeCajaMediosPago } = useCaja();
   const [tipoFiltro, setTipoFiltro] = useState<TipoMovimiento | ''>('');
   const [medioFiltro, setMedioFiltro] = useState<MedioPago | ''>('');
   const [fechaDesde, setFechaDesde] = useState('');
@@ -144,12 +144,9 @@ const MovimientosCaja: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Todos</option>
-              <option value="Efectivo">Efectivo</option>
-              <option value="Tarjeta">Tarjeta</option>
-              <option value="Yape">Yape</option>
-              <option value="Transferencia">Transferencia</option>
-              <option value="Plin">Plin</option>
-              <option value="Deposito">Deposito</option>
+              {activeCajaMediosPago.map((medio) => (
+                <option key={medio} value={medio}>{medio}</option>
+              ))}
             </select>
           </div>
         </div>

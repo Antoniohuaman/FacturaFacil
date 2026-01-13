@@ -156,7 +156,7 @@ export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, for
                       <td className="px-3 py-2 font-semibold">{item.numero}</td>
                       <td className="px-3 py-2">{item.fechaCobranza}</td>
                       <td className="px-3 py-2 capitalize">{resolveCobranzaPaymentMeans(item).summaryLabel}</td>
-                      <td className="px-3 py-2">{item.cajaDestino}</td>
+                      <td className="px-3 py-2">{item.cajaDestino ?? '-'}</td>
                       <td className="px-3 py-2 text-right font-semibold">{formatMoney(item.monto, item.moneda)}</td>
                       <td className="px-3 py-2 text-center">
                         <button
