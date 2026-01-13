@@ -605,8 +605,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                   Cliente Seleccionado
                 </label>
-                <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg px-3 py-2.5 border border-violet-200">
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="h-9 flex items-center bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl px-2.5 border border-violet-200">
+                  <div className="flex items-center gap-2 sm:gap-3 w-full">
                     <div className="flex items-center gap-2 min-w-0 flex-1 text-[13px]">
                       <span className="inline-flex items-center rounded-full border border-violet-100 bg-white/70 px-2 py-0.5 text-[12px] font-semibold text-violet-700">
                         {formatSaleDocumentLabel(clienteSeleccionadoLocal.tipoDocumento, clienteSeleccionadoLocal.dni)}
