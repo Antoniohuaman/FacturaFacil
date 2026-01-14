@@ -129,10 +129,10 @@ export function ConfigurationDashboard() {
     },
     {
       id: 'employees',
-      title: 'Empleados y Roles',
+      title: 'Usuarios y Roles',
       description: 'Usuarios del sistema, roles y permisos por establecimiento',
       icon: Users,
-      path: '/configuracion/empleados',
+      path: '/configuracion/usuarios',
       status: status.employees.isConfigured ? 'complete' : 'pending',
       completionPercentage: status.employees.isConfigured ? 100 : 0,
       priority: 'medium',
@@ -424,7 +424,7 @@ export function ConfigurationDashboard() {
           </Link>
           
           <Link
-            to="/configuracion/empleados"
+            to="/configuracion/usuarios"
             className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
           >
             <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />

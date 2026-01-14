@@ -43,7 +43,7 @@ const PERMISSION_TRANSLATIONS: Record<string, string> = {
   canViewSalesReports: 'Ver reportes de ventas',
   canViewInventoryReports: 'Ver reportes de inventario',
   canViewFinancialReports: 'Ver reportes financieros',
-  canViewEmployeeReports: 'Ver reportes de empleados',
+  canViewEmployeeReports: 'Ver reportes de usuarios',
   canExportReports: 'Exportar reportes',
   canScheduleReports: 'Programar reportes',
   canViewAllEstablishments: 'Ver todos los establecimientos',
@@ -51,7 +51,7 @@ const PERMISSION_TRANSLATIONS: Record<string, string> = {
   // Configuration
   canEditCompany: 'Editar empresa',
   canEditEstablishments: 'Editar establecimientos',
-  canEditEmployees: 'Editar empleados',
+  canEditEmployees: 'Editar usuarios',
   canEditRoles: 'Editar roles',
   canEditTaxes: 'Editar impuestos',
   canEditPaymentMethods: 'Editar métodos de pago',

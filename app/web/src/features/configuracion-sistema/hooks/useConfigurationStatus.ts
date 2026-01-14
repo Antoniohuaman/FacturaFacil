@@ -224,7 +224,7 @@ const CONFIGURATION_STEPS: Record<string, ConfigurationStep[]> = {
       id: 'employees-staff',
       moduleId: 'employees',
       title: 'Personal de Ventas',
-      description: 'Agregar empleados del área de ventas',
+      description: 'Agregar usuarios del área de ventas',
       isCompleted: false,
       isRequired: false,
       order: 3,
@@ -444,7 +444,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
       establishments: 'Establecimientos',
       business: 'Configuración Comercial',
       series: 'Series de Comprobantes',
-      employees: 'Empleados y Roles',
+      employees: 'Usuarios y Roles',
       'voucher-design': 'Diseño de Comprobantes',
     };
     return moduleNames[moduleId] || moduleId;

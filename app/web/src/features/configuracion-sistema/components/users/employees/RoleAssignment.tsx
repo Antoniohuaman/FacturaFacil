@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect } from 'react';
-import type { Role } from '../../models/Role';
-import { ROLE_LEVELS, SYSTEM_ROLES } from '../../models/Role';
+import type { Role } from '../../../models/Role';
+import { ROLE_LEVELS, SYSTEM_ROLES } from '../../../models/Role';
 import { Shield, ChevronDown, ChevronRight, Info, AlertTriangle } from 'lucide-react';
 
 interface RoleAssignmentProps {
@@ -17,7 +17,7 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
 
   // Mock roles data - in real app this would come from a hook
   useEffect(() => {
-    const mockRoles: Role[] = SYSTEM_ROLES.map((role, index) => ({
+    const mockRoles: Role[] = SYSTEM_ROLES.map((role: Partial<Role>, index: number) => ({
       id: `role-${index + 1}`,
       name: role.name!,
       description: role.description!,
@@ -44,7 +44,7 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
   };
 
   const getLevelColor = (level: Role['level']) => {
-    const levelConfig = ROLE_LEVELS.find(l => l.value === level);
+    const levelConfig = ROLE_LEVELS.find((l: any) => l.value === level);
     return levelConfig?.color || 'gray';
   };
 
@@ -66,8 +66,8 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
 
   const getPermissionCount = (role: Role) => {
     let count = 0;
-    Object.values(role.permissions).forEach(modulePermissions => {
-      Object.values(modulePermissions).forEach(permission => {
+    Object.values(role.permissions as Record<string, any>).forEach((modulePermissions: any) => {
+      Object.values(modulePermissions as Record<string, any>).forEach((permission: any) => {
         if (permission === true) count++;
       });
     });

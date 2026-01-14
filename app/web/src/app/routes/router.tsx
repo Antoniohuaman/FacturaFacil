@@ -18,7 +18,7 @@ import { ConfigurationDashboard } from "../../features/configuracion-sistema/pag
 import { CompanyConfiguration } from "../../features/configuracion-sistema/pages/CompanyConfiguration";
 import { EstablishmentsConfiguration } from "../../features/configuracion-sistema/pages/EstablishmentsConfiguration";
 import { WarehousesConfiguration } from "../../features/configuracion-sistema/pages/WarehousesConfiguration";
-import { EmployeesConfiguration } from "../../features/configuracion-sistema/pages/EmployeesConfiguration";
+import { UsersConfiguration } from "../../features/configuracion-sistema/pages/UsersConfiguration";
 import { SeriesConfiguration } from "../../features/configuracion-sistema/pages/SeriesConfiguration";
 import { BusinessConfiguration } from "../../features/configuracion-sistema/pages/BusinessConfiguration";
 import { VoucherDesignConfigurationNew } from "../../features/configuracion-sistema/pages/VoucherDesignConfigurationNew";
@@ -86,7 +86,8 @@ export const router = createBrowserRouter([
       { path: "/configuracion/empresa", element: <CompanyConfiguration /> },
       { path: "/configuracion/establecimientos", element: <EstablishmentsConfiguration /> },
       { path: "/configuracion/almacenes", element: <WarehousesConfiguration /> },
-      { path: "/configuracion/empleados", element: <EmployeesConfiguration /> },
+      { path: "/configuracion/usuarios", element: <UsersConfiguration /> },
+      { path: "/configuracion/empleados", loader: () => redirect("/configuracion/usuarios") },
       { path: "/configuracion/series", element: <SeriesConfiguration /> },
       { path: "/configuracion/negocio", element: <BusinessConfiguration /> },
       { path: "/configuracion/diseno", element: <VoucherDesignConfigurationNew /> },

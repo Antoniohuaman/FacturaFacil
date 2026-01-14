@@ -10,28 +10,28 @@ import {
   Power,
   PowerOff
 } from 'lucide-react';
-import type { Employee } from '../../models/Employee';
-import type { Role } from '../../models/Role';
-import type { Establishment } from '../../models/Establishment';
-
-type EmployeeStatus = Employee['status'];
+import type { User } from '../../../models/User';
+import type { Role } from '../../../models/Role';
+import type { Establishment } from '../../../models/Establishment';
 import { EmployeeCard } from './EmployeeCard';
-import { StatusIndicator } from '../common/StatusIndicator';
+import { StatusIndicator } from '../../common/StatusIndicator';
 
-type FilterStatus = EmployeeStatus | 'ALL';
+type UserStatus = User['status'];
+
+type FilterStatus = UserStatus | 'ALL';
 type ViewMode = 'grid' | 'table';
 type SortField = 'name' | 'email' | 'status' | 'created' | 'roles';
 type SortOrder = 'asc' | 'desc';
 
 interface EmployeesListProps {
-  employees: Employee[];
+  employees: User[];
   roles: Role[];
   establishments: Establishment[];
-  onEdit: (employee: Employee) => void;
-  onDelete: (employee: Employee) => void;
-  onChangeStatus: (employee: Employee, status: EmployeeStatus, reason?: string) => void;
-  onAssignRole: (employee: Employee) => void;
-  onRemoveRole: (employee: Employee, establishmentId: string) => void;
+  onEdit: (employee: User) => void;
+  onDelete: (employee: User) => void;
+  onChangeStatus: (employee: User, status: UserStatus, reason?: string) => void;
+  onAssignRole: (employee: User) => void;
+  onRemoveRole: (employee: User, establishmentId: string) => void;
   onCreate: () => void;
   isLoading?: boolean;
 }
@@ -103,7 +103,7 @@ export function EmployeesList({
     };
   };
 
-  const getStatusConfig = (status: EmployeeStatus) => {
+  const getStatusConfig = (status: UserStatus) => {
     const configs = {
       ACTIVE: { 
         label: 'Activo', 
@@ -189,7 +189,7 @@ export function EmployeesList({
         <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-600">Total Empleados</p>
+              <p className="text-sm font-medium text-blue-600">Total Usuarios</p>
               <p className="text-2xl font-bold text-blue-900">{stats.total}</p>
             </div>
             <Users className="w-8 h-8 text-blue-600" />
@@ -369,15 +369,15 @@ export function EmployeesList({
         <div className="text-center py-12">
           <div className="text-6xl mb-4">👥</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {(searchTerm || filterStatus !== 'ALL' || filterEstablishment !== 'ALL')
-              ? 'No se encontraron empleados'
-              : 'No hay empleados'
+              {(searchTerm || filterStatus !== 'ALL' || filterEstablishment !== 'ALL')
+                ? 'No se encontraron usuarios'
+                : 'No hay usuarios'
             }
           </h3>
           <p className="text-gray-500 mb-6">
-            {(searchTerm || filterStatus !== 'ALL' || filterEstablishment !== 'ALL')
-              ? 'Intenta ajustar los filtros de búsqueda'
-              : 'Invita a tu primer empleado para comenzar'
+              {(searchTerm || filterStatus !== 'ALL' || filterEstablishment !== 'ALL')
+                ? 'Intenta ajustar los filtros de búsqueda'
+                : 'Invita a tu primer usuario para comenzar'
             }
           </p>
           {(!searchTerm && filterStatus === 'ALL' && filterEstablishment === 'ALL') && (
@@ -485,7 +485,7 @@ export function EmployeesList({
                           {employee.employment.establishmentIds.length === 0 ? (
                             <span className="text-sm text-gray-500 italic">Sin roles</span>
                           ) : (
-                            employee.employment.establishmentIds.map((establishmentId, index) => (
+                            employee.employment.establishmentIds.map((establishmentId: string, index: number) => (
                               <div key={index} className="text-xs">
                                 <span className="font-medium">{getEstablishmentName(establishmentId)}</span>
                                 <span className="text-gray-500"> → </span>

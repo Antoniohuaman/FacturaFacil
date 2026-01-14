@@ -2,37 +2,37 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import type { 
-  Employee, 
-  CreateEmployeeRequest, 
-  UpdateEmployeeRequest, 
-  EmployeeSummary 
-} from '../models/Employee';
+  User, 
+  CreateUserRequest, 
+  UpdateUserRequest, 
+  UserSummary 
+} from '../models/User';
 import type { Role } from '../models/Role';
 import { SYSTEM_ROLES } from '../models/Role';
 
-interface UseEmployeesReturn {
-  employees: Employee[];
+interface UseUsersReturn {
+  employees: User[];
   loading: boolean;
   error: string | null;
   
   // Actions
   loadEmployees: () => Promise<void>;
-  createEmployee: (data: CreateEmployeeRequest) => Promise<Employee>;
-  updateEmployee: (id: string, data: UpdateEmployeeRequest) => Promise<Employee>;
+  createEmployee: (data: CreateUserRequest) => Promise<User>;
+  updateEmployee: (id: string, data: UpdateUserRequest) => Promise<User>;
   deleteEmployee: (id: string) => Promise<void>;
   activateEmployee: (id: string) => Promise<void>;
   suspendEmployee: (id: string, reason?: string) => Promise<void>;
   terminateEmployee: (id: string, reason?: string) => Promise<void>;
   
   // Getters
-  getEmployee: (id: string) => Employee | undefined;
-  getEmployeesByEstablishment: (establishmentId: string) => Employee[];
-  getEmployeesByRole: (roleId: string) => Employee[];
-  getActiveEmployees: () => Employee[];
-  getEmployeeSummaries: () => EmployeeSummary[];
+  getEmployee: (id: string) => User | undefined;
+  getEmployeesByEstablishment: (establishmentId: string) => User[];
+  getEmployeesByRole: (roleId: string) => User[];
+  getActiveEmployees: () => User[];
+  getEmployeeSummaries: () => UserSummary[];
   
   // Authentication & Sessions
-  authenticateEmployee: (username: string, pin?: string) => Promise<Employee | null>;
+  authenticateEmployee: (username: string, pin?: string) => Promise<User | null>;
   updateLastLogin: (employeeId: string) => Promise<void>;
   lockEmployee: (employeeId: string, reason?: string) => Promise<void>;
   unlockEmployee: (employeeId: string) => Promise<void>;
@@ -40,7 +40,7 @@ interface UseEmployeesReturn {
   // Validation
   validateEmployeeCode: (code: string, excludeId?: string) => Promise<boolean>;
   validateUsername: (username: string, excludeId?: string) => Promise<boolean>;
-  validateEmployeeData: (data: CreateEmployeeRequest | UpdateEmployeeRequest) => Promise<string[]>;
+  validateEmployeeData: (data: CreateUserRequest | UpdateUserRequest) => Promise<string[]>;
   
   // Statistics
   getEmployeeStats: () => {
@@ -55,7 +55,7 @@ interface UseEmployeesReturn {
 }
 
 // Mock employees data
-const MOCK_EMPLOYEES: Employee[] = [
+const MOCK_EMPLOYEES: User[] = [
   {
     id: 'emp-1',
     code: 'EMP001',
@@ -245,7 +245,7 @@ const MOCK_EMPLOYEES: Employee[] = [
   },
 ];
 
-export function useEmployees(): UseEmployeesReturn {
+export function useUsers(): UseUsersReturn {
   const { state, dispatch } = useConfigurationContext();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -281,7 +281,7 @@ export function useEmployees(): UseEmployeesReturn {
   }, [employees]);
 
   // Create employee
-  const createEmployee = useCallback(async (data: CreateEmployeeRequest): Promise<Employee> => {
+  const createEmployee = useCallback(async (data: CreateUserRequest): Promise<User> => {
     setLoading(true);
     setError(null);
     
@@ -313,7 +313,7 @@ export function useEmployees(): UseEmployeesReturn {
         data.systemAccess.roleIds.includes(`role-${index + 1}`)
       ) as Role[];
       
-      const newEmployee: Employee = {
+      const newEmployee: User = {
         id: `emp-${Date.now()}`,
         code,
         personalInfo: {
@@ -360,7 +360,7 @@ export function useEmployees(): UseEmployeesReturn {
   }, [employees, dispatch]);
 
   // Update employee
-  const updateEmployee = useCallback(async (id: string, data: UpdateEmployeeRequest): Promise<Employee> => {
+  const updateEmployee = useCallback(async (id: string, data: UpdateUserRequest): Promise<User> => {
     const existingEmployee = getEmployee(id);
     if (!existingEmployee) {
       throw new Error('Employee not found');
@@ -403,7 +403,7 @@ export function useEmployees(): UseEmployeesReturn {
         ) as Role[];
       }
       
-      const updatedEmployee: Employee = {
+      const updatedEmployee: User = {
         ...existingEmployee,
         ...data,
         id,
@@ -536,12 +536,12 @@ export function useEmployees(): UseEmployeesReturn {
   }, [employees, dispatch]);
 
   // Get employee by ID
-  const getEmployee = useCallback((id: string): Employee | undefined => {
+  const getEmployee = useCallback((id: string): User | undefined => {
     return employees.find(emp => emp.id === id);
   }, [employees]);
 
   // Get employees by establishment
-  const getEmployeesByEstablishment = useCallback((establishmentId: string): Employee[] => {
+  const getEmployeesByEstablishment = useCallback((establishmentId: string): User[] => {
     return employees.filter(emp => 
       emp.employment.establishmentIds.includes(establishmentId) && 
       emp.status === 'ACTIVE'
@@ -549,7 +549,7 @@ export function useEmployees(): UseEmployeesReturn {
   }, [employees]);
 
   // Get employees by role
-  const getEmployeesByRole = useCallback((roleId: string): Employee[] => {
+  const getEmployeesByRole = useCallback((roleId: string): User[] => {
     return employees.filter(emp => 
       emp.systemAccess.roleIds.includes(roleId) && 
       emp.status === 'ACTIVE'
@@ -557,12 +557,12 @@ export function useEmployees(): UseEmployeesReturn {
   }, [employees]);
 
   // Get active employees
-  const getActiveEmployees = useCallback((): Employee[] => {
+  const getActiveEmployees = useCallback((): User[] => {
     return employees.filter(emp => emp.status === 'ACTIVE');
   }, [employees]);
 
   // Get employee summaries
-  const getEmployeeSummaries = useCallback((): EmployeeSummary[] => {
+  const getEmployeeSummaries = useCallback((): UserSummary[] => {
     return employees.map(emp => ({
       id: emp.id,
       code: emp.code,
@@ -576,7 +576,7 @@ export function useEmployees(): UseEmployeesReturn {
   }, [employees]);
 
   // Authenticate employee
-  const authenticateEmployee = useCallback(async (username: string, pin?: string): Promise<Employee | null> => {
+  const authenticateEmployee = useCallback(async (username: string, pin?: string): Promise<User | null> => {
     setLoading(true);
     setError(null);
     
@@ -748,7 +748,7 @@ export function useEmployees(): UseEmployeesReturn {
   }, [employees]);
 
   // Validate employee data
-  const validateEmployeeData = useCallback(async (data: CreateEmployeeRequest | UpdateEmployeeRequest): Promise<string[]> => {
+  const validateEmployeeData = useCallback(async (data: CreateUserRequest | UpdateUserRequest): Promise<string[]> => {
     const errors: string[] = [];
     
     // Personal info validations

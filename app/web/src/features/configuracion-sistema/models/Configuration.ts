@@ -60,7 +60,7 @@ export interface Configuration {
     enableStockReservation: boolean;
   };
 
-  // Configuraciones de empleados
+  // Configuraciones de usuarios
   employees: {
     enableTimeTracking: boolean;
     enableCommissions: boolean;
@@ -191,7 +191,7 @@ export const CONFIGURATION_MODULES: ConfigurationModule[] = [
   },
   {
     id: 'employees',
-    name: 'Empleados y Roles',
+    name: 'Usuarios y Roles',
     description: 'Gestionar personal y permisos',
     icon: 'Users',
     isConfigured: false,

@@ -2,7 +2,7 @@
 // Pure functions following Single Responsibility Principle
 
 import type { CreateCajaInput, UpdateCajaInput, Caja, MedioPago } from '../models/Caja';
-import type { Employee } from '../models/Employee';
+import type { User } from '../models/User';
 import { CAJA_CONSTRAINTS } from '../models/Caja';
 
 export interface ValidationError {
@@ -140,7 +140,7 @@ export function validateMargenDescuadre(margen: number): ValidationError | null 
  */
 export function validateUsuariosAutorizados(
   usuariosAutorizados: string[] | undefined,
-  employees: Employee[],
+  employees: User[],
   habilitada: boolean
 ): ValidationError | null {
   // If not provided, default to empty array
@@ -175,7 +175,7 @@ export function validateUsuariosAutorizados(
 export function validateCreateCaja(
   input: CreateCajaInput,
   existingCajas: Caja[],
-  employees: Employee[] = []
+  employees: User[] = []
 ): ValidationResult {
   const errors: ValidationError[] = [];
 
@@ -224,7 +224,7 @@ export function validateUpdateCaja(
   input: UpdateCajaInput,
   existingCajas: Caja[],
   currentCajaId: string,
-  employees: Employee[] = []
+  employees: User[] = []
 ): ValidationResult {
   const errors: ValidationError[] = [];
 

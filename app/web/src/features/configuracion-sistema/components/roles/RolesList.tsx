@@ -1,11 +1,11 @@
 import { Shield, AlertCircle, Info } from 'lucide-react';
 import type { Role } from '../../models/Role';
-import type { Employee } from '../../models/Employee';
+import type { User } from '../../models/User';
 import { RoleCard } from './RoleCard';
 
 interface RolesListProps {
   roles: Partial<Role>[];
-  employees?: Employee[];
+  employees?: User[];
   isLoading?: boolean;
 }
 

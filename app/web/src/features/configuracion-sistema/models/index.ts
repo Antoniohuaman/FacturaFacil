@@ -1,6 +1,6 @@
 // Configuration models index
 export type { Company } from './Company';
-export type { Employee, Permission } from './Employee';
+export type { User, Permission } from './User';
 export type { Establishment } from './Establishment';
 export type { Role } from './Role';
 export type { Series } from './Series';

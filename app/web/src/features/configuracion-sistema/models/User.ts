@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import type { Role } from './Role';
 
-export interface Employee {
+export interface User {
   id: string;
   code: string; // Employee code for internal identification
   
@@ -95,7 +95,7 @@ export interface Permission {
   conditions?: Record<string, any>; // additional conditions
 }
 
-export interface CreateEmployeeRequest {
+export interface CreateUserRequest {
   code?: string;
   personalInfo: {
     firstName: string;
@@ -134,17 +134,17 @@ export interface CreateEmployeeRequest {
   notes?: string;
 }
 
-export interface UpdateEmployeeRequest extends Partial<CreateEmployeeRequest> {
+export interface UpdateUserRequest extends Partial<CreateUserRequest> {
   id: string;
 }
 
-export interface EmployeeSummary {
+export interface UserSummary {
   id: string;
   code: string;
   fullName: string;
   position: string;
   establishment: string;
-  status: Employee['status'];
+  status: User['status'];
   lastLogin?: Date;
   avatar?: string;
 }
@@ -156,7 +156,7 @@ export const EMPLOYMENT_TYPES = [
   { value: 'INTERNSHIP', label: 'Prácticas' },
 ] as const;
 
-export const EMPLOYEE_STATUS = [
+export const USER_STATUS = [
   { value: 'ACTIVE', label: 'Activo', color: 'green' },
   { value: 'INACTIVE', label: 'Inactivo', color: 'gray' },
   { value: 'SUSPENDED', label: 'Suspendido', color: 'yellow' },

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useConfigurationContext } from '../../context/ConfigurationContext';
-import type { Employee } from '../../models';
+import type { User } from '../../models';
 
 interface UsuariosAutorizadosSelectorProps {
   value: string[]; // Array of employee IDs
@@ -21,10 +21,10 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
 
   // Filter employees based on cash register permissions
   const availableEmployees = React.useMemo(() => {
-    let employees = state.employees.filter((emp: Employee) => emp.status === 'ACTIVE');
+    let employees = state.employees.filter((emp: User) => emp.status === 'ACTIVE');
 
     if (filterByCashPermission) {
-      employees = employees.filter((emp: Employee) => {
+      employees = employees.filter((emp: User) => {
         // Check if any of the employee's roles have canOpenRegister permission
         return emp.systemAccess.roles.some(role => 
           role.permissions?.cash?.canOpenRegister === true
@@ -32,7 +32,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
       });
     }
 
-    return employees.sort((a: Employee, b: Employee) => 
+    return employees.sort((a: User, b: User) => 
       a.personalInfo.fullName.localeCompare(b.personalInfo.fullName)
     );
   }, [state.employees, filterByCashPermission]);
@@ -49,7 +49,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
 
   const handleSelectAll = () => {
     if (disabled) return;
-    onChange(availableEmployees.map((emp: Employee) => emp.id));
+    onChange(availableEmployees.map((emp: User) => emp.id));
   };
 
   const handleDeselectAll = () => {
@@ -58,7 +58,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
   };
 
   const getEmployeeName = (employeeId: string): string => {
-    const employee = state.employees.find((emp: Employee) => emp.id === employeeId);
+    const employee = state.employees.find((emp: User) => emp.id === employeeId);
     return employee?.personalInfo.fullName || 'Usuario desconocido';
   };
 
@@ -69,7 +69,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
           Usuarios Autorizados
           {filterByCashPermission && (
             <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-              (Solo empleados con permiso para abrir caja)
+              (Solo usuarios con permiso para abrir caja)
             </span>
           )}
         </label>
@@ -100,13 +100,13 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
       {availableEmployees.length === 0 ? (
         <div className="text-sm text-gray-500 dark:text-gray-400 italic p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           {filterByCashPermission 
-            ? 'No hay empleados activos con permiso para abrir caja. Por favor, asigna roles con permisos de caja a los empleados.'
-            : 'No hay empleados activos disponibles.'
+            ? 'No hay usuarios activos con permiso para abrir caja. Por favor, asigna roles con permisos de caja a los usuarios.'
+            : 'No hay usuarios activos disponibles.'
           }
         </div>
       ) : (
         <div className="border border-gray-300 dark:border-gray-600 rounded-lg max-h-60 overflow-y-auto bg-white dark:bg-gray-800">
-          {availableEmployees.map((employee: Employee) => (
+          {availableEmployees.map((employee: User) => (
             <label
               key={employee.id}
               className={`

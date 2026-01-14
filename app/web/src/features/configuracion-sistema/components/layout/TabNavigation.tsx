@@ -60,9 +60,9 @@ export function TabNavigation() {
     },
     {
       id: 'employees',
-      label: 'Empleados',
+      label: 'Usuarios',
       icon: Users,
-      path: '/configuracion/empleados',
+      path: '/configuracion/usuarios',
       description: 'Usuarios y roles'
     },
     {

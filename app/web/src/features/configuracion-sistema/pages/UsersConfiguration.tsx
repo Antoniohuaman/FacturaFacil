@@ -1,4 +1,4 @@
-// src/features/configuration/pages/EmployeesConfiguration.tsx
+// src/features/configuration/pages/UsersConfiguration.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -9,18 +9,18 @@ import {
 } from 'lucide-react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
-import { EmployeesList } from '../components/employees/EmployeesList';
-import { EmployeeForm } from '../components/employees/EmployeeForm';
+import { EmployeesList } from '../components/users/employees/EmployeesList';
+import { EmployeeForm } from '../components/users/employees/EmployeeForm';
 import { RolesList } from '../components/roles/RolesList';
-import { CredentialsModal } from '../components/employees/CredentialsModal';
+import { CredentialsModal } from '../components/users/employees/CredentialsModal';
 import { SYSTEM_ROLES } from '../models/Role';
-import type { Employee } from '../models/Employee';
+import type { User } from '../models/User';
 import type { Role } from '../models/Role';
 
 // Modal for Role Assignment
-import RoleAssignment from '../components/employees/RoleAssignment';
+import RoleAssignment from '../components/users/employees/RoleAssignment';
 
-type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
+type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
 
 interface EmployeeFormData {
   fullName: string;
@@ -33,26 +33,28 @@ interface EmployeeFormData {
   requirePasswordChange: boolean;
 }
 
-export function EmployeesConfiguration() {
+export function UsersConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
   const { employees, establishments } = state;
 
   const [activeTab, setActiveTab] = useState<'employees' | 'roles'>('employees');
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [deleteModal, setDeleteModal] = useState<{ show: boolean; employee?: Employee }>({
+  const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean; employee?: User }>({
     show: false
   });
-  const [roleAssignmentModal, setRoleAssignmentModal] = useState<{ show: boolean; employee?: Employee }>({
-    show: false
-  });
+  const [roleAssignmentModal, setRoleAssignmentModal] = useState<{ show: boolean; employee?: User }>(
+    {
+      show: false
+    }
+  );
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [roleError, setRoleError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [credentialsModal, setCredentialsModal] = useState<{
     show: boolean;
-    employee?: Employee;
+    employee?: User;
     credentials?: {
       fullName: string;
       email: string;
@@ -84,7 +86,7 @@ export function EmployeesConfiguration() {
 
       if (editingEmployee) {
         // Update existing employee
-        const updatedEmployee: Employee = {
+        const updatedEmployee: User = {
           ...editingEmployee,
           personalInfo: {
             ...editingEmployee.personalInfo,
@@ -108,7 +110,7 @@ export function EmployeesConfiguration() {
         dispatch({ type: 'UPDATE_EMPLOYEE', payload: updatedEmployee });
       } else {
         // Create new employee
-        const newEmployee: Employee = {
+        const newEmployee: User = {
           id: `emp-${Date.now()}`,
           code: `EMP${String(employees.length + 1).padStart(3, '0')}`,
           personalInfo: {
@@ -185,13 +187,13 @@ export function EmployeesConfiguration() {
   };
 
   // Handle edit employee
-  const handleEditEmployee = (employee: Employee) => {
+  const handleEditEmployee = (employee: User) => {
     setEditingEmployee(employee);
     setShowEmployeeForm(true);
   };
 
   // Handle delete employee
-  const handleDeleteEmployee = async (employee: Employee) => {
+  const handleDeleteEmployee = async (employee: User) => {
     setIsLoading(true);
 
     try {
@@ -205,11 +207,11 @@ export function EmployeesConfiguration() {
   };
 
   // Handle change employee status
-  const handleChangeStatus = async (employee: Employee, newStatus: EmployeeStatus, reason?: string) => {
+  const handleChangeStatus = async (employee: User, newStatus: UserStatus, reason?: string) => {
     setIsLoading(true);
 
     try {
-      const updatedEmployee: Employee = {
+      const updatedEmployee: User = {
         ...employee,
         status: newStatus,
         notes: reason || employee.notes,
@@ -225,7 +227,7 @@ export function EmployeesConfiguration() {
   };
 
   // Handle assign role
-  const handleAssignRole = (employee: Employee) => {
+  const handleAssignRole = (employee: User) => {
     setRoleAssignmentModal({ show: true, employee });
     setSelectedRoleIds(employee.systemAccess.roleIds);
     setRoleError('');
@@ -261,7 +263,7 @@ export function EmployeesConfiguration() {
         })
         .filter((role): role is Role => role !== null);
 
-      const updatedEmployee: Employee = {
+      const updatedEmployee: User = {
         ...roleAssignmentModal.employee,
         systemAccess: {
           ...roleAssignmentModal.employee.systemAccess,
@@ -292,13 +294,13 @@ export function EmployeesConfiguration() {
   };
 
   // Handle remove establishment from employee
-  const handleRemoveEstablishment = (employee: Employee, establishmentId: string) => {
+  const handleRemoveEstablishment = (employee: User, establishmentId: string) => {
     // Remove establishment from employee's list
     const updatedEstablishmentIds = employee.employment.establishmentIds.filter(
       id => id !== establishmentId
     );
 
-    const updatedEmployee: Employee = {
+    const updatedEmployee: User = {
       ...employee,
       employment: {
         ...employee.employment,
@@ -323,7 +325,7 @@ export function EmployeesConfiguration() {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Empleados y Roles
+              Usuarios y Roles
             </h1>
             <p className="text-gray-600">
               Gestiona usuarios del sistema, roles y permisos por establecimiento
@@ -337,7 +339,7 @@ export function EmployeesConfiguration() {
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5" />
-            <span>Nuevo Empleado</span>
+            <span>Nuevo Usuario</span>
           </button>
         )}
       </div>
@@ -355,7 +357,7 @@ export function EmployeesConfiguration() {
           >
             <div className="flex items-center space-x-2">
               <Users className="w-5 h-5" />
-              <span>Empleados ({employees.length})</span>
+              <span>Usuarios ({employees.length})</span>
             </div>
           </button>
 

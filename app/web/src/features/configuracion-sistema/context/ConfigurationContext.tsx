@@ -3,7 +3,7 @@ import { createContext, useContext, useReducer, useEffect, useRef, useCallback }
 import type { ReactNode } from 'react';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
-import type { Employee } from '../models/Employee';
+import type { User } from '../models/User';
 import type { Series } from '../models/Series';
 import type { PaymentMethod } from '../models/PaymentMethod';
 import type { Currency } from '../models/Currency';
@@ -40,7 +40,7 @@ interface ConfigurationState {
   company: Company | null;
   establishments: Establishment[];
   warehouses: Warehouse[];
-  employees: Employee[];
+  employees: User[];
   series: Series[];
   paymentMethods: PaymentMethod[];
   currencies: Currency[];
@@ -225,9 +225,9 @@ type ConfigurationAction =
   | { type: 'ADD_WAREHOUSE'; payload: Warehouse }
   | { type: 'UPDATE_WAREHOUSE'; payload: Warehouse }
   | { type: 'DELETE_WAREHOUSE'; payload: string }
-  | { type: 'SET_EMPLOYEES'; payload: Employee[] }
-  | { type: 'ADD_EMPLOYEE'; payload: Employee }
-  | { type: 'UPDATE_EMPLOYEE'; payload: Employee }
+  | { type: 'SET_EMPLOYEES'; payload: User[] }
+  | { type: 'ADD_EMPLOYEE'; payload: User }
+  | { type: 'UPDATE_EMPLOYEE'; payload: User }
   | { type: 'DELETE_EMPLOYEE'; payload: string }
   | { type: 'SET_SERIES'; payload: Series[] }
   | { type: 'ADD_SERIES'; payload: Series }

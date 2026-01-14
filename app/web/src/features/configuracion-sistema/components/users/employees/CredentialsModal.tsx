@@ -1,8 +1,9 @@
 // src/features/configuration/components/employees/CredentialsModal.tsx
 import { useState } from 'react';
 import { X, Copy, Check, User, Lock, Mail, Shield, Building2, MessageCircle } from 'lucide-react';
-import type { Employee } from '../../models/Employee';
-import type { Establishment } from '../../models/Establishment';
+import type { User as UserModel } from '../../../models/User';
+import type { Establishment } from '../../../models/Establishment';
+import type { Role } from '../../../models/Role';
 
 interface CredentialsModalProps {
   isOpen: boolean;
@@ -13,7 +14,7 @@ interface CredentialsModalProps {
     username: string;
     password: string;
   };
-  employee: Employee;
+  employee: UserModel;
   establishments: Establishment[];
 }
 
@@ -28,7 +29,7 @@ export function CredentialsModal({ isOpen, onClose, credentials, employee, estab
   );
 
   // Get employee's roles
-  const employeeRoles = employee.systemAccess.roles || [];
+  const employeeRoles = (employee.systemAccess.roles || []) as Role[];
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -49,7 +50,7 @@ export function CredentialsModal({ isOpen, onClose, credentials, employee, estab
     CREDENCIALES DE ACCESO
 ═══════════════════════════════════════
 
-Empleado: ${credentials.fullName}
+Usuario: ${credentials.fullName}
 Email: ${credentials.email}
 Usuario: ${credentials.username}
 Contraseña: ${credentials.password}
@@ -82,7 +83,7 @@ ${establishmentsText || '  - Ninguno'}
     CREDENCIALES DE ACCESO
 ═══════════════════════════════════════
 
-*Empleado:* ${credentials.fullName}
+*Usuario:* ${credentials.fullName}
 *Email:* ${credentials.email}
 *Usuario:* ${credentials.username}
 *Contraseña:* ${credentials.password}
@@ -118,7 +119,7 @@ ${establishmentsText || '  - Ninguno'}
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-white">
-                    ¡Empleado Creado Exitosamente!
+                    ¡Usuario Creado Exitosamente!
                   </h2>
                   <p className="text-green-100 text-xs mt-0.5">
                     Las credenciales de acceso han sido generadas
@@ -274,7 +275,7 @@ ${establishmentsText || '  - Ninguno'}
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1.5">•</span>
-                    <span>El empleado debe cambiar su contraseña en el primer inicio de sesión</span>
+                    <span>El usuario debe cambiar su contraseña en el primer inicio de sesión</span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1.5">•</span>
@@ -292,7 +293,7 @@ ${establishmentsText || '  - Ninguno'}
               <li>✓ Credenciales de acceso generadas</li>
               <li>✓ {employeeRoles.length} rol(es) asignado(s)</li>
               <li>✓ {employeeEstablishments.length} establecimiento(s) asignado(s)</li>
-              <li className="text-blue-600 mt-1">💡 Puedes modificar roles desde la lista de empleados</li>
+              <li className="text-blue-600 mt-1">💡 Puedes modificar roles desde la lista de usuarios</li>
             </ul>
           </div>
         </div>

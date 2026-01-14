@@ -20,22 +20,21 @@ import {
   Power,
   PowerOff
 } from 'lucide-react';
-import type { Employee } from '../../models/Employee';
-import type { Role } from '../../models/Role';
-
+import type { User } from '../../../models/User';
+import type { Role } from '../../../models/Role';
+import type { Establishment } from '../../../models/Establishment';
+import { StatusIndicator } from '../../common/StatusIndicator';
 
 // Type helper for employee status
-type EmployeeStatus = Employee['status'];
-import type { Establishment } from '../../models/Establishment';
-import { StatusIndicator } from '../common/StatusIndicator';
+type UserStatus = User['status'];
 
 interface EmployeeCardProps {
-  employee: Employee;
+  employee: User;
   roles: Role[];
   establishments: Establishment[];
   onEdit: () => void;
   onDelete: () => void;
-  onChangeStatus: (status: EmployeeStatus, reason?: string) => void;
+  onChangeStatus: (status: UserStatus, reason?: string) => void;
   onAssignRole: () => void;
   onRemoveRole: (establishmentId: string) => void;
   showActions?: boolean;
@@ -59,8 +58,8 @@ export function EmployeeCard({
   const [statusReason, setStatusReason] = useState('');
   const [isChangingStatus, setIsChangingStatus] = useState(false);
 
-  const getStatusConfig = (status: EmployeeStatus) => {
-    const configs: Record<EmployeeStatus, {
+  const getStatusConfig = (status: UserStatus) => {
+    const configs: Record<UserStatus, {
       label: string;
       color: 'success' | 'warning' | 'error';
       icon: any;
@@ -129,7 +128,7 @@ export function EmployeeCard({
       .toUpperCase();
   };
 
-  const handleStatusChange = async (newStatus: EmployeeStatus) => {
+  const handleStatusChange = async (newStatus: UserStatus) => {
     if (newStatus === 'INACTIVE' && !statusReason.trim()) {
       alert('Debes proporcionar un motivo para inactivar al empleado');
       return;
@@ -398,7 +397,7 @@ export function EmployeeCard({
             </div>
           ) : (
             <div className="space-y-2">
-              {employee.employment.establishmentIds.map((establishmentId, index) => (
+              {employee.employment.establishmentIds.map((establishmentId: string, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
