@@ -66,7 +66,7 @@ export function UsersList({
       const matchesStatus = filterStatus === 'ALL' || user.status === filterStatus;
       
       const matchesEstablishment = filterEstablishment === 'ALL' || 
-                                   user.employment.establishmentIds.includes(filterEstablishment);
+                                   user.assignment.establishmentIds.includes(filterEstablishment);
       
       return matchesSearch && matchesStatus && matchesEstablishment;
     })
@@ -87,7 +87,7 @@ export function UsersList({
           comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case 'roles':
-          comparison = a.employment.establishmentIds.length - b.employment.establishmentIds.length;
+          comparison = a.assignment.establishmentIds.length - b.assignment.establishmentIds.length;
           break;
       }
       
@@ -447,7 +447,7 @@ export function UsersList({
                   return (
                     <tr
                       key={user.id}
-                      data-focus={`configuracion:empleados:${user.id}`}
+                      data-focus={`configuracion:usuarios:${user.id}`}
                       className="border-b border-gray-100 hover:bg-gray-50"
                     >
                       <td className="py-4 px-4">
@@ -482,10 +482,10 @@ export function UsersList({
                       </td>
                       <td className="py-4 px-4">
                         <div className="space-y-1">
-                          {user.employment.establishmentIds.length === 0 ? (
+                          {user.assignment.establishmentIds.length === 0 ? (
                             <span className="text-sm text-gray-500 italic">Sin roles</span>
                           ) : (
-                            user.employment.establishmentIds.map((establishmentId: string, index: number) => (
+                            user.assignment.establishmentIds.map((establishmentId: string, index: number) => (
                               <div key={index} className="text-xs">
                                 <span className="font-medium">{getEstablishmentName(establishmentId)}</span>
                                 <span className="text-gray-500"> → </span>
@@ -531,7 +531,7 @@ export function UsersList({
                             </button>
                           ) : null}
 
-                          {/* Delete - Only show if employee has no transactions */}
+                          {/* Delete - Only show if user has no transactions */}
                           {!user.hasTransactions && (
                             <button
                               onClick={() => onDelete(user)}

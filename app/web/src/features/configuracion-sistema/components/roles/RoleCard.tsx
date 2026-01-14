@@ -6,7 +6,7 @@ import { ROLE_LEVELS } from '../../models/Role';
 
 interface RoleCardProps {
   role: Partial<Role>;
-  employeeCount?: number;
+  userCount?: number;
 }
 
 // Permission translations
@@ -43,7 +43,7 @@ const PERMISSION_TRANSLATIONS: Record<string, string> = {
   canViewSalesReports: 'Ver reportes de ventas',
   canViewInventoryReports: 'Ver reportes de inventario',
   canViewFinancialReports: 'Ver reportes financieros',
-  canViewEmployeeReports: 'Ver reportes de usuarios',
+  canViewUserReports: 'Ver reportes de usuarios',
   canExportReports: 'Exportar reportes',
   canScheduleReports: 'Programar reportes',
   canViewAllEstablishments: 'Ver todos los establecimientos',
@@ -51,7 +51,7 @@ const PERMISSION_TRANSLATIONS: Record<string, string> = {
   // Configuration
   canEditCompany: 'Editar empresa',
   canEditEstablishments: 'Editar establecimientos',
-  canEditEmployees: 'Editar usuarios',
+  canEditUsers: 'Editar usuarios',
   canEditRoles: 'Editar roles',
   canEditTaxes: 'Editar impuestos',
   canEditPaymentMethods: 'Editar métodos de pago',
@@ -78,7 +78,7 @@ const PERMISSION_TRANSLATIONS: Record<string, string> = {
   canModifySystemSettings: 'Modificar configuración del sistema',
 };
 
-export function RoleCard({ role, employeeCount = 0 }: RoleCardProps) {
+export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
   const [showPermissions, setShowPermissions] = useState(false);
   const roleFocusId = role.id ?? role.name ?? 'rol-sin-id';
 
@@ -191,7 +191,7 @@ export function RoleCard({ role, employeeCount = 0 }: RoleCardProps) {
               ${role.level === 'ADMIN' ? 'bg-gradient-to-br from-red-500 to-red-600' :
                 role.level === 'MANAGER' ? 'bg-gradient-to-br from-orange-500 to-orange-600' :
                 role.level === 'SUPERVISOR' ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' :
-                role.level === 'EMPLOYEE' ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
+                role.level === 'STAFF' ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
                 'bg-gradient-to-br from-gray-500 to-gray-600'
               }
             `}>
@@ -225,7 +225,7 @@ export function RoleCard({ role, employeeCount = 0 }: RoleCardProps) {
                 </div>
                 <div className="flex items-center space-x-1 text-gray-600">
                   <Users className="w-4 h-4" />
-                  <span>{employeeCount} usuario{employeeCount !== 1 ? 's' : ''}</span>
+                  <span>{userCount} usuario{userCount !== 1 ? 's' : ''}</span>
                 </div>
               </div>
             </div>

@@ -36,15 +36,15 @@ interface UserFormData {
 export function UsersConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { employees, establishments } = state;
+  const { users, establishments } = state;
 
-  const [activeTab, setActiveTab] = useState<'employees' | 'roles'>('employees');
-  const [showEmployeeForm, setShowEmployeeForm] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
-  const [deleteModal, setDeleteModal] = useState<{ show: boolean; employee?: User }>({
+  const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean; user?: User }>({
     show: false
   });
-  const [roleAssignmentModal, setRoleAssignmentModal] = useState<{ show: boolean; employee?: User }>(
+  const [roleAssignmentModal, setRoleAssignmentModal] = useState<{ show: boolean; user?: User }>(
     {
       show: false
     }
@@ -64,18 +64,18 @@ export function UsersConfiguration() {
   }>({ show: false });
 
   // Get existing emails for validation
-  const existingEmails = employees
-    .filter(emp => emp.id !== editingEmployee?.id)
-    .map(emp => emp.personalInfo.email.toLowerCase());
+  const existingEmails = users
+    .filter(user => user.id !== editingUser?.id)
+    .map(user => user.personalInfo.email.toLowerCase());
 
   // Reset form
-  const resetEmployeeForm = () => {
-    setEditingEmployee(null);
-    setShowEmployeeForm(false);
+  const resetUserForm = () => {
+    setEditingUser(null);
+    setShowUserForm(false);
   };
 
-  // Handle create/edit employee
-  const handleSubmitEmployee = async (data: UserFormData) => {
+  // Handle create/edit user
+  const handleSubmitUser = async (data: UserFormData) => {
     setIsLoading(true);
 
     try {
@@ -84,35 +84,35 @@ export function UsersConfiguration() {
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(' ') || nameParts[0];
 
-      if (editingEmployee) {
-        // Update existing employee
-        const updatedEmployee: User = {
-          ...editingEmployee,
+      if (editingUser) {
+        // Update existing user
+        const updatedUser: User = {
+          ...editingUser,
           personalInfo: {
-            ...editingEmployee.personalInfo,
+            ...editingUser.personalInfo,
             firstName,
             lastName,
             fullName: data.fullName,
             email: data.email,
             phone: data.phone,
-            documentType: data.documentType || editingEmployee.personalInfo.documentType,
-            documentNumber: data.documentNumber || editingEmployee.personalInfo.documentNumber,
+            documentType: data.documentType || editingUser.personalInfo.documentType,
+            documentNumber: data.documentNumber || editingUser.personalInfo.documentNumber,
           },
-          employment: {
-            ...editingEmployee.employment,
+          assignment: {
+            ...editingUser.assignment,
             establishmentIds: data.establishmentIds.length > 0
               ? data.establishmentIds
-              : [editingEmployee.employment.establishmentId],
+              : [editingUser.assignment.establishmentId],
           },
           updatedAt: new Date(),
         };
 
-        dispatch({ type: 'UPDATE_EMPLOYEE', payload: updatedEmployee });
+        dispatch({ type: 'UPDATE_USER', payload: updatedUser });
       } else {
-        // Create new employee
-        const newEmployee: User = {
+        // Create new user
+        const newUser: User = {
           id: `emp-${Date.now()}`,
-          code: `EMP${String(employees.length + 1).padStart(3, '0')}`,
+          code: `EMP${String(users.length + 1).padStart(3, '0')}`,
           personalInfo: {
             firstName,
             lastName,
@@ -122,7 +122,7 @@ export function UsersConfiguration() {
             email: data.email,
             phone: data.phone,
           },
-          employment: {
+          assignment: {
             position: 'Usuario', // Default position
             department: 'General', // Default department
             establishmentId: data.establishmentIds[0] || establishments[0]?.id || 'est-1',
@@ -130,7 +130,7 @@ export function UsersConfiguration() {
               ? data.establishmentIds
               : [establishments[0]?.id || 'est-1'],
             hireDate: new Date(),
-            employmentType: 'FULL_TIME',
+            assignmentType: 'FULL_TIME',
             workSchedule: {
               mondayToFriday: {
                 startTime: '09:00',
@@ -159,16 +159,16 @@ export function UsersConfiguration() {
           updatedBy: 'system',
         };
 
-        dispatch({ type: 'ADD_EMPLOYEE', payload: newEmployee });
+        dispatch({ type: 'ADD_USER', payload: newUser });
 
         // Open role assignment modal first, then credentials
-        setRoleAssignmentModal({ show: true, employee: newEmployee });
+        setRoleAssignmentModal({ show: true, user: newUser });
         setSelectedRoleIds([]);
 
         // Store credentials for later display
         setCredentialsModal({
           show: false,
-          employee: newEmployee,
+          user: newUser,
           credentials: {
             fullName: data.fullName,
             email: data.email,
@@ -178,64 +178,64 @@ export function UsersConfiguration() {
         });
       }
 
-      resetEmployeeForm();
+      resetUserForm();
     } catch (error) {
-      console.error('Error saving employee:', error);
+      console.error('Error saving user:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle edit employee
-  const handleEditEmployee = (employee: User) => {
-    setEditingEmployee(employee);
-    setShowEmployeeForm(true);
+  // Handle edit user
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setShowUserForm(true);
   };
 
-  // Handle delete employee
-  const handleDeleteEmployee = async (employee: User) => {
+  // Handle delete user
+  const handleDeleteUser = async (user: User) => {
     setIsLoading(true);
 
     try {
-      dispatch({ type: 'DELETE_EMPLOYEE', payload: employee.id });
+      dispatch({ type: 'DELETE_USER', payload: user.id });
       setDeleteModal({ show: false });
     } catch (error) {
-      console.error('Error deleting employee:', error);
+      console.error('Error deleting user:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle change employee status
-  const handleChangeStatus = async (employee: User, newStatus: UserStatus, reason?: string) => {
+  // Handle change user status
+  const handleChangeStatus = async (user: User, newStatus: UserStatus, reason?: string) => {
     setIsLoading(true);
 
     try {
-      const updatedEmployee: User = {
-        ...employee,
+      const updatedUser: User = {
+        ...user,
         status: newStatus,
-        notes: reason || employee.notes,
+        notes: reason || user.notes,
         updatedAt: new Date(),
       };
 
-      dispatch({ type: 'UPDATE_EMPLOYEE', payload: updatedEmployee });
+      dispatch({ type: 'UPDATE_USER', payload: updatedUser });
     } catch (error) {
-      console.error('Error changing employee status:', error);
+      console.error('Error changing user status:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   // Handle assign role
-  const handleAssignRole = (employee: User) => {
-    setRoleAssignmentModal({ show: true, employee });
-    setSelectedRoleIds(employee.systemAccess.roleIds);
+  const handleAssignRole = (user: User) => {
+    setRoleAssignmentModal({ show: true, user });
+    setSelectedRoleIds(user.systemAccess.roleIds);
     setRoleError('');
   };
 
   // Handle save role assignment
   const handleSaveRoleAssignment = () => {
-    if (!roleAssignmentModal.employee) return;
+    if (!roleAssignmentModal.user) return;
 
     if (selectedRoleIds.length === 0) {
       setRoleError('Debes seleccionar al menos un rol');
@@ -263,27 +263,27 @@ export function UsersConfiguration() {
         })
         .filter((role): role is Role => role !== null);
 
-      const updatedEmployee: User = {
-        ...roleAssignmentModal.employee,
+      const updatedUser: User = {
+        ...roleAssignmentModal.user,
         systemAccess: {
-          ...roleAssignmentModal.employee.systemAccess,
+          ...roleAssignmentModal.user.systemAccess,
           roleIds: selectedRoleIds,
           roles: selectedRoles,
         },
         updatedAt: new Date(),
       };
 
-      dispatch({ type: 'UPDATE_EMPLOYEE', payload: updatedEmployee });
+      dispatch({ type: 'UPDATE_USER', payload: updatedUser });
       setRoleAssignmentModal({ show: false });
       setSelectedRoleIds([]);
       setRoleError('');
 
       // Show credentials modal if this was a new user
-      if (credentialsModal.credentials && credentialsModal.user?.id === updatedEmployee.id) {
+      if (credentialsModal.credentials && credentialsModal.user?.id === updatedUser.id) {
         setCredentialsModal({
           ...credentialsModal,
           show: true,
-          user: updatedEmployee,
+          user: updatedUser,
         });
       }
     } catch (error) {
@@ -293,23 +293,23 @@ export function UsersConfiguration() {
     }
   };
 
-  // Handle remove establishment from employee
-  const handleRemoveEstablishment = (employee: User, establishmentId: string) => {
-    // Remove establishment from employee's list
-    const updatedEstablishmentIds = employee.employment.establishmentIds.filter(
+  // Handle remove establishment from user
+  const handleRemoveEstablishment = (user: User, establishmentId: string) => {
+    // Remove establishment from user's list
+    const updatedEstablishmentIds = user.assignment.establishmentIds.filter(
       id => id !== establishmentId
     );
 
-    const updatedEmployee: User = {
-      ...employee,
-      employment: {
-        ...employee.employment,
+    const updatedUser: User = {
+      ...user,
+      assignment: {
+        ...user.assignment,
         establishmentIds: updatedEstablishmentIds,
       },
       updatedAt: new Date(),
     };
 
-    dispatch({ type: 'UPDATE_EMPLOYEE', payload: updatedEmployee });
+    dispatch({ type: 'UPDATE_USER', payload: updatedUser });
   };
 
   return (
@@ -333,9 +333,9 @@ export function UsersConfiguration() {
           </div>
         </div>
 
-        {activeTab === 'employees' && (
+        {activeTab === 'users' && (
           <button
-            onClick={() => setShowEmployeeForm(true)}
+            onClick={() => setShowUserForm(true)}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5" />
@@ -348,16 +348,16 @@ export function UsersConfiguration() {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setActiveTab('employees')}
+            onClick={() => setActiveTab('users')}
             className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'employees'
+              activeTab === 'users'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
             <div className="flex items-center space-x-2">
               <Users className="w-5 h-5" />
-              <span>Usuarios ({employees.length})</span>
+              <span>Usuarios ({users.length})</span>
             </div>
           </button>
 
@@ -378,17 +378,17 @@ export function UsersConfiguration() {
       </div>
 
       {/* Users Tab */}
-      {activeTab === 'employees' && (
+      {activeTab === 'users' && (
         <UsersList
-          users={employees}
+          users={users}
           roles={SYSTEM_ROLES as Role[]}
           establishments={establishments}
-          onEdit={handleEditEmployee}
-          onDelete={(user) => setDeleteModal({ show: true, employee: user })}
+          onEdit={handleEditUser}
+          onDelete={(user) => setDeleteModal({ show: true, user })}
           onChangeStatus={handleChangeStatus}
           onAssignRole={handleAssignRole}
           onRemoveRole={handleRemoveEstablishment}
-          onCreate={() => setShowEmployeeForm(true)}
+          onCreate={() => setShowUserForm(true)}
           isLoading={isLoading}
         />
       )}
@@ -397,31 +397,31 @@ export function UsersConfiguration() {
       {activeTab === 'roles' && (
         <RolesList
           roles={SYSTEM_ROLES}
-          employees={employees}
+          users={users}
           isLoading={isLoading}
         />
       )}
 
       {/* User Form Modal */}
-      {showEmployeeForm && (
+      {showUserForm && (
         <UserForm
-          user={editingEmployee || undefined}
+          user={editingUser || undefined}
           establishments={establishments}
           existingEmails={existingEmails}
-          onSubmit={handleSubmitEmployee}
-          onCancel={resetEmployeeForm}
+          onSubmit={handleSubmitUser}
+          onCancel={resetUserForm}
           isLoading={isLoading}
         />
       )}
 
       {/* Role Assignment Modal */}
-      {roleAssignmentModal.show && roleAssignmentModal.employee && (
+      {roleAssignmentModal.show && roleAssignmentModal.user && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                Asignar Roles - {roleAssignmentModal.employee.personalInfo.fullName}
+                Asignar Roles - {roleAssignmentModal.user.personalInfo.fullName}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
                 Selecciona los roles que tendrá este usuario en el sistema
@@ -477,15 +477,15 @@ export function UsersConfiguration() {
       <ConfirmationModal
         isOpen={deleteModal.show}
         onClose={() => setDeleteModal({ show: false })}
-        onConfirm={() => deleteModal.employee && handleDeleteEmployee(deleteModal.employee)}
+        onConfirm={() => deleteModal.user && handleDeleteUser(deleteModal.user)}
         title="Eliminar Usuario"
         message={
-          deleteModal.employee?.hasTransactions
-            ? `No puedes eliminar a "${deleteModal.employee?.personalInfo.fullName}" porque tiene transacciones registradas en el sistema. En su lugar, puedes inhabilitarlo para bloquear su acceso.`
-            : `¿Estás seguro de que deseas eliminar permanentemente a "${deleteModal.employee?.personalInfo.fullName}"? Esta acción no se puede deshacer y eliminará todos sus datos del sistema.`
+          deleteModal.user?.hasTransactions
+            ? `No puedes eliminar a "${deleteModal.user?.personalInfo.fullName}" porque tiene transacciones registradas en el sistema. En su lugar, puedes inhabilitarlo para bloquear su acceso.`
+            : `¿Estás seguro de que deseas eliminar permanentemente a "${deleteModal.user?.personalInfo.fullName}"? Esta acción no se puede deshacer y eliminará todos sus datos del sistema.`
         }
         type="danger"
-        confirmText={deleteModal.employee?.hasTransactions ? "Entendido" : "Eliminar"}
+        confirmText={deleteModal.user?.hasTransactions ? "Entendido" : "Eliminar"}
         cancelText="Cancelar"
         isLoading={isLoading}
       />

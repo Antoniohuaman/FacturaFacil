@@ -40,7 +40,7 @@ interface ConfigurationState {
   company: Company | null;
   establishments: Establishment[];
   warehouses: Warehouse[];
-  employees: User[];
+  users: User[];
   series: Series[];
   paymentMethods: PaymentMethod[];
   currencies: Currency[];
@@ -225,10 +225,10 @@ type ConfigurationAction =
   | { type: 'ADD_WAREHOUSE'; payload: Warehouse }
   | { type: 'UPDATE_WAREHOUSE'; payload: Warehouse }
   | { type: 'DELETE_WAREHOUSE'; payload: string }
-  | { type: 'SET_EMPLOYEES'; payload: User[] }
-  | { type: 'ADD_EMPLOYEE'; payload: User }
-  | { type: 'UPDATE_EMPLOYEE'; payload: User }
-  | { type: 'DELETE_EMPLOYEE'; payload: string }
+  | { type: 'SET_USERS'; payload: User[] }
+  | { type: 'ADD_USER'; payload: User }
+  | { type: 'UPDATE_USER'; payload: User }
+  | { type: 'DELETE_USER'; payload: string }
   | { type: 'SET_SERIES'; payload: Series[] }
   | { type: 'ADD_SERIES'; payload: Series }
   | { type: 'UPDATE_SERIES'; payload: Series }
@@ -248,7 +248,7 @@ const initialState: ConfigurationState = {
   company: null,
   establishments: [],
   warehouses: [],
-  employees: [],
+  users: [],
   series: [],
   paymentMethods: [],
   currencies: [],
@@ -321,27 +321,27 @@ function configurationReducer(
         warehouses: state.warehouses.filter(wh => wh.id !== action.payload),
       };
 
-    case 'SET_EMPLOYEES':
-      return { ...state, employees: action.payload };
+    case 'SET_USERS':
+      return { ...state, users: action.payload };
     
-    case 'ADD_EMPLOYEE':
+    case 'ADD_USER':
       return {
         ...state,
-        employees: [...state.employees, action.payload],
+        users: [...state.users, action.payload],
       };
     
-    case 'UPDATE_EMPLOYEE':
+    case 'UPDATE_USER':
       return {
         ...state,
-        employees: state.employees.map(emp =>
-          emp.id === action.payload.id ? action.payload : emp
+        users: state.users.map(user =>
+          user.id === action.payload.id ? action.payload : user
         ),
       };
     
-    case 'DELETE_EMPLOYEE':
+    case 'DELETE_USER':
       return {
         ...state,
-        employees: state.employees.filter(emp => emp.id !== action.payload),
+        users: state.users.filter(user => user.id !== action.payload),
       };
     
     case 'SET_SERIES':
@@ -568,9 +568,9 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
       payload: defaultTaxes,
     });
 
-    // Mock users  with roles
+    // Mock users with roles
     dispatch({
-      type: 'SET_EMPLOYEES',
+      type: 'SET_USERS',
       payload: []  // Start empty - users can create their own users
     });
 

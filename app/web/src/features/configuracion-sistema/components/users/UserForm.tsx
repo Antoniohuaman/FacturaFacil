@@ -113,7 +113,7 @@ export function UserForm({
         phone: user.personalInfo.phone || '',
         documentType: user.personalInfo.documentType || '',
         documentNumber: user.personalInfo.documentNumber || '',
-        establishmentIds: user.employment.establishmentIds,
+        establishmentIds: user.assignment.establishmentIds,
         password: '', // Don't show password when editing
         requirePasswordChange: false
       });

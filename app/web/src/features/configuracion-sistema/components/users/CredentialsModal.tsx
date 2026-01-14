@@ -25,7 +25,7 @@ export function CredentialsModal({ isOpen, onClose, credentials, user, establish
 
   // Get user establishments
   const userEstablishments = establishments.filter(est =>
-    user.employment.establishmentIds.includes(est.id)
+    user.assignment.establishmentIds.includes(est.id)
   );
 
   // Get user roles

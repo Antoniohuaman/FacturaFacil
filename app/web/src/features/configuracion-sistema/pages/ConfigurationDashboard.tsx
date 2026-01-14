@@ -53,9 +53,9 @@ export function ConfigurationDashboard() {
       completionPercentage: state.warehouses.length > 0 ? 100 : 0,
       count: state.warehouses.length
     },
-    employees: {
-      isConfigured: state.employees.length > 0,
-      completionPercentage: state.employees.length > 0 ? 100 : 0
+    users: {
+      isConfigured: state.users.length > 0,
+      completionPercentage: state.users.length > 0 ? 100 : 0
     },
     series: {
       isConfigured: state.series.length > 0,
@@ -128,13 +128,13 @@ export function ConfigurationDashboard() {
       estimatedTime: '8 min'
     },
     {
-      id: 'employees',
+      id: 'users',
       title: 'Usuarios y Roles',
       description: 'Usuarios del sistema, roles y permisos por establecimiento',
       icon: Users,
       path: '/configuracion/usuarios',
-      status: status.employees.isConfigured ? 'complete' : 'pending',
-      completionPercentage: status.employees.isConfigured ? 100 : 0,
+      status: status.users.isConfigured ? 'complete' : 'pending',
+      completionPercentage: status.users.isConfigured ? 100 : 0,
       priority: 'medium',
       estimatedTime: '10 min'
     },

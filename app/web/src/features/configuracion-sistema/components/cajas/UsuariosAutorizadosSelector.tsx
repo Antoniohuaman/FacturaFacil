@@ -21,7 +21,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
 
   // Filter users based on cash register permissions
   const availableUsers = React.useMemo(() => {
-    let users = state.employees.filter((user: User) => user.status === 'ACTIVE');
+    let users = state.users.filter((user: User) => user.status === 'ACTIVE');
 
     if (filterByCashPermission) {
       users = users.filter((user: User) => {
@@ -35,7 +35,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
     return users.sort((a: User, b: User) => 
       a.personalInfo.fullName.localeCompare(b.personalInfo.fullName)
     );
-  }, [state.employees, filterByCashPermission]);
+  }, [state.users, filterByCashPermission]);
 
   const handleToggleUser = (userId: string) => {
     if (disabled) return;
@@ -58,7 +58,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
   };
 
   const getUserName = (userId: string): string => {
-    const user = state.employees.find((emp: User) => emp.id === userId);
+    const user = state.users.find((user: User) => user.id === userId);
     return user?.personalInfo.fullName || 'Usuario desconocido';
   };
 
@@ -126,7 +126,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
                   {user.personalInfo.fullName}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {user.employment.position} • {user.code}
+                  {user.assignment.position} • {user.code}
                   {user.systemAccess.roles.length > 0 && (
                     <span className="ml-2">
                       Roles: {user.systemAccess.roles.map(r => r.name).join(', ')}

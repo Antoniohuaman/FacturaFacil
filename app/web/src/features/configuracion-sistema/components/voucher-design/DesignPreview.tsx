@@ -58,7 +58,7 @@ interface VoucherSampleData {
     reference?: string;
   };
   additional: {
-    employee?: string;
+    user?: string;
     establishment?: string;
     terminal?: string;
     notes?: string;
@@ -128,7 +128,7 @@ const DEFAULT_SAMPLE_DATA: VoucherSampleData = {
     change: 6.50,
   },
   additional: {
-    employee: 'JUAN PÉREZ VENDEDOR',
+    user: 'JUAN PÉREZ VENDEDOR',
     establishment: 'SUCURSAL PRINCIPAL',
     terminal: 'TERMINAL 001',
     notes: 'Gracias por su compra. Vuelva pronto.',

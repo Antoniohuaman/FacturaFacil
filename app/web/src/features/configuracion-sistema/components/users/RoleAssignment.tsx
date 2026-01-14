@@ -107,8 +107,8 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
     const selectedRoles = roles.filter(role => selectedRoleIds.includes(role.id));
     const levels = selectedRoles.map(role => role.level);
     
-    // Check if there are both ADMIN and EMPLOYEE role levels selected
-    return levels.includes('ADMIN') && levels.includes('EMPLOYEE');
+    // Check if there are both ADMIN and STAFF role levels selected
+    return levels.includes('ADMIN') && levels.includes('STAFF');
   };
 
   const getSelectedRolesInfo = () => {
@@ -116,7 +116,7 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
     if (selectedRoles.length === 0) return null;
 
     const highestLevel = selectedRoles.reduce((highest, role) => {
-      const levelOrder = ['GUEST', 'EMPLOYEE', 'SUPERVISOR', 'MANAGER', 'ADMIN'];
+      const levelOrder = ['GUEST', 'STAFF', 'SUPERVISOR', 'MANAGER', 'ADMIN'];
       const currentIndex = levelOrder.indexOf(role.level);
       const highestIndex = levelOrder.indexOf(highest);
       return currentIndex > highestIndex ? role.level : highest;

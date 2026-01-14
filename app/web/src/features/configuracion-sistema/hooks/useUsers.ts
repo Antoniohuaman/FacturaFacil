@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps -- dependencias extensas; ajuste diferido */
 import { useState, useEffect, useCallback } from 'react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import type { 
@@ -78,13 +77,13 @@ const MOCK_USERS: User[] = [
       },
     },
     
-    employment: {
+    assignment: {
       position: 'Gerente de Ventas',
       department: 'Ventas',
       establishmentId: 'est-1',
       establishmentIds: ['est-1', 'est-2'],
       hireDate: new Date('2025-01-01'),
-      employmentType: 'FULL_TIME',
+      assignmentType: 'FULL_TIME',
       salary: 3500.00,
       commissionRate: 5.0,
       workSchedule: {
@@ -143,13 +142,13 @@ const MOCK_USERS: User[] = [
       gender: 'F',
     },
     
-    employment: {
+    assignment: {
       position: 'Vendedora Senior',
       department: 'Ventas',
       establishmentId: 'est-1',
       establishmentIds: ['est-1'],
       hireDate: new Date('2025-01-05'),
-      employmentType: 'FULL_TIME',
+      assignmentType: 'FULL_TIME',
       salary: 1800.00,
       commissionRate: 3.0,
       workSchedule: {
@@ -202,13 +201,13 @@ const MOCK_USERS: User[] = [
       gender: 'M',
     },
     
-    employment: {
+    assignment: {
       position: 'Vendedor',
       department: 'Ventas',
       establishmentId: 'est-2',
       establishmentIds: ['est-2'],
       hireDate: new Date('2025-01-10'),
-      employmentType: 'PART_TIME',
+      assignmentType: 'PART_TIME',
       salary: 1200.00,
       commissionRate: 2.5,
       workSchedule: {
@@ -225,7 +224,7 @@ const MOCK_USERS: User[] = [
       username: 'luis.torres',
       email: 'luis.torres@empresademo.com',
       requiresPinForActions: false,
-      roleIds: ['role-3'], // Employee role
+      roleIds: ['role-3'], // User role
       roles: [SYSTEM_ROLES[2] as Role], // Vendedor
       permissions: [],
       lastLogin: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
@@ -250,7 +249,7 @@ export function useUsers(): UseUsersReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const users = state.employees;
+  const users = state.users;
 
   // Load users
   const loadUsers = useCallback(async () => {
@@ -261,7 +260,7 @@ export function useUsers(): UseUsersReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      dispatch({ type: 'SET_EMPLOYEES', payload: MOCK_USERS });
+      dispatch({ type: 'SET_USERS', payload: MOCK_USERS });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading users');
     } finally {
@@ -348,33 +347,33 @@ export function useUsers(): UseUsersReturn {
         }
       }
 
-      // Employment validations
-      if (data.employment) {
-        const { employment } = data;
+      // Assignment validations
+      if (data.assignment) {
+        const { assignment } = data;
 
-        if (!employment.position?.trim()) {
+        if (!assignment.position?.trim()) {
           errors.push('El cargo es requerido');
         }
 
-        if (!employment.department?.trim()) {
+        if (!assignment.department?.trim()) {
           errors.push('El departamento es requerido');
         }
 
-        if (!employment.establishmentId?.trim()) {
+        if (!assignment.establishmentId?.trim()) {
           errors.push('El establecimiento principal es requerido');
         }
 
-        if (!employment.establishmentIds || employment.establishmentIds.length === 0) {
+        if (!assignment.establishmentIds || assignment.establishmentIds.length === 0) {
           errors.push('Debe seleccionar al menos un establecimiento');
         }
 
-        if (employment.salary && employment.salary < 0) {
+        if (assignment.salary && assignment.salary < 0) {
           errors.push('El salario no puede ser negativo');
         }
 
         if (
-          employment.commissionRate &&
-          (employment.commissionRate < 0 || employment.commissionRate > 100)
+          assignment.commissionRate &&
+          (assignment.commissionRate < 0 || assignment.commissionRate > 100)
         ) {
           errors.push('El porcentaje de comisión debe estar entre 0 y 100');
         }
@@ -429,7 +428,7 @@ export function useUsers(): UseUsersReturn {
     (establishmentId: string): User[] =>
       users.filter(
         user =>
-          user.employment.establishmentIds.includes(establishmentId) &&
+          user.assignment.establishmentIds.includes(establishmentId) &&
           user.status === 'ACTIVE',
       ),
     [users],
@@ -457,8 +456,8 @@ export function useUsers(): UseUsersReturn {
         id: user.id,
         code: user.code,
         fullName: user.personalInfo.fullName,
-        position: user.employment.position,
-        establishment: `Establecimiento ${user.employment.establishmentId}`, // In real app, get name
+        position: user.assignment.position,
+        establishment: `Establecimiento ${user.assignment.establishmentId}`, // In real app, get name
         status: user.status,
         lastLogin: user.systemAccess.lastLogin,
         avatar: user.avatar,
@@ -507,8 +506,8 @@ export function useUsers(): UseUsersReturn {
             ...data.personalInfo,
             fullName: `${data.personalInfo.firstName} ${data.personalInfo.lastName}`,
           },
-          employment: {
-            ...data.employment,
+          assignment: {
+            ...data.assignment,
             workSchedule: {
               mondayToFriday: {
                 startTime: '09:00',
@@ -534,7 +533,7 @@ export function useUsers(): UseUsersReturn {
           updatedBy: 'current-user',
         };
 
-        dispatch({ type: 'ADD_EMPLOYEE', payload: newUser });
+        dispatch({ type: 'ADD_USER', payload: newUser });
 
         return newUser;
       } catch (err) {
@@ -607,9 +606,9 @@ export function useUsers(): UseUsersReturn {
                 ? `${data.personalInfo.firstName} ${data.personalInfo.lastName}`
                 : existingUser.personalInfo.fullName,
           },
-          employment: {
-            ...existingUser.employment,
-            ...data.employment,
+          assignment: {
+            ...existingUser.assignment,
+            ...data.assignment,
           },
           systemAccess: {
             ...existingUser.systemAccess,
@@ -620,7 +619,7 @@ export function useUsers(): UseUsersReturn {
           updatedBy: 'current-user',
         };
 
-        dispatch({ type: 'UPDATE_EMPLOYEE', payload: updatedUser });
+        dispatch({ type: 'UPDATE_USER', payload: updatedUser });
 
         return updatedUser;
       } catch (err) {
@@ -648,7 +647,7 @@ export function useUsers(): UseUsersReturn {
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 600));
 
-        dispatch({ type: 'DELETE_EMPLOYEE', payload: id });
+        dispatch({ type: 'DELETE_USER', payload: id });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error deleting user');
         throw err;
@@ -672,7 +671,7 @@ export function useUsers(): UseUsersReturn {
           user.id === id ? { ...user, status: 'ACTIVE' as const, updatedAt: new Date() } : user,
         );
 
-        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+        dispatch({ type: 'SET_USERS', payload: updatedUsers });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error activating user');
       } finally {
@@ -703,7 +702,7 @@ export function useUsers(): UseUsersReturn {
             : user,
         );
 
-        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+        dispatch({ type: 'SET_USERS', payload: updatedUsers });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error suspending user');
       } finally {
@@ -734,7 +733,7 @@ export function useUsers(): UseUsersReturn {
             : user,
         );
 
-        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+        dispatch({ type: 'SET_USERS', payload: updatedUsers });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error terminating user');
       } finally {
@@ -767,7 +766,7 @@ export function useUsers(): UseUsersReturn {
             : user,
         );
 
-        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+        dispatch({ type: 'SET_USERS', payload: updatedUsers });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error updating last login');
       } finally {
@@ -814,7 +813,7 @@ export function useUsers(): UseUsersReturn {
                   }
                 : candidate,
             );
-            dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+            dispatch({ type: 'SET_USERS', payload: updatedUsers });
             return null;
           }
         }
@@ -863,7 +862,7 @@ export function useUsers(): UseUsersReturn {
             : candidate,
         );
 
-        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+        dispatch({ type: 'SET_USERS', payload: updatedUsers });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error locking user');
       } finally {
@@ -902,7 +901,7 @@ export function useUsers(): UseUsersReturn {
             : candidate,
         );
 
-        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+        dispatch({ type: 'SET_USERS', payload: updatedUsers });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error unlocking user');
       } finally {
@@ -941,7 +940,7 @@ export function useUsers(): UseUsersReturn {
       }
 
       // By establishment
-      const establishment = user.employment.establishmentId;
+      const establishment = user.assignment.establishmentId;
       stats.byEstablishment[establishment] =
         (stats.byEstablishment[establishment] || 0) + 1;
 

@@ -162,7 +162,7 @@ export interface TicketVoucherDesign {
       enabled: boolean;
       alignment: 'left' | 'center' | 'right';
       fontSize: 'small' | 'medium' | 'large';
-      showEmployee: boolean;
+      showUser: boolean;
       showEstablishment: boolean;
       showTerminal: boolean;
       lineSpacing: number;
@@ -329,7 +329,7 @@ const DEFAULT_TICKET_DESIGN: TicketVoucherDesign = {
       enabled: false,
       alignment: 'center',
       fontSize: 'small',
-      showEmployee: true,
+      showUser: true,
       showEstablishment: true,
       showTerminal: false,
       lineSpacing: 1,

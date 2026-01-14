@@ -115,7 +115,7 @@ export interface EstablishmentSummary {
   district: string;
   status: Establishment['status'];
   isMainEstablishment: boolean;
-  employeeCount?: number;
+  userCount?: number;
   hasPos: boolean;
 }
 

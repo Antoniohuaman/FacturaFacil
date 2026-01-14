@@ -150,7 +150,7 @@ export function UserCard({
   return (
     <>
       <div
-        data-focus={`configuracion:empleados:${user.id}`}
+        data-focus={`configuracion:usuarios:${user.id}`}
         className={`
         bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200
         ${!compact ? 'p-6' : 'p-4'}
@@ -302,7 +302,7 @@ export function UserCard({
                       </button>
                     ) : null}
 
-                    {/* Delete - Only show if employee has no transactions */}
+                    {/* Delete - Only show if user has no transactions */}
                     {!user.hasTransactions && (
                       <>
                         <div className="border-t border-gray-100 my-1"></div>
@@ -357,10 +357,10 @@ export function UserCard({
             </p>
           )}
           
-          {user.status === 'ACTIVE' && user.employment.hireDate && (
+          {user.status === 'ACTIVE' && user.assignment.hireDate && (
             <p className="text-xs text-gray-600 mt-2">
               <CheckCircle className="w-3 h-3 inline mr-1" />
-              Contratado {formatDate(user.employment.hireDate)}
+              Contratado {formatDate(user.assignment.hireDate)}
             </p>
           )}
           
@@ -380,11 +380,11 @@ export function UserCard({
               <span>Roles por Establecimiento</span>
             </h4>
             <span className="text-xs text-gray-500">
-              {user.employment.establishmentIds.length} asignado{user.employment.establishmentIds.length !== 1 ? 's' : ''}
+              {user.assignment.establishmentIds.length} asignado{user.assignment.establishmentIds.length !== 1 ? 's' : ''}
             </span>
           </div>
           
-          {user.employment.establishmentIds.length === 0 ? (
+          {user.assignment.establishmentIds.length === 0 ? (
             <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <Shield className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-500 mb-2">Sin roles asignados</p>
@@ -397,7 +397,7 @@ export function UserCard({
             </div>
           ) : (
             <div className="space-y-2">
-              {user.employment.establishmentIds.map((establishmentId: string, index: number) => (
+              {user.assignment.establishmentIds.map((establishmentId: string, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">

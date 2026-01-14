@@ -100,14 +100,14 @@ export function CajaForm({
     if (touched.has('usuariosAutorizados') || touched.has('habilitada')) {
       const usuariosError = validateUsuariosAutorizados(
         formData.usuariosAutorizados,
-        state.employees,
+        state.users,
         formData.habilitada
       );
       if (usuariosError) newErrors.push(usuariosError);
     }
 
     setErrors(newErrors);
-  }, [formData, touched, existingNames, isEditing, state.employees]);
+  }, [formData, touched, existingNames, isEditing, state.users]);
 
   const handleBlur = (field: string) => {
     setTouched(prev => new Set(prev).add(field));

@@ -81,7 +81,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     }
 
     // Validate input with users from context
-    const validation = validateCreateCaja(input, cajas, state.employees);
+    const validation = validateCreateCaja(input, cajas, state.users);
     if (!validation.isValid) {
       throw new Error(validation.errors.map(e => e.message).join(', '));
     }
@@ -100,7 +100,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     } finally {
       setLoading(false);
     }
-  }, [empresaId, establecimientoId, cajas, dispatch, state.employees]);
+  }, [empresaId, establecimientoId, cajas, dispatch, state.users]);
 
   /**
    * Update an existing caja
@@ -111,7 +111,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     }
 
     // Validate input with users from context
-    const validation = validateUpdateCaja(input, cajas, id, state.employees);
+    const validation = validateUpdateCaja(input, cajas, id, state.users);
     if (!validation.isValid) {
       throw new Error(validation.errors.map(e => e.message).join(', '));
     }
@@ -130,7 +130,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     } finally {
       setLoading(false);
     }
-  }, [empresaId, establecimientoId, cajas, dispatch, state.employees]);
+  }, [empresaId, establecimientoId, cajas, dispatch, state.users]);
 
   /**
    * Toggle enabled/disabled state of a caja
@@ -213,14 +213,14 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
   ): ValidationError[] => {
     if (cajaId) {
       // Update validation with users from context
-      const validation = validateUpdateCaja(input as UpdateCajaInput, cajas, cajaId, state.employees);
+      const validation = validateUpdateCaja(input as UpdateCajaInput, cajas, cajaId, state.users);
       return validation.errors;
     } else {
       // Create validation with users from context
-      const validation = validateCreateCaja(input as CreateCajaInput, cajas, state.employees);
+      const validation = validateCreateCaja(input as CreateCajaInput, cajas, state.users);
       return validation.errors;
     }
-  }, [cajas, state.employees]);
+  }, [cajas, state.users]);
 
   /**
    * Get statistics about cajas

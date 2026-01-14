@@ -61,7 +61,7 @@ export interface Configuration {
   };
 
   // Configuraciones de usuarios
-  employees: {
+  users: {
     enableTimeTracking: boolean;
     enableCommissions: boolean;
     enableMultipleRoles: boolean;
@@ -190,7 +190,7 @@ export const CONFIGURATION_MODULES: ConfigurationModule[] = [
     progress: 0,
   },
   {
-    id: 'employees',
+    id: 'users',
     name: 'Usuarios y Roles',
     description: 'Gestionar personal y permisos',
     icon: 'Users',

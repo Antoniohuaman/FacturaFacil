@@ -200,10 +200,10 @@ const CONFIGURATION_STEPS: Record<string, ConfigurationStep[]> = {
       order: 3,
     },
   ],
-  employees: [
+  users: [
     {
-      id: 'employees-admin',
-      moduleId: 'employees',
+      id: 'users-admin',
+      moduleId: 'users',
       title: 'Usuario Administrador',
       description: 'Configurar usuario administrador principal',
       isCompleted: false,
@@ -212,8 +212,8 @@ const CONFIGURATION_STEPS: Record<string, ConfigurationStep[]> = {
       validationRules: ['admin_user_required'],
     },
     {
-      id: 'employees-roles',
-      moduleId: 'employees',
+      id: 'users-roles',
+      moduleId: 'users',
       title: 'Roles y Permisos',
       description: 'Configurar roles de usuario',
       isCompleted: false,
@@ -221,8 +221,8 @@ const CONFIGURATION_STEPS: Record<string, ConfigurationStep[]> = {
       order: 2,
     },
     {
-      id: 'employees-staff',
-      moduleId: 'employees',
+      id: 'users-staff',
+      moduleId: 'users',
       title: 'Personal de Ventas',
       description: 'Agregar usuarios del área de ventas',
       isCompleted: false,
@@ -377,29 +377,29 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
         }
         break;
         
-      case 'employees':
-        const adminEmployees = state.employees.filter(emp => 
-          emp.systemAccess.roles.some(role => role.level === 'ADMIN')
+      case 'users':
+        const adminUsers = state.users.filter(user => 
+          user.systemAccess.roles.some(role => role.level === 'ADMIN')
         );
         
         completedSteps = steps.filter(step => {
           switch (step.id) {
-            case 'employees-admin':
-              return adminEmployees.length > 0;
-            case 'employees-roles':
-              return state.employees.some(emp => emp.systemAccess.roles.length > 0);
-            case 'employees-staff':
-              return state.employees.length > 1;
+            case 'users-admin':
+              return adminUsers.length > 0;
+            case 'users-roles':
+              return state.users.some(user => user.systemAccess.roles.length > 0);
+            case 'users-staff':
+              return state.users.length > 1;
             default:
               return false;
           }
         });
         
         progress = (completedSteps.length / steps.length) * 100;
-        isConfigured = adminEmployees.length > 0;
+        isConfigured = adminUsers.length > 0;
         status = isConfigured ? 'CONFIGURED' : 'PENDING';
         
-        if (adminEmployees.length === 0) {
+        if (adminUsers.length === 0) {
           criticalIssues.push('No se ha configurado usuario administrador');
         }
         break;
@@ -444,7 +444,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
       establishments: 'Establecimientos',
       business: 'Configuración Comercial',
       series: 'Series de Comprobantes',
-      employees: 'Usuarios y Roles',
+      users: 'Usuarios y Roles',
       'voucher-design': 'Diseño de Comprobantes',
     };
     return moduleNames[moduleId] || moduleId;
@@ -498,7 +498,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const moduleIds = ['company', 'establishments', 'business', 'series', 'employees', 'voucher-design'];
+      const moduleIds = ['company', 'establishments', 'business', 'series', 'users', 'voucher-design'];
       const updatedModules = moduleIds.map(calculateModuleStatus);
       
       setModules(updatedModules);
@@ -574,7 +574,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
 
   // Get next required module
   const getNextRequiredModule = useCallback((): ModuleStatus | undefined => {
-    const moduleOrder = ['company', 'establishments', 'business', 'series', 'employees', 'voucher-design'];
+    const moduleOrder = ['company', 'establishments', 'business', 'series', 'users', 'voucher-design'];
     
     for (const moduleId of moduleOrder) {
       const module = modules.find(m => m.id === moduleId);
@@ -589,7 +589,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
   // Check if configuration can be completed
   const canCompleteConfiguration = useCallback((): boolean => {
     const criticalModules = getCriticalModules();
-    const requiredModules = ['company', 'establishments', 'business', 'series', 'employees'];
+    const requiredModules = ['company', 'establishments', 'business', 'series', 'users'];
     
     return requiredModules.every(moduleId => {
       const module = modules.find(m => m.id === moduleId);

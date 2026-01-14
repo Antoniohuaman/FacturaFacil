@@ -59,7 +59,7 @@ export function TabNavigation() {
       description: 'Series de comprobantes'
     },
     {
-      id: 'employees',
+      id: 'users',
       label: 'Usuarios',
       icon: Users,
       path: '/configuracion/usuarios',

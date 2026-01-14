@@ -3,7 +3,7 @@ import type { Role } from './Role';
 
 export interface User {
   id: string;
-  code: string; // Employee code for internal identification
+  code: string; // User code for internal identification
   
   // Personal Information
   personalInfo: {
@@ -24,14 +24,14 @@ export interface User {
     };
   };
 
-  // Employment Information
-  employment: {
+  // Assignment Information
+  assignment: {
     position: string;
     department: string;
     establishmentId: string; // Primary establishment
-    establishmentIds: string[]; // All establishments the employee can access
+    establishmentIds: string[]; // All establishments the user can access
     hireDate: Date;
-    employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
+    assignmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
     salary?: number;
     commissionRate?: number;
     workSchedule: {
@@ -80,7 +80,7 @@ export interface User {
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
   avatar?: string;
   notes?: string;
-  hasTransactions?: boolean; // Flag to track if employee has any transactions (sales, purchases, etc.)
+  hasTransactions?: boolean; // Flag to track if user has any transactions (sales, purchases, etc.)
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -113,13 +113,13 @@ export interface CreateUserRequest {
       relationship: string;
     };
   };
-  employment: {
+  assignment: {
     position: string;
     department: string;
     establishmentId: string;
     establishmentIds: string[];
     hireDate: Date;
-    employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
+    assignmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
     salary?: number;
     commissionRate?: number;
   };
@@ -149,7 +149,7 @@ export interface UserSummary {
   avatar?: string;
 }
 
-export const EMPLOYMENT_TYPES = [
+export const ASSIGNMENT_TYPES = [
   { value: 'FULL_TIME', label: 'Tiempo Completo' },
   { value: 'PART_TIME', label: 'Medio Tiempo' },
   { value: 'CONTRACT', label: 'Por Contrato' },

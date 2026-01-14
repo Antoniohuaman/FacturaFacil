@@ -132,7 +132,7 @@ export function RolesList({ roles, users = [], isLoading = false }: RolesListPro
           <RoleCard
             key={index}
             role={role}
-            employeeCount={getUserCountForRole(index)}
+            userCount={getUserCountForRole(index)}
           />
         ))}
       </div>

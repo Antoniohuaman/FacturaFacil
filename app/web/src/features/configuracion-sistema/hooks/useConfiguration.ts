@@ -84,7 +84,7 @@ const MOCK_CONFIGURATION: Configuration = {
     enableStockReservation: false,
   },
   
-  employees: {
+  users: {
     enableTimeTracking: false,
     enableCommissions: true,
     enableMultipleRoles: true,
@@ -198,8 +198,8 @@ export function useConfiguration(): UseConfigurationReturn {
             progress = isConfigured ? 100 : 0;
             break;
             
-          case 'employees':
-            isConfigured = state.employees.length > 0;
+          case 'users':
+            isConfigured = state.users.length > 0;
             progress = isConfigured ? 100 : 0;
             break;
             

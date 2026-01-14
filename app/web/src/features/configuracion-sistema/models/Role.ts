@@ -3,7 +3,7 @@ export interface Role {
   name: string;
   description: string;
   type: 'SYSTEM' | 'CUSTOM';
-  level: 'ADMIN' | 'MANAGER' | 'SUPERVISOR' | 'EMPLOYEE' | 'GUEST';
+  level: 'ADMIN' | 'MANAGER' | 'SUPERVISOR' | 'STAFF' | 'GUEST';
   
   // Permissions grouped by module
   permissions: {
@@ -55,7 +55,7 @@ export interface Role {
       canViewSalesReports: boolean;
       canViewInventoryReports: boolean;
       canViewFinancialReports: boolean;
-      canViewEmployeeReports: boolean;
+      canViewUserReports: boolean;
       canExportReports: boolean;
       canScheduleReports: boolean;
       canViewAllEstablishments: boolean;
@@ -67,7 +67,7 @@ export interface Role {
       canView: boolean;
       canEditCompany: boolean;
       canEditEstablishments: boolean;
-      canEditEmployees: boolean;
+      canEditUsers: boolean;
       canEditRoles: boolean;
       canEditTaxes: boolean;
       canEditPaymentMethods: boolean;
@@ -147,7 +147,7 @@ export interface RoleSummary {
   description: string;
   type: Role['type'];
   level: Role['level'];
-  employeeCount: number;
+  userCount: number;
   isActive: boolean;
 }
 
@@ -198,7 +198,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canViewSalesReports: true,
         canViewInventoryReports: true,
         canViewFinancialReports: true,
-        canViewEmployeeReports: true,
+        canViewUserReports: true,
         canExportReports: true,
         canScheduleReports: true,
         canViewAllEstablishments: true,
@@ -207,7 +207,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canView: true,
         canEditCompany: true,
         canEditEstablishments: true,
-        canEditEmployees: true,
+        canEditUsers: true,
         canEditRoles: true,
         canEditTaxes: true,
         canEditPaymentMethods: true,
@@ -281,7 +281,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canViewSalesReports: true,
         canViewInventoryReports: true,
         canViewFinancialReports: true,
-        canViewEmployeeReports: true,
+        canViewUserReports: true,
         canExportReports: true,
         canScheduleReports: true,
         canViewAllEstablishments: true,
@@ -290,7 +290,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canView: true,
         canEditCompany: false,
         canEditEstablishments: false,
-        canEditEmployees: false,
+        canEditUsers: false,
         canEditRoles: false,
         canEditTaxes: false,
         canEditPaymentMethods: false,
@@ -322,7 +322,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
     name: 'Vendedor',
     description: 'Acceso básico a ventas y consulta de inventario',
     type: 'SYSTEM',
-    level: 'EMPLOYEE',
+    level: 'STAFF',
     permissions: {
       sales: {
         canView: true,
@@ -364,7 +364,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canViewSalesReports: false,
         canViewInventoryReports: false,
         canViewFinancialReports: false,
-        canViewEmployeeReports: false,
+        canViewUserReports: false,
         canExportReports: false,
         canScheduleReports: false,
         canViewAllEstablishments: false,
@@ -373,7 +373,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canView: false,
         canEditCompany: false,
         canEditEstablishments: false,
-        canEditEmployees: false,
+        canEditUsers: false,
         canEditRoles: false,
         canEditTaxes: false,
         canEditPaymentMethods: false,
@@ -407,6 +407,6 @@ export const ROLE_LEVELS = [
   { value: 'ADMIN', label: 'Administrador', color: 'red' },
   { value: 'MANAGER', label: 'Gerente', color: 'orange' },
   { value: 'SUPERVISOR', label: 'Supervisor', color: 'yellow' },
-  { value: 'EMPLOYEE', label: 'Empleado', color: 'blue' },
+  { value: 'STAFF', label: 'Usuario', color: 'blue' },
   { value: 'GUEST', label: 'Invitado', color: 'gray' },
 ] as const;
