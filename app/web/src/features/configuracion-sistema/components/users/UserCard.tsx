@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-// src/features/configuration/components/employees/EmployeeCard.tsx
+// src/features/configuration/components/users/UserCard.tsx
 import { useState } from 'react';
 import {
   FileText,
@@ -25,10 +25,10 @@ import type { Role } from '../../models/Role';
 import type { Establishment } from '../../models/Establishment';
 import { StatusIndicator } from '../common/StatusIndicator';
 
-// Type helper for employee status
+// Type helper for user status
 type UserStatus = User['status'];
 
-interface EmployeeCardProps {
+interface UserCardProps {
   employee: User;
   roles: Role[];
   establishments: Establishment[];
@@ -41,7 +41,7 @@ interface EmployeeCardProps {
   compact?: boolean;
 }
 
-export function EmployeeCard({
+export function UserCard({
   employee,
   roles: _roles, // Mantener para compatibilidad futura
   establishments,
@@ -52,7 +52,7 @@ export function EmployeeCard({
   onRemoveRole,
   showActions = true,
   compact = false
-}: EmployeeCardProps) {
+}: UserCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusReason, setStatusReason] = useState('');

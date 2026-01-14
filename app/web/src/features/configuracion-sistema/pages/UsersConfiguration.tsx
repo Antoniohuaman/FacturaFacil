@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
-import { EmployeesList } from '../components/users/EmployeesList';
-import { EmployeeForm } from '../components/users/EmployeeForm';
+import { UsersList } from '../components/users/UsersList';
+import { UserForm } from '../components/users/UserForm';
 import { RolesList } from '../components/roles/RolesList';
 import { CredentialsModal } from '../components/users/CredentialsModal';
 import { SYSTEM_ROLES } from '../models/Role';
@@ -22,7 +22,7 @@ import RoleAssignment from '../components/users/RoleAssignment';
 
 type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
 
-interface EmployeeFormData {
+interface UserFormData {
   fullName: string;
   email: string;
   phone: string;
@@ -75,7 +75,7 @@ export function UsersConfiguration() {
   };
 
   // Handle create/edit employee
-  const handleSubmitEmployee = async (data: EmployeeFormData) => {
+  const handleSubmitEmployee = async (data: UserFormData) => {
     setIsLoading(true);
 
     try {
@@ -377,9 +377,9 @@ export function UsersConfiguration() {
         </nav>
       </div>
 
-      {/* Employees Tab */}
+      {/* Users Tab */}
       {activeTab === 'employees' && (
-        <EmployeesList
+        <UsersList
           employees={employees}
           roles={SYSTEM_ROLES as Role[]}
           establishments={establishments}
@@ -402,9 +402,9 @@ export function UsersConfiguration() {
         />
       )}
 
-      {/* Employee Form Modal */}
+      {/* User Form Modal */}
       {showEmployeeForm && (
-        <EmployeeForm
+        <UserForm
           employee={editingEmployee || undefined}
           establishments={establishments}
           existingEmails={existingEmails}

@@ -1,13 +1,13 @@
 /* eslint-disable no-case-declarations -- switch con declaraciones; refactor diferido */
 /* eslint-disable no-useless-escape -- regex literal heredado; limpieza diferida */
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-// src/features/configuration/components/employees/EmployeeForm.tsx
+// src/features/configuration/components/users/UserForm.tsx
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Shield } from 'lucide-react';
 import type { User as UserModel } from '../../models/User';
 import type { Establishment } from '../../models/Establishment';
 
-interface EmployeeFormData {
+interface UserFormData {
   fullName: string;
   email: string;
   phone: string;
@@ -18,11 +18,11 @@ interface EmployeeFormData {
   requirePasswordChange: boolean;
 }
 
-interface EmployeeFormProps {
+interface UserFormProps {
   employee?: UserModel;
   establishments: Establishment[];
   existingEmails: string[];
-  onSubmit: (data: EmployeeFormData) => Promise<void>;
+  onSubmit: (data: UserFormData) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
 }
@@ -80,15 +80,15 @@ const calculatePasswordStrength = (password: string): { score: number; label: st
   return { score, label: 'Fuerte', color: 'green' };
 };
 
-export function EmployeeForm({
+export function UserForm({
   employee,
   establishments,
   existingEmails,
   onSubmit,
   onCancel,
   isLoading = false
-}: EmployeeFormProps) {
-  const [formData, setFormData] = useState<EmployeeFormData>({
+}: UserFormProps) {
+  const [formData, setFormData] = useState<UserFormData>({
     fullName: '',
     email: '',
     phone: '',
@@ -216,7 +216,7 @@ export function EmployeeForm({
 
   const handleBlur = (field: string) => {
     setTouchedFields(prev => new Set(prev).add(field));
-    const error = validateField(field, formData[field as keyof EmployeeFormData]);
+    const error = validateField(field, formData[field as keyof UserFormData]);
     setErrors(prev => ({
       ...prev,
       [field]: error || ''
@@ -230,15 +230,15 @@ export function EmployeeForm({
 
     // Check required fields
     for (const field of requiredFields) {
-      const error = validateField(field, formData[field as keyof EmployeeFormData]);
+      const error = validateField(field, formData[field as keyof UserFormData]);
       if (error) return false;
     }
 
     // Check optional fields if they have values
     const optionalFields = ['phone', 'documentNumber'];
     for (const field of optionalFields) {
-      if (formData[field as keyof EmployeeFormData]) {
-        const error = validateField(field, formData[field as keyof EmployeeFormData]);
+      if (formData[field as keyof UserFormData]) {
+        const error = validateField(field, formData[field as keyof UserFormData]);
         if (error) return false;
       }
     }
@@ -256,7 +256,7 @@ export function EmployeeForm({
       : ['fullName', 'email', 'phone', 'documentNumber', 'establishmentIds', 'password'];
 
     fieldsToValidate.forEach(field => {
-      const error = validateField(field, formData[field as keyof EmployeeFormData]);
+      const error = validateField(field, formData[field as keyof UserFormData]);
       if (error) newErrors[field] = error;
     });
 

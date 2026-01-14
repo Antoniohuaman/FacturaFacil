@@ -1,4 +1,4 @@
-// src/features/configuration/components/employees/EmployeesList.tsx
+// src/features/configuration/components/users/UsersList.tsx
 import { useState } from 'react';
 import {
   Users,
@@ -13,7 +13,7 @@ import {
 import type { User } from '../../models/User';
 import type { Role } from '../../models/Role';
 import type { Establishment } from '../../models/Establishment';
-import { EmployeeCard } from './EmployeeCard';
+import { UserCard } from './UserCard';
 import { StatusIndicator } from '../common/StatusIndicator';
 
 type UserStatus = User['status'];
@@ -23,7 +23,7 @@ type ViewMode = 'grid' | 'table';
 type SortField = 'name' | 'email' | 'status' | 'created' | 'roles';
 type SortOrder = 'asc' | 'desc';
 
-interface EmployeesListProps {
+interface UsersListProps {
   employees: User[];
   roles: Role[];
   establishments: Establishment[];
@@ -36,7 +36,7 @@ interface EmployeesListProps {
   isLoading?: boolean;
 }
 
-export function EmployeesList({
+export function UsersList({
   employees,
   roles,
   establishments,
@@ -47,7 +47,7 @@ export function EmployeesList({
   onRemoveRole,
   onCreate,
   isLoading = false
-}: EmployeesListProps) {
+}: UsersListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
   const [filterEstablishment, setFilterEstablishment] = useState('ALL');
@@ -94,7 +94,7 @@ export function EmployeesList({
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
-  const getEmployeeStats = () => {
+  const getUserStats = () => {
     return {
       total: employees.length,
       active: employees.filter(e => e.status === 'ACTIVE').length,
@@ -154,7 +154,7 @@ export function EmployeesList({
     setFilterEstablishment('ALL');
   };
 
-  const stats = getEmployeeStats();
+  const stats = getUserStats();
 
   if (isLoading) {
     return (
@@ -392,17 +392,17 @@ export function EmployeesList({
       ) : viewMode === 'grid' ? (
         /* Grid View */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredEmployees.map((employee) => (
-            <EmployeeCard
-              key={employee.id}
-              employee={employee}
+          {filteredEmployees.map((user) => (
+            <UserCard
+              key={user.id}
+              employee={user}
               roles={roles}
               establishments={establishments}
-              onEdit={() => onEdit(employee)}
-              onDelete={() => onDelete(employee)}
-              onChangeStatus={(status, reason) => onChangeStatus(employee, status, reason)}
-              onAssignRole={() => onAssignRole(employee)}
-              onRemoveRole={(establishmentId) => onRemoveRole(employee, establishmentId)}
+              onEdit={() => onEdit(user)}
+              onDelete={() => onDelete(user)}
+              onChangeStatus={(status, reason) => onChangeStatus(user, status, reason)}
+              onAssignRole={() => onAssignRole(user)}
+              onRemoveRole={(establishmentId) => onRemoveRole(user, establishmentId)}
             />
           ))}
         </div>
