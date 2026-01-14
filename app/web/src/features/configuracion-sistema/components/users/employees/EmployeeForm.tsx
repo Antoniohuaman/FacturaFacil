@@ -143,7 +143,7 @@ export function EmployeeForm({
           return 'Ingresa un email válido';
         }
         if (existingEmails.includes(value.toLowerCase()) && value.toLowerCase() !== employee?.personalInfo.email?.toLowerCase()) {
-          return 'Ya existe un empleado con este email';
+          return 'Ya existe un usuario con este email';
         }
         break;
 
@@ -313,10 +313,10 @@ export function EmployeeForm({
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {employee ? 'Editar Empleado' : 'Invitar Nuevo Empleado'}
+                  {employee ? 'Editar Usuario' : 'Invitar Nuevo Usuario'}
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {employee ? 'Modifica los datos del empleado' : 'Completa la información para enviar una invitación'}
+                  {employee ? 'Modifica los datos del usuario' : 'Completa la información para enviar una invitación'}
                 </p>
               </div>
             </div>
@@ -497,7 +497,7 @@ export function EmployeeForm({
               <span className="text-sm font-normal text-red-500">*</span>
             </h4>
             <p className="text-sm text-gray-600">
-              Selecciona los establecimientos a los que el empleado tendrá acceso
+              Selecciona los establecimientos a los que el usuario tendrá acceso
             </p>
 
             <div className="space-y-2">
@@ -704,7 +704,7 @@ export function EmployeeForm({
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Por seguridad, el empleado deberá cambiar su contraseña la primera vez que inicie sesión
+                      Por seguridad, el usuario deberá cambiar su contraseña la primera vez que inicie sesión
                     </p>
                   </label>
                 </div>
@@ -715,7 +715,7 @@ export function EmployeeForm({
                   <div className="text-sm text-blue-800">
                     <p className="font-medium">💡 Tip de seguridad</p>
                     <p className="mt-1">
-                      Comparte estas credenciales de forma segura con el empleado.
+                      Comparte estas credenciales de forma segura con el usuario.
                       Puedes copiar la contraseña usando el botón <Copy className="w-3 h-3 inline" />.
                     </p>
                   </div>

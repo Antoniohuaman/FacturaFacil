@@ -97,7 +97,7 @@ export function EmployeeCard({
         icon: UserX,
         bgColor: 'bg-gray-50 border-gray-200',
         textColor: 'text-gray-800',
-        description: 'Empleado terminado'
+        description: 'Usuario terminado'
       }
     };
     return configs[status];
@@ -130,7 +130,7 @@ export function EmployeeCard({
 
   const handleStatusChange = async (newStatus: UserStatus) => {
     if (newStatus === 'INACTIVE' && !statusReason.trim()) {
-      alert('Debes proporcionar un motivo para inactivar al empleado');
+      alert('Debes proporcionar un motivo para inactivar al usuario');
       return;
     }
 
@@ -222,7 +222,7 @@ export function EmployeeCard({
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                     >
                       <Edit3 className="w-4 h-4" />
-                      <span>Editar Empleado</span>
+                      <span>Editar Usuario</span>
                     </button>
                     
                     <button
@@ -455,7 +455,7 @@ export function EmployeeCard({
               <button
                 onClick={onEdit}
                 className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Editar empleado"
+                title="Editar usuario"
               >
                 <Edit3 className="w-4 h-4" />
               </button>
@@ -485,7 +485,7 @@ export function EmployeeCard({
           <div className="bg-white rounded-lg w-full max-w-md">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                Desactivar Empleado
+                Desactivar Usuario
               </h3>
               <p className="text-sm text-gray-500 mt-1">
                 {employee.personalInfo.fullName}
@@ -502,7 +502,7 @@ export function EmployeeCard({
                   onChange={(e) => setStatusReason(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
                   rows={3}
-                  placeholder="Especifica el motivo por el cual se desactiva al empleado..."
+                  placeholder="Especifica el motivo por el cual se desactiva al usuario..."
                   required
                 />
               </div>
@@ -513,7 +513,7 @@ export function EmployeeCard({
                   <div>
                     <h4 className="font-medium text-red-900">Atención</h4>
                     <p className="text-sm text-red-800 mt-1">
-                      El empleado perderá inmediatamente el acceso al sistema y no podrá realizar operaciones.
+                      El usuario perderá inmediatamente el acceso al sistema y no podrá realizar operaciones.
                     </p>
                   </div>
                 </div>

@@ -123,7 +123,7 @@ export function UsersConfiguration() {
             phone: data.phone,
           },
           employment: {
-            position: 'Empleado', // Default position
+            position: 'Usuario', // Default position
             department: 'General', // Default department
             establishmentId: data.establishmentIds[0] || establishments[0]?.id || 'est-1',
             establishmentIds: data.establishmentIds.length > 0
@@ -424,7 +424,7 @@ export function UsersConfiguration() {
                 Asignar Roles - {roleAssignmentModal.employee.personalInfo.fullName}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Selecciona los roles que tendrá este empleado en el sistema
+                Selecciona los roles que tendrá este usuario en el sistema
               </p>
             </div>
 
@@ -478,7 +478,7 @@ export function UsersConfiguration() {
         isOpen={deleteModal.show}
         onClose={() => setDeleteModal({ show: false })}
         onConfirm={() => deleteModal.employee && handleDeleteEmployee(deleteModal.employee)}
-        title="Eliminar Empleado"
+        title="Eliminar Usuario"
         message={
           deleteModal.employee?.hasTransactions
             ? `No puedes eliminar a "${deleteModal.employee?.personalInfo.fullName}" porque tiene transacciones registradas en el sistema. En su lugar, puedes inhabilitarlo para bloquear su acceso.`

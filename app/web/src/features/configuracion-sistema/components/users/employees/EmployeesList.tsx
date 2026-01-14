@@ -336,7 +336,7 @@ export function EmployeesList({
       {/* Results Count */}
       <div className="flex items-center justify-between text-sm text-gray-600">
         <span>
-          {filteredEmployees.length} de {employees.length} empleado{employees.length !== 1 ? 's' : ''}
+          {filteredEmployees.length} de {employees.length} usuario{employees.length !== 1 ? 's' : ''}
         </span>
         
         {/* Sort Dropdown */}
@@ -385,7 +385,7 @@ export function EmployeesList({
               onClick={onCreate}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Nuevo Empleado
+              Nuevo Usuario
             </button>
           )}
         </div>
@@ -417,7 +417,7 @@ export function EmployeesList({
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('name')}
                   >
-                    Empleado {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    Usuario {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
                   <th 
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"

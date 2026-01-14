@@ -120,7 +120,7 @@ const MOCK_EMPLOYEES: User[] = [
     
     status: 'ACTIVE',
     avatar: undefined,
-    notes: 'Empleado destacado con excelente rendimiento',
+    notes: 'Usuario destacado con excelente rendimiento',
     createdAt: new Date('2025-01-01'),
     updatedAt: new Date(),
     createdBy: 'admin',
@@ -237,7 +237,7 @@ const MOCK_EMPLOYEES: User[] = [
     
     status: 'ACTIVE',
     avatar: undefined,
-    notes: 'Empleado en período de prueba',
+    notes: 'Usuario en período de prueba',
     createdAt: new Date('2025-01-10'),
     updatedAt: new Date(),
     createdBy: 'juan.perez',

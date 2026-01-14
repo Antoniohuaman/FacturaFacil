@@ -58,8 +58,8 @@ export function RolesList({ roles, employees = [], isLoading = false }: RolesLis
               Roles del Sistema
             </h4>
             <p className="text-sm text-blue-800">
-              Los roles definen los permisos y accesos que tienen los empleados en el sistema.
-              Cada empleado puede tener uno o más roles asignados según sus responsabilidades.
+              Los roles definen los permisos y accesos que tienen los usuarios en el sistema.
+              Cada usuario puede tener uno o más roles asignados según sus responsabilidades.
             </p>
           </div>
         </div>

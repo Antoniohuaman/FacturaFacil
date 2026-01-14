@@ -335,7 +335,7 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
             <ul className="space-y-1 list-disc list-inside">
               <li>Para vendedores nuevos, usa el rol "Vendedor" únicamente</li>
               <li>Los supervisores pueden tener múltiples roles para mayor flexibilidad</li>
-              <li>Evita asignar roles de "Administrador" y "Empleado" al mismo tiempo</li>
+              <li>Evita asignar roles de "Administrador" y "Usuario" al mismo tiempo</li>
               <li>Puedes asignar múltiples roles, los permisos se combinan automáticamente</li>
             </ul>
           </div>

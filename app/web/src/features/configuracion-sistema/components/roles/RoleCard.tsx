@@ -225,7 +225,7 @@ export function RoleCard({ role, employeeCount = 0 }: RoleCardProps) {
                 </div>
                 <div className="flex items-center space-x-1 text-gray-600">
                   <Users className="w-4 h-4" />
-                  <span>{employeeCount} empleado{employeeCount !== 1 ? 's' : ''}</span>
+                  <span>{employeeCount} usuario{employeeCount !== 1 ? 's' : ''}</span>
                 </div>
               </div>
             </div>
