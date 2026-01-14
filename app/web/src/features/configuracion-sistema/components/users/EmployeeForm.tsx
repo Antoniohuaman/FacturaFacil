@@ -4,8 +4,8 @@
 // src/features/configuration/components/employees/EmployeeForm.tsx
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Shield } from 'lucide-react';
-import type { User as UserModel } from '../../../models/User';
-import type { Establishment } from '../../../models/Establishment';
+import type { User as UserModel } from '../../models/User';
+import type { Establishment } from '../../models/Establishment';
 
 interface EmployeeFormData {
   fullName: string;

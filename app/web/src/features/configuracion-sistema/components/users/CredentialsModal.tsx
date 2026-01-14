@@ -1,9 +1,9 @@
 // src/features/configuration/components/employees/CredentialsModal.tsx
 import { useState } from 'react';
 import { X, Copy, Check, User, Lock, Mail, Shield, Building2, MessageCircle } from 'lucide-react';
-import type { User as UserModel } from '../../../models/User';
-import type { Establishment } from '../../../models/Establishment';
-import type { Role } from '../../../models/Role';
+import type { User as UserModel } from '../../models/User';
+import type { Establishment } from '../../models/Establishment';
+import type { Role } from '../../models/Role';
 
 interface CredentialsModalProps {
   isOpen: boolean;

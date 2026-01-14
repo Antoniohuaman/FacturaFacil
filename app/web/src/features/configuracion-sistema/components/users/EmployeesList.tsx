@@ -10,11 +10,11 @@ import {
   Power,
   PowerOff
 } from 'lucide-react';
-import type { User } from '../../../models/User';
-import type { Role } from '../../../models/Role';
-import type { Establishment } from '../../../models/Establishment';
+import type { User } from '../../models/User';
+import type { Role } from '../../models/Role';
+import type { Establishment } from '../../models/Establishment';
 import { EmployeeCard } from './EmployeeCard';
-import { StatusIndicator } from '../../common/StatusIndicator';
+import { StatusIndicator } from '../common/StatusIndicator';
 
 type UserStatus = User['status'];
 

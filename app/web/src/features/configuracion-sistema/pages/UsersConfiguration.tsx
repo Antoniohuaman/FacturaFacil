@@ -9,16 +9,16 @@ import {
 } from 'lucide-react';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
-import { EmployeesList } from '../components/users/employees/EmployeesList';
-import { EmployeeForm } from '../components/users/employees/EmployeeForm';
+import { EmployeesList } from '../components/users/EmployeesList';
+import { EmployeeForm } from '../components/users/EmployeeForm';
 import { RolesList } from '../components/roles/RolesList';
-import { CredentialsModal } from '../components/users/employees/CredentialsModal';
+import { CredentialsModal } from '../components/users/CredentialsModal';
 import { SYSTEM_ROLES } from '../models/Role';
 import type { User } from '../models/User';
 import type { Role } from '../models/Role';
 
 // Modal for Role Assignment
-import RoleAssignment from '../components/users/employees/RoleAssignment';
+import RoleAssignment from '../components/users/RoleAssignment';
 
 type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
 

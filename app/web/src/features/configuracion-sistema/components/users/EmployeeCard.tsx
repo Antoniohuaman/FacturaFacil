@@ -20,10 +20,10 @@ import {
   Power,
   PowerOff
 } from 'lucide-react';
-import type { User } from '../../../models/User';
-import type { Role } from '../../../models/Role';
-import type { Establishment } from '../../../models/Establishment';
-import { StatusIndicator } from '../../common/StatusIndicator';
+import type { User } from '../../models/User';
+import type { Role } from '../../models/Role';
+import type { Establishment } from '../../models/Establishment';
+import { StatusIndicator } from '../common/StatusIndicator';
 
 // Type helper for employee status
 type UserStatus = User['status'];
