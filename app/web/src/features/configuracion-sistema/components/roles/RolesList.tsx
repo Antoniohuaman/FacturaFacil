@@ -5,18 +5,18 @@ import { RoleCard } from './RoleCard';
 
 interface RolesListProps {
   roles: Partial<Role>[];
-  employees?: User[];
+  users?: User[];
   isLoading?: boolean;
 }
 
-export function RolesList({ roles, employees = [], isLoading = false }: RolesListProps) {
+export function RolesList({ roles, users = [], isLoading = false }: RolesListProps) {
 
-  // Count users  per role
-  const getEmployeeCountForRole = (roleIndex: number): number => {
+  // Count users per role
+  const getUserCountForRole = (roleIndex: number): number => {
     const roleId = `role-${roleIndex + 1}`;
-    return employees.filter(emp =>
-      emp.systemAccess.roleIds.includes(roleId) &&
-      emp.status === 'ACTIVE'
+    return users.filter(user =>
+      user.systemAccess.roleIds.includes(roleId) &&
+      user.status === 'ACTIVE'
     ).length;
   };
 
@@ -132,7 +132,7 @@ export function RolesList({ roles, employees = [], isLoading = false }: RolesLis
           <RoleCard
             key={index}
             role={role}
-            employeeCount={getEmployeeCountForRole(index)}
+            employeeCount={getUserCountForRole(index)}
           />
         ))}
       </div>

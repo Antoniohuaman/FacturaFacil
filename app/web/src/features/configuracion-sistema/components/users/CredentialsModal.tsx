@@ -1,4 +1,4 @@
-// src/features/configuration/components/employees/CredentialsModal.tsx
+// src/features/configuration/components/users/CredentialsModal.tsx
 import { useState } from 'react';
 import { X, Copy, Check, User, Lock, Mail, Shield, Building2, MessageCircle } from 'lucide-react';
 import type { User as UserModel } from '../../models/User';

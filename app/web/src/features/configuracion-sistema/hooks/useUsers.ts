@@ -11,39 +11,39 @@ import type { Role } from '../models/Role';
 import { SYSTEM_ROLES } from '../models/Role';
 
 interface UseUsersReturn {
-  employees: User[];
+  users: User[];
   loading: boolean;
   error: string | null;
   
   // Actions
-  loadEmployees: () => Promise<void>;
-  createEmployee: (data: CreateUserRequest) => Promise<User>;
-  updateEmployee: (id: string, data: UpdateUserRequest) => Promise<User>;
-  deleteEmployee: (id: string) => Promise<void>;
-  activateEmployee: (id: string) => Promise<void>;
-  suspendEmployee: (id: string, reason?: string) => Promise<void>;
-  terminateEmployee: (id: string, reason?: string) => Promise<void>;
+  loadUsers: () => Promise<void>;
+  createUser: (data: CreateUserRequest) => Promise<User>;
+  updateUser: (id: string, data: UpdateUserRequest) => Promise<User>;
+  deleteUser: (id: string) => Promise<void>;
+  activateUser: (id: string) => Promise<void>;
+  suspendUser: (id: string, reason?: string) => Promise<void>;
+  terminateUser: (id: string, reason?: string) => Promise<void>;
   
   // Getters
-  getEmployee: (id: string) => User | undefined;
-  getEmployeesByEstablishment: (establishmentId: string) => User[];
-  getEmployeesByRole: (roleId: string) => User[];
-  getActiveEmployees: () => User[];
-  getEmployeeSummaries: () => UserSummary[];
+  getUser: (id: string) => User | undefined;
+  getUsersByEstablishment: (establishmentId: string) => User[];
+  getUsersByRole: (roleId: string) => User[];
+  getActiveUsers: () => User[];
+  getUserSummaries: () => UserSummary[];
   
   // Authentication & Sessions
-  authenticateEmployee: (username: string, pin?: string) => Promise<User | null>;
-  updateLastLogin: (employeeId: string) => Promise<void>;
-  lockEmployee: (employeeId: string, reason?: string) => Promise<void>;
-  unlockEmployee: (employeeId: string) => Promise<void>;
+  authenticateUser: (username: string, pin?: string) => Promise<User | null>;
+  updateLastLogin: (userId: string) => Promise<void>;
+  lockUser: (userId: string, reason?: string) => Promise<void>;
+  unlockUser: (userId: string) => Promise<void>;
   
   // Validation
-  validateEmployeeCode: (code: string, excludeId?: string) => Promise<boolean>;
+  validateUserCode: (code: string, excludeId?: string) => Promise<boolean>;
   validateUsername: (username: string, excludeId?: string) => Promise<boolean>;
-  validateEmployeeData: (data: CreateUserRequest | UpdateUserRequest) => Promise<string[]>;
+  validateUserData: (data: CreateUserRequest | UpdateUserRequest) => Promise<string[]>;
   
   // Statistics
-  getEmployeeStats: () => {
+  getUserStats: () => {
     total: number;
     active: number;
     inactive: number;
@@ -55,7 +55,7 @@ interface UseUsersReturn {
 }
 
 // Mock users data
-const MOCK_EMPLOYEES: User[] = [
+const MOCK_USERS: User[] = [
   {
     id: 'emp-1',
     code: 'EMP001',
@@ -250,606 +250,672 @@ export function useUsers(): UseUsersReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const employees = state.employees;
+  const users = state.employees;
 
   // Load users
-  const loadEmployees = useCallback(async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
-      
-      dispatch({ type: 'SET_EMPLOYEES', payload: MOCK_EMPLOYEES });
-      
+
+      dispatch({ type: 'SET_EMPLOYEES', payload: MOCK_USERS });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error loading employees');
+      setError(err instanceof Error ? err.message : 'Error loading users');
     } finally {
       setLoading(false);
     }
   }, [dispatch]);
 
-  // Generate users code
-  const generateEmployeeCode = useCallback(() => {
-    const maxCode = employees.reduce((max, emp) => {
-      const codeNumber = parseInt(emp.code.replace(/\D/g, ''), 10) || 0;
+  // Generate user code
+  const generateUserCode = useCallback(() => {
+    const maxCode = users.reduce((max, user) => {
+      const codeNumber = parseInt(user.code.replace(/\D/g, ''), 10) || 0;
       return Math.max(max, codeNumber);
     }, 0);
-    
+
     return `EMP${String(maxCode + 1).padStart(3, '0')}`;
-  }, [employees]);
+  }, [users]);
 
-  // Create employee
-  const createEmployee = useCallback(async (data: CreateUserRequest): Promise<User> => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Validate data
-      const validationErrors = await validateEmployeeData(data);
-      if (validationErrors.length > 0) {
-        throw new Error(validationErrors.join(', '));
-      }
-      
-      // Check code uniqueness
-      const code = data.code || generateEmployeeCode();
-      const isCodeUnique = await validateEmployeeCode(code);
-      if (!isCodeUnique) {
-        throw new Error('El código del empleado ya existe');
-      }
-      
-      // Check username uniqueness
-      const isUsernameUnique = await validateUsername(data.systemAccess.username);
-      if (!isUsernameUnique) {
-        throw new Error('El nombre de usuario ya existe');
-      }
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      // Create roles array from roleIds (in real app, fetch from API)
-      const roles = SYSTEM_ROLES.filter((_, index) => 
-        data.systemAccess.roleIds.includes(`role-${index + 1}`)
-      ) as Role[];
-      
-      const newEmployee: User = {
-        id: `emp-${Date.now()}`,
-        code,
-        personalInfo: {
-          ...data.personalInfo,
-          fullName: `${data.personalInfo.firstName} ${data.personalInfo.lastName}`,
-        },
-        employment: {
-          ...data.employment,
-          workSchedule: {
-            mondayToFriday: {
-              startTime: '09:00',
-              endTime: '18:00',
-            },
-          },
-        },
-        systemAccess: {
-          ...data.systemAccess,
-          email: data.personalInfo.email,
-          roles,
-          permissions: [], // Will be calculated from roles
-          loginAttempts: 0,
-          isLocked: false,
-          sessionTimeout: data.systemAccess.sessionTimeout || 30,
-          maxConcurrentSessions: data.systemAccess.maxConcurrentSessions || 1,
-        },
-        status: 'ACTIVE',
-        notes: data.notes,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: 'current-user',
-        updatedBy: 'current-user',
-      };
-      
-      dispatch({ type: 'ADD_EMPLOYEE', payload: newEmployee });
-      
-      return newEmployee;
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error creating employee');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [employees, dispatch]);
+  // Validate user code uniqueness
+  const validateUserCode = useCallback(
+    async (code: string, excludeId?: string): Promise<boolean> => {
+      // Simulate API validation
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-  // Update employee
-  const updateEmployee = useCallback(async (id: string, data: UpdateUserRequest): Promise<User> => {
-    const existingEmployee = getEmployee(id);
-    if (!existingEmployee) {
-      throw new Error('Employee not found');
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Validate data
-      const validationErrors = await validateEmployeeData(data);
-      if (validationErrors.length > 0) {
-        throw new Error(validationErrors.join(', '));
-      }
-      
-      // Check code uniqueness if changed
-      if (data.code && data.code !== existingEmployee.code) {
-        const isCodeUnique = await validateEmployeeCode(data.code, id);
-        if (!isCodeUnique) {
-          throw new Error('El código del empleado ya existe');
+      const exists = users.some(user => user.code === code && user.id !== excludeId);
+
+      return !exists;
+    },
+    [users],
+  );
+
+  // Validate username uniqueness
+  const validateUsername = useCallback(
+    async (username: string, excludeId?: string): Promise<boolean> => {
+      // Simulate API validation
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const exists = users.some(
+        user => user.systemAccess.username === username && user.id !== excludeId,
+      );
+
+      return !exists;
+    },
+    [users],
+  );
+
+  // Validate user data
+  const validateUserData = useCallback(
+    async (data: CreateUserRequest | UpdateUserRequest): Promise<string[]> => {
+      const errors: string[] = [];
+
+      // Personal info validations
+      if (data.personalInfo) {
+        const { personalInfo } = data;
+
+        if (!personalInfo.firstName?.trim()) {
+          errors.push('El nombre es requerido');
+        }
+
+        if (!personalInfo.lastName?.trim()) {
+          errors.push('El apellido es requerido');
+        }
+
+        if (!personalInfo.documentNumber?.trim()) {
+          errors.push('El número de documento es requerido');
+        } else {
+          const docNumber = personalInfo.documentNumber;
+          const docType = personalInfo.documentType;
+
+          if (docType === 'DNI' && (docNumber.length !== 8 || !/^\d+$/.test(docNumber))) {
+            errors.push('El DNI debe tener 8 dígitos');
+          } else if (docType === 'CE' && docNumber.length < 6) {
+            errors.push('El carné de extranjería debe tener al menos 6 caracteres');
+          }
+        }
+
+        if (!personalInfo.email?.trim()) {
+          errors.push('El email es requerido');
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalInfo.email)) {
+          errors.push('El email no tiene un formato válido');
+        }
+
+        if (personalInfo.phone && !/^\d{9}$/.test(personalInfo.phone.replace(/\D/g, ''))) {
+          // Optional: validate phone format
         }
       }
-      
-      // Check username uniqueness if changed
-      if (data.systemAccess?.username && data.systemAccess.username !== existingEmployee.systemAccess.username) {
-        const isUsernameUnique = await validateUsername(data.systemAccess.username, id);
+
+      // Employment validations
+      if (data.employment) {
+        const { employment } = data;
+
+        if (!employment.position?.trim()) {
+          errors.push('El cargo es requerido');
+        }
+
+        if (!employment.department?.trim()) {
+          errors.push('El departamento es requerido');
+        }
+
+        if (!employment.establishmentId?.trim()) {
+          errors.push('El establecimiento principal es requerido');
+        }
+
+        if (!employment.establishmentIds || employment.establishmentIds.length === 0) {
+          errors.push('Debe seleccionar al menos un establecimiento');
+        }
+
+        if (employment.salary && employment.salary < 0) {
+          errors.push('El salario no puede ser negativo');
+        }
+
+        if (
+          employment.commissionRate &&
+          (employment.commissionRate < 0 || employment.commissionRate > 100)
+        ) {
+          errors.push('El porcentaje de comisión debe estar entre 0 y 100');
+        }
+      }
+
+      // System access validations
+      if (data.systemAccess) {
+        const { systemAccess } = data;
+
+        if (!systemAccess.username?.trim()) {
+          errors.push('El nombre de usuario es requerido');
+        } else if (systemAccess.username.length < 3) {
+          errors.push('El nombre de usuario debe tener al menos 3 caracteres');
+        }
+
+        if (!systemAccess.roleIds || systemAccess.roleIds.length === 0) {
+          errors.push('Debe asignar al menos un rol');
+        }
+
+        if (systemAccess.pin && (systemAccess.pin.length < 4 || systemAccess.pin.length > 6)) {
+          errors.push('El PIN debe tener entre 4 y 6 dígitos');
+        }
+
+        if (
+          systemAccess.sessionTimeout &&
+          (systemAccess.sessionTimeout < 5 || systemAccess.sessionTimeout > 480)
+        ) {
+          errors.push('El tiempo de sesión debe estar entre 5 y 480 minutos');
+        }
+
+        if (
+          systemAccess.maxConcurrentSessions &&
+          (systemAccess.maxConcurrentSessions < 1 || systemAccess.maxConcurrentSessions > 5)
+        ) {
+          errors.push('Las sesiones concurrentes deben estar entre 1 y 5');
+        }
+      }
+
+      return errors;
+    },
+    [],
+  );
+
+  // Get user by ID
+  const getUser = useCallback(
+    (id: string): User | undefined => users.find(user => user.id === id),
+    [users],
+  );
+
+  // Get users by establishment
+  const getUsersByEstablishment = useCallback(
+    (establishmentId: string): User[] =>
+      users.filter(
+        user =>
+          user.employment.establishmentIds.includes(establishmentId) &&
+          user.status === 'ACTIVE',
+      ),
+    [users],
+  );
+
+  // Get users by role
+  const getUsersByRole = useCallback(
+    (roleId: string): User[] =>
+      users.filter(
+        user => user.systemAccess.roleIds.includes(roleId) && user.status === 'ACTIVE',
+      ),
+    [users],
+  );
+
+  // Get active users
+  const getActiveUsers = useCallback(
+    (): User[] => users.filter(user => user.status === 'ACTIVE'),
+    [users],
+  );
+
+  // Get user summaries
+  const getUserSummaries = useCallback(
+    (): UserSummary[] =>
+      users.map(user => ({
+        id: user.id,
+        code: user.code,
+        fullName: user.personalInfo.fullName,
+        position: user.employment.position,
+        establishment: `Establecimiento ${user.employment.establishmentId}`, // In real app, get name
+        status: user.status,
+        lastLogin: user.systemAccess.lastLogin,
+        avatar: user.avatar,
+      })),
+    [users],
+  );
+
+  // Create user
+  const createUser = useCallback(
+    async (data: CreateUserRequest): Promise<User> => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Validate data
+        const validationErrors = await validateUserData(data);
+        if (validationErrors.length > 0) {
+          throw new Error(validationErrors.join(', '));
+        }
+
+        // Check code uniqueness
+        const code = data.code || generateUserCode();
+        const isCodeUnique = await validateUserCode(code);
+        if (!isCodeUnique) {
+          throw new Error('El código del usuario ya existe');
+        }
+
+        // Check username uniqueness
+        const isUsernameUnique = await validateUsername(data.systemAccess.username);
         if (!isUsernameUnique) {
           throw new Error('El nombre de usuario ya existe');
         }
-      }
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Update roles if roleIds changed
-      let updatedRoles = existingEmployee.systemAccess.roles;
-      if (data.systemAccess?.roleIds) {
-        updatedRoles = SYSTEM_ROLES.filter((_, index) => 
-          data.systemAccess!.roleIds.includes(`role-${index + 1}`)
+
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 1200));
+
+        // Create roles array from roleIds (in real app, fetch from API)
+        const roles = SYSTEM_ROLES.filter((_, index) =>
+          data.systemAccess.roleIds.includes(`role-${index + 1}`),
         ) as Role[];
-      }
-      
-      const updatedEmployee: User = {
-        ...existingEmployee,
-        ...data,
-        id,
-        personalInfo: {
-          ...existingEmployee.personalInfo,
-          ...data.personalInfo,
-          fullName: data.personalInfo?.firstName && data.personalInfo?.lastName 
-            ? `${data.personalInfo.firstName} ${data.personalInfo.lastName}`
-            : existingEmployee.personalInfo.fullName,
-        },
-        employment: {
-          ...existingEmployee.employment,
-          ...data.employment,
-        },
-        systemAccess: {
-          ...existingEmployee.systemAccess,
-          ...data.systemAccess,
-          roles: updatedRoles,
-        },
-        updatedAt: new Date(),
-        updatedBy: 'current-user',
-      };
-      
-      dispatch({ type: 'UPDATE_EMPLOYEE', payload: updatedEmployee });
-      
-      return updatedEmployee;
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error updating employee');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [dispatch]);
 
-  // Delete employee
-  const deleteEmployee = useCallback(async (id: string) => {
-    const employee = getEmployee(id);
-    if (!employee) {
-      throw new Error('Employee not found');
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      dispatch({ type: 'DELETE_EMPLOYEE', payload: id });
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error deleting employee');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [dispatch]);
-
-  // Activate employee
-  const activateEmployee = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const updatedEmployees = employees.map(emp =>
-        emp.id === id ? { ...emp, status: 'ACTIVE' as const, updatedAt: new Date() } : emp
-      );
-      
-      dispatch({ type: 'SET_EMPLOYEES', payload: updatedEmployees });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error activating employee');
-    } finally {
-      setLoading(false);
-    }
-  }, [employees, dispatch]);
-
-  // Suspend employee
-  const suspendEmployee = useCallback(async (id: string, reason?: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const notes = reason ? `Suspendido: ${reason}` : 'Suspendido';
-      const updatedEmployees = employees.map(emp =>
-        emp.id === id ? { 
-          ...emp, 
-          status: 'SUSPENDED' as const, 
-          notes,
-          updatedAt: new Date() 
-        } : emp
-      );
-      
-      dispatch({ type: 'SET_EMPLOYEES', payload: updatedEmployees });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error suspending employee');
-    } finally {
-      setLoading(false);
-    }
-  }, [employees, dispatch]);
-
-  // Terminate employee
-  const terminateEmployee = useCallback(async (id: string, reason?: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const notes = reason ? `Desvinculado: ${reason}` : 'Desvinculado';
-      const updatedEmployees = employees.map(emp =>
-        emp.id === id ? { 
-          ...emp, 
-          status: 'TERMINATED' as const, 
-          notes,
-          updatedAt: new Date() 
-        } : emp
-      );
-      
-      dispatch({ type: 'SET_EMPLOYEES', payload: updatedEmployees });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error terminating employee');  
-    } finally {
-      setLoading(false);
-    }
-  }, [employees, dispatch]);
-
-  // Get employee by ID
-  const getEmployee = useCallback((id: string): User | undefined => {
-    return employees.find(emp => emp.id === id);
-  }, [employees]);
-
-  // Get employees by establishment
-  const getEmployeesByEstablishment = useCallback((establishmentId: string): User[] => {
-    return employees.filter(emp => 
-      emp.employment.establishmentIds.includes(establishmentId) && 
-      emp.status === 'ACTIVE'
-    );
-  }, [employees]);
-
-  // Get employees by role
-  const getEmployeesByRole = useCallback((roleId: string): User[] => {
-    return employees.filter(emp => 
-      emp.systemAccess.roleIds.includes(roleId) && 
-      emp.status === 'ACTIVE'
-    );
-  }, [employees]);
-
-  // Get active employees
-  const getActiveEmployees = useCallback((): User[] => {
-    return employees.filter(emp => emp.status === 'ACTIVE');
-  }, [employees]);
-
-  // Get employee summaries
-  const getEmployeeSummaries = useCallback((): UserSummary[] => {
-    return employees.map(emp => ({
-      id: emp.id,
-      code: emp.code,
-      fullName: emp.personalInfo.fullName,
-      position: emp.employment.position,
-      establishment: `Establecimiento ${emp.employment.establishmentId}`, // In real app, get name
-      status: emp.status,
-      lastLogin: emp.systemAccess.lastLogin,
-      avatar: emp.avatar,
-    }));
-  }, [employees]);
-
-  // Authenticate employee
-  const authenticateEmployee = useCallback(async (username: string, pin?: string): Promise<User | null> => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const employee = employees.find(emp => 
-        emp.systemAccess.username === username && 
-        emp.status === 'ACTIVE' && 
-        !emp.systemAccess.isLocked
-      );
-      
-      if (!employee) {
-        return null;
-      }
-      
-      // Check PIN if required and provided
-      if (employee.systemAccess.pin && pin) {
-        if (employee.systemAccess.pin !== pin) {
-          // Increment login attempts - update directly
-          const updatedEmployees = employees.map(emp =>
-            emp.id === employee.id ? {
-              ...emp,
-              systemAccess: {
-                ...emp.systemAccess,
-                loginAttempts: emp.systemAccess.loginAttempts + 1,
+        const newUser: User = {
+          id: `emp-${Date.now()}`,
+          code,
+          personalInfo: {
+            ...data.personalInfo,
+            fullName: `${data.personalInfo.firstName} ${data.personalInfo.lastName}`,
+          },
+          employment: {
+            ...data.employment,
+            workSchedule: {
+              mondayToFriday: {
+                startTime: '09:00',
+                endTime: '18:00',
               },
-              updatedAt: new Date()
-            } : emp
-          );
-          dispatch({ type: 'SET_EMPLOYEES', payload: updatedEmployees });
-          return null;
-        }
+            },
+          },
+          systemAccess: {
+            ...data.systemAccess,
+            email: data.personalInfo.email,
+            roles,
+            permissions: [], // Will be calculated from roles
+            loginAttempts: 0,
+            isLocked: false,
+            sessionTimeout: data.systemAccess.sessionTimeout || 30,
+            maxConcurrentSessions: data.systemAccess.maxConcurrentSessions || 1,
+          },
+          status: 'ACTIVE',
+          notes: data.notes,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: 'current-user',
+          updatedBy: 'current-user',
+        };
+
+        dispatch({ type: 'ADD_EMPLOYEE', payload: newUser });
+
+        return newUser;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error creating user');
+        throw err;
+      } finally {
+        setLoading(false);
       }
-      
-      // Update last login
-      await updateLastLogin(employee.id);
-      
-      return employee;
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error authenticating employee');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [employees, updateEmployee]);
+    },
+    [dispatch, generateUserCode, validateUserCode, validateUserData, validateUsername],
+  );
+
+  // Update user
+  const updateUser = useCallback(
+    async (id: string, data: UpdateUserRequest): Promise<User> => {
+      const existingUser = getUser(id);
+      if (!existingUser) {
+        throw new Error('User not found');
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Validate data
+        const validationErrors = await validateUserData(data);
+        if (validationErrors.length > 0) {
+          throw new Error(validationErrors.join(', '));
+        }
+
+        // Check code uniqueness if changed
+        if (data.code && data.code !== existingUser.code) {
+          const isCodeUnique = await validateUserCode(data.code, id);
+          if (!isCodeUnique) {
+            throw new Error('El código del usuario ya existe');
+          }
+        }
+
+        // Check username uniqueness if changed
+        if (
+          data.systemAccess?.username &&
+          data.systemAccess.username !== existingUser.systemAccess.username
+        ) {
+          const isUsernameUnique = await validateUsername(data.systemAccess.username, id);
+          if (!isUsernameUnique) {
+            throw new Error('El nombre de usuario ya existe');
+          }
+        }
+
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Update roles if roleIds changed
+        let updatedRoles = existingUser.systemAccess.roles;
+        if (data.systemAccess?.roleIds) {
+          updatedRoles = SYSTEM_ROLES.filter((_, index) =>
+            data.systemAccess!.roleIds.includes(`role-${index + 1}`),
+          ) as Role[];
+        }
+
+        const updatedUser: User = {
+          ...existingUser,
+          ...data,
+          id,
+          personalInfo: {
+            ...existingUser.personalInfo,
+            ...data.personalInfo,
+            fullName:
+              data.personalInfo?.firstName && data.personalInfo?.lastName
+                ? `${data.personalInfo.firstName} ${data.personalInfo.lastName}`
+                : existingUser.personalInfo.fullName,
+          },
+          employment: {
+            ...existingUser.employment,
+            ...data.employment,
+          },
+          systemAccess: {
+            ...existingUser.systemAccess,
+            ...data.systemAccess,
+            roles: updatedRoles,
+          },
+          updatedAt: new Date(),
+          updatedBy: 'current-user',
+        };
+
+        dispatch({ type: 'UPDATE_EMPLOYEE', payload: updatedUser });
+
+        return updatedUser;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error updating user');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dispatch, getUser, validateUserCode, validateUserData, validateUsername],
+  );
+
+  // Delete user
+  const deleteUser = useCallback(
+    async (id: string) => {
+      const user = getUser(id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 600));
+
+        dispatch({ type: 'DELETE_EMPLOYEE', payload: id });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error deleting user');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dispatch, getUser],
+  );
+
+  // Activate user
+  const activateUser = useCallback(
+    async (id: string) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const updatedUsers = users.map(user =>
+          user.id === id ? { ...user, status: 'ACTIVE' as const, updatedAt: new Date() } : user,
+        );
+
+        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error activating user');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dispatch, users],
+  );
+
+  // Suspend user
+  const suspendUser = useCallback(
+    async (id: string, reason?: string) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const notes = reason ? `Suspendido: ${reason}` : 'Suspendido';
+        const updatedUsers = users.map(user =>
+          user.id === id
+            ? {
+                ...user,
+                status: 'SUSPENDED' as const,
+                notes,
+                updatedAt: new Date(),
+              }
+            : user,
+        );
+
+        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error suspending user');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dispatch, users],
+  );
+
+  // Terminate user
+  const terminateUser = useCallback(
+    async (id: string, reason?: string) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const notes = reason ? `Desvinculado: ${reason}` : 'Desvinculado';
+        const updatedUsers = users.map(user =>
+          user.id === id
+            ? {
+                ...user,
+                status: 'TERMINATED' as const,
+                notes,
+                updatedAt: new Date(),
+              }
+            : user,
+        );
+
+        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error terminating user');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dispatch, users],
+  );
 
   // Update last login
-  const updateLastLogin = useCallback(async (employeeId: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const updatedEmployees = employees.map(emp =>
-        emp.id === employeeId ? {
-          ...emp,
-          systemAccess: {
-            ...emp.systemAccess,
-            lastLogin: new Date(),
-            loginAttempts: 0,
-          },
-          updatedAt: new Date()
-        } : emp
-      );
-      
-      dispatch({ type: 'SET_EMPLOYEES', payload: updatedEmployees });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error updating last login');
-    } finally {
-      setLoading(false);
-    }
-  }, [employees, dispatch]);
+  const updateLastLogin = useCallback(
+    async (userId: string) => {
+      setLoading(true);
+      setError(null);
 
-  // Lock employee
-  const lockEmployee = useCallback(async (employeeId: string, reason?: string) => {
-    const employee = getEmployee(employeeId);
-    if (!employee) {
-      throw new Error('Employee not found');
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const notes = reason ? `Bloqueado: ${reason}` : employee.notes;
-      const updatedEmployees = employees.map(emp =>
-        emp.id === employeeId ? {
-          ...emp,
-          systemAccess: {
-            ...emp.systemAccess,
-            isLocked: true,
-            lockoutUntil: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-          },
-          notes,
-          updatedAt: new Date()
-        } : emp
-      );
-      
-      dispatch({ type: 'SET_EMPLOYEES', payload: updatedEmployees });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error locking employee');
-    } finally {
-      setLoading(false);
-    }
-  }, [employees, dispatch, getEmployee]);
+      try {
+        await new Promise(resolve => setTimeout(resolve, 300));
 
-  // Unlock employee
-  const unlockEmployee = useCallback(async (employeeId: string) => {
-    const employee = getEmployee(employeeId);
-    if (!employee) {
-      throw new Error('Employee not found');
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const updatedEmployees = employees.map(emp =>
-        emp.id === employeeId ? {
-          ...emp,
-          systemAccess: {
-            ...emp.systemAccess,
-            isLocked: false,
-            lockoutUntil: undefined,
-            loginAttempts: 0,
-          },
-          updatedAt: new Date()
-        } : emp
-      );
-      
-      dispatch({ type: 'SET_EMPLOYEES', payload: updatedEmployees });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error unlocking employee');
-    } finally {
-      setLoading(false);
-    }
-  }, [employees, dispatch, getEmployee]);
+        const updatedUsers = users.map(user =>
+          user.id === userId
+            ? {
+                ...user,
+                systemAccess: {
+                  ...user.systemAccess,
+                  lastLogin: new Date(),
+                  loginAttempts: 0,
+                },
+                updatedAt: new Date(),
+              }
+            : user,
+        );
 
-  // Validate employee code uniqueness
-  const validateEmployeeCode = useCallback(async (code: string, excludeId?: string): Promise<boolean> => {
-    // Simulate API validation
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    const exists = employees.some(emp => 
-      emp.code === code && emp.id !== excludeId
-    );
-    
-    return !exists;
-  }, [employees]);
-
-  // Validate username uniqueness
-  const validateUsername = useCallback(async (username: string, excludeId?: string): Promise<boolean> => {
-    // Simulate API validation
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    const exists = employees.some(emp => 
-      emp.systemAccess.username === username && emp.id !== excludeId
-    );
-    
-    return !exists;
-  }, [employees]);
-
-  // Validate employee data
-  const validateEmployeeData = useCallback(async (data: CreateUserRequest | UpdateUserRequest): Promise<string[]> => {
-    const errors: string[] = [];
-    
-    // Personal info validations
-    if (data.personalInfo) {
-      const { personalInfo } = data;
-      
-      if (!personalInfo.firstName?.trim()) {
-        errors.push('El nombre es requerido');
+        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error updating last login');
+      } finally {
+        setLoading(false);
       }
-      
-      if (!personalInfo.lastName?.trim()) {
-        errors.push('El apellido es requerido');
-      }
-      
-      if (!personalInfo.documentNumber?.trim()) {
-        errors.push('El número de documento es requerido');
-      } else {
-        const docNumber = personalInfo.documentNumber;
-        const docType = personalInfo.documentType;
-        
-        if (docType === 'DNI' && (docNumber.length !== 8 || !/^\d+$/.test(docNumber))) {
-          errors.push('El DNI debe tener 8 dígitos');
-        } else if (docType === 'CE' && docNumber.length < 6) {
-          errors.push('El carné de extranjería debe tener al menos 6 caracteres');
+    },
+    [dispatch, users],
+  );
+
+  // Authenticate user
+  const authenticateUser = useCallback(
+    async (username: string, pin?: string): Promise<User | null> => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const user = users.find(
+          candidate =>
+            candidate.systemAccess.username === username &&
+            candidate.status === 'ACTIVE' &&
+            !candidate.systemAccess.isLocked,
+        );
+
+        if (!user) {
+          return null;
         }
-      }
-      
-      if (!personalInfo.email?.trim()) {
-        errors.push('El email es requerido');
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalInfo.email)) {
-        errors.push('El email no tiene un formato válido');
-      }
-      
-      if (personalInfo.phone && !/^\d{9}$/.test(personalInfo.phone.replace(/\D/g, ''))) {
-        // Optional: validate phone format
-      }
-    }
-    
-    // Employment validations
-    if (data.employment) {
-      const { employment } = data;
-      
-      if (!employment.position?.trim()) {
-        errors.push('El cargo es requerido');
-      }
-      
-      if (!employment.department?.trim()) {
-        errors.push('El departamento es requerido');
-      }
-      
-      if (!employment.establishmentId?.trim()) {
-        errors.push('El establecimiento principal es requerido');
-      }
-      
-      if (!employment.establishmentIds || employment.establishmentIds.length === 0) {
-        errors.push('Debe seleccionar al menos un establecimiento');
-      }
-      
-      if (employment.salary && employment.salary < 0) {
-        errors.push('El salario no puede ser negativo');
-      }
-      
-      if (employment.commissionRate && (employment.commissionRate < 0 || employment.commissionRate > 100)) {
-        errors.push('El porcentaje de comisión debe estar entre 0 y 100');
-      }
-    }
-    
-    // System access validations
-    if (data.systemAccess) {
-      const { systemAccess } = data;
-      
-      if (!systemAccess.username?.trim()) {
-        errors.push('El nombre de usuario es requerido');
-      } else if (systemAccess.username.length < 3) {
-        errors.push('El nombre de usuario debe tener al menos 3 caracteres');
-      }
-      
-      if (!systemAccess.roleIds || systemAccess.roleIds.length === 0) {
-        errors.push('Debe asignar al menos un rol');
-      }
-      
-      if (systemAccess.pin && (systemAccess.pin.length < 4 || systemAccess.pin.length > 6)) {
-        errors.push('El PIN debe tener entre 4 y 6 dígitos');
-      }
-      
-      if (systemAccess.sessionTimeout && (systemAccess.sessionTimeout < 5 || systemAccess.sessionTimeout > 480)) {
-        errors.push('El tiempo de sesión debe estar entre 5 y 480 minutos');
-      }
-      
-      if (systemAccess.maxConcurrentSessions && (systemAccess.maxConcurrentSessions < 1 || systemAccess.maxConcurrentSessions > 5)) {
-        errors.push('Las sesiones concurrentes deben estar entre 1 y 5');
-      }
-    }
-    
-    return errors;
-  }, []);
 
-  // Get employee statistics
-  const getEmployeeStats = useCallback(() => {
+        // Check PIN if required and provided
+        if (user.systemAccess.pin && pin) {
+          if (user.systemAccess.pin !== pin) {
+            // Increment login attempts - update directly
+            const updatedUsers = users.map(candidate =>
+              candidate.id === user.id
+                ? {
+                    ...candidate,
+                    systemAccess: {
+                      ...candidate.systemAccess,
+                      loginAttempts: candidate.systemAccess.loginAttempts + 1,
+                    },
+                    updatedAt: new Date(),
+                  }
+                : candidate,
+            );
+            dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+            return null;
+          }
+        }
+
+        // Update last login
+        await updateLastLogin(user.id);
+
+        return user;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error authenticating user');
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dispatch, updateLastLogin, users],
+  );
+
+  // Lock user
+  const lockUser = useCallback(
+    async (userId: string, reason?: string) => {
+      const user = getUser(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const notes = reason ? `Bloqueado: ${reason}` : user.notes;
+        const updatedUsers = users.map(candidate =>
+          candidate.id === userId
+            ? {
+                ...candidate,
+                systemAccess: {
+                  ...candidate.systemAccess,
+                  isLocked: true,
+                  lockoutUntil: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+                },
+                notes,
+                updatedAt: new Date(),
+              }
+            : candidate,
+        );
+
+        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error locking user');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dispatch, getUser, users],
+  );
+
+  // Unlock user
+  const unlockUser = useCallback(
+    async (userId: string) => {
+      const user = getUser(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const updatedUsers = users.map(candidate =>
+          candidate.id === userId
+            ? {
+                ...candidate,
+                systemAccess: {
+                  ...candidate.systemAccess,
+                  isLocked: false,
+                  lockoutUntil: undefined,
+                  loginAttempts: 0,
+                },
+                updatedAt: new Date(),
+              }
+            : candidate,
+        );
+
+        dispatch({ type: 'SET_EMPLOYEES', payload: updatedUsers });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error unlocking user');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dispatch, getUser, users],
+  );
+
+  // Get user statistics
+  const getUserStats = useCallback(() => {
     const stats = {
-      total: employees.length,
+      total: users.length,
       active: 0,
       inactive: 0,
       suspended: 0,
@@ -857,9 +923,9 @@ export function useUsers(): UseUsersReturn {
       byEstablishment: {} as Record<string, number>,
       byRole: {} as Record<string, number>,
     };
-    
-    employees.forEach(emp => {
-      switch (emp.status) {
+
+    users.forEach(user => {
+      switch (user.status) {
         case 'ACTIVE':
           stats.active++;
           break;
@@ -873,58 +939,59 @@ export function useUsers(): UseUsersReturn {
           stats.terminated++;
           break;
       }
-      
+
       // By establishment
-      const establishment = emp.employment.establishmentId;
-      stats.byEstablishment[establishment] = (stats.byEstablishment[establishment] || 0) + 1;
-      
+      const establishment = user.employment.establishmentId;
+      stats.byEstablishment[establishment] =
+        (stats.byEstablishment[establishment] || 0) + 1;
+
       // By role
-      emp.systemAccess.roleIds.forEach(roleId => {
+      user.systemAccess.roleIds.forEach(roleId => {
         stats.byRole[roleId] = (stats.byRole[roleId] || 0) + 1;
       });
     });
-    
-    return stats;
-  }, [employees]);
 
-  // Load employees on mount
+    return stats;
+  }, [users]);
+
+  // Load users on mount
   useEffect(() => {
-    loadEmployees();
-  }, [loadEmployees]);
+    loadUsers();
+  }, [loadUsers]);
 
   return {
-    employees,
+    users,
     loading,
     error,
-    
+
     // Actions
-    loadEmployees,
-    createEmployee,
-    updateEmployee,
-    deleteEmployee,
-    activateEmployee,
-    suspendEmployee,
-    terminateEmployee,
-    
+    loadUsers,
+    createUser,
+    updateUser,
+    deleteUser,
+    activateUser,
+    suspendUser,
+    terminateUser,
+
     // Getters
-    getEmployee,
-    getEmployeesByEstablishment,
-    getEmployeesByRole,
-    getActiveEmployees,
-    getEmployeeSummaries,
-    
+    getUser,
+    getUsersByEstablishment,
+    getUsersByRole,
+    getActiveUsers,
+    getUserSummaries,
+
     // Authentication & Sessions
-    authenticateEmployee,
+    authenticateUser,
     updateLastLogin,
-    lockEmployee,
-    unlockEmployee,
-    
+    lockUser,
+    unlockUser,
+
     // Validation
-    validateEmployeeCode,
+    validateUserCode,
     validateUsername,
-    validateEmployeeData,
-    
+    validateUserData,
+
     // Statistics
-    getEmployeeStats,
+    getUserStats,
   };
 }

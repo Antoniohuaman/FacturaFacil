@@ -80,7 +80,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
       throw new Error('Empresa y establecimiento son requeridos');
     }
 
-    // Validate input with users  from context
+    // Validate input with users from context
     const validation = validateCreateCaja(input, cajas, state.employees);
     if (!validation.isValid) {
       throw new Error(validation.errors.map(e => e.message).join(', '));
@@ -110,7 +110,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
       throw new Error('Empresa y establecimiento son requeridos');
     }
 
-    // Validate input with users  from context
+    // Validate input with users from context
     const validation = validateUpdateCaja(input, cajas, id, state.employees);
     if (!validation.isValid) {
       throw new Error(validation.errors.map(e => e.message).join(', '));
@@ -212,11 +212,11 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     cajaId?: string
   ): ValidationError[] => {
     if (cajaId) {
-      // Update validation with users  from context
+      // Update validation with users from context
       const validation = validateUpdateCaja(input as UpdateCajaInput, cajas, cajaId, state.employees);
       return validation.errors;
     } else {
-      // Create validation with users  from context
+      // Create validation with users from context
       const validation = validateCreateCaja(input as CreateCajaInput, cajas, state.employees);
       return validation.errors;
     }

@@ -3,7 +3,7 @@ import { useConfigurationContext } from '../../context/ConfigurationContext';
 import type { User } from '../../models';
 
 interface UsuariosAutorizadosSelectorProps {
-  value: string[]; // Array of employee IDs
+  value: string[]; // Array of user IDs
   onChange: (selectedIds: string[]) => void;
   filterByCashPermission?: boolean; // If true, only show usuario with cash.canOpenRegister permission
   disabled?: boolean;
@@ -19,37 +19,37 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
 }) => {
   const { state } = useConfigurationContext();
 
-  // Filter user based on cash register permissions
-  const availableEmployees = React.useMemo(() => {
-    let employees = state.employees.filter((emp: User) => emp.status === 'ACTIVE');
+  // Filter users based on cash register permissions
+  const availableUsers = React.useMemo(() => {
+    let users = state.employees.filter((user: User) => user.status === 'ACTIVE');
 
     if (filterByCashPermission) {
-      employees = employees.filter((emp: User) => {
-        // Check if any of the users  roles have canOpenRegister permission
-        return emp.systemAccess.roles.some(role => 
+      users = users.filter((user: User) => {
+        // Check if any of the user's roles have canOpenRegister permission
+        return user.systemAccess.roles.some(role => 
           role.permissions?.cash?.canOpenRegister === true
         );
       });
     }
 
-    return employees.sort((a: User, b: User) => 
+    return users.sort((a: User, b: User) => 
       a.personalInfo.fullName.localeCompare(b.personalInfo.fullName)
     );
   }, [state.employees, filterByCashPermission]);
 
-  const handleToggleEmployee = (employeeId: string) => {
+  const handleToggleUser = (userId: string) => {
     if (disabled) return;
 
-    if (value.includes(employeeId)) {
-      onChange(value.filter(id => id !== employeeId));
+    if (value.includes(userId)) {
+      onChange(value.filter(id => id !== userId));
     } else {
-      onChange([...value, employeeId]);
+      onChange([...value, userId]);
     }
   };
 
   const handleSelectAll = () => {
     if (disabled) return;
-    onChange(availableEmployees.map((emp: User) => emp.id));
+    onChange(availableUsers.map((user: User) => user.id));
   };
 
   const handleDeselectAll = () => {
@@ -57,9 +57,9 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
     onChange([]);
   };
 
-  const getEmployeeName = (employeeId: string): string => {
-    const employee = state.employees.find((emp: User) => emp.id === employeeId);
-    return employee?.personalInfo.fullName || 'Usuario desconocido';
+  const getUserName = (userId: string): string => {
+    const user = state.employees.find((emp: User) => emp.id === userId);
+    return user?.personalInfo.fullName || 'Usuario desconocido';
   };
 
   return (
@@ -74,7 +74,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
           )}
         </label>
         
-        {availableEmployees.length > 0 && (
+        {availableUsers.length > 0 && (
           <div className="flex gap-2 text-xs">
             <button
               type="button"
@@ -97,7 +97,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
         )}
       </div>
 
-      {availableEmployees.length === 0 ? (
+      {availableUsers.length === 0 ? (
         <div className="text-sm text-gray-500 dark:text-gray-400 italic p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           {filterByCashPermission 
             ? 'No hay usuarios activos con permiso para abrir caja. Por favor, asigna roles con permisos de caja a los usuarios.'
@@ -106,9 +106,9 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
         </div>
       ) : (
         <div className="border border-gray-300 dark:border-gray-600 rounded-lg max-h-60 overflow-y-auto bg-white dark:bg-gray-800">
-          {availableEmployees.map((employee: User) => (
+          {availableUsers.map((user: User) => (
             <label
-              key={employee.id}
+              key={user.id}
               className={`
                 flex items-center px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 last:border-b-0
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
@@ -116,20 +116,20 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
             >
               <input
                 type="checkbox"
-                checked={value.includes(employee.id)}
-                onChange={() => handleToggleEmployee(employee.id)}
+                checked={value.includes(user.id)}
+                onChange={() => handleToggleUser(user.id)}
                 disabled={disabled}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:cursor-not-allowed"
               />
               <div className="ml-3 flex-1">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {employee.personalInfo.fullName}
+                  {user.personalInfo.fullName}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {employee.employment.position} • {employee.code}
-                  {employee.systemAccess.roles.length > 0 && (
+                  {user.employment.position} • {user.code}
+                  {user.systemAccess.roles.length > 0 && (
                     <span className="ml-2">
-                      Roles: {employee.systemAccess.roles.map(r => r.name).join(', ')}
+                      Roles: {user.systemAccess.roles.map(r => r.name).join(', ')}
                     </span>
                   )}
                 </p>
@@ -144,7 +144,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
         {value.length === 0 ? (
           'Ningún usuario seleccionado'
         ) : value.length === 1 ? (
-          `1 usuario seleccionado: ${getEmployeeName(value[0])}`
+          `1 usuario seleccionado: ${getUserName(value[0])}`
         ) : (
           `${value.length} usuarios seleccionados`
         )}
