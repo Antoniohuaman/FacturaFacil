@@ -20,7 +20,7 @@ export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { workspaces } = useTenant();
+  const { workspaces, tenantId } = useTenant();
 
   useEffect(() => {
     if (workspaces.length === 0 && location.pathname !== "/configuracion/empresa") {
@@ -34,7 +34,7 @@ export default function AppShell() {
   return (
     <ThemeProvider>
       <UserSessionProvider>
-        <ConfigurationProvider>
+        <ConfigurationProvider key={tenantId ?? 'no-tenant'}>
           <SessionInitializer>
             <TenantDataResetEffect />
             <CajaProvider>

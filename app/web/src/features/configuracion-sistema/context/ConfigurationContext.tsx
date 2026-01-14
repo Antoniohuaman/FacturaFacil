@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- archivo mezcla context y utilidades; split diferido */
-import { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
@@ -14,6 +14,7 @@ import { SUNAT_UNITS } from '../models/Unit';
 import type { Warehouse } from '../models/Warehouse';
 import type { Caja } from '../models/Caja';
 import { lsKey } from '../../../shared/tenant';
+import { useTenant } from '../../../shared/tenant/TenantContext';
 import { currencyManager } from '@/shared/currency';
 import type { CurrencyCode } from '@/shared/currency';
 
@@ -56,13 +57,7 @@ interface ConfigurationState {
 const SERIES_STORAGE_KEY = 'config_series_v1';
 const CONFIG_STORAGE_KEY = 'facturaFacilConfig';
 
-const getSeriesStorageKey = () => {
-  try {
-    return lsKey(SERIES_STORAGE_KEY);
-  } catch {
-    return SERIES_STORAGE_KEY;
-  }
-};
+type StorageKey = string | null;
 
 const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefined);
 
@@ -86,13 +81,17 @@ const reviveSeries = (series: Series): Series => ({
     : series.statistics,
 });
 
-const loadStoredSeries = (): Series[] => {
+const loadStoredSeries = (storageKey: StorageKey): Series[] => {
   if (typeof window === 'undefined') {
     return [];
   }
 
+  if (!storageKey) {
+    return [];
+  }
+
   try {
-    const raw = window.localStorage.getItem(getSeriesStorageKey());
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Series[];
     return parsed.map(reviveSeries);
@@ -102,13 +101,17 @@ const loadStoredSeries = (): Series[] => {
   }
 };
 
-const persistSeries = (series: Series[]) => {
+const persistSeries = (storageKey: StorageKey, series: Series[]) => {
   if (typeof window === 'undefined') {
     return;
   }
 
+  if (!storageKey) {
+    return;
+  }
+
   try {
-    window.localStorage.setItem(getSeriesStorageKey(), JSON.stringify(series));
+    window.localStorage.setItem(storageKey, JSON.stringify(series));
   } catch (error) {
     console.warn('[Configuration] No se pudieron guardar las series:', error);
   }
@@ -127,60 +130,89 @@ const DEFAULT_SALES_PREFERENCES: SalesPreferences = {
   pricesIncludeTax: true,
 };
 
-const getConfigurationStorageKeys = (): string[] => {
-  const baseKey = CONFIG_STORAGE_KEY;
-  let namespacedKey: string | null = null;
-
-  try {
-    namespacedKey = lsKey(CONFIG_STORAGE_KEY);
-  } catch {
-    namespacedKey = null;
-  }
-
-  if (!namespacedKey || namespacedKey === baseKey) {
-    return [baseKey];
-  }
-
-  return [namespacedKey, baseKey];
-};
-
-const readPersistedConfiguration = (): PersistedConfigurationSnapshot | null => {
+const readPersistedConfiguration = (storageKey: StorageKey): PersistedConfigurationSnapshot | null => {
   if (typeof window === 'undefined') {
     return null;
   }
 
-  const storageKeys = getConfigurationStorageKeys();
-  for (const key of storageKeys) {
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (raw) {
-        return JSON.parse(raw) as PersistedConfigurationSnapshot;
-      }
-    } catch (error) {
-      console.warn(`[Configuration] No se pudo leer el estado de ${key}:`, error);
-    }
+  if (!storageKey) {
+    return null;
   }
 
-  return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return null;
+    }
+    return JSON.parse(raw) as PersistedConfigurationSnapshot;
+  } catch (error) {
+    console.warn(`[Configuration] No se pudo leer el estado de ${storageKey}:`, error);
+    return null;
+  }
 };
 
-const persistConfigurationSnapshot = (snapshot: PersistedConfigurationSnapshot) => {
+const readLegacyConfiguration = (): PersistedConfigurationSnapshot | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CONFIG_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    return JSON.parse(raw) as PersistedConfigurationSnapshot;
+  } catch (error) {
+    console.warn(`[Configuration] No se pudo leer el estado legacy de ${CONFIG_STORAGE_KEY}:`, error);
+    return null;
+  }
+};
+
+const persistConfigurationSnapshot = (storageKey: StorageKey, snapshot: PersistedConfigurationSnapshot) => {
   if (typeof window === 'undefined') {
     return;
   }
 
-  const storageKeys = getConfigurationStorageKeys();
-  storageKeys.forEach((key) => {
-    try {
-      window.localStorage.setItem(key, JSON.stringify(snapshot));
-    } catch (error) {
-      console.warn(`[Configuration] No se pudo guardar el estado en ${key}:`, error);
-    }
-  });
+  if (!storageKey) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(snapshot));
+  } catch (error) {
+    console.warn(`[Configuration] No se pudo guardar el estado en ${storageKey}:`, error);
+  }
 };
 
-const loadSalesPreferencesFromStorage = (): SalesPreferences => {
-  const persisted = readPersistedConfiguration();
+type SalesPreferencesLoadResult = {
+  preferences: SalesPreferences;
+  migrationSnapshot: PersistedConfigurationSnapshot | null;
+};
+
+const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferencesLoadResult => {
+  const persisted = readPersistedConfiguration(storageKey);
+
+  if (!persisted) {
+    const legacy = readLegacyConfiguration();
+    if (legacy) {
+      const allowNegativeStock =
+        typeof legacy?.sales?.allowNegativeStock === 'boolean'
+          ? legacy.sales.allowNegativeStock
+          : DEFAULT_SALES_PREFERENCES.allowNegativeStock;
+
+      const pricesIncludeTax =
+        typeof (legacy?.sales as { pricesIncludeTax?: boolean } | undefined)?.pricesIncludeTax ===
+        'boolean'
+          ? (legacy.sales as { pricesIncludeTax?: boolean }).pricesIncludeTax!
+          : DEFAULT_SALES_PREFERENCES.pricesIncludeTax;
+
+      return {
+        preferences: { allowNegativeStock, pricesIncludeTax },
+        migrationSnapshot: legacy,
+      };
+    }
+  }
+
   const allowNegativeStock =
     typeof persisted?.sales?.allowNegativeStock === 'boolean'
       ? persisted.sales.allowNegativeStock
@@ -192,15 +224,22 @@ const loadSalesPreferencesFromStorage = (): SalesPreferences => {
       ? (persisted!.sales as { pricesIncludeTax?: boolean }).pricesIncludeTax!
       : DEFAULT_SALES_PREFERENCES.pricesIncludeTax;
 
-  return { allowNegativeStock, pricesIncludeTax };
+  return {
+    preferences: { allowNegativeStock, pricesIncludeTax },
+    migrationSnapshot: null,
+  };
 };
 
-const persistSalesPreferences = (preferences: SalesPreferences) => {
+const persistSalesPreferences = (storageKey: StorageKey, preferences: SalesPreferences) => {
   if (typeof window === 'undefined') {
     return;
   }
 
-  const currentSnapshot = readPersistedConfiguration() ?? {};
+  if (!storageKey) {
+    return;
+  }
+
+  const currentSnapshot = readPersistedConfiguration(storageKey) ?? {};
   const nextSnapshot: PersistedConfigurationSnapshot = {
     ...currentSnapshot,
     sales: {
@@ -210,7 +249,7 @@ const persistSalesPreferences = (preferences: SalesPreferences) => {
     },
   };
 
-  persistConfigurationSnapshot(nextSnapshot);
+  persistConfigurationSnapshot(storageKey, nextSnapshot);
 };
 
 type ConfigurationAction =
@@ -430,15 +469,45 @@ interface ConfigurationProviderProps {
 }
 
 export function ConfigurationProvider({ children }: ConfigurationProviderProps) {
+  const { tenantId } = useTenant();
+  const seriesStorageKey = useMemo<StorageKey>(() => {
+    if (!tenantId) return null;
+    return lsKey(SERIES_STORAGE_KEY, tenantId);
+  }, [tenantId]);
+
+  const configStorageKey = useMemo<StorageKey>(() => {
+    if (!tenantId) return null;
+    return lsKey(CONFIG_STORAGE_KEY, tenantId);
+  }, [tenantId]);
+
+  const salesPreferencesLoad = useMemo(
+    () => loadSalesPreferencesFromStorage(configStorageKey),
+    [configStorageKey]
+  );
+
   const [state, rawDispatch] = useReducer(
     configurationReducer,
     initialState,
     (baseState) => ({
       ...baseState,
       currencies: currencyManager.getSnapshot().currencies,
-      salesPreferences: loadSalesPreferencesFromStorage(),
+      salesPreferences: salesPreferencesLoad.preferences,
     }),
   );
+
+  useEffect(() => {
+    if (!tenantId) return;
+    if (!configStorageKey) return;
+    if (!salesPreferencesLoad.migrationSnapshot) return;
+
+    // Migración opcional: si se leyó legacy (baseKey) y no existe snapshot namespaced, escribir UNA vez.
+    if (readPersistedConfiguration(configStorageKey)) {
+      return;
+    }
+
+    persistConfigurationSnapshot(configStorageKey, salesPreferencesLoad.migrationSnapshot);
+  }, [configStorageKey, salesPreferencesLoad.migrationSnapshot, tenantId]);
+
   const seriesHydratedRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
     if (action.type === 'SET_CURRENCIES') {
@@ -464,21 +533,28 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
   }, [state.company?.baseCurrency]);
 
   useEffect(() => {
-    const storedSeries = loadStoredSeries();
+    if (!tenantId) {
+      seriesHydratedRef.current = true;
+      return;
+    }
+
+    const storedSeries = loadStoredSeries(seriesStorageKey);
     if (storedSeries.length) {
       dispatch({ type: 'SET_SERIES', payload: storedSeries });
     }
     seriesHydratedRef.current = true;
-  }, [dispatch]);
+  }, [dispatch, seriesStorageKey, tenantId]);
 
   useEffect(() => {
     if (!seriesHydratedRef.current) return;
-    persistSeries(state.series);
-  }, [state.series]);
+    if (!tenantId) return;
+    persistSeries(seriesStorageKey, state.series);
+  }, [seriesStorageKey, state.series, tenantId]);
 
   useEffect(() => {
-    persistSalesPreferences(state.salesPreferences);
-  }, [state.salesPreferences]);
+    if (!tenantId) return;
+    persistSalesPreferences(configStorageKey, state.salesPreferences);
+  }, [configStorageKey, state.salesPreferences, tenantId]);
 
   // Initialize with mock data for development
   useEffect(() => {
