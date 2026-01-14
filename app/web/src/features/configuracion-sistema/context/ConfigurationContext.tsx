@@ -61,6 +61,95 @@ type StorageKey = string | null;
 
 const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefined);
 
+type PersistedTenantConfig = {
+  version: 1;
+  company: Company | null;
+  establishments: Establishment[];
+  warehouses: Warehouse[];
+  cajas: Caja[];
+  salesPreferences: SalesPreferences;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const reviveCompany = (company: Company): Company => {
+  const digitalCertificate = company.digitalCertificate
+    ? {
+        ...company.digitalCertificate,
+        expiryDate: reviveDate(company.digitalCertificate.expiryDate),
+      }
+    : company.digitalCertificate;
+
+  const sunatConfiguration = company.sunatConfiguration
+    ? {
+        ...company.sunatConfiguration,
+        lastSyncDate: reviveDate(company.sunatConfiguration.lastSyncDate),
+      }
+    : company.sunatConfiguration;
+
+  return {
+    ...company,
+    createdAt: reviveDate(company.createdAt) ?? new Date(),
+    updatedAt: reviveDate(company.updatedAt) ?? new Date(),
+    digitalCertificate,
+    sunatConfiguration,
+  };
+};
+
+const reviveEstablishment = (est: Establishment): Establishment => ({
+  ...est,
+  createdAt: reviveDate(est.createdAt) ?? new Date(),
+  updatedAt: reviveDate(est.updatedAt) ?? new Date(),
+  sunatConfiguration: est.sunatConfiguration
+    ? {
+        ...est.sunatConfiguration,
+        registrationDate: reviveDate(est.sunatConfiguration.registrationDate),
+      }
+    : est.sunatConfiguration,
+});
+
+const reviveWarehouse = (warehouse: Warehouse): Warehouse => ({
+  ...warehouse,
+  createdAt: reviveDate(warehouse.createdAt) ?? new Date(),
+  updatedAt: reviveDate(warehouse.updatedAt) ?? new Date(),
+});
+
+const reviveCaja = (caja: Caja): Caja => ({
+  ...caja,
+  createdAt: reviveDate(caja.createdAt) ?? new Date(),
+  updatedAt: reviveDate(caja.updatedAt) ?? new Date(),
+});
+
+const reviveTenantConfig = (config: PersistedTenantConfig): PersistedTenantConfig => ({
+  ...config,
+  company: config.company ? reviveCompany(config.company) : null,
+  establishments: config.establishments.map(reviveEstablishment),
+  warehouses: config.warehouses.map(reviveWarehouse),
+  cajas: config.cajas.map(reviveCaja),
+});
+
+const isPersistedTenantConfig = (value: unknown): value is PersistedTenantConfig => {
+  if (!isRecord(value)) return false;
+  if (value.version !== 1) return false;
+
+  const hasArrays =
+    Array.isArray(value.establishments) &&
+    Array.isArray(value.warehouses) &&
+    Array.isArray(value.cajas);
+
+  const prefs = value.salesPreferences;
+  const hasPrefs =
+    isRecord(prefs) &&
+    typeof prefs.allowNegativeStock === 'boolean' &&
+    typeof prefs.pricesIncludeTax === 'boolean';
+
+  const company = value.company;
+  const hasCompany = company === null || isRecord(company);
+
+  return hasArrays && hasPrefs && hasCompany;
+};
+
 const reviveSeries = (series: Series): Series => ({
   ...series,
   createdAt: series.createdAt ? new Date(series.createdAt) : new Date(),
@@ -117,20 +206,12 @@ const persistSeries = (storageKey: StorageKey, series: Series[]) => {
   }
 };
 
-type PersistedConfigurationSnapshot = {
-  sales?: {
-    allowNegativeStock?: boolean;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-};
-
 const DEFAULT_SALES_PREFERENCES: SalesPreferences = {
   allowNegativeStock: true,
   pricesIncludeTax: true,
 };
 
-const readPersistedConfiguration = (storageKey: StorageKey): PersistedConfigurationSnapshot | null => {
+const loadTenantConfigFromStorage = (storageKey: StorageKey): PersistedTenantConfig | null => {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -144,31 +225,53 @@ const readPersistedConfiguration = (storageKey: StorageKey): PersistedConfigurat
     if (!raw) {
       return null;
     }
-    return JSON.parse(raw) as PersistedConfigurationSnapshot;
-  } catch (error) {
-    console.warn(`[Configuration] No se pudo leer el estado de ${storageKey}:`, error);
-    return null;
-  }
-};
 
-const readLegacyConfiguration = (): PersistedConfigurationSnapshot | null => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(CONFIG_STORAGE_KEY);
-    if (!raw) {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isPersistedTenantConfig(parsed)) {
       return null;
     }
-    return JSON.parse(raw) as PersistedConfigurationSnapshot;
+
+    return reviveTenantConfig(parsed);
   } catch (error) {
-    console.warn(`[Configuration] No se pudo leer el estado legacy de ${CONFIG_STORAGE_KEY}:`, error);
+    console.warn(`[Configuration] No se pudo leer el snapshot de tenant en ${storageKey}:`, error);
     return null;
   }
 };
 
-const persistConfigurationSnapshot = (storageKey: StorageKey, snapshot: PersistedConfigurationSnapshot) => {
+const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferences => {
+  const tenantConfig = loadTenantConfigFromStorage(storageKey);
+  if (tenantConfig) {
+    return tenantConfig.salesPreferences;
+  }
+
+  // Legacy (baseKey global): solo lectura por migración.
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem(CONFIG_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (isRecord(parsed) && isRecord(parsed.sales)) {
+          const sales = parsed.sales as Record<string, unknown>;
+          const allowNegativeStock =
+            typeof sales.allowNegativeStock === 'boolean'
+              ? sales.allowNegativeStock
+              : DEFAULT_SALES_PREFERENCES.allowNegativeStock;
+          const pricesIncludeTax =
+            typeof sales.pricesIncludeTax === 'boolean'
+              ? sales.pricesIncludeTax
+              : DEFAULT_SALES_PREFERENCES.pricesIncludeTax;
+          return { allowNegativeStock, pricesIncludeTax };
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return DEFAULT_SALES_PREFERENCES;
+};
+
+const persistTenantSnapshot = (storageKey: StorageKey, snapshot: PersistedTenantConfig) => {
   if (typeof window === 'undefined') {
     return;
   }
@@ -180,76 +283,8 @@ const persistConfigurationSnapshot = (storageKey: StorageKey, snapshot: Persiste
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(snapshot));
   } catch (error) {
-    console.warn(`[Configuration] No se pudo guardar el estado en ${storageKey}:`, error);
+    console.warn(`[Configuration] No se pudo guardar el snapshot de tenant en ${storageKey}:`, error);
   }
-};
-
-type SalesPreferencesLoadResult = {
-  preferences: SalesPreferences;
-  migrationSnapshot: PersistedConfigurationSnapshot | null;
-};
-
-const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferencesLoadResult => {
-  const persisted = readPersistedConfiguration(storageKey);
-
-  if (!persisted) {
-    const legacy = readLegacyConfiguration();
-    if (legacy) {
-      const allowNegativeStock =
-        typeof legacy?.sales?.allowNegativeStock === 'boolean'
-          ? legacy.sales.allowNegativeStock
-          : DEFAULT_SALES_PREFERENCES.allowNegativeStock;
-
-      const pricesIncludeTax =
-        typeof (legacy?.sales as { pricesIncludeTax?: boolean } | undefined)?.pricesIncludeTax ===
-        'boolean'
-          ? (legacy.sales as { pricesIncludeTax?: boolean }).pricesIncludeTax!
-          : DEFAULT_SALES_PREFERENCES.pricesIncludeTax;
-
-      return {
-        preferences: { allowNegativeStock, pricesIncludeTax },
-        migrationSnapshot: legacy,
-      };
-    }
-  }
-
-  const allowNegativeStock =
-    typeof persisted?.sales?.allowNegativeStock === 'boolean'
-      ? persisted.sales.allowNegativeStock
-      : DEFAULT_SALES_PREFERENCES.allowNegativeStock;
-
-  const pricesIncludeTax =
-    typeof (persisted?.sales as { pricesIncludeTax?: boolean } | undefined)?.pricesIncludeTax ===
-    'boolean'
-      ? (persisted!.sales as { pricesIncludeTax?: boolean }).pricesIncludeTax!
-      : DEFAULT_SALES_PREFERENCES.pricesIncludeTax;
-
-  return {
-    preferences: { allowNegativeStock, pricesIncludeTax },
-    migrationSnapshot: null,
-  };
-};
-
-const persistSalesPreferences = (storageKey: StorageKey, preferences: SalesPreferences) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  if (!storageKey) {
-    return;
-  }
-
-  const currentSnapshot = readPersistedConfiguration(storageKey) ?? {};
-  const nextSnapshot: PersistedConfigurationSnapshot = {
-    ...currentSnapshot,
-    sales: {
-      ...currentSnapshot.sales,
-      allowNegativeStock: preferences.allowNegativeStock,
-      pricesIncludeTax: preferences.pricesIncludeTax,
-    },
-  };
-
-  persistConfigurationSnapshot(storageKey, nextSnapshot);
 };
 
 type ConfigurationAction =
@@ -475,14 +510,14 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
     return lsKey(SERIES_STORAGE_KEY, tenantId);
   }, [tenantId]);
 
-  const configStorageKey = useMemo<StorageKey>(() => {
+  const tenantConfigKey = useMemo<StorageKey>(() => {
     if (!tenantId) return null;
     return lsKey(CONFIG_STORAGE_KEY, tenantId);
   }, [tenantId]);
 
-  const salesPreferencesLoad = useMemo(
-    () => loadSalesPreferencesFromStorage(configStorageKey),
-    [configStorageKey]
+  const initialSalesPreferences = useMemo(
+    () => loadSalesPreferencesFromStorage(tenantConfigKey),
+    [tenantConfigKey]
   );
 
   const [state, rawDispatch] = useReducer(
@@ -491,22 +526,11 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
     (baseState) => ({
       ...baseState,
       currencies: currencyManager.getSnapshot().currencies,
-      salesPreferences: salesPreferencesLoad.preferences,
+      salesPreferences: initialSalesPreferences,
     }),
   );
 
-  useEffect(() => {
-    if (!tenantId) return;
-    if (!configStorageKey) return;
-    if (!salesPreferencesLoad.migrationSnapshot) return;
-
-    // Migración opcional: si se leyó legacy (baseKey) y no existe snapshot namespaced, escribir UNA vez.
-    if (readPersistedConfiguration(configStorageKey)) {
-      return;
-    }
-
-    persistConfigurationSnapshot(configStorageKey, salesPreferencesLoad.migrationSnapshot);
-  }, [configStorageKey, salesPreferencesLoad.migrationSnapshot, tenantId]);
+  const tenantHydratedRef = useRef(false);
 
   const seriesHydratedRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
@@ -523,6 +547,26 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
     });
     return unsubscribe;
   }, [rawDispatch]);
+
+  useEffect(() => {
+    if (!tenantId) {
+      tenantHydratedRef.current = true;
+      return;
+    }
+
+    const persisted = loadTenantConfigFromStorage(tenantConfigKey);
+    if (persisted) {
+      if (persisted.company) {
+        dispatch({ type: 'SET_COMPANY', payload: persisted.company });
+      }
+      dispatch({ type: 'SET_ESTABLISHMENTS', payload: persisted.establishments });
+      dispatch({ type: 'SET_WAREHOUSES', payload: persisted.warehouses });
+      dispatch({ type: 'SET_CAJAS', payload: persisted.cajas });
+      dispatch({ type: 'SET_SALES_PREFERENCES', payload: persisted.salesPreferences });
+    }
+
+    tenantHydratedRef.current = true;
+  }, [dispatch, tenantConfigKey, tenantId]);
 
   useEffect(() => {
     const companyBaseCurrency = state.company?.baseCurrency;
@@ -553,8 +597,39 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
 
   useEffect(() => {
     if (!tenantId) return;
-    persistSalesPreferences(configStorageKey, state.salesPreferences);
-  }, [configStorageKey, state.salesPreferences, tenantId]);
+    if (!tenantHydratedRef.current) return;
+
+    const hasMeaningfulConfig =
+      Boolean(state.company) ||
+      state.establishments.length > 0 ||
+      state.warehouses.length > 0 ||
+      state.cajas.length > 0 ||
+      state.salesPreferences.allowNegativeStock !== DEFAULT_SALES_PREFERENCES.allowNegativeStock ||
+      state.salesPreferences.pricesIncludeTax !== DEFAULT_SALES_PREFERENCES.pricesIncludeTax;
+
+    if (!hasMeaningfulConfig) {
+      return;
+    }
+
+    const snapshot: PersistedTenantConfig = {
+      version: 1,
+      company: state.company,
+      establishments: state.establishments,
+      warehouses: state.warehouses,
+      cajas: state.cajas,
+      salesPreferences: state.salesPreferences,
+    };
+
+    persistTenantSnapshot(tenantConfigKey, snapshot);
+  }, [
+    state.cajas,
+    state.company,
+    state.establishments,
+    state.salesPreferences,
+    state.warehouses,
+    tenantConfigKey,
+    tenantId,
+  ]);
 
   // Initialize with mock data for development
   useEffect(() => {
