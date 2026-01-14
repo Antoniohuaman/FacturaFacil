@@ -54,7 +54,7 @@ interface UseUsersReturn {
   };
 }
 
-// Mock employees data
+// Mock users data
 const MOCK_EMPLOYEES: User[] = [
   {
     id: 'emp-1',
@@ -167,7 +167,7 @@ const MOCK_EMPLOYEES: User[] = [
       email: 'ana.rodriguez@empresademo.com',
       pin: '5678',
       requiresPinForActions: true,
-      roleIds: ['role-3'], // Employee role
+      roleIds: ['role-3'], // User role
       roles: [SYSTEM_ROLES[2] as Role], // Vendedor
       permissions: [],
       lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
@@ -252,7 +252,7 @@ export function useUsers(): UseUsersReturn {
 
   const employees = state.employees;
 
-  // Load employees
+  // Load users
   const loadEmployees = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -270,7 +270,7 @@ export function useUsers(): UseUsersReturn {
     }
   }, [dispatch]);
 
-  // Generate employee code
+  // Generate users code
   const generateEmployeeCode = useCallback(() => {
     const maxCode = employees.reduce((max, emp) => {
       const codeNumber = parseInt(emp.code.replace(/\D/g, ''), 10) || 0;

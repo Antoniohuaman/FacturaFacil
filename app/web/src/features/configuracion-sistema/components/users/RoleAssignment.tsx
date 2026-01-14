@@ -107,7 +107,7 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
     const selectedRoles = roles.filter(role => selectedRoleIds.includes(role.id));
     const levels = selectedRoles.map(role => role.level);
     
-    // Check if there are both ADMIN and EMPLOYEE levels selected
+    // Check if there are both ADMIN and EMPLOYEE role levels selected
     return levels.includes('ADMIN') && levels.includes('EMPLOYEE');
   };
 
@@ -314,8 +314,8 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
           <button
             type="button"
             onClick={() => {
-              const employeeRole = roles.find(r => r.name === 'Vendedor');
-              if (employeeRole) onChange([employeeRole.id]);
+              const sellerRole = roles.find(r => r.name === 'Vendedor');
+              if (sellerRole) onChange([sellerRole.id]);
             }}
             className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
           >

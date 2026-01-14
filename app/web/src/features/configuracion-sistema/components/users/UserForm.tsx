@@ -19,7 +19,7 @@ interface UserFormData {
 }
 
 interface UserFormProps {
-  employee?: UserModel;
+  user?: UserModel;
   establishments: Establishment[];
   existingEmails: string[];
   onSubmit: (data: UserFormData) => Promise<void>;
@@ -81,7 +81,7 @@ const calculatePasswordStrength = (password: string): { score: number; label: st
 };
 
 export function UserForm({
-  employee,
+  user,
   establishments,
   existingEmails,
   onSubmit,
@@ -106,19 +106,19 @@ export function UserForm({
 
 
   useEffect(() => {
-    if (employee) {
+    if (user) {
       setFormData({
-        fullName: employee.personalInfo.fullName,
-        email: employee.personalInfo.email,
-        phone: employee.personalInfo.phone || '',
-        documentType: employee.personalInfo.documentType || '',
-        documentNumber: employee.personalInfo.documentNumber || '',
-        establishmentIds: employee.employment.establishmentIds,
+        fullName: user.personalInfo.fullName,
+        email: user.personalInfo.email,
+        phone: user.personalInfo.phone || '',
+        documentType: user.personalInfo.documentType || '',
+        documentNumber: user.personalInfo.documentNumber || '',
+        establishmentIds: user.employment.establishmentIds,
         password: '', // Don't show password when editing
         requirePasswordChange: false
       });
     }
-  }, [employee]);
+  }, [user]);
 
   const validateField = (field: string, value: any): string | null => {
     switch (field) {
@@ -142,7 +142,7 @@ export function UserForm({
         if (!emailRegex.test(value)) {
           return 'Ingresa un email válido';
         }
-        if (existingEmails.includes(value.toLowerCase()) && value.toLowerCase() !== employee?.personalInfo.email?.toLowerCase()) {
+        if (existingEmails.includes(value.toLowerCase()) && value.toLowerCase() !== user?.personalInfo.email?.toLowerCase()) {
           return 'Ya existe un usuario con este email';
         }
         break;
@@ -184,7 +184,7 @@ export function UserForm({
         break;
 
       case 'password':
-        if (!employee && (!value || value.trim() === '')) {
+        if (!user && (!value || value.trim() === '')) {
           return 'La contraseña es obligatoria';
         }
         if (value && value.length < 8) {
@@ -224,7 +224,7 @@ export function UserForm({
   };
 
   const isFormValid = () => {
-    const requiredFields = employee
+    const requiredFields = user
       ? ['fullName', 'email', 'establishmentIds']
       : ['fullName', 'email', 'establishmentIds', 'password'];
 
@@ -251,7 +251,7 @@ export function UserForm({
 
     // Validate all fields
     const newErrors: Record<string, string> = {};
-    const fieldsToValidate = employee
+    const fieldsToValidate = user
       ? ['fullName', 'email', 'phone', 'documentNumber', 'establishmentIds']
       : ['fullName', 'email', 'phone', 'documentNumber', 'establishmentIds', 'password'];
 
@@ -313,10 +313,10 @@ export function UserForm({
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {employee ? 'Editar Usuario' : 'Invitar Nuevo Usuario'}
+                  {user ? 'Editar Usuario' : 'Invitar Nuevo Usuario'}
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {employee ? 'Modifica los datos del usuario' : 'Completa la información para enviar una invitación'}
+                  {user ? 'Modifica los datos del usuario' : 'Completa la información para enviar una invitación'}
                 </p>
               </div>
             </div>
@@ -544,8 +544,8 @@ export function UserForm({
             )}
           </div>
 
-          {/* Password Section - Only for new employees */}
-          {!employee && (
+          {/* Password Section - Only for new users */}
+          {!user && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
@@ -739,7 +739,7 @@ export function UserForm({
               disabled={isLoading || !isFormValid()}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
-              {isLoading ? 'Guardando...' : (employee ? 'Actualizar' : 'Invitar')}
+              {isLoading ? 'Guardando...' : (user ? 'Actualizar' : 'Invitar')}
             </button>
           </div>
         </form>

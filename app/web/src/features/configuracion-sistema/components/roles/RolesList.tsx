@@ -11,7 +11,7 @@ interface RolesListProps {
 
 export function RolesList({ roles, employees = [], isLoading = false }: RolesListProps) {
 
-  // Count employees per role
+  // Count users  per role
   const getEmployeeCountForRole = (roleIndex: number): number => {
     const roleId = `role-${roleIndex + 1}`;
     return employees.filter(emp =>

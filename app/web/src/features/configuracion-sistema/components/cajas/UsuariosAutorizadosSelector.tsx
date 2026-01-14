@@ -5,7 +5,7 @@ import type { User } from '../../models';
 interface UsuariosAutorizadosSelectorProps {
   value: string[]; // Array of employee IDs
   onChange: (selectedIds: string[]) => void;
-  filterByCashPermission?: boolean; // If true, only show employees with cash.canOpenRegister permission
+  filterByCashPermission?: boolean; // If true, only show usuario with cash.canOpenRegister permission
   disabled?: boolean;
   error?: string;
 }
@@ -19,13 +19,13 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
 }) => {
   const { state } = useConfigurationContext();
 
-  // Filter employees based on cash register permissions
+  // Filter user based on cash register permissions
   const availableEmployees = React.useMemo(() => {
     let employees = state.employees.filter((emp: User) => emp.status === 'ACTIVE');
 
     if (filterByCashPermission) {
       employees = employees.filter((emp: User) => {
-        // Check if any of the employee's roles have canOpenRegister permission
+        // Check if any of the users  roles have canOpenRegister permission
         return emp.systemAccess.roles.some(role => 
           role.permissions?.cash?.canOpenRegister === true
         );

@@ -135,7 +135,7 @@ export function validateMargenDescuadre(margen: number): ValidationError | null 
 /**
  * Validates usuarios autorizados
  * @param usuariosAutorizados - Array of employee IDs
- * @param employees - All available employees
+ * @param employees - All available users
  * @param habilitada - Whether the caja is enabled
  */
 export function validateUsuariosAutorizados(
@@ -146,7 +146,7 @@ export function validateUsuariosAutorizados(
   // If not provided, default to empty array
   const usuarios = usuariosAutorizados || [];
 
-  // Validate that all IDs exist in employees
+  // Validate that all IDs exist in users
   const invalidIds = usuarios.filter(id => 
     !employees.some(emp => emp.id === id)
   );

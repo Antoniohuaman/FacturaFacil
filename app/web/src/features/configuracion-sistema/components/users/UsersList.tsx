@@ -24,20 +24,20 @@ type SortField = 'name' | 'email' | 'status' | 'created' | 'roles';
 type SortOrder = 'asc' | 'desc';
 
 interface UsersListProps {
-  employees: User[];
+  users: User[];
   roles: Role[];
   establishments: Establishment[];
-  onEdit: (employee: User) => void;
-  onDelete: (employee: User) => void;
-  onChangeStatus: (employee: User, status: UserStatus, reason?: string) => void;
-  onAssignRole: (employee: User) => void;
-  onRemoveRole: (employee: User, establishmentId: string) => void;
+  onEdit: (user: User) => void;
+  onDelete: (user: User) => void;
+  onChangeStatus: (user: User, status: UserStatus, reason?: string) => void;
+  onAssignRole: (user: User) => void;
+  onRemoveRole: (user: User, establishmentId: string) => void;
   onCreate: () => void;
   isLoading?: boolean;
 }
 
 export function UsersList({
-  employees,
+  users,
   roles,
   establishments,
   onEdit,
@@ -56,17 +56,17 @@ export function UsersList({
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
 
-  // Filter employees
-  const filteredEmployees = employees
-    .filter(employee => {
-      const matchesSearch = employee.personalInfo.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           employee.personalInfo.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (employee.personalInfo.documentNumber && employee.personalInfo.documentNumber.includes(searchTerm));
+  // Filter users
+  const filteredUsers = users
+    .filter(user => {
+      const matchesSearch = user.personalInfo.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           user.personalInfo.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (user.personalInfo.documentNumber && user.personalInfo.documentNumber.includes(searchTerm));
       
-      const matchesStatus = filterStatus === 'ALL' || employee.status === filterStatus;
+      const matchesStatus = filterStatus === 'ALL' || user.status === filterStatus;
       
       const matchesEstablishment = filterEstablishment === 'ALL' || 
-                                   employee.employment.establishmentIds.includes(filterEstablishment);
+                                   user.employment.establishmentIds.includes(filterEstablishment);
       
       return matchesSearch && matchesStatus && matchesEstablishment;
     })
@@ -96,10 +96,10 @@ export function UsersList({
 
   const getUserStats = () => {
     return {
-      total: employees.length,
-      active: employees.filter(e => e.status === 'ACTIVE').length,
-      invited: employees.filter(e => e.status === 'INACTIVE').length,
-      inactive: employees.filter(e => e.status === 'INACTIVE').length
+      total: users.length,
+      active: users.filter(user => user.status === 'ACTIVE').length,
+      invited: users.filter(user => user.status === 'INACTIVE').length,
+      inactive: users.filter(user => user.status === 'INACTIVE').length
     };
   };
 
@@ -336,7 +336,7 @@ export function UsersList({
       {/* Results Count */}
       <div className="flex items-center justify-between text-sm text-gray-600">
         <span>
-          {filteredEmployees.length} de {employees.length} usuario{employees.length !== 1 ? 's' : ''}
+          {filteredUsers.length} de {users.length} usuario{users.length !== 1 ? 's' : ''}
         </span>
         
         {/* Sort Dropdown */}
@@ -365,7 +365,7 @@ export function UsersList({
       </div>
 
       {/* Content */}
-      {filteredEmployees.length === 0 ? (
+      {filteredUsers.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">👥</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -392,10 +392,10 @@ export function UsersList({
       ) : viewMode === 'grid' ? (
         /* Grid View */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredEmployees.map((user) => (
+          {filteredUsers.map((user) => (
             <UserCard
               key={user.id}
-              employee={user}
+              user={user}
               roles={roles}
               establishments={establishments}
               onEdit={() => onEdit(user)}
@@ -441,36 +441,36 @@ export function UsersList({
                 </tr>
               </thead>
               <tbody>
-                {filteredEmployees.map((employee) => {
-                  const statusConfig = getStatusConfig(employee.status);
+                {filteredUsers.map((user) => {
+                  const statusConfig = getStatusConfig(user.status);
                   
                   return (
                     <tr
-                      key={employee.id}
-                      data-focus={`configuracion:empleados:${employee.id}`}
+                      key={user.id}
+                      data-focus={`configuracion:empleados:${user.id}`}
                       className="border-b border-gray-100 hover:bg-gray-50"
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
                             <span className="text-sm font-semibold text-gray-600">
-                              {employee.personalInfo.fullName.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+                              {user.personalInfo.fullName.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
                             </span>
                           </div>
                           <div>
-                            <div className="font-medium text-gray-900">{employee.personalInfo.fullName}</div>
-                            {employee.personalInfo.documentType && employee.personalInfo.documentNumber && (
+                            <div className="font-medium text-gray-900">{user.personalInfo.fullName}</div>
+                            {user.personalInfo.documentType && user.personalInfo.documentNumber && (
                               <div className="text-sm text-gray-500">
-                                {employee.personalInfo.documentType}: {employee.personalInfo.documentNumber}
+                                {user.personalInfo.documentType}: {user.personalInfo.documentNumber}
                               </div>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className="py-4 px-4 text-gray-600">
-                        {employee.personalInfo.email}
-                        {employee.personalInfo.phone && (
-                          <div className="text-sm text-gray-500">{employee.personalInfo.phone}</div>
+                        {user.personalInfo.email}
+                        {user.personalInfo.phone && (
+                          <div className="text-sm text-gray-500">{user.personalInfo.phone}</div>
                         )}
                       </td>
                       <td className="py-4 px-4">
@@ -482,14 +482,14 @@ export function UsersList({
                       </td>
                       <td className="py-4 px-4">
                         <div className="space-y-1">
-                          {employee.employment.establishmentIds.length === 0 ? (
+                          {user.employment.establishmentIds.length === 0 ? (
                             <span className="text-sm text-gray-500 italic">Sin roles</span>
                           ) : (
-                            employee.employment.establishmentIds.map((establishmentId: string, index: number) => (
+                            user.employment.establishmentIds.map((establishmentId: string, index: number) => (
                               <div key={index} className="text-xs">
                                 <span className="font-medium">{getEstablishmentName(establishmentId)}</span>
                                 <span className="text-gray-500"> → </span>
-                                <span className="text-blue-600">{employee.systemAccess.roles[0]?.name || 'Sin rol'}</span>
+                                <span className="text-blue-600">{user.systemAccess.roles[0]?.name || 'Sin rol'}</span>
                               </div>
                             ))
                           )}
@@ -498,14 +498,14 @@ export function UsersList({
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-end space-x-2">
                           <button
-                            onClick={() => onAssignRole(employee)}
+                            onClick={() => onAssignRole(user)}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                             title="Asignar rol"
                           >
                             <Shield className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => onEdit(employee)}
+                            onClick={() => onEdit(user)}
                             className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
                             title="Editar"
                           >
@@ -513,17 +513,17 @@ export function UsersList({
                           </button>
 
                           {/* Enable/Disable Toggle */}
-                          {employee.status === 'ACTIVE' ? (
+                          {user.status === 'ACTIVE' ? (
                             <button
-                              onClick={() => onChangeStatus(employee, 'INACTIVE')}
+                              onClick={() => onChangeStatus(user, 'INACTIVE')}
                               className="p-1.5 text-orange-600 hover:bg-orange-50 rounded transition-colors"
                               title="Inhabilitar"
                             >
                               <PowerOff className="w-4 h-4" />
                             </button>
-                          ) : employee.status === 'INACTIVE' ? (
+                          ) : user.status === 'INACTIVE' ? (
                             <button
-                              onClick={() => onChangeStatus(employee, 'ACTIVE')}
+                              onClick={() => onChangeStatus(user, 'ACTIVE')}
                               className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
                               title="Habilitar"
                             >
@@ -532,9 +532,9 @@ export function UsersList({
                           ) : null}
 
                           {/* Delete - Only show if employee has no transactions */}
-                          {!employee.hasTransactions && (
+                          {!user.hasTransactions && (
                             <button
-                              onClick={() => onDelete(employee)}
+                              onClick={() => onDelete(user)}
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                               title="Eliminar"
                             >

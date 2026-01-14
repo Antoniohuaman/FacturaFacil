@@ -29,7 +29,7 @@ import { StatusIndicator } from '../common/StatusIndicator';
 type UserStatus = User['status'];
 
 interface UserCardProps {
-  employee: User;
+  user: User;
   roles: Role[];
   establishments: Establishment[];
   onEdit: () => void;
@@ -42,7 +42,7 @@ interface UserCardProps {
 }
 
 export function UserCard({
-  employee,
+  user,
   roles: _roles, // Mantener para compatibilidad futura
   establishments,
   onEdit,
@@ -144,13 +144,13 @@ export function UserCard({
     }
   };
 
-  const statusConfig = getStatusConfig(employee.status);
+  const statusConfig = getStatusConfig(user.status);
   const StatusIcon = statusConfig.icon;
 
   return (
     <>
       <div
-        data-focus={`configuracion:empleados:${employee.id}`}
+        data-focus={`configuracion:empleados:${user.id}`}
         className={`
         bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200
         ${!compact ? 'p-6' : 'p-4'}
@@ -162,20 +162,20 @@ export function UserCard({
             {/* Avatar */}
             <div className={`
               flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center font-semibold text-white
-              ${employee.status === 'ACTIVE' 
+              ${user.status === 'ACTIVE' 
                 ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
-                : employee.status === 'INACTIVE'
+                : user.status === 'INACTIVE'
                   ? 'bg-gradient-to-br from-yellow-500 to-yellow-600'
                   : 'bg-gradient-to-br from-gray-500 to-gray-600'
               }
             `}>
-              {getInitials(employee.personalInfo.fullName)}
+              {getInitials(user.personalInfo.fullName)}
             </div>
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2 mb-1">
                 <h3 className="font-semibold text-gray-900 truncate">
-                  {employee.personalInfo.fullName}
+                  {user.personalInfo.fullName}
                 </h3>
                 <StatusIndicator
                   status={statusConfig.color}
@@ -185,12 +185,12 @@ export function UserCard({
               </div>
               
               <p className="text-sm text-gray-600 truncate mb-1">
-                {employee.personalInfo.email}
+                {user.personalInfo.email}
               </p>
               
-              {employee.personalInfo.phone && (
+              {user.personalInfo.phone && (
                 <p className="text-xs text-gray-500">
-                  📱 {employee.personalInfo.phone}
+                  📱 {user.personalInfo.phone}
                 </p>
               )}
             </div>
@@ -236,7 +236,7 @@ export function UserCard({
                       <span>Asignar Rol</span>
                     </button>
                     
-                    {employee.status === 'INACTIVE' && (
+                    {user.status === 'INACTIVE' && (
                       <button
                         onClick={() => {
                           onChangeStatus('ACTIVE');
@@ -249,7 +249,7 @@ export function UserCard({
                       </button>
                     )}
                     
-                    {employee.status === 'ACTIVE' && (
+                    {user.status === 'ACTIVE' && (
                       <button
                         onClick={() => {
                           setShowStatusModal(true);
@@ -262,7 +262,7 @@ export function UserCard({
                       </button>
                     )}
                     
-                    {employee.status === 'INACTIVE' && (
+                    {user.status === 'INACTIVE' && (
                       <button
                         onClick={() => {
                           onChangeStatus('ACTIVE');
@@ -278,7 +278,7 @@ export function UserCard({
                     <div className="border-t border-gray-100 my-1"></div>
 
                     {/* Enable/Disable Toggle */}
-                    {employee.status === 'ACTIVE' ? (
+                    {user.status === 'ACTIVE' ? (
                       <button
                         onClick={() => {
                           onChangeStatus('INACTIVE');
@@ -289,7 +289,7 @@ export function UserCard({
                         <PowerOff className="w-4 h-4" />
                         <span>Inhabilitar</span>
                       </button>
-                    ) : employee.status === 'INACTIVE' ? (
+                    ) : user.status === 'INACTIVE' ? (
                       <button
                         onClick={() => {
                           onChangeStatus('ACTIVE');
@@ -303,7 +303,7 @@ export function UserCard({
                     ) : null}
 
                     {/* Delete - Only show if employee has no transactions */}
-                    {!employee.hasTransactions && (
+                    {!user.hasTransactions && (
                       <>
                         <div className="border-t border-gray-100 my-1"></div>
                         <button
@@ -326,12 +326,12 @@ export function UserCard({
         </div>
 
         {/* Document Info */}
-        {employee.personalInfo.documentType && employee.personalInfo.documentNumber && (
+        {user.personalInfo.documentType && user.personalInfo.documentNumber && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center space-x-2">
               <FileText className="w-4 h-4 text-gray-600" />
               <span className="text-sm font-medium text-gray-700">
-                {employee.personalInfo.documentType}: {employee.personalInfo.documentNumber}
+                {user.personalInfo.documentType}: {user.personalInfo.documentNumber}
               </span>
             </div>
           </div>
@@ -350,24 +350,24 @@ export function UserCard({
           </p>
           
           {/* Additional status info */}
-          {employee.status === 'INACTIVE' && employee.createdAt && (
+          {user.status === 'INACTIVE' && user.createdAt && (
             <p className="text-xs text-gray-600 mt-2">
               <Clock className="w-3 h-3 inline mr-1" />
-              Creado {formatDate(employee.createdAt)}
+              Creado {formatDate(user.createdAt)}
             </p>
           )}
           
-          {employee.status === 'ACTIVE' && employee.employment.hireDate && (
+          {user.status === 'ACTIVE' && user.employment.hireDate && (
             <p className="text-xs text-gray-600 mt-2">
               <CheckCircle className="w-3 h-3 inline mr-1" />
-              Contratado {formatDate(employee.employment.hireDate)}
+              Contratado {formatDate(user.employment.hireDate)}
             </p>
           )}
           
-          {employee.status === 'INACTIVE' && employee.notes && (
+          {user.status === 'INACTIVE' && user.notes && (
             <p className="text-xs text-gray-600 mt-2">
               <AlertCircle className="w-3 h-3 inline mr-1" />
-              Notas: {employee.notes}
+              Notas: {user.notes}
             </p>
           )}
         </div>
@@ -380,11 +380,11 @@ export function UserCard({
               <span>Roles por Establecimiento</span>
             </h4>
             <span className="text-xs text-gray-500">
-              {employee.employment.establishmentIds.length} asignado{employee.employment.establishmentIds.length !== 1 ? 's' : ''}
+              {user.employment.establishmentIds.length} asignado{user.employment.establishmentIds.length !== 1 ? 's' : ''}
             </span>
           </div>
           
-          {employee.employment.establishmentIds.length === 0 ? (
+          {user.employment.establishmentIds.length === 0 ? (
             <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <Shield className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-500 mb-2">Sin roles asignados</p>
@@ -397,7 +397,7 @@ export function UserCard({
             </div>
           ) : (
             <div className="space-y-2">
-              {employee.employment.establishmentIds.map((establishmentId: string, index: number) => (
+              {user.employment.establishmentIds.map((establishmentId: string, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
@@ -411,7 +411,7 @@ export function UserCard({
                     <div className="flex items-center space-x-2 mt-1">
                       <Shield className="w-3 h-3 text-blue-600" />
                       <span className="text-sm text-blue-800 font-medium">
-                        {employee.systemAccess.roles[0]?.name || 'Sin rol'}
+                        {user.systemAccess.roles[0]?.name || 'Sin rol'}
                       </span>
                     </div>
                   </div>
@@ -440,7 +440,7 @@ export function UserCard({
                 <span>Asignar Rol</span>
               </button>
               
-              {employee.status === 'INACTIVE' && (
+              {user.status === 'INACTIVE' && (
                 <button
                   onClick={() => onChangeStatus('ACTIVE')}
                   className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-green-50 text-green-700 border border-green-200 rounded-md hover:bg-green-100 transition-colors"
@@ -467,13 +467,13 @@ export function UserCard({
         <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100 mt-4">
           <div className="flex items-center space-x-1">
             <Calendar className="w-3 h-3" />
-            <span>Creado {formatDate(employee.createdAt)}</span>
+            <span>Creado {formatDate(user.createdAt)}</span>
           </div>
           
-          {employee.updatedAt && employee.updatedAt !== employee.createdAt && (
+          {user.updatedAt && user.updatedAt !== user.createdAt && (
             <div className="flex items-center space-x-1">
               <Edit3 className="w-3 h-3" />
-              <span>Editado {formatDate(employee.updatedAt)}</span>
+              <span>Editado {formatDate(user.updatedAt)}</span>
             </div>
           )}
         </div>
@@ -488,7 +488,7 @@ export function UserCard({
                 Desactivar Usuario
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                {employee.personalInfo.fullName}
+                {user.personalInfo.fullName}
               </p>
             </div>
 

@@ -14,22 +14,22 @@ interface CredentialsModalProps {
     username: string;
     password: string;
   };
-  employee: UserModel;
+  user: UserModel;
   establishments: Establishment[];
 }
 
-export function CredentialsModal({ isOpen, onClose, credentials, employee, establishments }: CredentialsModalProps) {
+export function CredentialsModal({ isOpen, onClose, credentials, user, establishments }: CredentialsModalProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  // Get employee's establishments
-  const employeeEstablishments = establishments.filter(est =>
-    employee.employment.establishmentIds.includes(est.id)
+  // Get user establishments
+  const userEstablishments = establishments.filter(est =>
+    user.employment.establishmentIds.includes(est.id)
   );
 
-  // Get employee's roles
-  const employeeRoles = (employee.systemAccess.roles || []) as Role[];
+  // Get user roles
+  const userRoles = (user.systemAccess.roles || []) as Role[];
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -42,8 +42,8 @@ export function CredentialsModal({ isOpen, onClose, credentials, employee, estab
   };
 
   const handleCopyAll = async () => {
-    const rolesText = employeeRoles.map(r => `  - ${r.name}`).join('\n');
-    const establishmentsText = employeeEstablishments.map(e => `  - ${e.name}`).join('\n');
+    const rolesText = userRoles.map(r => `  - ${r.name}`).join('\n');
+    const establishmentsText = userEstablishments.map(e => `  - ${e.name}`).join('\n');
 
     const allCredentials = `
 ═══════════════════════════════════════
@@ -75,8 +75,8 @@ ${establishmentsText || '  - Ninguno'}
   };
 
   const handleSendWhatsApp = () => {
-    const rolesText = employeeRoles.map(r => `  - ${r.name}`).join('\n');
-    const establishmentsText = employeeEstablishments.map(e => `  - ${e.name}`).join('\n');
+    const rolesText = userRoles.map(r => `  - ${r.name}`).join('\n');
+    const establishmentsText = userEstablishments.map(e => `  - ${e.name}`).join('\n');
 
     const message = `
 ═══════════════════════════════════════
@@ -138,7 +138,7 @@ ${establishmentsText || '  - Ninguno'}
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Employee Info */}
+          {/* User Info */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200">
             <div className="flex items-center space-x-3 mb-3">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white text-lg font-bold">
@@ -217,9 +217,9 @@ ${establishmentsText || '  - Ninguno'}
                 <Shield className="w-4 h-4 text-purple-600" />
                 <h4 className="text-sm font-semibold text-purple-900">Roles Asignados</h4>
               </div>
-              {employeeRoles.length > 0 ? (
+              {userRoles.length > 0 ? (
                 <div className="space-y-1.5">
-                  {employeeRoles.map((role) => (
+                  {userRoles.map((role) => (
                     <div
                       key={role.id}
                       className="bg-white border border-purple-200 rounded px-2 py-1.5"
@@ -240,9 +240,9 @@ ${establishmentsText || '  - Ninguno'}
                 <Building2 className="w-4 h-4 text-indigo-600" />
                 <h4 className="text-sm font-semibold text-indigo-900">Establecimientos</h4>
               </div>
-              {employeeEstablishments.length > 0 ? (
+              {userEstablishments.length > 0 ? (
                 <div className="space-y-1.5">
-                  {employeeEstablishments.map((establishment) => (
+                  {userEstablishments.map((establishment) => (
                     <div
                       key={establishment.id}
                       className="bg-white border border-indigo-200 rounded px-2 py-1.5"
@@ -291,8 +291,8 @@ ${establishmentsText || '  - Ninguno'}
             <p className="font-medium mb-1">📋 Resumen de Acceso</p>
             <ul className="space-y-0.5 text-[11px]">
               <li>✓ Credenciales de acceso generadas</li>
-              <li>✓ {employeeRoles.length} rol(es) asignado(s)</li>
-              <li>✓ {employeeEstablishments.length} establecimiento(s) asignado(s)</li>
+              <li>✓ {userRoles.length} rol(es) asignado(s)</li>
+              <li>✓ {userEstablishments.length} establecimiento(s) asignado(s)</li>
               <li className="text-blue-600 mt-1">💡 Puedes modificar roles desde la lista de usuarios</li>
             </ul>
           </div>

@@ -568,10 +568,10 @@ export function ConfigurationProvider({ children }: ConfigurationProviderProps) 
       payload: defaultTaxes,
     });
 
-    // Mock employees with roles
+    // Mock users  with roles
     dispatch({
       type: 'SET_EMPLOYEES',
-      payload: []  // Start empty - users can create their own employees
+      payload: []  // Start empty - users can create their own users
     });
 
     // No se inicializan warehouses por defecto

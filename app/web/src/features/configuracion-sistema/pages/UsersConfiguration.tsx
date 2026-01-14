@@ -54,7 +54,7 @@ export function UsersConfiguration() {
   const [isLoading, setIsLoading] = useState(false);
   const [credentialsModal, setCredentialsModal] = useState<{
     show: boolean;
-    employee?: User;
+    user?: User;
     credentials?: {
       fullName: string;
       email: string;
@@ -278,12 +278,12 @@ export function UsersConfiguration() {
       setSelectedRoleIds([]);
       setRoleError('');
 
-      // Show credentials modal if this was a new employee
-      if (credentialsModal.credentials && credentialsModal.employee?.id === updatedEmployee.id) {
+      // Show credentials modal if this was a new user
+      if (credentialsModal.credentials && credentialsModal.user?.id === updatedEmployee.id) {
         setCredentialsModal({
           ...credentialsModal,
           show: true,
-          employee: updatedEmployee,
+          user: updatedEmployee,
         });
       }
     } catch (error) {
@@ -380,11 +380,11 @@ export function UsersConfiguration() {
       {/* Users Tab */}
       {activeTab === 'employees' && (
         <UsersList
-          employees={employees}
+          users={employees}
           roles={SYSTEM_ROLES as Role[]}
           establishments={establishments}
           onEdit={handleEditEmployee}
-          onDelete={(employee) => setDeleteModal({ show: true, employee })}
+          onDelete={(user) => setDeleteModal({ show: true, employee: user })}
           onChangeStatus={handleChangeStatus}
           onAssignRole={handleAssignRole}
           onRemoveRole={handleRemoveEstablishment}
@@ -405,7 +405,7 @@ export function UsersConfiguration() {
       {/* User Form Modal */}
       {showEmployeeForm && (
         <UserForm
-          employee={editingEmployee || undefined}
+          user={editingEmployee || undefined}
           establishments={establishments}
           existingEmails={existingEmails}
           onSubmit={handleSubmitEmployee}
@@ -463,12 +463,12 @@ export function UsersConfiguration() {
       )}
 
       {/* Credentials Modal */}
-      {credentialsModal.show && credentialsModal.credentials && credentialsModal.employee && (
+      {credentialsModal.show && credentialsModal.credentials && credentialsModal.user && (
         <CredentialsModal
           isOpen={credentialsModal.show}
           onClose={() => setCredentialsModal({ show: false })}
           credentials={credentialsModal.credentials}
-          employee={credentialsModal.employee}
+          user={credentialsModal.user}
           establishments={establishments}
         />
       )}
