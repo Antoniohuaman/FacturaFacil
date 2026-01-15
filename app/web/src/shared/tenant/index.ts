@@ -6,6 +6,13 @@ import { useTenantStore } from '../../features/autenticacion/store/TenantStore';
 export const WORKSPACES_STORAGE_KEY = 'ff_workspaces';
 export const ACTIVE_WORKSPACE_STORAGE_KEY = 'ff_active_workspace_id';
 
+export const generateWorkspaceId = (): string => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `ws_${Date.now()}`;
+};
+
 type GlobalSession = {
   __USER_SESSION__?: { currentCompanyId?: string; currentEstablishmentId?: string };
   __FF_ACTIVE_WORKSPACE_ID?: string;

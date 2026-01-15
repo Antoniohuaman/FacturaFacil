@@ -501,10 +501,12 @@ const ConfigurationContext = createContext<ConfigurationContextType | undefined>
 
 interface ConfigurationProviderProps {
   children: ReactNode;
+  tenantIdOverride?: string | null;
 }
 
-export function ConfigurationProvider({ children }: ConfigurationProviderProps) {
-  const { tenantId } = useTenant();
+export function ConfigurationProvider({ children, tenantIdOverride }: ConfigurationProviderProps) {
+  const { tenantId: activeTenantId } = useTenant();
+  const tenantId = tenantIdOverride ?? activeTenantId;
   const seriesStorageKey = useMemo<StorageKey>(() => {
     if (!tenantId) return null;
     return lsKey(SERIES_STORAGE_KEY, tenantId);

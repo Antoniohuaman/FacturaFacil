@@ -15,18 +15,23 @@ import { TenantDataResetEffect } from "../../shared/tenant/TenantDataResetEffect
 import { CajaProvider, useCaja } from "../../features/control-caja/context/CajaContext";
 import { ToastContainer } from "../../features/control-caja/components/common/Toast";
 import { FeedbackHost } from "../../shared/feedback/FeedbackHost";
+import { generateWorkspaceId } from "../../shared/tenant";
 
 export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { workspaces, tenantId } = useTenant();
+  const workspaceNavigationState = location.state as
+    | { workspaceId?: string; workspaceMode?: "create_workspace" | "edit_workspace" }
+    | null;
+  const configurationTenantId = workspaceNavigationState?.workspaceId ?? tenantId;
 
   useEffect(() => {
     if (workspaces.length === 0 && location.pathname !== "/configuracion/empresa") {
       navigate("/configuracion/empresa", {
         replace: true,
-        state: { workspaceMode: "create_workspace" },
+        state: { workspaceMode: "create_workspace", workspaceId: generateWorkspaceId() },
       });
     }
   }, [workspaces.length, location.pathname, navigate]);
@@ -34,7 +39,7 @@ export default function AppShell() {
   return (
     <ThemeProvider>
       <UserSessionProvider>
-        <ConfigurationProvider key={tenantId ?? 'no-tenant'}>
+        <ConfigurationProvider key={configurationTenantId ?? 'no-tenant'} tenantIdOverride={configurationTenantId}>
           <SessionInitializer>
             <TenantDataResetEffect />
             <CajaProvider>

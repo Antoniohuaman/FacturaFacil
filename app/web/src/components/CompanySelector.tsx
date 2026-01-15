@@ -4,6 +4,7 @@ import { Building2, ChevronDown, MapPin } from 'lucide-react';
 import { useUserSession } from '../contexts/UserSessionContext';
 import { useTenant } from '../shared/tenant/TenantContext';
 import { WorkspaceSwitcherModal } from './WorkspaceSwitcherModal';
+import { generateWorkspaceId } from '../shared/tenant';
 
 const CompanySelector = () => {
   const { session, setCurrentEstablishment } = useUserSession();
@@ -50,7 +51,7 @@ const CompanySelector = () => {
 
   const handleCreateWorkspace = () => {
     setShowWorkspaceModal(false);
-    handleNavigateToWorkspace('create_workspace');
+    handleNavigateToWorkspace('create_workspace', generateWorkspaceId());
   };
 
   const handleEditWorkspace = (workspaceId: string) => {

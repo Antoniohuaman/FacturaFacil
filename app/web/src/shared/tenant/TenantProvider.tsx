@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ACTIVE_WORKSPACE_STORAGE_KEY, WORKSPACES_STORAGE_KEY } from './index';
+import { ACTIVE_WORKSPACE_STORAGE_KEY, WORKSPACES_STORAGE_KEY, generateWorkspaceId } from './index';
 import { TenantContext } from './TenantContext';
 import type { TenantContextValue, Workspace, WorkspacePayload } from './types';
 
@@ -61,13 +61,6 @@ const persistActiveWorkspaceId = (workspaceId: string | null) => {
   } catch (error) {
     console.error('[tenant] Error persisting active workspace id', error);
   }
-};
-
-const generateWorkspaceId = (): string => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return `ws_${Date.now()}`;
 };
 
 interface TenantProviderProps {

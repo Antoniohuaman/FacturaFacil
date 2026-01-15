@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/CompanyConfiguration.tsx
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Phone,
@@ -18,6 +18,7 @@ import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { RucValidator } from '../components/company/RucValidator';
 import { parseUbigeoCode } from '../data/ubigeo';
 import { useTenant } from '../../../shared/tenant/TenantContext';
+import { generateWorkspaceId } from '../../../shared/tenant';
 import { useUserSession } from '../../../contexts/UserSessionContext';
 import type { Company } from '../models/Company';
 import type { Establishment } from '../models/Establishment';
@@ -158,13 +159,20 @@ export function CompanyConfiguration() {
   const { company } = state;
   const { session } = useUserSession();
   const { createOrUpdateWorkspace, activeWorkspace } = useTenant();
-  const ensuredWorkspaceIdRef = useRef<string | undefined>(
-    (location.state as WorkspaceNavigationState | null)?.workspaceId || activeWorkspace?.id,
-  );
-  const setTenantContextoActual = useTenantStore((store) => store.setContextoActual);
-  const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
   const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
+  const initialWorkspaceId = useMemo(() => {
+    if (workspaceState?.workspaceId) {
+      return workspaceState.workspaceId;
+    }
+    if (isCreateWorkspaceMode) {
+      return generateWorkspaceId();
+    }
+    return activeWorkspace?.id;
+  }, [activeWorkspace?.id, isCreateWorkspaceMode, workspaceState?.workspaceId]);
+  const ensuredWorkspaceIdRef = useRef<string | undefined>(initialWorkspaceId);
+  const setTenantContextoActual = useTenantStore((store) => store.setContextoActual);
+  const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
   const workspaceIdForSubmit = isCreateWorkspaceMode
     ? ensuredWorkspaceIdRef.current
     : workspaceState?.workspaceId || activeWorkspace?.id;
@@ -191,28 +199,6 @@ export function CompanyConfiguration() {
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState<CompanyFormData | null>(null);
-
-  // Asegura que exista un workspace activo ANTES de que el usuario envíe el formulario.
-  // De esta manera no se remonta el árbol de providers durante el submit.
-  useEffect(() => {
-    if (!isCreateWorkspaceMode) {
-      return;
-    }
-
-    if (ensuredWorkspaceIdRef.current) {
-      return;
-    }
-
-    const workspace = createOrUpdateWorkspace({
-      id: workspaceState?.workspaceId,
-      ruc: formData.ruc || 'por-definir',
-      razonSocial: formData.businessName || 'Workspace pendiente',
-      nombreComercial: formData.tradeName || undefined,
-      domicilioFiscal: formData.fiscalAddress || undefined,
-    });
-
-    ensuredWorkspaceIdRef.current = workspace.id;
-  }, [createOrUpdateWorkspace, formData.businessName, formData.fiscalAddress, formData.ruc, formData.tradeName, isCreateWorkspaceMode, workspaceState?.workspaceId]);
 
   const setTenantWorkspaceContext = useCallback((empresa: Company, establishment: Establishment) => {
     const empresaEntry = {
@@ -258,6 +244,10 @@ export function CompanyConfiguration() {
 
   // Load existing company data
   useEffect(() => {
+    if (isCreateWorkspaceMode) {
+      return;
+    }
+
     if (company) {
       // Empresa ya existe en el contexto, cargar sus datos
       const loadedData = {
@@ -338,7 +328,7 @@ export function CompanyConfiguration() {
         }
       }
     }
-  }, [company, dispatch]);
+  }, [company, dispatch, isCreateWorkspaceMode]);
 
   // Detect if form has changes compared to original data
   useEffect(() => {
@@ -426,6 +416,9 @@ export function CompanyConfiguration() {
     setIsLoading(true);
 
     try {
+      const targetWorkspaceId = workspaceIdForSubmit ?? generateWorkspaceId();
+      ensuredWorkspaceIdRef.current = targetWorkspaceId;
+
       // Filter out empty phones and emails
       const cleanPhones = formData.phones.filter(phone => phone.trim() !== '');
       const cleanEmails = formData.emails.filter(email => email.trim() !== '');
@@ -466,7 +459,7 @@ export function CompanyConfiguration() {
       dispatch({ type: 'SET_COMPANY', payload: updatedCompany });
 
       const workspace = createOrUpdateWorkspace({
-        id: workspaceIdForSubmit,
+        id: targetWorkspaceId,
         ruc: formData.ruc,
         razonSocial: formData.businessName,
         nombreComercial: formData.tradeName,
