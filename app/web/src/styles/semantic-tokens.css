@@ -1,0 +1,125 @@
+/**
+ * SEMANTIC TOKENS
+ * Capa de abstracción que referencia los tokens base de Tailwind
+ * Permite cambiar entre light/dark sin modificar los componentes
+ */
+
+:root {
+  /* === SUPERFICIES === */
+  --surface-0: theme('colors.neutral.0');           /* Fondo principal (blanco) */
+  --surface-1: theme('colors.neutral.20');          /* Fondo elevado (cards) */
+  --surface-2: theme('colors.neutral.30');          /* Fondo más elevado */
+  --surface-3: theme('colors.neutral.10');          /* Fondo para tablas */
+  --surface-hover: theme('colors.neutral.30');      /* Hover sobre superficie */
+  --surface-pressed: theme('colors.neutral.40');    /* Pressed sobre superficie */
+
+  /* === TEXTOS === */
+  --text-primary: theme('colors.neutral.100');      /* Títulos principales #1E293B */
+  --text-secondary: theme('colors.neutral.90');     /* Labels de inputs #334155 */
+  --text-tertiary: theme('colors.neutral.80');      /* Texto de ayuda #64748B */
+  --text-inverse: theme('colors.neutral.0');        /* Texto sobre fondos oscuros */
+  --text-disabled: theme('colors.neutral.50');      /* Texto deshabilitado */
+
+  /* === BORDES === */
+  --border-muted: theme('colors.neutral.40');          /* Separaciones mínimas (table rows, divisores de listas) */
+  --border-default: theme('colors.neutral.50');        /* Separaciones estructurales (sidebar, cards, tables, tabs, modals) */
+  --border-strong: theme('colors.neutral.60');         /* Elementos interactivos (inputs, selects, buttons outline) */
+  --border-focus: theme('colors.primary.DEFAULT');     /* Bordes de foco/activo */
+  --border-disabled: theme('colors.neutral.40');       /* Bordes de elementos deshabilitados */
+  --border-secondary: theme('colors.neutral.50');      /* Bordes secundarios (para botones) */
+
+  /* === PRIMARIOS (Brand) === */
+  --primary: theme('colors.primary.DEFAULT');       /* Color primario #0050CB */
+  --primary-hover: theme('colors.primary.hover');   /* Hover primario #003D9E (más oscuro) */
+  --primary-pressed: theme('colors.primary.pressed');  /* Pressed primario #003384 */
+  --primary-disabled: theme('colors.neutral.50');   /* Primario deshabilitado */
+  --primary-light: theme('colors.primary.light');   /* Fondo primario suave */
+
+  /* === SUCCESS === */
+  --success: theme('colors.success.DEFAULT');       /* Verde éxito #10B981 */
+  --success-hover: theme('colors.success.hover');   /* Success hover (más oscuro) #059669 */
+  --success-bg: theme('colors.success.bg');         /* Fondo éxito (light) #ECFDF5 */
+  --success-border: theme('colors.success.border'); /* Borde éxito #A7F3D0 */
+
+  /* === WARNING === */
+  --warning: theme('colors.warning.DEFAULT');       /* Naranja advertencia #F59E0B */
+  --warning-hover: theme('colors.warning.hover');   /* Warning hover (más oscuro) #D97706 */
+  --warning-bg: theme('colors.warning.bg');         /* Fondo advertencia #FFFBEB */
+  --warning-border: theme('colors.warning.border'); /* Borde advertencia #FDE68A */
+
+  /* === ERROR === */
+  --error: theme('colors.error.DEFAULT');           /* Rojo error #EF4444 */
+  --error-hover: theme('colors.error.hover');       /* Error hover (más oscuro) #DC2626 */
+  --error-bg: theme('colors.error.bg');             /* Fondo error #FEF2F2 */
+  --error-border: theme('colors.error.border');     /* Borde error #FECACA */
+
+  /* === INFO === */
+  --info: theme('colors.info.DEFAULT');             /* Azul información #3B82F6 */
+  --info-hover: theme('colors.info.hover');         /* Info hover (más oscuro) #2563EB */
+  --info-bg: theme('colors.info.bg');               /* Fondo info #EFF6FF */
+  --info-border: theme('colors.info.border');       /* Borde info #BFDBFE */
+}
+
+
+/**
+ * DARK THEME
+ * Inversión tonal usando la escala neutral existente
+ * Contraste AA para accesibilidad
+ */
+[data-theme="dark"] {
+  /* === SUPERFICIES (invertidas) === */
+  --surface-0: theme('colors.neutral.120');         /* Fondo principal (oscuro) */
+  --surface-1: theme('colors.neutral.110');          /* Fondo elevado */
+  --surface-2: theme('colors.neutral.80');          /* Fondo más elevado */
+  --surface-3: #131C2C;         /* Fondo para tablas */
+  --surface-hover: theme('colors.neutral.90');      /* Hover sobre superficie */
+  --surface-pressed: theme('colors.neutral.80');    /* Pressed sobre superficie */
+
+  /* === TEXTOS (invertidos) === */
+  --text-primary: theme('colors.neutral.40');       /* Títulos principales #F8FAFC */
+  --text-secondary: theme('colors.neutral.50');     /* Labels de inputs #E2E8F0 */
+  --text-tertiary: theme('colors.neutral.60');      /* Texto de ayuda #64748B */
+  --text-inverse: theme('colors.neutral.100');      /* Texto sobre fondos claros */
+  --text-disabled: theme('colors.neutral.50');      /* Texto deshabilitado */
+
+  /* === BORDES === */
+  --border-muted: #2a3441;        /* Separaciones mínimas (table rows, divisores) - perceptible */
+  --border-default: #384252;      /* Separaciones estructurales (sidebar, cards, tables, modals) - visible */
+  --border-strong: #475569;       /* Elementos interactivos (inputs, selects, buttons) - destacado */
+  --border-focus: theme('colors.primary.light');       /* Estado de foco en inputs */
+  --border-disabled: theme('colors.neutral.60');       /* Bordes de elementos deshabilitados */
+  
+  /* === PRIMARIOS === */
+  --primary: theme('colors.primary.dark');          /* #0050CB - Brand color (mismo en dark) */
+  --primary-hover: theme('colors.primary.hoverDark'); /* Hover en dark #2B6DD5 (más claro) */
+  --primary-pressed: theme('colors.primary.pressedDark');  /* Pressed dark #E3EFFF (muy claro) */
+  --primary-disabled: theme('colors.neutral.60');   /* Deshabilitado */
+  --primary-light: theme('colors.neutral.90');   /* Fondo primario oscuro con tinte azul */
+  
+  /* === BORDES ESPECÍFICOS (para botones) === */
+  --border-secondary: theme('colors.neutral.80');   /* Borde secondary button dark #475569 */
+
+  /* === SUCCESS (dark mode) === */
+  --success: theme('colors.success.dark');          /* Verde más claro para dark #34D399 */
+  --success-hover: theme('colors.success.hoverDark'); /* Success hover (aún más claro) #6EE7B7 */
+  --success-bg: theme('colors.success.bgDark');     /* Fondo oscuro #064E3B */
+  --success-border: theme('colors.success.borderDark'); /* Borde oscuro #065F46 */
+
+  /* === WARNING (dark mode) === */
+  --warning: theme('colors.warning.dark');          /* Naranja más claro para dark #FBBF24 */
+  --warning-hover: theme('colors.warning.hoverDark'); /* Warning hover (aún más claro) #FCD34D */
+  --warning-bg: theme('colors.warning.bgDark');     /* Fondo oscuro #78350F */
+  --warning-border: theme('colors.warning.borderDark'); /* Borde oscuro #92400E */
+
+  /* === ERROR (dark mode) === */
+  --error: theme('colors.error.dark');              /* Rojo más claro para dark #F87171 */
+  --error-hover: theme('colors.error.hoverDark');   /* Error hover (aún más claro) #FCA5A5 */
+  --error-bg: theme('colors.error.bgDark');         /* Fondo oscuro #7F1D1D */
+  --error-border: theme('colors.error.borderDark'); /* Borde oscuro #991B1B */
+
+  /* === INFO (dark mode) === */
+  --info: theme('colors.info.dark');                /* Azul más claro para dark #60A5FA */
+  --info-hover: theme('colors.info.hoverDark');     /* Info hover (aún más claro) #93C5FD */
+  --info-bg: theme('colors.info.bgDark');           /* Fondo oscuro #1E3A8A */
+  --info-border: theme('colors.info.borderDark');   /* Borde oscuro #1E40AF */
+}
