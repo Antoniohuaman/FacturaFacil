@@ -37,6 +37,14 @@ export function getTenantEmpresaId(): string {
   throw new Error('[tenant] No hay empresa actual disponible en TenantStore ni en UserSession');
 }
 
+export function tryGetTenantEmpresaId(): string | null {
+  try {
+    return getTenantEmpresaId();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Obtiene el ID del establecimiento actual desde TenantStore o, como fallback, desde UserSession.
  * Retorna string vacío si no hay establecimiento.
@@ -57,6 +65,15 @@ export function getTenantEstablecimientoId(): string {
   return '';
 }
 
+export function tryGetTenantEstablecimientoId(): string | null {
+  try {
+    const id = getTenantEstablecimientoId();
+    return id || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Asegura que el empresaId sea válido, usando la empresa actual por defecto.
  */
@@ -70,11 +87,25 @@ export function ensureEmpresaId(empresaId?: string): string {
   return id;
 }
 
+export function tryEnsureEmpresaId(empresaId?: string): string | null {
+  try {
+    return ensureEmpresaId(empresaId);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Genera una clave de localStorage con namespace de empresa.
  */
 export function lsKey(base: string, empresaId?: string): string {
   return `${ensureEmpresaId(empresaId)}:${base}`;
+}
+
+export function tryLsKey(base: string, empresaId?: string): string | null {
+  const id = tryEnsureEmpresaId(empresaId);
+  if (!id) return null;
+  return `${id}:${base}`;
 }
 
 function getFrontendWorkspaceId(globalAny: typeof globalThis & GlobalSession): string | null {

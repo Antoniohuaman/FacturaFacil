@@ -1,4 +1,4 @@
-import { ensureEmpresaId, lsKey } from '../../../shared/tenant';
+import { tryEnsureEmpresaId, tryLsKey } from '../../../shared/tenant';
 import type { Product, Package } from '../models/types';
 import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
 import { inferUnitMeasureType } from './unitMeasureHelpers';
@@ -23,7 +23,10 @@ type CategoryLike = Partial<Category> & Record<string, unknown>;
 
 export function runCatalogStorageMigration() {
   try {
-    const empresaId = ensureEmpresaId();
+    const empresaId = tryEnsureEmpresaId();
+    if (!empresaId) {
+      return;
+    }
     const markerKey = `${empresaId}:${MIGRATION_MARKER}`;
     if (localStorage.getItem(markerKey) === 'v1') {
       return;
@@ -98,7 +101,10 @@ export function loadCollectionsForEmpresa(empresaId: string) {
 
 function readCollection<T extends Record<string, unknown>, R>(key: string, reviver: (item: T) => R): R[] {
   try {
-    const storageKey = lsKey(key);
+    const storageKey = tryLsKey(key);
+    if (!storageKey) {
+      return [];
+    }
     const raw = localStorage.getItem(storageKey);
     if (!raw) {
       return [];
@@ -116,7 +122,10 @@ function readCollection<T extends Record<string, unknown>, R>(key: string, reviv
 
 function writeCollection<T>(key: string, data: T[]) {
   try {
-    const storageKey = lsKey(key);
+    const storageKey = tryLsKey(key);
+    if (!storageKey) {
+      return;
+    }
     localStorage.setItem(storageKey, JSON.stringify(data));
   } catch (error) {
     console.warn(`No se pudo escribir ${key}:`, error);

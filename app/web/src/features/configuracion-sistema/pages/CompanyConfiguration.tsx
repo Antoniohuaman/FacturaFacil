@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/CompanyConfiguration.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Phone,
@@ -29,6 +29,8 @@ import { PERU_TAX_TYPES } from '../models/Tax';
 import type { Caja, CreateCajaInput } from '../models/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../models/Caja';
 import { cajasDataSource } from '../api/cajasDataSource';
+import { useTenantStore } from '../../autenticacion/store/TenantStore';
+import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
 
 interface CompanyFormData {
   ruc: string;
@@ -156,10 +158,15 @@ export function CompanyConfiguration() {
   const { company } = state;
   const { session } = useUserSession();
   const { createOrUpdateWorkspace, activeWorkspace } = useTenant();
+  const ensuredWorkspaceIdRef = useRef<string | undefined>(
+    (location.state as WorkspaceNavigationState | null)?.workspaceId || activeWorkspace?.id,
+  );
+  const setTenantContextoActual = useTenantStore((store) => store.setContextoActual);
+  const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
   const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
   const workspaceIdForSubmit = isCreateWorkspaceMode
-    ? undefined
+    ? ensuredWorkspaceIdRef.current
     : workspaceState?.workspaceId || activeWorkspace?.id;
   
   const [formData, setFormData] = useState<CompanyFormData>({
@@ -184,6 +191,70 @@ export function CompanyConfiguration() {
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState<CompanyFormData | null>(null);
+
+  // Asegura que exista un workspace activo ANTES de que el usuario envíe el formulario.
+  // De esta manera no se remonta el árbol de providers durante el submit.
+  useEffect(() => {
+    if (!isCreateWorkspaceMode) {
+      return;
+    }
+
+    if (ensuredWorkspaceIdRef.current) {
+      return;
+    }
+
+    const workspace = createOrUpdateWorkspace({
+      id: workspaceState?.workspaceId,
+      ruc: formData.ruc || 'por-definir',
+      razonSocial: formData.businessName || 'Workspace pendiente',
+      nombreComercial: formData.tradeName || undefined,
+      domicilioFiscal: formData.fiscalAddress || undefined,
+    });
+
+    ensuredWorkspaceIdRef.current = workspace.id;
+  }, [createOrUpdateWorkspace, formData.businessName, formData.fiscalAddress, formData.ruc, formData.tradeName, isCreateWorkspaceMode, workspaceState?.workspaceId]);
+
+  const setTenantWorkspaceContext = useCallback((empresa: Company, establishment: Establishment) => {
+    const empresaEntry = {
+      id: empresa.id,
+      ruc: empresa.ruc,
+      razonSocial: empresa.businessName,
+      nombreComercial: empresa.tradeName,
+      direccion: empresa.address,
+      telefono: empresa.phones?.[0],
+      email: empresa.emails?.[0],
+      actividadEconomica: empresa.economicActivity,
+      regimen: (empresa.taxRegime as RegimenTributario) ?? RegimenTributario.GENERAL,
+      estado: EmpresaStatus.ACTIVA,
+      establecimientos: [
+        {
+          id: establishment.id,
+          codigo: establishment.code,
+          nombre: establishment.name,
+          direccion: establishment.address,
+          esPrincipal: establishment.isMainEstablishment,
+          activo: establishment.isActive,
+        },
+      ],
+      configuracion: {
+        emisionElectronica: true,
+      },
+    };
+
+    const contexto: WorkspaceContext = {
+      empresaId: empresa.id,
+      establecimientoId: establishment.id,
+      empresa: empresaEntry,
+      establecimiento: empresaEntry.establecimientos[0],
+      permisos: ['*'],
+      configuracion: {},
+    };
+
+    const { empresas } = useTenantStore.getState();
+    const withoutEmpresa = empresas.filter((item) => item.id !== empresaEntry.id);
+    setTenantEmpresas([...withoutEmpresa, empresaEntry]);
+    setTenantContextoActual(contexto);
+  }, [setTenantContextoActual, setTenantEmpresas]);
 
   // Load existing company data
   useEffect(() => {
@@ -394,13 +465,14 @@ export function CompanyConfiguration() {
 
       dispatch({ type: 'SET_COMPANY', payload: updatedCompany });
 
-      createOrUpdateWorkspace({
+      const workspace = createOrUpdateWorkspace({
         id: workspaceIdForSubmit,
         ruc: formData.ruc,
         razonSocial: formData.businessName,
         nombreComercial: formData.tradeName,
         domicilioFiscal: formData.fiscalAddress,
       });
+      ensuredWorkspaceIdRef.current = workspace.id;
 
       // ===================================================================
       // ONBOARDING AUTOMÁTICO: Crear configuración inicial si es nueva empresa
@@ -700,6 +772,17 @@ export function CompanyConfiguration() {
           },
           dispatch,
         });
+
+      }
+
+      const establishmentForContext =
+        defaultEstablishment ||
+        state.establishments.find((est) => est.isMainEstablishment) ||
+        state.establishments[0] ||
+        null;
+
+      if (establishmentForContext) {
+        setTenantWorkspaceContext(updatedCompany, establishmentForContext);
       }
 
       // Show success and redirect

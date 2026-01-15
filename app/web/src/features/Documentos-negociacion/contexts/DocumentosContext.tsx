@@ -2,7 +2,7 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { Documento } from '../models/documento.types';
-import { lsKey } from '../../../shared/tenant';
+import { tryLsKey } from '../../../shared/tenant';
 
 // ============================================
 // TIPOS Y INTERFACES
@@ -26,16 +26,17 @@ const STORAGE_BASE_KEY = 'documentos_negociacion';
 
 const loadDocumentosFromStorage = (): Documento[] => {
   try {
-    // Intentar leer primero desde la key namespaced por empresa
-    const tenantKey = lsKey(STORAGE_BASE_KEY);
-    const storedTenant = localStorage.getItem(tenantKey);
-    if (storedTenant) {
-      return JSON.parse(storedTenant);
+    const tenantKey = tryLsKey(STORAGE_BASE_KEY);
+    if (tenantKey) {
+      const storedTenant = localStorage.getItem(tenantKey);
+      if (storedTenant) {
+        return JSON.parse(storedTenant);
+      }
     }
 
     // Compatibilidad: leer key legacy sin tenant y migrarla si existe
     const legacyStored = localStorage.getItem(STORAGE_BASE_KEY);
-    if (legacyStored) {
+    if (legacyStored && tenantKey) {
       try {
         localStorage.setItem(tenantKey, legacyStored);
         localStorage.removeItem(STORAGE_BASE_KEY);
@@ -117,7 +118,10 @@ export function DocumentoProvider({ children }: DocumentoProviderProps) {
   // Sincronizar con localStorage cada vez que cambian los documentos
   useEffect(() => {
     try {
-      const tenantKey = lsKey(STORAGE_BASE_KEY);
+      const tenantKey = tryLsKey(STORAGE_BASE_KEY);
+      if (!tenantKey) {
+        return;
+      }
       localStorage.setItem(tenantKey, JSON.stringify(state.documentos));
     } catch (error) {
       console.error('Error saving documentos to localStorage:', error);
