@@ -22,8 +22,9 @@ const DEFAULT_FIELDS_CONFIG: ProductFieldConfig[] = [
   { id: 'establecimiento', label: 'Establecimiento', icon: '🏪', visible: true, required: true, isSystemRequired: true, category: 'basic' },
   
   // CAMPOS PERSONALIZABLES (el usuario decide si mostrar y si son obligatorios)
-  { id: 'categoria', label: 'Categoría', icon: '🏷️', visible: true, required: false, isSystemRequired: false, category: 'basic' },
-  { id: 'descripcion', label: 'Descripción', icon: '📝', visible: true, required: false, isSystemRequired: false, category: 'basic' },
+  // Campos personalizados deben iniciar ocultos para respetar el principio de "mostrar lo mínimo"
+  { id: 'categoria', label: 'Categoría', icon: '🏷️', visible: false, required: false, isSystemRequired: false, category: 'basic' },
+  { id: 'descripcion', label: 'Descripción', icon: '📝', visible: false, required: false, isSystemRequired: false, category: 'basic' },
   { id: 'codigoBarras', label: 'Código de barras', icon: '🏷️', visible: true, required: false, isSystemRequired: false, category: 'codes' },
   { id: 'marca', label: 'Marca', icon: '🏭', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
   { id: 'modelo', label: 'Modelo', icon: '📋', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
