@@ -32,6 +32,7 @@ import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../models/Caja';
 import { cajasDataSource } from '../api/cajasDataSource';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
+import { buildMissingDefaultSeries } from '../utils/seriesDefaults';
 
 interface CompanyFormData {
   ruc: string;
@@ -568,135 +569,19 @@ export function CompanyConfiguration() {
 
         dispatch({ type: 'ADD_WAREHOUSE', payload: defaultWarehouse });
 
-        // 3. CREAR SERIES POR DEFECTO (FACTURA Y BOLETA)
-        const now = new Date();
-        
-        // Serie de FACTURA (FE01)
-        const facturaSeries: Series = {
-          id: 'series-factura-default',
-          establishmentId: 'est-main',
-          documentType: {
-            id: 'invoice',
-            code: '01',
-            name: 'Factura Electrónica',
-            shortName: 'FAC',
-            category: 'INVOICE',
-            properties: {
-              affectsTaxes: true,
-              requiresCustomerRuc: true,
-              requiresCustomerName: true,
-              allowsCredit: true,
-              requiresPaymentMethod: true,
-              canBeVoided: true,
-              canHaveCreditNote: true,
-              canHaveDebitNote: true,
-              isElectronic: true,
-              requiresSignature: true,
-            },
-            seriesConfiguration: {
-              defaultPrefix: 'F',
-              seriesLength: 3,
-              correlativeLength: 8,
-              allowedPrefixes: ['F', 'FE'],
-            },
-            isActive: true,
-          },
-          series: 'FE01',
-          correlativeNumber: 1,
-          configuration: {
-            minimumDigits: 8,
-            startNumber: 1,
-            autoIncrement: true,
-            allowManualNumber: false,
-            requireAuthorization: false,
-          },
-          sunatConfiguration: {
-            isElectronic: true,
-            environmentType: formData.environment === 'TEST' ? 'TESTING' : 'PRODUCTION',
-            certificateRequired: true,
-            mustReportToSunat: true,
-            maxDaysToReport: 7,
-          },
-          status: 'ACTIVE',
-          isDefault: true,
-          statistics: {
-            documentsIssued: 0,
-            averageDocumentsPerDay: 0,
-          },
-          validation: {
-            allowZeroAmount: false,
-            requireCustomer: true,
-          },
-          createdAt: now,
-          updatedAt: now,
-          createdBy: 'system',
-          isActive: true,
-        };
+        // 3. CREAR SERIES POR DEFECTO (FACTURA, BOLETA y documentos internos serieables)
+        const environmentType =
+          formData.environment === 'TEST' ? 'TESTING' : 'PRODUCTION';
 
-        // Serie de BOLETA (BE01)
-        const boletaSeries: Series = {
-          id: 'series-boleta-default',
-          establishmentId: 'est-main',
-          documentType: {
-            id: 'receipt',
-            code: '03',
-            name: 'Boleta de Venta Electrónica',
-            shortName: 'BOL',
-            category: 'RECEIPT',
-            properties: {
-              affectsTaxes: true,
-              requiresCustomerRuc: false,
-              requiresCustomerName: true,
-              allowsCredit: false,
-              requiresPaymentMethod: true,
-              canBeVoided: true,
-              canHaveCreditNote: true,
-              canHaveDebitNote: false,
-              isElectronic: true,
-              requiresSignature: true,
-            },
-            seriesConfiguration: {
-              defaultPrefix: 'B',
-              seriesLength: 3,
-              correlativeLength: 8,
-              allowedPrefixes: ['B', 'BE'],
-            },
-            isActive: true,
-          },
-          series: 'BE01',
-          correlativeNumber: 1,
-          configuration: {
-            minimumDigits: 8,
-            startNumber: 1,
-            autoIncrement: true,
-            allowManualNumber: false,
-            requireAuthorization: false,
-          },
-          sunatConfiguration: {
-            isElectronic: true,
-            environmentType: formData.environment === 'TEST' ? 'TESTING' : 'PRODUCTION',
-            certificateRequired: true,
-            mustReportToSunat: true,
-            maxDaysToReport: 7,
-          },
-          status: 'ACTIVE',
-          isDefault: true,
-          statistics: {
-            documentsIssued: 0,
-            averageDocumentsPerDay: 0,
-          },
-          validation: {
-            allowZeroAmount: false,
-            requireCustomer: false,
-          },
-          createdAt: now,
-          updatedAt: now,
-          createdBy: 'system',
-          isActive: true,
-        };
+        const defaultSeries: Series[] = buildMissingDefaultSeries({
+          establishmentId: createdEstablishment.id,
+          environmentType,
+          existingSeries: state.series,
+        });
 
-        dispatch({ type: 'ADD_SERIES', payload: facturaSeries });
-        dispatch({ type: 'ADD_SERIES', payload: boletaSeries });
+        defaultSeries.forEach((seriesItem) => {
+          dispatch({ type: 'ADD_SERIES', payload: seriesItem });
+        });
 
         // 3. CONFIGURAR MONEDA BASE (PEN - SOLES)
         if (state.currencies.length === 0) {
