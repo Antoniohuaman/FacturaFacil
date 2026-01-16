@@ -1,30 +1,24 @@
-# Dependencias
-node_modules/
-app/web/node_modules/
-
-# Builds / artefactos
-dist/
-build/
-out/
-.vite/
+# Logs
+logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Caches
-.npm/
-.pnpm-store/
-.yarn/
-.yarn-cache/
-.cache/
+node_modules
+dist
+dist-ssr
+*.local
 
-# Config locales de herramientas/IDE
-.vscode/
-.idea/
-
-# Archivos del SO
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
-
-# Env / secretos
-.env
-.env.*
-!.env.example
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

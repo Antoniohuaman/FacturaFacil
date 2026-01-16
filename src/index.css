@@ -1,0 +1,236 @@
+@import './semantic-tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Deshabilitar transiciones durante el cambio de tema para hacer el cambio instantáneo */
+  html.changing-theme *,
+  html.changing-theme *::before,
+  html.changing-theme *::after {
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-delay: 0ms !important;
+  }
+
+  /* Helper para ocultar los spinners nativos en inputs numéricos específicos */
+  input[type='number'].no-number-spinner {
+    -moz-appearance: textfield;
+  }
+
+  input[type='number'].no-number-spinner::-webkit-inner-spin-button,
+  input[type='number'].no-number-spinner::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer utilities {
+  /* Animaciones personalizadas */
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-in {
+    animation: slide-in 0.3s ease-out;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.2s ease-out;
+  }
+
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slideInRight {
+    animation: slide-in-right 0.3s ease-out;
+  }
+
+  .animate-fadeIn {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .animate-scaleIn {
+    animation: scale-in 0.2s ease-out;
+  }
+
+  /* Animaciones futuristas para el login */
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+
+  .animation-delay-1000 {
+    animation-delay: 1s;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+
+  /* Gradiente radial personalizado */
+  .bg-gradient-radial {
+    background-image: radial-gradient(var(--tw-gradient-stops));
+  }
+
+  .thin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5f5 transparent;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #cbd5f5;
+    border-radius: 9999px;
+  }
+
+  /* ============================================
+     ANIMACIONES PARA TOAST - SISTEMA DE FEEDBACK
+     ============================================ */
+
+  /* Shimmer effect para barra de progreso - Ultra suave */
+  @keyframes toast-shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    50% {
+      transform: translateX(100%);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+
+  /* Pulse effect para glow del borde - Suave y elegante */
+  @keyframes toast-pulse {
+    0%, 100% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* Slide-in desde la derecha - Entrada del toast */
+  @keyframes toast-slide-in {
+    from {
+      transform: translateX(120%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  /* Slide-out hacia la derecha - Salida del toast */
+  @keyframes toast-slide-out {
+    from {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(130%) scale(0.9);
+      opacity: 0;
+    }
+  }
+
+  /* Clases de utilidad para toasts */
+  .toast-shimmer-animation {
+    animation: toast-shimmer 2s infinite ease-in-out;
+  }
+
+  .toast-pulse-animation {
+    animation: toast-pulse 1.5s infinite ease-in-out;
+  }
+
+  .toast-slide-in-animation {
+    animation: toast-slide-in 0.3s ease-out;
+  }
+
+  .toast-slide-out-animation {
+    animation: toast-slide-out 0.3s ease-in forwards;
+  }
+}
+
+@media print {
+  [data-app-toast-container],
+  [data-app-toast-portal],
+  [data-sonner-toaster],
+  .sonner-toaster,
+  .react-hot-toast,
+  #toast-root,
+  .Toastify,
+  .Toastify__toast-container,
+  .hot-toast-container,
+  .toast-container {
+    display: none !important;
+  }
+}
