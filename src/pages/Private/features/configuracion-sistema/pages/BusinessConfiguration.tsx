@@ -53,7 +53,7 @@ export function BusinessConfiguration() {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Configuración de Negocioss
+            Configuración de Negocios
           </h1>
           <p className="text-gray-600">
             Configura pagos, datos bancarios, unidades, impuestos, categorías, datos contables y preferencias. La moneda base se gestiona desde Datos de Empresa.
