@@ -42,7 +42,8 @@ import { useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
-// useConfigurationContext removed from this page (not needed)
+import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { clientesClient } from '../../gestion-clientes/api';
@@ -89,6 +90,7 @@ const EmisionTradicional = () => {
   const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
   const { openPreview, showPreview, closePreview } = usePreview();
+  const { state: configState } = useConfigurationContext();
 
   // ✅ Hook para configuración de visibilidad de campos
   const {
@@ -464,16 +466,10 @@ const EmisionTradicional = () => {
     };
 
     const totalsWithCurrency = totals.currency ? totals : { ...totals, currency: currentCurrency };
+    const companyData = buildCompanyData(configState.company);
 
     return {
-      companyData: {
-        name: 'FacturaFácil',
-        businessName: 'FacturaFácil',
-        ruc: '00000000000',
-        address: 'TODO: Reemplazar con la dirección real de la empresa',
-        phone: '---',
-        email: '---',
-      },
+      companyData,
       clientData: resolvedClient,
       documentType: tipoComprobante,
       series: serieSeleccionada || 'SERIE',
@@ -502,6 +498,7 @@ const EmisionTradicional = () => {
     serieSeleccionada,
     tipoComprobante,
     totals,
+    configState.company,
   ]);
 
   const ensureDataBeforeCobranza = (paymentMode?: PaymentCollectionMode) => {

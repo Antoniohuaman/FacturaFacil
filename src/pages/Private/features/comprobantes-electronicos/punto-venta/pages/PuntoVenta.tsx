@@ -4,6 +4,7 @@
 // ===================================================================
 
 import { useEffect, useMemo, useRef } from 'react';
+import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 
 // Hooks POS orquestadores
 import { usePosCartAndTotals } from '../hooks/usePosCartAndTotals';
@@ -23,6 +24,7 @@ import { CreditScheduleModal } from '../../shared/payments/CreditScheduleModal';
 import { LayoutDashboard, ShoppingCart } from 'lucide-react';
 import { PreviewTicket } from '../../shared/ui/PreviewTicket';
 import type { PreviewData } from '../../models/comprobante.types';
+import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 
 const BLANK_QR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
@@ -100,6 +102,8 @@ const PuntoVenta = () => {
     warning,
   } = usePosComprobanteFlow({ cartItems, totals });
 
+  const { state: configState } = useConfigurationContext();
+
   const selectedPaymentLabel = selectedPaymentMethod?.name ?? 'CONTADO';
 
   const previewData = useMemo<PreviewData>(() => {
@@ -121,15 +125,10 @@ const PuntoVenta = () => {
             email: undefined,
           });
 
+    const companyData = buildCompanyData(configState.company);
+
     return {
-      companyData: {
-        name: 'FacturaFácil',
-        businessName: 'FacturaFácil',
-        ruc: '00000000000',
-        address: 'TODO: Reemplazar con la dirección real de la empresa',
-        phone: '---',
-        email: '---',
-      },
+      companyData,
       clientData: resolvedClient,
       documentType: tipoComprobante,
       series: serieSeleccionada || 'SERIE',
@@ -157,6 +156,7 @@ const PuntoVenta = () => {
     serieSeleccionada,
     tipoComprobante,
     totals,
+    configState.company,
   ]);
 
   const basePriceListId = useMemo(() => {

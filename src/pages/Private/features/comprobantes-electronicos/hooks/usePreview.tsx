@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import type {
   CartItem,
   TipoComprobante,
@@ -19,26 +20,7 @@ export const usePreview = () => {
 
   // Obtener datos reales de la empresa desde configuración
   const getCompanyData = (): CompanyData => {
-    if (state.company) {
-      return {
-        name: state.company.tradeName || state.company.businessName,
-        businessName: state.company.businessName,
-        ruc: state.company.ruc,
-        address: state.company.address,
-        phone: state.company.phones?.[0] || '',
-        email: state.company.emails?.[0] || ''
-      };
-    }
-    
-    // Fallback si no hay empresa configurada
-    return {
-      name: "Empresa no configurada",
-      businessName: "Empresa no configurada",
-      ruc: "00000000000",
-      address: "Dirección no configurada",
-      phone: "",
-      email: ""
-    };
+    return buildCompanyData(state.company);
   };
 
   // Cliente por defecto cuando no se ha especificado
