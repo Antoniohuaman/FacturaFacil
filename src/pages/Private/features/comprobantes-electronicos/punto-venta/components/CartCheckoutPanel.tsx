@@ -13,7 +13,7 @@ import { CreditScheduleSummaryCard } from '../../shared/payments/CreditScheduleS
 import { CartItemsList } from './cart/CartItemsList';
 import { ClientSection } from './client/ClientSection';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
-import type { SaleDocumentType } from '../../pages/Private/features/gestion-clientes/utils/saleClienteMapping';
+import type { SaleDocumentType } from '../../../gestion-clientes/utils/saleClienteMapping';
 import { TaxBreakdownSummary } from '../../shared/ui/TaxBreakdownSummary';
 
 export interface CartCheckoutPanelProps extends CartSidebarProps {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 // Tipos genéricos
 export interface FilterableColumn<T> {
@@ -11,7 +11,7 @@ export interface FilterableColumn<T> {
   searchIcon?: 'search' | 'filter' | 'menu';
 }
 
-export interface UnderlinedFiltersTableProps<T extends Record<string, any>> {
+export interface UnderlinedFiltersTableProps<T extends Record<string, unknown>> {
   data: T[];
   columns: FilterableColumn<T>[];
   onFiltersChange?: (hasActiveFilters: boolean, clearFilters: () => void) => void;
@@ -21,7 +21,7 @@ export interface UnderlinedFiltersTableProps<T extends Record<string, any>> {
   rowClassName?: (item: T) => string;
 }
 
-function UnderlinedFiltersTable<T extends Record<string, any>>({
+function UnderlinedFiltersTable<T extends Record<string, unknown>>({
   data,
   columns,
   onFiltersChange,
@@ -30,7 +30,6 @@ function UnderlinedFiltersTable<T extends Record<string, any>>({
   onRowClick,
   rowClassName
 }: UnderlinedFiltersTableProps<T>) {
-  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [filteredData, setFilteredData] = useState<T[]>(data);
   
   // Estados para los filtros - dinámicos basados en las columnas
@@ -93,7 +92,7 @@ function UnderlinedFiltersTable<T extends Record<string, any>>({
   };
 
   // Función para limpiar todos los filtros
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     const clearedFilters: Record<string, string> = {};
     const clearedActiveFilters: Record<string, boolean> = {};
     
@@ -104,7 +103,7 @@ function UnderlinedFiltersTable<T extends Record<string, any>>({
     
     setFilters(clearedFilters);
     setActiveFilters(clearedActiveFilters);
-  };
+  }, [columns]);
 
   // Verificar si hay algún filtro activo
   const hasInternalActiveFilters = Object.values(activeFilters).some(active => active === true) || 
@@ -115,7 +114,7 @@ function UnderlinedFiltersTable<T extends Record<string, any>>({
     if (onFiltersChange) {
       onFiltersChange(hasInternalActiveFilters, clearAllFilters);
     }
-  }, [hasInternalActiveFilters, onFiltersChange]);
+  }, [hasInternalActiveFilters, onFiltersChange, clearAllFilters]);
 
   // Obtener opciones únicas para columnas select
   const getUniqueOptions = (column: FilterableColumn<T>) => {
@@ -279,7 +278,7 @@ function UnderlinedFiltersTable<T extends Record<string, any>>({
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredData.map((item, index) => {
-                const itemId = item.id || index;
+                const itemId = ((item as Partial<{ id?: React.Key }>).id ?? index);
                 return (
                   <tr 
                     key={itemId} 
