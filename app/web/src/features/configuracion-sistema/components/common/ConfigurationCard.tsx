@@ -14,6 +14,7 @@ interface ConfigurationCardProps {
   icon?: React.ComponentType<{ className?: string }>;
   badge?: string | number;
   actions?: ReactNode;
+  density?: 'default' | 'compact';
 }
 
 export function ConfigurationCard({ 
@@ -26,37 +27,43 @@ export function ConfigurationCard({
   defaultExpanded = true,
   icon: Icon,
   badge,
-  actions
+  actions,
+  density = 'default'
 }: ConfigurationCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const isCompact = density === 'compact';
 
   return (
     <div className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow ${className}`}>
       {/* Header */}
-      <div className={`px-6 py-4 border-b border-gray-200 ${collapsible ? 'cursor-pointer' : ''}`}
+      <div
+        className={`
+          border-b border-gray-200 ${collapsible ? 'cursor-pointer' : ''}
+          ${isCompact ? 'px-4 py-2' : 'px-4 py-2.5'}
+        `}
            onClick={collapsible ? () => setIsExpanded(!isExpanded) : undefined}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {Icon && (
-              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                <Icon className="w-4 h-4 text-blue-600" />
+              <div className={`${isCompact ? 'w-5 h-5 rounded' : 'w-6 h-6 rounded-md'} bg-blue-50 flex items-center justify-center`}>
+                <Icon className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-blue-600`} />
               </div>
             )}
             
             <div className="flex-1">
               <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className={`${isCompact ? 'text-sm leading-tight' : 'text-sm'} font-semibold text-gray-900`}>
                   {title}
                 </h3>
                 
                 {badge && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     {badge}
                   </span>
                 )}
                 
                 {collapsible && (
-                  <button className="ml-2 p-1 text-gray-400 hover:text-gray-600 rounded transition-colors">
+                  <button className={`ml-2 ${isCompact ? 'p-0.5' : 'p-1'} text-gray-400 hover:text-gray-600 rounded transition-colors`}>
                     {isExpanded ? (
                       <ChevronUp className="w-4 h-4" />
                     ) : (
@@ -67,7 +74,7 @@ export function ConfigurationCard({
               </div>
               
               {description && (
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-xs text-gray-500">
                   {description}
                 </p>
               )}
@@ -83,7 +90,7 @@ export function ConfigurationCard({
             
             {helpText && (
               <div className="group relative">
-                <button className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                <button className={`${isCompact ? 'p-1' : 'p-1.5'} text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors`}>
                   <HelpCircle className="w-4 h-4" />
                 </button>
                 
@@ -107,7 +114,7 @@ export function ConfigurationCard({
       
       {/* Content */}
       {(!collapsible || isExpanded) && (
-        <div className="p-6 transition-all duration-200">
+        <div className={`${isCompact ? 'px-4 py-2.5' : 'px-4 py-3'} transition-all duration-200`}>
           {children}
         </div>
       )}
