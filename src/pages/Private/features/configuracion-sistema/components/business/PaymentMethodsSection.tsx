@@ -10,6 +10,8 @@ import {
 } from '../../../../../../shared/payments/paymentMeans';
 import { normalizePaymentMethodLabel } from '../../../../../../shared/payments/normalizePaymentMethodLabel';
 import { CreditPaymentMethodModal } from '../../../../../../shared/payments/CreditPaymentMethodModal';
+import { Button } from '@/contasis';
+
 
 interface PaymentMethodsSectionProps {
   paymentMethods: PaymentMethod[];
@@ -452,13 +454,15 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
         </div>
 
         {activeTab === 'forms' && (
-          <button
+          <Button
             onClick={openNewCreditForm}
-            className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            variant="primary"
+            size="md"
+            icon={<Plus className="w-5 h-5" />}
+            iconPosition="left"
           >
-            <Plus className="h-4 w-4" />
-            <span>Nuevo crédito</span>
-          </button>
+            Nuevo crédito
+          </Button>
         )}
       </div>
 

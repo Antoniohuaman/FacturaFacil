@@ -15,6 +15,7 @@ import type { Role } from '../../models/Role';
 import type { Establishment } from '../../models/Establishment';
 import { UserCard } from './UserCard';
 import { StatusIndicator } from '../common/StatusIndicator';
+import { Select } from '@/contasis';
 
 type UserStatus = User['status'];
 
@@ -251,30 +252,31 @@ export function UsersList({
           </div>
           
           {/* Status Filter */}
-          <select
+          <Select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los estados</option>
-            <option value="ACTIVE">Solo activos</option>
-            <option value="INVITED">Solo invitados</option>
-            <option value="INACTIVE">Solo inactivos</option>
-          </select>
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los estados' },
+              { value: 'ACTIVE', label: 'Solo activos' },
+              { value: 'INVITED', label: 'Solo invitados' },
+              { value: 'INACTIVE', label: 'Solo inactivos' }
+            ]}
+          />
           
           {/* Establishment Filter */}
-          <select
+          <Select
             value={filterEstablishment}
             onChange={(e) => setFilterEstablishment(e.target.value)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los establecimientos</option>
-            {establishments.map(est => (
-              <option key={est.id} value={est.id}>
-                {est.code} - {est.name}
-              </option>
-            ))}
-          </select>
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los establecimientos' },
+              ...establishments.map(est => ({
+                value: est.id,
+                label: `${est.code} - ${est.name}`
+              }))
+            ]}
+          />
         </div>
 
         {/* Actions */}

@@ -4,6 +4,7 @@ import { Search, Filter, Plus } from 'lucide-react';
 import type { Establishment } from '../../models/Establishment';
 import { EstablishmentCard } from './EstablishmentCard';
 import { StatusIndicator } from '../common/StatusIndicator';
+import { Select } from '@/contasis';
 
 type ViewMode = 'grid' | 'table';
 type FilterStatus = 'all' | 'enabled' | 'disabled';
@@ -156,16 +157,19 @@ export function EstablishmentsList({
           
           {/* Status Filter */}
           <div className="relative">
-            <Filter className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <select
+            <Filter className="absolute left-3 top-3 w-5 h-5 text-gray-400 z-10" />
+            <Select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-              className="pl-10 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white min-w-48"
-            >
-              <option value="all">Todos los estados</option>
-              <option value="enabled">Solo habilitados</option>
-              <option value="disabled">Solo inhabilitados</option>
-            </select>
+              size="medium"
+              containerClassName="min-w-48"
+              className="pl-10"
+              options={[
+                { value: 'all', label: 'Todos los estados' },
+                { value: 'enabled', label: 'Solo habilitados' },
+                { value: 'disabled', label: 'Solo inhabilitados' }
+              ]}
+            />
           </div>
         </div>
 
@@ -226,22 +230,23 @@ export function EstablishmentsList({
         
         {/* Sort Dropdown */}
         <div className="relative">
-          <select
+          <Select
             value={`${sortBy}-${sortOrder}`}
             onChange={(e) => {
               const [field, order] = e.target.value.split('-');
               setSortBy(field as 'name' | 'code' | 'created');
               setSortOrder(order as 'asc' | 'desc');
             }}
-            className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="name-asc">Nombre A-Z</option>
-            <option value="name-desc">Nombre Z-A</option>
-            <option value="code-asc">Código A-Z</option>
-            <option value="code-desc">Código Z-A</option>
-            <option value="created-desc">Más reciente</option>
-            <option value="created-asc">Más antiguo</option>
-          </select>
+            size="small"
+            options={[
+              { value: 'name-asc', label: 'Nombre A-Z' },
+              { value: 'name-desc', label: 'Nombre Z-A' },
+              { value: 'code-asc', label: 'Código A-Z' },
+              { value: 'code-desc', label: 'Código Z-A' },
+              { value: 'created-desc', label: 'Más reciente' },
+              { value: 'created-asc', label: 'Más antiguo' }
+            ]}
+          />
         </div>
       </div>
 

@@ -21,6 +21,7 @@ import {
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import type { Warehouse as WarehouseType } from '../models/Warehouse';
+import { Button } from '@/contasis';
 
 interface WarehouseFormData {
   code: string;
@@ -784,13 +785,15 @@ export function WarehousesConfiguration() {
           </select>
         </div>
 
-        <button
+        <Button
           onClick={handleNew}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          variant="primary"
+          size="md"
+          icon={<Plus className="w-5 h-5" />}
+          iconPosition="left"
         >
-          <Plus className="w-4 h-4 mr-2" />
           Nuevo Almacén
-        </button>
+        </Button>
       </div>
 
       {/* Warehouses List */}

@@ -11,6 +11,7 @@ import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import type { Caja } from '../models/Caja';
+import { Button, Select } from '@/contasis';
 
 type FilterStatus = 'all' | 'enabled' | 'disabled';
 
@@ -183,13 +184,15 @@ export function CajasConfiguration() {
                   : `Establecimiento: ${establecimientoActual?.name || 'N/A'}`}
               </p>
             </div>
-            <button
+            <Button
               onClick={handleCreate}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="primary"
+              size="md"
+              icon={<Plus className="w-5 h-5" />}
+              iconPosition="left"
             >
-              <Plus className="w-5 h-5" />
               Nueva Caja
-            </button>
+            </Button>
           </div>
 
           {/* Filters */}
@@ -197,22 +200,20 @@ export function CajasConfiguration() {
             <div className="flex flex-col md:flex-row gap-4">
               {/* Establishment filter */}
               <div className="md:w-64">
-                <label htmlFor="establishment-filter" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                  Establecimiento
-                </label>
-                <select
+                <Select
                   id="establishment-filter"
+                  label="Establecimiento"
                   value={filterEstablishmentId}
-                  onChange={(e) => setFilterEstablishmentId(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="all">Todos los establecimientos</option>
-                  {state.establishments.map((est) => (
-                    <option key={est.id} value={est.id}>
-                      {est.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterEstablishmentId(e.target.value)}
+                  size="medium"
+                  options={[
+                    { value: 'all', label: 'Todos los establecimientos' },
+                    ...state.establishments.map((est) => ({
+                      value: est.id,
+                      label: est.name
+                    }))
+                  ]}
+                />
               </div>
 
               {/* Search */}
@@ -235,21 +236,21 @@ export function CajasConfiguration() {
 
               {/* Status filter */}
               <div className="md:w-48">
-                <label htmlFor="status-filter" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                  Estado
-                </label>
                 <div className="flex items-center gap-2">
                   <Filter className="w-5 h-5 text-gray-400" />
-                  <select
+                  <Select
                     id="status-filter"
+                    label="Estado"
                     value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="all">Todas</option>
-                    <option value="enabled">Habilitadas</option>
-                    <option value="disabled">Inhabilitadas</option>
-                  </select>
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as FilterStatus)}
+                    size="medium"
+                    containerClassName="flex-1"
+                    options={[
+                      { value: 'all', label: 'Todas' },
+                      { value: 'enabled', label: 'Habilitadas' },
+                      { value: 'disabled', label: 'Inhabilitadas' }
+                    ]}
+                  />
                 </div>
               </div>
             </div>

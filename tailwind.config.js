@@ -48,13 +48,13 @@ export default {
       colors: {
         // === TOKENS BASE ===
         primary: {
-          DEFAULT: '#0050CB',
-          dark: '#0050CB',
-          hover: '#003D9E',
-          hoverDark: '#3F84F2',
+          DEFAULT: '#1662C5',
+          dark: '#3B7FE0',
+          hover: '#1456AD',
+          hoverDark: '#5291E8',
           light: '#E3EFFF',
-          pressed: '#003384',
-          pressedDark: '#4789F2',
+          pressed: '#104A95',
+          pressedDark: '#6BA3F0',
         },
         neutral: {
           130: '#131C2C',

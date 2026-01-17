@@ -16,6 +16,7 @@ import { CredentialsModal } from '../components/users/CredentialsModal';
 import { SYSTEM_ROLES } from '../models/Role';
 import type { User } from '../models/User';
 import type { Role } from '../models/Role';
+import { Button } from '@/contasis';
 
 // Modal for Role Assignment
 import RoleAssignment from '../components/users/RoleAssignment';
@@ -328,19 +329,21 @@ export function UsersConfiguration() {
               Usuarios y Roles
             </h1>
             <p className="text-gray-600">
-              Gestiona usuarios del sistema, roles y permisos por establecimiento
+              Gestiona usuarios del sistema, roles y permisos por establecimiento.
             </p>
           </div>
         </div>
 
         {activeTab === 'users' && (
-          <button
+          <Button
             onClick={() => setShowUserForm(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            variant="primary"
+            size="md"
+            icon={<Plus className="w-5 h-5" />}
+            iconPosition="left"
           >
-            <Plus className="w-5 h-5" />
-            <span>Nuevo Usuario</span>
-          </button>
+            Nuevo Usuario
+          </Button>
         )}
       </div>
 

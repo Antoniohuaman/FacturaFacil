@@ -24,6 +24,7 @@ import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import type { Series, DocumentType } from '../models/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../models/Series';
+import { Button, Select } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -568,14 +569,15 @@ export function SeriesConfiguration() {
           </div>
         </div>
 
-        <button
+        <Button
           onClick={handleNew}
-          className="flex items-center space-x-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
-          style={{ backgroundColor: '#1478D4' }}
+          variant="primary"
+          size="md"
+          icon={<Plus className="w-5 h-5" />}
+          iconPosition="left"
         >
-          <Plus className="w-5 h-5" />
-          <span>Nueva Serie</span>
-        </button>
+          Nueva Serie
+        </Button>
       </div>
 
       {/* Stats */}
@@ -803,27 +805,31 @@ export function SeriesConfiguration() {
       >
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <select
+          <Select
             value={filterType}
-            onChange={(e) => setFilterType(e.target.value as VoucherType | 'ALL')}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los tipos</option>
-            {Object.entries(voucherTypeConfig).map(([type, config]) => (
-              <option key={type} value={type}>{config.label}</option>
-            ))}
-          </select>
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterType(e.target.value as VoucherType | 'ALL')}
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los tipos' },
+              ...Object.entries(voucherTypeConfig).map(([type, config]) => ({
+                value: type,
+                label: config.label
+              }))
+            ]}
+          />
           
-          <select
+          <Select
             value={filterEstablishment}
-            onChange={(e) => setFilterEstablishment(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los establecimientos</option>
-            {establishments.map(est => (
-              <option key={est.id} value={est.id}>{est.code} - {est.name}</option>
-            ))}
-          </select>
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterEstablishment(e.target.value)}
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los establecimientos' },
+              ...establishments.map(est => ({
+                value: est.id,
+                label: `${est.code} - ${est.name}`
+              }))
+            ]}
+          />
         </div>
 
         {/* Series by Establishment */}

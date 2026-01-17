@@ -34,6 +34,7 @@ import { useTenantStore } from '../../autenticacion/store/TenantStore';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
 import { buildMissingDefaultSeries } from '../utils/seriesDefaults';
 
+
 interface CompanyFormData {
   ruc: string;
   businessName: string;

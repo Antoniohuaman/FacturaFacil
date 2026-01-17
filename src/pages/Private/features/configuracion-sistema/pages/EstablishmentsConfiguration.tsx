@@ -25,6 +25,7 @@ import { useConfigurationContext } from '../context/ConfigurationContext';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import type { Establishment } from '../models/Establishment';
 import { ubigeoData } from '../data/ubigeo';
+import { Button, Select } from '@/contasis';
 
 interface EstablishmentFormData {
   code: string;
@@ -897,24 +898,27 @@ export function EstablishmentsConfiguration() {
             />
           </div>
           
-          <select
+          <Select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="active">Solo activos</option>
-            <option value="inactive">Solo inactivos</option>
-          </select>
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as any)}
+            size="medium"
+            options={[
+              { value: 'all', label: 'Todos los estados' },
+              { value: 'active', label: 'Solo activos' },
+              { value: 'inactive', label: 'Solo inactivos' }
+            ]}
+          />
         </div>
 
-        <button
+        <Button
           onClick={handleNew}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          variant="primary"
+          size="md"
+          icon={<Plus className="w-5 h-5" />}
+          iconPosition="left"
         >
-          <Plus className="w-4 h-4 mr-2" />
           Nuevo Establecimiento
-        </button>
+        </Button>
       </div>
 
       {/* Establishments List */}

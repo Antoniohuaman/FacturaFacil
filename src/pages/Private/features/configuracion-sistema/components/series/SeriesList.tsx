@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { FileText, Receipt, Clipboard, MessageSquare, Building2, Search, Plus, NotebookPen } from 'lucide-react';
 import type { Series } from '../../models/Series';
 import type { Establishment } from '../../models/Establishment';
+import { Select } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 import { SeriesCard } from './SeriesCard';
@@ -233,29 +234,30 @@ export function SeriesList({
           </div>
           
           {/* Status Filter */}
-          <select
+          <Select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="active">Solo activas</option>
-            <option value="inactive">Solo inactivas</option>
-          </select>
+            size="medium"
+            options={[
+              { value: 'all', label: 'Todos los estados' },
+              { value: 'active', label: 'Solo activas' },
+              { value: 'inactive', label: 'Solo inactivas' }
+            ]}
+          />
           
           {/* Establishment Filter */}
-          <select
+          <Select
             value={filterEstablishment}
             onChange={(e) => setFilterEstablishment(e.target.value)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los establecimientos</option>
-            {establishments.map(est => (
-              <option key={est.id} value={est.id}>
-                {est.code} - {est.name}
-              </option>
-            ))}
-          </select>
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los establecimientos' },
+              ...establishments.map(est => ({
+                value: est.id,
+                label: `${est.code} - ${est.name}`
+              }))
+            ]}
+          />
         </div>
 
         {/* Actions */}
