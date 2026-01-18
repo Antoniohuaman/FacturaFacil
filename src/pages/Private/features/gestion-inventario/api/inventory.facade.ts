@@ -47,12 +47,18 @@ export function useInventoryFacade() {
       establishmentId: establecimientoId,
       preferredWarehouseId: options?.warehouseId,
     });
-    const fallbackWarehouse = !resolvedWarehouse && options?.warehouseId
-      ? warehouses.find(w => w.id === options.warehouseId)
+    const explicitWarehouse = !resolvedWarehouse && options?.warehouseId
+      ? warehouses.find(w => w.id === options.warehouseId && w.isActive !== false)
       : undefined;
-    const warehouse = resolvedWarehouse || fallbackWarehouse;
+    const warehouse = resolvedWarehouse || explicitWarehouse;
 
-    const warehouseId = warehouse?.id || options?.warehouseId || establecimientoId || 'SIN_ALMACEN';
+    if (!warehouse) {
+      throw new Error(
+        `[InventoryFacade] No se pudo resolver un almacén válido para el establecimiento ${establecimientoId || '(sin establecimiento)'}; se cancela el movimiento para evitar corrupción de stock.`
+      );
+    }
+
+    const warehouseId = warehouse.id;
     const warehouseCode = warehouse?.code || 'N/A';
     const warehouseName = warehouse?.name || 'Sin almacén';
     const stockActual = InventoryService.getStock(product, warehouseId);

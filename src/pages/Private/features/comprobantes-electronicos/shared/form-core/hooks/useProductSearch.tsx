@@ -2,25 +2,54 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Product, ProductSearchFilters, ProductSearchResult } from '../../../models/comprobante.types';
 import { SEARCH_CONFIG } from '../../../models/constants';
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
+import type { Product as CatalogProduct } from '../../../../catalogo-articulos/models/types';
+import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
+import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
 
-export const useProductSearch = () => {
+type UseProductSearchParams = {
+  establishmentId?: string;
+};
+
+const isProductEnabledForEstablishment = (product: CatalogProduct, establishmentId: string): boolean => {
+  if (!establishmentId) {
+    return true;
+  }
+  if (product.disponibleEnTodos) {
+    return true;
+  }
+  const ids = product.establecimientoIds;
+  return Array.isArray(ids) ? ids.includes(establishmentId) : false;
+};
+
+export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {}) => {
   // Obtener productos del catálogo real
   const { allProducts: catalogProducts } = useProductStore();
+  const { state: { warehouses } } = useConfigurationContext();
   
   // Convertir productos del catálogo al formato de comprobantes
   const AVAILABLE_PRODUCTS: Product[] = useMemo(() => 
-    catalogProducts.map(p => ({
-      id: p.id,
-      code: p.codigo || p.codigoBarras || p.id,
-      barcode: p.codigoBarras,
-      name: p.nombre,
-      price: p.precio,
-      stock: p.cantidad ?? 0,
-      requiresStockControl: p.tipoExistencia !== 'SERVICIOS', // Servicios no requieren stock
-      category: p.categoria || 'Sin categoría',
-      description: p.descripcion || ''
-    })),
-    [catalogProducts]
+    catalogProducts
+      .filter((product) => (establishmentId ? isProductEnabledForEstablishment(product, establishmentId) : true))
+      .map(p => {
+        const summary = summarizeProductStock({
+          product: p,
+          warehouses,
+          establishmentId,
+        });
+        return {
+          id: p.id,
+          code: p.codigo || p.codigoBarras || p.id,
+          barcode: p.codigoBarras,
+          name: p.nombre,
+          price: p.precio,
+          // Para POS: stock debe respetar el establecimiento (no usar cantidad global).
+          stock: summary.totalAvailable,
+          requiresStockControl: p.tipoExistencia !== 'SERVICIOS', // Servicios no requieren stock
+          category: p.categoria || 'Sin categoría',
+          description: p.descripcion || ''
+        };
+      }),
+    [catalogProducts, establishmentId, warehouses]
   );
   
   const [searchQuery, setSearchQuery] = useState('');

@@ -45,12 +45,10 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
   );
 
   // Handler para cambio de establecimiento (resetea almacén)
-  const handleEstablecimientoChange = (establecimientoId: string) => {
-    onFiltrosChange({
-      establecimientoId,
-      almacenId: '' // Reset almacén cuando cambia establecimiento
-    });
-  };
+  const establecimientoSeleccionado = useMemo(
+    () => establecimientos.find(e => e.id === filtros.establecimientoId),
+    [establecimientos, filtros.establecimientoId]
+  );
 
   // Cerrar menú al hacer clic fuera
   useEffect(() => {
@@ -70,13 +68,11 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
   }, [isActionsOpen]);
 
   // Nombres para chips de filtros activos
-  const establecimientoNombre = establecimientos.find(e => e.id === filtros.establecimientoId)?.name;
   const almacenNombre = almacenesDisponibles.find(a => a.id === filtros.almacenId)?.name;
 
   // Limpiar todos los filtros
   const limpiarFiltros = () => {
     onFiltrosChange({
-      establecimientoId: '',
       almacenId: '',
       filtroSku: '',
       soloConDisponible: false
@@ -84,7 +80,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
   };
 
   const hayFiltrosActivos = Boolean(
-    filtros.establecimientoId || filtros.almacenId || filtros.filtroSku || filtros.soloConDisponible
+    filtros.almacenId || filtros.filtroSku || filtros.soloConDisponible
   );
 
   return (
@@ -97,16 +93,17 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
             <select
               id="establecimiento-filter"
               value={filtros.establecimientoId}
-              onChange={(e) => handleEstablecimientoChange(e.target.value)}
-              className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150 min-w-[180px]"
+              disabled
+              className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 transition-all duration-150 min-w-[220px] opacity-90 cursor-not-allowed"
               aria-label="Filtrar por establecimiento"
             >
-              <option value="">Todos los establecimientos</option>
-              {establecimientos.map((est) => (
-                <option key={est.id} value={est.id}>
-                  {est.code} - {est.name}
+              {establecimientoSeleccionado ? (
+                <option value={establecimientoSeleccionado.id}>
+                  {establecimientoSeleccionado.code} - {establecimientoSeleccionado.name}
                 </option>
-              ))}
+              ) : (
+                <option value={filtros.establecimientoId}>Establecimiento</option>
+              )}
             </select>
 
             <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -336,24 +333,6 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
       {hayFiltrosActivos && (
         <div className="px-4 pb-2 flex flex-wrap items-center gap-2">
           <span className="text-xs text-[#4B5563] dark:text-gray-400 font-medium">Filtros:</span>
-
-          {establecimientoNombre && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-[#6F36FF]/8 dark:bg-[#6F36FF]/15 text-[#6F36FF] dark:text-[#8B5CF6] border border-[#6F36FF]/20 dark:border-[#6F36FF]/30 rounded-md">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              {establecimientoNombre}
-              <button
-                onClick={() => handleEstablecimientoChange('')}
-                className="hover:text-[#5b2ee0] dark:hover:text-[#A78BFA] transition-colors duration-150"
-                aria-label="Quitar filtro de establecimiento"
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </span>
-          )}
 
           {almacenNombre && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-[#6F36FF]/8 dark:bg-[#6F36FF]/15 text-[#6F36FF] dark:text-[#8B5CF6] border border-[#6F36FF]/20 dark:border-[#6F36FF]/30 rounded-md">

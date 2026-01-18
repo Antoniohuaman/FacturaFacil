@@ -252,11 +252,6 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
       return;
     }
 
-    if (autoExportRequest.establishmentId && filtros.establecimientoId !== autoExportRequest.establishmentId) {
-      actualizarFiltros({ establecimientoId: autoExportRequest.establishmentId });
-      return;
-    }
-
     autoExportHandledRef.current = true;
     const runAutoExport = async () => {
       try {
@@ -267,7 +262,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     };
 
     void runAutoExport();
-  }, [actualizarFiltros, autoExportRequest, filtros.establecimientoId, handleExportStockActual, onAutoExportFinished]);
+  }, [autoExportRequest, handleExportStockActual, onAutoExportFinished]);
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">

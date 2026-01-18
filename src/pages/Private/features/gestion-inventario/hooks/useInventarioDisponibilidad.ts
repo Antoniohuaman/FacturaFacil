@@ -1,10 +1,11 @@
 // src/features/gestion-inventario/hooks/useInventarioDisponibilidad.ts
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { resolveUnidadMinima } from '@/shared/inventory/unitConversion';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { InventoryService } from '../services/inventory.service';
+import { useCurrentEstablishmentId } from '../../../../../contexts/UserSessionContext';
 import type {
   DisponibilidadItem,
   DisponibilidadFilters,
@@ -28,6 +29,7 @@ interface UpdateThresholdInput {
 export const useInventarioDisponibilidad = () => {
   const { allProducts, updateProduct } = useProductStore();
   const { state: configState } = useConfigurationContext();
+  const currentEstablishmentId = useCurrentEstablishmentId();
 
   const warehousesActivos = useMemo(
     () => configState.warehouses.filter(w => w.isActive),
@@ -35,13 +37,13 @@ export const useInventarioDisponibilidad = () => {
   );
 
   // Filtros activos
-  const [filtros, setFiltros] = useState<DisponibilidadFilters>({
-    // establecimientoId vacío representa "sin seleccionar" y se filtra luego por empresa actual
-    establecimientoId: '',
+  // Inventario operativo: el establecimiento siempre lo manda el header.
+  const [filtros, setFiltros] = useState<DisponibilidadFilters>(() => ({
+    establecimientoId: currentEstablishmentId,
     almacenId: '',
     filtroSku: '',
-    soloConDisponible: false
-  });
+    soloConDisponible: false,
+  }));
 
   // Ordenamiento
   const [ordenamiento, setOrdenamiento] = useState<OrdenamientoDisponibilidad>({
@@ -54,11 +56,11 @@ export const useInventarioDisponibilidad = () => {
   const [itemsPorPagina, setItemsPorPagina] = useState(25);
 
   const selectedEstablecimiento = useMemo(() => {
-    if (!filtros.establecimientoId) {
+    if (!currentEstablishmentId) {
       return undefined;
     }
-    return configState.establishments.find(e => e.id === filtros.establecimientoId);
-  }, [configState.establishments, filtros.establecimientoId]);
+    return configState.establishments.find(e => e.id === currentEstablishmentId);
+  }, [configState.establishments, currentEstablishmentId]);
 
   const selectedWarehouse = useMemo(() => {
     if (!filtros.almacenId) {
@@ -76,33 +78,61 @@ export const useInventarioDisponibilidad = () => {
    * Obtener almacenes disponibles según el establecimiento seleccionado
    */
   const almacenesDisponibles = useMemo(() => {
-    if (filtros.establecimientoId) {
-      return warehousesActivos.filter(
-        w => w.establishmentId === filtros.establecimientoId
-      );
+    if (!currentEstablishmentId) {
+      return [];
     }
-    return warehousesActivos;
-  }, [warehousesActivos, filtros.establecimientoId]);
+    return warehousesActivos.filter(w => w.establishmentId === currentEstablishmentId);
+  }, [warehousesActivos, currentEstablishmentId]);
 
   const warehouseScope = useMemo(() => {
     if (!warehousesActivos.length) {
       return [] as string[];
     }
 
+    if (!currentEstablishmentId) {
+      return [] as string[];
+    }
+
     if (filtros.almacenId) {
-      const match = warehousesActivos.find(w => w.id === filtros.almacenId);
+      const match = warehousesActivos.find(
+        w => w.id === filtros.almacenId && w.establishmentId === currentEstablishmentId
+      );
       return match ? [match.id] : [];
     }
 
-    if (filtros.establecimientoId) {
-      return warehousesActivos
-        .filter(w => w.establishmentId === filtros.establecimientoId)
-        .map(w => w.id);
-    }
-
-    return warehousesActivos.map(w => w.id);
-  }, [warehousesActivos, filtros.almacenId, filtros.establecimientoId]);
+    return warehousesActivos
+      .filter(w => w.establishmentId === currentEstablishmentId)
+      .map(w => w.id);
+  }, [warehousesActivos, currentEstablishmentId, filtros.almacenId]);
   const hasSingleWarehouse = warehouseScope.length === 1;
+
+  useEffect(() => {
+    setFiltros(prev => {
+      if (prev.establecimientoId === currentEstablishmentId) {
+        const almacenSigueValido = !prev.almacenId
+          ? true
+          : warehousesActivos.some(
+              w => w.id === prev.almacenId && w.establishmentId === currentEstablishmentId
+            );
+        if (almacenSigueValido) {
+          return prev;
+        }
+        return { ...prev, almacenId: '' };
+      }
+
+      const almacenSigueValido = prev.almacenId
+        ? warehousesActivos.some(
+            w => w.id === prev.almacenId && w.establishmentId === currentEstablishmentId
+          )
+        : true;
+      return {
+        ...prev,
+        establecimientoId: currentEstablishmentId,
+        almacenId: almacenSigueValido ? prev.almacenId : '',
+      };
+    });
+    setPaginaActual(1);
+  }, [currentEstablishmentId, warehousesActivos]);
 
   /**
    * Calcular situación del stock
@@ -325,9 +355,25 @@ export const useInventarioDisponibilidad = () => {
    * Actualizar filtros
    */
   const actualizarFiltros = useCallback((nuevosFiltros: Partial<DisponibilidadFilters>) => {
-    setFiltros(prev => ({ ...prev, ...nuevosFiltros }));
+    setFiltros(prev => {
+      const rest = { ...nuevosFiltros };
+      delete rest.establecimientoId;
+      const nextAlmacenId = rest.almacenId ?? prev.almacenId;
+      const almacenEsValido = !nextAlmacenId
+        ? true
+        : warehousesActivos.some(
+            w => w.id === nextAlmacenId && w.establishmentId === currentEstablishmentId
+          );
+
+      return {
+        ...prev,
+        ...rest,
+        establecimientoId: currentEstablishmentId,
+        almacenId: almacenEsValido ? nextAlmacenId : '',
+      };
+    });
     setPaginaActual(1); // Resetear a primera página
-  }, []);
+  }, [currentEstablishmentId, warehousesActivos]);
 
   /**
    * Cambiar ordenamiento

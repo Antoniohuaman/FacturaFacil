@@ -8,6 +8,7 @@ import type { Product, CartItem, Currency } from '../../models/comprobante.types
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { useFeedback } from '../../../../../../shared/feedback';
+import { useCurrentEstablishmentId } from '../../../../../../contexts/UserSessionContext';
 
 // Importar el modal REAL de productos del catálogo
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
@@ -111,6 +112,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 }) => {
   const { formatPrice } = useCurrency();
   const { addProduct, categories: catalogoCategories } = useProductStore();
+  const currentEstablishmentId = useCurrentEstablishmentId();
   
   const {
     searchQuery,
@@ -124,7 +126,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     setSearchQuery,
     searchByCategory,
     clearSearch
-  } = useProductSearch();
+  } = useProductSearch({ establishmentId: currentEstablishmentId });
 
   const { warning: showWarningToast } = useFeedback();
 
@@ -482,6 +484,17 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   }, [searchMode, setSearchQuery, setShowResults]);
 
   const handleProductSelect = (product: Product) => {
+    const allowedByList = products.some((p) => p.id === product.id);
+    if (!allowedByList) {
+      showWarningToast(
+        'El producto no está habilitado para el establecimiento activo.',
+        'Producto no disponible',
+        { durationMs: 3500 }
+      );
+      setShowResults(false);
+      return;
+    }
+
     const preparedProduct = buildProductForSale(product);
     onAddToCart(preparedProduct);
     setShowResults(false);
