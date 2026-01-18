@@ -3,6 +3,7 @@ import type { PreviewData } from '../../models/comprobante.types';
 import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useVoucherDesignConfig';
 import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/models/VoucherDesignUnified';
 import { formatMoney } from '@/shared/currency';
+import { useCurrentEstablishment } from '@/contexts/UserSessionContext';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';
 
 interface PreviewTicketProps {
@@ -12,6 +13,7 @@ interface PreviewTicketProps {
 
 export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => {
   const config = useVoucherDesignConfigReader('TICKET');
+  const currentEstablishment = useCurrentEstablishment();
 
   const {
     companyData,
@@ -41,6 +43,11 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
 
   const productFields = config.productFields as VoucherDesignTicketConfig['productFields'];
   const descriptionMaxLength = productFields.descripcion?.maxLength ?? 30;
+
+  const establishmentNameFromData = (data as unknown as { establishmentName?: string }).establishmentName;
+  const rawEstablishmentName = establishmentNameFromData || currentEstablishment?.name || '';
+  const establishmentName = rawEstablishmentName.trim();
+  const shouldShowEstablishment = Boolean(config.documentFields.establecimiento.visible && establishmentName);
 
   const truncateText = (text: string, maxLength: number) => {
     return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
@@ -140,8 +147,8 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
             <p><span className="font-semibold">Cliente:</span> {truncateText(clientData.nombre, 32)}</p>
             <p><span className="font-semibold">{clientData.tipoDocumento.toUpperCase()}:</span> {clientData.documento}</p>
             <p><span className="font-semibold">Forma de pago:</span> {paymentMethod}</p>
-            {config.documentFields.establecimiento.visible && (
-              <p><span className="font-semibold">{config.documentFields.establecimiento.label}:</span> Principal</p>
+            {shouldShowEstablishment && (
+              <p><span className="font-semibold">{config.documentFields.establecimiento.label}:</span> {truncateText(establishmentName, 35)}</p>
             )}
             {config.documentFields.direccion.visible && clientData.direccion && (
               <p><span className="font-semibold">{config.documentFields.direccion.label}:</span> {truncateText(clientData.direccion, 35)}</p>
