@@ -1,9 +1,227 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Product } from '../../models/types';
 import type { Unit } from '../../../configuracion-sistema/models/Unit';
 import type { Establishment } from '../../../configuracion-sistema/models/Establishment';
 import type { ColumnKey } from './columnConfig';
 import type { ProductTableColumnState } from '../../hooks/useProductColumnsManager';
+
+const getEstablishmentShortName = (name: string, maxLength = 18) => {
+  const trimmed = name.trim().replace(/\s+/g, ' ');
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+
+  const words = trimmed.split(' ');
+  const candidate = words.slice(0, 2).join(' ');
+  if (candidate.length <= maxLength) {
+    return candidate;
+  }
+
+  return `${trimmed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+};
+
+type AvailabilityCellProps = {
+  row: Product;
+  establishments: Establishment[];
+  establishmentScope: string;
+};
+
+const AvailabilityCell: React.FC<AvailabilityCellProps> = ({ row, establishments, establishmentScope }) => {
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const closeTimerRef = useRef<number | null>(null);
+
+  const enabledActive = useMemo(() => {
+    const active = establishments.filter(est => est.isActive);
+    const enabledIds = row.disponibleEnTodos ? active.map(est => est.id) : (row.establecimientoIds ?? []);
+    return active.filter(est => enabledIds.includes(est.id));
+  }, [establishments, row.disponibleEnTodos, row.establecimientoIds]);
+
+  const enabledInScope = useMemo(() => {
+    if (establishmentScope === 'ALL') {
+      return null;
+    }
+    return enabledActive.some(est => est.id === establishmentScope) || Boolean(row.disponibleEnTodos);
+  }, [enabledActive, establishmentScope, row.disponibleEnTodos]);
+
+  const computePosition = () => {
+    const anchor = anchorRef.current;
+    if (!anchor) {
+      return;
+    }
+
+    const rect = anchor.getBoundingClientRect();
+    const gap = 8;
+    const popoverWidth = 320;
+    const popoverHeight = 280;
+
+    let left = rect.left;
+    let top = rect.bottom + gap;
+
+    const maxLeft = Math.max(8, window.innerWidth - popoverWidth - 8);
+    left = Math.min(Math.max(8, left), maxLeft);
+
+    const maxTop = Math.max(8, window.innerHeight - popoverHeight - 8);
+    if (top > maxTop) {
+      top = Math.max(8, rect.top - gap - popoverHeight);
+    }
+
+    setPosition({ top, left });
+  };
+
+  const scheduleClose = () => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = window.setTimeout(() => setOpen(false), 80);
+  };
+
+  const cancelClose = () => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    computePosition();
+
+    const handleResize = () => computePosition();
+    const handleScroll = () => computePosition();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  if (establishmentScope !== 'ALL') {
+    return (
+      <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            enabledInScope ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          {enabledInScope ? 'Habilitado' : 'Deshabilitado'}
+        </span>
+      </td>
+    );
+  }
+
+  if (enabledActive.length === 0) {
+    return (
+      <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+          Deshabilitado
+        </span>
+      </td>
+    );
+  }
+
+  const visible = enabledActive.slice(0, 2);
+  const extraCount = Math.max(0, enabledActive.length - visible.length);
+  const popoverId = `product-availability-${row.id}`;
+
+  const popover = open
+    ? createPortal(
+        <div
+          role="tooltip"
+          id={popoverId}
+          className="fixed z-[80] w-[320px] rounded-lg border border-gray-200 bg-white shadow-lg"
+          style={{ top: position.top, left: position.left }}
+          onMouseEnter={() => {
+            cancelClose();
+            setOpen(true);
+          }}
+          onMouseLeave={scheduleClose}
+          data-no-row-click="true"
+        >
+          <div className="px-3 py-2 border-b border-gray-100">
+            <div className="text-xs font-semibold text-gray-700">Establecimientos habilitados</div>
+            <div className="text-[11px] text-gray-500">{enabledActive.length} en total</div>
+          </div>
+          <ul className="py-2 max-h-64 overflow-auto">
+            {enabledActive.map(est => (
+              <li key={est.id} className="px-3 py-1.5 text-xs text-gray-700">
+                <span className="font-mono font-semibold text-gray-900">{est.code}</span>
+                <span className="text-gray-400"> · </span>
+                <span>{est.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
+      <div
+        ref={anchorRef}
+        className="inline-flex max-w-[260px] items-center gap-1 overflow-hidden"
+        onMouseEnter={() => {
+          cancelClose();
+          setOpen(true);
+        }}
+        onMouseLeave={scheduleClose}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(current => !current);
+        }}
+        aria-describedby={open ? popoverId : undefined}
+        data-no-row-click="true"
+      >
+        {visible.map(est => (
+          <span
+            key={est.id}
+            className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-medium text-purple-800"
+            title={`${est.code} · ${est.name}`}
+          >
+            <span className="font-mono font-semibold">{est.code}</span>
+            <span className="text-purple-500">·</span>
+            <span className="truncate">{getEstablishmentShortName(est.name)}</span>
+          </span>
+        ))}
+
+        {extraCount > 0 && (
+          <span
+            className="inline-flex items-center rounded-full bg-purple-200/60 px-2 py-0.5 text-[11px] font-semibold text-purple-900"
+            title="Ver todos"
+          >
+            +{extraCount}
+          </span>
+        )}
+
+        {popover}
+      </div>
+    </td>
+  );
+};
 
 interface ProductTableRowProps {
   row: Product;
@@ -117,51 +335,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
         );
       case 'establecimiento':
         return (
-          <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
-            {(() => {
-              const active = establishments.filter(est => est.isActive);
-              const enabledIds = row.disponibleEnTodos ? active.map(est => est.id) : (row.establecimientoIds ?? []);
-              const enabledActive = active.filter(est => enabledIds.includes(est.id));
-
-              if (establishmentScope !== 'ALL') {
-                const enabledInScope = enabledIds.includes(establishmentScope) || row.disponibleEnTodos;
-                return (
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      enabledInScope ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {enabledInScope ? 'Habilitado' : 'Deshabilitado'}
-                  </span>
-                );
-              }
-
-              if (enabledActive.length === 0) {
-                return (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
-                    Deshabilitado
-                  </span>
-                );
-              }
-
-              if (enabledActive.length === 1) {
-                const est = enabledActive[0];
-                return (
-                  <div>
-                    <div className="text-sm font-semibold text-purple-900 dark:text-purple-300">{est.code}</div>
-                    <div className="text-xs text-purple-600 dark:text-purple-400 truncate max-w-[150px]">{est.name}</div>
-                  </div>
-                );
-              }
-
-              const tooltip = enabledActive.slice(0, 8).map(est => `${est.code} · ${est.name}`).join('\n');
-              return (
-                <div title={tooltip} className="text-sm font-semibold text-purple-900 dark:text-purple-300">
-                  {enabledActive.length} habilitados
-                </div>
-              );
-            })()}
-          </td>
+          <AvailabilityCell row={row} establishments={establishments} establishmentScope={establishmentScope} />
         );
       case 'imagen':
         return (

@@ -1,6 +1,7 @@
 
 import { NavLink } from "react-router-dom";
 import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Receipt, Wallet, Boxes, Coins } from "lucide-react";
+import { useEffect, useRef } from "react";
 import CompanySelector from "../../components/CompanySelector";
 import { useUserSession } from "../../contexts/UserSessionContext";
 import { useComprobanteContext } from "../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
@@ -80,6 +81,8 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const currentCompany = session?.currentCompany;
   const currentEstablishment = session?.currentEstablishment;
 
+  const navScrollRef = useRef<HTMLElement | null>(null);
+
   // Obtener conteo de comprobantes del contexto
   const { state } = useComprobanteContext();
   const comprobantesCount = state.comprobantes.length;
@@ -118,21 +121,38 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     return item;
   });
 
+  useEffect(() => {
+    const nav = navScrollRef.current;
+    if (!nav) {
+      return;
+    }
+
+    // Nota: React registra ciertos eventos (wheel/touch) como listeners passive.
+    // Para poder usar preventDefault() sin warnings y sin romper el scroll interno,
+    // escuchamos el wheel nativo en el contenedor scroll real con { passive: false }.
+    const handleWheel = (event: WheelEvent) => {
+      const scrollTop = nav.scrollTop;
+      const scrollHeight = nav.scrollHeight;
+      const clientHeight = nav.clientHeight;
+
+      const atTop = scrollTop <= 0;
+      const atBottom = scrollTop >= scrollHeight - clientHeight;
+
+      if ((atTop && event.deltaY < 0) || (atBottom && event.deltaY > 0)) {
+        event.preventDefault();
+      }
+    };
+
+    nav.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      nav.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   return (
     <aside
       className={`h-full flex flex-col bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700 transition-all duration-300 shadow-sm overflow-hidden`}
-      onWheel={(e) => {
-        // Prevenir el scroll del contenido principal cuando se hace scroll en el sidebar
-        const sidebar = e.currentTarget;
-        const scrollTop = sidebar.scrollTop;
-        const scrollHeight = sidebar.scrollHeight;
-        const clientHeight = sidebar.clientHeight;
-
-        // Si estamos en el tope y queremos subir más, o en el fondo y queremos bajar más
-        if ((scrollTop === 0 && e.deltaY < 0) || (scrollTop >= scrollHeight - clientHeight && e.deltaY > 0)) {
-          e.preventDefault();
-        }
-      }}
     >
       {/* Header con título */}
       <div className="p-2 border-b border-gray-100/50 dark:border-gray-700/50">
@@ -163,7 +183,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       )}
       
       {/* Navegación principal */}
-      <nav className="flex-1 flex flex-col p-2 overflow-y-auto overscroll-contain">
+      <nav ref={navScrollRef} className="flex-1 flex flex-col p-2 overflow-y-auto overscroll-contain">
         <div className="space-y-1 mt-2">
           {mainItemsWithBadges.map(item => (
           <NavLink
