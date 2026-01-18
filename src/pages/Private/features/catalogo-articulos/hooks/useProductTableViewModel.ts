@@ -2,12 +2,6 @@ import { useMemo, useCallback } from 'react';
 import type { Product, FilterOptions } from '../models/types';
 import type { Establishment } from '../../configuracion-sistema/models/Establishment';
 
-export interface ProductEstablishmentRow extends Product {
-  _establishmentId: string;
-  _establishmentCode: string;
-  _establishmentName: string;
-}
-
 interface UseProductTableViewModelParams {
   products: Product[];
   filters: FilterOptions;
@@ -27,54 +21,36 @@ export const useProductTableViewModel = ({
   establishmentScope = 'ALL',
   establishments
 }: UseProductTableViewModelParams) => {
-  const rows = useMemo<ProductEstablishmentRow[]>(() => {
-    const expanded: ProductEstablishmentRow[] = [];
+  const activeEstablishmentIds = useMemo(() => {
+    return new Set(establishments.filter(est => est.isActive).map(est => est.id));
+  }, [establishments]);
 
-    products.forEach(product => {
-      let targetEstablishments: Establishment[] = [];
-
-      if (product.disponibleEnTodos) {
-        targetEstablishments = establishments.filter(est => est.isActive);
-      } else if (product.establecimientoIds && product.establecimientoIds.length > 0) {
-        targetEstablishments = establishments.filter(
-          est => product.establecimientoIds?.includes(est.id) && est.isActive
-        );
-      } else {
-        expanded.push({
-          ...product,
-          _establishmentId: 'UNASSIGNED',
-          _establishmentCode: '—',
-          _establishmentName: 'Sin asignar'
-        });
-        return;
-      }
-
-      targetEstablishments.forEach(est => {
-        expanded.push({
-          ...product,
-          _establishmentId: est.id,
-          _establishmentCode: est.code,
-          _establishmentName: est.name
-        });
-      });
-    });
-
-    if (establishmentScope !== 'ALL') {
-      return expanded.filter(row => row._establishmentId === establishmentScope);
+  const rows = useMemo<Product[]>(() => {
+    if (establishmentScope === 'ALL') {
+      return products;
     }
 
-    return expanded;
-  }, [products, establishments, establishmentScope]);
+    if (!establishmentScope || !activeEstablishmentIds.has(establishmentScope)) {
+      return [];
+    }
+
+    return products.filter(product => {
+      if (product.disponibleEnTodos) {
+        return true;
+      }
+      return Boolean(product.establecimientoIds?.includes(establishmentScope));
+    });
+  }, [activeEstablishmentIds, establishmentScope, products]);
 
   const handleSelectAll = useCallback(
     (checked: boolean) => {
       if (checked) {
-        onSelectedProductsChange(new Set(products.map(p => p.id)));
+        onSelectedProductsChange(new Set(rows.map(p => p.id)));
       } else {
         onSelectedProductsChange(new Set());
       }
     },
-    [onSelectedProductsChange, products]
+    [onSelectedProductsChange, rows]
   );
 
   const handleSelectProduct = useCallback(
@@ -119,8 +95,8 @@ export const useProductTableViewModel = ({
   }, []);
 
   const isAllSelected = useMemo(
-    () => selectedProducts.size === products.length && products.length > 0,
-    [products.length, selectedProducts]
+    () => rows.length > 0 && rows.every(product => selectedProducts.has(product.id)),
+    [rows, selectedProducts]
   );
 
   return {

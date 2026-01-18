@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import type React from 'react';
 import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
 import type { Unit } from '../../configuracion-sistema/models/Unit';
+import type { Establishment } from '../../configuracion-sistema/models/Establishment';
 import type { Product, ProductFormData, UnitMeasureType } from '../models/types';
 import type { ProductInput } from './useProductStore';
 import {
@@ -35,6 +36,8 @@ interface UseProductFormParams {
   categories: Category[];
   availableUnits: Unit[];
   allProducts: Product[];
+  activeEstablishments: Establishment[];
+  defaultEstablishmentId?: string;
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
   onSave: (productData: ProductInput) => void;
@@ -46,6 +49,7 @@ const buildDefaultFormData = (
   defaultUnit: Product['unidad'],
   inferredType: UnitMeasureType,
   defaultCategoryName: string,
+  defaultEstablishmentIds: string[],
   defaultTaxLabel?: string
 ): ProductFormData => ({
   nombre: '',
@@ -56,7 +60,7 @@ const buildDefaultFormData = (
   categoria: defaultCategoryName,
   impuesto: defaultTaxLabel ?? 'IGV (18.00%)',
   descripcion: '',
-  establecimientoIds: [],
+  establecimientoIds: defaultEstablishmentIds,
   disponibleEnTodos: false,
   alias: '',
   precioCompra: 0,
@@ -78,11 +82,47 @@ export const useProductForm = ({
   categories,
   availableUnits,
   allProducts,
+  activeEstablishments,
+  defaultEstablishmentId,
   isFieldVisible,
   isFieldRequired,
   onSave,
   onClose
 }: UseProductFormParams) => {
+  const activeEstablishmentIds = useMemo(
+    () => activeEstablishments.filter(est => est.isActive).map(est => est.id),
+    [activeEstablishments]
+  );
+
+  const resolvedDefaultEstablishmentId = useMemo(() => {
+    if (defaultEstablishmentId && activeEstablishmentIds.includes(defaultEstablishmentId)) {
+      return defaultEstablishmentId;
+    }
+    const main = activeEstablishments.find(est => est.isActive && est.isMainEstablishment);
+    return main?.id ?? activeEstablishmentIds[0] ?? '';
+  }, [activeEstablishments, activeEstablishmentIds, defaultEstablishmentId]);
+
+  const uniqueIds = useCallback((ids: string[]) => {
+    const set = new Set<string>();
+    ids.forEach(id => {
+      const trimmed = String(id || '').trim();
+      if (trimmed) {
+        set.add(trimmed);
+      }
+    });
+    return Array.from(set);
+  }, []);
+
+  const resolveDefaultEnabledEstablishments = useCallback((): string[] => {
+    if (activeEstablishmentIds.length === 1) {
+      return [activeEstablishmentIds[0]];
+    }
+    if (resolvedDefaultEstablishmentId) {
+      return [resolvedDefaultEstablishmentId];
+    }
+    return [];
+  }, [activeEstablishmentIds, resolvedDefaultEstablishmentId]);
+
   const sortedUnits = useMemo(() => {
     return [...availableUnits].sort((a, b) => {
       if (a.isFavorite && !b.isFavorite) return -1;
@@ -125,7 +165,14 @@ export const useProductForm = ({
   const initialMeasureType = inferMeasureTypeFromUnitCode(initialUnit);
 
   const [formData, setFormData] = useState<ProductFormData>(
-    () => buildDefaultFormData(initialUnit, initialMeasureType, defaultCategoryName, defaultTaxLabel)
+    () =>
+      buildDefaultFormData(
+        initialUnit,
+        initialMeasureType,
+        defaultCategoryName,
+        resolveDefaultEnabledEstablishments(),
+        defaultTaxLabel
+      )
   );
   const [productType, setProductType] = useState<ProductType>('BIEN');
   const [errors, setErrors] = useState<FormError>({});
@@ -325,14 +372,28 @@ export const useProductForm = ({
   const initializeFormForNewProduct = useCallback(() => {
     const defaultUnit = getDefaultUnitForType('BIEN');
     const inferredType = inferMeasureTypeFromUnitCode(defaultUnit);
-    setFormData(buildDefaultFormData(defaultUnit, inferredType, defaultCategoryName, defaultTaxLabel));
+    setFormData(
+      buildDefaultFormData(
+        defaultUnit,
+        inferredType,
+        defaultCategoryName,
+        resolveDefaultEnabledEstablishments(),
+        defaultTaxLabel
+      )
+    );
     setImagePreview('');
     setProductType('BIEN');
     setAdditionalUnitErrors([]);
     setErrors({});
     setUnitInfoMessage(null);
     setIsDescriptionExpanded(false);
-  }, [defaultCategoryName, defaultTaxLabel, getDefaultUnitForType, inferMeasureTypeFromUnitCode]);
+  }, [
+    defaultCategoryName,
+    defaultTaxLabel,
+    getDefaultUnitForType,
+    inferMeasureTypeFromUnitCode,
+    resolveDefaultEnabledEstablishments
+  ]);
 
   const initializeFormFromProduct = useCallback(
     (productData: Product) => {
@@ -346,6 +407,10 @@ export const useProductForm = ({
         isUnitAllowedForMeasureType(unit.unidadCodigo, sortedUnits, inferredType)
       );
 
+      const enabledIdsFromProduct = productData.disponibleEnTodos
+        ? activeEstablishmentIds
+        : uniqueIds(productData.establecimientoIds || []);
+
       setFormData({
         nombre: productData.nombre,
         codigo: productData.codigo,
@@ -355,8 +420,8 @@ export const useProductForm = ({
         categoria: productData.categoria,
         impuesto: productData.impuesto || defaultTaxLabel || 'IGV (18.00%)',
         descripcion: productData.descripcion || '',
-        establecimientoIds: productData.establecimientoIds || [],
-        disponibleEnTodos: productData.disponibleEnTodos || false,
+        establecimientoIds: enabledIdsFromProduct,
+        disponibleEnTodos: false,
         alias: productData.alias || '',
         precioCompra: productData.precioCompra || 0,
         porcentajeGanancia: productData.porcentajeGanancia || 0,
@@ -376,7 +441,7 @@ export const useProductForm = ({
       setErrors({});
       setUnitInfoMessage(null);
       setIsDescriptionExpanded(false);
-    }, [defaultTaxLabel, inferMeasureTypeFromUnitCode, sortedUnits]
+    }, [activeEstablishmentIds, defaultTaxLabel, inferMeasureTypeFromUnitCode, sortedUnits, uniqueIds]
   );
 
   useEffect(() => {
@@ -438,13 +503,7 @@ export const useProductForm = ({
       newErrors.tipoUnidadMedida = 'Selecciona una familia de unidades';
     }
 
-    if (
-      isFieldVisible('establecimiento') &&
-      !formData.disponibleEnTodos &&
-      formData.establecimientoIds.length === 0
-    ) {
-      newErrors.establecimientoIds = 'Debes asignar al menos un establecimiento o marcar "Disponible en todos"';
-    }
+    // Disponibilidad por establecimiento: no es requerida para guardar.
 
     if (isFieldVisible('categoria') && isFieldRequired('categoria') && !formData.categoria) {
       newErrors.categoria = 'La categoría es requerida';
@@ -539,11 +598,26 @@ export const useProductForm = ({
 
       if (!validateForm()) return;
 
+      const establishmentIdsFromForm = formData.disponibleEnTodos
+        ? activeEstablishmentIds
+        : uniqueIds(formData.establecimientoIds);
+
+      const normalizedEstablishmentIds =
+        activeEstablishmentIds.length === 1
+          ? [activeEstablishmentIds[0]]
+          : establishmentIdsFromForm.length > 0
+            ? establishmentIdsFromForm
+            : product
+              ? []
+              : resolveDefaultEnabledEstablishments();
+
       setLoading(true);
       try {
         await new Promise(resolve => setTimeout(resolve, 500));
         onSave({
           ...formData,
+          establecimientoIds: normalizedEstablishmentIds,
+          disponibleEnTodos: false,
           imagen: imagePreview
         });
         onClose();
@@ -553,7 +627,17 @@ export const useProductForm = ({
         setLoading(false);
       }
     },
-    [formData, imagePreview, onClose, onSave, validateForm]
+    [
+      activeEstablishmentIds,
+      formData,
+      imagePreview,
+      onClose,
+      onSave,
+      product,
+      resolveDefaultEnabledEstablishments,
+      uniqueIds,
+      validateForm
+    ]
   );
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {

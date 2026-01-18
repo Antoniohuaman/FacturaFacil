@@ -63,9 +63,9 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
     const filtered = allProducts.filter(product => {
       const summary = getSummary(product);
 
-      if (establecimientoId && !product.disponibleEnTodos) {
-        const assigned = product.establecimientoIds || [];
-        if (assigned.length > 0 && !assigned.includes(establecimientoId)) {
+      if (establecimientoId) {
+        const enabled = product.disponibleEnTodos || Boolean(product.establecimientoIds?.includes(establecimientoId));
+        if (!enabled) {
           return false;
         }
       }

@@ -1,12 +1,12 @@
 import React from 'react';
 import type { Product } from '../../models/types';
 import type { Unit } from '../../../configuracion-sistema/models/Unit';
+import type { Establishment } from '../../../configuracion-sistema/models/Establishment';
 import type { ColumnKey } from './columnConfig';
-import type { ProductEstablishmentRow } from '../../hooks/useProductTableViewModel';
 import type { ProductTableColumnState } from '../../hooks/useProductColumnsManager';
 
 interface ProductTableRowProps {
-  row: ProductEstablishmentRow;
+  row: Product;
   columns: ProductTableColumnState[];
   selected: boolean;
   onToggleSelect: (productId: string, checked: boolean) => void;
@@ -14,6 +14,8 @@ interface ProductTableRowProps {
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
   units: Unit[];
+  establishments: Establishment[];
+  establishmentScope?: string;
   formatCurrency: (amount: number) => string;
   onRowClick?: (productId: string) => void;
   isActive?: boolean;
@@ -47,6 +49,8 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   onEdit,
   onDelete,
   units,
+  establishments,
+  establishmentScope = 'ALL',
   formatCurrency,
   onRowClick,
   isActive = false
@@ -114,16 +118,49 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
       case 'establecimiento':
         return (
           <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
-            {row._establishmentId === 'UNASSIGNED' ? (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600 italic">
-                Sin asignar
-              </span>
-            ) : (
-              <div>
-                <div className="text-sm font-semibold text-purple-900 dark:text-purple-300">{row._establishmentCode}</div>
-                <div className="text-xs text-purple-600 dark:text-purple-400 truncate max-w-[150px]">{row._establishmentName}</div>
-              </div>
-            )}
+            {(() => {
+              const active = establishments.filter(est => est.isActive);
+              const enabledIds = row.disponibleEnTodos ? active.map(est => est.id) : (row.establecimientoIds ?? []);
+              const enabledActive = active.filter(est => enabledIds.includes(est.id));
+
+              if (establishmentScope !== 'ALL') {
+                const enabledInScope = enabledIds.includes(establishmentScope) || row.disponibleEnTodos;
+                return (
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      enabledInScope ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {enabledInScope ? 'Habilitado' : 'Deshabilitado'}
+                  </span>
+                );
+              }
+
+              if (enabledActive.length === 0) {
+                return (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+                    Deshabilitado
+                  </span>
+                );
+              }
+
+              if (enabledActive.length === 1) {
+                const est = enabledActive[0];
+                return (
+                  <div>
+                    <div className="text-sm font-semibold text-purple-900 dark:text-purple-300">{est.code}</div>
+                    <div className="text-xs text-purple-600 dark:text-purple-400 truncate max-w-[150px]">{est.name}</div>
+                  </div>
+                );
+              }
+
+              const tooltip = enabledActive.slice(0, 8).map(est => `${est.code} · ${est.name}`).join('\n');
+              return (
+                <div title={tooltip} className="text-sm font-semibold text-purple-900 dark:text-purple-300">
+                  {enabledActive.length} habilitados
+                </div>
+              );
+            })()}
           </td>
         );
       case 'imagen':
@@ -182,18 +219,6 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
             ) : (
               <span className="text-sm text-gray-400">-</span>
             )}
-          </td>
-        );
-      case 'disponibleEnTodos':
-        return (
-          <td className="px-6 py-4 whitespace-nowrap">
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                row.disponibleEnTodos ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {row.disponibleEnTodos ? 'Sí' : 'No'}
-            </span>
           </td>
         );
       case 'alias':

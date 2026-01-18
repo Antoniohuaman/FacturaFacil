@@ -19,7 +19,6 @@ export type ColumnKey =
   | 'modelo'
   | 'peso'
   | 'tipoExistencia'
-  | 'disponibleEnTodos'
   | 'fechaCreacion'
   | 'fechaActualizacion';
 
@@ -35,7 +34,7 @@ export const AVAILABLE_COLUMNS: ColumnConfig[] = [
   { key: 'favorito', label: 'Fav', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'codigo', label: 'Código', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'nombre', label: 'Nombre', defaultVisible: true, filterable: false, group: 'basicas' },
-  { key: 'establecimiento', label: 'Establecimiento', defaultVisible: true, filterable: false, group: 'basicas' },
+  { key: 'establecimiento', label: 'Disponibilidad', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'categoria', label: 'Categoría', defaultVisible: true, filterable: true, group: 'basicas' },
   { key: 'unidad', label: 'Unidad', defaultVisible: true, filterable: true, group: 'basicas' },
   { key: 'descripcion', label: 'Descripción', defaultVisible: false, filterable: false, group: 'basicas' },
@@ -52,7 +51,6 @@ export const AVAILABLE_COLUMNS: ColumnConfig[] = [
   { key: 'modelo', label: 'Modelo', defaultVisible: false, filterable: true, group: 'caracteristicas' },
   { key: 'peso', label: 'Peso (kg)', defaultVisible: false, filterable: false, group: 'caracteristicas' },
   { key: 'tipoExistencia', label: 'Tipo de Existencia', defaultVisible: false, filterable: true, group: 'caracteristicas' },
-  { key: 'disponibleEnTodos', label: 'Disp. en Todos', defaultVisible: false, filterable: false, group: 'sistema' },
   { key: 'fechaCreacion', label: 'Fecha Creación', defaultVisible: false, filterable: false, group: 'sistema' },
   { key: 'fechaActualizacion', label: 'Última Actualización', defaultVisible: false, filterable: false, group: 'sistema' }
 ];
@@ -66,4 +64,4 @@ export const COLUMN_GROUP_LABELS = {
   sistema: 'Información del Sistema'
 } as const;
 
-export const COLUMN_CONFIG_VERSION = '2.2';
+export const COLUMN_CONFIG_VERSION = '2.3';

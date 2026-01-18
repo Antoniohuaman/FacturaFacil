@@ -42,8 +42,7 @@ const REQUIRED_COLUMNS = [
   'Nombre',
   'Código',
   'Unidad',
-  'Impuesto',
-  'Establecimientos'
+  'Impuesto'
 ];
 
 // ====================================================================
@@ -57,7 +56,7 @@ export const BASIC_IMPORT_COLUMNS: ExcelColumn[] = [
   { key: 'unidad', label: 'Unidad', required: true, example: 'NIU', type: 'select' },
   { key: 'categoria', label: 'Categoría', required: false, example: 'General', type: 'text' },
   { key: 'impuesto', label: 'Impuesto', required: true, example: 'IGV (18.00%)', type: 'select' },
-  { key: 'establecimientos', label: 'Establecimientos', required: true, example: '0001,0002', type: 'multiselect' }
+  { key: 'establecimientos', label: 'Disponibilidad', required: false, example: '0001,0002', type: 'multiselect' }
 ];
 
 // ====================================================================
@@ -135,7 +134,7 @@ export function generateExcelTemplate(
     ['  - Exonerado (0.00%)'],
     ['  - Inafecto (0.00%)'],
     [''],
-    ['Establecimientos (códigos separados por coma):'],
+    ['Disponibilidad (códigos de establecimiento separados por coma):'],
     ...availableEstablishments.slice(0, 10).map(e => [`  - ${e.code} (${e.name})`]),
     [''],
     ['Tipo de existencia (opcional):'],
@@ -344,19 +343,20 @@ function parseRow(
     rowErrors.push('Impuesto no válido');
   }
 
-  // Establecimientos
-  const establecimientosValue = String(row['Establecimientos'] || '').trim();
-  const establecimientosCodes = establecimientosValue.split(',').map(c => c.trim()).filter(c => c);
+  // Disponibilidad (compatible con columna legacy "Establecimientos")
+  const disponibilidadRaw = row['Disponibilidad'] ?? row['Establecimientos'] ?? '';
+  const disponibilidadValue = String(disponibilidadRaw || '').trim();
+  const disponibilidadCodes = disponibilidadValue.split(',').map(c => c.trim()).filter(c => c);
   const establecimientoIds: string[] = [];
 
-  establecimientosCodes.forEach(code => {
+  disponibilidadCodes.forEach(code => {
     const est = availableEstablishments.find(e => e.code === code);
     if (est) {
       establecimientoIds.push(est.id);
     } else {
       errores.push({
         fila,
-        columna: 'Establecimientos',
+        columna: 'Disponibilidad',
         mensaje: `Establecimiento con código "${code}" no encontrado`,
         valorRecibido: code
       });
@@ -364,14 +364,26 @@ function parseRow(
     }
   });
 
-  if (establecimientoIds.length === 0 && establecimientosCodes.length > 0) {
+  if (establecimientoIds.length === 0 && disponibilidadCodes.length > 0) {
     errores.push({
       fila,
-      columna: 'Establecimientos',
+      columna: 'Disponibilidad',
       mensaje: 'Ningún establecimiento válido encontrado',
-      valorRecibido: establecimientosValue
+      valorRecibido: disponibilidadValue
     });
     rowErrors.push('Sin establecimientos válidos');
+  }
+
+  if (establecimientoIds.length === 0 && disponibilidadCodes.length === 0) {
+    const active = availableEstablishments.filter(e => e.isActive);
+    const defaultEstablishmentId =
+      active.length === 1
+        ? active[0].id
+        : (active.find(e => e.isMainEstablishment)?.id ?? active[0]?.id);
+
+    if (defaultEstablishmentId) {
+      establecimientoIds.push(defaultEstablishmentId);
+    }
   }
 
   // Categoría (validar si existe)

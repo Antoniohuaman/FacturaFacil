@@ -155,12 +155,16 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
 
   const subtitleValue = [product.codigo, getUnitLabel(units, product.unidad)].filter(Boolean).join(' • ');
   const additionalUnits = product.unidadesMedidaAdicionales ?? [];
-  const establishmentBadges = product.disponibleEnTodos
-    ? ['Disponible en todos los establecimientos']
-    : (product.establecimientoIds ?? []).map((id) => {
-        const est = establishmentsById.get(id);
-        return est ? `${est.code} · ${est.name}` : id;
-      });
+  const enabledEstablishmentIds = product.disponibleEnTodos
+    ? establishments.filter(est => est.isActive).map(est => est.id)
+    : (product.establecimientoIds ?? []);
+
+  const establishmentBadges = enabledEstablishmentIds
+    .map((id) => {
+      const est = establishmentsById.get(id);
+      return est ? `${est.code} · ${est.name}` : id;
+    })
+    .filter(Boolean);
 
   const stockByEstablishmentList = renderRecordList(
     product.stockPorEstablecimiento,
@@ -280,9 +284,8 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
   ]);
 
   const availabilitySection = renderInfoSection('Disponibilidad', [
-    { label: 'Disponible en todos', value: product.disponibleEnTodos ? 'Sí' : 'No' },
     {
-      label: 'Establecimientos asignados',
+      label: 'Habilitado en',
       value:
         establishmentBadges.length > 0 ? (
           <div className="flex flex-wrap gap-2">
@@ -295,7 +298,9 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
               </span>
             ))}
           </div>
-        ) : undefined
+        ) : (
+          'Deshabilitado'
+        )
     }
   ]);
 

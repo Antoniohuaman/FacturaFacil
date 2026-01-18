@@ -34,6 +34,7 @@ import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
 import { useProductForm } from '../hooks/useProductForm';
 import type { Product } from '../models/types';
 import { useConfigurationContext, type Category } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useCurrentEstablishmentId } from '@/contexts/UserSessionContext';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -52,11 +53,20 @@ const ProductModal: React.FC<ProductModalProps> = ({
 }) => {
   const { addCategory, categories: globalCategories, allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
+  const currentEstablishmentId = useCurrentEstablishmentId();
 
   const establishments = useMemo(
     () => configState.establishments.filter(est => est.isActive),
     [configState.establishments]
   );
+
+  const defaultEstablishmentId = useMemo(() => {
+    if (currentEstablishmentId && establishments.some(est => est.id === currentEstablishmentId)) {
+      return currentEstablishmentId;
+    }
+    const main = establishments.find(est => est.isMainEstablishment);
+    return (main?.id ?? establishments[0]?.id ?? '');
+  }, [currentEstablishmentId, establishments]);
 
   const availableUnits = useMemo(
     () => configState.units.filter(unit => unit.isActive && unit.isVisible !== false),
@@ -158,7 +168,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
     isFieldRequired,
     onSave,
     onClose,
-    defaultTaxLabel
+    defaultTaxLabel,
+    activeEstablishments: establishments,
+    defaultEstablishmentId
   });
 
   const showBarcode = isFieldVisible('codigoBarras');
@@ -166,6 +178,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const showCategory = isFieldVisible('categoria');
   const showAlias = isFieldVisible('alias');
   const showSunat = isFieldVisible('codigoSunat');
+  const showAvailability = establishments.length > 1;
 
   if (!isOpen) return null;
 
@@ -221,8 +234,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   />
                 </div>
 
-                {/* Impuesto + Establecimientos (misma fila) */}
-                <div className={`grid grid-cols-1 gap-2 ${showTax ? 'lg:grid-cols-2' : ''}`}>
+                {/* Impuesto + Disponibilidad (misma fila) */}
+                <div
+                  className={`grid grid-cols-1 gap-2 ${showTax && showAvailability ? 'lg:grid-cols-2' : ''}`}
+                >
                   <ProductPricingSection
                     formData={formData}
                     setFormData={setFormData}
@@ -230,12 +245,13 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     taxOptions={taxOptions}
                   />
-                  <ProductAvailabilitySection
-                    formData={formData}
-                    setFormData={setFormData}
-                    establishments={establishments}
-                    errors={errors}
-                  />
+                  {showAvailability && (
+                    <ProductAvailabilitySection
+                      formData={formData}
+                      setFormData={setFormData}
+                      establishments={establishments}
+                    />
+                  )}
                 </div>
 
                 {/* Unidad mínima + Categoría (misma fila) */}

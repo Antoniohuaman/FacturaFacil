@@ -111,7 +111,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
               {rows.map((row, index) => (
                 <ProductTableRow
-                  key={`${row.id}-${row._establishmentId}-${index}`}
+                  key={`${row.id}-${index}`}
                   row={row}
                   columns={visibleColumns}
                   selected={selectedProducts.has(row.id)}
@@ -120,6 +120,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   onEdit={onEditProduct}
                   onDelete={onDeleteProduct}
                   units={units}
+                  establishments={establishments}
+                  establishmentScope={establishmentScope}
                   formatCurrency={formatCurrency}
                   onRowClick={onRowClick}
                   isActive={activeProductId === row.id}

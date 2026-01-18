@@ -7,7 +7,7 @@ interface ProductTableEmptyStateProps {
 export const ProductTableEmptyState: React.FC<ProductTableEmptyStateProps> = ({ establishmentScope = 'ALL' }) => {
   const message =
     establishmentScope !== 'ALL'
-      ? 'No hay productos asignados al establecimiento seleccionado. Intenta cambiar el filtro o crea nuevos productos.'
+      ? 'No hay productos habilitados en el establecimiento seleccionado. Intenta cambiar el filtro o crea nuevos productos.'
       : 'Comienza creando un nuevo producto o ajusta los filtros de búsqueda.';
 
   return (

@@ -19,7 +19,7 @@ const DEFAULT_FIELDS_CONFIG: ProductFieldConfig[] = [
   { id: 'codigo', label: 'Código/SKU', icon: '🔢', visible: true, required: true, isSystemRequired: true, category: 'basic' },
   { id: 'unidad', label: 'Unidad de medida', icon: '📏', visible: true, required: true, isSystemRequired: true, category: 'basic' },
   { id: 'impuesto', label: 'Impuesto', icon: '💰', visible: true, required: true, isSystemRequired: true, category: 'basic' },
-  { id: 'establecimiento', label: 'Establecimiento', icon: '🏪', visible: true, required: true, isSystemRequired: true, category: 'basic' },
+  { id: 'establecimiento', label: 'Disponibilidad', icon: '🏪', visible: true, required: false, isSystemRequired: false, category: 'basic' },
   
   // CAMPOS PERSONALIZABLES (el usuario decide si mostrar y si son obligatorios)
   // Campos personalizados deben iniciar ocultos para respetar el principio de "mostrar lo mínimo"
