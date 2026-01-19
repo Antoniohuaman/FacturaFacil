@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
 import EstablishmentSelector from './EstablishmentSelector';
+import CompanySelector from '@/components/CompanySelector';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
@@ -150,6 +151,11 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
       
       {/* Información de sesión activa */}
       <div className="flex items-center space-x-4 text-sm">
+        {/* Selector de Empresa */}
+        <div className="max-w-xs">
+          <CompanySelector />
+        </div>
+        
         {/* Selector de Establecimiento */}
         <EstablishmentSelector />
 

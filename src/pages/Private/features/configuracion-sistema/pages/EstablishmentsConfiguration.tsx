@@ -519,144 +519,71 @@ export function EstablishmentsConfiguration() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Globe className="w-4 h-4 text-gray-400" />
-                    Departamento <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.department}
-                      onChange={(e) => {
-                        const newDept = e.target.value;
-                        setFormData(prev => ({
-                          ...prev,
-                          department: newDept,
-                          province: '',
-                          district: ''
-                        }));
-                        if (formErrors.department) setFormErrors(prev => ({ ...prev, department: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white ${
-                        formErrors.department
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      required
-                    >
-                      <option value="">Seleccionar...</option>
-                      {ubigeoData.map((dept) => (
-                        <option key={dept.code} value={dept.name}>
-                          {dept.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                  {formErrors.department && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.department}
-                    </p>
-                  )}
+                  <Select
+                    label="Departamento"
+                    value={formData.department}
+                    onChange={(value) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        department: value,
+                        province: '',
+                        district: ''
+                      }));
+                      if (formErrors.department) setFormErrors(prev => ({ ...prev, department: '' }));
+                    }}
+                    options={ubigeoData.map(dept => ({
+                      value: dept.name,
+                      label: dept.name
+                    }))}
+                    placeholder="Seleccionar..."
+                    error={!!formErrors.department}
+                    helperText={formErrors.department}
+                    required
+                  />
                 </div>
 
                 <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    Provincia <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.province}
-                      onChange={(e) => {
-                        const newProv = e.target.value;
-                        setFormData(prev => ({
-                          ...prev,
-                          province: newProv,
-                          district: ''
-                        }));
-                        if (formErrors.province) setFormErrors(prev => ({ ...prev, province: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none ${
-                        formErrors.province
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : !formData.department
-                          ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                          : 'border-gray-300 hover:border-gray-400 bg-white'
-                      }`}
-                      required
-                      disabled={!formData.department}
-                    >
-                      <option value="">
-                        {formData.department ? 'Seleccionar...' : 'Selecciona departamento primero'}
-                      </option>
-                      {availableProvinces.map((prov) => (
-                        <option key={prov.code} value={prov.name}>
-                          {prov.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                  {formErrors.province && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.province}
-                    </p>
-                  )}
+                  <Select
+                    label="Provincia"
+                    value={formData.province}
+                    onChange={(value) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        province: value,
+                        district: ''
+                      }));
+                      if (formErrors.province) setFormErrors(prev => ({ ...prev, province: '' }));
+                    }}
+                    options={availableProvinces.map(prov => ({
+                      value: prov.name,
+                      label: prov.name
+                    }))}
+                    placeholder={formData.department ? 'Seleccionar...' : 'Selecciona departamento primero'}
+                    disabled={!formData.department}
+                    error={!!formErrors.province}
+                    helperText={formErrors.province}
+                    required
+                  />
                 </div>
 
                 <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Navigation className="w-4 h-4 text-gray-400" />
-                    Distrito <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.district}
-                      onChange={(e) => {
-                        setFormData(prev => ({ ...prev, district: e.target.value }));
-                        if (formErrors.district) setFormErrors(prev => ({ ...prev, district: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none ${
-                        formErrors.district
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : !formData.province
-                          ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                          : 'border-gray-300 hover:border-gray-400 bg-white'
-                      }`}
-                      required
-                      disabled={!formData.province}
-                    >
-                      <option value="">
-                        {formData.province ? 'Seleccionar...' : 'Selecciona provincia primero'}
-                      </option>
-                      {availableDistricts.map((dist) => (
-                        <option key={dist.code} value={dist.name}>
-                          {dist.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                  {formErrors.district && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.district}
-                    </p>
-                  )}
+                  <Select
+                    label="Distrito"
+                    value={formData.district}
+                    onChange={(value) => {
+                      setFormData(prev => ({ ...prev, district: value }));
+                      if (formErrors.district) setFormErrors(prev => ({ ...prev, district: '' }));
+                    }}
+                    options={availableDistricts.map(dist => ({
+                      value: dist.name,
+                      label: dist.name
+                    }))}
+                    placeholder={formData.province ? 'Seleccionar...' : 'Selecciona provincia primero'}
+                    disabled={!formData.province}
+                    error={!!formErrors.district}
+                    helperText={formErrors.district}
+                    required
+                  />
                 </div>
               </div>
 

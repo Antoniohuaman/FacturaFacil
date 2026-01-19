@@ -1,5 +1,6 @@
 // CajaForm component - Create/Edit cash register form with inline validations
 import { useState, useEffect } from 'react';
+import { Button, Select } from '@/contasis';
 import type { CreateCajaInput, UpdateCajaInput, MedioPago } from '../../models/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../../models/Caja';
 import type { Currency } from '../../models/Currency';
@@ -256,36 +257,23 @@ export function CajaForm({
 
       {/* Moneda */}
       <div>
-        <label htmlFor="moneda" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Moneda <span className="text-red-500">*</span>
-        </label>
-        <select
-          id="moneda"
+        <Select
+          label="Moneda"
           value={formData.monedaId}
-          onChange={(e) => setFormData(prev => ({ ...prev, monedaId: e.target.value }))}
+          onChange={(value) => setFormData(prev => ({ ...prev, monedaId: value }))}
           onBlur={() => handleBlur('monedaId')}
-          className={`
-            w-full px-4 py-2 border rounded-lg
-            focus:outline-none focus:ring-2 focus:ring-blue-500
-            dark:bg-gray-800 dark:border-gray-600 dark:text-white
-            ${fieldError('monedaId') ? 'border-red-500' : 'border-gray-300'}
-          `}
-          aria-label="Moneda"
-          aria-describedby={fieldError('monedaId') ? 'moneda-error' : undefined}
-          aria-invalid={!!fieldError('monedaId')}
-        >
-          <option value="">Seleccionar moneda</option>
-          {currencies.filter(c => c.isActive).map((currency) => (
-            <option key={currency.id} value={currency.id}>
-              {currency.code} - {currency.name}
-            </option>
-          ))}
-        </select>
-        {fieldError('monedaId') && (
-          <span id="moneda-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
-            {fieldError('monedaId')}
-          </span>
-        )}
+          options={[
+            { value: '', label: 'Seleccionar moneda' },
+            ...currencies.filter(c => c.isActive).map((currency) => ({
+              value: currency.id,
+              label: `${currency.code} - ${currency.name}`
+            }))
+          ]}
+          error={!!fieldError('monedaId')}
+          helperText={fieldError('monedaId')}
+          required
+          size="md"
+        />
       </div>
 
       {/* Medios de Pago */}
@@ -444,21 +432,22 @@ export function CajaForm({
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="md"
           onClick={onCancel}
-          className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           disabled={isSubmitting}
         >
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="primary"
+          size="md"
           type="submit"
           disabled={isSubmitting || errors.length > 0}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
           {isSubmitting ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Crear Caja')}
-        </button>
+        </Button>
       </div>
     </form>
   );

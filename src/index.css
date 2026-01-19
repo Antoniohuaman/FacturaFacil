@@ -17,6 +17,7 @@
 
   /* Helper para ocultar los spinners nativos en inputs numéricos específicos */
   input[type='number'].no-number-spinner {
+    appearance: textfield;
     -moz-appearance: textfield;
   }
 

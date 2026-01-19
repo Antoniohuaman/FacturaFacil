@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
+import { Button } from '@/contasis';
 import type { CurrencyDescriptor } from '@/shared/currency';
 import type { BankAccount, BankAccountInput, BankAccountType } from '../../models/BankAccount';
 import { BANK_ACCOUNT_TYPES } from '../../models/BankAccount';
@@ -164,14 +165,13 @@ export function BankAccountFormModal({
                 {mode === 'create' ? 'Agregar información bancaria' : 'Editar información bancaria'}
               </h2>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="tertiary"
+              size="sm"
+              icon={<X />}
+              iconOnly
               onClick={handleClose}
-              className="text-gray-400 transition hover:text-gray-600"
-              aria-label="Cerrar"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            />
           </div>
 
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
@@ -308,22 +308,22 @@ export function BankAccountFormModal({
             </div>
 
             <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={handleClose}
                 disabled={submitting}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
               >
-                {submitting && <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />}
-                <span>Guardar</span>
-              </button>
+                Guardar
+              </Button>
             </div>
           </form>
         </div>

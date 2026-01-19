@@ -254,13 +254,15 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
                       {method.display.isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                     </button>
 
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Edit3 />}
+                      iconPosition="left"
                       onClick={() => handleEdit(method)}
-                      className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
                     >
-                      <Edit3 className="mr-1 h-4 w-4" />
                       Editar
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -411,14 +413,15 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
                     <DefaultSelector isDefault={isDefault} onSetDefault={() => handleDefaultMean(mean.code)} size="sm" />
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Edit3 />}
+                      iconPosition="left"
                       onClick={() => openMeanEditor(mean.code)}
-                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                     >
-                      <Edit3 className="h-4 w-4" />
-                      <span>Editar</span>
-                    </button>
+                      Editar
+                    </Button>
                   </td>
                 </tr>
               );

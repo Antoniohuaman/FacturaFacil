@@ -9,3 +9,6 @@ export type { ButtonProps } from './components/Button';
 
 export { Select } from './components/Select';
 export type { SelectProps, SelectOption } from './components/Select';
+
+export { Sidebar } from './layout/Sidebar';
+export type { SidebarProps, Module } from './layout/Sidebar';

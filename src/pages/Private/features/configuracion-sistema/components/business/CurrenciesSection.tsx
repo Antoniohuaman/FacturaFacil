@@ -1,6 +1,7 @@
 // src/features/configuration/components/business/CurrenciesSection.tsx
 import { useState } from 'react';
 import { DollarSign, TrendingUp, AlertCircle, History } from 'lucide-react';
+import { Button } from '@/contasis';
 import type { Currency, ExchangeRate } from '../../models/Currency';
 import { DefaultSelector } from '../common/DefaultSelector';
 import { ConfigurationCard } from '../common/ConfigurationCard';
@@ -183,16 +184,17 @@ export function CurrenciesSection({
                   {/* Exchange Rate Actions */}
                   {!currency.isBaseCurrency && hasHistory && (
                     <div className="flex items-center space-x-2">
-                      
-                        <button
-                          onClick={() => setShowRateHistory(
-                            showRateHistory === currency.code ? null : currency.code
-                          )}
-                          className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
-                        >
-                          <History className="w-4 h-4" />
-                          <span>Historial</span>
-                        </button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<History />}
+                        iconPosition="left"
+                        onClick={() => setShowRateHistory(
+                          showRateHistory === currency.code ? null : currency.code
+                        )}
+                      >
+                        Historial
+                      </Button>
                     </div>
                   )}
                 </div>

@@ -171,7 +171,10 @@ export default {
         DEFAULT: 'var(--border-default)',
         strong: 'var(--border-strong)',
         focus: 'var(--border-focus)',
+        brand: 'var(--border-brand)',
         secondary: 'var(--border-secondary)',
+        // Brand borders
+        'brand-hover': 'var(--primary-hover)',
         // State borders
         error: 'var(--error)',
         success: 'var(--success)',

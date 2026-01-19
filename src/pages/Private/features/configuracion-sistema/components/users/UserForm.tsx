@@ -4,6 +4,7 @@
 // src/features/configuration/components/users/UserForm.tsx
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Shield } from 'lucide-react';
+import { Button } from '@/contasis';
 import type { User as UserModel } from '../../models/User';
 import type { Establishment } from '../../models/Establishment';
 
@@ -320,13 +321,14 @@ export function UserForm({
                 </p>
               </div>
             </div>
-            <button
+            <Button
+              variant="tertiary"
+              size="sm"
+              icon={<X />}
+              iconOnly
               onClick={onCancel}
               disabled={isLoading}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            />
           </div>
         </div>
 
@@ -595,36 +597,29 @@ export function UserForm({
 
                     {/* Action Buttons */}
                     <div className="absolute right-2 top-2 flex items-center space-x-1">
-                      <button
-                        type="button"
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        icon={showPassword ? <EyeOff /> : <Eye />}
+                        iconOnly
                         onClick={() => setShowPassword(!showPassword)}
-                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        title={showPassword ? 'Ocultar' : 'Mostrar'}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                      />
 
-                      <button
-                        type="button"
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        icon={passwordCopied ? <Check /> : <Copy />}
+                        iconOnly
                         onClick={handleCopyPassword}
-                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        title="Copiar contraseña"
-                      >
-                        {passwordCopied ? (
-                          <Check className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </button>
+                      />
 
-                      <button
-                        type="button"
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        icon={<RefreshCw />}
+                        iconOnly
                         onClick={handleGeneratePassword}
-                        className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded transition-colors"
-                        title="Generar nueva contraseña"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
+                      />
                     </div>
                   </div>
 
@@ -726,21 +721,22 @@ export function UserForm({
 
           {/* Submit Button */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="md"
               onClick={onCancel}
               disabled={isLoading}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
               type="submit"
               disabled={isLoading || !isFormValid()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               {isLoading ? 'Guardando...' : (user ? 'Actualizar' : 'Invitar')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
