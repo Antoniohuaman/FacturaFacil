@@ -21,7 +21,7 @@ import {
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import type { Warehouse as WarehouseType } from '../models/Warehouse';
-import { Button, Select, Input } from '@/contasis';
+import { Button, Select, Input, Checkbox } from '@/contasis';
 
 interface WarehouseFormData {
   code: string;
@@ -530,20 +530,19 @@ export function WarehousesConfiguration() {
               </div>
 
               {/* Almacén Principal */}
-              <div className="flex items-start space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                <input
-                  type="checkbox"
-                  id="isMainWarehouse"
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                <Checkbox
                   checked={formData.isMainWarehouse}
                   onChange={e => setFormData(prev => ({ ...prev, isMainWarehouse: e.target.checked }))}
-                  className="mt-0.5 w-4 h-4 text-blue-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+                  label={
+                    <div>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">Marcar como almacén principal</span>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Este será el almacén por defecto para operaciones de inventario en este establecimiento
+                      </p>
+                    </div>
+                  }
                 />
-                <label htmlFor="isMainWarehouse" className="flex-1 cursor-pointer">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Marcar como almacén principal</span>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    Este será el almacén por defecto para operaciones de inventario en este establecimiento
-                  </p>
-                </label>
               </div>
             </div>
           </div>
@@ -555,20 +554,20 @@ export function WarehousesConfiguration() {
               Los campos marcados con <span className="text-red-500 font-medium">*</span> son obligatorios
             </p>
             <div className="flex gap-3">
-              <button
+              <Button
                 type="button"
                 onClick={handleCancel}
-                className="px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all font-medium hover:border-gray-400 dark:hover:border-gray-500"
+                variant="secondary"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 flex items-center gap-2"
+                variant="primary"
+                icon={<CheckCircle />}
               >
-                <CheckCircle className="w-5 h-5" />
                 {editingWarehouseId ? 'Actualizar' : 'Crear'} Almacén
-              </button>
+              </Button>
             </div>
           </div>
         </form>
@@ -838,37 +837,29 @@ export function WarehousesConfiguration() {
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
-                    <button
+                    <Button
                       onClick={() => handleEdit(warehouse)}
-                      className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                      title="Editar"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
+                      variant="tertiary"
+                      iconOnly
+                      icon={<Edit />}
+                      size="sm"
+                    />
 
-                    <button
+                    <Button
                       onClick={() => handleToggleStatus(warehouse.id)}
-                      className={`p-2 rounded-lg transition-colors ${
-                        warehouse.isActive
-                          ? 'text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30'
-                          : 'text-green-400 dark:text-green-500 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30'
-                      }`}
-                      title={warehouse.isActive ? 'Deshabilitar' : 'Habilitar'}
-                    >
-                      {warehouse.isActive ? (
-                        <XCircle className="w-4 h-4" />
-                      ) : (
-                        <CheckCircle className="w-4 h-4" />
-                      )}
-                    </button>
+                      variant="tertiary"
+                      iconOnly
+                      icon={warehouse.isActive ? <XCircle /> : <CheckCircle />}
+                      size="sm"
+                    />
 
-                    <button
+                    <Button
                       onClick={() => openDeleteConfirmation(warehouse)}
-                      className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      variant="tertiary"
+                      iconOnly
+                      icon={<Trash2 />}
+                      size="sm"
+                    />
                   </div>
                 </div>
               </div>

@@ -9,6 +9,7 @@ import type { Unit } from '../../models/Unit';
 import { DefaultSelector } from '../common/DefaultSelector';
 import { ConfigurationCard } from '../common/ConfigurationCard';
 import { SUNAT_UNITS, UNIT_CATEGORIES } from '../../models/Unit';
+import { Button, Select, Input } from '@/contasis';
 
 interface UnitsSectionProps {
   units: Unit[];
@@ -391,21 +392,21 @@ export function UnitsSection({
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <button
+          <Button
             onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-            className="flex items-center space-x-2 px-3 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            variant="secondary"
+            icon={viewMode === 'grid' ? <List /> : <Grid3X3 />}
           >
-            {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid3X3 className="w-4 h-4" />}
             <span className="hidden sm:inline">{viewMode === 'grid' ? 'Lista' : 'Tarjetas'}</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setShowForm(true)}
             disabled={isSubmitting}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-sm"
+            variant="primary"
+            icon={<Plus />}
           >
-            <Plus className="w-4 h-4" />
-            <span>Nueva Unidad</span>
-          </button>
+            Nueva Unidad
+          </Button>
         </div>
       </div>
 
@@ -413,56 +414,57 @@ export function UnitsSection({
       <div className="bg-white rounded-lg border border-gray-200 p-4">
         <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:space-y-0 lg:space-x-4">
           {/* Búsqueda */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
+          <div className="flex-1">
+            <Input
               type="text"
               placeholder="Buscar por código, nombre o descripción..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              leftIcon={<Search />}
             />
           </div>
 
           {/* Filtros */}
           <div className="flex flex-wrap items-center gap-2">
-            <select
+            <Select
               value={filterMode}
               onChange={(e) => setFilterMode(e.target.value as FilterMode)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">Todas</option>
-              <option value="favorites">Favoritas</option>
-              <option value="visible">Visibles</option>
-              <option value="hidden">Ocultas</option>
-              <option value="system">Sistema</option>
-              <option value="custom">Personalizadas</option>
-            </select>
+              size="small"
+              options={[
+                { value: 'all', label: 'Todas' },
+                { value: 'favorites', label: 'Favoritas' },
+                { value: 'visible', label: 'Visibles' },
+                { value: 'hidden', label: 'Ocultas' },
+                { value: 'system', label: 'Sistema' },
+                { value: 'custom', label: 'Personalizadas' }
+              ]}
+            />
 
-            <select
+            <Select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value as Unit['category'] | 'all')}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">Todas las categorías</option>
-              {UNIT_CATEGORIES.map((cat) => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
-                </option>
-              ))}
-            </select>
+              size="small"
+              options={[
+                { value: 'all', label: 'Todas las categorías' },
+                ...UNIT_CATEGORIES.map((cat) => ({
+                  value: cat.value,
+                  label: cat.label
+                }))
+              ]}
+            />
 
             {(searchTerm || filterMode !== 'all' || selectedCategory !== 'all') && (
-              <button
+              <Button
                 onClick={() => {
                   setSearchTerm('');
                   setFilterMode('all');
                   setSelectedCategory('all');
                 }}
-                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                variant="tertiary"
+                size="sm"
               >
                 Limpiar
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -517,13 +519,14 @@ export function UnitsSection({
                     </div>
                   </div>
 
-                  <button
+                  <Button
                     onClick={() => toggleFavorite(unit.id)}
-                    className={`absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${colors.hoverBg}`}
-                    title="Quitar de favoritos"
-                  >
-                    <Heart className="w-3 h-3 text-red-500 fill-current" />
-                  </button>
+                    variant="tertiary"
+                    iconOnly
+                    icon={<Heart className="text-red-500 fill-current" />}
+                    size="sm"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  />
                 </div>
               );
             })}
@@ -539,62 +542,38 @@ export function UnitsSection({
         >
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Código SUNAT *
-                </label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => handleCodeChange(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-lg ${
-                    errors.code ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                  }`}
-                  placeholder="PCE"
-                  maxLength={6}
-                />
-                {errors.code && (
-                  <p className="text-sm text-red-600 mt-1">{errors.code}</p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Máximo 6 caracteres en mayúsculas
-                </p>
-              </div>
+              <Input
+                label="Código SUNAT"
+                type="text"
+                value={formData.code}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                error={errors.code}
+                helperText={errors.code || "Máximo 6 caracteres en mayúsculas"}
+                placeholder="PCE"
+                maxLength={6}
+                required
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                  }`}
-                  placeholder="Piezas"
-                />
-                {errors.name && (
-                  <p className="text-sm text-red-600 mt-1">{errors.name}</p>
-                )}
-              </div>
+              <Input
+                label="Nombre"
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                error={errors.name}
+                placeholder="Piezas"
+                required
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Categoría *
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as Unit['category'] }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {UNIT_CATEGORIES.map((cat) => (
-                    <option key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Categoría"
+                value={formData.category}
+                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as Unit['category'] }))}
+                options={UNIT_CATEGORIES.map((cat) => ({
+                  value: cat.value,
+                  label: cat.label
+                }))}
+                required
+              />
             </div>
 
             {/* SUNAT Units Reference - Mejorada */}
@@ -754,38 +733,38 @@ export function UnitsSection({
                             onSetDefault={() => setDefaultUnit(unit.id)}
                             size="sm"
                           />
-                          <button
+                          <Button
                             onClick={() => toggleFavorite(unit.id)}
-                            className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors"
-                            title={isFavoriteUnit(unit) ? 'Quitar de favoritos' : 'Agregar a favoritos'}
-                          >
-                            <Heart className={`w-4 h-4 ${isFavoriteUnit(unit) ? 'text-red-500 fill-current' : 'text-gray-600'}`} />
-                          </button>
-                          <button
+                            variant="tertiary"
+                            iconOnly
+                            icon={<Heart className={isFavoriteUnit(unit) ? 'text-red-500 fill-current' : 'text-gray-600'} />}
+                            size="sm"
+                          />
+                          <Button
                             onClick={() => toggleVisibility(unit.id)}
                             disabled={isDefaultUnit(unit)}
-                            className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors disabled:opacity-50"
-                            title={isVisibleUnit(unit) ? 'Ocultar' : 'Mostrar'}
-                          >
-                            {isVisibleUnit(unit) ? <Eye className="w-4 h-4 text-gray-600" /> : <EyeOff className="w-4 h-4 text-gray-600" />}
-                          </button>
+                            variant="tertiary"
+                            iconOnly
+                            icon={isVisibleUnit(unit) ? <Eye /> : <EyeOff />}
+                            size="sm"
+                          />
                           {!isSystemUnit(unit) && (
                             <>
-                              <button
+                              <Button
                                 onClick={() => handleEdit(unit)}
-                                className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors"
-                                title="Editar"
-                              >
-                                <Edit3 className="w-4 h-4 text-gray-600" />
-                              </button>
-                              <button
+                                variant="tertiary"
+                                iconOnly
+                                icon={<Edit3 />}
+                                size="sm"
+                              />
+                              <Button
                                 onClick={() => deleteUnit(unit.id)}
                                 disabled={isDefaultUnit(unit)}
-                                className="p-2 bg-white rounded-lg shadow-md hover:bg-red-50 transition-colors disabled:opacity-50"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                              </button>
+                                variant="tertiary"
+                                iconOnly
+                                icon={<Trash2 className="text-red-600" />}
+                                size="sm"
+                              />
                             </>
                           )}
                         </div>
@@ -865,38 +844,38 @@ export function UnitsSection({
                           onSetDefault={() => setDefaultUnit(unit.id)}
                           size="sm"
                         />
-                        <button
+                        <Button
                           onClick={() => toggleFavorite(unit.id)}
-                          className="p-2 rounded-lg transition-colors hover:bg-gray-100"
-                          title={isFavoriteUnit(unit) ? 'Quitar de favoritos' : 'Agregar a favoritos'}
-                        >
-                          <Heart className={`w-4 h-4 ${isFavoriteUnit(unit) ? 'text-red-500 fill-current' : 'text-gray-400'}`} />
-                        </button>
-                        <button
+                          variant="tertiary"
+                          iconOnly
+                          icon={<Heart className={isFavoriteUnit(unit) ? 'text-red-500 fill-current' : 'text-gray-400'} />}
+                          size="sm"
+                        />
+                        <Button
                           onClick={() => toggleVisibility(unit.id)}
                           disabled={isDefaultUnit(unit)}
-                          className="p-2 rounded-lg transition-colors hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={isVisibleUnit(unit) ? 'Ocultar' : 'Mostrar'}
-                        >
-                          {isVisibleUnit(unit) ? <Eye className="w-4 h-4 text-gray-600" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
-                        </button>
+                          variant="tertiary"
+                          iconOnly
+                          icon={isVisibleUnit(unit) ? <Eye /> : <EyeOff />}
+                          size="sm"
+                        />
                         {!isSystemUnit(unit) && (
                           <>
-                            <button
+                            <Button
                               onClick={() => handleEdit(unit)}
-                              className="p-2 rounded-lg transition-colors hover:bg-gray-100"
-                              title="Editar"
-                            >
-                              <Edit3 className="w-4 h-4 text-gray-600" />
-                            </button>
-                            <button
+                              variant="tertiary"
+                              iconOnly
+                              icon={<Edit3 />}
+                              size="sm"
+                            />
+                            <Button
                               onClick={() => deleteUnit(unit.id)}
                               disabled={isDefaultUnit(unit)}
-                              className="p-2 rounded-lg transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
+                              variant="tertiary"
+                              iconOnly
+                              icon={<Trash2 className="text-red-600" />}
+                              size="sm"
+                            />
                           </>
                         )}
                       </div>
@@ -926,13 +905,13 @@ export function UnitsSection({
             }
           </p>
           {(!searchTerm && filterMode === 'all' && selectedCategory === 'all') && (
-            <button
+            <Button
               onClick={() => setShowForm(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+              variant="primary"
+              icon={<Plus />}
             >
-              <Plus className="w-5 h-5 inline mr-2" />
               Crear Primera Unidad
-            </button>
+            </Button>
           )}
         </div>
       )}

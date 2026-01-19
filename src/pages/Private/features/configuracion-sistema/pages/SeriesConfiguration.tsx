@@ -24,7 +24,7 @@ import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import type { Series, DocumentType } from '../models/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../models/Series';
-import { Button, Select } from '@/contasis';
+import { Button, Select, Input } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -654,86 +654,65 @@ export function SeriesConfiguration() {
               </div>
 
               {/* Establishment */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Establecimiento *
-                </label>
-                <select
-                  value={formData.establishmentId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, establishmentId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Seleccionar establecimiento</option>
-                  {establishments.map(est => (
-                    <option key={est.id} value={est.id}>
-                      {est.code} - {est.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Establecimiento"
+                value={formData.establishmentId}
+                onChange={(e) => setFormData(prev => ({ ...prev, establishmentId: e.target.value }))}
+                options={[
+                  { value: '', label: 'Seleccionar establecimiento' },
+                  ...establishments.map(est => ({
+                    value: est.id,
+                    label: `${est.code} - ${est.name}`
+                  }))
+                ]}
+                required
+              />
             </div>
 
             {/* Series Code */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Código de Serie *
-              </label>
-              <input
-                type="text"
-                value={formData.series}
-                onChange={(e) => setFormData(prev => ({ ...prev, series: e.target.value.toUpperCase() }))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder={
-                  formData.type === 'INVOICE' ? 'FE01' :
-                  formData.type === 'RECEIPT' ? 'BE01' : 
-                  formData.type === 'QUOTE' ? 'CT01' :
-                  'NV01'
-                }
-                maxLength={4}
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.type === 'INVOICE' ? 'Factura: Debe empezar con "F" + 3 caracteres (ej: FE01, FT01, F001)' :
-                 formData.type === 'RECEIPT' ? 'Boleta: Debe empezar con "B" + 3 caracteres (ej: BE01, BL01, B001)' :
-                 formData.type === 'QUOTE' ? 'Cotización: Serie libre de 4 caracteres (ej: CT01, C001, COT1)' :
-                 'Nota de Venta: Serie libre de 4 caracteres (ej: NV01, NT01, NOTA)'
-                }
-              </p>
-            </div>
+            <Input
+              label="Código de Serie"
+              type="text"
+              value={formData.series}
+              onChange={(e) => setFormData(prev => ({ ...prev, series: e.target.value.toUpperCase() }))}
+              placeholder={
+                formData.type === 'INVOICE' ? 'FE01' :
+                formData.type === 'RECEIPT' ? 'BE01' : 
+                formData.type === 'QUOTE' ? 'CT01' :
+                'NV01'
+              }
+              maxLength={4}
+              helperText={
+                formData.type === 'INVOICE' ? 'Factura: Debe empezar con "F" + 3 caracteres (ej: FE01, FT01, F001)' :
+                formData.type === 'RECEIPT' ? 'Boleta: Debe empezar con "B" + 3 caracteres (ej: BE01, BL01, B001)' :
+                formData.type === 'QUOTE' ? 'Cotización: Serie libre de 4 caracteres (ej: CT01, C001, COT1)' :
+                'Nota de Venta: Serie libre de 4 caracteres (ej: NV01, NT01, NOTA)'
+              }
+              required
+            />
 
             {/* Correlative Numbers */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Número Inicial *
-                </label>
-                <input
-                  type="number"
-                  value={formData.initialNumber}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    initialNumber: parseInt(e.target.value) || 1,
-                    currentNumber: parseInt(e.target.value) || 1
-                  }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min="1"
-                  max="99999999"
-                  required
-                />
-              </div>
+              <Input
+                label="Número Inicial"
+                type="number"
+                value={formData.initialNumber}
+                onChange={(e) => setFormData(prev => ({ 
+                  ...prev, 
+                  initialNumber: parseInt(e.target.value) || 1,
+                  currentNumber: parseInt(e.target.value) || 1
+                }))}
+                min={1}
+                max={99999999}
+                required
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Número Actual
-                </label>
-                <input
-                  type="number"
-                  value={formData.currentNumber}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
-                  readOnly
-                />
-              </div>
+              <Input
+                label="Número Actual"
+                type="number"
+                value={formData.currentNumber}
+                readOnly
+              />
             </div>
 
             {/* Settings */}
@@ -1033,22 +1012,15 @@ export function SeriesConfiguration() {
                 </p>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nuevo Correlativo
-                </label>
-                <input
-                  type="number"
-                  value={newCorrelative}
-                  onChange={(e) => setNewCorrelative(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min={adjustModal.series.currentNumber + 1}
-                  max="99999999"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Debe ser mayor a {adjustModal.series.currentNumber}
-                </p>
-              </div>
+              <Input
+                label="Nuevo Correlativo"
+                type="number"
+                value={newCorrelative}
+                onChange={(e) => setNewCorrelative(e.target.value)}
+                min={adjustModal.series.currentNumber + 1}
+                max={99999999}
+                helperText={`Debe ser mayor a ${adjustModal.series.currentNumber}`}
+              />
               
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <div className="flex items-start space-x-2">

@@ -4,7 +4,7 @@
 // src/features/configuration/components/users/UserForm.tsx
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Shield } from 'lucide-react';
-import { Button } from '@/contasis';
+import { Button, Select, Input } from '@/contasis';
 import type { User as UserModel } from '../../models/User';
 import type { Establishment } from '../../models/Establishment';
 
@@ -341,91 +341,44 @@ export function UserForm({
             </h4>
 
             {/* Full Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre Completo *
-              </label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => handleFieldChange('fullName', e.target.value)}
-                onBlur={() => handleBlur('fullName')}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.fullName && touchedFields.has('fullName')
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-300'
-                }`}
-                placeholder="Juan Pérez García"
-                disabled={isLoading}
-              />
-              
-              {errors.fullName && touchedFields.has('fullName') && (
-                <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.fullName}</span>
-                </p>
-              )}
-            </div>
+            <Input
+              label="Nombre Completo"
+              type="text"
+              value={formData.fullName}
+              onChange={(e) => handleFieldChange('fullName', e.target.value)}
+              onBlur={() => handleBlur('fullName')}
+              error={errors.fullName && touchedFields.has('fullName') ? errors.fullName : undefined}
+              placeholder="Juan Pérez García"
+              disabled={isLoading}
+              required
+            />
 
             {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Correo Electrónico *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleFieldChange('email', e.target.value.toLowerCase())}
-                  onBlur={() => handleBlur('email')}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.email && touchedFields.has('email')
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
-                  placeholder="juan@empresa.com"
-                  disabled={isLoading}
-                />
-              </div>
-              
-              {errors.email && touchedFields.has('email') && (
-                <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.email}</span>
-                </p>
-              )}
-            </div>
+            <Input
+              label="Correo Electrónico"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleFieldChange('email', e.target.value.toLowerCase())}
+              onBlur={() => handleBlur('email')}
+              error={errors.email && touchedFields.has('email') ? errors.email : undefined}
+              placeholder="juan@empresa.com"
+              leftIcon={<Mail />}
+              disabled={isLoading}
+              required
+            />
 
             {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Teléfono
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleFieldChange('phone', e.target.value)}
-                  onBlur={() => handleBlur('phone')}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.phone && touchedFields.has('phone')
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
-                  placeholder="+51 987 654 321"
-                  disabled={isLoading}
-                />
-              </div>
-              
-              {errors.phone && touchedFields.has('phone') && (
-                <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.phone}</span>
-                </p>
-              )}
-            </div>
+            <Input
+              label="Teléfono"
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => handleFieldChange('phone', e.target.value)}
+              onBlur={() => handleBlur('phone')}
+              error={errors.phone && touchedFields.has('phone') ? errors.phone : undefined}
+              placeholder="+51 987 654 321"
+              leftIcon={<Phone />}
+              disabled={isLoading}
+            />
           </div>
 
           {/* Document Information */}
@@ -438,56 +391,42 @@ export function UserForm({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Document Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo de Documento
-                </label>
-                <select
-                  value={formData.documentType}
-                  onChange={(e) => handleFieldChange('documentType', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled={isLoading}
-                >
-                  <option value="">Seleccionar tipo</option>
-                  {documentTypes.map(docType => (
-                    <option key={docType.value} value={docType.value}>
-                      {docType.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Tipo de Documento"
+                value={formData.documentType}
+                onChange={(e) => handleFieldChange('documentType', e.target.value)}
+                options={[
+                  { value: '', label: 'Seleccionar tipo' },
+                  ...documentTypes.map(docType => ({
+                    value: docType.value,
+                    label: docType.label
+                  }))
+                ]}
+                disabled={isLoading}
+              />
 
               {/* Document Number */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Número de Documento
-                </label>
-                <input
-                  type="text"
-                  value={formData.documentNumber}
-                  onChange={(e) => {
-                    let value = e.target.value;
+              <Input
+                label="Número de Documento"
+                type="text"
+                value={formData.documentNumber}
+                onChange={(e) => {
+                  let value = e.target.value;
 
-                    // Format based on document type
-                    if (formData.documentType === 'DNI') {
-                      value = value.replace(/\D/g, '').slice(0, 8);
-                    } else if (formData.documentType === 'CE') {
-                      value = value.replace(/\D/g, '').slice(0, 9);
-                    } else if (formData.documentType === 'PASSPORT') {
-                      value = value.toUpperCase().slice(0, 12);
-                    }
+                  // Format based on document type
+                  if (formData.documentType === 'DNI') {
+                    value = value.replace(/\D/g, '').slice(0, 8);
+                  } else if (formData.documentType === 'CE') {
+                    value = value.replace(/\D/g, '').slice(0, 9);
+                  } else if (formData.documentType === 'PASSPORT') {
+                    value = value.toUpperCase().slice(0, 12);
+                  }
 
-                    setFormData({ ...formData, documentNumber: value });
-                  }}
-                  placeholder={getDocumentTypeConfig()?.placeholder}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.documentNumber ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.documentNumber && (
-                  <p className="text-sm text-red-600 mt-1">{errors.documentNumber}</p>
-                )}
-              </div>
+                  setFormData({ ...formData, documentNumber: value });
+                }}
+                placeholder={getDocumentTypeConfig()?.placeholder}
+                error={errors.documentNumber}
+              />
             </div>
           </div>
 
