@@ -553,12 +553,13 @@ export function SeriesConfiguration() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <button 
+          <Button
             onClick={() => navigate('/configuracion')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
+            variant="tertiary"
+            size="sm"
+            icon={<ArrowLeft className="w-5 h-5" />}
+            iconOnly
+          />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               Series de Comprobantes
@@ -759,14 +760,16 @@ export function SeriesConfiguration() {
                     Solo las series activas pueden usarse para emitir documentos
                   </p>
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="tertiary"
+                  iconOnly
+                  icon={formData.isActive ? <ToggleRight /> : <ToggleLeft />}
                   onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                  className="flex items-center space-x-2"
-                >
-                  {formData.isActive ? (
+                  className={formData.isActive ? 'text-green-600' : 'text-gray-400'}
+                />
+                {formData.isActive && (
+                  <div style={{ display: 'none' }}>
                     <ToggleRight className="w-8 h-8 text-green-600" />
-                  ) : (
                     <ToggleLeft className="w-8 h-8 text-gray-400" />
                   )}
                   <span className={`font-medium ${formData.isActive ? 'text-green-600' : 'text-gray-500'}`}>
@@ -778,21 +781,21 @@ export function SeriesConfiguration() {
 
             {/* Actions */}
             <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-              <button
-                type="button"
+              <Button
                 onClick={resetForm}
-                className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                variant="secondary"
+                size="md"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={isLoading}
-                className="px-6 py-3 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                style={!isLoading ? { backgroundColor: '#1478D4' } : {}}
+                variant="primary"
+                size="md"
               >
                 {isLoading ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear Serie'}
-              </button>
+              </Button>
             </div>
           </form>
         </ConfigurationCard>
@@ -852,12 +855,13 @@ export function SeriesConfiguration() {
                 <div className="text-center py-8 bg-gray-50 rounded-lg">
                   <FileText className="mx-auto w-8 h-8 text-gray-400" />
                   <p className="mt-2 text-gray-500">No hay series configuradas para este establecimiento</p>
-                  <button
+                  <Button
                     onClick={handleNew}
-                    className="mt-3 text-blue-600 hover:text-blue-700 font-medium"
+                    variant="tertiary"
+                    size="sm"
                   >
                     Crear primera serie
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -907,34 +911,39 @@ export function SeriesConfiguration() {
                           </div>
 
                           <div className="flex items-center space-x-1">
-                            <button
+                            <Button
+                              variant="tertiary"
+                              iconOnly
+                              size="sm"
+                              icon={seriesItem.isActive ? <ToggleRight /> : <ToggleLeft />}
                               onClick={() => toggleSeriesStatus(seriesItem)}
-                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                               title={seriesItem.isActive ? 'Desactivar' : 'Activar'}
-                            >
-                              {seriesItem.isActive ? (
-                                <ToggleRight className="w-5 h-5 text-green-600" />
-                              ) : (
-                                <ToggleLeft className="w-5 h-5 text-gray-400" />
+                              className={seriesItem.isActive ? 'text-green-600' : 'text-gray-400'}
+                            />
+                            {seriesItem.isActive && <div style={{ display: 'none' }}>
+                              <ToggleRight className="w-5 h-5 text-green-600" />
+                              <ToggleLeft className="w-5 h-5 text-gray-400" />
                               )}
                             </button>
                             
-                            <button
-                              onClick={() => handleEdit(seriesItem)}
-                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                              title="Editar"
-                            >
-                              <Edit3 className="w-5 h-5" />
-                            </button>
+<Button
+                            onClick={() => handleEdit(seriesItem)}
+                            variant="tertiary"
+                            size="sm"
+                            icon={<Edit3 className="w-5 h-5" />}
+                            iconOnly
+                            title="Editar"
+                          />
                             
-                            <button
-                              onClick={() => setDeleteModal({ show: true, series: seriesItem })}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                              title="Eliminar"
-                              disabled={seriesItem.isDefault || seriesItem.hasUsage}
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
+<Button
+                            onClick={() => setDeleteModal({ show: true, series: seriesItem })}
+                            variant="tertiary"
+                            size="sm"
+                            icon={<Trash2 className="w-5 h-5 text-red-600" />}
+                            iconOnly
+                            title="Eliminar"
+                            disabled={seriesItem.isDefault || seriesItem.hasUsage}
+                          />
                           </div>
                         </div>
 
@@ -945,16 +954,17 @@ export function SeriesConfiguration() {
                               <span className="font-mono font-semibold text-gray-900">
                                 {seriesItem.currentNumber.toString().padStart(8, '0')}
                               </span>
-                              <button
+                              <Button
                                 onClick={() => {
                                   setAdjustModal({ show: true, series: seriesItem });
                                   setNewCorrelative(seriesItem.currentNumber.toString());
                                 }}
-                                className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                variant="tertiary"
+                                size="sm"
+                                icon={<Hash className="w-4 h-4" />}
+                                iconOnly
                                 title="Ajustar correlativo"
-                              >
-                                <Hash className="w-4 h-4" />
-                              </button>
+                              />
                             </div>
                           </div>
 
@@ -1050,16 +1060,17 @@ export function SeriesConfiguration() {
               </div>
               
               <div className="flex items-center justify-end space-x-3">
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => {
                     setAdjustModal({ show: false });
                     setNewCorrelative('');
                   }}
-                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
                   onClick={() => handleAdjustCorrelative(adjustModal.series!)}
                   disabled={isLoading || parseInt(newCorrelative) <= adjustModal.series!.currentNumber}
                   className="px-4 py-2 text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"

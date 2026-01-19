@@ -12,6 +12,10 @@
   --surface-3: theme('colors.neutral.10');          /* Fondo para tablas */
   --surface-hover: theme('colors.neutral.30');      /* Hover sobre superficie */
   --surface-pressed: theme('colors.neutral.40');    /* Pressed sobre superficie */
+  --surface-selected: theme('colors.primary.light'); /* Superficie seleccionada/activa */
+
+  /* === BRAND === */
+  --brand: theme('colors.primary.DEFAULT');         /* Color de marca principal */
 
   /* === TEXTOS === */
   --text-primary: theme('colors.neutral.100');      /* Títulos principales #1E293B */
@@ -75,6 +79,10 @@
   --surface-3: #131C2C;         /* Fondo para tablas */
   --surface-hover: theme('colors.neutral.90');      /* Hover sobre superficie */
   --surface-pressed: theme('colors.neutral.80');    /* Pressed sobre superficie */
+  --surface-selected: theme('colors.neutral.90');   /* Superficie seleccionada/activa */
+
+  /* === BRAND === */
+  --brand: theme('colors.primary.dark');            /* Color de marca principal */
 
   /* === TEXTOS (invertidos) === */
   --text-primary: theme('colors.neutral.40');       /* Títulos principales #F8FAFC */

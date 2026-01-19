@@ -21,7 +21,7 @@ import {
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import type { Warehouse as WarehouseType } from '../models/Warehouse';
-import { Button } from '@/contasis';
+import { Button, Select, Input } from '@/contasis';
 
 interface WarehouseFormData {
   code: string;
@@ -420,44 +420,22 @@ export function WarehousesConfiguration() {
             </div>
             <div className="p-6 space-y-6">
               {/* Establecimiento (requerido primero) */}
-              <div className="group">
-                <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
-                  <Building className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  Establecimiento <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={formData.establishmentId}
-                    onChange={e => handleEstablishmentChange(e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all appearance-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                      formErrors.establishmentId
-                        ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                    }`}
-                    required
-                  >
-                    <option value="">Seleccionar establecimiento...</option>
-                    {activeEstablishments.map(est => (
-                      <option key={est.id} value={est.id}>
-                        [{est.code}] {est.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-                {formErrors.establishmentId && (
-                  <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5 animate-slide-in">
-                    <AlertCircle className="w-4 h-4" />
-                    {formErrors.establishmentId}
-                  </p>
-                )}
-                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  El almacén pertenecerá a este establecimiento
-                </p>
+              <div>
+                <Select
+                  label="Establecimiento"
+                  value={formData.establishmentId}
+                  onChange={e => handleEstablishmentChange(e.target.value)}
+                  required
+                  error={formErrors.establishmentId}
+                  helperText="El almacén pertenecerá a este establecimiento"
+                  options={[
+                    { value: '', label: 'Seleccionar establecimiento...' },
+                    ...activeEstablishments.map(est => ({
+                      value: est.id,
+                      label: `[${est.code}] ${est.name}`
+                    }))
+                  ]}
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -526,20 +504,14 @@ export function WarehousesConfiguration() {
               </div>
 
               {/* Ubicación */}
-              <div className="group">
-                <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  Ubicación Física
-                  <span className="text-xs text-gray-500 dark:text-gray-400">(Opcional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={e => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all hover:border-gray-400 dark:hover:border-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  placeholder="Ej: Piso 1 - Zona A, Edificio Principal..."
-                />
-              </div>
+              <Input
+                label="Ubicación Física"
+                type="text"
+                value={formData.location}
+                onChange={e => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                placeholder="Ej: Piso 1 - Zona A, Edificio Principal..."
+                helperText="Opcional"
+              />
 
               {/* Descripción */}
               <div className="group">
@@ -761,28 +733,27 @@ export function WarehousesConfiguration() {
             />
           </div>
 
-          <select
+          <Select
             value={filterEstablishment}
             onChange={e => setFilterEstablishment(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
-          >
-            <option value="all">Todos los establecimientos</option>
-            {establishments.map(est => (
-              <option key={est.id} value={est.id}>
-                [{est.code}] {est.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: 'all', label: 'Todos los establecimientos' },
+              ...establishments.map(est => ({
+                value: est.id,
+                label: `[${est.code}] ${est.name}`
+              }))
+            ]}
+          />
 
-          <select
+          <Select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value as typeof filterStatus)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="active">Solo activos</option>
-            <option value="inactive">Solo inactivos</option>
-          </select>
+            options={[
+              { value: 'all', label: 'Todos los estados' },
+              { value: 'active', label: 'Solo activos' },
+              { value: 'inactive', label: 'Solo inactivos' }
+            ]}
+          />
         </div>
 
         <Button

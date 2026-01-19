@@ -57,7 +57,7 @@ export default function AppShell() {
                         </div>
                         <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
                           {/* Sidebar fijo */}
-                          <div className="flex-shrink-0 z-40 overflow-y-auto overflow-x-hidden print:hidden">
+                          <div className="flex-shrink-0 h-full z-40 print:hidden">
                             <SideNav
                               collapsed={sidebarCollapsed}
                             />

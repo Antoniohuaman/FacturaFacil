@@ -6,6 +6,7 @@
   border-right: 1px solid var(--border-default);
   overflow: hidden;
   width: 64px;
+  height: 100%;
   transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 

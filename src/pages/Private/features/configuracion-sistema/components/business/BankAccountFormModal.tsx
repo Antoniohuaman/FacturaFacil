@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { Button } from '@/contasis';
+import { Button, Select } from '@/contasis';
 import type { CurrencyDescriptor } from '@/shared/currency';
 import type { BankAccount, BankAccountInput, BankAccountType } from '../../models/BankAccount';
 import { BANK_ACCOUNT_TYPES } from '../../models/BankAccount';
@@ -177,47 +177,52 @@ export function BankAccountFormModal({
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Banco *</label>
-                <select
+                <Select
+                  label="Banco"
                   value={form.bankId}
-                  onChange={(e) => setForm((prev) => ({ ...prev, bankId: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Selecciona un banco</option>
-                  {bankOptions.map((bank) => (
-                    <option key={bank.id} value={bank.id}>
-                      {bank.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.bankId && <p className="text-xs text-red-600">{errors.bankId}</p>}
+                  onChange={(value) => setForm((prev) => ({ ...prev, bankId: value }))}
+                  options={[
+                    { value: '', label: 'Selecciona un banco' },
+                    ...bankOptions.map((bank) => ({ value: bank.id, label: bank.name }))
+                  ]}
+                  error={!!errors.bankId}
+                  helperText={errors.bankId}
+                  required
+                  size="sm"
+                />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Tipo de cuenta *</label>
-                <select
+                <Select
+                  label="Tipo de cuenta"
                   value={form.accountType}
-                  onChange={(e) => setForm((prev) => ({ ...prev, accountType: e.target.value as BankAccountType }))}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {BANK_ACCOUNT_TYPES.map((item) => (
-                    <option key={item.value} value={item.value}>{item.label}</option>
-                  ))}
-                </select>
-                {errors.accountType && <p className="text-xs text-red-600">{errors.accountType}</p>}
+                  onChange={(value) => setForm((prev) => ({ ...prev, accountType: value as BankAccountType }))}
+                  options={BANK_ACCOUNT_TYPES.map((item) => ({ value: item.value, label: item.label }))}
+                  error={!!errors.accountType}
+                  helperText={errors.accountType}
+                  required
+                  size="sm"
+                />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Moneda *</label>
-                <select
+                <Select
+                  label="Moneda"
                   value={form.currencyCode}
-                  onChange={(e) => setForm((prev) => ({ ...prev, currencyCode: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Selecciona la moneda</option>
-                  {currencyOptions.map((currency) => (
-                    <option key={currency.code} value={currency.code}>
-                      {currency.code} · {currency.name}
+                  onChange={(value) => setForm((prev) => ({ ...prev, currencyCode: value }))}
+                  options={[
+                    { value: '', label: 'Selecciona la moneda' },
+                    ...currencyOptions.map((currency) => ({
+                      value: currency.code,
+                      label: `${currency.code} · ${currency.name}`
+                    }))
+                  ]}
+                  error={!!errors.currencyCode}
+                  helperText={errors.currencyCode}
+                  required
+                  size="sm"
+                />
+              </div>
                     </option>
                   ))}
                 </select>
@@ -268,40 +273,37 @@ export function BankAccountFormModal({
               <div className="space-y-1.5 md:col-span-2">
                 <div className="flex items-center justify-between gap-2">
                   <label className="text-sm font-medium text-gray-700">Cuenta contable (opcional)</label>
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => setShowAccountingModal(true)}
-                    className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                    variant="tertiary"
+                    size="sm"
                   >
                     Crear cuenta contable
-                  </button>
+                  </Button>
                 </div>
 
                 {accountingAccounts.length ? (
                   <div className="flex items-center gap-2">
-                    <select
+                    <Select
                       value={form.accountingAccountId ?? ''}
-                      onChange={(e) => setForm((prev) => ({ ...prev, accountingAccountId: e.target.value || null }))}
-                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Sin cuenta contable</option>
-                      {accountingAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.code}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => setForm((prev) => ({ ...prev, accountingAccountId: value || null }))}
+                      options={[
+                        { value: '', label: 'Sin cuenta contable' },
+                        ...accountingAccounts.map((account) => ({ value: account.id, label: account.code }))
+                      ]}
+                      size="sm"
+                    />
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-3 rounded-md border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600">
                     <span>Aún no tienes cuentas contables.</span>
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => setShowAccountingModal(true)}
-                      className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                      variant="tertiary"
+                      size="sm"
                     >
                       Crear
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>

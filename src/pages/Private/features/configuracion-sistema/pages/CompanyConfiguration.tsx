@@ -11,6 +11,7 @@ import {
   Shield,
   ArrowLeft
 } from 'lucide-react';
+import { Button, Select } from '@/contasis';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { ConfigurationCard } from '../components/common/ConfigurationCard';
 import { StatusIndicator } from '../components/common/StatusIndicator';
@@ -688,12 +689,12 @@ export function CompanyConfiguration() {
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center space-x-4">
-        <button 
+        <Button
+          variant="tertiary"
+          iconOnly
+          icon={<ArrowLeft />}
           onClick={() => navigate('/configuracion')}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-        </button>
+        />
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Configuración de Empresa
@@ -811,20 +812,17 @@ export function CompanyConfiguration() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Base Currency */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Moneda Base *
-              </label>
-              <select
+              <Select
+                label="Moneda Base"
                 value={formData.baseCurrency}
                 onChange={(e) => setFormData(prev => ({ ...prev, baseCurrency: e.target.value as 'PEN' | 'USD' }))}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              >
-                <option value="PEN">PEN - Soles Peruanos</option>
-                <option value="USD">USD - Dólares Americanos</option>
-              </select>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Impacta catálogos de productos, emisión y POS
-              </p>
+                required
+                helperText="Impacta catálogos de productos, emisión y POS"
+                options={[
+                  { value: 'PEN', label: 'PEN - Soles Peruanos' },
+                  { value: 'USD', label: 'USD - Dólares Americanos' }
+                ]}
+              />
             </div>
 
             {/* Environment */}
@@ -931,13 +929,12 @@ export function CompanyConfiguration() {
                   </div>
                 ))}
                 
-                <button
-                  type="button"
+                <Button
+                  variant="tertiary"
                   onClick={() => addArrayField('phones')}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
                 >
                   + Agregar teléfono
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -971,13 +968,12 @@ export function CompanyConfiguration() {
                   </div>
                 ))}
                 
-                <button
-                  type="button"
+                <Button
+                  variant="tertiary"
                   onClick={() => addArrayField('emails')}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
                 >
                   + Agregar correo
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1010,40 +1006,23 @@ export function CompanyConfiguration() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => navigate('/configuracion')}
-              className="px-6 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
             >
               Cancelar
-            </button>
+            </Button>
 
-            <button
+            <Button
+              variant="primary"
               type="submit"
               disabled={!isFormValid || isLoading}
-              className={`
-                px-8 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2
-                ${isFormValid && !isLoading
-                  ? 'text-white shadow-lg hover:shadow-xl hover:scale-105'
-                  : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                }
-              `}
-              style={isFormValid && !isLoading ? { backgroundColor: '#1478D4' } : {}}
-              onMouseEnter={isFormValid && !isLoading ? (e) => e.currentTarget.style.backgroundColor = '#1068C4' : undefined}
-              onMouseLeave={isFormValid && !isLoading ? (e) => e.currentTarget.style.backgroundColor = '#1478D4' : undefined}
+              icon={isLoading ? <Loader2 className="animate-spin" /> : undefined}
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Guardando...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Guardar Configuración</span>
-                </>
-              )}
-            </button>
+              {isLoading ? 'Guardando...' : 
+                company?.id ? 'Guardar Cambios' : 'Crear Empresa'
+              }
+            </Button>
           </div>
         </div>
       </form>
