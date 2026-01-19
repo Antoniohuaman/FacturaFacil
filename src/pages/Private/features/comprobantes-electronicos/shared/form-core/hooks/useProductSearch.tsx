@@ -2,23 +2,14 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Product, ProductSearchFilters, ProductSearchResult } from '../../../models/comprobante.types';
 import { SEARCH_CONFIG } from '../../../models/constants';
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
-import type { Product as CatalogProduct } from '../../../../catalogo-articulos/models/types';
+import {
+  isProductEnabledForEstablishment,
+} from '../../../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
 import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
 
 type UseProductSearchParams = {
   establishmentId?: string;
-};
-
-const isProductEnabledForEstablishment = (product: CatalogProduct, establishmentId: string): boolean => {
-  if (!establishmentId) {
-    return true;
-  }
-  if (product.disponibleEnTodos) {
-    return true;
-  }
-  const ids = product.establecimientoIds;
-  return Array.isArray(ids) ? ids.includes(establishmentId) : false;
 };
 
 export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {}) => {
@@ -29,7 +20,7 @@ export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {
   // Convertir productos del catálogo al formato de comprobantes
   const AVAILABLE_PRODUCTS: Product[] = useMemo(() => 
     catalogProducts
-      .filter((product) => (establishmentId ? isProductEnabledForEstablishment(product, establishmentId) : true))
+      .filter((product) => isProductEnabledForEstablishment(product, establishmentId))
       .map(p => {
         const summary = summarizeProductStock({
           product: p,
@@ -57,6 +48,14 @@ export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [searchFilters, setSearchFilters] = useState<ProductSearchFilters>({});
+
+  // Reset duro ante cambio de establecimiento (o dataset base) para evitar resultados stale.
+  useEffect(() => {
+    setSearchQuery('');
+    setSelectedCategory('');
+    setSearchFilters({});
+    setSearchResults(AVAILABLE_PRODUCTS);
+  }, [establishmentId, AVAILABLE_PRODUCTS]);
 
   // Función de búsqueda (simulada - en producción sería una llamada a API)
   const performSearch = useCallback(async (query: string, filters: ProductSearchFilters = {}): Promise<ProductSearchResult> => {

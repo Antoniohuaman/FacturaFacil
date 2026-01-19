@@ -5,7 +5,10 @@
 
 import { useMemo } from 'react';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
-import type { Product as CatalogoProduct } from '../../catalogo-articulos/models/types';
+import {
+  isProductEnabledForEstablishment,
+  type Product as CatalogoProduct,
+} from '../../catalogo-articulos/models/types';
 import type { Product as POSProduct } from '../models/comprobante.types';
 import { usePriceCalculator } from '../../lista-precios/hooks/usePriceCalculator';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
@@ -18,7 +21,7 @@ import type { ProductStockSummary } from '../../../../../shared/inventory/stockG
 interface UseAvailableProductsOptions {
   /**
    * ID del establecimiento actual
-   * Si no se proporciona, se mostrarán todos los productos
+  * Si no se proporciona (session timing), NO se mostrarán productos.
    */
   establecimientoId?: string;
 
@@ -43,6 +46,10 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
   const { state: { warehouses } } = useConfigurationContext();
 
   const availableProducts = useMemo(() => {
+    if (!establecimientoId) {
+      return [] as POSProduct[];
+    }
+
     const stockCache = new Map<string, ProductStockSummary>();
 
     const getSummary = (product: CatalogoProduct): ProductStockSummary => {
@@ -63,11 +70,8 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
     const filtered = allProducts.filter(product => {
       const summary = getSummary(product);
 
-      if (establecimientoId) {
-        const enabled = product.disponibleEnTodos || Boolean(product.establecimientoIds?.includes(establecimientoId));
-        if (!enabled) {
-          return false;
-        }
+      if (!isProductEnabledForEstablishment(product, establecimientoId)) {
+        return false;
       }
 
       if (soloConStock && summary.totalAvailable <= 0) {

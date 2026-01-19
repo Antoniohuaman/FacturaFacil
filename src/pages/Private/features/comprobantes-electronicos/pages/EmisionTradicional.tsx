@@ -41,7 +41,7 @@ import { PreviewDocument } from '../shared/ui/PreviewDocument';
 import { useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
-import { useUserSession } from '../../../../../contexts/UserSessionContext';
+import { useCurrentEstablishmentId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode } from '../models/comprobante.types';
@@ -71,6 +71,16 @@ const EmisionTradicional = () => {
 
   // ✅ Estado para forzar refresh del ProductSelector
   const [productSelectorKey, setProductSelectorKey] = useState(0);
+
+  const currentEstablishmentId = useCurrentEstablishmentId();
+
+  // Refrescar selector cuando cambie el establecimiento del header.
+  useEffect(() => {
+    if (!currentEstablishmentId) {
+      return;
+    }
+    setProductSelectorKey(prev => prev + 1);
+  }, [currentEstablishmentId]);
 
   // ✅ Estado para modal de configuración de campos
   const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);

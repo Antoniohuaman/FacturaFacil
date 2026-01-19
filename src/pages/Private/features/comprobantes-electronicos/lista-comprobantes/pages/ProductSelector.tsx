@@ -2,9 +2,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
 import { useProductStore, type ProductInput } from '../../../catalogo-articulos/hooks/useProductStore';
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
-import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
+import {
+  isProductEnabledForEstablishment,
+  type Product as CatalogProduct,
+} from '../../../catalogo-articulos/models/types';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
-import { useUserSession } from '../../../../../../contexts/UserSessionContext';
+import { useCurrentEstablishmentId } from '../../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
 import { getAvailableStockForUnit } from '../../../../../../shared/inventory/stockGateway';
 
@@ -61,8 +64,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     categories: catalogCategories
   } = useProductStore();
   const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook();
-  const { session } = useUserSession();
-  const establishmentId = session?.currentEstablishmentId;
+  const establishmentId = useCurrentEstablishmentId();
   const { state: { warehouses } } = useConfigurationContext();
 
   const mapCatalogProductToSelectorProduct = useCallback((p: CatalogProduct): Product => {
@@ -139,8 +141,15 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   // ✅ Convertir productos del catálogo al formato esperado CON useMemo
   const allProducts: Product[] = useMemo(
-    () => catalogProducts.map(mapCatalogProductToSelectorProduct),
-    [catalogProducts, mapCatalogProductToSelectorProduct]
+    () => {
+      if (!establishmentId) {
+        return [];
+      }
+      return catalogProducts
+        .filter((product) => isProductEnabledForEstablishment(product, establishmentId))
+        .map(mapCatalogProductToSelectorProduct);
+    },
+    [catalogProducts, establishmentId, mapCatalogProductToSelectorProduct]
   );
   const handleCreateProductClick = useCallback(() => {
     setShowProductModal(true);

@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { resolveUnidadMinima } from '@/shared/inventory/unitConversion';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import { isProductEnabledForEstablishment } from '../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
 import { InventoryService } from '../services/inventory.service';
 import { useCurrentEstablishmentId } from '../../../../../contexts/UserSessionContext';
@@ -153,7 +154,9 @@ export const useInventarioDisponibilidad = () => {
   const datosDisponibilidad = useMemo<DisponibilidadItem[]>(() => {
     if (!warehouseScope.length) return [];
 
-    return allProducts.map(product => {
+    return allProducts
+      .filter(product => isProductEnabledForEstablishment(product, currentEstablishmentId))
+      .map(product => {
       let real = 0;
       let rawReservado = 0;
 
@@ -207,7 +210,7 @@ export const useInventarioDisponibilidad = () => {
         precio: product.precio
       };
     });
-  }, [allProducts, warehouseScope, hasSingleWarehouse, calcularSituacion]);
+  }, [allProducts, warehouseScope, hasSingleWarehouse, calcularSituacion, currentEstablishmentId]);
 
   /**
    * Aplicar filtros de búsqueda y disponibilidad
