@@ -16,22 +16,22 @@ import type {
   VoucherDesignTicketConfig,
 } from '../modelos/VoucherDesignUnified';
 import {
-  DEFAULT_LOGO_CONFIG,
-  DEFAULT_WATERMARK_CONFIG,
-  DEFAULT_FOOTER_CONFIG,
-  DEFAULT_DOCUMENT_FIELDS_A4,
-  DEFAULT_DOCUMENT_FIELDS_TICKET,
-  DEFAULT_PRODUCT_FIELDS_A4,
-  DEFAULT_PRODUCT_FIELDS_TICKET,
+  CONFIGURACION_LOGO_PREDETERMINADA,
+  CONFIGURACION_MARCA_AGUA_PREDETERMINADA,
+  CONFIGURACION_PIE_PAGINA_PREDETERMINADA,
+  CAMPOS_DOCUMENTO_A4_PREDETERMINADOS,
+  CAMPOS_DOCUMENTO_TICKET_PREDETERMINADOS,
+  CAMPOS_PRODUCTO_A4_PREDETERMINADOS,
+  CAMPOS_PRODUCTO_TICKET_PREDETERMINADOS,
 } from '../modelos/VoucherDesignUnified';
-import { VoucherDesignStorageFactory } from '../servicios/AlmacenamientoDisenoComprobante';
+import { FabricaAlmacenamientoDisenoComprobante } from '../servicios/AlmacenamientoDisenoComprobante';
 
 /**
  * Hook para gestionar la configuración de diseño de comprobantes
  * Maneja persistencia y sincronización en tiempo real
  */
 export const useVoucherDesignConfig = (designType: DesignType) => {
-  const storage = useMemo(() => VoucherDesignStorageFactory.create(), []);
+  const storage = useMemo(() => FabricaAlmacenamientoDisenoComprobante.create(), []);
 
   // Estado de configuración
   const [config, setConfig] = useState<VoucherDesignConfigurationExtended>(() => {
@@ -56,7 +56,7 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
             // Watermark ahora está disponible tanto en A4 como en TICKET
             const watermark = 'watermark' in extracted
               ? extracted.watermark
-              : DEFAULT_WATERMARK_CONFIG;
+              : CONFIGURACION_MARCA_AGUA_PREDETERMINADA;
 
             setConfig({
               logo: extracted.logo,
@@ -195,7 +195,7 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
           // Watermark ahora está disponible tanto en A4 como en TICKET
           const watermark = 'watermark' in extracted
             ? extracted.watermark
-            : DEFAULT_WATERMARK_CONFIG;
+            : CONFIGURACION_MARCA_AGUA_PREDETERMINADA;
 
           setConfig({
             logo: extracted.logo,
@@ -233,7 +233,7 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
  * Útil para componentes que solo necesitan leer la configuración
  */
 export const useVoucherDesignConfigReader = (designType: DesignType) => {
-  const storage = useMemo(() => VoucherDesignStorageFactory.create(), []);
+  const storage = useMemo(() => FabricaAlmacenamientoDisenoComprobante.create(), []);
 
   const [config, setConfig] = useState<VoucherDesignConfigurationExtended>(() => {
     return getDefaultConfig(designType);
@@ -253,7 +253,7 @@ export const useVoucherDesignConfigReader = (designType: DesignType) => {
             // Watermark ahora está disponible tanto en A4 como en TICKET
             const watermark = 'watermark' in extracted
               ? extracted.watermark
-              : DEFAULT_WATERMARK_CONFIG;
+              : CONFIGURACION_MARCA_AGUA_PREDETERMINADA;
 
             setConfig({
               logo: extracted.logo,
@@ -284,7 +284,7 @@ export const useVoucherDesignConfigReader = (designType: DesignType) => {
         if (extracted) {
           setConfig({
             logo: extracted.logo,
-            watermark: extracted.watermark || DEFAULT_WATERMARK_CONFIG,
+            watermark: extracted.watermark || CONFIGURACION_MARCA_AGUA_PREDETERMINADA,
             footer: extracted.footer,
             documentFields: extracted.documentFields,
             productFields: extracted.productFields,
@@ -309,11 +309,16 @@ export const useVoucherDesignConfigReader = (designType: DesignType) => {
 
 function getDefaultConfig(designType: DesignType): VoucherDesignConfigurationExtended {
   return {
-    logo: DEFAULT_LOGO_CONFIG,
-    watermark: DEFAULT_WATERMARK_CONFIG,
-    footer: DEFAULT_FOOTER_CONFIG,
-    documentFields: designType === 'A4' ? DEFAULT_DOCUMENT_FIELDS_A4 : DEFAULT_DOCUMENT_FIELDS_TICKET,
+    logo: CONFIGURACION_LOGO_PREDETERMINADA,
+    watermark: CONFIGURACION_MARCA_AGUA_PREDETERMINADA,
+    footer: CONFIGURACION_PIE_PAGINA_PREDETERMINADA,
+    documentFields:
+      designType === 'A4'
+        ? CAMPOS_DOCUMENTO_A4_PREDETERMINADOS
+        : CAMPOS_DOCUMENTO_TICKET_PREDETERMINADOS,
     productFields:
-      designType === 'A4' ? DEFAULT_PRODUCT_FIELDS_A4 : DEFAULT_PRODUCT_FIELDS_TICKET,
+      designType === 'A4'
+        ? CAMPOS_PRODUCTO_A4_PREDETERMINADOS
+        : CAMPOS_PRODUCTO_TICKET_PREDETERMINADOS,
   };
 }

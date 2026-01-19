@@ -66,7 +66,7 @@ interface VoucherSampleData {
   };
 }
 
-const DEFAULT_SAMPLE_DATA: VoucherSampleData = {
+const DATOS_MUESTRA_PREDETERMINADOS: VoucherSampleData = {
   company: {
     businessName: 'EMPRESA DEMO S.A.C.',
     tradeName: 'TIENDA DEMO',
@@ -123,7 +123,7 @@ const DEFAULT_SAMPLE_DATA: VoucherSampleData = {
     totalInWords: 'SESENTA Y TRES CON 50/100 SOLES',
   },
   payment: {
-    method: 'EFECTIVO',
+    method: 'Efectivo',
     amount: 70.00,
     change: 6.50,
   },
@@ -139,7 +139,7 @@ const DEFAULT_SAMPLE_DATA: VoucherSampleData = {
 export default function DesignPreview({
   designType,
   design,
-  sampleData = DEFAULT_SAMPLE_DATA,
+  sampleData = DATOS_MUESTRA_PREDETERMINADOS,
   onEdit,
   onPrint,
   onDownload,

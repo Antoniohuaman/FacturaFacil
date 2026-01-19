@@ -188,7 +188,7 @@ export interface VoucherDesignConfigurationExtended {
 // DEFAULTS
 // ===================================================================
 
-export const DEFAULT_LOGO_CONFIG: LogoConfiguration = {
+export const CONFIGURACION_LOGO_PREDETERMINADA: LogoConfiguration = {
   enabled: true,
   width: 100,
   height: 100,
@@ -196,7 +196,7 @@ export const DEFAULT_LOGO_CONFIG: LogoConfiguration = {
   layout: 'horizontal', // Layout por defecto
 };
 
-export const DEFAULT_WATERMARK_CONFIG: WatermarkConfiguration = {
+export const CONFIGURACION_MARCA_AGUA_PREDETERMINADA: WatermarkConfiguration = {
   enabled: false,
   type: 'text',
   text: 'COPIA',
@@ -207,7 +207,7 @@ export const DEFAULT_WATERMARK_CONFIG: WatermarkConfiguration = {
   color: '#000000',
 };
 
-export const DEFAULT_FOOTER_CONFIG: FooterConfiguration = {
+export const CONFIGURACION_PIE_PAGINA_PREDETERMINADA: FooterConfiguration = {
   enabled: true,
   showCustomText: true,
   customText: 'Gracias por su preferencia',
@@ -218,7 +218,7 @@ export const DEFAULT_FOOTER_CONFIG: FooterConfiguration = {
 };
 
 // Configuraciones independientes para A4 y Ticket
-export const DEFAULT_DOCUMENT_FIELDS_A4: DocumentFieldsConfiguration = {
+export const CAMPOS_DOCUMENTO_A4_PREDETERMINADOS: DocumentFieldsConfiguration = {
   establecimiento: { visible: true, label: 'Establecimiento' },
   observaciones: { visible: true, label: 'Observaciones' },
   direccion: { visible: true, label: 'Dirección' },
@@ -231,7 +231,7 @@ export const DEFAULT_DOCUMENT_FIELDS_A4: DocumentFieldsConfiguration = {
   vendedor: { visible: false, label: 'Vendedor' },
 };
 
-export const DEFAULT_DOCUMENT_FIELDS_TICKET: DocumentFieldsConfiguration = {
+export const CAMPOS_DOCUMENTO_TICKET_PREDETERMINADOS: DocumentFieldsConfiguration = {
   establecimiento: { visible: false, label: 'Establecimiento' },
   observaciones: { visible: false, label: 'Observaciones' },
   direccion: { visible: false, label: 'Dirección' },
@@ -244,10 +244,10 @@ export const DEFAULT_DOCUMENT_FIELDS_TICKET: DocumentFieldsConfiguration = {
   vendedor: { visible: false, label: 'Vendedor' },
 };
 
-// Mantener DEFAULT_DOCUMENT_FIELDS por compatibilidad (deprecado)
-export const DEFAULT_DOCUMENT_FIELDS = DEFAULT_DOCUMENT_FIELDS_A4;
+// Mantener CAMPOS_DOCUMENTO_PREDETERMINADOS por compatibilidad (deprecado)
+export const CAMPOS_DOCUMENTO_PREDETERMINADOS = CAMPOS_DOCUMENTO_A4_PREDETERMINADOS;
 
-export const DEFAULT_PRODUCT_FIELDS_A4: ProductFieldsConfiguration = {
+export const CAMPOS_PRODUCTO_A4_PREDETERMINADOS: ProductFieldsConfiguration = {
   // Columnas por defecto (6 visibles) - ORDEN OBLIGATORIO
   numero: { visible: true, label: 'N°', width: 50 },
   cantidad: { visible: true, label: 'Cant.', width: 70 },
@@ -271,7 +271,7 @@ export const DEFAULT_PRODUCT_FIELDS_A4: ProductFieldsConfiguration = {
 };
 
 // Columnas por defecto para TICKET: CÓDIGO | DESCRIPCIÓN | CANT | P.UNIT | DSCTO. | TOTAL
-export const DEFAULT_PRODUCT_FIELDS_TICKET: VoucherDesignTicketConfig['productFields'] = {
+export const CAMPOS_PRODUCTO_TICKET_PREDETERMINADOS: VoucherDesignTicketConfig['productFields'] = {
   numero: { visible: false }, // N° desactivado por defecto, pero disponible
   codigo: { visible: true },
   descripcion: { visible: true, maxLength: 30 },
@@ -283,22 +283,22 @@ export const DEFAULT_PRODUCT_FIELDS_TICKET: VoucherDesignTicketConfig['productFi
   marca: { visible: false },
 };
 
-export const DEFAULT_A4_CONFIG: VoucherDesignA4Config = {
-  logo: DEFAULT_LOGO_CONFIG,
-  watermark: DEFAULT_WATERMARK_CONFIG,
-  footer: DEFAULT_FOOTER_CONFIG,
-  documentFields: DEFAULT_DOCUMENT_FIELDS_A4,
-  productFields: DEFAULT_PRODUCT_FIELDS_A4,
+export const CONFIGURACION_A4_PREDETERMINADA: VoucherDesignA4Config = {
+  logo: CONFIGURACION_LOGO_PREDETERMINADA,
+  watermark: CONFIGURACION_MARCA_AGUA_PREDETERMINADA,
+  footer: CONFIGURACION_PIE_PAGINA_PREDETERMINADA,
+  documentFields: CAMPOS_DOCUMENTO_A4_PREDETERMINADOS,
+  productFields: CAMPOS_PRODUCTO_A4_PREDETERMINADOS,
 };
 
-export const DEFAULT_TICKET_CONFIG: VoucherDesignTicketConfig = {
+export const CONFIGURACION_TICKET_PREDETERMINADA: VoucherDesignTicketConfig = {
   logo: {
     enabled: false,
     width: 60,
     height: 60,
     position: 'center',
   },
-  watermark: DEFAULT_WATERMARK_CONFIG, // Agregado: watermark para ticket
+  watermark: CONFIGURACION_MARCA_AGUA_PREDETERMINADA, // Agregado: watermark para ticket
   footer: {
     enabled: true,
     showCustomText: true,
@@ -308,8 +308,8 @@ export const DEFAULT_TICKET_CONFIG: VoucherDesignTicketConfig = {
     fontWeight: 'normal',
     padding: 5,
   },
-  documentFields: DEFAULT_DOCUMENT_FIELDS_TICKET,
-  productFields: DEFAULT_PRODUCT_FIELDS_TICKET,
+  documentFields: CAMPOS_DOCUMENTO_TICKET_PREDETERMINADOS,
+  productFields: CAMPOS_PRODUCTO_TICKET_PREDETERMINADOS,
   general: {
     paperWidth: 80,
     lineSpacing: 1.2,
@@ -346,24 +346,24 @@ export const DEFAULT_TICKET_CONFIG: VoucherDesignTicketConfig = {
   },
 };
 
-export const DEFAULT_A4_DESIGN: VoucherDesignConfig = {
+export const DISENO_A4_PREDETERMINADO: VoucherDesignConfig = {
   id: 'design-a4-default',
   name: 'Diseño A4 Predeterminado',
   type: 'A4',
   version: '2.0',
-  a4Config: DEFAULT_A4_CONFIG,
+  a4Config: CONFIGURACION_A4_PREDETERMINADA,
   isDefault: true,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 
-export const DEFAULT_TICKET_DESIGN: VoucherDesignConfig = {
+export const DISENO_TICKET_PREDETERMINADO: VoucherDesignConfig = {
   id: 'design-ticket-default',
   name: 'Diseño Ticket Predeterminado',
   type: 'TICKET',
   version: '2.0',
-  ticketConfig: DEFAULT_TICKET_CONFIG,
+  ticketConfig: CONFIGURACION_TICKET_PREDETERMINADA,
   isDefault: true,
   isActive: true,
   createdAt: new Date(),

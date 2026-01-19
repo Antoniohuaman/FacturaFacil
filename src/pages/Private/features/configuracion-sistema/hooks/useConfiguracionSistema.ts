@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 import type { Configuration, ConfigurationModule } from '../modelos/Configuration';
-import { CONFIGURATION_MODULES } from '../modelos/Configuration';
+import { MODULOS_CONFIGURACION } from '../modelos/Configuration';
 
 interface UseConfigurationReturn {
   configuration: Configuration | null;
@@ -152,7 +152,7 @@ const MOCK_CONFIGURATION: Configuration = {
 export function useConfiguration(): UseConfigurationReturn {
   const { state } = useConfigurationContext();
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
-  const [modules, setModules] = useState<ConfigurationModule[]>(CONFIGURATION_MODULES);
+  const [modules, setModules] = useState<ConfigurationModule[]>(MODULOS_CONFIGURACION);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -270,7 +270,7 @@ export function useConfiguration(): UseConfigurationReturn {
       setConfiguration(MOCK_CONFIGURATION);
       
       // Reset all modules
-      const resetModules = CONFIGURATION_MODULES.map(module => ({
+      const resetModules = MODULOS_CONFIGURACION.map(module => ({
         ...module,
         isConfigured: false,
         progress: 0,

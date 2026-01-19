@@ -188,7 +188,7 @@ export interface A4VoucherDesign {
   };
 }
 
-const DEFAULT_A4_DESIGN: A4VoucherDesign = {
+const DISENO_A4_BASE: A4VoucherDesign = {
   id: 'default-a4',
   name: 'Diseño A4 Estándar',
   
@@ -353,7 +353,7 @@ const DEFAULT_A4_DESIGN: A4VoucherDesign = {
 };
 
 export default function A4Design({ onDesignChange, initialDesign }: A4DesignProps) {
-  const [design, setDesign] = useState<A4VoucherDesign>(initialDesign || DEFAULT_A4_DESIGN);
+  const [design, setDesign] = useState<A4VoucherDesign>(initialDesign || DISENO_A4_BASE);
   const [activeSection, setActiveSection] = useState<string>('page');
   const [showPreview, setShowPreview] = useState(false);
 

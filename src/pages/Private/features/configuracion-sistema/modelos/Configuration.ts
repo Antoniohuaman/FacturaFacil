@@ -152,7 +152,7 @@ export interface ConfigurationStep {
   validationRules?: string[];
 }
 
-export const CONFIGURATION_MODULES: ConfigurationModule[] = [
+export const MODULOS_CONFIGURACION: ConfigurationModule[] = [
   {
     id: 'company',
     name: 'Información de la Empresa',

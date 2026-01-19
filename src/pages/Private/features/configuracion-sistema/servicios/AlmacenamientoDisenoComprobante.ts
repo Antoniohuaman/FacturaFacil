@@ -4,7 +4,7 @@
 // ===================================================================
 
 import type { VoucherDesignConfig, DesignType } from '../modelos/VoucherDesignUnified';
-import { DEFAULT_A4_DESIGN, DEFAULT_TICKET_DESIGN } from '../modelos/VoucherDesignUnified';
+import { DISENO_A4_PREDETERMINADO, DISENO_TICKET_PREDETERMINADO } from '../modelos/VoucherDesignUnified';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 export class StorageError extends Error {
@@ -17,7 +17,7 @@ export class StorageError extends Error {
   }
 }
 
-export interface IVoucherDesignStorage {
+export interface AlmacenamientoDisenoComprobante {
   load(type: DesignType): Promise<VoucherDesignConfig>;
   save(type: DesignType, config: VoucherDesignConfig): Promise<void>;
   clear(type: DesignType): Promise<void>;
@@ -27,7 +27,7 @@ export interface IVoucherDesignStorage {
 
 const STORAGE_KEY = (type: DesignType): string => `voucher_design_v2_${type}`;
 
-export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
+export class AlmacenamientoLocalDisenoComprobante implements AlmacenamientoDisenoComprobante {
   async load(type: DesignType): Promise<VoucherDesignConfig> {
     const key = STORAGE_KEY(type);
 
@@ -45,7 +45,7 @@ export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
 
       return parsed;
     } catch (error) {
-      console.error('[VoucherDesignStorage] Error loading config, using defaults:', error);
+      console.error('[AlmacenamientoDisenoComprobante] Error loading config, using defaults:', error);
       return this.getDefaultConfig(type);
     }
   }
@@ -63,7 +63,7 @@ export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
       // Disparar evento personalizado para sincronización
       this.dispatchChangeEvent(type, toSave);
     } catch (error) {
-      console.error('[VoucherDesignStorage] Error saving config:', error);
+      console.error('[AlmacenamientoDisenoComprobante] Error saving config:', error);
       throw new StorageError('Failed to save design configuration', error);
     }
   }
@@ -75,7 +75,7 @@ export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
 
       this.dispatchChangeEvent(type, null);
     } catch (error) {
-      console.error('[VoucherDesignStorage] Error clearing config:', error);
+      console.error('[AlmacenamientoDisenoComprobante] Error clearing config:', error);
       throw new StorageError('Failed to clear design configuration', error);
     }
   }
@@ -97,7 +97,7 @@ export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
       const json = JSON.stringify(exportData, null, 2);
       return new Blob([json], { type: 'application/json' });
     } catch (error) {
-      console.error('[VoucherDesignStorage] Error exporting config:', error);
+      console.error('[AlmacenamientoDisenoComprobante] Error exporting config:', error);
       throw new StorageError('Failed to export design configuration', error);
     }
   }
@@ -151,17 +151,17 @@ export class LocalStorageVoucherDesignStorage implements IVoucherDesignStorage {
   }
 
   private getDefaultConfig(type: DesignType): VoucherDesignConfig {
-    return type === 'A4' ? DEFAULT_A4_DESIGN : DEFAULT_TICKET_DESIGN;
+    return type === 'A4' ? DISENO_A4_PREDETERMINADO : DISENO_TICKET_PREDETERMINADO;
   }
 }
 
 // Factory para facilitar testing y cambio de implementación
-export class VoucherDesignStorageFactory {
-  private static instance: IVoucherDesignStorage | null = null;
+export class FabricaAlmacenamientoDisenoComprobante {
+  private static instance: AlmacenamientoDisenoComprobante | null = null;
 
-  static create(): IVoucherDesignStorage {
+  static create(): AlmacenamientoDisenoComprobante {
     if (!this.instance) {
-      this.instance = new LocalStorageVoucherDesignStorage();
+      this.instance = new AlmacenamientoLocalDisenoComprobante();
     }
     return this.instance;
   }

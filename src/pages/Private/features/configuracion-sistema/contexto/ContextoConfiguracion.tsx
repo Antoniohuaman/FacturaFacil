@@ -54,8 +54,8 @@ interface ConfigurationState {
   error: string | null;
 }
 
-const SERIES_STORAGE_KEY = 'config_series_v1';
-const CONFIG_STORAGE_KEY = 'facturaFacilConfig';
+const LLAVE_ALMACENAMIENTO_SERIES = 'config_series_v1';
+const LLAVE_ALMACENAMIENTO_CONFIGURACION = 'facturaFacilConfig';
 
 type StorageKey = string | null;
 
@@ -206,7 +206,7 @@ const persistSeries = (storageKey: StorageKey, series: Series[]) => {
   }
 };
 
-const DEFAULT_SALES_PREFERENCES: SalesPreferences = {
+const PREFERENCIAS_VENTAS_PREDETERMINADAS: SalesPreferences = {
   allowNegativeStock: true,
   pricesIncludeTax: true,
 };
@@ -247,7 +247,7 @@ const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferenc
   // Legacy (baseKey global): solo lectura por migración.
   if (typeof window !== 'undefined') {
     try {
-      const raw = window.localStorage.getItem(CONFIG_STORAGE_KEY);
+      const raw = window.localStorage.getItem(LLAVE_ALMACENAMIENTO_CONFIGURACION);
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
         if (isRecord(parsed) && isRecord(parsed.sales)) {
@@ -255,11 +255,11 @@ const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferenc
           const allowNegativeStock =
             typeof sales.allowNegativeStock === 'boolean'
               ? sales.allowNegativeStock
-              : DEFAULT_SALES_PREFERENCES.allowNegativeStock;
+              : PREFERENCIAS_VENTAS_PREDETERMINADAS.allowNegativeStock;
           const pricesIncludeTax =
             typeof sales.pricesIncludeTax === 'boolean'
               ? sales.pricesIncludeTax
-              : DEFAULT_SALES_PREFERENCES.pricesIncludeTax;
+              : PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax;
           return { allowNegativeStock, pricesIncludeTax };
         }
       }
@@ -268,7 +268,7 @@ const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferenc
     }
   }
 
-  return DEFAULT_SALES_PREFERENCES;
+  return PREFERENCIAS_VENTAS_PREDETERMINADAS;
 };
 
 const persistTenantSnapshot = (storageKey: StorageKey, snapshot: PersistedTenantConfig) => {
@@ -330,7 +330,7 @@ const initialState: ConfigurationState = {
   taxes: [],
   categories: [],
   cajas: [],
-  salesPreferences: DEFAULT_SALES_PREFERENCES,
+  salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
   isLoading: false,
   error: null,
 };
@@ -509,12 +509,12 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const tenantId = tenantIdOverride ?? activeTenantId;
   const seriesStorageKey = useMemo<StorageKey>(() => {
     if (!tenantId) return null;
-    return lsKey(SERIES_STORAGE_KEY, tenantId);
+    return lsKey(LLAVE_ALMACENAMIENTO_SERIES, tenantId);
   }, [tenantId]);
 
   const tenantConfigKey = useMemo<StorageKey>(() => {
     if (!tenantId) return null;
-    return lsKey(CONFIG_STORAGE_KEY, tenantId);
+    return lsKey(LLAVE_ALMACENAMIENTO_CONFIGURACION, tenantId);
   }, [tenantId]);
 
   const initialSalesPreferences = useMemo(
@@ -606,8 +606,8 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.establishments.length > 0 ||
       state.warehouses.length > 0 ||
       state.cajas.length > 0 ||
-      state.salesPreferences.allowNegativeStock !== DEFAULT_SALES_PREFERENCES.allowNegativeStock ||
-      state.salesPreferences.pricesIncludeTax !== DEFAULT_SALES_PREFERENCES.pricesIncludeTax;
+      state.salesPreferences.allowNegativeStock !== PREFERENCIAS_VENTAS_PREDETERMINADAS.allowNegativeStock ||
+      state.salesPreferences.pricesIncludeTax !== PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax;
 
     if (!hasMeaningfulConfig) {
       return;

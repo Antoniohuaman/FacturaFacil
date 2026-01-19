@@ -188,7 +188,7 @@ export interface TicketVoucherDesign {
   };
 }
 
-const DEFAULT_TICKET_DESIGN: TicketVoucherDesign = {
+const DISENO_TICKET_BASE: TicketVoucherDesign = {
   id: 'default-ticket',
   name: 'Diseño Ticket Estándar',
   
@@ -354,7 +354,7 @@ const DEFAULT_TICKET_DESIGN: TicketVoucherDesign = {
 };
 
 export default function TicketDesign({ onDesignChange, initialDesign }: TicketDesignProps) {
-  const [design] = useState<TicketVoucherDesign>(initialDesign || DEFAULT_TICKET_DESIGN);
+  const [design] = useState<TicketVoucherDesign>(initialDesign || DISENO_TICKET_BASE);
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
