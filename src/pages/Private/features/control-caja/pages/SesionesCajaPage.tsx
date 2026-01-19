@@ -56,7 +56,7 @@ export function SesionesCajaPage() {
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         {/* Breadcrumb */}
         <button
-          onClick={() => navigate('/caja')}
+          onClick={() => navigate('/control-caja')}
           className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

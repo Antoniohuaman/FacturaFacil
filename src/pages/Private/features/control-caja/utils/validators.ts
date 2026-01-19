@@ -33,7 +33,7 @@ export const isMontosInicialesValid = (
   otros: number = 0
 ): boolean => {
   const total = efectivo + tarjeta + yape + otros;
-  return total > 0;
+  return total >= 0;
 };
 
 /**

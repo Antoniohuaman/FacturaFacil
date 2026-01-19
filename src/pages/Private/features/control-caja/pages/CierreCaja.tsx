@@ -21,7 +21,8 @@ const CierreCaja: React.FC = () => {
   const montoIngresado = parseFloat(montoCierre) || 0;
   const descuadre = calcularDescuadre(montoIngresado, resumen.saldo);
   const tieneDescuadre = hasDescuadre(descuadre);
-  const descuadreExcedido = Math.abs(descuadre) > margenDescuadre;
+  const margenPermitidoEnMonto = (margenDescuadre / 100) * Math.abs(resumen.saldo);
+  const descuadreExcedido = Math.abs(descuadre) > margenPermitidoEnMonto;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +139,7 @@ const CierreCaja: React.FC = () => {
                     {descuadreExcedido ? 'Descuadre excede el margen' : 'Descuadre detectado'}
                   </p>
                   <p className={`text-sm ${descuadreExcedido ? 'text-red-700' : 'text-yellow-700'}`}>
-                    Diferencia: S/ {descuadre.toFixed(2)} (Margen permitido: S/ {margenDescuadre.toFixed(2)})
+                    Diferencia: S/ {descuadre.toFixed(2)} (Margen: {margenDescuadre.toFixed(2)}% ~ S/ {margenPermitidoEnMonto.toFixed(2)})
                   </p>
                 </div>
               </div>
@@ -192,7 +193,7 @@ const CierreCaja: React.FC = () => {
       <ConfirmationModal
         isOpen={showDescuadreWarning}
         title="Descuadre Excede el Margen"
-        message={`El descuadre de S/ ${descuadre.toFixed(2)} excede el margen permitido de S/ ${margenDescuadre.toFixed(2)}. No se puede cerrar la caja. Por favor, verifique el monto.`}
+        message={`El descuadre de S/ ${descuadre.toFixed(2)} excede el margen permitido (${margenDescuadre.toFixed(2)}% ~ S/ ${margenPermitidoEnMonto.toFixed(2)}). No se puede cerrar la caja. Por favor, verifique el monto.`}
         confirmText="Entendido"
         type="danger"
         onConfirm={() => setShowDescuadreWarning(false)}

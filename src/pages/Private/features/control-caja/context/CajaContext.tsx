@@ -23,9 +23,13 @@ const STORAGE_KEYS = {
   historialMovimientos: "control_caja_historial_movimientos",
 } as const;
 
-const getStorageKey = (base: string, options?: { allowFallback?: boolean }): string | null => {
+const getStorageKey = (
+  base: string,
+  empresaId?: string | null,
+  options?: { allowFallback?: boolean }
+): string | null => {
   try {
-    return lsKey(base);
+    return lsKey(base, empresaId ?? undefined);
   } catch {
     if (options?.allowFallback) {
       return base;
@@ -112,6 +116,16 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const empresaId = useCurrentCompanyId();
   const establecimientoId = useCurrentEstablishmentId();
   const lastTenantIdRef = useRef<string | null>(null);
+  const lastScopeRef = useRef<string | null>(null);
+
+  const historialKeyBase = useMemo(() => {
+    if (!empresaId || !establecimientoId || !activeCajaId) {
+      return null;
+    }
+
+    // El historial se persiste por empresa + establecimiento + caja.
+    return `${STORAGE_KEYS.historialMovimientos}:${establecimientoId}:${activeCajaId}`;
+  }, [empresaId, establecimientoId, activeCajaId]);
 
   useEffect(() => {
     if (historialHydrated || typeof window === "undefined") {
@@ -119,7 +133,12 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     }
 
     try {
-      const storageKey = getStorageKey(STORAGE_KEYS.historialMovimientos, { allowFallback: true });
+      if (!historialKeyBase) {
+        setHistorialHydrated(true);
+        return;
+      }
+
+      const storageKey = getStorageKey(historialKeyBase, empresaId, { allowFallback: true });
       if (!storageKey) {
         setHistorialHydrated(true);
         return;
@@ -148,7 +167,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } finally {
       setHistorialHydrated(true);
     }
-  }, [historialHydrated, tenantId]);
+  }, [historialHydrated, tenantId, empresaId, historialKeyBase]);
 
   useEffect(() => {
     if (!historialHydrated || typeof window === "undefined") {
@@ -156,7 +175,11 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     }
 
     try {
-      const storageKey = getStorageKey(STORAGE_KEYS.historialMovimientos);
+      if (!historialKeyBase) {
+        return;
+      }
+
+      const storageKey = getStorageKey(historialKeyBase, empresaId);
       if (!storageKey) {
         return;
       }
@@ -165,13 +188,14 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } catch (error) {
       console.warn("[Caja] No se pudo persistir el historial de movimientos", error);
     }
-  }, [historialHydrated, historialMovimientos, tenantId]);
+  }, [historialHydrated, historialMovimientos, tenantId, empresaId, historialKeyBase]);
 
   useEffect(() => {
     if (lastTenantIdRef.current === tenantId) {
       return;
     }
     lastTenantIdRef.current = tenantId ?? null;
+    lastScopeRef.current = null;
 
     setStatus("cerrada");
     setAperturaActual(null);
@@ -179,6 +203,26 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     setHistorialMovimientos([]);
     setHistorialHydrated(false);
   }, [tenantId]);
+
+  useEffect(() => {
+    const scope = `${empresaId ?? ""}:${establecimientoId ?? ""}:${activeCajaId ?? ""}`;
+    if (!empresaId || !establecimientoId || !activeCajaId) {
+      lastScopeRef.current = scope;
+      return;
+    }
+
+    if (lastScopeRef.current === scope) {
+      return;
+    }
+
+    // Cambio de scope operativo: evitar fugas de estado entre empresa/establecimiento/caja.
+    lastScopeRef.current = scope;
+    setStatus("cerrada");
+    setAperturaActual(null);
+    setMovimientos([]);
+    setHistorialMovimientos([]);
+    setHistorialHydrated(false);
+  }, [empresaId, establecimientoId, activeCajaId]);
 
   const [margenDescuadre, setMargenDescuadre] = useState<number>(1.0);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);

@@ -61,7 +61,7 @@ interface ReportesCajaProps {
 }
 
 const ReportesCaja: React.FC<ReportesCajaProps> = ({ autoExportRequest, onAutoExportFinished }) => {
-  const { historialMovimientos, historialCargado, showToast } = useCaja();
+  const { historialMovimientos, historialCargado, showToast, activeCajaId } = useCaja();
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [usuarioFiltro, setUsuarioFiltro] = useState('');
@@ -71,7 +71,11 @@ const ReportesCaja: React.FC<ReportesCajaProps> = ({ autoExportRequest, onAutoEx
   const normalizedDesde = normalizeFilterDate(fechaDesde);
   const normalizedHasta = normalizeFilterDate(fechaHasta);
 
-  const reportesFiltrados = historialMovimientos.filter(m => {
+  const historialPorCaja = activeCajaId
+    ? historialMovimientos.filter((m) => m.cajaId === activeCajaId)
+    : [];
+
+  const reportesFiltrados = historialPorCaja.filter(m => {
     const movimientoDateIso = toBusinessDateIso(m.fecha);
     if (!movimientoDateIso) {
       return false;
@@ -248,12 +252,16 @@ const ReportesCaja: React.FC<ReportesCajaProps> = ({ autoExportRequest, onAutoEx
     );
   }
 
-  if (historialMovimientos.length === 0) {
+  if (!activeCajaId || historialPorCaja.length === 0) {
     return (
       <EmptyState
         icon={FileBarChart}
         title="Sin datos para reportes"
-        description="Aún no hay movimientos registrados para generar reportes. Los reportes estarán disponibles una vez que se registren operaciones."
+        description={
+          !activeCajaId
+            ? 'No hay una caja activa configurada para generar reportes.'
+            : 'Aún no hay movimientos registrados para generar reportes. Los reportes estarán disponibles una vez que se registren operaciones.'
+        }
       />
     );
   }

@@ -19,9 +19,9 @@ const AperturaCaja: React.FC = () => {
   const [montoYapeNum, setMontoYapeNum] = useState(0);
   
   // Valores de texto para inputs controlados
-  const [montoEfectivoTxt, setMontoEfectivoTxt] = useState('');
-  const [montoTarjetaTxt, setMontoTarjetaTxt] = useState('');
-  const [montoYapeTxt, setMontoYapeTxt] = useState('');
+  const [montoEfectivoTxt, setMontoEfectivoTxt] = useState('0.00');
+  const [montoTarjetaTxt, setMontoTarjetaTxt] = useState('0.00');
+  const [montoYapeTxt, setMontoYapeTxt] = useState('0.00');
   
   const [notas, setNotas] = useState('');
   const [fechaApertura, setFechaApertura] = useState(() => formatBusinessDateTimeLocal());
@@ -42,8 +42,7 @@ const AperturaCaja: React.FC = () => {
     return (
       montoEfectivoNum >= 0 &&
       fechaApertura &&
-      usuarioActual &&
-      montoTotal > 0
+      usuarioActual
     );
   };
 
@@ -76,9 +75,9 @@ const AperturaCaja: React.FC = () => {
       setShowConfirmModal(false);
       
       // Limpiar formulario
-      setMontoEfectivoTxt('');
-      setMontoTarjetaTxt('');
-      setMontoYapeTxt('');
+      setMontoEfectivoTxt('0.00');
+      setMontoTarjetaTxt('0.00');
+      setMontoYapeTxt('0.00');
       setMontoEfectivoNum(0);
       setMontoTarjetaNum(0);
       setMontoYapeNum(0);
@@ -165,6 +164,8 @@ const AperturaCaja: React.FC = () => {
                   onChange={(e) => {
                     const v = e.target.value.replace(/[^0-9.]/g, '');
                     setMontoEfectivoTxt(v);
+                    const n = Number(v);
+                    setMontoEfectivoNum(Number.isFinite(n) ? n : 0);
                   }}
                   onBlur={() => {
                     const n = Number(montoEfectivoTxt || 0);
@@ -173,7 +174,6 @@ const AperturaCaja: React.FC = () => {
                   }}
                   placeholder="0.00"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  required
                   disabled={status === 'abierta' || isLoading}
                 />
               </div>
@@ -188,6 +188,8 @@ const AperturaCaja: React.FC = () => {
                   onChange={(e) => {
                     const v = e.target.value.replace(/[^0-9.]/g, '');
                     setMontoTarjetaTxt(v);
+                    const n = Number(v);
+                    setMontoTarjetaNum(Number.isFinite(n) ? n : 0);
                   }}
                   onBlur={() => {
                     const n = Number(montoTarjetaTxt || 0);
@@ -210,6 +212,8 @@ const AperturaCaja: React.FC = () => {
                   onChange={(e) => {
                     const v = e.target.value.replace(/[^0-9.]/g, '');
                     setMontoYapeTxt(v);
+                    const n = Number(v);
+                    setMontoYapeNum(Number.isFinite(n) ? n : 0);
                   }}
                   onBlur={() => {
                     const n = Number(montoYapeTxt || 0);
@@ -224,14 +228,12 @@ const AperturaCaja: React.FC = () => {
             </div>
 
             {/* Total */}
-            {montoTotal > 0 && (
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Monto Total Inicial:</span>
-                  <span className="text-lg font-bold text-gray-900">S/ {montoTotal.toFixed(2)}</span>
-                </div>
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-700">Monto Total Inicial:</span>
+                <span className="text-lg font-bold text-gray-900">S/ {montoTotal.toFixed(2)}</span>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Usuario/Cajero - Solo lectura */}
