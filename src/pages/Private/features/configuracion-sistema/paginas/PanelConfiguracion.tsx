@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Building2,
   MapPin,
-  Warehouse,
+  Boxes as IconoAlmacen,
   ShoppingCart,
   FileText,
   Users,
@@ -98,7 +98,7 @@ export function ConfigurationDashboard() {
       id: 'almacenes',
       title: 'Almacenes',
       description: 'Gestiona los almacenes donde se controla el inventario',
-      icon: Warehouse,
+      icon: IconoAlmacen,
       path: '/configuracion/almacenes',
       status: status.almacenes.isConfigured ? 'complete' : 'pending',
       completionPercentage: status.almacenes.completionPercentage,

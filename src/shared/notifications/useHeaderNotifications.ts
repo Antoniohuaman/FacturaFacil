@@ -7,7 +7,7 @@ import { useCaja } from '../../pages/Private/features/control-caja/context/CajaC
 import { InventoryService } from '../../pages/Private/features/gestion-inventario/services/inventory.service';
 import { evaluateStockAlert } from '../../pages/Private/features/gestion-inventario/utils/stockAlerts';
 import type { Product } from '../../pages/Private/features/catalogo-articulos/models/types';
-import type { Almacen } from '../../pages/Private/features/configuracion-sistema/modelos/Warehouse';
+import type { Almacen } from '../../pages/Private/features/configuracion-sistema/modelos/Almacen';
 import type { HeaderNotification, UseHeaderNotificationsResult } from './types';
 
 const mapSunatNotifications = (comprobantes: readonly { id: string; type: string; client: string; status: string; date: string }[]): HeaderNotification[] => {

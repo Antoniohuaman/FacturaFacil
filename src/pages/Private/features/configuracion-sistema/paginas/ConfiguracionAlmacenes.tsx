@@ -16,11 +16,11 @@ import {
   FileText,
   MapPin,
   Package,
-  Warehouse
+  Boxes as IconoAlmacen
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { StatusIndicator } from '../components/comunes/IndicadorEstado';
-import type { Almacen, AlmacenSinAlias } from '../modelos/Warehouse';
+import type { Almacen, AlmacenSinAlias } from '../modelos/Almacen';
 
 interface Toast {
   id: string;
@@ -395,7 +395,7 @@ export function ConfiguracionAlmacenes() {
             </div>
           </div>
           <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800">
-            <Warehouse className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <IconoAlmacen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             <span className="text-sm font-medium text-blue-900 dark:text-blue-200">Código: {formData.codigoAlmacen}</span>
           </div>
         </div>
@@ -405,7 +405,7 @@ export function ConfiguracionAlmacenes() {
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-600 rounded-lg">
-                  <Warehouse className="w-5 h-5 text-white" />
+                  <IconoAlmacen className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Información Básica</h3>
@@ -693,7 +693,7 @@ export function ConfiguracionAlmacenes() {
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-              <Warehouse className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <IconoAlmacen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
         </div>
@@ -784,7 +784,7 @@ export function ConfiguracionAlmacenes() {
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         {filteredAlmacenes.length === 0 ? (
           <div className="text-center py-12">
-            <Warehouse className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+            <IconoAlmacen className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               {searchTerm || filterEstablishment !== 'all' || filterStatus !== 'all'
                 ? 'No se encontraron almacenes'

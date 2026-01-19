@@ -22,7 +22,7 @@ import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Company } from '../modelos/Company';
 import type { Establishment } from '../modelos/Establishment';
-import type { Almacen } from '../modelos/Warehouse';
+import type { Almacen } from '../modelos/Almacen';
 import type { Series } from '../modelos/Series';
 import type { Currency } from '../modelos/Currency';
 import type { Tax } from '../modelos/Tax';

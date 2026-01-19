@@ -9,7 +9,7 @@ import DisponibilidadPagination from './DisponibilidadPagination';
 import DisponibilidadSettings from './DisponibilidadSettings';
 import type { DisponibilidadItem } from '../../models/disponibilidad.types';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
-import type { Almacen } from '../../../configuracion-sistema/modelos/Warehouse';
+import type { Almacen } from '../../../configuracion-sistema/modelos/Almacen';
 import * as XLSX from 'xlsx';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { AutoExportRequest } from '@/shared/export/autoExportParams';

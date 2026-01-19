@@ -1,7 +1,7 @@
 ﻿// src/features/configuracion-sistema/hooks/useAlmacenes.ts
 
 import { useMemo, useState } from 'react';
-import type { Almacen, AlmacenSinAlias } from '../modelos/Warehouse';
+import type { Almacen, AlmacenSinAlias } from '../modelos/Almacen';
 
 /**
  * Hook para gestionar almacenes (CRUD + validaciones)

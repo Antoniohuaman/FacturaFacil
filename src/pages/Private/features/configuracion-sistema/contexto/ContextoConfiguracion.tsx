@@ -11,7 +11,7 @@ import type { Unit } from '../modelos/Unit';
 import type { Tax } from '../modelos/Tax';
 import { PERU_TAX_TYPES, normalizeTaxes } from '../modelos/Tax';
 import { SUNAT_UNITS } from '../modelos/Unit';
-import type { Almacen } from '../modelos/Warehouse';
+import type { Almacen } from '../modelos/Almacen';
 import type { Caja } from '../modelos/Caja';
 import { lsKey } from '../../../../../shared/tenant';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
