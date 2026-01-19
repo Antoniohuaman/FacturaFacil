@@ -27,7 +27,11 @@ import type { PaymentMethod as ConfigPaymentMethod } from '../../configuracion-s
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import { calculateRequiredUnidadMinima, resolveWarehouseForSale } from '../../../../../shared/inventory/stockGateway';
+import {
+  allocateSaleAcrossWarehouses,
+  calculateRequiredUnidadMinima,
+  resolveWarehousesForSaleFIFO,
+} from '../../../../../shared/inventory/stockGateway';
 import {
   assertBusinessDate,
   composeBusinessDateTime,
@@ -102,7 +106,8 @@ export const useComprobanteActions = () => {
   const { session } = useUserSession();
   const { upsertCuenta, registerCobranza } = useCobranzasContext();
   const { allProducts: catalogProducts } = useProductStore();
-  const { state: { warehouses } } = useConfigurationContext();
+  const { state: { warehouses, salesPreferences } } = useConfigurationContext();
+  const allowNegativeStockConfig = Boolean(salesPreferences?.allowNegativeStock);
 
   const catalogLookup = useMemo(() => {
     const map = new Map<string, CatalogProduct>();
@@ -411,7 +416,26 @@ export const useComprobanteActions = () => {
         // Obtener datos del establecimiento desde la sesión o datos recibidos
         const establishmentId = data.establishmentId || session?.currentEstablishmentId;
         const establishment = session?.currentEstablishment;
-        const warehouse = resolveWarehouseForSale({ warehouses, establishmentId });
+
+        const allowNegativeStock = allowNegativeStockConfig;
+
+        if (!establishmentId) {
+          throw new Error('No se pudo resolver el establecimiento para descontar stock.');
+        }
+
+        const warehousesOrdered = resolveWarehousesForSaleFIFO({ warehouses, establishmentId });
+        if (!warehousesOrdered.length) {
+          throw new Error(`No hay almacenes activos configurados para el establecimiento ${establishmentId}.`);
+        }
+
+        type PendingMovement = {
+          productId: string;
+          qtyUnidadMinima: number;
+          warehouseId: string;
+          observaciones: string;
+        };
+
+        const pendingMovements: PendingMovement[] = [];
 
         for (const item of data.cartItems) {
           if (!item.requiresStockControl) {
@@ -431,18 +455,74 @@ export const useComprobanteActions = () => {
             continue;
           }
 
+          const observaciones = `Venta en ${data.tipoComprobante} ${numeroComprobante}`;
+
+          // Si no tenemos snapshot del producto en catálogo, no podemos distribuir por almacén.
+          // Mantener comportamiento simple: aplicar al primer almacén FIFO.
+          if (!catalogProduct) {
+            pendingMovements.push({
+              productId: item.id,
+              qtyUnidadMinima: quantityInUnidadMinima,
+              warehouseId: warehousesOrdered[0].id,
+              observaciones,
+            });
+            continue;
+          }
+
+          const allocations = allocateSaleAcrossWarehouses({
+            product: catalogProduct,
+            warehousesOrdered,
+            qtyUnidadMinima: quantityInUnidadMinima,
+            respectReservations: true,
+          });
+
+          const allocatedTotal = allocations.reduce((sum, seg) => sum + seg.qtyUnidadMinima, 0);
+          const remaining = quantityInUnidadMinima - allocatedTotal;
+
+          if (!allowNegativeStock && remaining > 0) {
+            throw new Error(
+              `Stock insuficiente para ${catalogProduct.nombre || item.name || 'producto'} en el establecimiento. ` +
+              `Solicitado: ${quantityInUnidadMinima}. Disponible: ${allocatedTotal}.`
+            );
+          }
+
+          allocations.forEach((seg) => {
+            if (seg.qtyUnidadMinima <= 0) return;
+            pendingMovements.push({
+              productId: item.id,
+              qtyUnidadMinima: seg.qtyUnidadMinima,
+              warehouseId: seg.warehouseId,
+              observaciones,
+            });
+          });
+
+          if (allowNegativeStock && remaining > 0) {
+            pendingMovements.push({
+              productId: item.id,
+              qtyUnidadMinima: remaining,
+              warehouseId: warehousesOrdered[0].id,
+              observaciones,
+            });
+          }
+        }
+
+        // Aplicación atómica: si no se permite negativo y algo falla, no se registran parciales.
+        for (const movement of pendingMovements) {
           addMovimientoStock(
-            item.id,
+            movement.productId,
             'SALIDA',
             'VENTA',
-            quantityInUnidadMinima,
-            `Venta en ${data.tipoComprobante} ${numeroComprobante}`,
+            movement.qtyUnidadMinima,
+            movement.observaciones,
             numeroComprobante,
             undefined,
             establishmentId,
             establishment?.code,
             establishment?.name,
-            warehouse ? { warehouseId: warehouse.id } : undefined
+            {
+              warehouseId: movement.warehouseId,
+              allowNegativeStock,
+            }
           );
         }
       } catch (stockError) {
@@ -644,7 +724,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta, catalogLookup, warehouses]);
+  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta, catalogLookup, warehouses, allowNegativeStockConfig]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

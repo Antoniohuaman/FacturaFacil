@@ -46,13 +46,17 @@ export class InventoryService {
   static updateStock(
     product: Product,
     warehouseId: string,
-    newQuantity: number
+    newQuantity: number,
+    options?: { allowNegativeStock?: boolean }
   ): Product {
+    const allowNegativeStock = Boolean(options?.allowNegativeStock);
+    const normalizedQuantity = Number.isFinite(newQuantity) ? Number(newQuantity) : 0;
+
     return {
       ...product,
       stockPorAlmacen: {
         ...product.stockPorAlmacen,
-        [warehouseId]: Math.max(0, newQuantity) // No permitir stock negativo
+        [warehouseId]: allowNegativeStock ? normalizedQuantity : Math.max(0, normalizedQuantity)
       },
       fechaActualizacion: new Date()
     };

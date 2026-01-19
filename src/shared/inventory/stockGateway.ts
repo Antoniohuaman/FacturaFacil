@@ -191,6 +191,115 @@ export interface WarehouseResolutionOptions {
   preferredWarehouseId?: string;
 }
 
+export interface WarehouseFIFOResolutionOptions {
+  warehouses?: Warehouse[];
+  establishmentId?: string;
+}
+
+const normalizeSortValue = (value: unknown): string => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim().toLowerCase();
+};
+
+const compareWarehousesStable = (a: Warehouse, b: Warehouse): number => {
+  const aCode = normalizeSortValue(a.code);
+  const bCode = normalizeSortValue(b.code);
+  if (aCode && bCode && aCode !== bCode) {
+    return aCode.localeCompare(bCode);
+  }
+  if (aCode && !bCode) return -1;
+  if (!aCode && bCode) return 1;
+
+  const aName = normalizeSortValue(a.name);
+  const bName = normalizeSortValue(b.name);
+  if (aName && bName && aName !== bName) {
+    return aName.localeCompare(bName);
+  }
+  if (aName && !bName) return -1;
+  if (!aName && bName) return 1;
+
+  return a.id.localeCompare(b.id);
+};
+
+/**
+ * Devuelve la lista ordenada FIFO de almacenes activos del establecimiento:
+ * 1) almacén principal (isMainWarehouse) si existe
+ * 2) resto de almacenes activos en orden estable
+ */
+export const resolveWarehousesForSaleFIFO = (
+  options: WarehouseFIFOResolutionOptions
+): Warehouse[] => {
+  const { warehouses = [], establishmentId } = options;
+  if (!establishmentId || !warehouses.length) {
+    return [];
+  }
+
+  const matches = warehouses
+    .filter(wh => wh.establishmentId === establishmentId && wh.isActive !== false)
+    .slice();
+
+  if (!matches.length) {
+    return [];
+  }
+
+  const mains = matches.filter(wh => Boolean(wh.isMainWarehouse)).sort(compareWarehousesStable);
+  const rest = matches.filter(wh => !wh.isMainWarehouse).sort(compareWarehousesStable);
+  return [...mains, ...rest];
+};
+
+export interface WarehouseDiscountAllocation {
+  warehouseId: string;
+  qtyUnidadMinima: number;
+}
+
+export interface AllocateSaleAcrossWarehousesOptions {
+  product: CatalogProduct;
+  warehousesOrdered: Warehouse[];
+  qtyUnidadMinima: number;
+  respectReservations?: boolean;
+}
+
+/**
+ * Distribuye una venta en unidad mínima a través de almacenes (FIFO),
+ * respetando el stock disponible por almacén (stock - reservado).
+ * No inventa stock: si no alcanza, retorna una asignación parcial.
+ */
+export const allocateSaleAcrossWarehouses = (
+  options: AllocateSaleAcrossWarehousesOptions
+): WarehouseDiscountAllocation[] => {
+  const { product, warehousesOrdered } = options;
+  const respectReservations = options.respectReservations !== false;
+  const requested = toNumber(options.qtyUnidadMinima);
+  if (!product || !warehousesOrdered.length || requested <= 0) {
+    return [];
+  }
+
+  const stockMap = product.stockPorAlmacen ?? {};
+  const reservedMap = respectReservations ? (product.stockReservadoPorAlmacen ?? {}) : {};
+
+  let remaining = requested;
+  const allocations: WarehouseDiscountAllocation[] = [];
+
+  for (const warehouse of warehousesOrdered) {
+    if (remaining <= 0) break;
+    const stock = toNumber(stockMap[warehouse.id]);
+    const reserved = toNumber(reservedMap[warehouse.id]);
+    const available = stock <= reserved ? 0 : stock - reserved;
+    if (available <= 0) {
+      continue;
+    }
+    const take = remaining <= available ? remaining : available;
+    if (take > 0) {
+      allocations.push({ warehouseId: warehouse.id, qtyUnidadMinima: take });
+      remaining -= take;
+    }
+  }
+
+  return allocations;
+};
+
 export const resolveWarehouseForSale = (
   options: WarehouseResolutionOptions
 ): Warehouse | undefined => {

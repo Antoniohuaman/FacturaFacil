@@ -34,6 +34,7 @@ export function useInventoryFacade() {
     establecimientoNombre?: string,
     options?: {
       warehouseId?: string;
+      allowNegativeStock?: boolean;
     }
   ) => {
     const product = allProducts.find(p => p.id === productId);
@@ -62,13 +63,14 @@ export function useInventoryFacade() {
     const warehouseCode = warehouse?.code || 'N/A';
     const warehouseName = warehouse?.name || 'Sin almacén';
     const stockActual = InventoryService.getStock(product, warehouseId);
+    const allowNegativeStock = Boolean(options?.allowNegativeStock);
 
     const isEntrada = tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION';
     const cantidadNuevaRaw = isEntrada ? stockActual + cantidad : stockActual - cantidad;
-    const cantidadNueva = Math.max(0, cantidadNuevaRaw);
+    const cantidadNueva = allowNegativeStock ? cantidadNuevaRaw : Math.max(0, cantidadNuevaRaw);
     const delta = cantidadNueva - stockActual;
 
-    const updatedProductSnapshot = InventoryService.updateStock(product, warehouseId, cantidadNueva);
+    const updatedProductSnapshot = InventoryService.updateStock(product, warehouseId, cantidadNueva, { allowNegativeStock });
     const totalStock = InventoryService.getTotalStock(updatedProductSnapshot);
 
     const movementEstablishmentId = establecimientoId || warehouse?.establishmentId || '';
@@ -77,13 +79,13 @@ export function useInventoryFacade() {
       const prevValue = product.stockPorEstablecimiento?.[movementEstablishmentId];
       let nextValue: number | undefined;
       if (typeof prevValue === 'number') {
-        nextValue = Math.max(0, prevValue + delta);
+        nextValue = allowNegativeStock ? prevValue + delta : Math.max(0, prevValue + delta);
       } else if (warehouses && warehouses.length) {
         nextValue = warehouses
           .filter(w => w.establishmentId === movementEstablishmentId)
           .reduce((sum, w) => sum + (updatedProductSnapshot.stockPorAlmacen?.[w.id] ?? 0), 0);
       } else {
-        nextValue = Math.max(0, totalStock);
+        nextValue = allowNegativeStock ? totalStock : Math.max(0, totalStock);
       }
 
       nextStockPorEstablecimiento = {
