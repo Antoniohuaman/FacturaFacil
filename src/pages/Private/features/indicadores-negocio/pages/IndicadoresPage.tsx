@@ -89,7 +89,7 @@ const IndicadoresPage: React.FC = () => {
 
   const defaultCurrencyCode = currencyOptions[0]?.value ?? "PEN";
   const companyId = configState.company?.id ?? "empresa-actual";
-  const companyName = configState.company?.businessName ?? configState.company?.tradeName ?? "Empresa actual";
+  const companyName = configState.company?.razonSocial ?? configState.company?.nombreComercial ?? "Empresa actual";
 
   const createNotificationPayload = useCallback((): NotificacionIndicadorPayload => {
     const rest = createEmptyNotificacionPayload();

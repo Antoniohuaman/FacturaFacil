@@ -74,26 +74,28 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 const reviveCompany = (company: Company): Company => {
-  const digitalCertificate = company.digitalCertificate
+  const certificadoDigital = company.certificadoDigital
     ? {
-        ...company.digitalCertificate,
-        expiryDate: reviveDate(company.digitalCertificate.expiryDate),
+        ...company.certificadoDigital,
+        fechaVencimientoCertificado: reviveDate(company.certificadoDigital.fechaVencimientoCertificado),
       }
-    : company.digitalCertificate;
+    : company.certificadoDigital;
 
-  const sunatConfiguration = company.sunatConfiguration
+  const configuracionSunatEmpresa = company.configuracionSunatEmpresa
     ? {
-        ...company.sunatConfiguration,
-        lastSyncDate: reviveDate(company.sunatConfiguration.lastSyncDate),
+        ...company.configuracionSunatEmpresa,
+        fechaUltimaSincronizacionSunat: reviveDate(
+          company.configuracionSunatEmpresa.fechaUltimaSincronizacionSunat,
+        ),
       }
-    : company.sunatConfiguration;
+    : company.configuracionSunatEmpresa;
 
   return {
     ...company,
-    createdAt: reviveDate(company.createdAt) ?? new Date(),
-    updatedAt: reviveDate(company.updatedAt) ?? new Date(),
-    digitalCertificate,
-    sunatConfiguration,
+    creadoEl: reviveDate(company.creadoEl) ?? new Date(),
+    actualizadoEl: reviveDate(company.actualizadoEl) ?? new Date(),
+    certificadoDigital,
+    configuracionSunatEmpresa,
   };
 };
 
@@ -571,12 +573,12 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   }, [dispatch, tenantConfigKey, tenantId]);
 
   useEffect(() => {
-    const companyBaseCurrency = state.company?.baseCurrency;
+    const companyBaseCurrency = state.company?.monedaBase;
     if (!companyBaseCurrency) {
       return;
     }
     currencyManager.setBaseCurrency(companyBaseCurrency as CurrencyCode);
-  }, [state.company?.baseCurrency]);
+  }, [state.company?.monedaBase]);
 
   useEffect(() => {
     if (!tenantId) {

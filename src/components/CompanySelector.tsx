@@ -26,7 +26,7 @@ const CompanySelector = () => {
   };
 
   const workspaceDisplayName = activeWorkspace?.nombreComercial || activeWorkspace?.razonSocial;
-  const displayCompanyName = workspaceDisplayName || selectedCompany?.tradeName || selectedCompany?.businessName;
+  const displayCompanyName = workspaceDisplayName || selectedCompany?.nombreComercial || selectedCompany?.razonSocial;
   const displayEstablishmentName = activeWorkspace?.domicilioFiscal || selectedEstablishment?.name || 'Sin establecimiento';
 
   const handleNavigateToWorkspace = (mode: 'create_workspace' | 'edit_workspace', workspaceId?: string) => {
@@ -102,9 +102,9 @@ const CompanySelector = () => {
         {showCompanyDropdown && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl z-50 border border-gray-200 dark:border-gray-600">
             <div className="p-2">
-              <div className="text-xs font-medium px-2 py-1.5 text-gray-500 dark:text-gray-400 truncate" 
-                   title={`Establecimientos de ${selectedCompany.tradeName || selectedCompany.businessName}`}>
-                Establecimientos de {selectedCompany.tradeName || selectedCompany.businessName}
+                <div className="text-xs font-medium px-2 py-1.5 text-gray-500 dark:text-gray-400 truncate" 
+                   title={`Establecimientos de ${selectedCompany.nombreComercial || selectedCompany.razonSocial}`}>
+                 Establecimientos de {selectedCompany.nombreComercial || selectedCompany.razonSocial}
               </div>
 
               <div className="space-y-1">

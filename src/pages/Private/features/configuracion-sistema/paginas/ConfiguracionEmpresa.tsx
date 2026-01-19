@@ -36,15 +36,15 @@ import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 
 interface CompanyFormData {
   ruc: string;
-  businessName: string;
-  tradeName: string;
-  fiscalAddress: string;
+  razonSocial: string;
+  nombreComercial: string;
+  direccionFiscal: string;
   ubigeo: string;
-  baseCurrency: 'PEN' | 'USD';
-  environment: 'TEST' | 'PRODUCTION';
-  phones: string[];
-  emails: string[];
-  economicActivity: string;
+  monedaBase: 'PEN' | 'USD';
+  entornoSunat: 'TEST' | 'PRODUCTION';
+  telefonos: string[];
+  correosElectronicos: string[];
+  actividadEconomica: string;
 }
 
 type WorkspaceNavigationState = {
@@ -78,7 +78,7 @@ async function ensureDefaultOperationalSetup({
   const establecimientoId = establishment.id;
 
   const deriveBaseCurrencyId = (): string => {
-    const preferredCode = company.baseCurrency || 'PEN';
+    const preferredCode = company.monedaBase || 'PEN';
 
     const byId = configState.currencies.find((currency) => currency.id === preferredCode);
     if (byId) return byId.id;
@@ -180,15 +180,15 @@ export function CompanyConfiguration() {
   
   const [formData, setFormData] = useState<CompanyFormData>({
     ruc: '',
-    businessName: '',
-    tradeName: '',
-    fiscalAddress: '',
+    razonSocial: '',
+    nombreComercial: '',
+    direccionFiscal: '',
     ubigeo: '',
-    baseCurrency: 'PEN',
-    environment: 'TEST',
-    phones: [''],
-    emails: [''],
-    economicActivity: ''
+    monedaBase: 'PEN',
+    entornoSunat: 'TEST',
+    telefonos: [''],
+    correosElectronicos: [''],
+    actividadEconomica: ''
   });
   
   const [rucValidation, setRucValidation] = useState<{
@@ -205,13 +205,13 @@ export function CompanyConfiguration() {
     const empresaEntry = {
       id: empresa.id,
       ruc: empresa.ruc,
-      razonSocial: empresa.businessName,
-      nombreComercial: empresa.tradeName,
-      direccion: empresa.address,
-      telefono: empresa.phones?.[0],
-      email: empresa.emails?.[0],
-      actividadEconomica: empresa.economicActivity,
-      regimen: (empresa.taxRegime as RegimenTributario) ?? RegimenTributario.GENERAL,
+      razonSocial: empresa.razonSocial,
+      nombreComercial: empresa.nombreComercial,
+      direccion: empresa.direccionFiscal,
+      telefono: empresa.telefonos?.[0],
+      email: empresa.correosElectronicos?.[0],
+      actividadEconomica: empresa.actividadEconomica,
+      regimen: (empresa.regimenTributario as RegimenTributario) ?? RegimenTributario.GENERAL,
       estado: EmpresaStatus.ACTIVA,
       establecimientos: [
         {
@@ -253,15 +253,15 @@ export function CompanyConfiguration() {
       // Empresa ya existe en el contexto, cargar sus datos
       const loadedData = {
         ruc: company.ruc,
-        businessName: company.businessName,
-        tradeName: company.tradeName || '',
-        fiscalAddress: company.address,
-        ubigeo: company.postalCode || '',
-        baseCurrency: company.baseCurrency || 'PEN',
-        environment: (company.sunatConfiguration.environment === 'TESTING' ? 'TEST' : 'PRODUCTION') as 'TEST' | 'PRODUCTION',
-        phones: company.phones?.length > 0 ? company.phones : [''],
-        emails: company.emails?.length > 0 ? company.emails : [''],
-        economicActivity: company.economicActivity || ''
+        razonSocial: company.razonSocial,
+        nombreComercial: company.nombreComercial || '',
+        direccionFiscal: company.direccionFiscal,
+        ubigeo: company.codigoPostal || '',
+        monedaBase: company.monedaBase || 'PEN',
+        entornoSunat: (company.configuracionSunatEmpresa.entornoSunat === 'TESTING' ? 'TEST' : 'PRODUCTION') as 'TEST' | 'PRODUCTION',
+        telefonos: company.telefonos?.length > 0 ? company.telefonos : [''],
+        correosElectronicos: company.correosElectronicos?.length > 0 ? company.correosElectronicos : [''],
+        actividadEconomica: company.actividadEconomica || ''
       };
       setFormData(loadedData);
       setOriginalData(loadedData);
@@ -277,36 +277,36 @@ export function CompanyConfiguration() {
           const newCompany: Company = {
             id: 'company-1',
             ruc: parsedData.ruc || '',
-            businessName: parsedData.razonSocial || '',
-            tradeName: parsedData.nombreComercial || parsedData.razonSocial || '',
-            address: parsedData.direccion || '',
-            district: '',
-            province: '',
-            department: '',
-            postalCode: '',
-            phones: parsedData.telefono ? [parsedData.telefono] : [],
-            emails: [],
-            website: undefined,
-            logo: undefined,
-            footerText: undefined,
-            economicActivity: parsedData.actividadEconomica || '',
-            taxRegime: 'GENERAL',
-            baseCurrency: 'PEN',
-            legalRepresentative: {
-              name: '',
-              documentType: 'DNI',
-              documentNumber: ''
+            razonSocial: parsedData.razonSocial || '',
+            nombreComercial: parsedData.nombreComercial || parsedData.razonSocial || '',
+            direccionFiscal: parsedData.direccion || '',
+            distrito: '',
+            provincia: '',
+            departamento: '',
+            codigoPostal: '',
+            telefonos: parsedData.telefono ? [parsedData.telefono] : [],
+            correosElectronicos: [],
+            sitioWeb: undefined,
+            logoEmpresa: undefined,
+            textoPiePagina: undefined,
+            actividadEconomica: parsedData.actividadEconomica || '',
+            regimenTributario: 'GENERAL',
+            monedaBase: 'PEN',
+            representanteLegal: {
+              nombreRepresentanteLegal: '',
+              tipoDocumentoRepresentante: 'DNI',
+              numeroDocumentoRepresentante: ''
             },
-            digitalCertificate: undefined,
-            sunatConfiguration: {
-              isConfigured: false,
-              username: undefined,
-              environment: 'TESTING',
-              lastSyncDate: undefined
+            certificadoDigital: undefined,
+            configuracionSunatEmpresa: {
+              estaConfiguradoEnSunat: false,
+              usuarioSunat: undefined,
+              entornoSunat: 'TESTING',
+              fechaUltimaSincronizacionSunat: undefined
             },
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            isActive: true
+            creadoEl: new Date(),
+            actualizadoEl: new Date(),
+            estaActiva: true
           };
 
           // Guardar la empresa en el contexto
@@ -316,10 +316,10 @@ export function CompanyConfiguration() {
           setFormData(prev => ({
             ...prev,
             ruc: parsedData.ruc || '',
-            businessName: parsedData.razonSocial || '',
-            tradeName: parsedData.nombreComercial || '',
-            fiscalAddress: parsedData.direccion || '',
-            phones: parsedData.telefono ? [parsedData.telefono] : [''],
+            razonSocial: parsedData.razonSocial || '',
+            nombreComercial: parsedData.nombreComercial || '',
+            direccionFiscal: parsedData.direccion || '',
+            telefonos: parsedData.telefono ? [parsedData.telefono] : [''],
           }));
           
           // Limpiar los datos pendientes después de procesarlos
@@ -341,15 +341,15 @@ export function CompanyConfiguration() {
     // Deep comparison of form data vs original data
     const hasFormChanges =
       formData.ruc !== originalData.ruc ||
-      formData.businessName !== originalData.businessName ||
-      formData.tradeName !== originalData.tradeName ||
-      formData.fiscalAddress !== originalData.fiscalAddress ||
+      formData.razonSocial !== originalData.razonSocial ||
+      formData.nombreComercial !== originalData.nombreComercial ||
+      formData.direccionFiscal !== originalData.direccionFiscal ||
       formData.ubigeo !== originalData.ubigeo ||
-      formData.baseCurrency !== originalData.baseCurrency ||
-      formData.environment !== originalData.environment ||
-      formData.economicActivity !== originalData.economicActivity ||
-      JSON.stringify(formData.phones) !== JSON.stringify(originalData.phones) ||
-      JSON.stringify(formData.emails) !== JSON.stringify(originalData.emails);
+      formData.monedaBase !== originalData.monedaBase ||
+      formData.entornoSunat !== originalData.entornoSunat ||
+      formData.actividadEconomica !== originalData.actividadEconomica ||
+      JSON.stringify(formData.telefonos) !== JSON.stringify(originalData.telefonos) ||
+      JSON.stringify(formData.correosElectronicos) !== JSON.stringify(originalData.correosElectronicos);
 
     setHasChanges(hasFormChanges);
   }, [formData, originalData]);
@@ -361,15 +361,15 @@ export function CompanyConfiguration() {
     if (result.isValid && result.data) {
       setFormData(prev => ({
         ...prev,
-        businessName: result.data.businessName,
-        fiscalAddress: result.data.fiscalAddress,
+        razonSocial: result.data.razonSocial,
+        direccionFiscal: result.data.direccionFiscal,
         ubigeo: result.data.ubigeo
       }));
     }
   };
 
   const handleArrayFieldChange = (
-    field: 'phones' | 'emails',
+    field: 'telefonos' | 'correosElectronicos',
     index: number,
     value: string
   ) => {
@@ -379,14 +379,14 @@ export function CompanyConfiguration() {
     }));
   };
 
-  const addArrayField = (field: 'phones' | 'emails') => {
+  const addArrayField = (field: 'telefonos' | 'correosElectronicos') => {
     setFormData(prev => ({
       ...prev,
       [field]: [...prev[field], '']
     }));
   };
 
-  const removeArrayField = (field: 'phones' | 'emails', index: number) => {
+  const removeArrayField = (field: 'telefonos' | 'correosElectronicos', index: number) => {
     setFormData(prev => ({
       ...prev,
       [field]: prev[field].filter((_, i) => i !== index)
@@ -394,21 +394,21 @@ export function CompanyConfiguration() {
   };
 
 
-  const handleEnvironmentChange = (environment: 'TEST' | 'PRODUCTION') => {
+  const handleEnvironmentChange = (entorno: 'TEST' | 'PRODUCTION') => {
     // Block changing back to TEST if already in PRODUCTION
-    if (environment === 'TEST' && company?.sunatConfiguration?.environment === 'PRODUCTION') {
+    if (entorno === 'TEST' && company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION') {
       return; // Do nothing - this change is not allowed
     }
 
-    if (environment === 'PRODUCTION') {
+    if (entorno === 'PRODUCTION') {
       setShowProductionModal(true);
     } else {
-      setFormData(prev => ({ ...prev, environment }));
+      setFormData(prev => ({ ...prev, entornoSunat: entorno }));
     }
   };
 
   const confirmProductionChange = () => {
-    setFormData(prev => ({ ...prev, environment: 'PRODUCTION' }));
+    setFormData(prev => ({ ...prev, entornoSunat: 'PRODUCTION' }));
     setShowProductionModal(false);
   };
 
@@ -421,40 +421,40 @@ export function CompanyConfiguration() {
       ensuredWorkspaceIdRef.current = targetWorkspaceId;
 
       // Filter out empty phones and emails
-      const cleanPhones = formData.phones.filter(phone => phone.trim() !== '');
-      const cleanEmails = formData.emails.filter(email => email.trim() !== '');
+      const cleanPhones = formData.telefonos.filter(phone => phone.trim() !== '');
+      const cleanEmails = formData.correosElectronicos.filter(email => email.trim() !== '');
 
       const updatedCompany: Company = {
         id: company?.id || '1',
         ruc: formData.ruc,
-        businessName: formData.businessName,
-        tradeName: formData.tradeName || undefined,
-        address: formData.fiscalAddress,
-        district: company?.district || '',
-        province: company?.province || '',
-        department: company?.department || '',
-        postalCode: formData.ubigeo,
-        phones: cleanPhones.length > 0 ? cleanPhones : [],
-        emails: cleanEmails.length > 0 ? cleanEmails : [],
-        website: company?.website,
-        economicActivity: formData.economicActivity,
-        taxRegime: company?.taxRegime || 'GENERAL',
-        baseCurrency: formData.baseCurrency,
-        legalRepresentative: company?.legalRepresentative || {
-          name: '',
-          documentType: 'DNI',
-          documentNumber: ''
+        razonSocial: formData.razonSocial,
+        nombreComercial: formData.nombreComercial || undefined,
+        direccionFiscal: formData.direccionFiscal,
+        distrito: company?.distrito || '',
+        provincia: company?.provincia || '',
+        departamento: company?.departamento || '',
+        codigoPostal: formData.ubigeo,
+        telefonos: cleanPhones.length > 0 ? cleanPhones : [],
+        correosElectronicos: cleanEmails.length > 0 ? cleanEmails : [],
+        sitioWeb: company?.sitioWeb,
+        actividadEconomica: formData.actividadEconomica,
+        regimenTributario: company?.regimenTributario || 'GENERAL',
+        monedaBase: formData.monedaBase,
+        representanteLegal: company?.representanteLegal || {
+          nombreRepresentanteLegal: '',
+          tipoDocumentoRepresentante: 'DNI',
+          numeroDocumentoRepresentante: ''
         },
-        digitalCertificate: company?.digitalCertificate,
-        sunatConfiguration: {
-          isConfigured: company?.sunatConfiguration?.isConfigured || false,
-          username: company?.sunatConfiguration?.username,
-          environment: formData.environment === 'TEST' ? 'TESTING' : 'PRODUCTION',
-          lastSyncDate: company?.sunatConfiguration?.lastSyncDate
+        certificadoDigital: company?.certificadoDigital,
+        configuracionSunatEmpresa: {
+          estaConfiguradoEnSunat: company?.configuracionSunatEmpresa?.estaConfiguradoEnSunat || false,
+          usuarioSunat: company?.configuracionSunatEmpresa?.usuarioSunat,
+          entornoSunat: formData.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
+          fechaUltimaSincronizacionSunat: company?.configuracionSunatEmpresa?.fechaUltimaSincronizacionSunat
         },
-        createdAt: company?.createdAt || new Date(),
-        updatedAt: new Date(),
-        isActive: company?.isActive ?? true
+        creadoEl: company?.creadoEl || new Date(),
+        actualizadoEl: new Date(),
+        estaActiva: company?.estaActiva ?? true
       };
 
       dispatch({ type: 'SET_COMPANY', payload: updatedCompany });
@@ -462,9 +462,9 @@ export function CompanyConfiguration() {
       const workspace = createOrUpdateWorkspace({
         id: targetWorkspaceId,
         ruc: formData.ruc,
-        razonSocial: formData.businessName,
-        nombreComercial: formData.tradeName,
-        domicilioFiscal: formData.fiscalAddress,
+        razonSocial: formData.razonSocial,
+        nombreComercial: formData.nombreComercial,
+        domicilioFiscal: formData.direccionFiscal,
       });
       ensuredWorkspaceIdRef.current = workspace.id;
 
@@ -483,7 +483,7 @@ export function CompanyConfiguration() {
           id: 'est-main',
           code: '0001',
           name: 'Establecimiento',
-          address: formData.fiscalAddress,
+          address: formData.direccionFiscal,
           district: location?.district || 'Lima',
           province: location?.province || 'Lima',
           department: location?.department || 'Lima',
@@ -504,7 +504,7 @@ export function CompanyConfiguration() {
             isRegistered: true,
             registrationDate: new Date(),
             annexCode: '0000',
-            economicActivity: company?.economicActivity || 'Comercio',
+            economicActivity: company?.actividadEconomica || 'Comercio',
           },
           posConfiguration: {
             hasPos: true,
@@ -571,7 +571,7 @@ export function CompanyConfiguration() {
 
         // 3. CREAR SERIES POR DEFECTO (FACTURA, BOLETA y documentos internos serieables)
         const environmentType =
-          formData.environment === 'TEST' ? 'TESTING' : 'PRODUCTION';
+          formData.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION';
 
         const defaultSeries: Series[] = buildMissingDefaultSeries({
           establishmentId: createdEstablishment.id,
@@ -678,8 +678,8 @@ export function CompanyConfiguration() {
   // For new company: require RUC validation + has changes
   // For existing company: allow updates without re-validating RUC but require changes
   const isFormValid = formData.ruc.length === 11 &&
-                    formData.businessName.trim() !== '' &&
-                    formData.fiscalAddress.trim() !== '' &&
+                    formData.razonSocial.trim() !== '' &&
+                    formData.direccionFiscal.trim() !== '' &&
                     (company?.id ? true : rucValidation?.isValid === true) &&
                     hasChanges; // Only enable if there are changes
 
@@ -722,18 +722,18 @@ export function CompanyConfiguration() {
               <div className="relative">
                 <input
                   type="text"
-                  value={formData.businessName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, businessName: e.target.value }))}
+                  value={formData.razonSocial}
+                  onChange={(e) => setFormData(prev => ({ ...prev, razonSocial: e.target.value }))}
                   className={`
                     w-full h-10 px-3 text-sm pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     bg-gray-50 dark:bg-gray-800 transition-all duration-200
-                    ${formData.businessName ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
+                    ${formData.razonSocial ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
                     text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
                   `}
                   readOnly
                   placeholder="Se completará automáticamente al validar el RUC"
                 />
-                {formData.businessName && (
+                {formData.razonSocial && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                   </div>
@@ -748,8 +748,8 @@ export function CompanyConfiguration() {
               </label>
               <input
                 type="text"
-                value={formData.tradeName}
-                onChange={(e) => setFormData(prev => ({ ...prev, tradeName: e.target.value }))}
+                value={formData.nombreComercial}
+                onChange={(e) => setFormData(prev => ({ ...prev, nombreComercial: e.target.value }))}
                 className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Nombre con el que se conoce tu empresa"
               />
@@ -762,19 +762,19 @@ export function CompanyConfiguration() {
               </label>
               <div className="relative">
                 <textarea
-                  value={formData.fiscalAddress}
-                  onChange={(e) => setFormData(prev => ({ ...prev, fiscalAddress: e.target.value }))}
+                  value={formData.direccionFiscal}
+                  onChange={(e) => setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }))}
                   className={`
                     w-full min-h-[72px] px-3 py-2 text-sm pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     bg-gray-50 dark:bg-gray-800 transition-all duration-200
-                    ${formData.fiscalAddress ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
+                    ${formData.direccionFiscal ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
                     text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
                   `}
                   rows={2}
                   readOnly
                   placeholder="Se completará automáticamente al validar el RUC"
                 />
-                {formData.fiscalAddress && (
+                {formData.direccionFiscal && (
                   <div className="absolute right-3 top-3">
                     <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                   </div>
@@ -789,8 +789,8 @@ export function CompanyConfiguration() {
               </label>
               <input
                 type="text"
-                value={formData.economicActivity}
-                onChange={(e) => setFormData(prev => ({ ...prev, economicActivity: e.target.value }))}
+                value={formData.actividadEconomica}
+                onChange={(e) => setFormData(prev => ({ ...prev, actividadEconomica: e.target.value }))}
                 className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Ej: Comercio al por menor"
               />
@@ -810,8 +810,8 @@ export function CompanyConfiguration() {
                 Moneda Base *
               </label>
               <select
-                value={formData.baseCurrency}
-                onChange={(e) => setFormData(prev => ({ ...prev, baseCurrency: e.target.value as 'PEN' | 'USD' }))}
+                value={formData.monedaBase}
+                onChange={(e) => setFormData(prev => ({ ...prev, monedaBase: e.target.value as 'PEN' | 'USD' }))}
                 className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 <option value="PEN">PEN - Soles Peruanos</option>
@@ -830,14 +830,14 @@ export function CompanyConfiguration() {
                     type="radio"
                     id="test"
                     name="environment"
-                    checked={formData.environment === 'TEST'}
+                    checked={formData.entornoSunat === 'TEST'}
                     onChange={() => handleEnvironmentChange('TEST')}
-                    disabled={company?.sunatConfiguration?.environment === 'PRODUCTION'}
+                    disabled={company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800"
                   />
-                  <label htmlFor="test" className={`flex items-center space-x-2 ${company?.sunatConfiguration?.environment === 'PRODUCTION' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <label htmlFor="test" className={`flex items-center space-x-2 ${company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION' ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Prueba</span>
-                    {formData.environment === 'TEST' && (
+                    {formData.entornoSunat === 'TEST' && (
                       <StatusIndicator status="warning" label="Activo" size="sm" />
                     )}
                   </label>
@@ -848,13 +848,13 @@ export function CompanyConfiguration() {
                     type="radio"
                     id="production"
                     name="environment"
-                    checked={formData.environment === 'PRODUCTION'}
+                    checked={formData.entornoSunat === 'PRODUCTION'}
                     onChange={() => handleEnvironmentChange('PRODUCTION')}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-800"
                   />
                   <label htmlFor="production" className="flex items-center space-x-2">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Producción</span>
-                    {formData.environment === 'PRODUCTION' && (
+                    {formData.entornoSunat === 'PRODUCTION' && (
                       <StatusIndicator status="success" label="Activo" size="sm" />
                     )}
                   </label>
@@ -862,7 +862,7 @@ export function CompanyConfiguration() {
               </div>
 
               {/* Warning: Test Mode */}
-              {formData.environment === 'TEST' && company?.sunatConfiguration?.environment !== 'PRODUCTION' && (
+              {formData.entornoSunat === 'TEST' && company?.configuracionSunatEmpresa?.entornoSunat !== 'PRODUCTION' && (
                 <div className="mt-2 p-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
                   <div className="flex items-start gap-1.5 text-xs text-yellow-800 dark:text-yellow-200 leading-tight">
                     <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -872,7 +872,7 @@ export function CompanyConfiguration() {
               )}
 
               {/* Info: Production Mode Locked */}
-              {company?.sunatConfiguration?.environment === 'PRODUCTION' && (
+              {company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION' && (
                 <div className="mt-2 p-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
                   <div className="flex items-start gap-1.5 text-xs text-blue-800 dark:text-blue-200 leading-tight">
                     <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
@@ -899,22 +899,22 @@ export function CompanyConfiguration() {
                 Teléfonos
               </label>
               <div className="space-y-2">
-                {formData.phones.map((phone, index) => (
+                {formData.telefonos.map((phone, index) => (
                   <div key={index} className="flex items-center space-x-2">
                     <div className="relative flex-1">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
                       <input
                         type="tel"
                         value={phone}
-                        onChange={(e) => handleArrayFieldChange('phones', index, e.target.value)}
+                        onChange={(e) => handleArrayFieldChange('telefonos', index, e.target.value)}
                         placeholder="+51 987 654 321"
                         className="w-full h-10 pl-10 pr-4 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                       />
                     </div>
-                    {formData.phones.length > 1 && (
+                    {formData.telefonos.length > 1 && (
                       <button
                         type="button"
-                        onClick={() => removeArrayField('phones', index)}
+                        onClick={() => removeArrayField('telefonos', index)}
                         className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       >
                         <X className="w-5 h-5" />
@@ -925,7 +925,7 @@ export function CompanyConfiguration() {
                 
                 <button
                   type="button"
-                  onClick={() => addArrayField('phones')}
+                  onClick={() => addArrayField('telefonos')}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
                 >
                   + Agregar teléfono
@@ -939,22 +939,22 @@ export function CompanyConfiguration() {
                 Correos Electrónicos
               </label>
               <div className="space-y-2">
-                {formData.emails.map((email, index) => (
+                {formData.correosElectronicos.map((email, index) => (
                   <div key={index} className="flex items-center space-x-2">
                     <div className="relative flex-1">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
                       <input
                         type="email"
                         value={email}
-                        onChange={(e) => handleArrayFieldChange('emails', index, e.target.value)}
+                        onChange={(e) => handleArrayFieldChange('correosElectronicos', index, e.target.value)}
                         placeholder="contacto@miempresa.com"
                         className="w-full h-10 pl-10 pr-4 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                       />
                     </div>
-                    {formData.emails.length > 1 && (
+                    {formData.correosElectronicos.length > 1 && (
                       <button
                         type="button"
-                        onClick={() => removeArrayField('emails', index)}
+                        onClick={() => removeArrayField('correosElectronicos', index)}
                         className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       >
                         <X className="w-5 h-5" />
@@ -965,7 +965,7 @@ export function CompanyConfiguration() {
                 
                 <button
                   type="button"
-                  onClick={() => addArrayField('emails')}
+                  onClick={() => addArrayField('correosElectronicos')}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
                 >
                   + Agregar correo

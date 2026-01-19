@@ -5,7 +5,7 @@ export function buildCompanyData(company: Company | null | undefined): CompanyDa
   if (!company) {
     return {
       name: "",
-      businessName: "",
+      razonSocial: "",
       ruc: "",
       address: "",
       phone: "",
@@ -14,11 +14,11 @@ export function buildCompanyData(company: Company | null | undefined): CompanyDa
   }
 
   return {
-    name: company.tradeName ?? company.businessName ?? "",
-    businessName: company.businessName ?? company.tradeName ?? "",
+    name: company.nombreComercial ?? company.razonSocial ?? "",
+    razonSocial: company.razonSocial ?? company.nombreComercial ?? "",
     ruc: company.ruc ?? "",
-    address: company.address ?? "",
-    phone: company.phones?.[0] ?? "",
-    email: company.emails?.[0] ?? "",
+    address: company.direccionFiscal ?? "",
+    phone: company.telefonos?.[0] ?? "",
+    email: company.correosElectronicos?.[0] ?? "",
   };
 }

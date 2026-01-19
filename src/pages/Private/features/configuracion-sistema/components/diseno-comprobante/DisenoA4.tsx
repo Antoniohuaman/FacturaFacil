@@ -51,7 +51,7 @@ export interface A4VoucherDesign {
       fontWeight: 'normal' | 'bold';
       color: string;
       alignment: 'left' | 'center' | 'right';
-      showBusinessName: boolean;
+      mostrarRazonSocial: boolean;
       showAddress: boolean;
       showPhone: boolean;
       showEmail: boolean;
@@ -227,7 +227,7 @@ const DISENO_A4_BASE: A4VoucherDesign = {
       fontWeight: 'normal',
       color: '#000000',
       alignment: 'center',
-      showBusinessName: true,
+      mostrarRazonSocial: true,
       showAddress: true,
       showPhone: true,
       showEmail: true,
@@ -666,7 +666,7 @@ export default function A4Design({ onDesignChange, initialDesign }: A4DesignProp
                   <label className="block text-xs text-gray-500">Datos a mostrar:</label>
                   <div className="space-y-1">
                     {[
-                      { key: 'showBusinessName', label: 'Razón Social' },
+                      { key: 'mostrarRazonSocial', label: 'Razón Social' },
                       { key: 'showAddress', label: 'Dirección' },
                       { key: 'showPhone', label: 'Teléfono' },
                       { key: 'showEmail', label: 'Email' },
@@ -783,7 +783,7 @@ export default function A4Design({ onDesignChange, initialDesign }: A4DesignProp
                           color: design.header.companyInfo.color 
                         }}
                       >
-                        {design.header.companyInfo.showBusinessName && <div className="font-bold">EMPRESA DEMO S.A.C.</div>}
+                        {design.header.companyInfo.mostrarRazonSocial && <div className="font-bold">EMPRESA DEMO S.A.C.</div>}
                         {design.header.companyInfo.showRuc && <div>RUC: 20123456789</div>}
                         {design.header.companyInfo.showAddress && <div>Av. Demo 123, Lima, Perú</div>}
                         {design.header.companyInfo.showPhone && <div>Tel: (01) 123-4567</div>}

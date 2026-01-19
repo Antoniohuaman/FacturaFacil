@@ -38,14 +38,14 @@ function ConfigurationLayoutContent() {
             <div className="flex items-center space-x-4">
               <div className="hidden sm:flex items-center space-x-2 text-sm">
                 <div className={`w-2 h-2 rounded-full ${
-                  company?.sunatConfiguration.environment === 'PRODUCTION' ? 'bg-green-400' : 'bg-yellow-400'
+                  company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION' ? 'bg-green-400' : 'bg-yellow-400'
                 }`}></div>
                 <span className="text-gray-600">
-                  {company?.sunatConfiguration.environment === 'PRODUCTION' ? 'Producción' : 'Ambiente de prueba'}
+                  {company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION' ? 'Producción' : 'Ambiente de prueba'}
                 </span>
               </div>
 
-              {company?.sunatConfiguration.environment === 'TESTING' && (
+              {company?.configuracionSunatEmpresa.entornoSunat === 'TESTING' && (
                 <div className="flex items-center space-x-1 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-full text-sm">
                   <AlertTriangle className="w-4 h-4" />
                   <span className="hidden sm:inline">Modo de prueba</span>
@@ -65,7 +65,7 @@ function ConfigurationLayoutContent() {
       </main>
 
       {/* Environment Banner (if test mode) */}
-      {company?.sunatConfiguration.environment === 'TESTING' && (
+      {company?.configuracionSunatEmpresa.entornoSunat === 'TESTING' && (
         <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 p-1">
           <div className="bg-yellow-50 mx-1 rounded-lg">
             <div className="max-w-7xl mx-auto px-4 py-2">

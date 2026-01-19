@@ -92,7 +92,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const documentosCount = documentoState.documentos.length;
 
   // Obtener iniciales de la empresa para el botón compacto
-  const companyName = currentCompany?.tradeName || currentCompany?.businessName || 'Empresa';
+  const companyName = currentCompany?.nombreComercial || currentCompany?.razonSocial || 'Empresa';
   const companyInitials = companyName
     .split(' ').slice(0, 2).map((word: string) => word[0]).join('').toUpperCase();
 

@@ -24,11 +24,12 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
 
     return {
       company: {
-        name: company?.businessName || 'MI EMPRESA S.A.C. [Datos de Ejemplo]',
+        razonSocial: company?.razonSocial || 'MI EMPRESA S.A.C. [Datos de Ejemplo]',
+        nombreComercial: company?.nombreComercial,
         ruc: company?.ruc || '20123456789',
-        address: company?.address || 'Jr. Los Ejemplos 123, Lima, Lima',
-        phone: company?.phones?.[0] || '+51 987 654 321',
-        email: company?.emails?.[0] || 'ventas@miempresa.com'
+        direccionFiscal: company?.direccionFiscal || 'Jr. Los Ejemplos 123, Lima, Lima',
+        telefonos: company?.telefonos?.length ? company.telefonos : ['+51 987 654 321'],
+        correosElectronicos: company?.correosElectronicos?.length ? company.correosElectronicos : ['ventas@miempresa.com']
       },
       client: {
         name: 'Juan Pérez García [Ejemplo]',
@@ -184,22 +185,22 @@ const A4Header: React.FC<A4HeaderProps> = ({ logo, sampleData }) => {
             )}
             <div className="flex flex-col items-center text-center w-full">
               <h1 className="font-bold text-base text-gray-900 leading-tight">
-                {sampleData.company.name}
+                {sampleData.company.razonSocial}
               </h1>
-              <p className="text-xs text-gray-700 mt-0.5">{sampleData.company.address}</p>
-              <p className="text-xs text-gray-700">Tel: {sampleData.company.phone}</p>
-              <p className="text-xs text-gray-700">Email: {sampleData.company.email}</p>
+              <p className="text-xs text-gray-700 mt-0.5">{sampleData.company.direccionFiscal}</p>
+              <p className="text-xs text-gray-700">Tel: {sampleData.company.telefonos?.[0]}</p>
+              <p className="text-xs text-gray-700">Email: {sampleData.company.correosElectronicos?.[0]}</p>
             </div>
           </>
         ) : (
           <>
             <div className="flex flex-col items-center text-center w-full mb-1">
               <h1 className="font-bold text-base text-gray-900 leading-tight">
-                {sampleData.company.name}
+                {sampleData.company.razonSocial}
               </h1>
-              <p className="text-xs text-gray-700 mt-0.5">{sampleData.company.address}</p>
-              <p className="text-xs text-gray-700">Tel: {sampleData.company.phone}</p>
-              <p className="text-xs text-gray-700">Email: {sampleData.company.email}</p>
+              <p className="text-xs text-gray-700 mt-0.5">{sampleData.company.direccionFiscal}</p>
+              <p className="text-xs text-gray-700">Tel: {sampleData.company.telefonos?.[0]}</p>
+              <p className="text-xs text-gray-700">Email: {sampleData.company.correosElectronicos?.[0]}</p>
             </div>
             {logoVisual && (
               <div className="flex items-center justify-center mt-1">{logoVisual}</div>
@@ -230,13 +231,13 @@ const A4Header: React.FC<A4HeaderProps> = ({ logo, sampleData }) => {
     <div className="flex flex-col justify-between h-full py-1">
       <div>
         <h1 className="font-bold text-base text-gray-900 leading-tight">
-          {sampleData.company.name}
+          {sampleData.company.razonSocial}
         </h1>
-        <p className="text-xs text-gray-700 mt-0.5 truncate">{sampleData.company.address}</p>
+        <p className="text-xs text-gray-700 mt-0.5 truncate">{sampleData.company.direccionFiscal}</p>
       </div>
       <div className="mt-1 text-xs text-gray-700 space-y-0.5">
-        <p>Tel: {sampleData.company.phone}</p>
-        <p>Email: {sampleData.company.email}</p>
+        <p>Tel: {sampleData.company.telefonos?.[0]}</p>
+        <p>Email: {sampleData.company.correosElectronicos?.[0]}</p>
       </div>
     </div>
   );
@@ -662,9 +663,9 @@ const TicketPreview: React.FC<{ config: VoucherDesignConfigurationExtended; samp
             )}
 
             <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
-              <h1 className="font-bold text-xs">{sampleData.company.name}</h1>
+              <h1 className="font-bold text-xs">{sampleData.company.razonSocial}</h1>
               <p className="text-[9px]">RUC: {sampleData.company.ruc}</p>
-              <p className="text-[9px]">{sampleData.company.address}</p>
+              <p className="text-[9px]">{sampleData.company.direccionFiscal}</p>
             </div>
 
             <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">

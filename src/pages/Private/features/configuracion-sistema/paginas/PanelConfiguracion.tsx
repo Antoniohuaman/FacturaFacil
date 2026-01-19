@@ -243,16 +243,16 @@ export function ConfigurationDashboard() {
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Ambiente</p>
               <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {company?.sunatConfiguration?.environment === 'PRODUCTION' ? 'Producción' : 'Prueba'}
+                {company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION' ? 'Producción' : 'Prueba'}
               </p>
             </div>
             <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-              company?.sunatConfiguration?.environment === 'PRODUCTION' 
+              company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION' 
                 ? 'bg-red-50 dark:bg-red-900/30' 
                 : 'bg-yellow-50 dark:bg-yellow-900/30'
             }`}>
               <Shield className={`w-6 h-6 ${
-                company?.sunatConfiguration?.environment === 'PRODUCTION' 
+                company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION' 
                   ? 'text-red-600 dark:text-red-400' 
                   : 'text-yellow-600 dark:text-yellow-400'
               }`} />
@@ -262,7 +262,7 @@ export function ConfigurationDashboard() {
       </div>
 
       {/* Environment Alert */}
-      {company?.sunatConfiguration?.environment === 'TESTING' && (
+      {company?.configuracionSunatEmpresa.entornoSunat === 'TESTING' && (
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-6">
           <div className="flex items-start space-x-4">
             <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-800/30 rounded-full flex items-center justify-center flex-shrink-0">

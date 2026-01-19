@@ -39,8 +39,8 @@ export interface TicketVoucherDesign {
       alignment: 'left' | 'center' | 'right';
       fontSize: 'small' | 'medium' | 'large';
       fontWeight: 'normal' | 'bold';
-      showBusinessName: boolean;
-      showTradeName: boolean;
+      mostrarRazonSocial: boolean;
+      mostrarNombreComercial: boolean;
       showRuc: boolean;
       showAddress: boolean;
       showPhone: boolean;
@@ -217,8 +217,8 @@ const DISENO_TICKET_BASE: TicketVoucherDesign = {
       alignment: 'center',
       fontSize: 'medium',
       fontWeight: 'bold',
-      showBusinessName: true,
-      showTradeName: false,
+      mostrarRazonSocial: true,
+      mostrarNombreComercial: false,
       showRuc: true,
       showAddress: true,
       showPhone: true,
@@ -392,8 +392,8 @@ export default function TicketDesign({ onDesignChange, initialDesign }: TicketDe
               {/* Company Info */}
               {design.header.companyInfo.enabled && (
                 <div className={`text-${design.header.companyInfo.alignment} ${getFontSizeClass(design.header.companyInfo.fontSize)} ${design.header.companyInfo.fontWeight === 'bold' ? 'font-bold' : ''}`}>
-                  {design.header.companyInfo.showBusinessName && <div>EMPRESA DEMO S.A.C.</div>}
-                  {design.header.companyInfo.showTradeName && <div>TIENDA DEMO</div>}
+                  {design.header.companyInfo.mostrarRazonSocial && <div>EMPRESA DEMO S.A.C.</div>}
+                  {design.header.companyInfo.mostrarNombreComercial && <div>TIENDA DEMO</div>}
                   {design.header.companyInfo.showRuc && <div>RUC: 20123456789</div>}
                   {design.header.companyInfo.showAddress && <div>AV. DEMO 123, LIMA</div>}
                   {design.header.companyInfo.showPhone && <div>TEL: (01) 123-4567</div>}

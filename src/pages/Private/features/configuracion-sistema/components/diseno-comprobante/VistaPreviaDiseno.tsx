@@ -14,13 +14,13 @@ interface DesignPreviewProps {
 
 interface VoucherSampleData {
   company: {
-    businessName: string;
-    tradeName?: string;
+    razonSocial: string;
+    nombreComercial?: string;
     ruc: string;
-    address: string;
-    phone?: string;
-    email?: string;
-    logo?: string;
+    direccionFiscal: string;
+    telefono?: string;
+    correoElectronico?: string;
+    logoEmpresa?: string;
   };
   document: {
     type: string;
@@ -68,12 +68,12 @@ interface VoucherSampleData {
 
 const DATOS_MUESTRA_PREDETERMINADOS: VoucherSampleData = {
   company: {
-    businessName: 'EMPRESA DEMO S.A.C.',
-    tradeName: 'TIENDA DEMO',
+    razonSocial: 'EMPRESA DEMO S.A.C.',
+    nombreComercial: 'TIENDA DEMO',
     ruc: '20123456789',
-    address: 'AV. DEMO 123, LIMA, PERÚ',
-    phone: '(01) 123-4567',
-    email: 'info@empresademo.com',
+    direccionFiscal: 'AV. DEMO 123, LIMA, PERÚ',
+    telefono: '(01) 123-4567',
+    correoElectronico: 'info@empresademo.com',
   },
   document: {
     type: 'BOLETA DE VENTA ELECTRÓNICA',
@@ -235,9 +235,9 @@ export default function DesignPreview({
                       height: `${a4Design.header.logo.height}px` 
                     }}
                   >
-                    {sampleData.company.logo ? (
+                    {sampleData.company.logoEmpresa ? (
                       <img 
-                        src={sampleData.company.logo} 
+                        src={sampleData.company.logoEmpresa} 
                         alt="Logo"
                         className="w-full h-full object-contain"
                       />
@@ -258,11 +258,11 @@ export default function DesignPreview({
                       color: a4Design.header.companyInfo.color 
                     }}
                   >
-                    {a4Design.header.companyInfo.showBusinessName && <div className="font-bold">{sampleData.company.businessName}</div>}
+                    {a4Design.header.companyInfo.mostrarRazonSocial && <div className="font-bold">{sampleData.company.razonSocial}</div>}
                     {a4Design.header.companyInfo.showRuc && <div>RUC: {sampleData.company.ruc}</div>}
-                    {a4Design.header.companyInfo.showAddress && <div>{sampleData.company.address}</div>}
-                    {a4Design.header.companyInfo.showPhone && sampleData.company.phone && <div>Tel: {sampleData.company.phone}</div>}
-                    {a4Design.header.companyInfo.showEmail && sampleData.company.email && <div>{sampleData.company.email}</div>}
+                    {a4Design.header.companyInfo.showAddress && <div>{sampleData.company.direccionFiscal}</div>}
+                    {a4Design.header.companyInfo.showPhone && sampleData.company.telefono && <div>Tel: {sampleData.company.telefono}</div>}
+                    {a4Design.header.companyInfo.showEmail && sampleData.company.correoElectronico && <div>{sampleData.company.correoElectronico}</div>}
                   </div>
                 </div>
               )}
@@ -618,12 +618,12 @@ export default function DesignPreview({
             <div className="mb-2">
               {ticketDesign.header.companyInfo.enabled && (
                 <div className={`text-${ticketDesign.header.companyInfo.alignment} text-${ticketDesign.header.companyInfo.fontSize} ${ticketDesign.header.companyInfo.fontWeight === 'bold' ? 'font-bold' : ''}`}>
-                  {ticketDesign.header.companyInfo.showBusinessName && <div>{sampleData.company.businessName}</div>}
-                  {ticketDesign.header.companyInfo.showTradeName && sampleData.company.tradeName && <div>{sampleData.company.tradeName}</div>}
+                  {ticketDesign.header.companyInfo.mostrarRazonSocial && <div>{sampleData.company.razonSocial}</div>}
+                  {ticketDesign.header.companyInfo.mostrarNombreComercial && sampleData.company.nombreComercial && <div>{sampleData.company.nombreComercial}</div>}
                   {ticketDesign.header.companyInfo.showRuc && <div>RUC: {sampleData.company.ruc}</div>}
-                  {ticketDesign.header.companyInfo.showAddress && <div>{sampleData.company.address}</div>}
-                  {ticketDesign.header.companyInfo.showPhone && sampleData.company.phone && <div>TEL: {sampleData.company.phone}</div>}
-                  {ticketDesign.header.companyInfo.showEmail && sampleData.company.email && <div>{sampleData.company.email}</div>}
+                  {ticketDesign.header.companyInfo.showAddress && <div>{sampleData.company.direccionFiscal}</div>}
+                  {ticketDesign.header.companyInfo.showPhone && sampleData.company.telefono && <div>TEL: {sampleData.company.telefono}</div>}
+                  {ticketDesign.header.companyInfo.showEmail && sampleData.company.correoElectronico && <div>{sampleData.company.correoElectronico}</div>}
                 </div>
               )}
               

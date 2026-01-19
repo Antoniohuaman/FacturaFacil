@@ -59,36 +59,36 @@ export function ContextSelectPage() {
       const companyForConfig = {
         id: selectedEmpresa.id,
         ruc: selectedEmpresa.ruc,
-        businessName: selectedEmpresa.razonSocial,
-        tradeName: selectedEmpresa.nombreComercial || selectedEmpresa.razonSocial,
-        address: selectedEmpresa.direccion || '',
-        district: '',
-        province: '',
-        department: '',
-        postalCode: '',
-        phones: [],
-        emails: [],
-        website: undefined,
-        logo: selectedEmpresa.logo,
-        footerText: undefined,
-        economicActivity: '',
-        taxRegime: 'GENERAL' as const,
-        baseCurrency: 'PEN' as const,
-        legalRepresentative: {
-          name: '',
-          documentType: 'DNI' as const,
-          documentNumber: ''
+        razonSocial: selectedEmpresa.razonSocial,
+        nombreComercial: selectedEmpresa.nombreComercial || selectedEmpresa.razonSocial,
+        direccionFiscal: selectedEmpresa.direccion || '',
+        distrito: '',
+        provincia: '',
+        departamento: '',
+        codigoPostal: '',
+        telefonos: [],
+        correosElectronicos: [],
+        sitioWeb: undefined,
+        logoEmpresa: selectedEmpresa.logo,
+        textoPiePagina: undefined,
+        actividadEconomica: '',
+        regimenTributario: 'GENERAL' as const,
+        monedaBase: 'PEN' as const,
+        representanteLegal: {
+          nombreRepresentanteLegal: '',
+          tipoDocumentoRepresentante: 'DNI' as const,
+          numeroDocumentoRepresentante: ''
         },
-        digitalCertificate: undefined,
-        sunatConfiguration: {
-          isConfigured: false,
-          username: undefined,
-          environment: 'TESTING' as const,
-          lastSyncDate: undefined
+        certificadoDigital: undefined,
+        configuracionSunatEmpresa: {
+          estaConfiguradoEnSunat: false,
+          usuarioSunat: undefined,
+          entornoSunat: 'TESTING' as const,
+          fechaUltimaSincronizacionSunat: undefined
         },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isActive: selectedEmpresa.estado === 'activa'
+        creadoEl: new Date(),
+        actualizadoEl: new Date(),
+        estaActiva: selectedEmpresa.estado === 'activa'
       };
 
       // Si la empresa NO existe en ConfigurationContext, crearla

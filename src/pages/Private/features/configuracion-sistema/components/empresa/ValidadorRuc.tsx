@@ -55,20 +55,20 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
     // Successful validation with mock data
     const mockCompanies = {
       '20123456789': {
-        businessName: 'EMPRESA EJEMPLO S.A.C.',
-        fiscalAddress: 'JR. LOS EJEMPLOS 123, LIMA, LIMA, LIMA',
+        razonSocial: 'EMPRESA EJEMPLO S.A.C.',
+        direccionFiscal: 'JR. LOS EJEMPLOS 123, LIMA, LIMA, LIMA',
         ubigeo: '150101'
       },
       '20111111112': {
-        businessName: 'COMERCIAL DEMO EIRL',
-        fiscalAddress: 'AV. DEMO 456, SAN ISIDRO, LIMA, LIMA',
+        razonSocial: 'COMERCIAL DEMO EIRL',
+        direccionFiscal: 'AV. DEMO 456, SAN ISIDRO, LIMA, LIMA',
         ubigeo: '150127'
       }
     };
 
     const mockData = mockCompanies[ruc as keyof typeof mockCompanies] || {
-      businessName: 'EMPRESA VALIDADA S.A.C.',
-      fiscalAddress: 'AV. PRINCIPAL 789, MIRAFLORES, LIMA, LIMA',
+      razonSocial: 'EMPRESA VALIDADA S.A.C.',
+      direccionFiscal: 'AV. PRINCIPAL 789, MIRAFLORES, LIMA, LIMA',
       ubigeo: '150122'
     };
 
@@ -224,7 +224,7 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
               <p className="text-xs text-green-700 mt-0.5 leading-tight">{validation.message}</p>
               {validation.data && (
                 <p className="text-xs text-green-700 mt-0.5 leading-tight">
-                  SUNAT: {validation.data.businessName}
+                  SUNAT: {validation.data.razonSocial}
                 </p>
               )}
             </div>

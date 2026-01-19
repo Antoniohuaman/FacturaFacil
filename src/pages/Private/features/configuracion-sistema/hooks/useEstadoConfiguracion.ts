@@ -274,13 +274,13 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
           completedSteps = steps.filter(step => {
             switch (step.id) {
               case 'company-basic':
-                return state.company?.ruc && state.company?.businessName;
+                return state.company?.ruc && state.company?.razonSocial;
               case 'company-address':
-                return state.company?.address && state.company?.district;
+                return state.company?.direccionFiscal && state.company?.distrito;
               case 'company-representative':
-                return state.company?.legalRepresentative?.name;
+                return state.company?.representanteLegal?.nombreRepresentanteLegal;
               case 'company-sunat':
-                return state.company?.sunatConfiguration?.isConfigured;
+                return state.company?.configuracionSunatEmpresa?.estaConfiguradoEnSunat;
               default:
                 return false;
             }
@@ -290,7 +290,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
           isConfigured = completedSteps.length >= 3; // First 3 required steps
           status = isConfigured ? 'CONFIGURED' : 'PENDING';
           
-          if (!state.company.sunatConfiguration?.isConfigured) {
+          if (!state.company.configuracionSunatEmpresa?.estaConfiguradoEnSunat) {
             warnings.push('Configuración de SUNAT pendiente para facturación electrónica');
           }
         }

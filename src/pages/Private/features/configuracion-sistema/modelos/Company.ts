@@ -1,69 +1,69 @@
 export interface Company {
   id: string;
   ruc: string;
-  businessName: string;
-  tradeName?: string;
-  address: string;
-  district: string;
-  province: string;
-  department: string;
-  postalCode?: string;
+  razonSocial: string;
+  nombreComercial?: string;
+  direccionFiscal: string;
+  distrito: string;
+  provincia: string;
+  departamento: string;
+  codigoPostal?: string;
 
-  // Contact - Support multiple phones and emails
-  phones: string[];
-  emails: string[];
-  website?: string;
+  // Contacto - múltiples teléfonos y correos
+  telefonos: string[];
+  correosElectronicos: string[];
+  sitioWeb?: string;
 
   // Branding
-  logo?: string;
-  footerText?: string;
+  logoEmpresa?: string;
+  textoPiePagina?: string;
 
-  // Business
-  economicActivity: string;
-  taxRegime: 'GENERAL' | 'MYPE' | 'ESPECIAL';
-  baseCurrency: 'PEN' | 'USD';
+  // Negocio
+  actividadEconomica: string;
+  regimenTributario: 'GENERAL' | 'MYPE' | 'ESPECIAL';
+  monedaBase: 'PEN' | 'USD';
 
-  legalRepresentative: {
-    name: string;
-    documentType: 'DNI' | 'CE' | 'PASSPORT';
-    documentNumber: string;
+  representanteLegal: {
+    nombreRepresentanteLegal: string;
+    tipoDocumentoRepresentante: 'DNI' | 'CE' | 'PASSPORT';
+    numeroDocumentoRepresentante: string;
   };
-  digitalCertificate?: {
-    hasValidCertificate: boolean;
-    issuer?: string;
-    expiryDate?: Date;
+  certificadoDigital?: {
+    tieneCertificadoValido: boolean;
+    emisorCertificado?: string;
+    fechaVencimientoCertificado?: Date;
   };
-  sunatConfiguration: {
-    isConfigured: boolean;
-    username?: string;
-    environment: 'TESTING' | 'PRODUCTION';
-    lastSyncDate?: Date;
+  configuracionSunatEmpresa: {
+    estaConfiguradoEnSunat: boolean;
+    usuarioSunat?: string;
+    entornoSunat: 'TESTING' | 'PRODUCTION';
+    fechaUltimaSincronizacionSunat?: Date;
   };
-  createdAt: Date;
-  updatedAt: Date;
-  isActive: boolean;
+  creadoEl: Date;
+  actualizadoEl: Date;
+  estaActiva: boolean;
 }
 
 export interface CreateCompanyRequest {
   ruc: string;
-  businessName: string;
-  tradeName?: string;
-  address: string;
-  district: string;
-  province: string;
-  department: string;
-  postalCode?: string;
-  phones: string[];
-  emails: string[];
-  website?: string;
-  footerText?: string;
-  economicActivity: string;
-  taxRegime: 'GENERAL' | 'MYPE' | 'ESPECIAL';
-  baseCurrency: 'PEN' | 'USD';
-  legalRepresentative: {
-    name: string;
-    documentType: 'DNI' | 'CE' | 'PASSPORT';
-    documentNumber: string;
+  razonSocial: string;
+  nombreComercial?: string;
+  direccionFiscal: string;
+  distrito: string;
+  provincia: string;
+  departamento: string;
+  codigoPostal?: string;
+  telefonos: string[];
+  correosElectronicos: string[];
+  sitioWeb?: string;
+  textoPiePagina?: string;
+  actividadEconomica: string;
+  regimenTributario: 'GENERAL' | 'MYPE' | 'ESPECIAL';
+  monedaBase: 'PEN' | 'USD';
+  representanteLegal: {
+    nombreRepresentanteLegal: string;
+    tipoDocumentoRepresentante: 'DNI' | 'CE' | 'PASSPORT';
+    numeroDocumentoRepresentante: string;
   };
 }
 
