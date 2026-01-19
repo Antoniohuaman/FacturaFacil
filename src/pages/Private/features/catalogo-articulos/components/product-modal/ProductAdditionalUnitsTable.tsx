@@ -1,6 +1,6 @@
 import React from 'react';
 import { Layers, Plus, Info, X, MinusCircle } from 'lucide-react';
-import type { Unit } from '../../../configuracion-sistema/models/Unit';
+import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
 import type { ProductFormData } from '../../models/types';
 import type { AdditionalUnitError } from '../../hooks/useProductForm';
 

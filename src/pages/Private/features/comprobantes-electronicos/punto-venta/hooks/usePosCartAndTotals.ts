@@ -8,7 +8,7 @@ import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { calculateLineaComprobante, buildLinePricingInputFromCartItem } from '../../shared/core/comprobantePricing';
 import { buildTaxBreakdownFromLineResults } from '../../shared/core/taxBreakdown';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
 
 export interface PosPriceListOption {

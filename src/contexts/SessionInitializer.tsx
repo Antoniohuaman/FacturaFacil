@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useUserSession } from './UserSessionContext';
-import { useConfigurationContext } from '../pages/Private/features/configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 
 /**
  * Componente que sincroniza el UserSessionContext con ConfigurationContext

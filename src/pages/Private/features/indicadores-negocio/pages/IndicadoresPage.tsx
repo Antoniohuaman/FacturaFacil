@@ -20,7 +20,7 @@ import { useNotificacionesIndicador } from "../hooks/useNotificacionesIndicador"
 import { createEmptyNotificacionPayload } from "../models/notificacionesDefaults";
 import type { IndicadoresFilters } from "../models/indicadores";
 import type { NotificacionIndicadorPayload } from "../models/notificaciones";
-import { useConfigurationContext } from "../../configuracion-sistema/context/ConfigurationContext";
+import { useConfigurationContext } from "../../configuracion-sistema/contexto/ContextoConfiguracion";
 import { useFocusFromQuery } from "../../../../../hooks/useFocusFromQuery";
 
 const NOTIFICADOR_GENERAL_ID = "indicadores-general";

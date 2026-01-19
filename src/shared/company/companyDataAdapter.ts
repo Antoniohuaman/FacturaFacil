@@ -1,4 +1,4 @@
-import type { Company } from "../../pages/Private/features/configuracion-sistema/models/Company";
+import type { Company } from "../../pages/Private/features/configuracion-sistema/modelos/Company";
 import type { CompanyData } from "../../pages/Private/features/comprobantes-electronicos/models/comprobante.types";
 
 export function buildCompanyData(company: Company | null | undefined): CompanyData {

@@ -7,7 +7,7 @@ import BulkDeleteToolbar from '../components/BulkDeleteToolbar';
 import ProductModal from '../components/ProductModal';
 import ExportProductsModal from '../components/ExportProductsModal';
 import { useProductStore, type ProductInput, FAVORITES_LIMIT } from '../hooks/useProductStore';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';

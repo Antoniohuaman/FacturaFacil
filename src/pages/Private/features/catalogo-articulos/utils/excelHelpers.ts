@@ -2,7 +2,7 @@
 
 import * as XLSX from 'xlsx';
 import type { Product, ProductFormData } from '../models/types';
-import type { Establishment } from '../../configuracion-sistema/models/Establishment';
+import type { Establishment } from '../../configuracion-sistema/modelos/Establishment';
 import { inferUnitMeasureType } from './unitMeasureHelpers';
 
 // ====================================================================

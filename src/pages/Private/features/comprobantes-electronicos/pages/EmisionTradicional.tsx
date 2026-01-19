@@ -42,7 +42,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useCurrentEstablishmentId, useUserSession } from '../../../../../contexts/UserSessionContext';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';

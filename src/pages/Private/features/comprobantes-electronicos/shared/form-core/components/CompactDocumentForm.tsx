@@ -24,8 +24,8 @@ import {
   X
 } from 'lucide-react';
 import { ConfigurationCard } from './ConfigurationCard';
-import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
-import type { PaymentMethod as ConfigurationPaymentMethod } from '../../../../configuracion-sistema/models/PaymentMethod';
+import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import type { PaymentMethod as ConfigurationPaymentMethod } from '../../../../configuracion-sistema/modelos/PaymentMethod';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
 import type { TipoComprobante, Currency } from '../../../models/comprobante.types';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';

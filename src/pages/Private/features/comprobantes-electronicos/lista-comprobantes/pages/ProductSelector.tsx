@@ -8,7 +8,7 @@ import {
 } from '../../../catalogo-articulos/models/types';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
 import { useCurrentEstablishmentId } from '../../../../../../contexts/UserSessionContext';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getAvailableStockForUnit } from '../../../../../../shared/inventory/stockGateway';
 
 interface Product {

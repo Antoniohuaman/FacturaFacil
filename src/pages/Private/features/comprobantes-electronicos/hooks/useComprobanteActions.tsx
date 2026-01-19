@@ -23,10 +23,10 @@ import {
   normalizeCreditTermsToInstallments,
   updateInstallmentsWithAllocations,
 } from '../../gestion-cobranzas/utils/installments';
-import type { PaymentMethod as ConfigPaymentMethod } from '../../configuracion-sistema/models/PaymentMethod';
+import type { PaymentMethod as ConfigPaymentMethod } from '../../configuracion-sistema/modelos/PaymentMethod';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import {
   allocateSaleAcrossWarehouses,
   calculateRequiredUnidadMinima,

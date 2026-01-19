@@ -1,7 +1,7 @@
 // src/features/catalogo-articulos/components/ImportModal.tsx
 
 import React, { useState, useRef } from 'react';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { generateExcelTemplate } from '../utils/excelHelpers';
 
 interface ImportModalProps {

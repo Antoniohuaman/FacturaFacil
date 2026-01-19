@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Establishment } from '../../../configuracion-sistema/models/Establishment';
+import type { Establishment } from '../../../configuracion-sistema/modelos/Establishment';
 import type { ProductFormData } from '../../models/types';
 
 interface ProductAvailabilitySectionProps {

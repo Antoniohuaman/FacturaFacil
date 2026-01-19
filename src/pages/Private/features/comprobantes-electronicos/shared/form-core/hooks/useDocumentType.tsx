@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCurrentEstablishmentId } from '../../../../../../../contexts/UserSessionContext';
 import type { TipoComprobante } from '../../../models/comprobante.types';
 

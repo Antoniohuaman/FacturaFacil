@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { resolveUnidadMinima } from '@/shared/inventory/unitConversion';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { isProductEnabledForEstablishment } from '../../catalogo-articulos/models/types';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { InventoryService } from '../services/inventory.service';
 import { useCurrentEstablishmentId } from '../../../../../contexts/UserSessionContext';
 import type {

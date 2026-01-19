@@ -33,7 +33,7 @@ import { useProductStore, type ProductInput } from '../hooks/useProductStore';
 import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
 import { useProductForm } from '../hooks/useProductForm';
 import type { Product } from '../models/types';
-import { useConfigurationContext, type Category } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext, type Category } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCurrentEstablishmentId } from '@/contexts/UserSessionContext';
 
 interface ProductModalProps {

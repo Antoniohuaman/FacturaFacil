@@ -25,7 +25,7 @@ import { DocumentoProductsSection } from '../components/DocumentoProductsSection
 // Contextos
 import { useDocumentoContext } from '../contexts/DocumentosContext';
 import { useFeedback } from '../../../../../shared/feedback';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCurrentEstablishmentId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Currency } from '../../comprobantes-electronicos/models/comprobante.types';
 

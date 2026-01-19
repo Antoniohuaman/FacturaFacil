@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tag, Quote, Barcode, ScanLine, Folder, Badge as BadgeIcon, Package2, Wand2, Plus } from 'lucide-react';
-import type { Category } from '../../../configuracion-sistema/context/ConfigurationContext';
+import type { Category } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
 import { normalizeBarcodeValue, BARCODE_MAX_LENGTH } from '../../utils/formatters';

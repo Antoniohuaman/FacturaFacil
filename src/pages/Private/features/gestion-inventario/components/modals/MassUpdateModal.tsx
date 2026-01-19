@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { InventoryService } from '../../services/inventory.service';
 import { useAuth } from '../../../autenticacion/hooks';
 import type { MovimientoStock } from '../../models';

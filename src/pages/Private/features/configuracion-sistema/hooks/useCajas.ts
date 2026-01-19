@@ -2,11 +2,11 @@
 // Scoped by empresaId and establecimientoId from ConfigurationContext
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useConfigurationContext } from '../context/ConfigurationContext';
-import type { Caja, CreateCajaInput, UpdateCajaInput } from '../models/Caja';
-import { cajasDataSource } from '../api/cajasDataSource';
-import type { ValidationError } from '../utils/cajasValidator';
-import { validateCreateCaja, validateUpdateCaja } from '../utils/cajasValidator';
+import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import type { Caja, CreateCajaInput, UpdateCajaInput } from '../modelos/Caja';
+import { cajasDataSource } from '../api/fuenteDatosCajas';
+import type { ValidationError } from '../utilidades/validadorCajas';
+import { validateCreateCaja, validateUpdateCaja } from '../utilidades/validadorCajas';
 
 interface UseCajasReturn {
   cajas: Caja[];

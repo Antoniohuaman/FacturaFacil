@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { DetailPane } from '@/components/layouts/MasterDetail';
 import type { Product } from '../models/types';
-import type { Establishment } from '../../configuracion-sistema/models/Establishment';
-import type { Unit } from '../../configuracion-sistema/models/Unit';
+import type { Establishment } from '../../configuracion-sistema/modelos/Establishment';
+import type { Unit } from '../../configuracion-sistema/modelos/Unit';
 
 const UNIT_TYPE_LABELS: Record<string, string> = {
   UNIDADES: 'Unidades',

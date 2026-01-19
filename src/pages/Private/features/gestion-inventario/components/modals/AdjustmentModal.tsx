@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import type { MovimientoTipo, MovimientoMotivo } from '../../models';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 
 interface AdjustmentModalProps {
   isOpen: boolean;

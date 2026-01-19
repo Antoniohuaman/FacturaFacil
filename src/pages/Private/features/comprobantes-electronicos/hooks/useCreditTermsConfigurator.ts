@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { CreditInstallmentDefinition } from '../../../../../shared/payments/paymentTerms';
 import {
   buildCreditScheduleFromTemplate,

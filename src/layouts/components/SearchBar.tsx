@@ -11,7 +11,7 @@ import { useComprobanteContext } from '../../pages/Private/features/comprobantes
 import type { Comprobante } from '../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import { useCobranzasContext } from '../../pages/Private/features/gestion-cobranzas/context/CobranzasContext';
 import type { CuentaPorCobrarSummary } from '../../pages/Private/features/gestion-cobranzas/models/cobranzas.types';
-import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import type { Movimiento } from '../../pages/Private/features/control-caja/models';
 import { useIndicadores } from '../../pages/Private/features/indicadores-negocio/hooks/useIndicadores';

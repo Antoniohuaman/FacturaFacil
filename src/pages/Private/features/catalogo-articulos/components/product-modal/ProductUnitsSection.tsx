@@ -1,7 +1,7 @@
 import React from 'react';
 import { Layers, Ruler, Droplet, Clock3, Boxes, Weight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { Unit } from '../../../configuracion-sistema/models/Unit';
+import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
 import type { ProductFormData, UnitMeasureType } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
 import { UNIT_MEASURE_TYPE_OPTIONS } from '../../utils/unitMeasureHelpers';

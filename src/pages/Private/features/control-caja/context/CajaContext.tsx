@@ -12,9 +12,9 @@ import { calcularResumenCaja } from "../utils/calculations";
 import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/errors";
 import { lsKey } from "../../../../../shared/tenant";
 import { useTenant } from "../../../../../shared/tenant/TenantContext";
-import { useConfigurationContext } from "../../configuracion-sistema/context/ConfigurationContext";
+import { useConfigurationContext } from "../../configuracion-sistema/contexto/ContextoConfiguracion";
 import { useCurrentCompanyId, useCurrentEstablishmentId } from "../../../../../contexts/UserSessionContext";
-import { resolveActiveCajaForEstablecimiento, NoActiveCajaError } from "../../configuracion-sistema/utils/cajaSelection";
+import { resolveActiveCajaForEstablecimiento, NoActiveCajaError } from "../../configuracion-sistema/utilidades/seleccionCaja";
 import type { MedioPago } from "../../../../../shared/payments/medioPago";
 
 type PersistedMovimiento = Omit<Movimiento, 'fecha'> & { fecha: string };

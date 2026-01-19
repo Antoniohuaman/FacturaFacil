@@ -1,14 +1,14 @@
 /* eslint-disable react-hooks/exhaustive-deps -- dependencias extensas; ajuste diferido */
 import { useState, useEffect, useCallback } from 'react';
-import { useConfigurationContext } from '../context/ConfigurationContext';
+import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import type { 
   Series, 
   CreateSeriesRequest, 
   UpdateSeriesRequest, 
   SeriesSummary,
   DocumentType
-} from '../models/Series';
-import { SUNAT_DOCUMENT_TYPES } from '../models/Series';
+} from '../modelos/Series';
+import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
 
 interface UseSeriesReturn {
   series: Series[];

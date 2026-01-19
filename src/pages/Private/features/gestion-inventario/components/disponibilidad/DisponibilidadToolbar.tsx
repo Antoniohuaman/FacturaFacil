@@ -1,7 +1,7 @@
 // src/features/gestion-inventario/components/disponibilidad/DisponibilidadToolbar.tsx
 
 import React, { useMemo } from 'react';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { DisponibilidadFilters } from '../../models/disponibilidad.types';
 
 interface DisponibilidadToolbarProps {

@@ -21,7 +21,7 @@ import type {
 } from '../../models/comprobante.types';
 import type { CreditInstallmentDefinition } from '../../../../../../shared/payments/paymentTerms';
 import { useCurrentCompanyId, useCurrentEstablishmentId } from '../../../../../../contexts/UserSessionContext';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getBusinessTodayISODate } from '../../../../../../shared/time/businessTime';
 
 interface UsePosComprobanteFlowParams {

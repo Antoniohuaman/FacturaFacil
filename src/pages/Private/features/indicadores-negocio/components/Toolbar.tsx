@@ -1,5 +1,5 @@
 import DateRangePicker from './DateRangePicker';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useIndicadoresFilters } from '../hooks/useIndicadoresFilters';
 import type { DateRange } from '../models/dateRange';
 

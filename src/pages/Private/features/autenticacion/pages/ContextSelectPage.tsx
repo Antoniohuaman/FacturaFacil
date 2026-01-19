@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { useAuth } from '../hooks';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import { buildMissingDefaultSeries } from '../../configuracion-sistema/utils/seriesDefaults';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { buildMissingDefaultSeries } from '../../configuracion-sistema/utilidades/seriesPredeterminadas';
 import type { Empresa, Establecimiento } from '../types/auth.types';
 
 /**

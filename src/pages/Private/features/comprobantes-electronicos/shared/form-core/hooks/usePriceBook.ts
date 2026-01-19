@@ -11,8 +11,8 @@ import { usePriceCalculator } from '../../../../lista-precios/hooks/usePriceCalc
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
 import { DEFAULT_UNIT_CODE, roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
 import { isMinAllowedColumn } from '../../../../lista-precios/utils/price-helpers/columns';
-import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
-import { SUNAT_UNITS } from '../../../../configuracion-sistema/models/Unit';
+import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { SUNAT_UNITS } from '../../../../configuracion-sistema/modelos/Unit';
 
 export interface PriceColumnOption {
   columnId: string;

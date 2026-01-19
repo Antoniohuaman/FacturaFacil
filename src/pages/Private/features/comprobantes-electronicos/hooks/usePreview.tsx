@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import type {
   CartItem,

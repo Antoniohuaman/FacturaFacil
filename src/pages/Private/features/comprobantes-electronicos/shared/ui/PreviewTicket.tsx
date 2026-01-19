@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import type { PreviewData } from '../../models/comprobante.types';
-import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useVoucherDesignConfig';
-import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/models/VoucherDesignUnified';
+import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useConfiguracionDisenoComprobante';
+import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/modelos/VoucherDesignUnified';
 import { formatMoney } from '@/shared/currency';
 import { useCurrentEstablishment } from '@/contexts/UserSessionContext';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';

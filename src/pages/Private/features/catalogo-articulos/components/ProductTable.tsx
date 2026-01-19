@@ -1,7 +1,7 @@
 import type { Product, FilterOptions } from '../models/types';
-import type { Establishment } from '../../configuracion-sistema/models/Establishment';
+import type { Establishment } from '../../configuracion-sistema/modelos/Establishment';
 import React, { useMemo } from 'react';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { ProductTableHeader } from './product-table/ProductTableHeader';
 import { ProductTableRow } from './product-table/ProductTableRow';
 import { ProductTableEmptyState } from './product-table/ProductTableEmptyState';

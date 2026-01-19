@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ArrowRight, Package, Building2, AlertCircle } from 'lucide-react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 
 interface TransferModalProps {
   isOpen: boolean;

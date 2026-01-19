@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FileDown, Search } from "lucide-react";
 import DateRangePicker from "./DateRangePicker";
-import { useConfigurationContext } from "../../configuracion-sistema/context/ConfigurationContext";
+import { useConfigurationContext } from "../../configuracion-sistema/contexto/ContextoConfiguracion";
 import { useIndicadoresFilters } from "../hooks/useIndicadoresFilters";
 import type { ReportCategory, ReportDefinition } from "../models/reportDefinitions";
 import { reportCategories, reportDefinitions } from "../models/reportDefinitions";

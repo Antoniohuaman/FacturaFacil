@@ -5,7 +5,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { CartItem, Product, IgvType } from '../../models/comprobante.types';
 import { SYSTEM_CONFIG } from '../../models/constants';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../../contexts/UserSessionContext';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';

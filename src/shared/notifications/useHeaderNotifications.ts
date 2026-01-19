@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useComprobanteContext } from '../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useProductStore } from '../../pages/Private/features/catalogo-articulos/hooks/useProductStore';
-import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { InventoryService } from '../../pages/Private/features/gestion-inventario/services/inventory.service';
 import { evaluateStockAlert } from '../../pages/Private/features/gestion-inventario/utils/stockAlerts';
 import type { Product } from '../../pages/Private/features/catalogo-articulos/models/types';
-import type { Warehouse } from '../../pages/Private/features/configuracion-sistema/models/Warehouse';
+import type { Warehouse } from '../../pages/Private/features/configuracion-sistema/modelos/Warehouse';
 import type { HeaderNotification, UseHeaderNotificationsResult } from './types';
 
 const mapSunatNotifications = (comprobantes: readonly { id: string; type: string; client: string; status: string; date: string }[]): HeaderNotification[] => {

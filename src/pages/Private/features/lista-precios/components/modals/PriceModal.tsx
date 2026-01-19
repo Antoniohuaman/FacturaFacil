@@ -3,7 +3,7 @@ import { X, Search } from 'lucide-react';
 import { getBusinessDefaultValidityRange } from '@/shared/time/businessTime';
 import { useCurrencyManager } from '@/shared/currency';
 import type { Column, Product, PriceForm, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { isGlobalColumn } from '../../utils/priceHelpers';
 
 interface PriceModalProps {

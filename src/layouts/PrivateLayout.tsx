@@ -2,7 +2,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Header from "./components/Header";
 import SideNav from "./components/SideNav";
-import { ConfigurationProvider } from "../pages/Private/features/configuracion-sistema/context/ConfigurationContext";
+import { ConfigurationProvider } from "../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion";
 import { ComprobanteProvider } from "../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 import { DocumentoProvider } from "../pages/Private/features/Documentos-negociacion/contexts/DocumentosContext";
 import { ThemeProvider } from "../contexts/ThemeContext";

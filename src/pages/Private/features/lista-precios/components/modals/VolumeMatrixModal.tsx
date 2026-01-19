@@ -4,7 +4,7 @@ import { getBusinessDefaultValidityRange } from '@/shared/time/businessTime';
 import { useCurrencyManager } from '@/shared/currency';
 import type { Column, Product, VolumePriceForm, VolumeRange, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
 import { generateDefaultVolumeRanges, validateVolumeRanges } from '../../utils/priceHelpers';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 
 interface VolumeMatrixModalProps {
   isOpen: boolean;

@@ -1,7 +1,7 @@
 // src/features/gestion-inventario/services/inventory.service.ts
 
 import type { Product } from '../../catalogo-articulos/models/types';
-import type { Warehouse } from '../../configuracion-sistema/models/Warehouse';
+import type { Warehouse } from '../../configuracion-sistema/modelos/Warehouse';
 import type {
   MovimientoStock,
   StockAdjustmentData,

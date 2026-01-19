@@ -1,4 +1,4 @@
-// src/features/configuracion-sistema/models/Warehouse.ts
+// src/features/configuracion-sistema/modelos/Warehouse.ts
 
 /**
  * Representa un almacén dentro de un establecimiento

@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import type React from 'react';
-import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
-import type { Unit } from '../../configuracion-sistema/models/Unit';
-import type { Establishment } from '../../configuracion-sistema/models/Establishment';
+import type { Category } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import type { Unit } from '../../configuracion-sistema/modelos/Unit';
+import type { Establishment } from '../../configuracion-sistema/modelos/Establishment';
 import type { Product, ProductFormData, UnitMeasureType } from '../models/types';
 import type { ProductInput } from './useProductStore';
 import {

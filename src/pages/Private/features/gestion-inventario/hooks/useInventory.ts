@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useAuth } from '../../autenticacion/hooks';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type {
   StockAlert,
   MovimientoStock,

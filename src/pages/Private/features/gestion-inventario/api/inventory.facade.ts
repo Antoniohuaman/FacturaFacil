@@ -2,7 +2,7 @@
 import { InventoryService } from '../services/inventory.service';
 import { StockRepository } from '../repositories/stock.repository';
 import type { MovimientoMotivo, MovimientoTipo, MovimientoStock } from '../models';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { resolveWarehouseForSale } from '../../../../../shared/inventory/stockGateway';

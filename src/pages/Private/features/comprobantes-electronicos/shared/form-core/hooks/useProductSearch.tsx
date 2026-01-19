@@ -5,7 +5,7 @@ import { useProductStore } from '../../../../catalogo-articulos/hooks/useProduct
 import {
   isProductEnabledForEstablishment,
 } from '../../../../catalogo-articulos/models/types';
-import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
 
 type UseProductSearchParams = {

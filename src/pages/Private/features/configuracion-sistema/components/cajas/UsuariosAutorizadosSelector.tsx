@@ -1,6 +1,7 @@
 import React from 'react';
-import { useConfigurationContext } from '../../context/ConfigurationContext';
-import type { User } from '../../models';
+import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
+import type { User } from '../../modelos/User';
+import type { Role } from '../../modelos/Role';
 
 interface UsuariosAutorizadosSelectorProps {
   value: string[]; // Array of user IDs
@@ -26,7 +27,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
     if (filterByCashPermission) {
       users = users.filter((user: User) => {
         // Check if any of the user's roles have canOpenRegister permission
-        return user.systemAccess.roles.some(role => 
+        return user.systemAccess.roles.some((role: Role) => 
           role.permissions?.cash?.canOpenRegister === true
         );
       });
@@ -129,7 +130,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
                   {user.assignment.position} • {user.code}
                   {user.systemAccess.roles.length > 0 && (
                     <span className="ml-2">
-                      Roles: {user.systemAccess.roles.map(r => r.name).join(', ')}
+                      Roles: {user.systemAccess.roles.map((r: Role) => r.name).join(', ')}
                     </span>
                   )}
                 </p>

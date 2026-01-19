@@ -18,7 +18,7 @@ import {
   normalizeCreditTermsToInstallments,
   updateInstallmentsWithAllocations,
 } from '../utils/installments';
-import { useSeriesCommands } from '../../configuracion-sistema/hooks/useSeriesCommands';
+import { useSeriesCommands } from '../../configuracion-sistema/hooks/useComandosSeries';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { resolveCobranzaPaymentMeans } from '../utils/paymentMeans';
 

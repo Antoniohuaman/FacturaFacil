@@ -2,8 +2,8 @@
 // src/contexts/UserSessionContext.tsx
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import type { Establishment } from '../pages/Private/features/configuracion-sistema/models/Establishment';
-import type { Company } from '../pages/Private/features/configuracion-sistema/models/Company';
+import type { Establishment } from '../pages/Private/features/configuracion-sistema/modelos/Establishment';
+import type { Company } from '../pages/Private/features/configuracion-sistema/modelos/Company';
 
 /**
  * User Session Context

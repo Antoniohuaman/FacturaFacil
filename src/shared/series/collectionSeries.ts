@@ -1,4 +1,4 @@
-import type { Series } from '../../pages/Private/features/configuracion-sistema/models/Series';
+import type { Series } from '../../pages/Private/features/configuracion-sistema/modelos/Series';
 
 export const COLLECTION_DOCUMENT_CODE = 'RC';
 

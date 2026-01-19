@@ -11,7 +11,7 @@ import {
 } from '../../catalogo-articulos/models/types';
 import type { Product as POSProduct } from '../models/comprobante.types';
 import { usePriceCalculator } from '../../lista-precios/hooks/usePriceCalculator';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import {
   getAvailableStockForUnit,
   summarizeProductStock,

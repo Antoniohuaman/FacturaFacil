@@ -4,7 +4,7 @@
 // ===================================================================
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 
 // Hooks POS orquestadores
 import { usePosCartAndTotals } from '../hooks/usePosCartAndTotals';

@@ -16,8 +16,8 @@ import type {
   TipoComprobante,
 } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
-import { useBankAccounts } from '../../../configuracion-sistema/hooks/useBankAccounts';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useBankAccounts } from '../../../configuracion-sistema/hooks/useCuentasBancarias';
 import { useCaja } from '../../../control-caja/context/CajaContext';
 import { useCurrentEstablishmentId } from '../../../../../../contexts/UserSessionContext';
 import { filterCollectionSeries, getNextCollectionDocument } from '../../../../../../shared/series/collectionSeries';

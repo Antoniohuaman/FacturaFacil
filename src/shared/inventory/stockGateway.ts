@@ -1,5 +1,5 @@
 import type { Product as CatalogProduct } from '../../pages/Private/features/catalogo-articulos/models/types';
-import type { Warehouse } from '../../pages/Private/features/configuracion-sistema/models/Warehouse';
+import type { Warehouse } from '../../pages/Private/features/configuracion-sistema/modelos/Warehouse';
 import {
   convertFromUnidadMinima,
   convertToUnidadMinima,

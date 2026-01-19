@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Building2, ChevronDown, MapPin, CheckCircle2 } from 'lucide-react';
 import { useUserSession } from '../../contexts/UserSessionContext';
-import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 
 export default function EstablishmentSelector() {
   const [showDropdown, setShowDropdown] = useState(false);

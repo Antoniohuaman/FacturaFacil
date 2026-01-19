@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import type { Product, FilterOptions } from '../models/types';
-import type { Establishment } from '../../configuracion-sistema/models/Establishment';
+import type { Establishment } from '../../configuracion-sistema/modelos/Establishment';
 
 interface UseProductTableViewModelParams {
   products: Product[];
