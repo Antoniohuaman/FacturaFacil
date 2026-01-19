@@ -11,7 +11,7 @@ import type { Unit } from '../modelos/Unit';
 import type { Tax } from '../modelos/Tax';
 import { PERU_TAX_TYPES, normalizeTaxes } from '../modelos/Tax';
 import { SUNAT_UNITS } from '../modelos/Unit';
-import type { Warehouse } from '../modelos/Warehouse';
+import type { Almacen } from '../modelos/Warehouse';
 import type { Caja } from '../modelos/Caja';
 import { lsKey } from '../../../../../shared/tenant';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
@@ -40,7 +40,7 @@ export type SalesPreferences = {
 interface ConfigurationState {
   company: Company | null;
   establishments: Establishment[];
-  warehouses: Warehouse[];
+  almacenes: Almacen[];
   users: User[];
   series: Series[];
   paymentMethods: PaymentMethod[];
@@ -65,7 +65,7 @@ type PersistedTenantConfig = {
   version: 1;
   company: Company | null;
   establishments: Establishment[];
-  warehouses: Warehouse[];
+  almacenes: Almacen[];
   cajas: Caja[];
   salesPreferences: SalesPreferences;
 };
@@ -111,10 +111,18 @@ const reviveEstablishment = (est: Establishment): Establishment => ({
     : est.sunatConfiguration,
 });
 
-const reviveWarehouse = (warehouse: Warehouse): Warehouse => ({
-  ...warehouse,
-  createdAt: reviveDate(warehouse.createdAt) ?? new Date(),
-  updatedAt: reviveDate(warehouse.updatedAt) ?? new Date(),
+const reviveAlmacen = (almacen: Almacen): Almacen => ({
+  ...almacen,
+  creadoElAlmacen: reviveDate(almacen.creadoElAlmacen) ?? new Date(),
+  actualizadoElAlmacen: reviveDate(almacen.actualizadoElAlmacen) ?? new Date(),
+  code: almacen.codigoAlmacen,
+  name: almacen.nombreAlmacen,
+  establishmentName: almacen.nombreEstablecimientoDesnormalizado,
+  establishmentCode: almacen.codigoEstablecimientoDesnormalizado,
+  establishmentId: almacen.establecimientoId,
+  location: almacen.ubicacionAlmacen,
+  isActive: almacen.estaActivoAlmacen,
+  isMainWarehouse: almacen.esAlmacenPrincipal,
 });
 
 const reviveCaja = (caja: Caja): Caja => ({
@@ -127,7 +135,7 @@ const reviveTenantConfig = (config: PersistedTenantConfig): PersistedTenantConfi
   ...config,
   company: config.company ? reviveCompany(config.company) : null,
   establishments: config.establishments.map(reviveEstablishment),
-  warehouses: config.warehouses.map(reviveWarehouse),
+  almacenes: config.almacenes.map(reviveAlmacen),
   cajas: config.cajas.map(reviveCaja),
 });
 
@@ -137,7 +145,7 @@ const isPersistedTenantConfig = (value: unknown): value is PersistedTenantConfig
 
   const hasArrays =
     Array.isArray(value.establishments) &&
-    Array.isArray(value.warehouses) &&
+    Array.isArray(value.almacenes) &&
     Array.isArray(value.cajas);
 
   const prefs = value.salesPreferences;
@@ -297,10 +305,10 @@ type ConfigurationAction =
   | { type: 'ADD_ESTABLISHMENT'; payload: Establishment }
   | { type: 'UPDATE_ESTABLISHMENT'; payload: Establishment }
   | { type: 'DELETE_ESTABLISHMENT'; payload: string }
-  | { type: 'SET_WAREHOUSES'; payload: Warehouse[] }
-  | { type: 'ADD_WAREHOUSE'; payload: Warehouse }
-  | { type: 'UPDATE_WAREHOUSE'; payload: Warehouse }
-  | { type: 'DELETE_WAREHOUSE'; payload: string }
+  | { type: 'SET_ALMACENES'; payload: Almacen[] }
+  | { type: 'ADD_ALMACEN'; payload: Almacen }
+  | { type: 'UPDATE_ALMACEN'; payload: Almacen }
+  | { type: 'DELETE_ALMACEN'; payload: string }
   | { type: 'SET_USERS'; payload: User[] }
   | { type: 'ADD_USER'; payload: User }
   | { type: 'UPDATE_USER'; payload: User }
@@ -323,7 +331,7 @@ type ConfigurationAction =
 const initialState: ConfigurationState = {
   company: null,
   establishments: [],
-  warehouses: [],
+  almacenes: [],
   users: [],
   series: [],
   paymentMethods: [],
@@ -374,27 +382,27 @@ function configurationReducer(
         establishments: state.establishments.filter(est => est.id !== action.payload),
       };
 
-    case 'SET_WAREHOUSES':
-      return { ...state, warehouses: action.payload };
+    case 'SET_ALMACENES':
+      return { ...state, almacenes: action.payload };
 
-    case 'ADD_WAREHOUSE':
+    case 'ADD_ALMACEN':
       return {
         ...state,
-        warehouses: [...state.warehouses, action.payload],
+        almacenes: [...state.almacenes, action.payload],
       };
 
-    case 'UPDATE_WAREHOUSE':
+    case 'UPDATE_ALMACEN':
       return {
         ...state,
-        warehouses: state.warehouses.map(wh =>
+        almacenes: state.almacenes.map(wh =>
           wh.id === action.payload.id ? action.payload : wh
         ),
       };
 
-    case 'DELETE_WAREHOUSE':
+    case 'DELETE_ALMACEN':
       return {
         ...state,
-        warehouses: state.warehouses.filter(wh => wh.id !== action.payload),
+        almacenes: state.almacenes.filter(wh => wh.id !== action.payload),
       };
 
     case 'SET_USERS':
@@ -492,8 +500,10 @@ function configurationReducer(
   }
 }
 
+type ConfigurationContextState = ConfigurationState & { warehouses: Almacen[] };
+
 interface ConfigurationContextType {
-  state: ConfigurationState;
+  state: ConfigurationContextState;
   dispatch: React.Dispatch<ConfigurationAction>;
 }
 
@@ -564,7 +574,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
         dispatch({ type: 'SET_COMPANY', payload: persisted.company });
       }
       dispatch({ type: 'SET_ESTABLISHMENTS', payload: persisted.establishments });
-      dispatch({ type: 'SET_WAREHOUSES', payload: persisted.warehouses });
+      dispatch({ type: 'SET_ALMACENES', payload: persisted.almacenes });
       dispatch({ type: 'SET_CAJAS', payload: persisted.cajas });
       dispatch({ type: 'SET_SALES_PREFERENCES', payload: persisted.salesPreferences });
     }
@@ -606,7 +616,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     const hasMeaningfulConfig =
       Boolean(state.company) ||
       state.establishments.length > 0 ||
-      state.warehouses.length > 0 ||
+      state.almacenes.length > 0 ||
       state.cajas.length > 0 ||
       state.salesPreferences.allowNegativeStock !== PREFERENCIAS_VENTAS_PREDETERMINADAS.allowNegativeStock ||
       state.salesPreferences.pricesIncludeTax !== PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax;
@@ -619,7 +629,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       version: 1,
       company: state.company,
       establishments: state.establishments,
-      warehouses: state.warehouses,
+      almacenes: state.almacenes,
       cajas: state.cajas,
       salesPreferences: state.salesPreferences,
     };
@@ -630,7 +640,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     state.company,
     state.establishments,
     state.salesPreferences,
-    state.warehouses,
+    state.almacenes,
     tenantConfigKey,
     tenantId,
   ]);
@@ -729,12 +739,20 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       payload: []  // Start empty - users can create their own users
     });
 
-    // No se inicializan warehouses por defecto
+    // No se inicializan almacenes por defecto
     // Se crearán automáticamente cuando se cree el establecimiento por defecto
   }, [dispatch]);
 
+  const stateWithLegacy = useMemo<ConfigurationContextState>(
+    () => ({
+      ...state,
+      warehouses: state.almacenes,
+    }),
+    [state]
+  );
+
   return (
-    <ConfigurationContext.Provider value={{ state, dispatch }}>
+    <ConfigurationContext.Provider value={{ state: stateWithLegacy, dispatch }}>
       {children}
     </ConfigurationContext.Provider>
   );
@@ -749,3 +767,4 @@ export function useConfigurationContext() {
   }
   return context;
 }
+

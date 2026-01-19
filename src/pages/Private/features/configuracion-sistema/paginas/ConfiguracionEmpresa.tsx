@@ -22,7 +22,7 @@ import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Company } from '../modelos/Company';
 import type { Establishment } from '../modelos/Establishment';
-import type { Warehouse } from '../modelos/Warehouse';
+import type { Almacen } from '../modelos/Warehouse';
 import type { Series } from '../modelos/Series';
 import type { Currency } from '../modelos/Currency';
 import type { Tax } from '../modelos/Tax';
@@ -548,26 +548,36 @@ export function CompanyConfiguration() {
         dispatch({ type: 'ADD_ESTABLISHMENT', payload: createdEstablishment });
 
         // 2. CREAR ALMACÉN POR DEFECTO
-        const defaultWarehouse: Warehouse = {
-          id: 'wh-main',
+        const defaultWarehouse: Almacen = {
+          id: 'alm-main',
+          codigoAlmacen: '0001',
+          nombreAlmacen: 'Almacén',
+          establecimientoId: createdEstablishment.id,
+          nombreEstablecimientoDesnormalizado: createdEstablishment.name,
+          codigoEstablecimientoDesnormalizado: createdEstablishment.code,
+          descripcionAlmacen: 'Almacén principal de la empresa',
+          ubicacionAlmacen: createdEstablishment.address || undefined,
+          estaActivoAlmacen: true,
+          esAlmacenPrincipal: true,
+          configuracionInventarioAlmacen: {
+            permiteStockNegativoAlmacen: false,
+            controlEstrictoStock: false,
+            requiereAprobacionMovimientos: false,
+          },
           code: '0001',
           name: 'Almacén',
-          establishmentId: 'est-main',
-          establishmentName: 'Establecimiento',
-          establishmentCode: '0001',
+          establishmentId: createdEstablishment.id,
+          establishmentName: createdEstablishment.name,
+          establishmentCode: createdEstablishment.code,
+          location: createdEstablishment.address || undefined,
           isActive: true,
           isMainWarehouse: true,
-          inventorySettings: {
-            allowNegativeStock: false,
-            strictStockControl: false,
-            requireApproval: false,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          hasMovements: false,
+          creadoElAlmacen: new Date(),
+          actualizadoElAlmacen: new Date(),
+          tieneMovimientosInventario: false,
         };
 
-        dispatch({ type: 'ADD_WAREHOUSE', payload: defaultWarehouse });
+        dispatch({ type: 'ADD_ALMACEN', payload: defaultWarehouse });
 
         // 3. CREAR SERIES POR DEFECTO (FACTURA, BOLETA y documentos internos serieables)
         const environmentType =

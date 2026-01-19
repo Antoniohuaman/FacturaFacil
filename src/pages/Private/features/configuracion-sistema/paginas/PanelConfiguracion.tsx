@@ -48,10 +48,10 @@ export function ConfigurationDashboard() {
       completionPercentage: state.establishments.length > 0 ? 100 : 0,
       count: state.establishments.length
     },
-    warehouses: {
-      isConfigured: state.warehouses.length > 0,
-      completionPercentage: state.warehouses.length > 0 ? 100 : 0,
-      count: state.warehouses.length
+    almacenes: {
+      isConfigured: state.almacenes.length > 0,
+      completionPercentage: state.almacenes.length > 0 ? 100 : 0,
+      count: state.almacenes.length
     },
     users: {
       isConfigured: state.users.length > 0,
@@ -95,13 +95,13 @@ export function ConfigurationDashboard() {
       estimatedTime: '3 min'
     },
     {
-      id: 'warehouses',
+      id: 'almacenes',
       title: 'Almacenes',
       description: 'Gestiona los almacenes donde se controla el inventario',
       icon: Warehouse,
       path: '/configuracion/almacenes',
-      status: status.warehouses.isConfigured ? 'complete' : 'pending',
-      completionPercentage: status.warehouses.completionPercentage,
+      status: status.almacenes.isConfigured ? 'complete' : 'pending',
+      completionPercentage: status.almacenes.completionPercentage,
       priority: 'high',
       estimatedTime: '3 min'
     },

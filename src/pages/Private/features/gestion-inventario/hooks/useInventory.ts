@@ -50,16 +50,16 @@ export const useInventory = () => {
   }, []);
 
   // Obtener almacenes activos
-  const warehouses = useMemo(
-    () => configState.warehouses.filter(w => w.isActive),
-    [configState.warehouses]
+  const almacenesActivos = useMemo(
+    () => configState.almacenes.filter(almacen => almacen.estaActivoAlmacen),
+    [configState.almacenes]
   );
 
   /**
    * Generar alertas de stock por producto y almacén
    */
   const stockAlerts = useMemo<StockAlert[]>(() => {
-    const alerts = InventoryService.generateAlerts(allProducts, warehouses);
+    const alerts = InventoryService.generateAlerts(allProducts, almacenesActivos);
 
     // Filtrar por almacén si es necesario
     if (warehouseFiltro && warehouseFiltro !== 'todos') {
@@ -67,7 +67,7 @@ export const useInventory = () => {
     }
 
     return alerts;
-  }, [allProducts, warehouses, warehouseFiltro]);
+  }, [allProducts, almacenesActivos, warehouseFiltro]);
 
   /**
    * Movimientos filtrados por período y almacén
@@ -144,7 +144,7 @@ export const useInventory = () => {
   const handleStockAdjustment = useCallback((data: StockAdjustmentData) => {
     try {
       const product = allProducts.find(p => p.id === data.productoId);
-      const warehouse = warehouses.find(w => w.id === data.warehouseId);
+      const warehouse = almacenesActivos.find(almacen => almacen.id === data.warehouseId);
 
       if (!product || !warehouse) {
         alert('Producto o almacén no encontrado');
@@ -173,7 +173,7 @@ export const useInventory = () => {
       console.error('Error al registrar ajuste:', error);
       alert(`❌ Error: ${error instanceof Error ? error.message : 'No se pudo registrar el ajuste'}`);
     }
-  }, [allProducts, warehouses, updateProduct, session?.userName, user?.nombre]);
+  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre]);
 
   /**
    * Maneja la transferencia de stock
@@ -181,8 +181,8 @@ export const useInventory = () => {
   const handleStockTransfer = useCallback((data: StockTransferData) => {
     try {
       const product = allProducts.find(p => p.id === data.productoId);
-      const warehouseOrigen = warehouses.find(w => w.id === data.warehouseOrigenId);
-      const warehouseDestino = warehouses.find(w => w.id === data.warehouseDestinoId);
+      const warehouseOrigen = almacenesActivos.find(almacen => almacen.id === data.warehouseOrigenId);
+      const warehouseDestino = almacenesActivos.find(almacen => almacen.id === data.warehouseDestinoId);
 
       if (!product || !warehouseOrigen || !warehouseDestino) {
         alert('Producto o almacenes no encontrados');
@@ -205,14 +205,14 @@ export const useInventory = () => {
       setMovimientos(prev => [...result.movements, ...prev]);
 
       // Mostrar notificación de éxito
-      alert(`✅ Transferencia realizada exitosamente\n\n${data.cantidad} unidades transferidas\nDesde: ${warehouseOrigen.name}\nHacia: ${warehouseDestino.name}`);
+      alert(`✅ Transferencia realizada exitosamente\n\n${data.cantidad} unidades transferidas\nDesde: ${warehouseOrigen.nombreAlmacen}\nHacia: ${warehouseDestino.nombreAlmacen}`);
 
       setShowTransferModal(false);
     } catch (error) {
       console.error('Error al registrar transferencia:', error);
       alert(`❌ Error: ${error instanceof Error ? error.message : 'No se pudo realizar la transferencia'}`);
     }
-  }, [allProducts, warehouses, updateProduct, session?.userName, user?.nombre]);
+  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre]);
 
   /**
    * Maneja actualización masiva de stock
@@ -221,7 +221,7 @@ export const useInventory = () => {
     try {
       const result = InventoryService.processMassUpdate(
         allProducts,
-        warehouses,
+        almacenesActivos,
         data,
         session?.userName || user?.nombre || 'Usuario'
       );
@@ -242,7 +242,7 @@ export const useInventory = () => {
       console.error('Error en actualización masiva:', error);
       alert(`❌ Error: ${error instanceof Error ? error.message : 'No se pudo completar la actualización masiva'}`);
     }
-  }, [allProducts, warehouses, updateProduct, session?.userName, user?.nombre]);
+  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre]);
 
   /**
    * Abre modal de ajuste para un producto específico
@@ -277,7 +277,8 @@ export const useInventory = () => {
     showTransferModal,
     selectedProductId,
     suggestedQuantity,
-    warehouses,
+    almacenesActivos,
+    warehouses: almacenesActivos,
     stockAlerts,
     filteredMovements,
     stockSummary,

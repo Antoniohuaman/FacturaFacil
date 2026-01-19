@@ -1,6 +1,6 @@
-// src/features/configuracion-sistema/paginas/WarehousesConfiguration.tsx
+// src/features/configuracion-sistema/paginas/ConfiguracionAlmacenes.tsx
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -20,16 +20,7 @@ import {
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { StatusIndicator } from '../components/comunes/IndicadorEstado';
-import type { Warehouse as WarehouseType } from '../modelos/Warehouse';
-
-interface WarehouseFormData {
-  code: string;
-  name: string;
-  establishmentId: string;
-  description: string;
-  location: string;
-  isMainWarehouse: boolean;
-}
+import type { Almacen, AlmacenSinAlias } from '../modelos/Warehouse';
 
 interface Toast {
   id: string;
@@ -37,75 +28,98 @@ interface Toast {
   message: string;
 }
 
-interface DeleteConfirmation {
+type FilterStatus = 'all' | 'active' | 'inactive';
+
+interface DeleteConfirmationState {
   isOpen: boolean;
-  warehouseId: string | null;
-  warehouseName: string;
-  hasMovements: boolean;
+  almacenId: string | null;
+  nombreAlmacen: string;
+  tieneMovimientosInventario: boolean;
 }
 
-export function WarehousesConfiguration() {
+interface FormState {
+  codigoAlmacen: string;
+  nombreAlmacen: string;
+  establecimientoId: string;
+  descripcionAlmacen: string;
+  ubicacionAlmacen: string;
+  esAlmacenPrincipal: boolean;
+}
+
+const FORM_STATE_INICIAL: FormState = {
+  codigoAlmacen: '',
+  nombreAlmacen: '',
+  establecimientoId: '',
+  descripcionAlmacen: '',
+  ubicacionAlmacen: '',
+  esAlmacenPrincipal: false
+};
+
+const sincronizarAliasAlmacen = (almacen: AlmacenSinAlias): Almacen => ({
+  ...almacen,
+  code: almacen.codigoAlmacen,
+  name: almacen.nombreAlmacen,
+  establishmentName: almacen.nombreEstablecimientoDesnormalizado,
+  establishmentCode: almacen.codigoEstablecimientoDesnormalizado,
+  establishmentId: almacen.establecimientoId,
+  location: almacen.ubicacionAlmacen,
+  isActive: almacen.estaActivoAlmacen,
+  isMainWarehouse: almacen.esAlmacenPrincipal,
+});
+
+export function ConfiguracionAlmacenes() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { warehouses, establishments } = state;
+  const { establishments, almacenes } = state;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstablishment, setFilterEstablishment] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [showForm, setShowForm] = useState(false);
-  const [editingWarehouseId, setEditingWarehouseId] = useState<string | null>(null);
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
-    isOpen: false,
-    warehouseId: null,
-    warehouseName: '',
-    hasMovements: false
-  });
+  const [editingAlmacenId, setEditingAlmacenId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<FormState>({ ...FORM_STATE_INICIAL });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
-  const [formData, setFormData] = useState<WarehouseFormData>({
-    code: '',
-    name: '',
-    establishmentId: '',
-    description: '',
-    location: '',
-    isMainWarehouse: false
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState>({
+    isOpen: false,
+    almacenId: null,
+    nombreAlmacen: '',
+    tieneMovimientosInventario: false
   });
 
-  // Get active establishments for form dropdown
-  const activeEstablishments = useMemo(() => {
-    return establishments.filter(est => est.isActive);
-  }, [establishments]);
+  const activeEstablishments = useMemo(
+    () => establishments.filter(est => est.isActive !== false && est.status !== 'INACTIVE'),
+    [establishments]
+  );
 
-  // Filter warehouses
-  const filteredWarehouses = warehouses.filter(wh => {
-    const matchesSearch =
-      wh.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      wh.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (wh.establishmentName?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+  const filteredAlmacenes = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return almacenes.filter(almacen => {
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        almacen.nombreAlmacen.toLowerCase().includes(normalizedSearch) ||
+        almacen.codigoAlmacen.toLowerCase().includes(normalizedSearch) ||
+        (almacen.nombreEstablecimientoDesnormalizado ?? '').toLowerCase().includes(normalizedSearch);
 
-    const matchesEstablishment =
-      filterEstablishment === 'all' || wh.establishmentId === filterEstablishment;
+      const matchesEstablishment =
+        filterEstablishment === 'all' || almacen.establecimientoId === filterEstablishment;
 
-    const matchesStatus =
-      filterStatus === 'all' ||
-      (filterStatus === 'active' && wh.isActive) ||
-      (filterStatus === 'inactive' && !wh.isActive);
+      const matchesStatus =
+        filterStatus === 'all' ||
+        (filterStatus === 'active' && almacen.estaActivoAlmacen) ||
+        (filterStatus === 'inactive' && !almacen.estaActivoAlmacen);
 
-    return matchesSearch && matchesEstablishment && matchesStatus;
-  });
+      return matchesSearch && matchesEstablishment && matchesStatus;
+    });
+  }, [almacenes, filterEstablishment, filterStatus, searchTerm]);
 
-  // Stats
-  const stats = useMemo(() => {
-    return {
-      total: warehouses.length,
-      active: warehouses.filter(wh => wh.isActive).length,
-      inactive: warehouses.filter(wh => !wh.isActive).length,
-      withMovements: warehouses.filter(wh => wh.hasMovements).length
-    };
-  }, [warehouses]);
+  const stats = useMemo(() => ({
+    total: almacenes.length,
+    active: almacenes.filter(almacen => almacen.estaActivoAlmacen).length,
+    inactive: almacenes.filter(almacen => !almacen.estaActivoAlmacen).length,
+    withMovements: almacenes.filter(almacen => almacen.tieneMovimientosInventario).length
+  }), [almacenes]);
 
-  // Toast notifications
   const showToast = (type: Toast['type'], message: string) => {
     const id = `${Date.now()}-${Math.random()}`;
     setToasts(prev => [...prev, { id, type, message }]);
@@ -114,23 +128,19 @@ export function WarehousesConfiguration() {
     }, 5000);
   };
 
-  // Generate unique ID
-  const generateUniqueId = () => {
-    return `wh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  };
+  const generateUniqueId = () => `alm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-  // Generate next warehouse code for establishment
-  const generateNextCode = (establishmentId: string) => {
-    const establishmentWarehouses = warehouses.filter(
-      wh => wh.establishmentId === establishmentId
+  const generarSiguienteCodigo = (establecimientoId: string) => {
+    const almacenesDelEstablecimiento = almacenes.filter(
+      almacen => almacen.establecimientoId === establecimientoId
     );
 
-    if (establishmentWarehouses.length === 0) return '0001';
+    if (almacenesDelEstablecimiento.length === 0) return '0001';
 
-    const numericCodes = establishmentWarehouses
-      .map(wh => {
-        const match = wh.code.match(/\d+/);
-        return match ? parseInt(match[0]) : 0;
+    const numericCodes = almacenesDelEstablecimiento
+      .map(almacen => {
+        const match = almacen.codigoAlmacen.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 0;
       })
       .filter(n => n > 0);
 
@@ -138,33 +148,31 @@ export function WarehousesConfiguration() {
     return String(lastCode + 1).padStart(4, '0');
   };
 
-  // Validate form
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.code.trim()) {
-      errors.code = 'El código es obligatorio';
-    } else if (formData.code.length > 4) {
-      errors.code = 'El código no puede tener más de 4 caracteres';
+    if (!formData.codigoAlmacen.trim()) {
+      errors.codigoAlmacen = 'El código es obligatorio';
+    } else if (formData.codigoAlmacen.length > 4) {
+      errors.codigoAlmacen = 'El código no puede tener más de 4 caracteres';
     } else {
-      // Check for duplicate code within same establishment
-      const isDuplicate = warehouses.some(
-        wh =>
-          wh.code === formData.code &&
-          wh.establishmentId === formData.establishmentId &&
-          wh.id !== editingWarehouseId
+      const isDuplicate = almacenes.some(
+        almacen =>
+          almacen.codigoAlmacen === formData.codigoAlmacen &&
+          almacen.establecimientoId === formData.establecimientoId &&
+          almacen.id !== editingAlmacenId
       );
       if (isDuplicate) {
-        errors.code = 'Ya existe un almacén con este código en el establecimiento seleccionado';
+        errors.codigoAlmacen = 'Ya existe un almacén con este código en el establecimiento seleccionado';
       }
     }
 
-    if (!formData.name.trim()) {
-      errors.name = 'El nombre es obligatorio';
+    if (!formData.nombreAlmacen.trim()) {
+      errors.nombreAlmacen = 'El nombre es obligatorio';
     }
 
-    if (!formData.establishmentId) {
-      errors.establishmentId = 'Debe seleccionar un establecimiento';
+    if (!formData.establecimientoId) {
+      errors.establecimientoId = 'Debe seleccionar un establecimiento';
     }
 
     setFormErrors(errors);
@@ -172,32 +180,31 @@ export function WarehousesConfiguration() {
   };
 
   const handleNew = () => {
-    // Pre-select first establishment if available
     const firstEstId = activeEstablishments[0]?.id || '';
 
     setFormData({
-      code: firstEstId ? generateNextCode(firstEstId) : '0001',
-      name: '',
-      establishmentId: firstEstId,
-      description: '',
-      location: '',
-      isMainWarehouse: false
+      codigoAlmacen: firstEstId ? generarSiguienteCodigo(firstEstId) : '0001',
+      nombreAlmacen: '',
+      establecimientoId: firstEstId,
+      descripcionAlmacen: '',
+      ubicacionAlmacen: '',
+      esAlmacenPrincipal: false
     });
-    setEditingWarehouseId(null);
+    setEditingAlmacenId(null);
     setFormErrors({});
     setShowForm(true);
   };
 
-  const handleEdit = (warehouse: WarehouseType) => {
+  const handleEdit = (almacen: Almacen) => {
     setFormData({
-      code: warehouse.code,
-      name: warehouse.name,
-      establishmentId: warehouse.establishmentId,
-      description: warehouse.description || '',
-      location: warehouse.location || '',
-      isMainWarehouse: warehouse.isMainWarehouse
+      codigoAlmacen: almacen.codigoAlmacen,
+      nombreAlmacen: almacen.nombreAlmacen,
+      establecimientoId: almacen.establecimientoId,
+      descripcionAlmacen: almacen.descripcionAlmacen || '',
+      ubicacionAlmacen: almacen.ubicacionAlmacen || '',
+      esAlmacenPrincipal: almacen.esAlmacenPrincipal
     });
-    setEditingWarehouseId(warehouse.id);
+    setEditingAlmacenId(almacen.id);
     setFormErrors({});
     setShowForm(true);
   };
@@ -205,11 +212,11 @@ export function WarehousesConfiguration() {
   const handleEstablishmentChange = (establishmentId: string) => {
     setFormData(prev => ({
       ...prev,
-      establishmentId,
-      code: generateNextCode(establishmentId)
+      establecimientoId: establishmentId,
+      codigoAlmacen: generarSiguienteCodigo(establishmentId)
     }));
-    if (formErrors.establishmentId) {
-      setFormErrors(prev => ({ ...prev, establishmentId: '' }));
+    if (formErrors.establecimientoId) {
+      setFormErrors(prev => ({ ...prev, establecimientoId: '' }));
     }
   };
 
@@ -223,139 +230,131 @@ export function WarehousesConfiguration() {
 
     try {
       const selectedEstablishment = establishments.find(
-        est => est.id === formData.establishmentId
+        est => est.id === formData.establecimientoId
       );
 
-      let updatedWarehouses: WarehouseType[];
+      let updatedAlmacenes: Almacen[];
 
-      if (editingWarehouseId) {
-        // Update existing
-        updatedWarehouses = warehouses.map(wh =>
-          wh.id === editingWarehouseId
-            ? {
-                ...wh,
-                code: formData.code,
-                name: formData.name,
-                establishmentId: formData.establishmentId,
-                establishmentName: selectedEstablishment?.name,
-                establishmentCode: selectedEstablishment?.code,
-                description: formData.description || undefined,
-                location: formData.location || undefined,
-                isMainWarehouse: formData.isMainWarehouse,
-                updatedAt: new Date()
-              }
-            : wh
+      if (editingAlmacenId) {
+        updatedAlmacenes = almacenes.map(almacen =>
+          almacen.id === editingAlmacenId
+            ? sincronizarAliasAlmacen({
+                ...almacen,
+                codigoAlmacen: formData.codigoAlmacen,
+                nombreAlmacen: formData.nombreAlmacen,
+                establecimientoId: formData.establecimientoId,
+                nombreEstablecimientoDesnormalizado: selectedEstablishment?.name,
+                codigoEstablecimientoDesnormalizado: selectedEstablishment?.code,
+                descripcionAlmacen: formData.descripcionAlmacen || undefined,
+                ubicacionAlmacen: formData.ubicacionAlmacen || undefined,
+                esAlmacenPrincipal: formData.esAlmacenPrincipal,
+                actualizadoElAlmacen: new Date()
+              })
+            : almacen
         );
         showToast('success', 'Almacén actualizado correctamente');
       } else {
-        // Create new
-        const newWarehouse: WarehouseType = {
+        const nuevoAlmacen: Almacen = sincronizarAliasAlmacen({
           id: generateUniqueId(),
-          code: formData.code,
-          name: formData.name,
-          establishmentId: formData.establishmentId,
-          establishmentName: selectedEstablishment?.name,
-          establishmentCode: selectedEstablishment?.code,
-          description: formData.description || undefined,
-          location: formData.location || undefined,
-          isActive: true,
-          isMainWarehouse: formData.isMainWarehouse,
-          inventorySettings: {
-            allowNegativeStock: false,
-            strictStockControl: false,
-            requireApproval: false
+          codigoAlmacen: formData.codigoAlmacen,
+          nombreAlmacen: formData.nombreAlmacen,
+          establecimientoId: formData.establecimientoId,
+          nombreEstablecimientoDesnormalizado: selectedEstablishment?.name,
+          codigoEstablecimientoDesnormalizado: selectedEstablishment?.code,
+          descripcionAlmacen: formData.descripcionAlmacen || undefined,
+          ubicacionAlmacen: formData.ubicacionAlmacen || undefined,
+          estaActivoAlmacen: true,
+          esAlmacenPrincipal: formData.esAlmacenPrincipal,
+          configuracionInventarioAlmacen: {
+            permiteStockNegativoAlmacen: false,
+            controlEstrictoStock: false,
+            requiereAprobacionMovimientos: false
           },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          hasMovements: false
-        };
+          creadoElAlmacen: new Date(),
+          actualizadoElAlmacen: new Date(),
+          tieneMovimientosInventario: false
+        });
 
-        updatedWarehouses = [...warehouses, newWarehouse];
+        updatedAlmacenes = [...almacenes, nuevoAlmacen];
         showToast('success', 'Almacén creado correctamente');
       }
 
-      dispatch({ type: 'SET_WAREHOUSES', payload: updatedWarehouses });
+      dispatch({ type: 'SET_ALMACENES', payload: updatedAlmacenes });
       handleCancel();
     } catch (error) {
-      console.error('Error saving warehouse:', error);
+      console.error('Error al guardar el almacén:', error);
       showToast('error', 'Error al guardar el almacén. Por favor, intenta nuevamente.');
     }
   };
 
   const handleCancel = () => {
-    setFormData({
-      code: '',
-      name: '',
-      establishmentId: '',
-      description: '',
-      location: '',
-      isMainWarehouse: false
-    });
-    setEditingWarehouseId(null);
+    setFormData({ ...FORM_STATE_INICIAL });
+    setEditingAlmacenId(null);
     setFormErrors({});
     setShowForm(false);
   };
 
-  const openDeleteConfirmation = (warehouse: WarehouseType) => {
+  const openDeleteConfirmation = (almacen: Almacen) => {
     setDeleteConfirmation({
       isOpen: true,
-      warehouseId: warehouse.id,
-      warehouseName: warehouse.name,
-      hasMovements: warehouse.hasMovements || false
+      almacenId: almacen.id,
+      nombreAlmacen: almacen.nombreAlmacen,
+      tieneMovimientosInventario: almacen.tieneMovimientosInventario || false
     });
   };
 
   const handleDelete = () => {
-    if (!deleteConfirmation.warehouseId) return;
+    if (!deleteConfirmation.almacenId) return;
 
-    // Check if warehouse has movements
-    if (deleteConfirmation.hasMovements) {
+    if (deleteConfirmation.tieneMovimientosInventario) {
       showToast(
         'error',
         'No se puede eliminar este almacén porque tiene movimientos de inventario asociados. Puedes deshabilitarlo en su lugar.'
       );
-      setDeleteConfirmation({ isOpen: false, warehouseId: null, warehouseName: '', hasMovements: false });
+      setDeleteConfirmation({ isOpen: false, almacenId: null, nombreAlmacen: '', tieneMovimientosInventario: false });
       return;
     }
 
     try {
-      const updatedWarehouses = warehouses.filter(
-        wh => wh.id !== deleteConfirmation.warehouseId
+      const updatedAlmacenes = almacenes.filter(
+        almacen => almacen.id !== deleteConfirmation.almacenId
       );
-      dispatch({ type: 'SET_WAREHOUSES', payload: updatedWarehouses });
+      dispatch({ type: 'SET_ALMACENES', payload: updatedAlmacenes });
       showToast('success', 'Almacén eliminado correctamente');
-      setDeleteConfirmation({ isOpen: false, warehouseId: null, warehouseName: '', hasMovements: false });
+      setDeleteConfirmation({ isOpen: false, almacenId: null, nombreAlmacen: '', tieneMovimientosInventario: false });
     } catch (error) {
-      console.error('Error deleting warehouse:', error);
+      console.error('Error al eliminar el almacén:', error);
       showToast('error', 'Error al eliminar el almacén');
     }
   };
 
   const handleToggleStatus = (id: string) => {
-    const warehouse = warehouses.find(wh => wh.id === id);
+    const almacen = almacenes.find(item => item.id === id);
 
     try {
-      const updatedWarehouses = warehouses.map(wh =>
-        wh.id === id
-          ? { ...wh, isActive: !wh.isActive, updatedAt: new Date() }
-          : wh
+      const updatedAlmacenes = almacenes.map(item =>
+        item.id === id
+          ? sincronizarAliasAlmacen({
+              ...item,
+              estaActivoAlmacen: !item.estaActivoAlmacen,
+              actualizadoElAlmacen: new Date(),
+            })
+          : item
       );
-      dispatch({ type: 'SET_WAREHOUSES', payload: updatedWarehouses });
+      dispatch({ type: 'SET_ALMACENES', payload: updatedAlmacenes });
       showToast(
         'success',
-        warehouse?.isActive ? 'Almacén deshabilitado' : 'Almacén habilitado'
+        almacen?.estaActivoAlmacen ? 'Almacén deshabilitado' : 'Almacén habilitado'
       );
     } catch (error) {
-      console.error('Error toggling status:', error);
+      console.error('Error al cambiar el estado del almacén:', error);
       showToast('error', 'Error al cambiar el estado del almacén');
     }
   };
 
-  // Form view
   if (showForm) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Toast Notifications */}
         <div className="fixed top-4 right-4 z-50 space-y-2">
           {toasts.map(toast => (
             <div
@@ -376,7 +375,6 @@ export function WarehousesConfiguration() {
           ))}
         </div>
 
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
@@ -387,10 +385,10 @@ export function WarehousesConfiguration() {
             </button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {editingWarehouseId ? 'Editar Almacén' : 'Nuevo Almacén'}
+                {editingAlmacenId ? 'Editar Almacén' : 'Nuevo Almacén'}
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {editingWarehouseId
+                {editingAlmacenId
                   ? 'Modifica los datos del almacén'
                   : 'Registra un nuevo almacén para gestionar tu inventario'}
               </p>
@@ -398,13 +396,11 @@ export function WarehousesConfiguration() {
           </div>
           <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800">
             <Warehouse className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span className="text-sm font-medium text-blue-900 dark:text-blue-200">Código: {formData.code}</span>
+            <span className="text-sm font-medium text-blue-900 dark:text-blue-200">Código: {formData.codigoAlmacen}</span>
           </div>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Sección 1: Información Básica */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
@@ -418,7 +414,6 @@ export function WarehousesConfiguration() {
               </div>
             </div>
             <div className="p-6 space-y-6">
-              {/* Establecimiento (requerido primero) */}
               <div className="group">
                 <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
                   <Building className="w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -426,10 +421,10 @@ export function WarehousesConfiguration() {
                 </label>
                 <div className="relative">
                   <select
-                    value={formData.establishmentId}
+                    value={formData.establecimientoId}
                     onChange={e => handleEstablishmentChange(e.target.value)}
                     className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all appearance-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                      formErrors.establishmentId
+                      formErrors.establecimientoId
                         ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
                         : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                     }`}
@@ -448,10 +443,10 @@ export function WarehousesConfiguration() {
                     </svg>
                   </div>
                 </div>
-                {formErrors.establishmentId && (
+                {formErrors.establecimientoId && (
                   <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5 animate-slide-in">
                     <AlertCircle className="w-4 h-4" />
-                    {formErrors.establishmentId}
+                    {formErrors.establecimientoId}
                   </p>
                 )}
                 <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -460,7 +455,6 @@ export function WarehousesConfiguration() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Código */}
                 <div className="group">
                   <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
                     <Hash className="w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -469,13 +463,13 @@ export function WarehousesConfiguration() {
                   <div className="relative">
                     <input
                       type="text"
-                      value={formData.code}
+                      value={formData.codigoAlmacen}
                       onChange={e => {
-                        setFormData(prev => ({ ...prev, code: e.target.value }));
-                        if (formErrors.code) setFormErrors(prev => ({ ...prev, code: '' }));
+                        setFormData(prev => ({ ...prev, codigoAlmacen: e.target.value }));
+                        if (formErrors.codigoAlmacen) setFormErrors(prev => ({ ...prev, codigoAlmacen: '' }));
                       }}
                       className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                        formErrors.code
+                        formErrors.codigoAlmacen
                           ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
                           : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                       }`}
@@ -484,15 +478,14 @@ export function WarehousesConfiguration() {
                       maxLength={4}
                     />
                   </div>
-                  {formErrors.code && (
+                  {formErrors.codigoAlmacen && (
                     <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5 animate-slide-in">
                       <AlertCircle className="w-4 h-4" />
-                      {formErrors.code}
+                      {formErrors.codigoAlmacen}
                     </p>
                   )}
                 </div>
 
-                {/* Nombre */}
                 <div className="group">
                   <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
                     <FileText className="w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -501,13 +494,13 @@ export function WarehousesConfiguration() {
                   <div className="relative">
                     <input
                       type="text"
-                      value={formData.name}
+                      value={formData.nombreAlmacen}
                       onChange={e => {
-                        setFormData(prev => ({ ...prev, name: e.target.value }));
-                        if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                        setFormData(prev => ({ ...prev, nombreAlmacen: e.target.value }));
+                        if (formErrors.nombreAlmacen) setFormErrors(prev => ({ ...prev, nombreAlmacen: '' }));
                       }}
                       className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                        formErrors.name
+                        formErrors.nombreAlmacen
                           ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
                           : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                       }`}
@@ -515,16 +508,15 @@ export function WarehousesConfiguration() {
                       required
                     />
                   </div>
-                  {formErrors.name && (
+                  {formErrors.nombreAlmacen && (
                     <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5 animate-slide-in">
                       <AlertCircle className="w-4 h-4" />
-                      {formErrors.name}
+                      {formErrors.nombreAlmacen}
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Ubicación */}
               <div className="group">
                 <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
                   <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -533,14 +525,13 @@ export function WarehousesConfiguration() {
                 </label>
                 <input
                   type="text"
-                  value={formData.location}
-                  onChange={e => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                  value={formData.ubicacionAlmacen}
+                  onChange={e => setFormData(prev => ({ ...prev, ubicacionAlmacen: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all hover:border-gray-400 dark:hover:border-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Ej: Piso 1 - Zona A, Edificio Principal..."
                 />
               </div>
 
-              {/* Descripción */}
               <div className="group">
                 <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
                   <FileText className="w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -548,25 +539,24 @@ export function WarehousesConfiguration() {
                   <span className="text-xs text-gray-500 dark:text-gray-400">(Opcional)</span>
                 </label>
                 <textarea
-                  value={formData.description}
-                  onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  value={formData.descripcionAlmacen}
+                  onChange={e => setFormData(prev => ({ ...prev, descripcionAlmacen: e.target.value }))}
                   rows={3}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all hover:border-gray-400 dark:hover:border-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Descripción adicional del almacén..."
                 />
               </div>
 
-              {/* Almacén Principal */}
               <div className="flex items-start space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
                 <input
                   type="checkbox"
-                  id="isMainWarehouse"
-                  checked={formData.isMainWarehouse}
-                  onChange={e => setFormData(prev => ({ ...prev, isMainWarehouse: e.target.checked }))}
+                  id="esAlmacenPrincipal"
+                  checked={formData.esAlmacenPrincipal}
+                  onChange={e => setFormData(prev => ({ ...prev, esAlmacenPrincipal: e.target.checked }))}
                   className="mt-0.5 w-4 h-4 text-blue-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
                 />
-                <label htmlFor="isMainWarehouse" className="flex-1 cursor-pointer">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Marcar como almacén principal</span>
+                <label htmlFor="esAlmacenPrincipal" className="flex-1 cursor-pointer">
+                  <span className="text-sm font-medium text-gray-900 dark:text.white">Marcar como almacén principal</span>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                     Este será el almacén por defecto para operaciones de inventario en este establecimiento
                   </p>
@@ -575,7 +565,6 @@ export function WarehousesConfiguration() {
             </div>
           </div>
 
-          {/* Botones de Acción */}
           <div className="flex items-center justify-between pt-2">
             <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
               <AlertCircle className="w-4 h-4" />
@@ -594,7 +583,7 @@ export function WarehousesConfiguration() {
                 className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 flex items-center gap-2"
               >
                 <CheckCircle className="w-5 h-5" />
-                {editingWarehouseId ? 'Actualizar' : 'Crear'} Almacén
+                {editingAlmacenId ? 'Actualizar' : 'Crear'} Almacén
               </button>
             </div>
           </div>
@@ -603,10 +592,8 @@ export function WarehousesConfiguration() {
     );
   }
 
-  // List view
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Toast Notifications */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map(toast => (
           <div
@@ -627,31 +614,30 @@ export function WarehousesConfiguration() {
         ))}
       </div>
 
-      {/* Delete Confirmation Modal */}
       {deleteConfirmation.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full transform transition-all animate-scale-in">
             <div className="p-6">
               <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-4 ${
-                deleteConfirmation.hasMovements ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-red-100 dark:bg-red-900/30'
+                deleteConfirmation.tieneMovimientosInventario ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-red-100 dark:bg-red-900/30'
               }`}>
                 <AlertCircle className={`w-6 h-6 ${
-                  deleteConfirmation.hasMovements ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
+                  deleteConfirmation.tieneMovimientosInventario ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
                 }`} />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">
-                {deleteConfirmation.hasMovements ? '¡Almacén con movimientos!' : '¿Eliminar almacén?'}
+                {deleteConfirmation.tieneMovimientosInventario ? '¡Almacén con movimientos!' : '¿Eliminar almacén?'}
               </h3>
               <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
-                {deleteConfirmation.hasMovements ? (
+                {deleteConfirmation.tieneMovimientosInventario ? (
                   <>
-                    El almacén <span className="font-semibold">"{deleteConfirmation.warehouseName}"</span> tiene
+                    El almacén <span className="font-semibold">"{deleteConfirmation.nombreAlmacen}"</span> tiene
                     movimientos de inventario asociados y no puede ser eliminado. Puedes deshabilitarlo en su lugar.
                   </>
                 ) : (
                   <>
                     ¿Estás seguro de eliminar el almacén{' '}
-                    <span className="font-semibold">"{deleteConfirmation.warehouseName}"</span>? Esta acción no se
+                    <span className="font-semibold">"{deleteConfirmation.nombreAlmacen}"</span>? Esta acción no se
                     puede deshacer.
                   </>
                 )}
@@ -659,13 +645,18 @@ export function WarehousesConfiguration() {
               <div className="flex gap-3">
                 <button
                   onClick={() =>
-                    setDeleteConfirmation({ isOpen: false, warehouseId: null, warehouseName: '', hasMovements: false })
+                    setDeleteConfirmation({
+                      isOpen: false,
+                      almacenId: null,
+                      nombreAlmacen: '',
+                      tieneMovimientosInventario: false
+                    })
                   }
                   className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
                 >
-                  {deleteConfirmation.hasMovements ? 'Entendido' : 'Cancelar'}
+                  {deleteConfirmation.tieneMovimientosInventario ? 'Entendido' : 'Cancelar'}
                 </button>
-                {!deleteConfirmation.hasMovements && (
+                {!deleteConfirmation.tieneMovimientosInventario && (
                   <button
                     onClick={handleDelete}
                     className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
@@ -679,7 +670,6 @@ export function WarehousesConfiguration() {
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-center space-x-4">
         <button
           onClick={() => navigate('/configuracion')}
@@ -695,7 +685,6 @@ export function WarehousesConfiguration() {
         </div>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
@@ -746,7 +735,6 @@ export function WarehousesConfiguration() {
         </div>
       </div>
 
-      {/* Filters and Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 gap-4">
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 flex-1">
           <div className="relative flex-1">
@@ -775,7 +763,7 @@ export function WarehousesConfiguration() {
 
           <select
             value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value as typeof filterStatus)}
+            onChange={e => setFilterStatus(e.target.value as FilterStatus)}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
           >
             <option value="all">Todos los estados</option>
@@ -793,9 +781,8 @@ export function WarehousesConfiguration() {
         </button>
       </div>
 
-      {/* Warehouses List */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {filteredWarehouses.length === 0 ? (
+        {filteredAlmacenes.length === 0 ? (
           <div className="text-center py-12">
             <Warehouse className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -820,52 +807,56 @@ export function WarehousesConfiguration() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredWarehouses.map(warehouse => (
-              <div key={warehouse.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            {filteredAlmacenes.map(almacen => (
+              <div key={almacen.id} className="p-6 hover:bg-gray-50 dark:hover.bg-gray-700/50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{warehouse.name}</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{almacen.nombreAlmacen}</h3>
                       <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full">
-                        {warehouse.code}
+                        {almacen.codigoAlmacen}
                       </span>
-                      {warehouse.isMainWarehouse && (
+                      {almacen.esAlmacenPrincipal && (
                         <span className="px-2 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full">
                           Principal
                         </span>
                       )}
-                      {warehouse.hasMovements && (
+                      {almacen.tieneMovimientosInventario && (
                         <span className="px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full flex items-center gap-1">
                           <Package className="w-3 h-3" />
                           Con movimientos
                         </span>
                       )}
                       <StatusIndicator
-                        status={warehouse.isActive ? 'success' : 'error'}
-                        label={warehouse.isActive ? 'Activo' : 'Inactivo'}
+                        status={almacen.estaActivoAlmacen ? 'success' : 'error'}
+                        label={almacen.estaActivoAlmacen ? 'Activo' : 'Inactivo'}
                       />
                     </div>
 
                     <div className="space-y-1.5">
                       <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
                         <Building className="w-4 h-4" />
-                        Establecimiento: <span className="font-medium">[{warehouse.establishmentCode}] {warehouse.establishmentName}</span>
+                        Establecimiento:{' '}
+                        <span className="font-medium">
+                          [{almacen.codigoEstablecimientoDesnormalizado || 'N/D'}]{' '}
+                          {almacen.nombreEstablecimientoDesnormalizado || 'Sin nombre'}
+                        </span>
                       </p>
-                      {warehouse.location && (
+                      {almacen.ubicacionAlmacen && (
                         <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
                           <MapPin className="w-4 h-4" />
-                          {warehouse.location}
+                          {almacen.ubicacionAlmacen}
                         </p>
                       )}
-                      {warehouse.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{warehouse.description}</p>
+                      {almacen.descripcionAlmacen && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{almacen.descripcionAlmacen}</p>
                       )}
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
                     <button
-                      onClick={() => handleEdit(warehouse)}
+                      onClick={() => handleEdit(almacen)}
                       className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                       title="Editar"
                     >
@@ -873,15 +864,15 @@ export function WarehousesConfiguration() {
                     </button>
 
                     <button
-                      onClick={() => handleToggleStatus(warehouse.id)}
+                      onClick={() => handleToggleStatus(almacen.id)}
                       className={`p-2 rounded-lg transition-colors ${
-                        warehouse.isActive
+                        almacen.estaActivoAlmacen
                           ? 'text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30'
-                          : 'text-green-400 dark:text-green-500 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30'
+                          : 'text-green-400 dark:text-green-500 hover:text-green-600 dark:hover:text-green-400 hover.bg-green-50 dark:hover:bg-green-900/30'
                       }`}
-                      title={warehouse.isActive ? 'Deshabilitar' : 'Habilitar'}
+                      title={almacen.estaActivoAlmacen ? 'Deshabilitar' : 'Habilitar'}
                     >
-                      {warehouse.isActive ? (
+                      {almacen.estaActivoAlmacen ? (
                         <XCircle className="w-4 h-4" />
                       ) : (
                         <CheckCircle className="w-4 h-4" />
@@ -889,7 +880,7 @@ export function WarehousesConfiguration() {
                     </button>
 
                     <button
-                      onClick={() => openDeleteConfirmation(warehouse)}
+                      onClick={() => openDeleteConfirmation(almacen)}
                       className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                       title="Eliminar"
                     >
@@ -905,3 +896,5 @@ export function WarehousesConfiguration() {
     </div>
   );
 }
+
+export default ConfiguracionAlmacenes;

@@ -7,7 +7,7 @@ import { useCaja } from '../../pages/Private/features/control-caja/context/CajaC
 import { InventoryService } from '../../pages/Private/features/gestion-inventario/services/inventory.service';
 import { evaluateStockAlert } from '../../pages/Private/features/gestion-inventario/utils/stockAlerts';
 import type { Product } from '../../pages/Private/features/catalogo-articulos/models/types';
-import type { Warehouse } from '../../pages/Private/features/configuracion-sistema/modelos/Warehouse';
+import type { Almacen } from '../../pages/Private/features/configuracion-sistema/modelos/Warehouse';
 import type { HeaderNotification, UseHeaderNotificationsResult } from './types';
 
 const mapSunatNotifications = (comprobantes: readonly { id: string; type: string; client: string; status: string; date: string }[]): HeaderNotification[] => {
@@ -43,20 +43,20 @@ const mapSunatNotifications = (comprobantes: readonly { id: string; type: string
 
 const mapStockNotifications = (
   products: readonly Product[],
-  warehouses: readonly Warehouse[],
+  almacenes: readonly Almacen[],
   currentEstablishmentId?: string,
 ): HeaderNotification[] => {
-  if (!warehouses.length || !products.length) {
+  if (!almacenes.length || !products.length) {
     return [];
   }
 
-  const activeWarehouses = warehouses.filter((wh) => wh.isActive);
+  const almacenesActivos = almacenes.filter((almacen) => almacen.estaActivoAlmacen);
 
-  if (!activeWarehouses.length) {
+  if (!almacenesActivos.length) {
     return [];
   }
 
-  const alerts = InventoryService.generateAlerts(Array.from(products), Array.from(activeWarehouses));
+  const alerts = InventoryService.generateAlerts(Array.from(products), Array.from(almacenesActivos));
 
   const filteredAlerts = currentEstablishmentId
     ? alerts.filter((alert) => alert.establishmentId === currentEstablishmentId)
@@ -191,10 +191,10 @@ export const useHeaderNotifications = (): UseHeaderNotificationsResult => {
     () =>
       mapStockNotifications(
         allProducts,
-        configState.warehouses,
+        configState.almacenes,
         session?.currentEstablishmentId,
       ),
-    [allProducts, configState.warehouses, session?.currentEstablishmentId],
+    [allProducts, configState.almacenes, session?.currentEstablishmentId],
   );
 
   const cajaNotifications = useMemo(
