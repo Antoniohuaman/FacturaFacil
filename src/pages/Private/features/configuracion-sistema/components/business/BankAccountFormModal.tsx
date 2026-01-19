@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { Button, Select } from '@/contasis';
+import { Button, Select, Input } from '@/contasis';
 import type { CurrencyDescriptor } from '@/shared/currency';
 import type { BankAccount, BankAccountInput, BankAccountType } from '../../models/BankAccount';
 import { BANK_ACCOUNT_TYPES } from '../../models/BankAccount';
@@ -223,52 +223,38 @@ export function BankAccountFormModal({
                   size="sm"
                 />
               </div>
-                    </option>
-                  ))}
-                </select>
-                {errors.currencyCode && <p className="text-xs text-red-600">{errors.currencyCode}</p>}
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Descripción *</label>
-                <input
-                  type="text"
-                  value={form.description}
-                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  maxLength={60}
-                  placeholder="Alias o etiqueta"
-                />
-                {errors.description && <p className="text-xs text-red-600">{errors.description}</p>}
-              </div>
+              <Input
+                label="Descripción *"
+                type="text"
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                maxLength={60}
+                placeholder="Alias o etiqueta"
+                error={errors.description}
+              />
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Número de cuenta *</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.accountNumber}
-                  onChange={(e) => setForm((prev) => ({ ...prev, accountNumber: sanitizeDigits(e.target.value) }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  maxLength={30}
-                  placeholder="Solo dígitos"
-                />
-                {errors.accountNumber && <p className="text-xs text-red-600">{errors.accountNumber}</p>}
-              </div>
+              <Input
+                label="Número de cuenta *"
+                type="text"
+                inputMode="numeric"
+                value={form.accountNumber}
+                onChange={(e) => setForm((prev) => ({ ...prev, accountNumber: sanitizeDigits(e.target.value) }))}
+                maxLength={30}
+                placeholder="Solo dígitos"
+                error={errors.accountNumber}
+              />
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">CCI *</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.cci}
-                  onChange={(e) => setForm((prev) => ({ ...prev, cci: sanitizeDigits(e.target.value) }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  maxLength={30}
-                  placeholder="Código de cuenta interbancario"
-                />
-                {errors.cci && <p className="text-xs text-red-600">{errors.cci}</p>}
-              </div>
+              <Input
+                label="CCI *"
+                type="text"
+                inputMode="numeric"
+                value={form.cci}
+                onChange={(e) => setForm((prev) => ({ ...prev, cci: sanitizeDigits(e.target.value) }))}
+                maxLength={30}
+                placeholder="Código de cuenta interbancario"
+                error={errors.cci}
+              />
 
               <div className="space-y-1.5 md:col-span-2">
                 <div className="flex items-center justify-between gap-2">

@@ -1,6 +1,7 @@
 // src/features/configuration/components/users/CredentialsModal.tsx
 import { useState } from 'react';
 import { X, Copy, Check, User, Lock, Mail, Shield, Building2, MessageCircle } from 'lucide-react';
+import { Button } from '@/contasis';
 import type { User as UserModel } from '../../models/User';
 import type { Establishment } from '../../models/Establishment';
 import type { Role } from '../../models/Role';
@@ -303,9 +304,10 @@ ${establishmentsText || '  - Ninguno'}
           <div className="flex flex-col gap-2">
             {/* Main action buttons */}
             <div className="flex flex-col sm:flex-row gap-2">
-              <button
+              <Button
                 onClick={handleCopyAll}
-                className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-lg shadow-blue-500/30"
+                variant="primary"
+                className="flex-1 shadow-lg shadow-blue-500/30"
               >
                 {copiedField === 'all' ? (
                   <>

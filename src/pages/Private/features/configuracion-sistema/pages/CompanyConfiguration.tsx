@@ -11,7 +11,7 @@ import {
   Shield,
   ArrowLeft
 } from 'lucide-react';
-import { Button, Select } from '@/contasis';
+import { Button, Select, Input } from '@/contasis';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { ConfigurationCard } from '../components/common/ConfigurationCard';
 import { StatusIndicator } from '../components/common/StatusIndicator';
@@ -749,14 +749,11 @@ export function CompanyConfiguration() {
 
             {/* Trade Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nombre Comercial
-              </label>
-              <input
+              <Input
+                label="Nombre Comercial"
                 type="text"
                 value={formData.tradeName}
                 onChange={(e) => setFormData(prev => ({ ...prev, tradeName: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Nombre con el que se conoce tu empresa"
               />
             </div>
@@ -789,15 +786,12 @@ export function CompanyConfiguration() {
             </div>
 
             {/* Economic Activity */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Actividad Económica
-              </label>
-              <input
+            <div>
+              <Input
+                label="Actividad Económica"
                 type="text"
                 value={formData.economicActivity}
                 onChange={(e) => setFormData(prev => ({ ...prev, economicActivity: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Ej: Comercio al por menor"
               />
             </div>
@@ -907,24 +901,25 @@ export function CompanyConfiguration() {
               <div className="space-y-2">
                 {formData.phones.map((phone, index) => (
                   <div key={index} className="flex items-center space-x-2">
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-3 w-5 h-5 text-gray-400 dark:text-gray-500" />
-                      <input
+                    <div className="flex-1">
+                      <Input
                         type="tel"
                         value={phone}
                         onChange={(e) => handleArrayFieldChange('phones', index, e.target.value)}
                         placeholder="+51 987 654 321"
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                        leftIcon={<Phone />}
                       />
                     </div>
                     {formData.phones.length > 1 && (
-                      <button
+                      <Button
                         type="button"
                         onClick={() => removeArrayField('phones', index)}
-                        className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
+                        variant="tertiary"
+                        iconOnly
+                        size="sm"
+                        icon={<X />}
+                        className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      />
                     )}
                   </div>
                 ))}
@@ -946,24 +941,25 @@ export function CompanyConfiguration() {
               <div className="space-y-2">
                 {formData.emails.map((email, index) => (
                   <div key={index} className="flex items-center space-x-2">
-                    <div className="relative flex-1">
-                      <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400 dark:text-gray-500" />
-                      <input
+                    <div className="flex-1">
+                      <Input
                         type="email"
                         value={email}
                         onChange={(e) => handleArrayFieldChange('emails', index, e.target.value)}
                         placeholder="contacto@miempresa.com"
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                        leftIcon={<Mail />}
                       />
                     </div>
                     {formData.emails.length > 1 && (
-                      <button
+                      <Button
                         type="button"
                         onClick={() => removeArrayField('emails', index)}
-                        className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
+                        variant="tertiary"
+                        iconOnly
+                        size="sm"
+                        icon={<X />}
+                        className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      />
                     )}
                   </div>
                 ))}

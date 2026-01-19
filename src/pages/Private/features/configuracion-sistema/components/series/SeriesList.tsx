@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { FileText, Receipt, Clipboard, MessageSquare, Building2, Search, Plus, NotebookPen } from 'lucide-react';
 import type { Series } from '../../models/Series';
 import type { Establishment } from '../../models/Establishment';
-import { Select } from '@/contasis';
+import { Select, Input, Button } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 import { SeriesCard } from './SeriesCard';
@@ -222,14 +222,13 @@ export function SeriesList({
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <input
+          <div className="flex-1 max-w-md">
+            <Input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar series..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              leftIcon={<Search />}
             />
           </div>
           
@@ -287,14 +286,14 @@ export function SeriesList({
           </div>
 
           {/* Create Button */}
-          <button
+          <Button
             onClick={onCreate}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            variant="primary"
+            icon={<Plus />}
           >
-            <Plus className="w-5 h-5" />
             <span className="hidden sm:inline">Nueva Serie</span>
             <span className="sm:hidden">Nueva</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -355,12 +354,12 @@ export function SeriesList({
             }
           </p>
           {(!searchTerm && filterType === 'ALL' && filterStatus === 'all' && filterEstablishment === 'ALL') && (
-            <button
+            <Button
               onClick={onCreate}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="primary"
             >
               Crear Primera Serie
-            </button>
+            </Button>
           )}
         </div>
       ) : viewMode === 'grid' ? (

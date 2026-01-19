@@ -24,7 +24,7 @@ import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import type { Series, DocumentType } from '../models/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../models/Series';
-import { Button, Select, Input } from '@/contasis';
+import { Button, Select, Input, Checkbox } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -718,18 +718,14 @@ export function SeriesConfiguration() {
             {/* Settings */}
             <div className="space-y-4 pt-4 border-t border-gray-200">
               <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Serie por Defecto</label>
-                  <p className="text-sm text-gray-500">
-                    Se selecciona automáticamente para este tipo de comprobante
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
+                <Checkbox
+                  label="Serie por Defecto"
                   checked={formData.isDefault}
                   onChange={(e) => setFormData(prev => ({ ...prev, isDefault: e.target.checked }))}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
+                <p className="text-sm text-gray-500">
+                  Se selecciona automáticamente para este tipo de comprobante
+                </p>
               </div>
 
               <div className="flex items-center justify-between">
@@ -739,22 +735,18 @@ export function SeriesConfiguration() {
                     Solo las series activas pueden usarse para emitir documentos
                   </p>
                 </div>
-                <Button
-                  variant="tertiary"
-                  iconOnly
-                  icon={formData.isActive ? <ToggleRight /> : <ToggleLeft />}
-                  onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                  className={formData.isActive ? 'text-green-600' : 'text-gray-400'}
-                />
-                {formData.isActive && (
-                  <div style={{ display: 'none' }}>
-                    <ToggleRight className="w-8 h-8 text-green-600" />
-                    <ToggleLeft className="w-8 h-8 text-gray-400" />
-                  )}
+                <div className="flex items-center space-x-3">
+                  <Button
+                    variant="tertiary"
+                    iconOnly
+                    icon={formData.isActive ? <ToggleRight /> : <ToggleLeft />}
+                    onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
+                    className={formData.isActive ? 'text-green-600' : 'text-gray-400'}
+                  />
                   <span className={`font-medium ${formData.isActive ? 'text-green-600' : 'text-gray-500'}`}>
                     {formData.isActive ? 'Activa' : 'Inactiva'}
                   </span>
-                </button>
+                </div>
               </div>
             </div>
 
@@ -899,30 +891,25 @@ export function SeriesConfiguration() {
                               title={seriesItem.isActive ? 'Desactivar' : 'Activar'}
                               className={seriesItem.isActive ? 'text-green-600' : 'text-gray-400'}
                             />
-                            {seriesItem.isActive && <div style={{ display: 'none' }}>
-                              <ToggleRight className="w-5 h-5 text-green-600" />
-                              <ToggleLeft className="w-5 h-5 text-gray-400" />
-                              )}
-                            </button>
                             
-<Button
-                            onClick={() => handleEdit(seriesItem)}
-                            variant="tertiary"
-                            size="sm"
-                            icon={<Edit3 className="w-5 h-5" />}
-                            iconOnly
-                            title="Editar"
-                          />
+                            <Button
+                              onClick={() => handleEdit(seriesItem)}
+                              variant="tertiary"
+                              size="sm"
+                              icon={<Edit3 />}
+                              iconOnly
+                              title="Editar"
+                            />
                             
-<Button
-                            onClick={() => setDeleteModal({ show: true, series: seriesItem })}
-                            variant="tertiary"
-                            size="sm"
-                            icon={<Trash2 className="w-5 h-5 text-red-600" />}
-                            iconOnly
-                            title="Eliminar"
-                            disabled={seriesItem.isDefault || seriesItem.hasUsage}
-                          />
+                            <Button
+                              onClick={() => setDeleteModal({ show: true, series: seriesItem })}
+                              variant="tertiary"
+                              size="sm"
+                              icon={<Trash2 className="text-red-600" />}
+                              iconOnly
+                              title="Eliminar"
+                              disabled={seriesItem.isDefault || seriesItem.hasUsage}
+                            />
                           </div>
                         </div>
 
@@ -1049,7 +1036,7 @@ export function SeriesConfiguration() {
                   style={!(isLoading || parseInt(newCorrelative) <= adjustModal.series!.currentNumber) ? { backgroundColor: '#1478D4' } : {}}
                 >
                   {isLoading ? 'Ajustando...' : 'Ajustar'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

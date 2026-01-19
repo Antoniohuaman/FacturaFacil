@@ -25,7 +25,7 @@ import { useConfigurationContext } from '../context/ConfigurationContext';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import type { Establishment } from '../models/Establishment';
 import { ubigeoData } from '../data/ubigeo';
-import { Button, Select } from '@/contasis';
+import { Button, Select, Input } from '@/contasis';
 
 interface EstablishmentFormData {
   code: string;
@@ -409,66 +409,34 @@ export function EstablishmentsConfiguration() {
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Hash className="w-4 h-4 text-gray-400" />
-                    Código <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.code}
-                      onChange={(e) => {
-                        setFormData(prev => ({ ...prev, code: e.target.value }));
-                        if (formErrors.code) setFormErrors(prev => ({ ...prev, code: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                        formErrors.code
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      placeholder="Ej: 0001"
-                      required
-                      maxLength={4}
-                    />
-                  </div>
-                  {formErrors.code && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.code}
-                    </p>
-                  )}
-                </div>
+                <Input
+                  label="Código"
+                  type="text"
+                  value={formData.code}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, code: e.target.value }));
+                    if (formErrors.code) setFormErrors(prev => ({ ...prev, code: '' }));
+                  }}
+                  error={formErrors.code}
+                  placeholder="Ej: 0001"
+                  leftIcon={<Hash />}
+                  required
+                  maxLength={4}
+                />
 
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    Nombre del Establecimiento <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => {
-                        setFormData(prev => ({ ...prev, name: e.target.value }));
-                        if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                        formErrors.name
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      placeholder="Ej: Sede Central, Sucursal Norte..."
-                      required
-                    />
-                  </div>
-                  {formErrors.name && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.name}
-                    </p>
-                  )}
-                </div>
+                <Input
+                  label="Nombre del Establecimiento"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, name: e.target.value }));
+                    if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                  }}
+                  error={formErrors.name}
+                  placeholder="Ej: Sede Central, Sucursal Norte..."
+                  leftIcon={<FileText />}
+                  required
+                />
               </div>
             </div>
           </div>
@@ -487,35 +455,19 @@ export function EstablishmentsConfiguration() {
               </div>
             </div>
             <div className="p-6 space-y-6">
-              <div className="group">
-                <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                  <Navigation className="w-4 h-4 text-gray-400" />
-                  Dirección <span className="text-red-500">*</span>
-                  </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, address: e.target.value }));
-                      if (formErrors.address) setFormErrors(prev => ({ ...prev, address: '' }));
-                    }}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                      formErrors.address
-                        ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    placeholder="Ej: Av. Los Pinos 123, Urbanización..."
-                    required
-                  />
-                </div>
-                {formErrors.address && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                    <AlertCircle className="w-4 h-4" />
-                    {formErrors.address}
-                  </p>
-                )}
-              </div>
+              <Input
+                label="Dirección"
+                type="text"
+                value={formData.address}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, address: e.target.value }));
+                  if (formErrors.address) setFormErrors(prev => ({ ...prev, address: '' }));
+                }}
+                error={formErrors.address}
+                placeholder="Ej: Av. Los Pinos 123, Urbanización..."
+                leftIcon={<Navigation />}
+                required
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="group">
@@ -587,20 +539,15 @@ export function EstablishmentsConfiguration() {
                 </div>
               </div>
 
-              <div className="group">
-                <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                  <Hash className="w-4 h-4 text-gray-400" />
-                  Código Postal
-                  <span className="text-xs text-gray-500">(Opcional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.postalCode}
-                  onChange={(e) => setFormData(prev => ({ ...prev, postalCode: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-400"
-                  placeholder="Ej: 15001"
-                />
-              </div>
+              <Input
+                label="Código Postal"
+                type="text"
+                value={formData.postalCode}
+                onChange={(e) => setFormData(prev => ({ ...prev, postalCode: e.target.value }))}
+                placeholder="Ej: 15001"
+                leftIcon={<Hash />}
+                helperText="Opcional"
+              />
             </div>
           </div>
 
@@ -619,48 +566,29 @@ export function EstablishmentsConfiguration() {
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    Teléfono
-                    <span className="text-xs text-gray-500">(Opcional)</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-400"
-                    placeholder="Ej: +51 999 999 999"
-                  />
-                </div>
+                <Input
+                  label="Teléfono"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="Ej: +51 999 999 999"
+                  leftIcon={<Phone />}
+                  helperText="Opcional"
+                />
 
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Mail className="w-4 h-4 text-gray-400" />
-                    Correo Electrónico
-                    <span className="text-xs text-gray-500">(Opcional)</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, email: e.target.value }));
-                      if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
-                    }}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                      formErrors.email
-                        ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    placeholder="Ej: establecimiento@empresa.com"
-                  />
-                  {formErrors.email && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.email}
-                    </p>
-                  )}
-                </div>
+                <Input
+                  label="Correo Electrónico"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, email: e.target.value }));
+                    if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+                  }}
+                  error={formErrors.email}
+                  placeholder="Ej: establecimiento@empresa.com"
+                  leftIcon={<Mail />}
+                  helperText="Opcional"
+                />
               </div>
             </div>
           </div>
@@ -672,20 +600,20 @@ export function EstablishmentsConfiguration() {
               Los campos marcados con <span className="text-red-500 font-medium">*</span> son obligatorios
             </p>
             <div className="flex gap-3">
-              <button
+              <Button
                 type="button"
                 onClick={handleCancel}
-                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all font-medium hover:border-gray-400"
+                variant="secondary"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 flex items-center gap-2"
+                variant="primary"
+                icon={<CheckCircle />}
               >
-                <CheckCircle className="w-5 h-5" />
                 {editingEstablishmentId ? 'Actualizar' : 'Crear'} Establecimiento
-              </button>
+              </Button>
             </div>
           </div>
         </form>
@@ -814,16 +742,13 @@ export function EstablishmentsConfiguration() {
       {/* Filters and Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar establecimientos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+          <Input
+            type="text"
+            placeholder="Buscar establecimientos..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            leftIcon={<Search />}
+          />
           
           <Select
             value={filterStatus}

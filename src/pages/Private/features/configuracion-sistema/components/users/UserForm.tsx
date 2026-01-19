@@ -4,7 +4,7 @@
 // src/features/configuration/components/users/UserForm.tsx
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Shield } from 'lucide-react';
-import { Button, Select, Input } from '@/contasis';
+import { Button, Select, Input, Checkbox } from '@/contasis';
 import type { User as UserModel } from '../../models/User';
 import type { Establishment } from '../../models/Establishment';
 
@@ -622,12 +622,10 @@ export function UserForm({
 
                 {/* Require Password Change Option */}
                 <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-200">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="requirePasswordChange"
                     checked={formData.requirePasswordChange}
                     onChange={(e) => handleFieldChange('requirePasswordChange', e.target.checked)}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isLoading}
                   />
                   <label htmlFor="requirePasswordChange" className="flex-1 cursor-pointer">

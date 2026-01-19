@@ -11,7 +11,7 @@ import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import type { Caja } from '../models/Caja';
-import { Button, Select } from '@/contasis';
+import { Button, Select, Input } from '@/contasis';
 
 type FilterStatus = 'all' | 'enabled' | 'disabled';
 
@@ -218,20 +218,15 @@ export function CajasConfiguration() {
 
               {/* Search */}
               <div className="flex-1">
-                <label htmlFor="search-input" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                  Buscar
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    id="search-input"
-                    type="text"
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    placeholder="Buscar por nombre..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
+                <Input
+                  id="search-input"
+                  label="Buscar"
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="Buscar por nombre..."
+                  leftIcon={<Search />}
+                />
               </div>
 
               {/* Status filter */}
@@ -309,13 +304,13 @@ export function CajasConfiguration() {
                 : 'Comienza creando tu primera caja para gestionar operaciones de efectivo en este establecimiento.'}
             </p>
             {!searchText && filterStatus === 'all' && (
-              <button
+              <Button
                 onClick={handleCreate}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                variant="primary"
+                icon={<Plus />}
               >
-                <Plus className="w-5 h-5" />
                 Crear Caja
-              </button>
+              </Button>
             )}
           </div>
         )}

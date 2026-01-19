@@ -2,6 +2,7 @@
 // src/features/configuration/components/establishments/EstablishmentForm.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Building2, Hash, ToggleLeft, ToggleRight, X } from 'lucide-react';
+import { Input, Button } from '@/contasis';
 import type { Establishment } from '../../models/Establishment';
 
 interface EstablishmentFormData {
@@ -192,33 +193,18 @@ export function EstablishmentForm({
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Code */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Código *
-              </label>
-              <div className="relative">
-                <Hash className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => handleFieldChange('code', e.target.value.toUpperCase())}
-                  onBlur={() => handleBlur('code')}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.code && touchedFields.has('code')
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
-                  placeholder="EST001"
-                  maxLength={10}
-                />
-              </div>
-              {errors.code && touchedFields.has('code') && (
-                <p className="text-sm text-red-600 mt-1">{errors.code}</p>
-              )}
-              <p className="text-xs text-gray-500 mt-1">
-                Código único para identificar el establecimiento
-              </p>
-            </div>
+            <Input
+              label="Código *"
+              type="text"
+              value={formData.code}
+              onChange={(e) => handleFieldChange('code', e.target.value.toUpperCase())}
+              onBlur={() => handleBlur('code')}
+              error={errors.code && touchedFields.has('code') ? errors.code : undefined}
+              placeholder="EST001"
+              maxLength={10}
+              leftIcon={<Hash />}
+              helperText="Código único para identificar el establecimiento"
+            />
 
             {/* Status Toggle */}
             <div>
@@ -248,26 +234,16 @@ export function EstablishmentForm({
           </div>
 
           {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre del Establecimiento *
-            </label>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => handleFieldChange('name', e.target.value)}
-                onBlur={() => handleBlur('name')}
-                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.name && touchedFields.has('name')
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-300'
-                }`}
-                placeholder="Sucursal Principal, Local Centro, Tienda Norte..."
-              />
-            </div>
-            {errors.name && touchedFields.has('name') && (
+          <Input
+            label="Nombre del Establecimiento *"
+            type="text"
+            value={formData.name}
+            onChange={(e) => handleFieldChange('name', e.target.value)}
+            onBlur={() => handleBlur('name')}
+            error={errors.name && touchedFields.has('name') ? errors.name : undefined}
+            placeholder="Sucursal Principal, Local Centro, Tienda Norte..."
+            leftIcon={<Building2 />}
+          />
               <p className="text-sm text-red-600 mt-1">{errors.name}</p>
             )}
           </div>
@@ -301,23 +277,16 @@ export function EstablishmentForm({
           </div>
 
           {/* Ubigeo */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Código de Ubigeo
-            </label>
-            <input
-              type="text"
-              value={formData.ubigeo}
-              onChange={(e) => handleFieldChange('ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))}
-              onBlur={() => handleBlur('ubigeo')}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.ubigeo && touchedFields.has('ubigeo')
-                  ? 'border-red-300 bg-red-50'
-                  : 'border-gray-300'
-              }`}
-              placeholder="150101"
-              maxLength={6}
-            />
+          <Input
+            label="Código de Ubigeo"
+            type="text"
+            value={formData.ubigeo}
+            onChange={(e) => handleFieldChange('ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onBlur={() => handleBlur('ubigeo')}
+            error={errors.ubigeo && touchedFields.has('ubigeo') ? errors.ubigeo : undefined}
+            placeholder="150101"
+            maxLength={6}
+          />
             {errors.ubigeo && touchedFields.has('ubigeo') && (
               <p className="text-sm text-red-600 mt-1">{errors.ubigeo}</p>
             )}

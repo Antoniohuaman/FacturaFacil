@@ -15,7 +15,7 @@ import type { Role } from '../../models/Role';
 import type { Establishment } from '../../models/Establishment';
 import { UserCard } from './UserCard';
 import { StatusIndicator } from '../common/StatusIndicator';
-import { Select } from '@/contasis';
+import { Select, Input, Button } from '@/contasis';
 
 type UserStatus = User['status'];
 
@@ -232,14 +232,13 @@ export function UsersList({
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <input
+          <div className="flex-1 max-w-md">
+            <Input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por nombre, email o documento..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              leftIcon={<Search />}
             />
             {searchTerm && (
               <button
@@ -383,12 +382,12 @@ export function UsersList({
             }
           </p>
           {(!searchTerm && filterStatus === 'ALL' && filterEstablishment === 'ALL') && (
-            <button
+            <Button
               onClick={onCreate}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="primary"
             >
               Nuevo Usuario
-            </button>
+            </Button>
           )}
         </div>
       ) : viewMode === 'grid' ? (

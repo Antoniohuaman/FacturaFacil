@@ -4,7 +4,7 @@ import { Search, Filter, Plus } from 'lucide-react';
 import type { Establishment } from '../../models/Establishment';
 import { EstablishmentCard } from './EstablishmentCard';
 import { StatusIndicator } from '../common/StatusIndicator';
-import { Select } from '@/contasis';
+import { Select, Input, Button } from '@/contasis';
 
 type ViewMode = 'grid' | 'table';
 type FilterStatus = 'all' | 'enabled' | 'disabled';
@@ -136,14 +136,13 @@ export function EstablishmentsList({
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <input
+          <div className="flex-1 max-w-md">
+            <Input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por nombre, código o dirección..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              leftIcon={<Search />}
             />
             {searchTerm && (
               <button
@@ -200,14 +199,14 @@ export function EstablishmentsList({
           </div>
 
           {/* Create Button */}
-          <button
+          <Button
             onClick={onCreate}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            variant="primary"
+            icon={<Plus />}
           >
-            <Plus className="w-5 h-5" />
             <span className="hidden sm:inline">Nuevo Establecimiento</span>
             <span className="sm:hidden">Nuevo</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -267,12 +266,12 @@ export function EstablishmentsList({
             }
           </p>
           {(!searchTerm && filterStatus === 'all') && (
-            <button
+            <Button
               onClick={onCreate}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="primary"
             >
               Crear Primer Establecimiento
-            </button>
+            </Button>
           )}
         </div>
       ) : viewMode === 'grid' ? (

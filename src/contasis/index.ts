@@ -16,5 +16,11 @@ export type { InputProps } from './components/Input';
 export { Checkbox } from './components/Checkbox';
 export type { CheckboxProps } from './components/Checkbox';
 
+export { RadioButton } from './components/RadioButton';
+export type { RadioButtonProps } from './components/RadioButton';
+
+export { Textarea } from './components/Textarea';
+export type { TextareaProps } from './components/Textarea';
+
 export { Sidebar } from './layout/Sidebar';
 export type { SidebarProps, Module } from './layout/Sidebar';

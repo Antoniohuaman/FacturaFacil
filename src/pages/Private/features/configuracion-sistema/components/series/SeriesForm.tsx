@@ -3,6 +3,7 @@
 // src/features/configuration/components/series/SeriesForm.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { X, FileText, Receipt, Clipboard, MessageSquare, Building2, Hash, AlertCircle, CheckCircle, Info, NotebookPen } from 'lucide-react';
+import { Input, Button } from '@/contasis';
 import type { Series } from '../../models/Series';
 import type { Establishment } from '../../models/Establishment';
 import { SettingsToggle } from '../common/SettingsToggle';
@@ -364,30 +365,20 @@ export function SeriesForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Series Code */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Código de Serie *
-              </label>
-              <div className="relative">
-                <Hash className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.series}
-                  onChange={(e) => handleFieldChange('series', e.target.value.toUpperCase())}
-                  onBlur={() => handleBlur('series')}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono ${
-                    errors.series && touchedFields.has('series')
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
-                  placeholder={voucherTypeConfig[formData.type].examples[0]}
-                  maxLength={4}
-                  disabled={isLoading}
-                />
-              </div>
-              
-              {errors.series && touchedFields.has('series') && (
-                <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
+              <Input
+                label="Código de Serie *"
+                type="text"
+                value={formData.series}
+                onChange={(e) => handleFieldChange('series', e.target.value.toUpperCase())}
+                onBlur={() => handleBlur('series')}
+                error={errors.series && touchedFields.has('series') ? errors.series : undefined}
+                placeholder={voucherTypeConfig[formData.type].examples[0]}
+                maxLength={4}
+                disabled={isLoading}
+                leftIcon={<Hash />}
+                className="font-mono"
+              />
+            </div>
                   <span>{errors.series}</span>
                 </p>
               )}
@@ -541,24 +532,24 @@ export function SeriesForm({
 
           {/* Actions */}
           <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-            <button
+            <Button
               type="button"
               onClick={onCancel}
               disabled={isLoading}
-              className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50"
+              variant="secondary"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={!isFormValid() || isLoading}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
+              variant="primary"
             >
               {isLoading && (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               )}
-              <span>{series ? 'Actualizar Serie' : 'Crear Serie'}</span>
-            </button>
+              <span>{series ? 'Actualizar' : 'Crear'} Serie</span>
+            </Button>
           </div>
         </form>
       </div>

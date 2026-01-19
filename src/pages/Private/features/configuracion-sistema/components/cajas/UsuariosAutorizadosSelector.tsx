@@ -1,4 +1,5 @@
 import React from 'react';
+import { Checkbox } from '@/contasis';
 import { useConfigurationContext } from '../../context/ConfigurationContext';
 import type { User } from '../../models';
 
@@ -114,12 +115,10 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
               `}
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={value.includes(user.id)}
                 onChange={() => handleToggleUser(user.id)}
                 disabled={disabled}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:cursor-not-allowed"
               />
               <div className="ml-3 flex-1">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">

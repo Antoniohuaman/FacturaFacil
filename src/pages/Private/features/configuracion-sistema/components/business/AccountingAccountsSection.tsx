@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Button } from '@/contasis';
 import { useAccountingAccounts } from '../../hooks/useAccountingAccounts';
 import { useBankAccounts } from '../../hooks/useBankAccounts';
 import type { AccountingAccount } from '../../models/AccountingAccount';
@@ -85,13 +86,13 @@ export function AccountingAccountsSection({ onBack }: AccountingAccountsSectionP
       <h3 className="mt-3 text-base font-semibold text-gray-900">Sin cuentas contables</h3>
       <p className="mt-1 text-sm text-gray-600">Agrega los códigos de tu plan contable.</p>
       <div className="mt-4">
-        <button
+        <Button
           onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+          variant="primary"
+          icon={<Plus />}
         >
-          <Plus className="h-4 w-4" />
           Agregar cuenta contable
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -158,13 +159,14 @@ export function AccountingAccountsSection({ onBack }: AccountingAccountsSectionP
             </button>
           )}
           {accounts.length > 0 && (
-            <button
+            <Button
               onClick={openCreate}
-              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              variant="primary"
+              icon={<Plus />}
+              size="sm"
             >
-              <Plus className="h-4 w-4" />
               Agregar cuenta contable
-            </button>
+            </Button>
           )}
         </div>
       </div>

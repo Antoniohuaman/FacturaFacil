@@ -232,7 +232,7 @@ export function CajaForm({
         <Select
           label="Moneda"
           value={formData.monedaId}
-          onChange={(value) => setFormData(prev => ({ ...prev, monedaId: value }))}
+          onChange={(e) => setFormData(prev => ({ ...prev, monedaId: e.target.value }))}
           onBlur={() => handleBlur('monedaId')}
           options={[
             { value: '', label: 'Seleccionar moneda' },
@@ -241,10 +241,9 @@ export function CajaForm({
               label: `${currency.code} - ${currency.name}`
             }))
           ]}
-          error={!!fieldError('monedaId')}
+          error={fieldError('monedaId')}
           helperText={fieldError('monedaId')}
           required
-          size="md"
         />
       </div>
 

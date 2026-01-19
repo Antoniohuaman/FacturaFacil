@@ -440,67 +440,35 @@ export function WarehousesConfiguration() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Código */}
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
-                    <Hash className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                    Código <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.code}
-                      onChange={e => {
-                        setFormData(prev => ({ ...prev, code: e.target.value }));
-                        if (formErrors.code) setFormErrors(prev => ({ ...prev, code: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                        formErrors.code
-                          ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
-                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
-                      placeholder="Ej: 0001"
-                      required
-                      maxLength={4}
-                    />
-                  </div>
-                  {formErrors.code && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.code}
-                    </p>
-                  )}
-                </div>
+                <Input
+                  label="Código"
+                  type="text"
+                  value={formData.code}
+                  onChange={e => {
+                    setFormData(prev => ({ ...prev, code: e.target.value }));
+                    if (formErrors.code) setFormErrors(prev => ({ ...prev, code: '' }));
+                  }}
+                  error={formErrors.code}
+                  placeholder="Ej: 0001"
+                  leftIcon={<Hash />}
+                  required
+                  maxLength={4}
+                />
 
                 {/* Nombre */}
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
-                    <FileText className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                    Nombre del Almacén <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={e => {
-                        setFormData(prev => ({ ...prev, name: e.target.value }));
-                        if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                        formErrors.name
-                          ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
-                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
-                      placeholder="Ej: Almacén Principal, Almacén Norte..."
-                      required
-                    />
-                  </div>
-                  {formErrors.name && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.name}
-                    </p>
-                  )}
-                </div>
+                <Input
+                  label="Nombre del Almacén"
+                  type="text"
+                  value={formData.name}
+                  onChange={e => {
+                    setFormData(prev => ({ ...prev, name: e.target.value }));
+                    if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                  }}
+                  error={formErrors.name}
+                  placeholder="Ej: Almacén Principal, Almacén Norte..."
+                  leftIcon={<FileText />}
+                  required
+                />
               </div>
 
               {/* Ubicación */}
@@ -721,16 +689,13 @@ export function WarehousesConfiguration() {
       {/* Filters and Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 gap-4">
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 flex-1">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar almacenes..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400"
-            />
-          </div>
+          <Input
+            type="text"
+            placeholder="Buscar almacenes..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            leftIcon={<Search />}
+          />
 
           <Select
             value={filterEstablishment}
