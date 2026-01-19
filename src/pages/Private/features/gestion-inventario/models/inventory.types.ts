@@ -48,9 +48,9 @@ export interface MovimientoStock {
   fecha: Date;
   ubicacion?: string;
   // Almacén donde se realizó el movimiento
-  warehouseId: string;
-  warehouseCodigo: string;
-  warehouseNombre: string;
+  almacenId: string;
+  almacenCodigo: string;
+  almacenNombre: string;
   // Datos del establecimiento (desnormalizados para referencia)
   establishmentId: string;
   establishmentCodigo: string;
@@ -58,10 +58,10 @@ export interface MovimientoStock {
   // Campos para transferencias entre almacenes
   esTransferencia?: boolean;
   transferenciaId?: string; // ID único que vincula origen y destino
-  warehouseOrigenId?: string;
-  warehouseOrigenNombre?: string;
-  warehouseDestinoId?: string;
-  warehouseDestinoNombre?: string;
+  almacenOrigenId?: string;
+  almacenOrigenNombre?: string;
+  almacenDestinoId?: string;
+  almacenDestinoNombre?: string;
   movimientoRelacionadoId?: string; // ID del movimiento complementario
 }
 
@@ -93,9 +93,9 @@ export interface StockAlert {
   estado: EstadoAlerta;
   alertType: Exclude<StockAlertType, 'OK'>;
   isCritical: boolean;
-  warehouseId: string;
-  warehouseCodigo: string;
-  warehouseNombre: string;
+  almacenId: string;
+  almacenCodigo: string;
+  almacenNombre: string;
   // Datos del establecimiento (desnormalizados para referencia)
   establishmentId: string;
   establishmentCodigo: string;
@@ -121,7 +121,7 @@ export interface StockSummary {
  * Filtros para movimientos de stock
  */
 export interface StockFilters {
-  warehouseId?: string;
+  almacenId?: string;
   fechaDesde?: Date;
   fechaHasta?: Date;
   tipoMovimiento?: MovimientoTipo | 'todos';
@@ -153,7 +153,7 @@ export type FilterPeriod = 'hoy' | 'semana' | 'mes' | 'todo';
  */
 export interface StockAdjustmentData {
   productoId: string;
-  warehouseId: string;
+  almacenId: string;
   tipo: MovimientoTipo;
   motivo: MovimientoMotivo;
   cantidad: number;
@@ -166,8 +166,8 @@ export interface StockAdjustmentData {
  */
 export interface StockTransferData {
   productoId: string;
-  warehouseOrigenId: string;
-  warehouseDestinoId: string;
+  almacenOrigenId: string;
+  almacenDestinoId: string;
   cantidad: number;
   observaciones?: string;
   documentoReferencia?: string;
@@ -179,7 +179,7 @@ export interface StockTransferData {
 export interface MassStockUpdateData {
   updates: Array<{
     productoId: string;
-    warehouseId: string;
+    almacenId: string;
     cantidad: number;
   }>;
   tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO';

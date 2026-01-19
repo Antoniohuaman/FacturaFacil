@@ -28,9 +28,9 @@ import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore'
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import {
-  allocateSaleAcrossWarehouses,
+  allocateSaleAcrossalmacenes,
   calculateRequiredUnidadMinima,
-  resolveWarehousesForSaleFIFO,
+  resolvealmacenesForSaleFIFO,
 } from '../../../../../shared/inventory/stockGateway';
 import {
   assertBusinessDate,
@@ -106,7 +106,7 @@ export const useComprobanteActions = () => {
   const { session } = useUserSession();
   const { upsertCuenta, registerCobranza } = useCobranzasContext();
   const { allProducts: catalogProducts } = useProductStore();
-  const { state: { warehouses, salesPreferences } } = useConfigurationContext();
+  const { state: { almacenes, salesPreferences } } = useConfigurationContext();
   const allowNegativeStockConfig = Boolean(salesPreferences?.allowNegativeStock);
 
   const catalogLookup = useMemo(() => {
@@ -423,15 +423,15 @@ export const useComprobanteActions = () => {
           throw new Error('No se pudo resolver el establecimiento para descontar stock.');
         }
 
-        const warehousesOrdered = resolveWarehousesForSaleFIFO({ warehouses, establishmentId });
-        if (!warehousesOrdered.length) {
+        const almacenesOrdered = resolvealmacenesForSaleFIFO({ almacenes, establishmentId });
+        if (!almacenesOrdered.length) {
           throw new Error(`No hay almacenes activos configurados para el establecimiento ${establishmentId}.`);
         }
 
         type PendingMovement = {
           productId: string;
           qtyUnidadMinima: number;
-          warehouseId: string;
+          almacenId: string;
           observaciones: string;
         };
 
@@ -463,15 +463,15 @@ export const useComprobanteActions = () => {
             pendingMovements.push({
               productId: item.id,
               qtyUnidadMinima: quantityInUnidadMinima,
-              warehouseId: warehousesOrdered[0].id,
+              almacenId: almacenesOrdered[0].id,
               observaciones,
             });
             continue;
           }
 
-          const allocations = allocateSaleAcrossWarehouses({
+          const allocations = allocateSaleAcrossalmacenes({
             product: catalogProduct,
-            warehousesOrdered,
+            almacenesOrdered,
             qtyUnidadMinima: quantityInUnidadMinima,
             respectReservations: true,
           });
@@ -491,7 +491,7 @@ export const useComprobanteActions = () => {
             pendingMovements.push({
               productId: item.id,
               qtyUnidadMinima: seg.qtyUnidadMinima,
-              warehouseId: seg.warehouseId,
+              almacenId: seg.almacenId,
               observaciones,
             });
           });
@@ -500,7 +500,7 @@ export const useComprobanteActions = () => {
             pendingMovements.push({
               productId: item.id,
               qtyUnidadMinima: remaining,
-              warehouseId: warehousesOrdered[0].id,
+              almacenId: almacenesOrdered[0].id,
               observaciones,
             });
           }
@@ -520,7 +520,7 @@ export const useComprobanteActions = () => {
             establishment?.code,
             establishment?.name,
             {
-              warehouseId: movement.warehouseId,
+              almacenId: movement.almacenId,
               allowNegativeStock,
             }
           );
@@ -724,7 +724,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta, catalogLookup, warehouses, allowNegativeStockConfig]);
+  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta, catalogLookup, almacenes, allowNegativeStockConfig]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

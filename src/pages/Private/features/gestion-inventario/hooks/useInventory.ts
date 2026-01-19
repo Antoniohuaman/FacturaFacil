@@ -36,7 +36,7 @@ export const useInventory = () => {
   // Estados locales del módulo inventario
   const [selectedView, setSelectedView] = useState<InventoryView>('situacion');
   const [filterPeriodo, setFilterPeriodo] = useState<FilterPeriod>('semana');
-  const [warehouseFiltro, setWarehouseFiltro] = useState<string>('todos');
+  const [almacenFiltro, setalmacenFiltro] = useState<string>('todos');
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -62,12 +62,12 @@ export const useInventory = () => {
     const alerts = InventoryService.generateAlerts(allProducts, almacenesActivos);
 
     // Filtrar por almacén si es necesario
-    if (warehouseFiltro && warehouseFiltro !== 'todos') {
-      return alerts.filter(alert => alert.warehouseId === warehouseFiltro);
+    if (almacenFiltro && almacenFiltro !== 'todos') {
+      return alerts.filter(alert => alert.almacenId === almacenFiltro);
     }
 
     return alerts;
-  }, [allProducts, almacenesActivos, warehouseFiltro]);
+  }, [allProducts, almacenesActivos, almacenFiltro]);
 
   /**
    * Movimientos filtrados por período y almacén
@@ -76,16 +76,16 @@ export const useInventory = () => {
     let filtered = filterByPeriod(movimientos, filterPeriodo);
 
     // Filtrar por almacén si es necesario
-    if (warehouseFiltro !== 'todos') {
+    if (almacenFiltro !== 'todos') {
       filtered = filtered.filter(
-        mov => mov.warehouseId === warehouseFiltro ||
-               mov.warehouseOrigenId === warehouseFiltro ||
-               mov.warehouseDestinoId === warehouseFiltro
+        mov => mov.almacenId === almacenFiltro ||
+               mov.almacenOrigenId === almacenFiltro ||
+               mov.almacenDestinoId === almacenFiltro
       );
     }
 
     return sortByDateDesc(filtered);
-  }, [movimientos, filterPeriodo, warehouseFiltro]);
+  }, [movimientos, filterPeriodo, almacenFiltro]);
 
   /**
    * Resumen del inventario
@@ -98,10 +98,10 @@ export const useInventory = () => {
     let productosStockCritico = 0;
 
     allProducts.forEach(product => {
-      if (warehouseFiltro && warehouseFiltro !== 'todos') {
+      if (almacenFiltro && almacenFiltro !== 'todos') {
         // Stock de un almacén específico
-        const stock = InventoryService.getStock(product, warehouseFiltro);
-        const stockMin = product.stockMinimoPorAlmacen?.[warehouseFiltro] || 0;
+        const stock = InventoryService.getStock(product, almacenFiltro);
+        const stockMin = product.stockMinimoPorAlmacen?.[almacenFiltro] || 0;
 
         totalStock += stock;
         valorTotalStock += stock * product.precio;
@@ -136,7 +136,7 @@ export const useInventory = () => {
       productosStockCritico,
       ultimaActualizacion: new Date()
     };
-  }, [allProducts, warehouseFiltro]);
+  }, [allProducts, almacenFiltro]);
 
   /**
    * Maneja el ajuste de stock
@@ -144,9 +144,9 @@ export const useInventory = () => {
   const handleStockAdjustment = useCallback((data: StockAdjustmentData) => {
     try {
       const product = allProducts.find(p => p.id === data.productoId);
-      const warehouse = almacenesActivos.find(almacen => almacen.id === data.warehouseId);
+      const almacen = almacenesActivos.find(almacen => almacen.id === data.almacenId);
 
-      if (!product || !warehouse) {
+      if (!product || !almacen) {
         alert('Producto o almacén no encontrado');
         return;
       }
@@ -154,7 +154,7 @@ export const useInventory = () => {
       // Registrar ajuste usando el servicio
       const result = InventoryService.registerAdjustment(
         product,
-        warehouse,
+        almacen,
         data,
         session?.userName || user?.nombre || 'Usuario'
       );
@@ -181,10 +181,10 @@ export const useInventory = () => {
   const handleStockTransfer = useCallback((data: StockTransferData) => {
     try {
       const product = allProducts.find(p => p.id === data.productoId);
-      const warehouseOrigen = almacenesActivos.find(almacen => almacen.id === data.warehouseOrigenId);
-      const warehouseDestino = almacenesActivos.find(almacen => almacen.id === data.warehouseDestinoId);
+      const almacenOrigen = almacenesActivos.find(almacen => almacen.id === data.almacenOrigenId);
+      const almacenDestino = almacenesActivos.find(almacen => almacen.id === data.almacenDestinoId);
 
-      if (!product || !warehouseOrigen || !warehouseDestino) {
+      if (!product || !almacenOrigen || !almacenDestino) {
         alert('Producto o almacenes no encontrados');
         return;
       }
@@ -192,8 +192,8 @@ export const useInventory = () => {
       // Registrar transferencia usando el servicio
       const result = InventoryService.registerTransfer(
         product,
-        warehouseOrigen,
-        warehouseDestino,
+        almacenOrigen,
+        almacenDestino,
         data,
         session?.userName || user?.nombre || 'Usuario'
       );
@@ -205,7 +205,7 @@ export const useInventory = () => {
       setMovimientos(prev => [...result.movements, ...prev]);
 
       // Mostrar notificación de éxito
-      alert(`✅ Transferencia realizada exitosamente\n\n${data.cantidad} unidades transferidas\nDesde: ${warehouseOrigen.nombreAlmacen}\nHacia: ${warehouseDestino.nombreAlmacen}`);
+      alert(`✅ Transferencia realizada exitosamente\n\n${data.cantidad} unidades transferidas\nDesde: ${almacenOrigen.nombreAlmacen}\nHacia: ${almacenDestino.nombreAlmacen}`);
 
       setShowTransferModal(false);
     } catch (error) {
@@ -271,14 +271,14 @@ export const useInventory = () => {
     // Estados
     selectedView,
     filterPeriodo,
-    warehouseFiltro,
+    almacenFiltro,
     showAdjustmentModal,
     showMassUpdateModal,
     showTransferModal,
     selectedProductId,
     suggestedQuantity,
     almacenesActivos,
-    warehouses: almacenesActivos,
+    almacenes: almacenesActivos,
     stockAlerts,
     filteredMovements,
     stockSummary,
@@ -287,7 +287,7 @@ export const useInventory = () => {
     // Setters
     setSelectedView,
     setFilterPeriodo,
-    setWarehouseFiltro,
+    setalmacenFiltro,
     setShowAdjustmentModal,
     setShowMassUpdateModal,
     setShowTransferModal,

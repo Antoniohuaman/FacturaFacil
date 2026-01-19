@@ -62,10 +62,10 @@ export interface Establishment {
   // Inventory configuration
   inventoryConfiguration: {
     managesInventory: boolean;
-    isWarehouse: boolean;
+    isalmacen: boolean;
     allowNegativeStock: boolean;
     autoTransferStock: boolean;
-    parentWarehouseId?: string;
+    parentalmacenId?: string;
   };
   
   // Financial configuration
@@ -184,10 +184,10 @@ export interface CreateEstablishmentRequest {
   };
   inventoryConfiguration?: {
     managesInventory: boolean;
-    isWarehouse: boolean;
+    isalmacen: boolean;
     allowNegativeStock: boolean;
     autoTransferStock: boolean;
-    parentWarehouseId?: string;
+    parentalmacenId?: string;
   };
   financialConfiguration?: {
     handlesCash: boolean;

@@ -152,7 +152,7 @@ export function ContextSelectPage() {
           },
           inventoryConfiguration: {
             managesInventory: true,
-            isWarehouse: false,
+            isalmacen: false,
             allowNegativeStock: false,
             autoTransferStock: false
           },

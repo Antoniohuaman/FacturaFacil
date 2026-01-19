@@ -172,7 +172,7 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
     'Stock por establecimiento'
   );
 
-  const stockByWarehouseList = renderRecordList(
+  const stockByalmacenList = renderRecordList(
     product.stockPorAlmacen,
     (key) => `Almacén ${key}`,
     'Stock por almacén'
@@ -351,7 +351,7 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
         {unitsSection}
         {availabilitySection}
         {stockByEstablishmentList}
-        {stockByWarehouseList}
+        {stockByalmacenList}
         {reservedStockList}
         {minStockList}
         {maxStockList}

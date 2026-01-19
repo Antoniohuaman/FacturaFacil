@@ -98,7 +98,7 @@ interface InventorySearchEntity {
   stockReservado: number;
   stockDisponible: number;
   stockMinimo?: number;
-  warehouses: Array<{ id: string; name: string; quantity: number }>;
+  almacenes: Array<{ id: string; name: string; quantity: number }>;
 }
 
 interface IndicadorSearchEntity {
@@ -618,13 +618,13 @@ const SearchBarContent = ({
   const comprobantes = comprobanteState.comprobantes;
   const { cuentas } = useCobranzasContext();
   const { state: configState } = useConfigurationContext();
-  const warehouseNameMap = useMemo(() => {
+  const nombreAlmacenMap = useMemo(() => {
     const map = new Map<string, string>();
-    configState.warehouses.forEach((warehouse) => {
-      map.set(warehouse.id, warehouse.name ?? warehouse.code ?? warehouse.id);
+    configState.almacenes.forEach((almacen) => {
+      map.set(almacen.id, almacen.name ?? almacen.code ?? almacen.id);
     });
     return map;
-  }, [configState.warehouses]);
+  }, [configState.almacenes]);
   const { status: cajaStatus, movimientos, getResumen, aperturaActual } = useCaja();
   const cajaResumen = useMemo(() => getResumen(), [getResumen]);
   const movimientoDateFormatter = useMemo(
@@ -899,9 +899,9 @@ const SearchBarContent = ({
       const stockDisponible = Math.max(stockReal - stockReservado, 0);
       const stockMinimo = Object.values(producto.stockMinimoPorAlmacen ?? {}).reduce((sum, qty) => sum + Number(qty ?? 0), 0) || undefined;
       const situacion = stockDisponible === 0 ? 'Sin stock' : stockMinimo && stockDisponible < stockMinimo ? 'Bajo' : 'OK';
-      const warehouses = stockEntries.map(([warehouseId, qty]) => ({
-        id: warehouseId,
-        name: warehouseNameMap.get(warehouseId) ?? warehouseId,
+      const almacenes = stockEntries.map(([almacenId, qty]) => ({
+        id: almacenId,
+        name: nombreAlmacenMap.get(almacenId) ?? almacenId,
         quantity: Number(qty ?? 0),
       }));
       const haystack = buildRichHaystack(
@@ -915,7 +915,7 @@ const SearchBarContent = ({
         stockReal,
         stockReservado,
         stockDisponible,
-        ...warehouses.map((entry) => `${entry.name} ${entry.quantity}`)
+        ...almacenes.map((entry) => `${entry.name} ${entry.quantity}`)
       );
       return {
         id: `inventory-${producto.id}`,
@@ -935,7 +935,7 @@ const SearchBarContent = ({
           stockReservado,
           stockDisponible,
           stockMinimo,
-          warehouses,
+          almacenes,
         },
         keywords: [
           { value: producto.nombre, weight: 140, isKey: true },
@@ -952,7 +952,7 @@ const SearchBarContent = ({
         ],
       } satisfies SearchDatasetItem<InventorySearchEntity>;
     });
-  }, [productosCatalog, warehouseNameMap]);
+  }, [productosCatalog, nombreAlmacenMap]);
 
   const indicadoresItems = useMemo<SearchDatasetItem<IndicadorSearchEntity>[]>(() => {
     if (indicadoresStatus !== 'success') {

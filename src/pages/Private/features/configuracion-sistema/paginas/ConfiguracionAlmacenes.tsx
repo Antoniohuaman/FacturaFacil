@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  Warehouse,
   Plus,
   Edit,
   Trash2,
@@ -16,7 +15,8 @@ import {
   Hash,
   FileText,
   MapPin,
-  Package
+  Package,
+  Warehouse
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { StatusIndicator } from '../components/comunes/IndicadorEstado';
@@ -64,7 +64,7 @@ const sincronizarAliasAlmacen = (almacen: AlmacenSinAlias): Almacen => ({
   establishmentId: almacen.establecimientoId,
   location: almacen.ubicacionAlmacen,
   isActive: almacen.estaActivoAlmacen,
-  isMainWarehouse: almacen.esAlmacenPrincipal,
+  isMainalmacen: almacen.esAlmacenPrincipal,
 });
 
 export function ConfiguracionAlmacenes() {

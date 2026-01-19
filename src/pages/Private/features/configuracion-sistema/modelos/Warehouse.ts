@@ -1,4 +1,4 @@
-// src/features/configuracion-sistema/modelos/Warehouse.ts
+// src/features/configuracion-sistema/modelos/almacen.ts
 
 /**
  * Representa un almacén dentro de un establecimiento
@@ -60,7 +60,7 @@ export interface Almacen {
   esAlmacenPrincipal: boolean;
 
   /** Alias legada: almacén principal */
-  isMainWarehouse: boolean;
+  isMainalmacen: boolean;
 
   /** Configuración de gestión de inventario */
   configuracionInventarioAlmacen: {
@@ -112,7 +112,7 @@ export interface AlmacenFormData {
 
 export type AlmacenSinAlias = Omit<
   Almacen,
-  'code' | 'name' | 'establishmentId' | 'establishmentName' | 'establishmentCode' | 'location' | 'isActive' | 'isMainWarehouse'
+  'code' | 'name' | 'establishmentId' | 'establishmentName' | 'establishmentCode' | 'location' | 'isActive' | 'isMainalmacen'
 > & Partial<Pick<Almacen, 'establishmentName' | 'establishmentCode' | 'location'>>;
 
-export type Warehouse = Almacen;
+export type almacen = Almacen;

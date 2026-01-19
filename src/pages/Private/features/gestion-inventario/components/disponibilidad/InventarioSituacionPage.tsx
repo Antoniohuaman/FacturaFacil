@@ -9,7 +9,7 @@ import DisponibilidadPagination from './DisponibilidadPagination';
 import DisponibilidadSettings from './DisponibilidadSettings';
 import type { DisponibilidadItem } from '../../models/disponibilidad.types';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
-import type { Warehouse } from '../../../configuracion-sistema/modelos/Warehouse';
+import type { Almacen } from '../../../configuracion-sistema/modelos/Warehouse';
 import * as XLSX from 'xlsx';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { AutoExportRequest } from '@/shared/export/autoExportParams';
@@ -58,9 +58,9 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     cambiarItemsPorPagina,
     canEditThresholds,
     thresholdsTooltip,
-    selectedWarehouse,
+    selectedalmacen,
     selectedEstablecimiento,
-    warehouseScope,
+    almacenescope,
     updateStockThreshold
   } = useInventarioDisponibilidad();
   const { state: configState } = useConfigurationContext();
@@ -88,43 +88,43 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     cambiarItemsPorPagina(itemsPorPagina);
   }, [itemsPorPagina, cambiarItemsPorPagina]);
 
-  const selectedWarehouseId = selectedWarehouse?.id;
+  const selectedalmacenId = selectedalmacen?.id;
 
   const handleThresholdChange = useCallback(async ({
     productoId,
     field,
     value
   }: ThresholdChangePayload) => {
-    if (!selectedWarehouseId) {
+    if (!selectedalmacenId) {
       throw new Error('Selecciona un establecimiento y un almacén para editar los valores.');
     }
 
     await updateStockThreshold({
       productoId,
-      warehouseId: selectedWarehouseId,
+      almacenId: selectedalmacenId,
       field,
       value
     });
-  }, [selectedWarehouseId, updateStockThreshold]);
+  }, [selectedalmacenId, updateStockThreshold]);
 
-  const warehouseMap = useMemo(() => {
-    return new Map(configState.warehouses.map((warehouse) => [warehouse.id, warehouse]));
-  }, [configState.warehouses]);
+  const almacenMap = useMemo(() => {
+    return new Map(configState.almacenes.map((almacen) => [almacen.id, almacen]));
+  }, [configState.almacenes]);
 
   const establishmentMap = useMemo(() => {
     return new Map(configState.establishments.map((est) => [est.id, est]));
   }, [configState.establishments]);
 
   const handleExportStockActual = useCallback(() => {
-    const scopeWarehouses = warehouseScope
-      .map(id => warehouseMap.get(id))
-      .filter((warehouse): warehouse is Warehouse => Boolean(warehouse));
+    const scopealmacenes = almacenescope
+      .map(id => almacenMap.get(id))
+      .filter((almacen): almacen is Almacen => Boolean(almacen));
 
-    const formatWarehouseLabel = (warehouse?: Warehouse) => {
-      if (!warehouse) return '';
-      const code = warehouse.code || warehouse.id;
-      if (code && warehouse.name) return `${code} - ${warehouse.name}`;
-      return warehouse.name || code || warehouse.id;
+    const formatalmacenLabel = (almacen?: Almacen) => {
+      if (!almacen) return '';
+      const code = almacen.code || almacen.id;
+      if (code && almacen.name) return `${code} - ${almacen.name}`;
+      return almacen.name || code || almacen.id;
     };
 
     const formatEstablishmentLabel = (establishment?: { id?: string; code?: string; name?: string }) => {
@@ -137,14 +137,14 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     };
 
     const derivedEstablishments = new Map<string, { id?: string; code?: string; name?: string }>();
-    scopeWarehouses.forEach(warehouse => {
-      if (!warehouse.establishmentId) {
+    scopealmacenes.forEach(almacen => {
+      if (!almacen.establishmentId) {
         return;
       }
-      derivedEstablishments.set(warehouse.establishmentId, {
-        id: warehouse.establishmentId,
-        code: warehouse.establishmentCode,
-        name: warehouse.establishmentName
+      derivedEstablishments.set(almacen.establishmentId, {
+        id: almacen.establishmentId,
+        code: almacen.establishmentCode,
+        name: almacen.establishmentName
       });
     });
 
@@ -165,14 +165,14 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
       return 'No definido';
     })();
 
-    const warehouseLabel = (() => {
-      if (selectedWarehouse) {
-        return formatWarehouseLabel(selectedWarehouse);
+    const almacenLabel = (() => {
+      if (selectedalmacen) {
+        return formatalmacenLabel(selectedalmacen);
       }
-      if (scopeWarehouses.length === 1) {
-        return formatWarehouseLabel(scopeWarehouses[0]);
+      if (scopealmacenes.length === 1) {
+        return formatalmacenLabel(scopealmacenes[0]);
       }
-      if (scopeWarehouses.length > 1) {
+      if (scopealmacenes.length > 1) {
         return 'Todos los almacenes (consolidado)';
       }
       if (filtros.almacenId) {
@@ -181,8 +181,8 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
       return 'Sin almacenes disponibles';
     })();
 
-    const includedCodes = scopeWarehouses
-      .map(warehouse => warehouse.code || warehouse.id)
+    const includedCodes = scopealmacenes
+      .map(almacen => almacen.code || almacen.id)
       .filter(Boolean)
       .join(', ');
 
@@ -203,7 +203,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
 
     const exportRows = datosExportacion.map(item => ({
       'Establecimiento': establishmentLabel,
-      'Almacén (alcance)': warehouseLabel,
+      'Almacén (alcance)': almacenLabel,
       'Almacenes incluidos (códigos)': includedCodes || '—',
       'Código (SKU)': item.sku ?? '',
       'Producto': item.nombre,
@@ -241,9 +241,9 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     filtros.almacenId,
     filtros.establecimientoId,
     selectedEstablecimiento,
-    selectedWarehouse,
-    warehouseMap,
-    warehouseScope,
+    selectedalmacen,
+    almacenMap,
+    almacenescope,
     establishmentMap
   ]);
 
@@ -292,7 +292,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
           canEditThresholds={canEditThresholds}
           editThresholdMessage={thresholdsTooltip}
           onUpdateThreshold={handleThresholdChange}
-          selectedWarehouseName={selectedWarehouse?.name}
+          selectednombreAlmacen={selectedalmacen?.name}
         />
       </div>
 

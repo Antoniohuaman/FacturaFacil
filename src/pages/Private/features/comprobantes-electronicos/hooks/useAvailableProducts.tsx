@@ -43,7 +43,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
   const { establecimientoId, soloConStock = false } = options;
   const { allProducts } = useProductStore();
   const { getUnitPrice, baseColumn } = usePriceCalculator();
-  const { state: { warehouses } } = useConfigurationContext();
+  const { state: { almacenes } } = useConfigurationContext();
 
   const availableProducts = useMemo(() => {
     if (!establecimientoId) {
@@ -59,7 +59,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
       }
       const summary = summarizeProductStock({
         product,
-        warehouses,
+        almacenes,
         establishmentId: establecimientoId,
       });
       stockCache.set(product.id, summary);
@@ -88,7 +88,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
       const resolvedPrice = priceFromList ?? product.precio ?? 0;
       const stockInfo = getAvailableStockForUnit({
         product,
-        warehouses,
+        almacenes,
         establishmentId: establecimientoId,
         unitCode: mappedUnit,
       });
@@ -131,7 +131,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
     });
 
     return posProducts;
-  }, [allProducts, establecimientoId, soloConStock, baseColumn?.id, baseColumn?.name, getUnitPrice, warehouses]);
+  }, [allProducts, establecimientoId, soloConStock, baseColumn?.id, baseColumn?.name, getUnitPrice, almacenes]);
 
   return availableProducts;
 };

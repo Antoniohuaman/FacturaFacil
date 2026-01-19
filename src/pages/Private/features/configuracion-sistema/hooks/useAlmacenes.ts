@@ -21,7 +21,7 @@ const sincronizarAliasAlmacen = (almacen: AlmacenSinAlias): Almacen => ({
   establishmentId: almacen.establecimientoId,
   location: almacen.ubicacionAlmacen,
   isActive: almacen.estaActivoAlmacen,
-  isMainWarehouse: almacen.esAlmacenPrincipal,
+  isMainalmacen: almacen.esAlmacenPrincipal,
 });
 
 const ALMACENES_BASE: AlmacenSinAlias[] = [

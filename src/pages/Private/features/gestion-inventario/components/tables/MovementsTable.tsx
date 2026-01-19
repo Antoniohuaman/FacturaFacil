@@ -6,12 +6,12 @@ import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 
 interface MovementsTableProps {
   movimientos: MovimientoStock[];
-  warehouseFiltro?: string; // Filtro externo por almacén
+  almacenFiltro?: string; // Filtro externo por almacén
 }
 
 const MovementsTable: React.FC<MovementsTableProps> = ({
   movimientos,
-  warehouseFiltro
+  almacenFiltro
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('todos');
@@ -85,12 +85,12 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
     const matchesTipo = filterTipo === 'todos' || mov.tipo === filterTipo;
 
     // Filtro por almacén
-    const matchesWarehouse =
-      !warehouseFiltro ||
-      warehouseFiltro === 'todos' ||
-      mov.warehouseId === warehouseFiltro;
+    const matchesalmacen =
+      !almacenFiltro ||
+      almacenFiltro === 'todos' ||
+      mov.almacenId === almacenFiltro;
 
-    return matchesSearch && matchesTipo && matchesWarehouse;
+    return matchesSearch && matchesTipo && matchesalmacen;
   });
 
   // Cálculos de paginación
@@ -216,15 +216,15 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                     {getMotivoBadge(movimiento.motivo)}
                   </td>
                   <td className="px-4 py-2.5 whitespace-nowrap">
-                    {movimiento.warehouseCodigo ? (
+                    {movimiento.almacenCodigo ? (
                       <div className="flex flex-col space-y-1">
                         <div className="flex items-center space-x-2">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#6F36FF]/10 text-[#6F36FF] dark:bg-[#6F36FF]/15 dark:text-[#8B5CF6] border border-[#6F36FF]/30 font-mono">
-                            {movimiento.warehouseCodigo}
+                            {movimiento.almacenCodigo}
                           </span>
-                          {movimiento.warehouseNombre && (
-                            <span className="text-xs font-medium text-[#4B5563] dark:text-gray-400" title={movimiento.warehouseNombre}>
-                              {movimiento.warehouseNombre}
+                          {movimiento.almacenNombre && (
+                            <span className="text-xs font-medium text-[#4B5563] dark:text-gray-400" title={movimiento.almacenNombre}>
+                              {movimiento.almacenNombre}
                             </span>
                           )}
                         </div>
@@ -279,8 +279,8 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                             <span className="font-medium text-[#6F36FF] dark:text-[#8B5CF6]">
                               {movimiento.tipo === 'SALIDA' ? 'Hacia almacén:' : 'Desde almacén:'}{' '}
                               {movimiento.tipo === 'SALIDA'
-                                ? movimiento.warehouseDestinoNombre
-                                : movimiento.warehouseOrigenNombre
+                                ? movimiento.almacenDestinoNombre
+                                : movimiento.almacenOrigenNombre
                               }
                             </span>
                           </div>

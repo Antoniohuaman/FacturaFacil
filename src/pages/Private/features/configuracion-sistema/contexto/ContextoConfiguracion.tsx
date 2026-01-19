@@ -122,7 +122,7 @@ const reviveAlmacen = (almacen: Almacen): Almacen => ({
   establishmentId: almacen.establecimientoId,
   location: almacen.ubicacionAlmacen,
   isActive: almacen.estaActivoAlmacen,
-  isMainWarehouse: almacen.esAlmacenPrincipal,
+  isMainalmacen: almacen.esAlmacenPrincipal,
 });
 
 const reviveCaja = (caja: Caja): Caja => ({
@@ -500,7 +500,7 @@ function configurationReducer(
   }
 }
 
-type ConfigurationContextState = ConfigurationState & { warehouses: Almacen[] };
+type ConfigurationContextState = ConfigurationState & { almacenes: Almacen[] };
 
 interface ConfigurationContextType {
   state: ConfigurationContextState;
@@ -746,7 +746,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const stateWithLegacy = useMemo<ConfigurationContextState>(
     () => ({
       ...state,
-      warehouses: state.almacenes,
+      almacenes: state.almacenes,
     }),
     [state]
   );

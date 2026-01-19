@@ -35,7 +35,7 @@ interface DisponibilidadTableProps {
   canEditThresholds: boolean;
   editThresholdMessage?: string;
   onUpdateThreshold?: (payload: ThresholdUpdatePayload) => Promise<void> | void;
-  selectedWarehouseName?: string;
+  selectednombreAlmacen?: string;
 }
 
 const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
@@ -48,7 +48,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   canEditThresholds,
   editThresholdMessage,
   onUpdateThreshold,
-  selectedWarehouseName
+  selectednombreAlmacen
 }) => {
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
   const [savingCellId, setSavingCellId] = useState<string | null>(null);
@@ -236,8 +236,8 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   }, [canEditThresholds, savingCellId, getThresholdValue, getCellKey, cleanupCellError]);
 
   const tooltipMessage = canEditThresholds
-    ? selectedWarehouseName
-      ? `Editar para ${selectedWarehouseName}`
+    ? selectednombreAlmacen
+      ? `Editar para ${selectednombreAlmacen}`
       : 'Editar valor'
     : editThresholdMessage ?? 'Selecciona un establecimiento y un almacén para configurar mínimos/máximos';
   // Clases según densidad - MÁS COMPACTO

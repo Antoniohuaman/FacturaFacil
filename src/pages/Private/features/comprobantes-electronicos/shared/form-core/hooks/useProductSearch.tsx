@@ -15,7 +15,7 @@ type UseProductSearchParams = {
 export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {}) => {
   // Obtener productos del catálogo real
   const { allProducts: catalogProducts } = useProductStore();
-  const { state: { warehouses } } = useConfigurationContext();
+  const { state: { almacenes } } = useConfigurationContext();
   
   // Convertir productos del catálogo al formato de comprobantes
   const AVAILABLE_PRODUCTS: Product[] = useMemo(() => 
@@ -24,7 +24,7 @@ export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {
       .map(p => {
         const summary = summarizeProductStock({
           product: p,
-          warehouses,
+          almacenes,
           establishmentId,
         });
         return {
@@ -40,7 +40,7 @@ export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {
           description: p.descripcion || ''
         };
       }),
-    [catalogProducts, establishmentId, warehouses]
+    [catalogProducts, establishmentId, almacenes]
   );
   
   const [searchQuery, setSearchQuery] = useState('');

@@ -255,7 +255,7 @@ export function EstablishmentsConfiguration() {
           posConfiguration: undefined,
           inventoryConfiguration: {
             managesInventory: false,
-            isWarehouse: false,
+            isalmacen: false,
             allowNegativeStock: false,
             autoTransferStock: false
           },

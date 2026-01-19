@@ -88,7 +88,7 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
     },
     inventoryConfiguration: {
       managesInventory: true,
-      isWarehouse: true,
+      isalmacen: true,
       allowNegativeStock: false,
       autoTransferStock: false,
     },
@@ -162,10 +162,10 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
     },
     inventoryConfiguration: {
       managesInventory: true,
-      isWarehouse: false,
+      isalmacen: false,
       allowNegativeStock: false,
       autoTransferStock: true,
-      parentWarehouseId: 'est-1',
+      parentalmacenId: 'est-1',
     },
     financialConfiguration: {
       handlesCash: true,
@@ -202,7 +202,7 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
     },
     inventoryConfiguration: {
       managesInventory: true,
-      isWarehouse: true,
+      isalmacen: true,
       allowNegativeStock: false,
       autoTransferStock: false,
     },
@@ -276,7 +276,7 @@ export function useEstablishments(): UseEstablishmentsReturn {
         },
         inventoryConfiguration: {
           managesInventory: false,
-          isWarehouse: false,
+          isalmacen: false,
           allowNegativeStock: false,
           autoTransferStock: false,
           ...data.inventoryConfiguration

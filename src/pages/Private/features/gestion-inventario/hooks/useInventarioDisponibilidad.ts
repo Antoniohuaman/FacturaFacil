@@ -18,7 +18,7 @@ type ThresholdField = 'stockMinimo' | 'stockMaximo';
 
 interface UpdateThresholdInput {
   productoId: string;
-  warehouseId: string;
+  almacenId: string;
   field: ThresholdField;
   value: number | null;
 }
@@ -32,9 +32,9 @@ export const useInventarioDisponibilidad = () => {
   const { state: configState } = useConfigurationContext();
   const currentEstablishmentId = useCurrentEstablishmentId();
 
-  const warehousesActivos = useMemo(
-    () => configState.warehouses.filter(w => w.isActive),
-    [configState.warehouses]
+  const almacenesActivos = useMemo(
+    () => configState.almacenes.filter(w => w.isActive),
+    [configState.almacenes]
   );
 
   // Filtros activos
@@ -63,14 +63,14 @@ export const useInventarioDisponibilidad = () => {
     return configState.establishments.find(e => e.id === currentEstablishmentId);
   }, [configState.establishments, currentEstablishmentId]);
 
-  const selectedWarehouse = useMemo(() => {
+  const selectedalmacen = useMemo(() => {
     if (!filtros.almacenId) {
       return undefined;
     }
-    return warehousesActivos.find(w => w.id === filtros.almacenId);
-  }, [warehousesActivos, filtros.almacenId]);
+    return almacenesActivos.find(w => w.id === filtros.almacenId);
+  }, [almacenesActivos, filtros.almacenId]);
 
-  const canEditThresholds = Boolean(selectedEstablecimiento && selectedWarehouse);
+  const canEditThresholds = Boolean(selectedEstablecimiento && selectedalmacen);
   const thresholdsTooltip = canEditThresholds
     ? undefined
     : 'Selecciona un establecimiento y un almacén para configurar mínimos/máximos';
@@ -82,11 +82,11 @@ export const useInventarioDisponibilidad = () => {
     if (!currentEstablishmentId) {
       return [];
     }
-    return warehousesActivos.filter(w => w.establishmentId === currentEstablishmentId);
-  }, [warehousesActivos, currentEstablishmentId]);
+    return almacenesActivos.filter(w => w.establishmentId === currentEstablishmentId);
+  }, [almacenesActivos, currentEstablishmentId]);
 
-  const warehouseScope = useMemo(() => {
-    if (!warehousesActivos.length) {
+  const almacenescope = useMemo(() => {
+    if (!almacenesActivos.length) {
       return [] as string[];
     }
 
@@ -95,24 +95,24 @@ export const useInventarioDisponibilidad = () => {
     }
 
     if (filtros.almacenId) {
-      const match = warehousesActivos.find(
+      const match = almacenesActivos.find(
         w => w.id === filtros.almacenId && w.establishmentId === currentEstablishmentId
       );
       return match ? [match.id] : [];
     }
 
-    return warehousesActivos
+    return almacenesActivos
       .filter(w => w.establishmentId === currentEstablishmentId)
       .map(w => w.id);
-  }, [warehousesActivos, currentEstablishmentId, filtros.almacenId]);
-  const hasSingleWarehouse = warehouseScope.length === 1;
+  }, [almacenesActivos, currentEstablishmentId, filtros.almacenId]);
+  const hasSinglealmacen = almacenescope.length === 1;
 
   useEffect(() => {
     setFiltros(prev => {
       if (prev.establecimientoId === currentEstablishmentId) {
         const almacenSigueValido = !prev.almacenId
           ? true
-          : warehousesActivos.some(
+          : almacenesActivos.some(
               w => w.id === prev.almacenId && w.establishmentId === currentEstablishmentId
             );
         if (almacenSigueValido) {
@@ -122,7 +122,7 @@ export const useInventarioDisponibilidad = () => {
       }
 
       const almacenSigueValido = prev.almacenId
-        ? warehousesActivos.some(
+        ? almacenesActivos.some(
             w => w.id === prev.almacenId && w.establishmentId === currentEstablishmentId
           )
         : true;
@@ -133,7 +133,7 @@ export const useInventarioDisponibilidad = () => {
       };
     });
     setPaginaActual(1);
-  }, [currentEstablishmentId, warehousesActivos]);
+  }, [currentEstablishmentId, almacenesActivos]);
 
   /**
    * Calcular situación del stock
@@ -152,7 +152,7 @@ export const useInventarioDisponibilidad = () => {
    * Generar datos de disponibilidad desde productos
    */
   const datosDisponibilidad = useMemo<DisponibilidadItem[]>(() => {
-    if (!warehouseScope.length) return [];
+    if (!almacenescope.length) return [];
 
     return allProducts
       .filter(product => isProductEnabledForEstablishment(product, currentEstablishmentId))
@@ -160,20 +160,20 @@ export const useInventarioDisponibilidad = () => {
       let real = 0;
       let rawReservado = 0;
 
-      warehouseScope.forEach(warehouseId => {
-        real += InventoryService.getStock(product, warehouseId);
-        rawReservado += InventoryService.getReservedStock(product, warehouseId);
+      almacenescope.forEach(almacenId => {
+        real += InventoryService.getStock(product, almacenId);
+        rawReservado += InventoryService.getReservedStock(product, almacenId);
       });
 
       const reservado = Math.min(rawReservado, Math.max(real, 0));
       const disponible = Math.max(0, real - reservado);
 
-      const stockMinValues = warehouseScope.map(warehouseId => {
-        const valor = product.stockMinimoPorAlmacen?.[warehouseId];
+      const stockMinValues = almacenescope.map(almacenId => {
+        const valor = product.stockMinimoPorAlmacen?.[almacenId];
         return typeof valor === 'number' ? valor : undefined;
       });
-      const stockMaxValues = warehouseScope.map(warehouseId => {
-        const valor = product.stockMaximoPorAlmacen?.[warehouseId];
+      const stockMaxValues = almacenescope.map(almacenId => {
+        const valor = product.stockMaximoPorAlmacen?.[almacenId];
         return typeof valor === 'number' ? valor : undefined;
       });
 
@@ -183,13 +183,13 @@ export const useInventarioDisponibilidad = () => {
       const stockMinimoAcumulado = stockMinValues.reduce<number>((sum, value) => sum + (value ?? 0), 0);
       const stockMaximoAcumulado = stockMaxValues.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 
-      const stockMinimo = hasSingleWarehouse
+      const stockMinimo = hasSinglealmacen
         ? stockMinValues[0]
         : hasConfiguredMin
           ? stockMinimoAcumulado
           : undefined;
 
-      const stockMaximo = hasSingleWarehouse
+      const stockMaximo = hasSinglealmacen
         ? stockMaxValues[0]
         : hasConfiguredMax
           ? stockMaximoAcumulado
@@ -210,7 +210,7 @@ export const useInventarioDisponibilidad = () => {
         precio: product.precio
       };
     });
-  }, [allProducts, warehouseScope, hasSingleWarehouse, calcularSituacion, currentEstablishmentId]);
+  }, [allProducts, almacenescope, hasSinglealmacen, calcularSituacion, currentEstablishmentId]);
 
   /**
    * Aplicar filtros de búsqueda y disponibilidad
@@ -364,7 +364,7 @@ export const useInventarioDisponibilidad = () => {
       const nextAlmacenId = rest.almacenId ?? prev.almacenId;
       const almacenEsValido = !nextAlmacenId
         ? true
-        : warehousesActivos.some(
+        : almacenesActivos.some(
             w => w.id === nextAlmacenId && w.establishmentId === currentEstablishmentId
           );
 
@@ -376,7 +376,7 @@ export const useInventarioDisponibilidad = () => {
       };
     });
     setPaginaActual(1); // Resetear a primera página
-  }, [currentEstablishmentId, warehousesActivos]);
+  }, [currentEstablishmentId, almacenesActivos]);
 
   /**
    * Cambiar ordenamiento
@@ -408,7 +408,7 @@ export const useInventarioDisponibilidad = () => {
 
   const updateStockThreshold = useCallback(async ({
     productoId,
-    warehouseId,
+    almacenId,
     field,
     value
   }: UpdateThresholdInput) => {
@@ -422,8 +422,8 @@ export const useInventarioDisponibilidad = () => {
       throw new Error('El valor debe ser mayor o igual a 0');
     }
 
-    const currentMin = product.stockMinimoPorAlmacen?.[warehouseId];
-    const currentMax = product.stockMaximoPorAlmacen?.[warehouseId];
+    const currentMin = product.stockMinimoPorAlmacen?.[almacenId];
+    const currentMax = product.stockMaximoPorAlmacen?.[almacenId];
 
     const nextMin = field === 'stockMinimo' ? normalizedValue : currentMin;
     const nextMax = field === 'stockMaximo' ? normalizedValue : currentMax;
@@ -432,7 +432,7 @@ export const useInventarioDisponibilidad = () => {
       throw new Error('El stock máximo debe ser mayor o igual al mínimo');
     }
 
-    const updatedProduct = InventoryService.updateThresholds(product, warehouseId, {
+    const updatedProduct = InventoryService.updateThresholds(product, almacenId, {
       stockMinimo: field === 'stockMinimo' ? nextMin ?? null : undefined,
       stockMaximo: field === 'stockMaximo' ? nextMax ?? null : undefined
     });
@@ -465,9 +465,9 @@ export const useInventarioDisponibilidad = () => {
     // Thresholds inline editing
     canEditThresholds,
     thresholdsTooltip,
-    selectedWarehouse,
+    selectedalmacen,
     selectedEstablecimiento,
-    warehouseScope,
+    almacenescope,
     updateStockThreshold
   };
 };

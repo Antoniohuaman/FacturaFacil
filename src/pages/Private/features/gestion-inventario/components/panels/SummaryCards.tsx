@@ -5,12 +5,12 @@ import type { Product } from '../../../catalogo-articulos/models/types';
 
 interface SummaryCardsProps {
   products: Product[];
-  warehouseFiltro?: string;
+  almacenFiltro?: string;
 }
 
 const SummaryCards: React.FC<SummaryCardsProps> = ({
   products,
-  warehouseFiltro
+  almacenFiltro
 }) => {
   // Calcular estadísticas basadas en el filtro de almacén
   const stats = useMemo(() => {
@@ -20,7 +20,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({
     let productosStockBajo = 0;
     let valorTotalStock = 0;
 
-    if (!warehouseFiltro || warehouseFiltro === 'todos') {
+    if (!almacenFiltro || almacenFiltro === 'todos') {
       // Sin filtro: calcular estadísticas de todos los almacenes
       totalProductos = products.length;
 
@@ -52,8 +52,8 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({
       totalProductos = products.length;
 
       products.forEach(product => {
-        const stockEnAlmacen = product.stockPorAlmacen?.[warehouseFiltro] ?? 0;
-        const stockMinimo = product.stockMinimoPorAlmacen?.[warehouseFiltro] ?? 0;
+        const stockEnAlmacen = product.stockPorAlmacen?.[almacenFiltro] ?? 0;
+        const stockMinimo = product.stockMinimoPorAlmacen?.[almacenFiltro] ?? 0;
 
         totalStock += stockEnAlmacen;
         valorTotalStock += stockEnAlmacen * product.precio;
@@ -73,7 +73,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({
       productosStockBajo,
       valorTotalStock
     };
-  }, [products, warehouseFiltro]);
+  }, [products, almacenFiltro]);
 
   const cards = [
     {

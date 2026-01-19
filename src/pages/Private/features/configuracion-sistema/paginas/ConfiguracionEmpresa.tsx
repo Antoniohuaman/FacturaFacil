@@ -527,7 +527,7 @@ export function CompanyConfiguration() {
           },
           inventoryConfiguration: {
             managesInventory: true,
-            isWarehouse: false,
+            isalmacen: false,
             allowNegativeStock: false,
             autoTransferStock: false,
           },
@@ -548,7 +548,7 @@ export function CompanyConfiguration() {
         dispatch({ type: 'ADD_ESTABLISHMENT', payload: createdEstablishment });
 
         // 2. CREAR ALMACÉN POR DEFECTO
-        const defaultWarehouse: Almacen = {
+        const defaultalmacen: Almacen = {
           id: 'alm-main',
           codigoAlmacen: '0001',
           nombreAlmacen: 'Almacén',
@@ -571,13 +571,13 @@ export function CompanyConfiguration() {
           establishmentCode: createdEstablishment.code,
           location: createdEstablishment.address || undefined,
           isActive: true,
-          isMainWarehouse: true,
+          isMainalmacen: true,
           creadoElAlmacen: new Date(),
           actualizadoElAlmacen: new Date(),
           tieneMovimientosInventario: false,
         };
 
-        dispatch({ type: 'ADD_ALMACEN', payload: defaultWarehouse });
+        dispatch({ type: 'ADD_ALMACEN', payload: defaultalmacen });
 
         // 3. CREAR SERIES POR DEFECTO (FACTURA, BOLETA y documentos internos serieables)
         const environmentType =

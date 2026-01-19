@@ -94,7 +94,7 @@ const mapStockNotifications = (
         : 'Stock bajo';
 
     return {
-      id: `stock-${alert.productoId}-${alert.warehouseId}`,
+      id: `stock-${alert.productoId}-${alert.almacenId}`,
       title: `${titlePrefix} · ${alert.productoNombre}`,
       message: baseMessageParts.join(' · '),
       createdAt: Date.now(),

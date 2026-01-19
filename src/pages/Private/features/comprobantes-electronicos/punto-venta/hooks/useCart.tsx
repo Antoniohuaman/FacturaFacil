@@ -129,7 +129,7 @@ export const useCart = (): UseCartReturn => {
   // ===================================================================
   // CONFIGURACIÓN Y ESTADO
   // ===================================================================
-  const { state: { warehouses, salesPreferences, taxes } } = useConfigurationContext();
+  const { state: { almacenes, salesPreferences, taxes } } = useConfigurationContext();
   const allowNegativeStock = useMemo(() => {
     if (typeof salesPreferences?.allowNegativeStock === 'boolean') {
       return salesPreferences.allowNegativeStock;
@@ -217,7 +217,7 @@ export const useCart = (): UseCartReturn => {
 
     const summary = summarizeProductStock({
       product: catalogProduct,
-      warehouses,
+      almacenes,
       establishmentId,
     });
 
@@ -246,7 +246,7 @@ export const useCart = (): UseCartReturn => {
     }
 
     return true;
-  }, [allowNegativeStock, establishmentId, findCatalogProduct, warehouses]);
+  }, [allowNegativeStock, establishmentId, findCatalogProduct, almacenes]);
 
   const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
     const price = Number.isFinite(product.price) ? product.price : 0;

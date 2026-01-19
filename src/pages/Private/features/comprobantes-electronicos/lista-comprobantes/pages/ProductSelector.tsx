@@ -65,12 +65,12 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   } = useProductStore();
   const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook();
   const establishmentId = useCurrentEstablishmentId();
-  const { state: { warehouses } } = useConfigurationContext();
+  const { state: { almacenes } } = useConfigurationContext();
 
   const mapCatalogProductToSelectorProduct = useCallback((p: CatalogProduct): Product => {
     const stockInfo = getAvailableStockForUnit({
       product: p,
-      warehouses,
+      almacenes,
       establishmentId,
       unitCode: p.unidad,
     });
@@ -104,7 +104,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       codigoSunat: p.codigoSunat,
       unidad: p.unidad,
     };
-  }, [establishmentId, warehouses]);
+  }, [establishmentId, almacenes]);
 
   const getBasePriceForProduct = useCallback((product: Product): number | null => {
     if (!hasSelectableColumns) {
