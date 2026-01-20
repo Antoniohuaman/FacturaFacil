@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  BASE_URL: '//ycamposde.negociosonline.contasiscorp.test',
+  BASE_URL: 'http://localhost:5242',
   API_VERSION: 'v1',
   TIMEOUT: 30000,
 } as const;

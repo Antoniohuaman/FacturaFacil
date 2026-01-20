@@ -7,6 +7,8 @@ import { ApiError } from '@/services/api';
 import { formValidation, commonRules, type Validators, FieldErrors, getInputErrorClass } from '@/utils';
 
 type FormData = CreateClienteDTO;
+type SortField = 'id' | 'nombre' | 'email' | 'created_at';
+type SortOrder = 'asc' | 'desc';
 
 const initialFormData: FormData = {
   nombre: '',
@@ -42,11 +44,68 @@ export default function ClientesTestPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState<SortField>('id');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [expandedClienteId, setExpandedClienteId] = useState<number | null>(null);
 
   const clearMessages = () => {
     setError(null);
     setSuccess(null);
   };
+
+  // Helper para formatear fechas
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-PE', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Helper para validar datos incompletos
+  const isIncompleteCliente = (cliente: Cliente) => {
+    return !cliente.nombre || 
+           cliente.nombre === 'string' || 
+           cliente.nombre.trim() === '' ||
+           cliente.email === 'string' ||
+           cliente.telefono === 'string';
+  };
+
+  // Helper para limpiar valor de visualización
+  const displayValue = (value: string | null | undefined) => {
+    if (!value || value === 'string' || value.trim() === '') {
+      return <span className="text-gray-400 italic">N/A</span>;
+    }
+    return value;
+  };
+
+  // Filtrar y ordenar clientes
+  const filteredAndSortedClientes = clientes
+    .filter(cliente =>
+      cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cliente.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cliente.ruc?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      let aValue: string | number = sortField === 'id' ? a.id : sortField === 'nombre' ? a.nombre : sortField === 'email' ? a.email || '' : a.created_at;
+      let bValue: string | number = sortField === 'id' ? b.id : sortField === 'nombre' ? b.nombre : sortField === 'email' ? b.email || '' : b.created_at;
+
+      if (aValue === null || aValue === undefined) aValue = '';
+      if (bValue === null || bValue === undefined) bValue = '';
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -74,9 +133,12 @@ export default function ClientesTestPage() {
     clearMessages();
     setLoading(true);
     try {
-      const response = await clientesService.getAll({ page: 1, per_page: 10 });
-      setClientes(response.data.data);
-      setSuccess(`Se cargaron ${response.data.data.length} clientes`);
+      const response = await clientesService.getAll({ page: 1, per_page: 20 });
+      console.log(response);
+      
+      const clientesData = response.data?.data || [];
+      setClientes(clientesData);
+      setSuccess(`Se cargaron ${clientesData.length} clientes`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -311,60 +373,209 @@ export default function ClientesTestPage() {
 
         {/* Lista de clientes */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Lista de Clientes
-            </h2>
-            <button
-              onClick={handleFetchClientes}
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Cargando...' : 'Cargar Clientes'}
-            </button>
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Lista de Clientes ({filteredAndSortedClientes.length})
+              </h2>
+              <button
+                onClick={handleFetchClientes}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {loading ? 'Cargando...' : 'Cargar Clientes'}
+              </button>
+            </div>
+
+            {/* Búsqueda */}
+            {clientes.length > 0 && (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, email o RUC..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+            )}
           </div>
 
           {clientes.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No hay clientes. Haz clic en "Cargar Clientes" para obtener datos del API.
             </p>
+          ) : filteredAndSortedClientes.length === 0 ? (
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+              No se encontraron clientes con ese término de búsqueda.
+            </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-3 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">ID</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Nombre</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Email</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Telefono</th>
-                    <th className="text-right py-3 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clientes.map((cliente) => (
-                    <tr key={cliente.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="py-3 px-2 text-sm text-gray-900 dark:text-white">{cliente.id}</td>
-                      <td className="py-3 px-2 text-sm text-gray-900 dark:text-white">{cliente.nombre}</td>
-                      <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-300">{cliente.email || '-'}</td>
-                      <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-300">{cliente.telefono || '-'}</td>
-                      <td className="py-3 px-2 text-right">
-                        <button
-                          onClick={() => handleEdit(cliente)}
-                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm mr-3"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleDelete(cliente.id)}
-                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm"
-                        >
-                          Eliminar
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {/* Encabezados con ordenamiento */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => {
+                    if (sortField === 'id') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortField('id');
+                      setSortOrder('asc');
+                    }
+                  }}
+                  className="text-left text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                >
+                  ID {sortField === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+                <button
+                  onClick={() => {
+                    if (sortField === 'nombre') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortField('nombre');
+                      setSortOrder('asc');
+                    }
+                  }}
+                  className="text-left text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                >
+                  Nombre {sortField === 'nombre' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+                <button
+                  onClick={() => {
+                    if (sortField === 'email') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortField('email');
+                      setSortOrder('asc');
+                    }
+                  }}
+                  className="hidden md:block text-left text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                >
+                  Email {sortField === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+                <div className="hidden lg:block text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Teléfono
+                </div>
+                <div className="text-right text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Acciones
+                </div>
+              </div>
+
+              {/* Filas de clientes */}
+              {filteredAndSortedClientes.map((cliente) => (
+                <div key={cliente.id}>
+                  <div
+                    className={`grid grid-cols-1 md:grid-cols-5 gap-4 items-center p-4 rounded-lg transition cursor-pointer ${
+                      isIncompleteCliente(cliente)
+                        ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
+                        : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                    onClick={() => setExpandedClienteId(expandedClienteId === cliente.id ? null : cliente.id)}
+                  >
+                    {/* ID */}
+                    <div className="text-sm">
+                      <span className="md:hidden font-medium text-gray-500 dark:text-gray-400">ID: </span>
+                      <span className="text-gray-900 dark:text-white font-semibold">#{cliente.id}</span>
+                    </div>
+
+                    {/* Nombre */}
+                    <div className="text-sm">
+                      <span className="md:hidden font-medium text-gray-500 dark:text-gray-400">Nombre: </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-900 dark:text-white">
+                          {displayValue(cliente.nombre)}
+                        </span>
+                        {isIncompleteCliente(cliente) && (
+                          <span className="text-xs bg-yellow-200 dark:bg-yellow-700 text-yellow-800 dark:text-yellow-200 px-2 py-0.5 rounded">
+                            Incompleto
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Email */}
+                    <div className="hidden md:block text-sm">
+                      <span className="md:hidden font-medium text-gray-500 dark:text-gray-400">Email: </span>
+                      <span className="text-gray-600 dark:text-gray-300 break-all">
+                        {displayValue(cliente.email)}
+                      </span>
+                    </div>
+
+                    {/* Teléfono */}
+                    <div className="hidden lg:block text-sm">
+                      <span className="lg:hidden font-medium text-gray-500 dark:text-gray-400">Teléfono: </span>
+                      <span className="text-gray-600 dark:text-gray-300">
+                        {displayValue(cliente.telefono)}
+                      </span>
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(cliente);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm hover:underline transition"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(cliente.id);
+                        }}
+                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm hover:underline transition"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Detalle expandido */}
+                  {expandedClienteId === cliente.id && (
+                    <div className="px-4 pb-4 pt-2 bg-gray-100 dark:bg-gray-700/30 rounded-b-lg border border-t-0 border-gray-200 dark:border-gray-700">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400">Email:</span>
+                          <p className="text-gray-900 dark:text-white break-all">
+                            {displayValue(cliente.email)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400">Teléfono:</span>
+                          <p className="text-gray-900 dark:text-white">
+                            {displayValue(cliente.telefono)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400">RUC:</span>
+                          <p className="text-gray-900 dark:text-white">
+                            {displayValue(cliente.ruc)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400">Dirección:</span>
+                          <p className="text-gray-900 dark:text-white">
+                            {displayValue(cliente.direccion)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400">Creado:</span>
+                          <p className="text-gray-900 dark:text-white text-xs">
+                            {formatDate(cliente.created_at)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400">Actualizado:</span>
+                          <p className="text-gray-900 dark:text-white text-xs">
+                            {formatDate(cliente.updated_at)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
