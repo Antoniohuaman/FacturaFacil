@@ -53,7 +53,7 @@ interface ComprobanteData {
   observaciones?: string;
   notaInterna?: string;
   formaPago?: string;
-  establishmentId?: string;
+  EstablecimientoId?: string;
   companyId?: string;
   exchangeRate?: number;
   source?: 'emision' | 'pos' | 'otros';
@@ -240,8 +240,8 @@ export const useComprobanteActions = () => {
       })();
       const clienteNombre = data.client || 'Cliente General';
       const clienteDocumento = data.clientDoc || '00000000';
-      const establecimientoId = data.establishmentId || session?.currentEstablishmentId;
-      const sucursalNombre = session?.currentEstablishment?.name;
+      const establecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
+      const sucursalNombre = session?.currentEstablecimiento?.name;
       const cajeroNombre = session?.userName || 'Usuario';
       const fechaEmisionIso = data.fechaEmision || getBusinessTodayISODate();
       const fechaVencimientoIso = data.creditTerms?.fechaVencimientoGlobal || data.fechaVencimiento;
@@ -297,7 +297,7 @@ export const useComprobanteActions = () => {
           comprobanteSerie: serieCode || data.serieSeleccionada,
           comprobanteNumero: correlativoParte || '',
           tipoComprobante: tipoComprobanteDisplay,
-          establishmentId: establecimientoId,
+          EstablecimientoId: establecimientoId,
           clienteNombre,
           clienteDocumento,
           fechaEmision: fechaEmisionIso,
@@ -346,7 +346,7 @@ export const useComprobanteActions = () => {
             comprobanteSerie: serieCode || data.serieSeleccionada,
             comprobanteNumero: correlativoParte || '',
             tipoComprobante: tipoComprobanteDisplay,
-            establishmentId: establecimientoId,
+            EstablecimientoId: establecimientoId,
             clienteNombre,
             clienteDocumento,
             fechaEmision: fechaEmisionIso,
@@ -383,7 +383,7 @@ export const useComprobanteActions = () => {
           comprobanteSerie: serieCode || data.serieSeleccionada,
           comprobanteNumero: correlativoParte || '',
           tipoComprobante: tipoComprobanteDisplay,
-          establishmentId: establecimientoId,
+          EstablecimientoId: establecimientoId,
           clienteNombre,
           clienteDocumento,
           fechaEmision: fechaEmisionIso,
@@ -414,18 +414,18 @@ export const useComprobanteActions = () => {
       // ✅ DESCONTAR STOCK DE LOS PRODUCTOS VENDIDOS
       try {
         // Obtener datos del establecimiento desde la sesión o datos recibidos
-        const establishmentId = data.establishmentId || session?.currentEstablishmentId;
-        const establishment = session?.currentEstablishment;
+        const EstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
+        const Establecimiento = session?.currentEstablecimiento;
 
         const allowNegativeStock = allowNegativeStockConfig;
 
-        if (!establishmentId) {
+        if (!EstablecimientoId) {
           throw new Error('No se pudo resolver el establecimiento para descontar stock.');
         }
 
-        const almacenesOrdered = resolvealmacenesForSaleFIFO({ almacenes, establishmentId });
+        const almacenesOrdered = resolvealmacenesForSaleFIFO({ almacenes, EstablecimientoId });
         if (!almacenesOrdered.length) {
-          throw new Error(`No hay almacenes activos configurados para el establecimiento ${establishmentId}.`);
+          throw new Error(`No hay almacenes activos configurados para el establecimiento ${EstablecimientoId}.`);
         }
 
         type PendingMovement = {
@@ -516,9 +516,9 @@ export const useComprobanteActions = () => {
             movement.observaciones,
             numeroComprobante,
             undefined,
-            establishmentId,
-            establishment?.code,
-            establishment?.name,
+            EstablecimientoId,
+            Establecimiento?.code,
+            Establecimiento?.name,
             {
               almacenId: movement.almacenId,
               allowNegativeStock,
@@ -655,10 +655,10 @@ export const useComprobanteActions = () => {
         const fechaEmisionDate = data.fechaEmision
           ? assertBusinessDate(data.fechaEmision, 'start')
           : now;
-        const targetEstablishmentId = data.establishmentId || session?.currentEstablishmentId;
-        const establishment = targetEstablishmentId
-          ? (session?.availableEstablishments || []).find((est) => est.id === targetEstablishmentId) || session?.currentEstablishment
-          : session?.currentEstablishment;
+        const targetEstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
+        const Establecimiento = targetEstablecimientoId
+          ? (session?.availableEstablecimientos || []).find((est) => est.id === targetEstablecimientoId) || session?.currentEstablecimiento
+          : session?.currentEstablecimiento;
 
         devLocalIndicadoresStore.registerVenta({
           numeroComprobante,
@@ -668,9 +668,9 @@ export const useComprobanteActions = () => {
           clienteId: data.clientDoc,
           vendedorNombre: session?.userName || 'Usuario',
           vendedorId: session?.userId,
-          establecimientoId: targetEstablishmentId,
-          establecimientoNombre: establishment?.name,
-          establecimientoCodigo: establishment?.code,
+          establecimientoId: targetEstablecimientoId,
+          establecimientoNombre: Establecimiento?.name,
+          establecimientoCodigo: Establecimiento?.code,
           empresaId: data.companyId || session?.currentCompanyId,
           moneda: data.currency || 'PEN',
           tipoCambio: data.currency && data.currency !== 'PEN' ? data.exchangeRate ?? 1 : 1,

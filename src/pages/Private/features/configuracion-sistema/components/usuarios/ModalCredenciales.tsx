@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { X, Copy, Check, User, Lock, Mail, Shield, Building2, MessageCircle } from 'lucide-react';
 import type { User as UserModel } from '../../modelos/User';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 import type { Role } from '../../modelos/Role';
 
 interface CredentialsModalProps {
@@ -15,17 +15,17 @@ interface CredentialsModalProps {
     password: string;
   };
   user: UserModel;
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
 }
 
-export function CredentialsModal({ isOpen, onClose, credentials, user, establishments }: CredentialsModalProps) {
+export function CredentialsModal({ isOpen, onClose, credentials, user, Establecimientos }: CredentialsModalProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  // Get user establishments
-  const userEstablishments = establishments.filter(est =>
-    user.assignment.establishmentIds.includes(est.id)
+  // Get user Establecimientos
+  const userEstablecimientos = Establecimientos.filter(est =>
+    user.assignment.EstablecimientoIds.includes(est.id)
   );
 
   // Get user roles
@@ -43,7 +43,7 @@ export function CredentialsModal({ isOpen, onClose, credentials, user, establish
 
   const handleCopyAll = async () => {
     const rolesText = userRoles.map(r => `  - ${r.name}`).join('\n');
-    const establishmentsText = userEstablishments.map(e => `  - ${e.name}`).join('\n');
+    const EstablecimientosText = userEstablecimientos.map(e => `  - ${e.name}`).join('\n');
 
     const allCredentials = `
 ═══════════════════════════════════════
@@ -59,7 +59,7 @@ Roles Asignados:
 ${rolesText || '  - Ninguno'}
 
 Establecimientos:
-${establishmentsText || '  - Ninguno'}
+${EstablecimientosText || '  - Ninguno'}
 
 ═══════════════════════════════════════
 ⚠️  IMPORTANTE: Cambia tu contraseña en el primer inicio de sesión
@@ -76,7 +76,7 @@ ${establishmentsText || '  - Ninguno'}
 
   const handleSendWhatsApp = () => {
     const rolesText = userRoles.map(r => `  - ${r.name}`).join('\n');
-    const establishmentsText = userEstablishments.map(e => `  - ${e.name}`).join('\n');
+    const EstablecimientosText = userEstablecimientos.map(e => `  - ${e.name}`).join('\n');
 
     const message = `
 ═══════════════════════════════════════
@@ -92,7 +92,7 @@ ${establishmentsText || '  - Ninguno'}
 ${rolesText || '  - Ninguno'}
 
 *Establecimientos:*
-${establishmentsText || '  - Ninguno'}
+${EstablecimientosText || '  - Ninguno'}
 
 ═══════════════════════════════════════
 ⚠️ *IMPORTANTE:* Cambia tu contraseña en el primer inicio de sesión
@@ -209,7 +209,7 @@ ${establishmentsText || '  - Ninguno'}
             </div>
           </div>
 
-          {/* Roles and Establishments Section */}
+          {/* Roles and Establecimientos Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Roles */}
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
@@ -234,21 +234,21 @@ ${establishmentsText || '  - Ninguno'}
               )}
             </div>
 
-            {/* Establishments */}
+            {/* Establecimientos */}
             <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
               <div className="flex items-center space-x-2 mb-2">
                 <Building2 className="w-4 h-4 text-indigo-600" />
                 <h4 className="text-sm font-semibold text-indigo-900">Establecimientos</h4>
               </div>
-              {userEstablishments.length > 0 ? (
+              {userEstablecimientos.length > 0 ? (
                 <div className="space-y-1.5">
-                  {userEstablishments.map((establishment) => (
+                  {userEstablecimientos.map((Establecimiento) => (
                     <div
-                      key={establishment.id}
+                      key={Establecimiento.id}
                       className="bg-white border border-indigo-200 rounded px-2 py-1.5"
                     >
-                      <div className="text-xs font-medium text-indigo-900">{establishment.name}</div>
-                      <div className="text-[10px] text-indigo-600 line-clamp-1">{establishment.address}</div>
+                      <div className="text-xs font-medium text-indigo-900">{Establecimiento.name}</div>
+                      <div className="text-[10px] text-indigo-600 line-clamp-1">{Establecimiento.address}</div>
                     </div>
                   ))}
                 </div>
@@ -292,7 +292,7 @@ ${establishmentsText || '  - Ninguno'}
             <ul className="space-y-0.5 text-[11px]">
               <li>✓ Credenciales de acceso generadas</li>
               <li>✓ {userRoles.length} rol(es) asignado(s)</li>
-              <li>✓ {userEstablishments.length} establecimiento(s) asignado(s)</li>
+              <li>✓ {userEstablecimientos.length} establecimiento(s) asignado(s)</li>
               <li className="text-blue-600 mt-1">💡 Puedes modificar roles desde la lista de usuarios</li>
             </ul>
           </div>

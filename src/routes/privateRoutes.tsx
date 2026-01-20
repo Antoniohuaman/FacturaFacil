@@ -17,7 +17,7 @@ import ClientesPage from "../pages/Private/features/gestion-clientes/pages/Clien
 import IndicadoresPage from "../pages/Private/features/indicadores-negocio/pages/IndicadoresPage";
 import { ConfigurationDashboard } from "../pages/Private/features/configuracion-sistema/paginas/PanelConfiguracion";
 import { CompanyConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEmpresa";
-import { EstablishmentsConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEstablecimientos";
+import { EstablecimientosConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEstablecimientos";
 import { ConfiguracionAlmacenes } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionAlmacenes";
 import { UsersConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionUsuarios";
 import { SeriesConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionSeries";
@@ -82,7 +82,7 @@ export const privateRoutes: RouteObject[] = [
       { path: "/indicadores", element: <IndicadoresPage /> },
       { path: "/configuracion", element: <ConfigurationDashboard /> },
       { path: "/configuracion/empresa", element: <CompanyConfiguration /> },
-      { path: "/configuracion/establecimientos", element: <EstablishmentsConfiguration /> },
+      { path: "/configuracion/establecimientos", element: <EstablecimientosConfiguration /> },
       { path: "/configuracion/almacenes", element: <ConfiguracionAlmacenes /> },
       { path: "/configuracion/usuarios", element: <UsersConfiguration /> },
       { path: "/configuracion/empleados", loader: () => redirect("/configuracion/usuarios") },

@@ -4,16 +4,16 @@ import { createCurrentMonthRange } from '../models/dateRange';
 
 interface IndicadoresFiltersState {
   dateRange: DateRange;
-  establishmentId: string;
+  EstablecimientoId: string;
   setDateRange: (range: DateRange) => void;
-  setEstablishmentId: (id: string) => void;
+  setEstablecimientoId: (id: string) => void;
   reset: () => void;
 }
 
 export const useIndicadoresFiltersStore = create<IndicadoresFiltersState>((set) => ({
   dateRange: createCurrentMonthRange(),
-  establishmentId: 'Todos',
+  EstablecimientoId: 'Todos',
   setDateRange: (range) => set({ dateRange: range }),
-  setEstablishmentId: (id) => set({ establishmentId: id }),
-  reset: () => set({ dateRange: createCurrentMonthRange(), establishmentId: 'Todos' })
+  setEstablecimientoId: (id) => set({ EstablecimientoId: id }),
+  reset: () => set({ dateRange: createCurrentMonthRange(), EstablecimientoId: 'Todos' })
 }));

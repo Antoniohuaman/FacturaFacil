@@ -112,7 +112,7 @@ export interface IndicadoresData {
 
 export interface IndicadoresFilters {
   dateRange: DateRange;
-  establishmentId: string;
+  EstablecimientoId: string;
 }
 
 // Strong aliases for API consumers

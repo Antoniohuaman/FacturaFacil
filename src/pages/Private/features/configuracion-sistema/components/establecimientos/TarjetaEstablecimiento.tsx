@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
-// src/features/configuration/components/establecimientos/EstablishmentCard.tsx
+// src/features/configuration/components/establecimientos/EstablecimientoCard.tsx
 import { useState } from 'react';
 import { 
   MapPin, 
@@ -12,11 +12,11 @@ import {
   Copy,
   Building2
 } from 'lucide-react';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
 
-interface EstablishmentCardProps {
-  establishment: Establishment;
+interface EstablecimientoCardProps {
+  Establecimiento: Establecimiento;
   onEdit: () => void;
   onDelete: () => void;
   onToggleStatus: () => void;
@@ -24,26 +24,26 @@ interface EstablishmentCardProps {
   compact?: boolean;
 }
 
-export function EstablishmentCard({ 
-  establishment, 
+export function EstablecimientoCard({ 
+  Establecimiento, 
   onEdit, 
   onDelete, 
   onToggleStatus,
   showActions = true,
   compact = false
-}: EstablishmentCardProps) {
+}: EstablecimientoCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = async () => {
     try {
-      await navigator.clipboard.writeText(establishment.code);
+      await navigator.clipboard.writeText(Establecimiento.code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       // Fallback for browsers without clipboard API
       const textArea = document.createElement('textarea');
-      textArea.value = establishment.code;
+      textArea.value = Establecimiento.code;
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand('copy');
@@ -69,7 +69,7 @@ export function EstablishmentCard({
   return (
     <div className={`
       bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200
-      ${!establishment.isActive ? 'opacity-75 bg-gray-50' : 'hover:border-gray-300'}
+      ${!Establecimiento.isActive ? 'opacity-75 bg-gray-50' : 'hover:border-gray-300'}
       ${compact ? 'p-4' : 'p-6'}
     `}>
       {/* Header */}
@@ -77,7 +77,7 @@ export function EstablishmentCard({
         <div className="flex items-start space-x-3 flex-1 min-w-0">
           <div className={`
             flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
-            ${establishment.isActive 
+            ${Establecimiento.isActive 
               ? 'bg-blue-50 text-blue-600' 
               : 'bg-gray-100 text-gray-400'
             }
@@ -88,11 +88,11 @@ export function EstablishmentCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2 mb-1">
               <h3 className="font-semibold text-gray-900 truncate">
-                {establishment.name}
+                {Establecimiento.name}
               </h3>
               <StatusIndicator
-                status={establishment.isActive ? 'success' : 'error'}
-                label={establishment.isActive ? 'Activo' : 'Inactivo'}
+                status={Establecimiento.isActive ? 'success' : 'error'}
+                label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
                 size="xs"
               />
             </div>
@@ -103,7 +103,7 @@ export function EstablishmentCard({
                 className="flex items-center space-x-1 text-sm font-mono text-gray-600 hover:text-blue-600 transition-colors group"
                 title="Copiar código"
               >
-                <span>{establishment.code}</span>
+                <span>{Establecimiento.code}</span>
                 {copied ? (
                   <span className="text-green-600 text-xs">✓</span>
                 ) : (
@@ -152,7 +152,7 @@ export function EstablishmentCard({
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                   >
-                    {establishment.isActive ? (
+                    {Establecimiento.isActive ? (
                       <>
                         <ToggleLeft className="w-4 h-4" />
                         <span>Inhabilitar</span>
@@ -190,11 +190,11 @@ export function EstablishmentCard({
           <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm text-gray-600 leading-relaxed">
-              {compact ? truncateAddress(establishment.address) : establishment.address}
+              {compact ? truncateAddress(Establecimiento.address) : Establecimiento.address}
             </p>
-            {establishment.postalCode && (
+            {Establecimiento.postalCode && (
               <p className="text-xs text-gray-500 mt-1 font-mono">
-                Código Postal: {establishment.postalCode}
+                Código Postal: {Establecimiento.postalCode}
               </p>
             )}
           </div>
@@ -205,13 +205,13 @@ export function EstablishmentCard({
       <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
         <div className="flex items-center space-x-1">
           <Calendar className="w-3 h-3" />
-          <span>Creado {formatDate(establishment.createdAt)}</span>
+          <span>Creado {formatDate(Establecimiento.createdAt)}</span>
         </div>
         
-        {establishment.updatedAt && establishment.updatedAt !== establishment.createdAt && (
+        {Establecimiento.updatedAt && Establecimiento.updatedAt !== Establecimiento.createdAt && (
           <div className="flex items-center space-x-1">
             <Edit3 className="w-3 h-3" />
-            <span>Editado {formatDate(establishment.updatedAt)}</span>
+            <span>Editado {formatDate(Establecimiento.updatedAt)}</span>
           </div>
         )}
       </div>
@@ -230,12 +230,12 @@ export function EstablishmentCard({
           <button
             onClick={onToggleStatus}
             className={`flex items-center space-x-1 px-3 py-1.5 text-xs rounded-md transition-colors ${
-              establishment.isActive
+              Establecimiento.isActive
                 ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
                 : 'bg-green-50 text-green-700 hover:bg-green-100'
             }`}
           >
-            {establishment.isActive ? (
+            {Establecimiento.isActive ? (
               <>
                 <ToggleLeft className="w-3 h-3" />
                 <span>Inhabilitar</span>

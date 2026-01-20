@@ -17,7 +17,7 @@ interface UseBankAccountsReturn {
 export function useBankAccounts(): UseBankAccountsReturn {
   const { session } = useUserSession();
   const empresaId = session?.currentCompanyId || '';
-  const establecimientoId = session?.currentEstablishmentId || '';
+  const establecimientoId = session?.currentEstablecimientoId || '';
 
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(false);

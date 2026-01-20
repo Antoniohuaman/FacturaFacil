@@ -3,11 +3,11 @@ import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
 import { useProductStore, type ProductInput } from '../../../catalogo-articulos/hooks/useProductStore';
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
 import {
-  isProductEnabledForEstablishment,
+  isProductEnabledForEstablecimiento,
   type Product as CatalogProduct,
 } from '../../../catalogo-articulos/models/types';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
-import { useCurrentEstablishmentId } from '../../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getAvailableStockForUnit } from '../../../../../../shared/inventory/stockGateway';
 
@@ -64,14 +64,14 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     categories: catalogCategories
   } = useProductStore();
   const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook();
-  const establishmentId = useCurrentEstablishmentId();
+  const EstablecimientoId = useCurrentEstablecimientoId();
   const { state: { almacenes } } = useConfigurationContext();
 
   const mapCatalogProductToSelectorProduct = useCallback((p: CatalogProduct): Product => {
     const stockInfo = getAvailableStockForUnit({
       product: p,
       almacenes,
-      establishmentId,
+      EstablecimientoId,
       unitCode: p.unidad,
     });
     const requiresStockControl = Boolean(
@@ -104,7 +104,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       codigoSunat: p.codigoSunat,
       unidad: p.unidad,
     };
-  }, [establishmentId, almacenes]);
+  }, [EstablecimientoId, almacenes]);
 
   const getBasePriceForProduct = useCallback((product: Product): number | null => {
     if (!hasSelectableColumns) {
@@ -142,14 +142,14 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   // ✅ Convertir productos del catálogo al formato esperado CON useMemo
   const allProducts: Product[] = useMemo(
     () => {
-      if (!establishmentId) {
+      if (!EstablecimientoId) {
         return [];
       }
       return catalogProducts
-        .filter((product) => isProductEnabledForEstablishment(product, establishmentId))
+        .filter((product) => isProductEnabledForEstablecimiento(product, EstablecimientoId))
         .map(mapCatalogProductToSelectorProduct);
     },
-    [catalogProducts, establishmentId, mapCatalogProductToSelectorProduct]
+    [catalogProducts, EstablecimientoId, mapCatalogProductToSelectorProduct]
   );
   const handleCreateProductClick = useCallback(() => {
     setShowProductModal(true);

@@ -21,8 +21,8 @@ export function CajasConfiguration() {
   const { toasts, success, error: showError, removeToast } = useToast();
   
   const empresaId = session?.currentCompanyId || '';
-  const establecimientoId = session?.currentEstablishmentId || '';
-  const establecimientoActual = session?.currentEstablishment;
+  const establecimientoId = session?.currentEstablecimientoId || '';
+  const establecimientoActual = session?.currentEstablecimiento;
   
   const {
     cajas,
@@ -34,15 +34,15 @@ export function CajasConfiguration() {
 
   const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [filterEstablishmentId, setFilterEstablishmentId] = useState<string>(establecimientoId);
+  const [filterEstablecimientoId, setFilterEstablecimientoId] = useState<string>(establecimientoId);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [cajaToDelete, setCajaToDelete] = useState<Caja | null>(null);
 
-  // Get all cajas for the company (not filtered by establishment yet)
+  // Get all cajas for the company (not filtered by Establecimiento yet)
   const allCajasForCompany = useMemo(() => {
     if (!empresaId) return [];
     // In a real scenario, you'd fetch all cajas for the company
-    // For now, we'll use the cajas from the current establishment
+    // For now, we'll use the cajas from the current Establecimiento
     return cajas;
   }, [cajas, empresaId]);
 
@@ -50,9 +50,9 @@ export function CajasConfiguration() {
   const filteredCajas = useMemo(() => {
     let result = allCajasForCompany;
 
-    // Filter by establishment if not "all"
-    if (filterEstablishmentId && filterEstablishmentId !== 'all') {
-      result = result.filter(caja => caja.establecimientoId === filterEstablishmentId);
+    // Filter by Establecimiento if not "all"
+    if (filterEstablecimientoId && filterEstablecimientoId !== 'all') {
+      result = result.filter(caja => caja.establecimientoId === filterEstablecimientoId);
     }
 
     // Filter by search text
@@ -71,7 +71,7 @@ export function CajasConfiguration() {
     }
 
     return result;
-  }, [allCajasForCompany, filterEstablishmentId, searchText, filterStatus]);
+  }, [allCajasForCompany, filterEstablecimientoId, searchText, filterStatus]);
 
   const handleToggleEnabled = async (id: string) => {
     try {
@@ -128,7 +128,7 @@ export function CajasConfiguration() {
     setCajaToDelete(null);
   };
 
-  // Show banner if no establishment selected
+  // Show banner if no Establecimiento selected
   if (!establecimientoId) {
     return (
       <div className="flex-1 bg-gray-50 dark:bg-gray-900">
@@ -178,7 +178,7 @@ export function CajasConfiguration() {
                 Gestión de Cajas
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {filterEstablishmentId === 'all' 
+                {filterEstablecimientoId === 'all' 
                   ? 'Mostrando cajas de todos los establecimientos' 
                   : `Establecimiento: ${establecimientoActual?.name || 'N/A'}`}
               </p>
@@ -195,19 +195,19 @@ export function CajasConfiguration() {
           {/* Filters */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex flex-col md:flex-row gap-4">
-              {/* Establishment filter */}
+              {/* Establecimiento filter */}
               <div className="md:w-64">
-                <label htmlFor="establishment-filter" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+                <label htmlFor="Establecimiento-filter" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
                   Establecimiento
                 </label>
                 <select
-                  id="establishment-filter"
-                  value={filterEstablishmentId}
-                  onChange={(e) => setFilterEstablishmentId(e.target.value)}
+                  id="Establecimiento-filter"
+                  value={filterEstablecimientoId}
+                  onChange={(e) => setFilterEstablecimientoId(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="all">Todos los establecimientos</option>
-                  {state.establishments.map((est) => (
+                  {state.Establecimientos.map((est) => (
                     <option key={est.id} value={est.id}>
                       {est.name}
                     </option>

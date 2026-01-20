@@ -21,7 +21,7 @@ import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Company } from '../modelos/Company';
-import type { Establishment } from '../modelos/Establishment';
+import type { Establecimiento } from '../modelos/Establecimiento';
 import type { Almacen } from '../modelos/Almacen';
 import type { Series } from '../modelos/Series';
 import type { Currency } from '../modelos/Currency';
@@ -54,7 +54,7 @@ type WorkspaceNavigationState = {
 
 type EnsureDefaultOperationalSetupParams = {
   company: Company | null;
-  establishment: Establishment | null;
+  Establecimiento: Establecimiento | null;
   userId: string | null;
   configState: {
     cajas: Caja[];
@@ -65,17 +65,17 @@ type EnsureDefaultOperationalSetupParams = {
 
 async function ensureDefaultOperationalSetup({
   company,
-  establishment,
+  Establecimiento,
   userId,
   configState,
   dispatch,
 }: EnsureDefaultOperationalSetupParams): Promise<void> {
-  if (!company?.id || !establishment?.id) {
+  if (!company?.id || !Establecimiento?.id) {
     return;
   }
 
   const empresaId = company.id;
-  const establecimientoId = establishment.id;
+  const establecimientoId = Establecimiento.id;
 
   const deriveBaseCurrencyId = (): string => {
     const preferredCode = company.monedaBase || 'PEN';
@@ -201,7 +201,7 @@ export function CompanyConfiguration() {
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState<CompanyFormData | null>(null);
 
-  const setTenantWorkspaceContext = useCallback((empresa: Company, establishment: Establishment) => {
+  const setTenantWorkspaceContext = useCallback((empresa: Company, Establecimiento: Establecimiento) => {
     const empresaEntry = {
       id: empresa.id,
       ruc: empresa.ruc,
@@ -215,12 +215,12 @@ export function CompanyConfiguration() {
       estado: EmpresaStatus.ACTIVA,
       establecimientos: [
         {
-          id: establishment.id,
-          codigo: establishment.code,
-          nombre: establishment.name,
-          direccion: establishment.address,
-          esPrincipal: establishment.isMainEstablishment,
-          activo: establishment.isActive,
+          id: Establecimiento.id,
+          codigo: Establecimiento.code,
+          nombre: Establecimiento.name,
+          direccion: Establecimiento.address,
+          esPrincipal: Establecimiento.isMainEstablecimiento,
+          activo: Establecimiento.isActive,
         },
       ],
       configuracion: {
@@ -230,7 +230,7 @@ export function CompanyConfiguration() {
 
     const contexto: WorkspaceContext = {
       empresaId: empresa.id,
-      establecimientoId: establishment.id,
+      establecimientoId: Establecimiento.id,
       empresa: empresaEntry,
       establecimiento: empresaEntry.establecimientos[0],
       permisos: ['*'],
@@ -472,14 +472,14 @@ export function CompanyConfiguration() {
       // ONBOARDING AUTOMÁTICO: Crear configuración inicial si es nueva empresa
       // ===================================================================
       const isNewCompany = !company?.id;
-      let defaultEstablishment: Establishment | null = null;
+      let defaultEstablecimiento: Establecimiento | null = null;
 
-      if (isNewCompany && state.establishments.length === 0) {
+      if (isNewCompany && state.Establecimientos.length === 0) {
         // Parsear ubigeo para obtener Departamento, Provincia y Distrito
         const location = parseUbigeoCode(formData.ubigeo);
         
         // 1. CREAR ESTABLECIMIENTO POR DEFECTO
-        const createdEstablishment: Establishment = {
+        const createdEstablecimiento: Establecimiento = {
           id: 'est-main',
           code: '0001',
           name: 'Establecimiento',
@@ -490,7 +490,7 @@ export function CompanyConfiguration() {
           postalCode: formData.ubigeo,
           phone: cleanPhones[0],
           email: cleanEmails[0],
-          isMainEstablishment: true,
+          isMainEstablecimiento: true,
           businessHours: {
             monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
             tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
@@ -544,19 +544,19 @@ export function CompanyConfiguration() {
           isActive: true,
         };
 
-        defaultEstablishment = createdEstablishment;
-        dispatch({ type: 'ADD_ESTABLISHMENT', payload: createdEstablishment });
+        defaultEstablecimiento = createdEstablecimiento;
+        dispatch({ type: 'ADD_Establecimiento', payload: createdEstablecimiento });
 
         // 2. CREAR ALMACÉN POR DEFECTO
         const defaultalmacen: Almacen = {
           id: 'alm-main',
           codigoAlmacen: '0001',
           nombreAlmacen: 'Almacén',
-          establecimientoId: createdEstablishment.id,
-          nombreEstablecimientoDesnormalizado: createdEstablishment.name,
-          codigoEstablecimientoDesnormalizado: createdEstablishment.code,
+          establecimientoId: createdEstablecimiento.id,
+          nombreEstablecimientoDesnormalizado: createdEstablecimiento.name,
+          codigoEstablecimientoDesnormalizado: createdEstablecimiento.code,
           descripcionAlmacen: 'Almacén principal de la empresa',
-          ubicacionAlmacen: createdEstablishment.address || undefined,
+          ubicacionAlmacen: createdEstablecimiento.address || undefined,
           estaActivoAlmacen: true,
           esAlmacenPrincipal: true,
           configuracionInventarioAlmacen: {
@@ -566,10 +566,10 @@ export function CompanyConfiguration() {
           },
           code: '0001',
           name: 'Almacén',
-          establishmentId: createdEstablishment.id,
-          establishmentName: createdEstablishment.name,
-          establishmentCode: createdEstablishment.code,
-          location: createdEstablishment.address || undefined,
+          EstablecimientoId: createdEstablecimiento.id,
+          EstablecimientoName: createdEstablecimiento.name,
+          EstablecimientoCode: createdEstablecimiento.code,
+          location: createdEstablecimiento.address || undefined,
           isActive: true,
           isMainalmacen: true,
           creadoElAlmacen: new Date(),
@@ -584,7 +584,7 @@ export function CompanyConfiguration() {
           formData.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION';
 
         const defaultSeries: Series[] = buildMissingDefaultSeries({
-          establishmentId: createdEstablishment.id,
+          EstablecimientoId: createdEstablecimiento.id,
           environmentType,
           existingSeries: state.series,
         });
@@ -652,7 +652,7 @@ export function CompanyConfiguration() {
 
         await ensureDefaultOperationalSetup({
           company: updatedCompany,
-          establishment: defaultEstablishment,
+          Establecimiento: defaultEstablecimiento,
           userId: session?.userId ?? null,
           configState: {
             cajas: state.cajas,
@@ -663,14 +663,14 @@ export function CompanyConfiguration() {
 
       }
 
-      const establishmentForContext =
-        defaultEstablishment ||
-        state.establishments.find((est) => est.isMainEstablishment) ||
-        state.establishments[0] ||
+      const EstablecimientoForContext =
+        defaultEstablecimiento ||
+        state.Establecimientos.find((est) => est.isMainEstablecimiento) ||
+        state.Establecimientos[0] ||
         null;
 
-      if (establishmentForContext) {
-        setTenantWorkspaceContext(updatedCompany, establishmentForContext);
+      if (EstablecimientoForContext) {
+        setTenantWorkspaceContext(updatedCompany, EstablecimientoForContext);
       }
 
       // Show success and redirect

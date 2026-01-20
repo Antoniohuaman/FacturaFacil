@@ -80,7 +80,7 @@ export const InventoryPage: React.FC = () => {
       'Stock Anterior': mov.cantidadAnterior,
       'Stock Nuevo': mov.cantidadNueva,
       'Almacén': mov.almacenNombre || 'N/A',
-      'Establecimiento': mov.establishmentNombre || 'N/A',
+      'Establecimiento': mov.EstablecimientoNombre || 'N/A',
       'Usuario': mov.usuario,
       'Observaciones': mov.observaciones || '',
       'Documento': mov.documentoReferencia || ''
@@ -262,7 +262,7 @@ export const InventoryPage: React.FC = () => {
               <option value="todos">Todos los almacenes</option>
               {almacenes.map(wh => (
                 <option key={wh.id} value={wh.id}>
-                  {wh.name} ({wh.establishmentName})
+                  {wh.name} ({wh.EstablecimientoName})
                 </option>
               ))}
             </select>

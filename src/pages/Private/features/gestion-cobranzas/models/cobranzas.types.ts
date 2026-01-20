@@ -19,7 +19,7 @@ export interface CuentaPorCobrarSummary {
   comprobanteSerie: string;
   comprobanteNumero: string;
   tipoComprobante: string;
-  establishmentId?: string;
+  EstablecimientoId?: string;
   clienteNombre: string;
   clienteDocumento: string;
   fechaEmision: string;

@@ -632,10 +632,10 @@ const SearchBarContent = ({
     []
   );
   const indicadoresDateRange = useIndicadoresFiltersStore((state) => state.dateRange);
-  const indicadoresEstablishmentId = useIndicadoresFiltersStore((state) => state.establishmentId);
+  const indicadoresEstablecimientoId = useIndicadoresFiltersStore((state) => state.EstablecimientoId);
   const indicadoresFilters = useMemo(
-    () => ({ dateRange: indicadoresDateRange, establishmentId: indicadoresEstablishmentId }),
-    [indicadoresDateRange, indicadoresEstablishmentId]
+    () => ({ dateRange: indicadoresDateRange, EstablecimientoId: indicadoresEstablecimientoId }),
+    [indicadoresDateRange, indicadoresEstablecimientoId]
   );
   const { data: indicadoresData, status: indicadoresStatus } = useIndicadores(indicadoresFilters);
   const queryTokens = useMemo(() => tokenizeQuery(searchQuery), [searchQuery]);

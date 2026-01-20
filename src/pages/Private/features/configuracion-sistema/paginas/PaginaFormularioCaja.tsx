@@ -21,7 +21,7 @@ export function CajaFormPage() {
   const { session } = useUserSession();
   
   const empresaId = session?.currentCompanyId || '';
-  const establecimientoId = session?.currentEstablishmentId || '';
+  const establecimientoId = session?.currentEstablecimientoId || '';
   
   const {
     cajas,
@@ -160,8 +160,8 @@ export function CajaFormPage() {
               observaciones: currentCaja.observaciones
             } : undefined}
             currencies={state.currencies}
-            establishments={state.establishments}
-            defaultEstablishmentId={establecimientoId}
+            Establecimientos={state.Establecimientos}
+            defaultEstablecimientoId={establecimientoId}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isEditing={isEditing}

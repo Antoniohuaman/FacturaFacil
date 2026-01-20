@@ -29,7 +29,7 @@ export interface Caja {
 }
 
 export interface CreateCajaInput {
-  establecimientoId: string; // Required: establishment where this caja will be created
+  establecimientoId: string; // Required: Establecimiento where this caja will be created
   nombre: string;
   monedaId: string;
   mediosPagoPermitidos: MedioPago[];

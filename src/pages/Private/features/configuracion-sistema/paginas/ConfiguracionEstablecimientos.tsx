@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-// src/features/configuration/pages/EstablishmentsConfiguration.tsx
+// src/features/configuration/pages/EstablecimientosConfiguration.tsx
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -23,10 +23,10 @@ import {
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 // import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
 import { StatusIndicator } from '../components/comunes/IndicadorEstado';
-import type { Establishment } from '../modelos/Establishment';
+import type { Establecimiento } from '../modelos/Establecimiento';
 import { ubigeoData } from '../datos/ubigeo';
 
-interface EstablishmentFormData {
+interface EstablecimientoFormData {
   code: string;
   name: string;
   address: string;
@@ -46,28 +46,28 @@ interface Toast {
 
 interface DeleteConfirmation {
   isOpen: boolean;
-  establishmentId: string | null;
-  establishmentName: string;
+  EstablecimientoId: string | null;
+  EstablecimientoName: string;
 }
 
-export function EstablishmentsConfiguration() {
+export function EstablecimientosConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { establishments } = state;
+  const { Establecimientos } = state;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showForm, setShowForm] = useState(false);
-  const [editingEstablishmentId, setEditingEstablishmentId] = useState<string | null>(null);
+  const [editingEstablecimientoId, setEditingEstablecimientoId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
     isOpen: false,
-    establishmentId: null,
-    establishmentName: ''
+    EstablecimientoId: null,
+    EstablecimientoName: ''
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const [formData, setFormData] = useState<EstablishmentFormData>({
+  const [formData, setFormData] = useState<EstablecimientoFormData>({
     code: '',
     name: '',
     address: '',
@@ -96,8 +96,8 @@ export function EstablishmentsConfiguration() {
     return selectedProvince?.districts || [];
   }, [selectedProvince]);
 
-  // Filter establishments
-  const filteredEstablishments = establishments.filter(est => {
+  // Filter Establecimientos
+  const filteredEstablecimientos = Establecimientos.filter(est => {
     const matchesSearch = est.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          est.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          est.address.toLowerCase().includes(searchTerm.toLowerCase());
@@ -123,12 +123,12 @@ export function EstablishmentsConfiguration() {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Generate next establishment code
+  // Generate next Establecimiento code
   const generateNextCode = () => {
-    if (establishments.length === 0) return '0001';
+    if (Establecimientos.length === 0) return '0001';
 
     // Extract numeric codes only
-    const numericCodes = establishments
+    const numericCodes = Establecimientos
       .map(e => {
         const match = e.code.match(/\d+/);
         return match ? parseInt(match[0]) : 0;
@@ -149,8 +149,8 @@ export function EstablishmentsConfiguration() {
       errors.code = 'El código no puede tener más de 4 caracteres';
     } else {
       // Check for duplicate code
-      const isDuplicate = establishments.some(
-        est => est.code === formData.code && est.id !== editingEstablishmentId
+      const isDuplicate = Establecimientos.some(
+        est => est.code === formData.code && est.id !== editingEstablecimientoId
       );
       if (isDuplicate) {
         errors.code = 'Ya existe un establecimiento con este código';
@@ -197,24 +197,24 @@ export function EstablishmentsConfiguration() {
       phone: '',
       email: ''
     });
-    setEditingEstablishmentId(null);
+    setEditingEstablecimientoId(null);
     setFormErrors({});
     setShowForm(true);
   };
 
-  const handleEdit = (establishment: Establishment) => {
+  const handleEdit = (Establecimiento: Establecimiento) => {
     setFormData({
-      code: establishment.code,
-      name: establishment.name,
-      address: establishment.address,
-      district: establishment.district,
-      province: establishment.province,
-      department: establishment.department,
-      postalCode: establishment.postalCode || '',
-      phone: establishment.phone || '',
-      email: establishment.email || ''
+      code: Establecimiento.code,
+      name: Establecimiento.name,
+      address: Establecimiento.address,
+      district: Establecimiento.district,
+      province: Establecimiento.province,
+      department: Establecimiento.department,
+      postalCode: Establecimiento.postalCode || '',
+      phone: Establecimiento.phone || '',
+      email: Establecimiento.email || ''
     });
-    setEditingEstablishmentId(establishment.id);
+    setEditingEstablecimientoId(Establecimiento.id);
     setFormErrors({});
     setShowForm(true);
   };
@@ -228,12 +228,12 @@ export function EstablishmentsConfiguration() {
     }
 
     try {
-      let updatedEstablishments: Establishment[];
+      let updatedEstablecimientos: Establecimiento[];
 
-      if (editingEstablishmentId) {
+      if (editingEstablecimientoId) {
         // Update existing
-        updatedEstablishments = establishments.map(est =>
-          est.id === editingEstablishmentId
+        updatedEstablecimientos = Establecimientos.map(est =>
+          est.id === editingEstablecimientoId
             ? {
                 ...est,
                 ...formData,
@@ -244,7 +244,7 @@ export function EstablishmentsConfiguration() {
         showToast('success', 'Establecimiento actualizado correctamente');
       } else {
         // Create new - with unique ID
-        const newEstablishment: Establishment = {
+        const newEstablecimiento: Establecimiento = {
           id: generateUniqueId(),
           ...formData,
           coordinates: undefined,
@@ -268,19 +268,19 @@ export function EstablishmentsConfiguration() {
           },
           status: 'ACTIVE',
           isActive: true,
-          isMainEstablishment: false,
+          isMainEstablecimiento: false,
           createdAt: new Date(),
           updatedAt: new Date()
         };
 
-        updatedEstablishments = [...establishments, newEstablishment];
+        updatedEstablecimientos = [...Establecimientos, newEstablecimiento];
         showToast('success', 'Establecimiento creado correctamente');
       }
 
-      dispatch({ type: 'SET_ESTABLISHMENTS', payload: updatedEstablishments });
+      dispatch({ type: 'SET_EstablecimientoS', payload: updatedEstablecimientos });
       handleCancel();
     } catch (error) {
-      console.error('Error saving establishment:', error);
+      console.error('Error saving Establecimiento:', error);
       showToast('error', 'Error al guardar el establecimiento. Por favor, intenta nuevamente.');
     }
   };
@@ -297,46 +297,46 @@ export function EstablishmentsConfiguration() {
       phone: '',
       email: ''
     });
-    setEditingEstablishmentId(null);
+    setEditingEstablecimientoId(null);
     setFormErrors({});
     setShowForm(false);
   };
 
-  const openDeleteConfirmation = (establishment: Establishment) => {
+  const openDeleteConfirmation = (Establecimiento: Establecimiento) => {
     setDeleteConfirmation({
       isOpen: true,
-      establishmentId: establishment.id,
-      establishmentName: establishment.name
+      EstablecimientoId: Establecimiento.id,
+      EstablecimientoName: Establecimiento.name
     });
   };
 
   const handleDelete = () => {
-    if (!deleteConfirmation.establishmentId) return;
+    if (!deleteConfirmation.EstablecimientoId) return;
 
     try {
-      const updatedEstablishments = establishments.filter(
-        est => est.id !== deleteConfirmation.establishmentId
+      const updatedEstablecimientos = Establecimientos.filter(
+        est => est.id !== deleteConfirmation.EstablecimientoId
       );
-      dispatch({ type: 'SET_ESTABLISHMENTS', payload: updatedEstablishments });
+      dispatch({ type: 'SET_EstablecimientoS', payload: updatedEstablecimientos });
       showToast('success', 'Establecimiento eliminado correctamente');
-      setDeleteConfirmation({ isOpen: false, establishmentId: null, establishmentName: '' });
+      setDeleteConfirmation({ isOpen: false, EstablecimientoId: null, EstablecimientoName: '' });
     } catch (error) {
-      console.error('Error deleting establishment:', error);
+      console.error('Error deleting Establecimiento:', error);
       showToast('error', 'Error al eliminar el establecimiento');
     }
   };
 
   const handleToggleStatus = (id: string) => {
-    const establishment = establishments.find(est => est.id === id);
+    const Establecimiento = Establecimientos.find(est => est.id === id);
 
     try {
-      const updatedEstablishments = establishments.map(est =>
+      const updatedEstablecimientos = Establecimientos.map(est =>
         est.id === id
           ? { ...est, isActive: !est.isActive, updatedAt: new Date() }
           : est
       );
-      dispatch({ type: 'SET_ESTABLISHMENTS', payload: updatedEstablishments });
-      showToast('success', establishment?.isActive ? 'Establecimiento desactivado' : 'Establecimiento activado');
+      dispatch({ type: 'SET_EstablecimientoS', payload: updatedEstablecimientos });
+      showToast('success', Establecimiento?.isActive ? 'Establecimiento desactivado' : 'Establecimiento activado');
     } catch (error) {
       console.error('Error toggling status:', error);
       showToast('error', 'Error al cambiar el estado del establecimiento');
@@ -378,10 +378,10 @@ export function EstablishmentsConfiguration() {
             </button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                {editingEstablishmentId ? 'Editar Establecimiento' : 'Nuevo Establecimiento'}
+                {editingEstablecimientoId ? 'Editar Establecimiento' : 'Nuevo Establecimiento'}
               </h1>
               <p className="text-sm text-gray-600 mt-1">
-                {editingEstablishmentId ? 'Modifica los datos del establecimiento' : 'Registra un nuevo establecimiento para tu empresa'}
+                {editingEstablecimientoId ? 'Modifica los datos del establecimiento' : 'Registra un nuevo establecimiento para tu empresa'}
               </p>
             </div>
           </div>
@@ -756,7 +756,7 @@ export function EstablishmentsConfiguration() {
                 className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 flex items-center gap-2"
               >
                 <CheckCircle className="w-5 h-5" />
-                {editingEstablishmentId ? 'Actualizar' : 'Crear'} Establecimiento
+                {editingEstablecimientoId ? 'Actualizar' : 'Crear'} Establecimiento
               </button>
             </div>
           </div>
@@ -800,12 +800,12 @@ export function EstablishmentsConfiguration() {
                 ¿Eliminar establecimiento?
               </h3>
               <p className="text-gray-600 text-center mb-6">
-                ¿Estás seguro de eliminar el establecimiento <span className="font-semibold">"{deleteConfirmation.establishmentName}"</span>?
+                ¿Estás seguro de eliminar el establecimiento <span className="font-semibold">"{deleteConfirmation.EstablecimientoName}"</span>?
                 Esta acción no se puede deshacer.
               </p>
               <div className="flex gap-3">
                 <button
-                  onClick={() => setDeleteConfirmation({ isOpen: false, establishmentId: null, establishmentName: '' })}
+                  onClick={() => setDeleteConfirmation({ isOpen: false, EstablecimientoId: null, EstablecimientoName: '' })}
                   className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
                   Cancelar
@@ -846,7 +846,7 @@ export function EstablishmentsConfiguration() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Total</p>
-              <p className="text-2xl font-bold text-gray-900">{establishments.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{Establecimientos.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
               <Building className="w-6 h-6 text-blue-600" />
@@ -859,7 +859,7 @@ export function EstablishmentsConfiguration() {
             <div>
               <p className="text-sm font-medium text-gray-500">Activos</p>
               <p className="text-2xl font-bold text-gray-900">
-                {establishments.filter(e => e.isActive).length}
+                {Establecimientos.filter(e => e.isActive).length}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
@@ -873,7 +873,7 @@ export function EstablishmentsConfiguration() {
             <div>
               <p className="text-sm font-medium text-gray-500">Inactivos</p>
               <p className="text-2xl font-bold text-gray-900">
-                {establishments.filter(e => !e.isActive).length}
+                {Establecimientos.filter(e => !e.isActive).length}
               </p>
             </div>
             <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
@@ -917,9 +917,9 @@ export function EstablishmentsConfiguration() {
         </button>
       </div>
 
-      {/* Establishments List */}
+      {/* Establecimientos List */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        {filteredEstablishments.length === 0 ? (
+        {filteredEstablecimientos.length === 0 ? (
           <div className="text-center py-12">
             <Building className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -946,40 +946,40 @@ export function EstablishmentsConfiguration() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {filteredEstablishments.map((establishment) => (
+            {filteredEstablecimientos.map((Establecimiento) => (
               <div
-                key={establishment.id}
-                data-focus={`configuracion:establecimientos:${establishment.id}`}
+                key={Establecimiento.id}
+                data-focus={`configuracion:establecimientos:${Establecimiento.id}`}
                 className="p-6 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-3">
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {establishment.name}
+                        {Establecimiento.name}
                       </h3>
                       <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        {establishment.code}
+                        {Establecimiento.code}
                       </span>
                       <StatusIndicator
-                        status={establishment.isActive ? 'success' : 'error'}
-                        label={establishment.isActive ? 'Activo' : 'Inactivo'}
+                        status={Establecimiento.isActive ? 'success' : 'error'}
+                        label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
                       />
                     </div>
                     
                     <p className="text-gray-600 mb-2">
-                      {establishment.address}
+                      {Establecimiento.address}
                     </p>
                     
                     <div className="flex items-center space-x-6 text-sm text-gray-500">
-                      <span>{establishment.district}, {establishment.province}</span>
-                      <span>{establishment.department}</span>
+                      <span>{Establecimiento.district}, {Establecimiento.province}</span>
+                      <span>{Establecimiento.department}</span>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => handleEdit(establishment)}
+                      onClick={() => handleEdit(Establecimiento)}
                       className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       title="Editar"
                     >
@@ -987,19 +987,19 @@ export function EstablishmentsConfiguration() {
                     </button>
                     
                     <button
-                      onClick={() => handleToggleStatus(establishment.id)}
+                      onClick={() => handleToggleStatus(Establecimiento.id)}
                       className={`p-2 rounded-lg transition-colors ${
-                        establishment.isActive 
+                        Establecimiento.isActive 
                           ? 'text-red-400 hover:text-red-600 hover:bg-red-50' 
                           : 'text-green-400 hover:text-green-600 hover:bg-green-50'
                       }`}
-                      title={establishment.isActive ? 'Desactivar' : 'Activar'}
+                      title={Establecimiento.isActive ? 'Desactivar' : 'Activar'}
                     >
                       <MapPin className="w-4 h-4" />
                     </button>
                     
                     <button
-                      onClick={() => openDeleteConfirmation(establishment)}
+                      onClick={() => openDeleteConfirmation(Establecimiento)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Eliminar"
                     >

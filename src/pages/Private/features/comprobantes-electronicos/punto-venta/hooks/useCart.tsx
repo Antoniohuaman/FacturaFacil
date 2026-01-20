@@ -189,7 +189,7 @@ export const useCart = (): UseCartReturn => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const { session } = useUserSession();
   const { allProducts: catalogProducts } = useProductStore();
-  const establishmentId = session?.currentEstablishmentId;
+  const EstablecimientoId = session?.currentEstablecimientoId;
 
   const catalogLookup = useMemo(() => {
     const map = new Map<string, CatalogProduct>();
@@ -218,7 +218,7 @@ export const useCart = (): UseCartReturn => {
     const summary = summarizeProductStock({
       product: catalogProduct,
       almacenes,
-      establishmentId,
+      EstablecimientoId,
     });
 
     const requiredUnidadMinima = calculateRequiredUnidadMinima({
@@ -246,7 +246,7 @@ export const useCart = (): UseCartReturn => {
     }
 
     return true;
-  }, [allowNegativeStock, establishmentId, findCatalogProduct, almacenes]);
+  }, [allowNegativeStock, EstablecimientoId, findCatalogProduct, almacenes]);
 
   const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
     const price = Number.isFinite(product.price) ? product.price : 0;

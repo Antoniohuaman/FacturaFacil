@@ -1,6 +1,6 @@
 export interface Series {
   id: string;
-  establishmentId: string;
+  EstablecimientoId: string;
   documentType: DocumentType;
   series: string; // Serie (ej: F001, B001)
   correlativeNumber: number; // Número correlativo actual
@@ -94,7 +94,7 @@ export interface DocumentType {
 }
 
 export interface CreateSeriesRequest {
-  establishmentId: string;
+  EstablecimientoId: string;
   documentTypeId: string;
   series: string;
   configuration: Series['configuration'];
@@ -109,7 +109,7 @@ export interface UpdateSeriesRequest extends Partial<CreateSeriesRequest> {
 
 export interface SeriesSummary {
   id: string;
-  establishmentName: string;
+  EstablecimientoName: string;
   documentTypeName: string;
   series: string;
   correlativeNumber: number;

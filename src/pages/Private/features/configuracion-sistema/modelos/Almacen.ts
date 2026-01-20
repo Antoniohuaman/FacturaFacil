@@ -27,19 +27,19 @@ export interface Almacen {
   establecimientoId: string;
 
   /** Alias legada del ID del establecimiento */
-  establishmentId: string;
+  EstablecimientoId: string;
 
   /** Nombre del establecimiento (desnormalizado para mostrar) */
   nombreEstablecimientoDesnormalizado?: string;
 
   /** Alias legada del nombre del establecimiento */
-  establishmentName?: string;
+  EstablecimientoName?: string;
 
   /** Código del establecimiento (desnormalizado para mostrar) */
   codigoEstablecimientoDesnormalizado?: string;
 
   /** Alias legada del código del establecimiento */
-  establishmentCode?: string;
+  EstablecimientoCode?: string;
 
   /** Descripción opcional del almacén */
   descripcionAlmacen?: string;
@@ -112,7 +112,7 @@ export interface AlmacenFormData {
 
 export type AlmacenSinAlias = Omit<
   Almacen,
-  'code' | 'name' | 'establishmentId' | 'establishmentName' | 'establishmentCode' | 'location' | 'isActive' | 'isMainalmacen'
-> & Partial<Pick<Almacen, 'establishmentName' | 'establishmentCode' | 'location'>>;
+  'code' | 'name' | 'EstablecimientoId' | 'EstablecimientoName' | 'EstablecimientoCode' | 'location' | 'isActive' | 'isMainalmacen'
+> & Partial<Pick<Almacen, 'EstablecimientoName' | 'EstablecimientoCode' | 'location'>>;
 
 export type almacen = Almacen;

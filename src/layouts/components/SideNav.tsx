@@ -79,7 +79,7 @@ const mainItems = [
 export default function SideNav({ collapsed = false }: SideNavProps) {
   const { session } = useUserSession();
   const currentCompany = session?.currentCompany;
-  const currentEstablishment = session?.currentEstablishment;
+  const currentEstablecimiento = session?.currentEstablecimiento;
 
   const navScrollRef = useRef<HTMLElement | null>(null);
 
@@ -96,8 +96,8 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const companyInitials = companyName
     .split(' ').slice(0, 2).map((word: string) => word[0]).join('').toUpperCase();
 
-  const companyTitle = currentCompany && currentEstablishment
-    ? `${companyName} - ${currentEstablishment.name}`
+  const companyTitle = currentCompany && currentEstablecimiento
+    ? `${companyName} - ${currentEstablecimiento.name}`
     : 'Sin empresa seleccionada';
 
   // Crear items con badge dinámico

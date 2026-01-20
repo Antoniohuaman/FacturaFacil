@@ -32,7 +32,7 @@ export interface Configuration {
 
   // Configuraciones de facturación
   billing: {
-    defaultEstablishmentId: string;
+    defaultEstablecimientoId: string;
     defaultSeriesId: string;
     autoSendToSunat: boolean;
     autoGeneratePdf: boolean;
@@ -163,7 +163,7 @@ export const MODULOS_CONFIGURACION: ConfigurationModule[] = [
     progress: 0,
   },
   {
-    id: 'establishments',
+    id: 'Establecimientos',
     name: 'Establecimientos',
     description: 'Gestionar sucursales y puntos de venta',
     icon: 'Store',

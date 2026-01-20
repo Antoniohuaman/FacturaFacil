@@ -2,7 +2,7 @@
 import { createContext, useContext, useReducer, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Company } from '../modelos/Company';
-import type { Establishment } from '../modelos/Establishment';
+import type { Establecimiento } from '../modelos/Establecimiento';
 import type { User } from '../modelos/User';
 import type { Series } from '../modelos/Series';
 import type { PaymentMethod } from '../modelos/PaymentMethod';
@@ -39,7 +39,7 @@ export type SalesPreferences = {
 
 interface ConfigurationState {
   company: Company | null;
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
   almacenes: Almacen[];
   users: User[];
   series: Series[];
@@ -64,7 +64,7 @@ const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefin
 type PersistedTenantConfig = {
   version: 1;
   company: Company | null;
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
   almacenes: Almacen[];
   cajas: Caja[];
   salesPreferences: SalesPreferences;
@@ -99,7 +99,7 @@ const reviveCompany = (company: Company): Company => {
   };
 };
 
-const reviveEstablishment = (est: Establishment): Establishment => ({
+const reviveEstablecimiento = (est: Establecimiento): Establecimiento => ({
   ...est,
   createdAt: reviveDate(est.createdAt) ?? new Date(),
   updatedAt: reviveDate(est.updatedAt) ?? new Date(),
@@ -117,9 +117,9 @@ const reviveAlmacen = (almacen: Almacen): Almacen => ({
   actualizadoElAlmacen: reviveDate(almacen.actualizadoElAlmacen) ?? new Date(),
   code: almacen.codigoAlmacen,
   name: almacen.nombreAlmacen,
-  establishmentName: almacen.nombreEstablecimientoDesnormalizado,
-  establishmentCode: almacen.codigoEstablecimientoDesnormalizado,
-  establishmentId: almacen.establecimientoId,
+  EstablecimientoName: almacen.nombreEstablecimientoDesnormalizado,
+  EstablecimientoCode: almacen.codigoEstablecimientoDesnormalizado,
+  EstablecimientoId: almacen.establecimientoId,
   location: almacen.ubicacionAlmacen,
   isActive: almacen.estaActivoAlmacen,
   isMainalmacen: almacen.esAlmacenPrincipal,
@@ -134,7 +134,7 @@ const reviveCaja = (caja: Caja): Caja => ({
 const reviveTenantConfig = (config: PersistedTenantConfig): PersistedTenantConfig => ({
   ...config,
   company: config.company ? reviveCompany(config.company) : null,
-  establishments: config.establishments.map(reviveEstablishment),
+  Establecimientos: config.Establecimientos.map(reviveEstablecimiento),
   almacenes: config.almacenes.map(reviveAlmacen),
   cajas: config.cajas.map(reviveCaja),
 });
@@ -144,7 +144,7 @@ const isPersistedTenantConfig = (value: unknown): value is PersistedTenantConfig
   if (value.version !== 1) return false;
 
   const hasArrays =
-    Array.isArray(value.establishments) &&
+    Array.isArray(value.Establecimientos) &&
     Array.isArray(value.almacenes) &&
     Array.isArray(value.cajas);
 
@@ -301,10 +301,10 @@ type ConfigurationAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_COMPANY'; payload: Company }
-  | { type: 'SET_ESTABLISHMENTS'; payload: Establishment[] }
-  | { type: 'ADD_ESTABLISHMENT'; payload: Establishment }
-  | { type: 'UPDATE_ESTABLISHMENT'; payload: Establishment }
-  | { type: 'DELETE_ESTABLISHMENT'; payload: string }
+  | { type: 'SET_EstablecimientoS'; payload: Establecimiento[] }
+  | { type: 'ADD_Establecimiento'; payload: Establecimiento }
+  | { type: 'UPDATE_Establecimiento'; payload: Establecimiento }
+  | { type: 'DELETE_Establecimiento'; payload: string }
   | { type: 'SET_ALMACENES'; payload: Almacen[] }
   | { type: 'ADD_ALMACEN'; payload: Almacen }
   | { type: 'UPDATE_ALMACEN'; payload: Almacen }
@@ -330,7 +330,7 @@ type ConfigurationAction =
 
 const initialState: ConfigurationState = {
   company: null,
-  establishments: [],
+  Establecimientos: [],
   almacenes: [],
   users: [],
   series: [],
@@ -359,27 +359,27 @@ function configurationReducer(
     case 'SET_COMPANY':
       return { ...state, company: action.payload };
     
-    case 'SET_ESTABLISHMENTS':
-      return { ...state, establishments: action.payload };
+    case 'SET_EstablecimientoS':
+      return { ...state, Establecimientos: action.payload };
     
-    case 'ADD_ESTABLISHMENT':
+    case 'ADD_Establecimiento':
       return {
         ...state,
-        establishments: [...state.establishments, action.payload],
+        Establecimientos: [...state.Establecimientos, action.payload],
       };
     
-    case 'UPDATE_ESTABLISHMENT':
+    case 'UPDATE_Establecimiento':
       return {
         ...state,
-        establishments: state.establishments.map(est =>
+        Establecimientos: state.Establecimientos.map(est =>
           est.id === action.payload.id ? action.payload : est
         ),
       };
     
-    case 'DELETE_ESTABLISHMENT':
+    case 'DELETE_Establecimiento':
       return {
         ...state,
-        establishments: state.establishments.filter(est => est.id !== action.payload),
+        Establecimientos: state.Establecimientos.filter(est => est.id !== action.payload),
       };
 
     case 'SET_ALMACENES':
@@ -573,7 +573,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       if (persisted.company) {
         dispatch({ type: 'SET_COMPANY', payload: persisted.company });
       }
-      dispatch({ type: 'SET_ESTABLISHMENTS', payload: persisted.establishments });
+      dispatch({ type: 'SET_EstablecimientoS', payload: persisted.Establecimientos });
       dispatch({ type: 'SET_ALMACENES', payload: persisted.almacenes });
       dispatch({ type: 'SET_CAJAS', payload: persisted.cajas });
       dispatch({ type: 'SET_SALES_PREFERENCES', payload: persisted.salesPreferences });
@@ -615,7 +615,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
 
     const hasMeaningfulConfig =
       Boolean(state.company) ||
-      state.establishments.length > 0 ||
+      state.Establecimientos.length > 0 ||
       state.almacenes.length > 0 ||
       state.cajas.length > 0 ||
       state.salesPreferences.allowNegativeStock !== PREFERENCIAS_VENTAS_PREDETERMINADAS.allowNegativeStock ||
@@ -628,7 +628,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     const snapshot: PersistedTenantConfig = {
       version: 1,
       company: state.company,
-      establishments: state.establishments,
+      Establecimientos: state.Establecimientos,
       almacenes: state.almacenes,
       cajas: state.cajas,
       salesPreferences: state.salesPreferences,
@@ -638,7 +638,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   }, [
     state.cajas,
     state.company,
-    state.establishments,
+    state.Establecimientos,
     state.salesPreferences,
     state.almacenes,
     tenantConfigKey,

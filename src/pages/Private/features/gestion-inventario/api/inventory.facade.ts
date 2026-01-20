@@ -45,7 +45,7 @@ export function useInventoryFacade() {
 
     const resolvedalmacen = resolvealmacenForSale({
       almacenes,
-      establishmentId: establecimientoId,
+      EstablecimientoId: establecimientoId,
       preferredalmacenId: options?.almacenId,
     });
     const explicitalmacen = !resolvedalmacen && options?.almacenId
@@ -73,16 +73,16 @@ export function useInventoryFacade() {
     const updatedProductSnapshot = InventoryService.updateStock(product, almacenId, cantidadNueva, { allowNegativeStock });
     const totalStock = InventoryService.getTotalStock(updatedProductSnapshot);
 
-    const movementEstablishmentId = establecimientoId || almacen?.establishmentId || '';
+    const movementEstablecimientoId = establecimientoId || almacen?.EstablecimientoId || '';
     let nextStockPorEstablecimiento = product.stockPorEstablecimiento;
-    if (movementEstablishmentId) {
-      const prevValue = product.stockPorEstablecimiento?.[movementEstablishmentId];
+    if (movementEstablecimientoId) {
+      const prevValue = product.stockPorEstablecimiento?.[movementEstablecimientoId];
       let nextValue: number | undefined;
       if (typeof prevValue === 'number') {
         nextValue = allowNegativeStock ? prevValue + delta : Math.max(0, prevValue + delta);
       } else if (almacenes && almacenes.length) {
         nextValue = almacenes
-          .filter(w => w.establishmentId === movementEstablishmentId)
+          .filter(w => w.EstablecimientoId === movementEstablecimientoId)
           .reduce((sum, w) => sum + (updatedProductSnapshot.stockPorAlmacen?.[w.id] ?? 0), 0);
       } else {
         nextValue = allowNegativeStock ? totalStock : Math.max(0, totalStock);
@@ -90,7 +90,7 @@ export function useInventoryFacade() {
 
       nextStockPorEstablecimiento = {
         ...(product.stockPorEstablecimiento ?? {}),
-        [movementEstablishmentId]: nextValue,
+        [movementEstablecimientoId]: nextValue,
       };
     }
 
@@ -124,9 +124,9 @@ export function useInventoryFacade() {
       almacenId,
       almacenCodigo: almacenCode,
       almacenNombre: nombreAlmacen,
-      establishmentId: movementEstablishmentId,
-      establishmentCodigo: establecimientoCodigo || almacen?.establishmentCode || '',
-      establishmentNombre: establecimientoNombre || almacen?.establishmentName || ''
+      EstablecimientoId: movementEstablecimientoId,
+      EstablecimientoCodigo: establecimientoCodigo || almacen?.EstablecimientoCode || '',
+      EstablecimientoNombre: establecimientoNombre || almacen?.EstablecimientoName || ''
     };
 
     StockRepository.addMovement(mov);

@@ -6,7 +6,7 @@
 import { useMemo } from 'react';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import {
-  isProductEnabledForEstablishment,
+  isProductEnabledForEstablecimiento,
   type Product as CatalogoProduct,
 } from '../../catalogo-articulos/models/types';
 import type { Product as POSProduct } from '../models/comprobante.types';
@@ -60,7 +60,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
       const summary = summarizeProductStock({
         product,
         almacenes,
-        establishmentId: establecimientoId,
+        EstablecimientoId: establecimientoId,
       });
       stockCache.set(product.id, summary);
       return summary;
@@ -70,7 +70,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
     const filtered = allProducts.filter(product => {
       const summary = getSummary(product);
 
-      if (!isProductEnabledForEstablishment(product, establecimientoId)) {
+      if (!isProductEnabledForEstablecimiento(product, establecimientoId)) {
         return false;
       }
 
@@ -89,7 +89,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
       const stockInfo = getAvailableStockForUnit({
         product,
         almacenes,
-        establishmentId: establecimientoId,
+        EstablecimientoId: establecimientoId,
         unitCode: mappedUnit,
       });
       const requiresStockControl = Boolean(

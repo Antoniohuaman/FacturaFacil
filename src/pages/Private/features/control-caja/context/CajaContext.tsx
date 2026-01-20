@@ -13,7 +13,7 @@ import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/erro
 import { lsKey } from "../../../../../shared/tenant";
 import { useTenant } from "../../../../../shared/tenant/TenantContext";
 import { useConfigurationContext } from "../../configuracion-sistema/contexto/ContextoConfiguracion";
-import { useCurrentCompanyId, useCurrentEstablishmentId } from "../../../../../contexts/UserSessionContext";
+import { useCurrentCompanyId, useCurrentEstablecimientoId } from "../../../../../contexts/UserSessionContext";
 import { resolveActiveCajaForEstablecimiento, NoActiveCajaError } from "../../configuracion-sistema/utilidades/seleccionCaja";
 import type { MedioPago } from "../../../../../shared/payments/medioPago";
 
@@ -114,7 +114,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const { tenantId } = useTenant();
   const { state: configurationState } = useConfigurationContext();
   const empresaId = useCurrentCompanyId();
-  const establecimientoId = useCurrentEstablishmentId();
+  const establecimientoId = useCurrentEstablecimientoId();
   const lastTenantIdRef = useRef<string | null>(null);
   const lastScopeRef = useRef<string | null>(null);
 

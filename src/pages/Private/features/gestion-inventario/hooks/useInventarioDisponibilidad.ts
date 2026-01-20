@@ -3,10 +3,10 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { resolveUnidadMinima } from '@/shared/inventory/unitConversion';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
-import { isProductEnabledForEstablishment } from '../../catalogo-articulos/models/types';
+import { isProductEnabledForEstablecimiento } from '../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { InventoryService } from '../services/inventory.service';
-import { useCurrentEstablishmentId } from '../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId } from '../../../../../contexts/UserSessionContext';
 import type {
   DisponibilidadItem,
   DisponibilidadFilters,
@@ -30,7 +30,7 @@ interface UpdateThresholdInput {
 export const useInventarioDisponibilidad = () => {
   const { allProducts, updateProduct } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
 
   const almacenesActivos = useMemo(
     () => configState.almacenes.filter(w => w.isActive),
@@ -40,7 +40,7 @@ export const useInventarioDisponibilidad = () => {
   // Filtros activos
   // Inventario operativo: el establecimiento siempre lo manda el header.
   const [filtros, setFiltros] = useState<DisponibilidadFilters>(() => ({
-    establecimientoId: currentEstablishmentId,
+    establecimientoId: currentEstablecimientoId,
     almacenId: '',
     filtroSku: '',
     soloConDisponible: false,
@@ -57,11 +57,11 @@ export const useInventarioDisponibilidad = () => {
   const [itemsPorPagina, setItemsPorPagina] = useState(25);
 
   const selectedEstablecimiento = useMemo(() => {
-    if (!currentEstablishmentId) {
+    if (!currentEstablecimientoId) {
       return undefined;
     }
-    return configState.establishments.find(e => e.id === currentEstablishmentId);
-  }, [configState.establishments, currentEstablishmentId]);
+    return configState.Establecimientos.find(e => e.id === currentEstablecimientoId);
+  }, [configState.Establecimientos, currentEstablecimientoId]);
 
   const selectedalmacen = useMemo(() => {
     if (!filtros.almacenId) {
@@ -79,41 +79,41 @@ export const useInventarioDisponibilidad = () => {
    * Obtener almacenes disponibles según el establecimiento seleccionado
    */
   const almacenesDisponibles = useMemo(() => {
-    if (!currentEstablishmentId) {
+    if (!currentEstablecimientoId) {
       return [];
     }
-    return almacenesActivos.filter(w => w.establishmentId === currentEstablishmentId);
-  }, [almacenesActivos, currentEstablishmentId]);
+    return almacenesActivos.filter(w => w.EstablecimientoId === currentEstablecimientoId);
+  }, [almacenesActivos, currentEstablecimientoId]);
 
   const almacenescope = useMemo(() => {
     if (!almacenesActivos.length) {
       return [] as string[];
     }
 
-    if (!currentEstablishmentId) {
+    if (!currentEstablecimientoId) {
       return [] as string[];
     }
 
     if (filtros.almacenId) {
       const match = almacenesActivos.find(
-        w => w.id === filtros.almacenId && w.establishmentId === currentEstablishmentId
+        w => w.id === filtros.almacenId && w.EstablecimientoId === currentEstablecimientoId
       );
       return match ? [match.id] : [];
     }
 
     return almacenesActivos
-      .filter(w => w.establishmentId === currentEstablishmentId)
+      .filter(w => w.EstablecimientoId === currentEstablecimientoId)
       .map(w => w.id);
-  }, [almacenesActivos, currentEstablishmentId, filtros.almacenId]);
+  }, [almacenesActivos, currentEstablecimientoId, filtros.almacenId]);
   const hasSinglealmacen = almacenescope.length === 1;
 
   useEffect(() => {
     setFiltros(prev => {
-      if (prev.establecimientoId === currentEstablishmentId) {
+      if (prev.establecimientoId === currentEstablecimientoId) {
         const almacenSigueValido = !prev.almacenId
           ? true
           : almacenesActivos.some(
-              w => w.id === prev.almacenId && w.establishmentId === currentEstablishmentId
+              w => w.id === prev.almacenId && w.EstablecimientoId === currentEstablecimientoId
             );
         if (almacenSigueValido) {
           return prev;
@@ -123,17 +123,17 @@ export const useInventarioDisponibilidad = () => {
 
       const almacenSigueValido = prev.almacenId
         ? almacenesActivos.some(
-            w => w.id === prev.almacenId && w.establishmentId === currentEstablishmentId
+            w => w.id === prev.almacenId && w.EstablecimientoId === currentEstablecimientoId
           )
         : true;
       return {
         ...prev,
-        establecimientoId: currentEstablishmentId,
+        establecimientoId: currentEstablecimientoId,
         almacenId: almacenSigueValido ? prev.almacenId : '',
       };
     });
     setPaginaActual(1);
-  }, [currentEstablishmentId, almacenesActivos]);
+  }, [currentEstablecimientoId, almacenesActivos]);
 
   /**
    * Calcular situación del stock
@@ -155,7 +155,7 @@ export const useInventarioDisponibilidad = () => {
     if (!almacenescope.length) return [];
 
     return allProducts
-      .filter(product => isProductEnabledForEstablishment(product, currentEstablishmentId))
+      .filter(product => isProductEnabledForEstablecimiento(product, currentEstablecimientoId))
       .map(product => {
       let real = 0;
       let rawReservado = 0;
@@ -210,7 +210,7 @@ export const useInventarioDisponibilidad = () => {
         precio: product.precio
       };
     });
-  }, [allProducts, almacenescope, hasSinglealmacen, calcularSituacion, currentEstablishmentId]);
+  }, [allProducts, almacenescope, hasSinglealmacen, calcularSituacion, currentEstablecimientoId]);
 
   /**
    * Aplicar filtros de búsqueda y disponibilidad
@@ -365,18 +365,18 @@ export const useInventarioDisponibilidad = () => {
       const almacenEsValido = !nextAlmacenId
         ? true
         : almacenesActivos.some(
-            w => w.id === nextAlmacenId && w.establishmentId === currentEstablishmentId
+            w => w.id === nextAlmacenId && w.EstablecimientoId === currentEstablecimientoId
           );
 
       return {
         ...prev,
         ...rest,
-        establecimientoId: currentEstablishmentId,
+        establecimientoId: currentEstablecimientoId,
         almacenId: almacenEsValido ? nextAlmacenId : '',
       };
     });
     setPaginaActual(1); // Resetear a primera página
-  }, [currentEstablishmentId, almacenesActivos]);
+  }, [currentEstablecimientoId, almacenesActivos]);
 
   /**
    * Cambiar ordenamiento

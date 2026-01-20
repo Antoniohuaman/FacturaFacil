@@ -59,9 +59,9 @@ const sincronizarAliasAlmacen = (almacen: AlmacenSinAlias): Almacen => ({
   ...almacen,
   code: almacen.codigoAlmacen,
   name: almacen.nombreAlmacen,
-  establishmentName: almacen.nombreEstablecimientoDesnormalizado,
-  establishmentCode: almacen.codigoEstablecimientoDesnormalizado,
-  establishmentId: almacen.establecimientoId,
+  EstablecimientoName: almacen.nombreEstablecimientoDesnormalizado,
+  EstablecimientoCode: almacen.codigoEstablecimientoDesnormalizado,
+  EstablecimientoId: almacen.establecimientoId,
   location: almacen.ubicacionAlmacen,
   isActive: almacen.estaActivoAlmacen,
   isMainalmacen: almacen.esAlmacenPrincipal,
@@ -70,10 +70,10 @@ const sincronizarAliasAlmacen = (almacen: AlmacenSinAlias): Almacen => ({
 export function ConfiguracionAlmacenes() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { establishments, almacenes } = state;
+  const { Establecimientos, almacenes } = state;
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterEstablishment, setFilterEstablishment] = useState<string>('all');
+  const [filterEstablecimiento, setFilterEstablecimiento] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingAlmacenId, setEditingAlmacenId] = useState<string | null>(null);
@@ -87,9 +87,9 @@ export function ConfiguracionAlmacenes() {
     tieneMovimientosInventario: false
   });
 
-  const activeEstablishments = useMemo(
-    () => establishments.filter(est => est.isActive !== false && est.status !== 'INACTIVE'),
-    [establishments]
+  const activeEstablecimientos = useMemo(
+    () => Establecimientos.filter(est => est.isActive !== false && est.status !== 'INACTIVE'),
+    [Establecimientos]
   );
 
   const filteredAlmacenes = useMemo(() => {
@@ -101,17 +101,17 @@ export function ConfiguracionAlmacenes() {
         almacen.codigoAlmacen.toLowerCase().includes(normalizedSearch) ||
         (almacen.nombreEstablecimientoDesnormalizado ?? '').toLowerCase().includes(normalizedSearch);
 
-      const matchesEstablishment =
-        filterEstablishment === 'all' || almacen.establecimientoId === filterEstablishment;
+      const matchesEstablecimiento =
+        filterEstablecimiento === 'all' || almacen.establecimientoId === filterEstablecimiento;
 
       const matchesStatus =
         filterStatus === 'all' ||
         (filterStatus === 'active' && almacen.estaActivoAlmacen) ||
         (filterStatus === 'inactive' && !almacen.estaActivoAlmacen);
 
-      return matchesSearch && matchesEstablishment && matchesStatus;
+      return matchesSearch && matchesEstablecimiento && matchesStatus;
     });
-  }, [almacenes, filterEstablishment, filterStatus, searchTerm]);
+  }, [almacenes, filterEstablecimiento, filterStatus, searchTerm]);
 
   const stats = useMemo(() => ({
     total: almacenes.length,
@@ -180,7 +180,7 @@ export function ConfiguracionAlmacenes() {
   };
 
   const handleNew = () => {
-    const firstEstId = activeEstablishments[0]?.id || '';
+    const firstEstId = activeEstablecimientos[0]?.id || '';
 
     setFormData({
       codigoAlmacen: firstEstId ? generarSiguienteCodigo(firstEstId) : '0001',
@@ -209,11 +209,11 @@ export function ConfiguracionAlmacenes() {
     setShowForm(true);
   };
 
-  const handleEstablishmentChange = (establishmentId: string) => {
+  const handleEstablecimientoChange = (EstablecimientoId: string) => {
     setFormData(prev => ({
       ...prev,
-      establecimientoId: establishmentId,
-      codigoAlmacen: generarSiguienteCodigo(establishmentId)
+      establecimientoId: EstablecimientoId,
+      codigoAlmacen: generarSiguienteCodigo(EstablecimientoId)
     }));
     if (formErrors.establecimientoId) {
       setFormErrors(prev => ({ ...prev, establecimientoId: '' }));
@@ -229,7 +229,7 @@ export function ConfiguracionAlmacenes() {
     }
 
     try {
-      const selectedEstablishment = establishments.find(
+      const selectedEstablecimiento = Establecimientos.find(
         est => est.id === formData.establecimientoId
       );
 
@@ -243,8 +243,8 @@ export function ConfiguracionAlmacenes() {
                 codigoAlmacen: formData.codigoAlmacen,
                 nombreAlmacen: formData.nombreAlmacen,
                 establecimientoId: formData.establecimientoId,
-                nombreEstablecimientoDesnormalizado: selectedEstablishment?.name,
-                codigoEstablecimientoDesnormalizado: selectedEstablishment?.code,
+                nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.name,
+                codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.code,
                 descripcionAlmacen: formData.descripcionAlmacen || undefined,
                 ubicacionAlmacen: formData.ubicacionAlmacen || undefined,
                 esAlmacenPrincipal: formData.esAlmacenPrincipal,
@@ -259,8 +259,8 @@ export function ConfiguracionAlmacenes() {
           codigoAlmacen: formData.codigoAlmacen,
           nombreAlmacen: formData.nombreAlmacen,
           establecimientoId: formData.establecimientoId,
-          nombreEstablecimientoDesnormalizado: selectedEstablishment?.name,
-          codigoEstablecimientoDesnormalizado: selectedEstablishment?.code,
+          nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.name,
+          codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.code,
           descripcionAlmacen: formData.descripcionAlmacen || undefined,
           ubicacionAlmacen: formData.ubicacionAlmacen || undefined,
           estaActivoAlmacen: true,
@@ -422,7 +422,7 @@ export function ConfiguracionAlmacenes() {
                 <div className="relative">
                   <select
                     value={formData.establecimientoId}
-                    onChange={e => handleEstablishmentChange(e.target.value)}
+                    onChange={e => handleEstablecimientoChange(e.target.value)}
                     className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all appearance-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                       formErrors.establecimientoId
                         ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
@@ -431,7 +431,7 @@ export function ConfiguracionAlmacenes() {
                     required
                   >
                     <option value="">Seleccionar establecimiento...</option>
-                    {activeEstablishments.map(est => (
+                    {activeEstablecimientos.map(est => (
                       <option key={est.id} value={est.id}>
                         [{est.code}] {est.name}
                       </option>
@@ -749,12 +749,12 @@ export function ConfiguracionAlmacenes() {
           </div>
 
           <select
-            value={filterEstablishment}
-            onChange={e => setFilterEstablishment(e.target.value)}
+            value={filterEstablecimiento}
+            onChange={e => setFilterEstablecimiento(e.target.value)}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
           >
             <option value="all">Todos los establecimientos</option>
-            {establishments.map(est => (
+            {Establecimientos.map(est => (
               <option key={est.id} value={est.id}>
                 [{est.code}] {est.name}
               </option>
@@ -786,16 +786,16 @@ export function ConfiguracionAlmacenes() {
           <div className="text-center py-12">
             <IconoAlmacen className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              {searchTerm || filterEstablishment !== 'all' || filterStatus !== 'all'
+              {searchTerm || filterEstablecimiento !== 'all' || filterStatus !== 'all'
                 ? 'No se encontraron almacenes'
                 : 'No hay almacenes registrados'}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6">
-              {searchTerm || filterEstablishment !== 'all' || filterStatus !== 'all'
+              {searchTerm || filterEstablecimiento !== 'all' || filterStatus !== 'all'
                 ? 'Intenta cambiar los filtros de búsqueda'
                 : 'Comienza registrando tu primer almacén'}
             </p>
-            {!searchTerm && filterEstablishment === 'all' && filterStatus === 'all' && (
+            {!searchTerm && filterEstablecimiento === 'all' && filterStatus === 'all' && (
               <button
                 onClick={handleNew}
                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"

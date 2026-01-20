@@ -23,7 +23,7 @@ const PERMISSION_TRANSLATIONS: Record<string, string> = {
   canApplyDiscounts: 'Aplicar descuentos',
   canModifyPrices: 'Modificar precios',
   canViewReports: 'Ver reportes',
-  canAccessAllEstablishments: 'Acceder a todos los establecimientos',
+  canAccessAllEstablecimientos: 'Acceder a todos los establecimientos',
 
   // Inventory
   canAdjustStock: 'Ajustar stock',
@@ -46,11 +46,11 @@ const PERMISSION_TRANSLATIONS: Record<string, string> = {
   canViewUserReports: 'Ver reportes de usuarios',
   canExportReports: 'Exportar reportes',
   canScheduleReports: 'Programar reportes',
-  canViewAllEstablishments: 'Ver todos los establecimientos',
+  canViewAllEstablecimientos: 'Ver todos los establecimientos',
 
   // Configuration
   canEditCompany: 'Editar empresa',
-  canEditEstablishments: 'Editar establecimientos',
+  canEditEstablecimientos: 'Editar establecimientos',
   canEditUsers: 'Editar usuarios',
   canEditRoles: 'Editar roles',
   canEditTaxes: 'Editar impuestos',
@@ -118,7 +118,7 @@ export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
   const renderPermissionModule = (moduleName: string, permissions: any) => {
     const permissionEntries = Object.entries(permissions).filter(([key, value]) => {
       // Exclude special properties that are not boolean permissions
-      if (key === 'maxDiscountPercentage' || key === 'establishmentIds') return false;
+      if (key === 'maxDiscountPercentage' || key === 'EstablecimientoIds') return false;
       return typeof value === 'boolean';
     });
 

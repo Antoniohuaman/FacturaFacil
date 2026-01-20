@@ -2,44 +2,44 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import type { 
-  Establishment, 
-  CreateEstablishmentRequest, 
-  UpdateEstablishmentRequest, 
-  EstablishmentSummary 
-} from '../modelos/Establishment';
+  Establecimiento, 
+  CreateEstablecimientoRequest, 
+  UpdateEstablecimientoRequest, 
+  EstablecimientoSummary 
+} from '../modelos/Establecimiento';
 
-interface UseEstablishmentsReturn {
-  establishments: Establishment[];
+interface UseEstablecimientosReturn {
+  Establecimientos: Establecimiento[];
   loading: boolean;
   error: string | null;
   
   // Actions
-  loadEstablishments: () => Promise<void>;
-  createEstablishment: (data: CreateEstablishmentRequest) => Promise<Establishment>;
-  updateEstablishment: (id: string, data: UpdateEstablishmentRequest) => Promise<Establishment>;
-  deleteEstablishment: (id: string) => Promise<void>;
-  setMainEstablishment: (id: string) => Promise<void>;
+  loadEstablecimientos: () => Promise<void>;
+  createEstablecimiento: (data: CreateEstablecimientoRequest) => Promise<Establecimiento>;
+  updateEstablecimiento: (id: string, data: UpdateEstablecimientoRequest) => Promise<Establecimiento>;
+  deleteEstablecimiento: (id: string) => Promise<void>;
+  setMainEstablecimiento: (id: string) => Promise<void>;
   
   // Getters
-  getEstablishment: (id: string) => Establishment | undefined;
-  getMainEstablishment: () => Establishment | undefined;
-  getActiveEstablishments: () => Establishment[];
-  getEstablishmentSummaries: () => EstablishmentSummary[];
+  getEstablecimiento: (id: string) => Establecimiento | undefined;
+  getMainEstablecimiento: () => Establecimiento | undefined;
+  getActiveEstablecimientos: () => Establecimiento[];
+  getEstablecimientoSummaries: () => EstablecimientoSummary[];
   
   // Validation
-  validateEstablishmentCode: (code: string, excludeId?: string) => Promise<boolean>;
-  validateEstablishmentData: (data: CreateEstablishmentRequest | UpdateEstablishmentRequest) => Promise<string[]>;
+  validateEstablecimientoCode: (code: string, excludeId?: string) => Promise<boolean>;
+  validateEstablecimientoData: (data: CreateEstablecimientoRequest | UpdateEstablecimientoRequest) => Promise<string[]>;
   
   // Statistics
-  getEstablishmentStats: () => {
+  getEstablecimientoStats: () => {
     total: number;
     active: number;
     inactive: number;
   };
 }
 
-// Mock establishments data
-const MOCK_ESTABLISHMENTS: Establishment[] = [
+// Mock Establecimientos data
+const MOCK_EstablecimientoS: Establecimiento[] = [
   {
     id: 'est-1',
     code: '0000',
@@ -51,7 +51,7 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
     postalCode: '15001',
     phone: '(01) 123-4567',
   email: 'principal@empresademo.com',
-    isMainEstablishment: true,
+    isMainEstablecimiento: true,
     businessHours: {
       monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
       tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
@@ -125,7 +125,7 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
     postalCode: '15036',
     phone: '(01) 234-5678',
   email: 'sanisidro@empresademo.com',
-    isMainEstablishment: false,
+    isMainEstablecimiento: false,
     businessHours: {
       monday: { isOpen: true, openTime: '10:00', closeTime: '20:00', is24Hours: false },
       tuesday: { isOpen: true, openTime: '10:00', closeTime: '20:00', is24Hours: false },
@@ -188,7 +188,7 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
     province: 'LIMA',
     department: 'LIMA',
   postalCode: '15012',
-    isMainEstablishment: false,
+    isMainEstablecimiento: false,
     businessHours: {
       monday: { isOpen: true, openTime: '08:00', closeTime: '17:00', is24Hours: false },
       tuesday: { isOpen: true, openTime: '08:00', closeTime: '17:00', is24Hours: false },
@@ -220,15 +220,15 @@ const MOCK_ESTABLISHMENTS: Establishment[] = [
   },
 ];
 
-export function useEstablishments(): UseEstablishmentsReturn {
+export function useEstablecimientos(): UseEstablecimientosReturn {
   const { state, dispatch } = useConfigurationContext();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const establishments = state.establishments;
+  const Establecimientos = state.Establecimientos;
 
-  // Load establishments
-  const loadEstablishments = useCallback(async () => {
+  // Load Establecimientos
+  const loadEstablecimientos = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -236,29 +236,29 @@ export function useEstablishments(): UseEstablishmentsReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      dispatch({ type: 'SET_ESTABLISHMENTS', payload: MOCK_ESTABLISHMENTS });
+      dispatch({ type: 'SET_EstablecimientoS', payload: MOCK_EstablecimientoS });
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error loading establishments');
+      setError(err instanceof Error ? err.message : 'Error loading Establecimientos');
     } finally {
       setLoading(false);
     }
   }, [dispatch]);
 
-  // Create establishment
-  const createEstablishment = useCallback(async (data: CreateEstablishmentRequest): Promise<Establishment> => {
+  // Create Establecimiento
+  const createEstablecimiento = useCallback(async (data: CreateEstablecimientoRequest): Promise<Establecimiento> => {
     setLoading(true);
     setError(null);
     
     try {
       // Validate data
-      const validationErrors = await validateEstablishmentData(data);
+      const validationErrors = await validateEstablecimientoData(data);
       if (validationErrors.length > 0) {
         throw new Error(validationErrors.join(', '));
       }
       
       // Check code uniqueness
-      const isCodeUnique = await validateEstablishmentCode(data.code);
+      const isCodeUnique = await validateEstablecimientoCode(data.code);
       if (!isCodeUnique) {
         throw new Error('El código del establecimiento ya existe');
       }
@@ -266,7 +266,7 @@ export function useEstablishments(): UseEstablishmentsReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const newEstablishment: Establishment = {
+      const newEstablecimiento: Establecimiento = {
         id: `est-${Date.now()}`,
         ...data,
         businessHours: data.businessHours || {},
@@ -290,30 +290,30 @@ export function useEstablishments(): UseEstablishmentsReturn {
           ...data.financialConfiguration
         },
         // Si es el primer establecimiento creado, márcalo como principal por defecto
-        isMainEstablishment: establishments.length === 0,
+        isMainEstablecimiento: Establecimientos.length === 0,
         status: 'ACTIVE',
         createdAt: new Date(),
         updatedAt: new Date(),
         isActive: true,
       };
       
-      dispatch({ type: 'ADD_ESTABLISHMENT', payload: newEstablishment });
+      dispatch({ type: 'ADD_Establecimiento', payload: newEstablecimiento });
       
-      return newEstablishment;
+      return newEstablecimiento;
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error creating establishment');
+      setError(err instanceof Error ? err.message : 'Error creating Establecimiento');
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [establishments, dispatch]);
+  }, [Establecimientos, dispatch]);
 
-  // Update establishment
-  const updateEstablishment = useCallback(async (id: string, data: UpdateEstablishmentRequest): Promise<Establishment> => {
-    const existingEstablishment = getEstablishment(id);
-    if (!existingEstablishment) {
-      throw new Error('Establishment not found');
+  // Update Establecimiento
+  const updateEstablecimiento = useCallback(async (id: string, data: UpdateEstablecimientoRequest): Promise<Establecimiento> => {
+    const existingEstablecimiento = getEstablecimiento(id);
+    if (!existingEstablecimiento) {
+      throw new Error('Establecimiento not found');
     }
     
     setLoading(true);
@@ -321,14 +321,14 @@ export function useEstablishments(): UseEstablishmentsReturn {
     
     try {
       // Validate data
-      const validationErrors = await validateEstablishmentData(data);
+      const validationErrors = await validateEstablecimientoData(data);
       if (validationErrors.length > 0) {
         throw new Error(validationErrors.join(', '));
       }
       
       // Check code uniqueness if changed
-      if (data.code && data.code !== existingEstablishment.code) {
-        const isCodeUnique = await validateEstablishmentCode(data.code, id);
+      if (data.code && data.code !== existingEstablecimiento.code) {
+        const isCodeUnique = await validateEstablecimientoCode(data.code, id);
         if (!isCodeUnique) {
           throw new Error('El código del establecimiento ya existe');
         }
@@ -337,45 +337,45 @@ export function useEstablishments(): UseEstablishmentsReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      const updatedEstablishment: Establishment = {
-        ...existingEstablishment,
+      const updatedEstablecimiento: Establecimiento = {
+        ...existingEstablecimiento,
         ...data,
         id,
         sunatConfiguration: {
-          ...existingEstablishment.sunatConfiguration,
+          ...existingEstablecimiento.sunatConfiguration,
           ...data.sunatConfiguration
         },
         inventoryConfiguration: {
-          ...existingEstablishment.inventoryConfiguration,
+          ...existingEstablecimiento.inventoryConfiguration,
           ...data.inventoryConfiguration
         },
         financialConfiguration: {
-          ...existingEstablishment.financialConfiguration,
+          ...existingEstablecimiento.financialConfiguration,
           ...data.financialConfiguration
         },
         updatedAt: new Date(),
       };
       
-      dispatch({ type: 'UPDATE_ESTABLISHMENT', payload: updatedEstablishment });
+      dispatch({ type: 'UPDATE_Establecimiento', payload: updatedEstablecimiento });
       
-      return updatedEstablishment;
+      return updatedEstablecimiento;
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error updating establishment');
+      setError(err instanceof Error ? err.message : 'Error updating Establecimiento');
       throw err;
     } finally {
       setLoading(false);
     }
   }, [dispatch]);
 
-  // Delete establishment
-  const deleteEstablishment = useCallback(async (id: string) => {
-    const establishment = getEstablishment(id);
-    if (!establishment) {
-      throw new Error('Establishment not found');
+  // Delete Establecimiento
+  const deleteEstablecimiento = useCallback(async (id: string) => {
+    const Establecimiento = getEstablecimiento(id);
+    if (!Establecimiento) {
+      throw new Error('Establecimiento not found');
     }
     
-    if (establishment.isMainEstablishment) {
+    if (Establecimiento.isMainEstablecimiento) {
       throw new Error('No se puede eliminar el establecimiento principal');
     }
     
@@ -386,21 +386,21 @@ export function useEstablishments(): UseEstablishmentsReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 600));
       
-      dispatch({ type: 'DELETE_ESTABLISHMENT', payload: id });
+      dispatch({ type: 'DELETE_Establecimiento', payload: id });
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error deleting establishment');
+      setError(err instanceof Error ? err.message : 'Error deleting Establecimiento');
       throw err;
     } finally {
       setLoading(false);
     }
   }, [dispatch]);
 
-  // Set main establishment
-  const setMainEstablishment = useCallback(async (id: string) => {
-    const establishment = getEstablishment(id);
-    if (!establishment) {
-      throw new Error('Establishment not found');
+  // Set main Establecimiento
+  const setMainEstablecimiento = useCallback(async (id: string) => {
+    const Establecimiento = getEstablecimiento(id);
+    if (!Establecimiento) {
+      throw new Error('Establecimiento not found');
     }
     
     setLoading(true);
@@ -410,70 +410,70 @@ export function useEstablishments(): UseEstablishmentsReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Update all establishments - remove main flag from all, add to selected
-      const updatedEstablishments = establishments.map(est => ({
+      // Update all Establecimientos - remove main flag from all, add to selected
+      const updatedEstablecimientos = Establecimientos.map(est => ({
         ...est,
-        isMainEstablishment: est.id === id,
+        isMainEstablecimiento: est.id === id,
         updatedAt: new Date(),
       }));
       
-      dispatch({ type: 'SET_ESTABLISHMENTS', payload: updatedEstablishments });
+      dispatch({ type: 'SET_EstablecimientoS', payload: updatedEstablecimientos });
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error setting main establishment');
+      setError(err instanceof Error ? err.message : 'Error setting main Establecimiento');
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [establishments, dispatch]);
+  }, [Establecimientos, dispatch]);
 
-  // Get establishment by ID
-  const getEstablishment = useCallback((id: string): Establishment | undefined => {
-    return establishments.find(est => est.id === id);
-  }, [establishments]);
+  // Get Establecimiento by ID
+  const getEstablecimiento = useCallback((id: string): Establecimiento | undefined => {
+    return Establecimientos.find(est => est.id === id);
+  }, [Establecimientos]);
 
-  // Get main establishment
-  const getMainEstablishment = useCallback((): Establishment | undefined => {
+  // Get main Establecimiento
+  const getMainEstablecimiento = useCallback((): Establecimiento | undefined => {
     // Preferir el marcado como principal
-    const main = establishments.find(est => est.isMainEstablishment);
+    const main = Establecimientos.find(est => est.isMainEstablecimiento);
     if (main) return main;
     // Si no existe, devolver el primero activo (heurística)
-    return establishments.find(est => est.isActive) || establishments[0];
-  }, [establishments]);
+    return Establecimientos.find(est => est.isActive) || Establecimientos[0];
+  }, [Establecimientos]);
 
-  // Get active establishments
-  const getActiveEstablishments = useCallback((): Establishment[] => {
-    return establishments.filter(est => est.status === 'ACTIVE' && est.isActive);
-  }, [establishments]);
+  // Get active Establecimientos
+  const getActiveEstablecimientos = useCallback((): Establecimiento[] => {
+    return Establecimientos.filter(est => est.status === 'ACTIVE' && est.isActive);
+  }, [Establecimientos]);
 
-  // Get establishment summaries
-  const getEstablishmentSummaries = useCallback((): EstablishmentSummary[] => {
-    return establishments.map(est => ({
+  // Get Establecimiento summaries
+  const getEstablecimientoSummaries = useCallback((): EstablecimientoSummary[] => {
+    return Establecimientos.map(est => ({
       id: est.id,
       code: est.code,
       name: est.name,
       address: est.address,
       district: est.district,
       status: est.status,
-      isMainEstablishment: est.isMainEstablishment,
+      isMainEstablecimiento: est.isMainEstablecimiento,
       hasPos: est.posConfiguration?.hasPos || false,
     }));
-  }, [establishments]);
+  }, [Establecimientos]);
 
-  // Validate establishment code
-  const validateEstablishmentCode = useCallback(async (code: string, excludeId?: string): Promise<boolean> => {
+  // Validate Establecimiento code
+  const validateEstablecimientoCode = useCallback(async (code: string, excludeId?: string): Promise<boolean> => {
     // Simulate API validation
     await new Promise(resolve => setTimeout(resolve, 300));
     
-    const exists = establishments.some(est => 
+    const exists = Establecimientos.some(est => 
       est.code === code && est.id !== excludeId && est.isActive
     );
     
     return !exists;
-  }, [establishments]);
+  }, [Establecimientos]);
 
-  // Validate establishment data
-  const validateEstablishmentData = useCallback(async (data: CreateEstablishmentRequest | UpdateEstablishmentRequest): Promise<string[]> => {
+  // Validate Establecimiento data
+  const validateEstablecimientoData = useCallback(async (data: CreateEstablecimientoRequest | UpdateEstablecimientoRequest): Promise<string[]> => {
     const errors: string[] = [];
     
     // Basic validations
@@ -529,15 +529,15 @@ export function useEstablishments(): UseEstablishmentsReturn {
     return errors;
   }, []);
 
-  // Get establishment statistics
-  const getEstablishmentStats = useCallback(() => {
+  // Get Establecimiento statistics
+  const getEstablecimientoStats = useCallback(() => {
     const stats = {
-      total: establishments.length,
+      total: Establecimientos.length,
       active: 0,
       inactive: 0,
     };
     
-    establishments.forEach(est => {
+    Establecimientos.forEach(est => {
       if (est.status === 'ACTIVE' && est.isActive) {
         stats.active++;
       } else {
@@ -546,36 +546,36 @@ export function useEstablishments(): UseEstablishmentsReturn {
     });
     
     return stats;
-  }, [establishments]);
+  }, [Establecimientos]);
 
-  // Load establishments on mount
+  // Load Establecimientos on mount
   useEffect(() => {
-    loadEstablishments();
-  }, [loadEstablishments]);
+    loadEstablecimientos();
+  }, [loadEstablecimientos]);
 
   return {
-    establishments,
+    Establecimientos,
     loading,
     error,
     
     // Actions
-    loadEstablishments,
-    createEstablishment,
-    updateEstablishment,
-    deleteEstablishment,
-    setMainEstablishment,
+    loadEstablecimientos,
+    createEstablecimiento,
+    updateEstablecimiento,
+    deleteEstablecimiento,
+    setMainEstablecimiento,
     
     // Getters
-    getEstablishment,
-    getMainEstablishment,
-    getActiveEstablishments,
-    getEstablishmentSummaries,
+    getEstablecimiento,
+    getMainEstablecimiento,
+    getActiveEstablecimientos,
+    getEstablecimientoSummaries,
     
     // Validation
-    validateEstablishmentCode,
-    validateEstablishmentData,
+    validateEstablecimientoCode,
+    validateEstablecimientoData,
     
     // Statistics
-    getEstablishmentStats,
+    getEstablecimientoStats,
   };
 }

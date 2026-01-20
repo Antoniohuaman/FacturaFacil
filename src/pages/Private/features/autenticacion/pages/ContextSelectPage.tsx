@@ -19,7 +19,7 @@ import type { Empresa, Establecimiento } from '../types/auth.types';
 export function ContextSelectPage() {
   const navigate = useNavigate();
   const { user, empresas, selectContext, isLoading } = useAuth();
-  const { setSession, updateAvailableEstablishments } = useUserSession();
+  const { setSession, updateAvailableEstablecimientos } = useUserSession();
   const { state: configState, dispatch } = useConfigurationContext();
 
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(
@@ -38,10 +38,10 @@ export function ContextSelectPage() {
 
   // Sincronizar establecimientos desde configuración cuando se carga
   useEffect(() => {
-    if (configState.establishments.length > 0 && selectedEmpresa) {
-      updateAvailableEstablishments(configState.establishments.filter(e => e.isActive));
+    if (configState.Establecimientos.length > 0 && selectedEmpresa) {
+      updateAvailableEstablecimientos(configState.Establecimientos.filter(e => e.isActive));
     }
-  }, [configState.establishments, selectedEmpresa, updateAvailableEstablishments]);
+  }, [configState.Establecimientos, selectedEmpresa, updateAvailableEstablecimientos]);
 
   const handleContinue = async () => {
     if (!selectedEmpresa || !selectedEstablecimiento || !user) return;
@@ -97,14 +97,14 @@ export function ContextSelectPage() {
       }
 
       // Si el establecimiento NO existe en ConfigurationContext, crearlo
-      const establishmentExists = configState.establishments.find(
+      const EstablecimientoExists = configState.Establecimientos.find(
         est => est.code === selectedEstablecimiento.codigo
       );
 
-      let fullEstablishment = establishmentExists;
+      let fullEstablecimiento = EstablecimientoExists;
 
-      if (!establishmentExists) {
-        const newEstablishment = {
+      if (!EstablecimientoExists) {
+        const newEstablecimiento = {
           id: selectedEstablecimiento.id,
           code: selectedEstablecimiento.codigo,
           name: selectedEstablecimiento.nombre,
@@ -115,7 +115,7 @@ export function ContextSelectPage() {
           postalCode: '',
           phone: undefined,
           email: undefined,
-          isMainEstablishment: selectedEstablecimiento.esPrincipal || true,
+          isMainEstablecimiento: selectedEstablecimiento.esPrincipal || true,
           businessHours: {
             monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
             tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
@@ -169,14 +169,14 @@ export function ContextSelectPage() {
           isActive: selectedEstablecimiento.activo
         };
 
-        dispatch({ type: 'ADD_ESTABLISHMENT', payload: newEstablishment });
-        fullEstablishment = newEstablishment;
+        dispatch({ type: 'ADD_Establecimiento', payload: newEstablecimiento });
+        fullEstablecimiento = newEstablecimiento;
 
         // Crear series por defecto para el nuevo establecimiento usando la lógica centralizada
         const environmentType: 'TESTING' | 'PRODUCTION' = 'TESTING';
 
         const defaultSeries = buildMissingDefaultSeries({
-          establishmentId: newEstablishment.id,
+          EstablecimientoId: newEstablecimiento.id,
           environmentType,
           existingSeries: configState.series,
         });
@@ -196,9 +196,9 @@ export function ContextSelectPage() {
         userEmail: user.email,
         currentCompanyId: selectedEmpresa.id,
         currentCompany: companyData,
-        currentEstablishmentId: fullEstablishment?.id || selectedEstablecimiento.id,
-        currentEstablishment: fullEstablishment || null,
-        availableEstablishments: configState.establishments.filter(e => e.isActive),
+        currentEstablecimientoId: fullEstablecimiento?.id || selectedEstablecimiento.id,
+        currentEstablecimiento: fullEstablecimiento || null,
+        availableEstablecimientos: configState.Establecimientos.filter(e => e.isActive),
         permissions: ['*'], // Por defecto admin tiene todos los permisos
         role: user.rol,
       });

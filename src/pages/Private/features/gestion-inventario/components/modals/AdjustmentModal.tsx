@@ -209,13 +209,13 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                 <option value="">Seleccionar almacén...</option>
                 {almacenes.map(wh => (
                   <option key={wh.id} value={wh.id}>
-                    [{wh.code}] {wh.name} - {wh.establishmentName}
+                    [{wh.code}] {wh.name} - {wh.EstablecimientoName}
                   </option>
                 ))}
               </select>
               {selectedalmacenId && selectedalmacen && (
                 <p className="mt-2 text-xs text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded">
-                  ✓ Movimiento se aplicará en el almacén {selectedalmacen.name} del establecimiento {selectedalmacen.establishmentName}
+                  ✓ Movimiento se aplicará en el almacén {selectedalmacen.name} del establecimiento {selectedalmacen.EstablecimientoName}
                 </p>
               )}
             </div>

@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, FileText, Receipt, Clipboard, MessageSquare, Building2, Hash, AlertCircle, CheckCircle, Info, NotebookPen } from 'lucide-react';
 import type { Series } from '../../modelos/Series';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
@@ -12,7 +12,7 @@ type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 interface SeriesFormData {
   type: VoucherType;
   series: string;
-  establishmentId: string;
+  EstablecimientoId: string;
   initialNumber: number;
   currentNumber: number;
   isDefault: boolean;
@@ -21,7 +21,7 @@ interface SeriesFormData {
 
 interface SeriesFormProps {
   series?: Series;
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
   existingSeries: Series[];
   onSubmit: (data: SeriesFormData) => Promise<void>;
   onCancel: () => void;
@@ -78,7 +78,7 @@ const voucherTypeConfig = {
 
 export function SeriesForm({
   series,
-  establishments,
+  Establecimientos,
   existingSeries,
   onSubmit,
   onCancel,
@@ -87,7 +87,7 @@ export function SeriesForm({
   const [formData, setFormData] = useState<SeriesFormData>({
     type: 'INVOICE',
     series: '',
-    establishmentId: '',
+    EstablecimientoId: '',
     initialNumber: 1,
     currentNumber: 1,
     isDefault: false,
@@ -131,7 +131,7 @@ export function SeriesForm({
       setFormData({
         type: series.documentType.category as VoucherType,
         series: series.series,
-        establishmentId: series.establishmentId,
+        EstablecimientoId: series.EstablecimientoId,
         initialNumber: series.configuration.startNumber,
         currentNumber: series.correlativeNumber,
         isDefault: series.isDefault,
@@ -183,7 +183,7 @@ export function SeriesForm({
         // Check for duplicates
         const isDuplicate = existingSeries.some(s => 
           s.series === value && 
-          s.establishmentId === formData.establishmentId && 
+          s.EstablecimientoId === formData.EstablecimientoId && 
           s.id !== series?.id
         );
         
@@ -192,7 +192,7 @@ export function SeriesForm({
         }
         break;
       
-      case 'establishmentId':
+      case 'EstablecimientoId':
         if (!value) {
           return 'Debe seleccionar un establecimiento';
         }
@@ -242,7 +242,7 @@ export function SeriesForm({
   };
 
   const isFormValid = () => {
-    const requiredFields = ['series', 'establishmentId', 'initialNumber'];
+    const requiredFields = ['series', 'EstablecimientoId', 'initialNumber'];
     
     for (const field of requiredFields) {
       const error = validateField(field, formData[field as keyof SeriesFormData]);
@@ -257,7 +257,7 @@ export function SeriesForm({
     
     // Validate all fields
     const newErrors: Record<string, string> = {};
-    const fieldsToValidate = ['series', 'establishmentId', 'initialNumber'];
+    const fieldsToValidate = ['series', 'EstablecimientoId', 'initialNumber'];
     
     fieldsToValidate.forEach(field => {
       const error = validateField(field, formData[field as keyof SeriesFormData]);
@@ -274,14 +274,14 @@ export function SeriesForm({
     await onSubmit(formData);
   };
 
-  const getEstablishmentName = (establishmentId: string) => {
-    return establishments.find(est => est.id === establishmentId);
+  const getEstablecimientoName = (EstablecimientoId: string) => {
+    return Establecimientos.find(est => est.id === EstablecimientoId);
   };
 
-  const hasDefaultInEstablishment = () => {
+  const hasDefaultInEstablecimiento = () => {
     return existingSeries.some(s => 
       s.documentType.category === formData.type && 
-      s.establishmentId === formData.establishmentId && 
+      s.EstablecimientoId === formData.EstablecimientoId && 
       s.isDefault &&
       s.id !== series?.id
     );
@@ -400,7 +400,7 @@ export function SeriesForm({
               </div>
             </div>
 
-            {/* Establishment */}
+            {/* Establecimiento */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Establecimiento *
@@ -408,18 +408,18 @@ export function SeriesForm({
               <div className="relative">
                 <Building2 className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                 <select
-                  value={formData.establishmentId}
-                  onChange={(e) => handleFieldChange('establishmentId', e.target.value)}
-                  onBlur={() => handleBlur('establishmentId')}
+                  value={formData.EstablecimientoId}
+                  onChange={(e) => handleFieldChange('EstablecimientoId', e.target.value)}
+                  onBlur={() => handleBlur('EstablecimientoId')}
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.establishmentId && touchedFields.has('establishmentId')
+                    errors.EstablecimientoId && touchedFields.has('EstablecimientoId')
                       ? 'border-red-300 bg-red-50'
                       : 'border-gray-300'
                   }`}
                   disabled={isLoading}
                 >
                   <option value="">Seleccionar establecimiento</option>
-                  {establishments
+                  {Establecimientos
                     .filter(est => est.isActive)
                     .map(est => (
                       <option key={est.id} value={est.id}>
@@ -430,10 +430,10 @@ export function SeriesForm({
                 </select>
               </div>
               
-              {errors.establishmentId && touchedFields.has('establishmentId') && (
+              {errors.EstablecimientoId && touchedFields.has('EstablecimientoId') && (
                 <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
                   <AlertCircle className="w-4 h-4" />
-                  <span>{errors.establishmentId}</span>
+                  <span>{errors.EstablecimientoId}</span>
                 </p>
               )}
             </div>
@@ -489,10 +489,10 @@ export function SeriesForm({
                 onToggle={(enabled: boolean) => handleFieldChange('isDefault', enabled)}
                 label="Serie por Defecto"
                 description={`Se selecciona automáticamente para ${voucherTypeConfig[formData.type].label} en este establecimiento`}
-                disabled={isLoading || (!formData.establishmentId)}
+                disabled={isLoading || (!formData.EstablecimientoId)}
               />
               
-              {hasDefaultInEstablishment() && formData.isDefault && (
+              {hasDefaultInEstablecimiento() && formData.isDefault && (
                 <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <div className="flex items-start space-x-2">
                     <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -516,7 +516,7 @@ export function SeriesForm({
           </div>
 
           {/* Preview */}
-          {formData.series && formData.establishmentId && (
+          {formData.series && formData.EstablecimientoId && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-medium text-blue-900 mb-3 flex items-center space-x-2">
                 <CheckCircle className="w-4 h-4" />
@@ -532,7 +532,7 @@ export function SeriesForm({
                 <div>
                   <p className="text-blue-700"><strong>Establecimiento:</strong></p>
                   <p className="text-blue-900">
-                    {getEstablishmentName(formData.establishmentId)?.name || 'No seleccionado'}
+                    {getEstablecimientoName(formData.EstablecimientoId)?.name || 'No seleccionado'}
                   </p>
                 </div>
               </div>

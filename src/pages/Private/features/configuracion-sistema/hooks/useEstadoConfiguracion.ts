@@ -97,20 +97,20 @@ const CONFIGURATION_STEPS: Record<string, ConfigurationStep[]> = {
       order: 4,
     },
   ],
-  establishments: [
+  Establecimientos: [
     {
-      id: 'establishments-main',
-      moduleId: 'establishments',
+      id: 'Establecimientos-main',
+      moduleId: 'Establecimientos',
       title: 'Establecimiento Principal',
       description: 'Configurar el establecimiento principal',
       isCompleted: false,
       isRequired: true,
       order: 1,
-      validationRules: ['main_establishment_required'],
+      validationRules: ['main_Establecimiento_required'],
     },
     {
-      id: 'establishments-branches',
-      moduleId: 'establishments',
+      id: 'Establecimientos-branches',
+      moduleId: 'Establecimientos',
       title: 'Sucursales',
       description: 'Configurar sucursales adicionales si las hay',
       isCompleted: false,
@@ -118,8 +118,8 @@ const CONFIGURATION_STEPS: Record<string, ConfigurationStep[]> = {
       order: 2,
     },
     {
-      id: 'establishments-pos',
-      moduleId: 'establishments',
+      id: 'Establecimientos-pos',
+      moduleId: 'Establecimientos',
       title: 'Punto de Venta',
       description: 'Configurar equipos de punto de venta',
       isCompleted: false,
@@ -296,28 +296,28 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
         }
         break;
         
-      case 'establishments':
-        if (state.establishments.length > 0) {
-          const mainEstablishment = state.establishments.find(est => est.isMainEstablishment);
+      case 'Establecimientos':
+        if (state.Establecimientos.length > 0) {
+          const mainEstablecimiento = state.Establecimientos.find(est => est.isMainEstablecimiento);
           
           completedSteps = steps.filter(step => {
             switch (step.id) {
-              case 'establishments-main':
-                return mainEstablishment !== undefined;
-              case 'establishments-branches':
-                return state.establishments.length > 1;
-              case 'establishments-pos':
-                return state.establishments.some(est => est.posConfiguration?.hasPos);
+              case 'Establecimientos-main':
+                return mainEstablecimiento !== undefined;
+              case 'Establecimientos-branches':
+                return state.Establecimientos.length > 1;
+              case 'Establecimientos-pos':
+                return state.Establecimientos.some(est => est.posConfiguration?.hasPos);
               default:
                 return false;
             }
           });
           
           progress = (completedSteps.length / steps.length) * 100;
-          isConfigured = mainEstablishment !== undefined;
+          isConfigured = mainEstablecimiento !== undefined;
           status = isConfigured ? 'CONFIGURED' : 'PENDING';
           
-          if (!state.establishments.some(est => est.posConfiguration?.hasPos)) {
+          if (!state.Establecimientos.some(est => est.posConfiguration?.hasPos)) {
             warnings.push('No se ha configurado ningún punto de venta');
           }
         }
@@ -441,7 +441,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
   const getModuleName = (moduleId: string): string => {
     const moduleNames: Record<string, string> = {
       company: 'Información de la Empresa',
-      establishments: 'Establecimientos',
+      Establecimientos: 'Establecimientos',
       business: 'Configuración Comercial',
       series: 'Series de Comprobantes',
       users: 'Usuarios y Roles',
@@ -474,7 +474,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
       recommendations.push('Configure primero la información de la empresa');
     }
     
-    if (modules.some(m => m.id === 'establishments' && !m.isConfigured)) {
+    if (modules.some(m => m.id === 'Establecimientos' && !m.isConfigured)) {
       recommendations.push('Configure al menos un establecimiento principal');
     }
 
@@ -498,7 +498,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const moduleIds = ['company', 'establishments', 'business', 'series', 'users', 'voucher-design'];
+      const moduleIds = ['company', 'Establecimientos', 'business', 'series', 'users', 'voucher-design'];
       const updatedModules = moduleIds.map(calculateModuleStatus);
       
       setModules(updatedModules);
@@ -574,7 +574,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
 
   // Get next required module
   const getNextRequiredModule = useCallback((): ModuleStatus | undefined => {
-    const moduleOrder = ['company', 'establishments', 'business', 'series', 'users', 'voucher-design'];
+    const moduleOrder = ['company', 'Establecimientos', 'business', 'series', 'users', 'voucher-design'];
     
     for (const moduleId of moduleOrder) {
       const module = modules.find(m => m.id === moduleId);
@@ -589,7 +589,7 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
   // Check if configuration can be completed
   const canCompleteConfiguration = useCallback((): boolean => {
     const criticalModules = getCriticalModules();
-    const requiredModules = ['company', 'establishments', 'business', 'series', 'users'];
+    const requiredModules = ['company', 'Establecimientos', 'business', 'series', 'users'];
     
     return requiredModules.every(moduleId => {
       const module = modules.find(m => m.id === moduleId);

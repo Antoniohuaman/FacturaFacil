@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import type { CreateCajaInput, UpdateCajaInput, MedioPago } from '../../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../../modelos/Caja';
 import type { Currency } from '../../modelos/Currency';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 import type { ValidationError } from '../../utilidades/validadorCajas';
 import { 
   validateNombre, 
@@ -21,8 +21,8 @@ import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 interface CajaFormProps {
   initialData?: UpdateCajaInput;
   currencies: Currency[];
-  establishments: Establishment[];
-  defaultEstablishmentId: string;
+  Establecimientos: Establecimiento[];
+  defaultEstablecimientoId: string;
   onSubmit: (data: CreateCajaInput | UpdateCajaInput) => Promise<void>;
   onCancel: () => void;
   isEditing?: boolean;
@@ -32,8 +32,8 @@ interface CajaFormProps {
 export function CajaForm({
   initialData,
   currencies,
-  establishments,
-  defaultEstablishmentId,
+  Establecimientos,
+  defaultEstablecimientoId,
   onSubmit,
   onCancel,
   isEditing = false,
@@ -42,7 +42,7 @@ export function CajaForm({
   const { state } = useConfigurationContext();
   
   const [formData, setFormData] = useState<CreateCajaInput>({
-    establecimientoId: initialData?.establecimientoId || defaultEstablishmentId,
+    establecimientoId: initialData?.establecimientoId || defaultEstablecimientoId,
     nombre: initialData?.nombre || '',
     monedaId: initialData?.monedaId || '',
     mediosPagoPermitidos: initialData?.mediosPagoPermitidos || [],
@@ -188,7 +188,7 @@ export function CajaForm({
           value={formData.establecimientoId}
           onChange={(e) => setFormData(prev => ({ ...prev, establecimientoId: e.target.value }))}
           onBlur={() => handleBlur('establecimientoId')}
-          disabled={isEditing} // Cannot change establishment when editing
+          disabled={isEditing} // Cannot change Establecimiento when editing
           className={`
             w-full px-4 py-2 border rounded-lg
             focus:outline-none focus:ring-2 focus:ring-blue-500
@@ -201,7 +201,7 @@ export function CajaForm({
           aria-invalid={!!fieldError('establecimientoId')}
         >
           <option value="">Seleccionar establecimiento</option>
-          {establishments.map((est) => (
+          {Establecimientos.map((est) => (
             <option key={est.id} value={est.id}>
               {est.name} - {est.code}
             </option>

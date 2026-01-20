@@ -16,7 +16,7 @@ interface UseAccountingAccountsReturn {
 export function useAccountingAccounts(): UseAccountingAccountsReturn {
   const { session } = useUserSession();
   const empresaId = session?.currentCompanyId || '';
-  const establecimientoId = session?.currentEstablishmentId || '';
+  const establecimientoId = session?.currentEstablecimientoId || '';
 
   const [accounts, setAccounts] = useState<AccountingAccount[]>([]);
   const [loading, setLoading] = useState(false);

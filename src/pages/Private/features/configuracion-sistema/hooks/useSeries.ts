@@ -21,18 +21,18 @@ interface UseSeriesReturn {
   createSeries: (data: CreateSeriesRequest) => Promise<Series>;
   updateSeries: (id: string, data: UpdateSeriesRequest) => Promise<Series>;
   deleteSeries: (id: string) => Promise<void>;
-  setDefaultSeries: (establishmentId: string, documentTypeId: string, seriesId: string) => Promise<void>;
+  setDefaultSeries: (EstablecimientoId: string, documentTypeId: string, seriesId: string) => Promise<void>;
   
   // Getters
   getSeries: (id: string) => Series | undefined;
-  getSeriesByEstablishment: (establishmentId: string) => Series[];
+  getSeriesByEstablecimiento: (EstablecimientoId: string) => Series[];
   getSeriesByDocumentType: (documentTypeId: string) => Series[];
-  getDefaultSeries: (establishmentId: string, documentTypeId: string) => Series | undefined;
+  getDefaultSeries: (EstablecimientoId: string, documentTypeId: string) => Series | undefined;
   getActiveSeries: () => Series[];
   getSeriesSummaries: () => SeriesSummary[];
   
   // Validation
-  validateSeriesCode: (establishmentId: string, series: string, excludeId?: string) => Promise<boolean>;
+  validateSeriesCode: (EstablecimientoId: string, series: string, excludeId?: string) => Promise<boolean>;
   validateSeriesData: (data: CreateSeriesRequest | UpdateSeriesRequest) => Promise<string[]>;
   getNextCorrelativeNumber: (seriesId: string) => Promise<number>;
   
@@ -46,7 +46,7 @@ interface UseSeriesReturn {
     active: number;
     electronic: number;
     byDocumentType: Record<string, number>;
-    byEstablishment: Record<string, number>;
+    byEstablecimiento: Record<string, number>;
   };
 }
 
@@ -54,7 +54,7 @@ interface UseSeriesReturn {
 const MOCK_SERIES: Series[] = [
   {
     id: 'series-1',
-    establishmentId: 'est-1',
+    EstablecimientoId: 'est-1',
     documentType: SUNAT_DOCUMENT_TYPES[0], // Factura
     series: 'F001',
     correlativeNumber: 123,
@@ -101,7 +101,7 @@ const MOCK_SERIES: Series[] = [
   },
   {
     id: 'series-2',
-    establishmentId: 'est-1',
+    EstablecimientoId: 'est-1',
     documentType: SUNAT_DOCUMENT_TYPES[1], // Boleta
     series: 'B001',
     correlativeNumber: 456,
@@ -146,7 +146,7 @@ const MOCK_SERIES: Series[] = [
   },
   {
     id: 'series-3',
-    establishmentId: 'est-2',
+    EstablecimientoId: 'est-2',
     documentType: SUNAT_DOCUMENT_TYPES[1], // Boleta
     series: 'B002',
     correlativeNumber: 89,
@@ -228,7 +228,7 @@ export function useSeries(): UseSeriesReturn {
       }
       
       // Check series uniqueness
-      const isUnique = await validateSeriesCode(data.establishmentId, data.series);
+      const isUnique = await validateSeriesCode(data.EstablecimientoId, data.series);
       if (!isUnique) {
         throw new Error('Ya existe una serie con este código en el establecimiento');
       }
@@ -244,7 +244,7 @@ export function useSeries(): UseSeriesReturn {
       
       const newSeries: Series = {
         id: `series-${Date.now()}`,
-        establishmentId: data.establishmentId,
+        EstablecimientoId: data.EstablecimientoId,
         documentType,
         series: data.series,
         correlativeNumber: data.configuration.startNumber,
@@ -259,7 +259,7 @@ export function useSeries(): UseSeriesReturn {
         },
         status: 'ACTIVE',
         isDefault: !series.some(s => 
-          s.establishmentId === data.establishmentId && 
+          s.EstablecimientoId === data.EstablecimientoId && 
           s.documentType.id === data.documentTypeId && 
           s.isDefault
         ),
@@ -311,7 +311,7 @@ export function useSeries(): UseSeriesReturn {
       // Check series uniqueness if changed
       if (data.series && data.series !== existingSeries.series) {
         const isUnique = await validateSeriesCode(
-          data.establishmentId || existingSeries.establishmentId, 
+          data.EstablecimientoId || existingSeries.EstablecimientoId, 
           data.series, 
           id
         );
@@ -390,8 +390,8 @@ export function useSeries(): UseSeriesReturn {
     }
   }, [dispatch]);
 
-  // Set default series for establishment and document type
-  const setDefaultSeries = useCallback(async (establishmentId: string, documentTypeId: string, seriesId: string) => {
+  // Set default series for Establecimiento and document type
+  const setDefaultSeries = useCallback(async (EstablecimientoId: string, documentTypeId: string, seriesId: string) => {
     const seriesItem = getSeries(seriesId);
     if (!seriesItem) {
       throw new Error('Series not found');
@@ -404,11 +404,11 @@ export function useSeries(): UseSeriesReturn {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Update all series - remove default flag from same establishment + document type, add to selected
+      // Update all series - remove default flag from same Establecimiento + document type, add to selected
       const updatedSeries = series.map(s => ({
         ...s,
         isDefault: s.id === seriesId ? true : (
-          s.establishmentId === establishmentId && s.documentType.id === documentTypeId ? false : s.isDefault
+          s.EstablecimientoId === EstablecimientoId && s.documentType.id === documentTypeId ? false : s.isDefault
         ),
         updatedAt: new Date(),
       }));
@@ -428,9 +428,9 @@ export function useSeries(): UseSeriesReturn {
     return series.find(s => s.id === id);
   }, [series]);
 
-  // Get series by establishment
-  const getSeriesByEstablishment = useCallback((establishmentId: string): Series[] => {
-    return series.filter(s => s.establishmentId === establishmentId && s.isActive);
+  // Get series by Establecimiento
+  const getSeriesByEstablecimiento = useCallback((EstablecimientoId: string): Series[] => {
+    return series.filter(s => s.EstablecimientoId === EstablecimientoId && s.isActive);
   }, [series]);
 
   // Get series by document type
@@ -438,10 +438,10 @@ export function useSeries(): UseSeriesReturn {
     return series.filter(s => s.documentType.id === documentTypeId && s.isActive);
   }, [series]);
 
-  // Get default series for establishment and document type
-  const getDefaultSeries = useCallback((establishmentId: string, documentTypeId: string): Series | undefined => {
+  // Get default series for Establecimiento and document type
+  const getDefaultSeries = useCallback((EstablecimientoId: string, documentTypeId: string): Series | undefined => {
     return series.find(s => 
-      s.establishmentId === establishmentId && 
+      s.EstablecimientoId === EstablecimientoId && 
       s.documentType.id === documentTypeId && 
       s.isDefault && 
       s.isActive
@@ -457,7 +457,7 @@ export function useSeries(): UseSeriesReturn {
   const getSeriesSummaries = useCallback((): SeriesSummary[] => {
     return series.map(s => ({
       id: s.id,
-      establishmentName: `Establecimiento ${s.establishmentId}`, // In real app, get from establishments
+      EstablecimientoName: `Establecimiento ${s.EstablecimientoId}`, // In real app, get from Establecimientos
       documentTypeName: s.documentType.name,
       series: s.series,
       correlativeNumber: s.correlativeNumber,
@@ -470,12 +470,12 @@ export function useSeries(): UseSeriesReturn {
   }, [series]);
 
   // Validate series code uniqueness
-  const validateSeriesCode = useCallback(async (establishmentId: string, seriesCode: string, excludeId?: string): Promise<boolean> => {
+  const validateSeriesCode = useCallback(async (EstablecimientoId: string, seriesCode: string, excludeId?: string): Promise<boolean> => {
     // Simulate API validation
     await new Promise(resolve => setTimeout(resolve, 300));
     
     const exists = series.some(s => 
-      s.establishmentId === establishmentId && 
+      s.EstablecimientoId === EstablecimientoId && 
       s.series === seriesCode && 
       s.id !== excludeId && 
       s.isActive
@@ -640,7 +640,7 @@ export function useSeries(): UseSeriesReturn {
       active: 0,
       electronic: 0,
       byDocumentType: {} as Record<string, number>,
-      byEstablishment: {} as Record<string, number>,
+      byEstablecimiento: {} as Record<string, number>,
     };
     
     series.forEach(s => {
@@ -656,8 +656,8 @@ export function useSeries(): UseSeriesReturn {
       const docTypeName = s.documentType.name;
       stats.byDocumentType[docTypeName] = (stats.byDocumentType[docTypeName] || 0) + 1;
       
-      // By establishment
-      stats.byEstablishment[s.establishmentId] = (stats.byEstablishment[s.establishmentId] || 0) + 1;
+      // By Establecimiento
+      stats.byEstablecimiento[s.EstablecimientoId] = (stats.byEstablecimiento[s.EstablecimientoId] || 0) + 1;
     });
     
     return stats;
@@ -683,7 +683,7 @@ export function useSeries(): UseSeriesReturn {
     
     // Getters
     getSeries,
-    getSeriesByEstablishment,
+    getSeriesByEstablecimiento,
     getSeriesByDocumentType,
     getDefaultSeries,
     getActiveSeries,

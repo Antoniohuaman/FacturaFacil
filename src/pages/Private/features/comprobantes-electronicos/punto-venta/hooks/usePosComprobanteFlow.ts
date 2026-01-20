@@ -20,7 +20,7 @@ import type {
   PaymentTotals,
 } from '../../models/comprobante.types';
 import type { CreditInstallmentDefinition } from '../../../../../../shared/payments/paymentTerms';
-import { useCurrentCompanyId, useCurrentEstablishmentId } from '../../../../../../contexts/UserSessionContext';
+import { useCurrentCompanyId, useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getBusinessTodayISODate } from '../../../../../../shared/time/businessTime';
 
@@ -31,7 +31,7 @@ interface UsePosComprobanteFlowParams {
 
 export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFlowParams) => {
   const navigate = useNavigate();
-  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
   const currentCompanyId = useCurrentCompanyId();
   useConfigurationContext();
 
@@ -126,7 +126,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
   }, [clienteSeleccionadoState]);
 
   const availableProducts = useAvailableProducts({
-    establecimientoId: currentEstablishmentId,
+    establecimientoId: currentEstablecimientoId,
     soloConStock: false,
   });
 
@@ -270,7 +270,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
         formaPago,
         observaciones,
         notaInterna,
-        establishmentId: currentEstablishmentId,
+        EstablecimientoId: currentEstablecimientoId,
         companyId: currentCompanyId,
         currency: currentCurrency,
         exchangeRate: currencyInfo?.rate,

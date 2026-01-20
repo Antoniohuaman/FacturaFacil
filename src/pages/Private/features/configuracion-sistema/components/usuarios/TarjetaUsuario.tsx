@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../../modelos/User';
 import type { Role } from '../../modelos/Role';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
 
 // Type helper for user status
@@ -31,12 +31,12 @@ type UserStatus = User['status'];
 interface UserCardProps {
   user: User;
   roles: Role[];
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
   onEdit: () => void;
   onDelete: () => void;
   onChangeStatus: (status: UserStatus, reason?: string) => void;
   onAssignRole: () => void;
-  onRemoveRole: (establishmentId: string) => void;
+  onRemoveRole: (EstablecimientoId: string) => void;
   showActions?: boolean;
   compact?: boolean;
 }
@@ -44,7 +44,7 @@ interface UserCardProps {
 export function UserCard({
   user,
   roles: _roles, // Mantener para compatibilidad futura
-  establishments,
+  Establecimientos,
   onEdit,
   onDelete,
   onChangeStatus,
@@ -103,12 +103,12 @@ export function UserCard({
     return configs[status];
   };
 
-  const getEstablishmentName = (establishmentId: string) => {
-    return establishments.find(est => est.id === establishmentId)?.name || 'Establecimiento no encontrado';
+  const getEstablecimientoName = (EstablecimientoId: string) => {
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.name || 'Establecimiento no encontrado';
   };
 
-  const getEstablishmentCode = (establishmentId: string) => {
-    return establishments.find(est => est.id === establishmentId)?.code || 'N/A';
+  const getEstablecimientoCode = (EstablecimientoId: string) => {
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.code || 'N/A';
   };
 
   const formatDate = (date: Date) => {
@@ -372,7 +372,7 @@ export function UserCard({
           )}
         </div>
 
-        {/* Roles by Establishment */}
+        {/* Roles by Establecimiento */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-medium text-gray-700 flex items-center space-x-2">
@@ -380,11 +380,11 @@ export function UserCard({
               <span>Roles por Establecimiento</span>
             </h4>
             <span className="text-xs text-gray-500">
-              {user.assignment.establishmentIds.length} asignado{user.assignment.establishmentIds.length !== 1 ? 's' : ''}
+              {user.assignment.EstablecimientoIds.length} asignado{user.assignment.EstablecimientoIds.length !== 1 ? 's' : ''}
             </span>
           </div>
           
-          {user.assignment.establishmentIds.length === 0 ? (
+          {user.assignment.EstablecimientoIds.length === 0 ? (
             <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <Shield className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-500 mb-2">Sin roles asignados</p>
@@ -397,15 +397,15 @@ export function UserCard({
             </div>
           ) : (
             <div className="space-y-2">
-              {user.assignment.establishmentIds.map((establishmentId: string, index: number) => (
+              {user.assignment.EstablecimientoIds.map((EstablecimientoId: string, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
                       <span className="font-medium text-blue-900 text-sm">
-                        {getEstablishmentCode(establishmentId)}
+                        {getEstablecimientoCode(EstablecimientoId)}
                       </span>
                       <span className="text-blue-700 text-sm">
-                        {getEstablishmentName(establishmentId)}
+                        {getEstablecimientoName(EstablecimientoId)}
                       </span>
                     </div>
                     <div className="flex items-center space-x-2 mt-1">
@@ -416,7 +416,7 @@ export function UserCard({
                     </div>
                   </div>
                   <button
-                    onClick={() => onRemoveRole && onRemoveRole(establishmentId)}
+                    onClick={() => onRemoveRole && onRemoveRole(EstablecimientoId)}
                     className="p-1 text-red-500 hover:bg-red-100 rounded transition-colors"
                     title="Quitar rol"
                   >

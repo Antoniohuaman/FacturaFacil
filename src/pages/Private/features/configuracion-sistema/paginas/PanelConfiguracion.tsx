@@ -43,10 +43,10 @@ export function ConfigurationDashboard() {
       isConfigured: !!company,
       completionPercentage: company ? 100 : 0
     },
-    establishments: {
-      isConfigured: state.establishments.length > 0,
-      completionPercentage: state.establishments.length > 0 ? 100 : 0,
-      count: state.establishments.length
+    Establecimientos: {
+      isConfigured: state.Establecimientos.length > 0,
+      completionPercentage: state.Establecimientos.length > 0 ? 100 : 0,
+      count: state.Establecimientos.length
     },
     almacenes: {
       isConfigured: state.almacenes.length > 0,
@@ -84,13 +84,13 @@ export function ConfigurationDashboard() {
       estimatedTime: '5 min'
     },
     {
-      id: 'establishments',
+      id: 'Establecimientos',
       title: 'Establecimientos',
       description: 'Configura tus sucursales, locales o puntos de venta',
       icon: MapPin,
       path: '/configuracion/establecimientos',
-      status: status.establishments.isConfigured ? 'complete' : 'pending',
-      completionPercentage: status.establishments.completionPercentage,
+      status: status.Establecimientos.isConfigured ? 'complete' : 'pending',
+      completionPercentage: status.Establecimientos.completionPercentage,
       priority: 'high',
       estimatedTime: '3 min'
     },
@@ -230,7 +230,7 @@ export function ConfigurationDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Establecimientos</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{status.establishments.count}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{status.Establecimientos.count}</p>
             </div>
             <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
               <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />

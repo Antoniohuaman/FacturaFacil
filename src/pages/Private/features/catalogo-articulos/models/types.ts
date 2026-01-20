@@ -57,18 +57,18 @@ export type ProductAvailabilityFields = Pick<Product, 'disponibleEnTodos' | 'est
  * Regla estricta: si no hay establecimiento actual, el producto NO está habilitado.
  * Evita leakage cross-establecimiento cuando el session timing aún no está listo.
  */
-export const isProductEnabledForEstablishment = (
+export const isProductEnabledForEstablecimiento = (
   product: ProductAvailabilityFields,
-  currentEstablishmentId?: string
+  currentEstablecimientoId?: string
 ): boolean => {
-  if (!currentEstablishmentId) {
+  if (!currentEstablecimientoId) {
     return false;
   }
   if (product.disponibleEnTodos) {
     return true;
   }
   const ids = product.establecimientoIds;
-  return Array.isArray(ids) ? ids.includes(currentEstablishmentId) : false;
+  return Array.isArray(ids) ? ids.includes(currentEstablecimientoId) : false;
 };
 
 // Category moved to ConfigurationContext
@@ -174,6 +174,6 @@ export interface ProductColumnConfig {
 export interface ProductTableSettings {
   columns: ProductColumnConfig[];
   defaultFilters: Partial<FilterOptions>;
-  defaultEstablishment: string;
+  defaultEstablecimiento: string;
   lastUpdated: Date;
 }

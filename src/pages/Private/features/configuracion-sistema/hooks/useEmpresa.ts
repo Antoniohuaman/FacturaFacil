@@ -23,7 +23,7 @@ interface UseCajasReturn {
   // Getters
   getCaja: (id: string) => Caja | undefined;
   getEnabledCajas: () => Caja[];
-  getCajasByEstablishment: (establecimientoId: string) => Caja[];
+  getCajasByEstablecimiento: (establecimientoId: string) => Caja[];
   
   // Validation
   validateCaja: (input: CreateCajaInput | UpdateCajaInput, cajaId?: string) => ValidationError[];
@@ -37,7 +37,7 @@ interface UseCajasReturn {
 }
 
 /**
- * Hook for managing cajas scoped by company and establishment
+ * Hook for managing cajas scoped by company and Establecimiento
  * Requires empresaId from company and establecimientoId from UserSessionContext
  */
 export function useCajas(empresaId?: string, establecimientoId?: string): UseCajasReturn {
@@ -49,7 +49,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
   const cajas = useMemo(() => state.cajas || [], [state.cajas]);
 
   /**
-   * Load cajas for current company and establishment
+   * Load cajas for current company and Establecimiento
    */
   const loadCajas = useCallback(async () => {
     if (!empresaId || !establecimientoId) {
@@ -198,9 +198,9 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
   }, [cajas]);
 
   /**
-   * Get cajas by specific establishment
+   * Get cajas by specific Establecimiento
    */
-  const getCajasByEstablishment = useCallback((estId: string): Caja[] => {
+  const getCajasByEstablecimiento = useCallback((estId: string): Caja[] => {
     return cajas.filter(c => c.establecimientoId === estId);
   }, [cajas]);
 
@@ -251,7 +251,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     deleteCaja,
     getCaja,
     getEnabledCajas,
-    getCajasByEstablishment,
+    getCajasByEstablecimiento,
     validateCaja,
     getCajasStats
   };

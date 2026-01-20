@@ -57,7 +57,7 @@ const MOCK_CONFIGURATION: Configuration = {
   },
   
   billing: {
-    defaultEstablishmentId: 'est-1',
+    defaultEstablecimientoId: 'est-1',
     defaultSeriesId: 'series-1',
     autoSendToSunat: true,
     autoGeneratePdf: true,
@@ -183,8 +183,8 @@ export function useConfiguration(): UseConfigurationReturn {
             progress = isConfigured ? 100 : 0;
             break;
             
-          case 'establishments':
-            isConfigured = state.establishments.length > 0;
+          case 'Establecimientos':
+            isConfigured = state.Establecimientos.length > 0;
             progress = isConfigured ? 100 : 0;
             break;
             

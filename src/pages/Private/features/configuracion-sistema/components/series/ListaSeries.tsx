@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { FileText, Receipt, Clipboard, MessageSquare, Building2, Search, Plus, NotebookPen } from 'lucide-react';
 import type { Series } from '../../modelos/Series';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 import { SeriesCard } from './TarjetaSerie';
@@ -13,7 +13,7 @@ type FilterStatus = 'all' | 'active' | 'inactive';
 
 interface SeriesListProps {
   series: Series[];
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
   onEdit: (series: Series) => void;
   onDelete: (series: Series) => void;
   onToggleStatus: (series: Series) => void;
@@ -94,7 +94,7 @@ const voucherTypeConfig = {
 
 export function SeriesList({
   series,
-  establishments,
+  Establecimientos,
   onEdit,
   onDelete,
   onToggleStatus,
@@ -106,32 +106,32 @@ export function SeriesList({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('ALL');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [filterEstablishment, setFilterEstablishment] = useState('ALL');
+  const [filterEstablecimiento, setFilterEstablecimiento] = useState('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   // Filter series
   const filteredSeries = series.filter(s => {
     const matchesSearch = s.series.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         getEstablishmentName(s.establishmentId).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         getEstablecimientoName(s.EstablecimientoId).toLowerCase().includes(searchTerm.toLowerCase()) ||
                          voucherTypeConfig[s.documentType.category].label.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesType = filterType === 'ALL' || s.documentType.category === filterType;
     const matchesStatus = filterStatus === 'all' || 
                          (filterStatus === 'active' && s.isActive) ||
                          (filterStatus === 'inactive' && !s.isActive);
-    const matchesEstablishment = filterEstablishment === 'ALL' || s.establishmentId === filterEstablishment;
+    const matchesEstablecimiento = filterEstablecimiento === 'ALL' || s.EstablecimientoId === filterEstablecimiento;
     
-    return matchesSearch && matchesType && matchesStatus && matchesEstablishment;
+    return matchesSearch && matchesType && matchesStatus && matchesEstablecimiento;
   });
 
-  // Group series by establishment
-  const seriesByEstablishment = establishments.map(est => ({
-    establishment: est,
-    series: filteredSeries.filter(s => s.establishmentId === est.id)
+  // Group series by Establecimiento
+  const seriesByEstablecimiento = Establecimientos.map(est => ({
+    Establecimiento: est,
+    series: filteredSeries.filter(s => s.EstablecimientoId === est.id)
   })).filter(group => group.series.length > 0);
 
-  const getEstablishmentName = (establishmentId: string) => {
-    return establishments.find(est => est.id === establishmentId)?.name || 'Desconocido';
+  const getEstablecimientoName = (EstablecimientoId: string) => {
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.name || 'Desconocido';
   };
 
   const getTypeStats = () => {
@@ -147,7 +147,7 @@ export function SeriesList({
     setSearchTerm('');
     setFilterType('ALL');
     setFilterStatus('all');
-    setFilterEstablishment('ALL');
+    setFilterEstablecimiento('ALL');
   };
 
   if (isLoading) {
@@ -243,14 +243,14 @@ export function SeriesList({
             <option value="inactive">Solo inactivas</option>
           </select>
           
-          {/* Establishment Filter */}
+          {/* Establecimiento Filter */}
           <select
-            value={filterEstablishment}
-            onChange={(e) => setFilterEstablishment(e.target.value)}
+            value={filterEstablecimiento}
+            onChange={(e) => setFilterEstablecimiento(e.target.value)}
             className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="ALL">Todos los establecimientos</option>
-            {establishments.map(est => (
+            {Establecimientos.map(est => (
               <option key={est.id} value={est.id}>
                 {est.code} - {est.name}
               </option>
@@ -297,7 +297,7 @@ export function SeriesList({
       </div>
 
       {/* Active Filters */}
-      {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablishment !== 'ALL') && (
+      {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablecimiento !== 'ALL') && (
         <div className="flex items-center space-x-2 text-sm">
           <span className="text-gray-600">Filtros activos:</span>
           {searchTerm && (
@@ -315,9 +315,9 @@ export function SeriesList({
               Estado: {filterStatus === 'active' ? 'Activas' : 'Inactivas'}
             </span>
           )}
-          {filterEstablishment !== 'ALL' && (
+          {filterEstablecimiento !== 'ALL' && (
             <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded">
-              Establecimiento: {getEstablishmentName(filterEstablishment)}
+              Establecimiento: {getEstablecimientoName(filterEstablecimiento)}
             </span>
           )}
           <button
@@ -341,18 +341,18 @@ export function SeriesList({
         <div className="text-center py-12">
           <div className="text-6xl mb-4">📄</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablishment !== 'ALL')
+            {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablecimiento !== 'ALL')
               ? 'No se encontraron series'
               : 'No hay series configuradas'
             }
           </h3>
           <p className="text-gray-500 mb-6">
-            {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablishment !== 'ALL')
+            {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablecimiento !== 'ALL')
               ? 'Intenta ajustar los filtros de búsqueda'
               : 'Crea tu primera serie para comenzar a emitir comprobantes'
             }
           </p>
-          {(!searchTerm && filterType === 'ALL' && filterStatus === 'all' && filterEstablishment === 'ALL') && (
+          {(!searchTerm && filterType === 'ALL' && filterStatus === 'all' && filterEstablecimiento === 'ALL') && (
             <button
               onClick={onCreate}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -362,33 +362,33 @@ export function SeriesList({
           )}
         </div>
       ) : viewMode === 'grid' ? (
-        /* Grid View - Grouped by Establishment */
+        /* Grid View - Grouped by Establecimiento */
         <div className="space-y-8">
-          {seriesByEstablishment.map(({ establishment, series: establishmentSeries }) => (
-            <div key={establishment.id} className="space-y-4">
-              {/* Establishment Header */}
+          {seriesByEstablecimiento.map(({ Establecimiento, series: EstablecimientoSeries }) => (
+            <div key={Establecimiento.id} className="space-y-4">
+              {/* Establecimiento Header */}
               <div className="flex items-center space-x-3 pb-2 border-b border-gray-200">
                 <Building2 className="w-5 h-5 text-gray-600" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {establishment.code} - {establishment.name}
+                  {Establecimiento.code} - {Establecimiento.name}
                 </h3>
                 <StatusIndicator
-                  status={establishment.isActive ? 'success' : 'error'}
-                  label={establishment.isActive ? 'Activo' : 'Inactivo'}
+                  status={Establecimiento.isActive ? 'success' : 'error'}
+                  label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
                   size="sm"
                 />
                 <span className="text-sm text-gray-500">
-                  ({establishmentSeries.length} serie{establishmentSeries.length !== 1 ? 's' : ''})
+                  ({EstablecimientoSeries.length} serie{EstablecimientoSeries.length !== 1 ? 's' : ''})
                 </span>
               </div>
 
               {/* Series Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {establishmentSeries.map((seriesItem) => (
+                {EstablecimientoSeries.map((seriesItem) => (
                   <SeriesCard
                     key={seriesItem.id}
                     series={seriesItem}
-                    establishment={establishment}
+                    Establecimiento={Establecimiento}
                     onEdit={() => onEdit(seriesItem)}
                     onDelete={() => onDelete(seriesItem)}
                     onToggleStatus={() => onToggleStatus(seriesItem)}
@@ -418,7 +418,7 @@ export function SeriesList({
               <tbody>
                 {filteredSeries.map((seriesItem) => {
                   const config = voucherTypeConfig[seriesItem.documentType.category];
-                  const establishment = establishments.find(est => est.id === seriesItem.establishmentId);
+                  const Establecimiento = Establecimientos.find(est => est.id === seriesItem.EstablecimientoId);
                   
                   return (
                     <tr key={seriesItem.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -441,7 +441,7 @@ export function SeriesList({
                         </div>
                       </td>
                       <td className="py-4 px-4 text-gray-600">
-                        {establishment?.code} - {establishment?.name}
+                        {Establecimiento?.code} - {Establecimiento?.name}
                       </td>
                       <td className="py-4 px-4">
                         <span className="font-mono text-sm">

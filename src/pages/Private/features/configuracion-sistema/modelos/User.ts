@@ -28,8 +28,8 @@ export interface User {
   assignment: {
     position: string;
     department: string;
-    establishmentId: string; // Primary establishment
-    establishmentIds: string[]; // All establishments the user can access
+    EstablecimientoId: string; // Primary Establecimiento
+    EstablecimientoIds: string[]; // All Establecimientos the user can access
     hireDate: Date;
     assignmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
     salary?: number;
@@ -116,8 +116,8 @@ export interface CreateUserRequest {
   assignment: {
     position: string;
     department: string;
-    establishmentId: string;
-    establishmentIds: string[];
+    EstablecimientoId: string;
+    EstablecimientoIds: string[];
     hireDate: Date;
     assignmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
     salary?: number;
@@ -143,7 +143,7 @@ export interface UserSummary {
   code: string;
   fullName: string;
   position: string;
-  establishment: string;
+  Establecimiento: string;
   status: User['status'];
   lastLogin?: Date;
   avatar?: string;

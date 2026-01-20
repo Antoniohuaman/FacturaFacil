@@ -51,31 +51,31 @@ const IndicadoresPage: React.FC = () => {
   const [openDetalleModal, setOpenDetalleModal] = useState(false);
   const [openDetalleCrecimientoModal, setOpenDetalleCrecimientoModal] = useState(false);
   const [openNotificacionesModal, setOpenNotificacionesModal] = useState(false);
-  const { dateRange, establishmentId } = useIndicadoresFilters();
+  const { dateRange, EstablecimientoId } = useIndicadoresFilters();
   const { state: configState } = useConfigurationContext();
 
   const filters = useMemo<IndicadoresFilters>(() => ({
     dateRange,
-    establishmentId
-  }), [dateRange, establishmentId]);
+    EstablecimientoId
+  }), [dateRange, EstablecimientoId]);
 
   const { data, status, error } = useIndicadores(filters);
 
-  const normalizedEstablishmentId = establishmentId || "Todos";
+  const normalizedEstablecimientoId = EstablecimientoId || "Todos";
   const notificationsFilters = useMemo(() => ({
     indicatorId: NOTIFICADOR_GENERAL_ID,
-    establecimientoId: normalizedEstablishmentId !== "Todos" ? normalizedEstablishmentId : undefined
-  }), [normalizedEstablishmentId]);
+    establecimientoId: normalizedEstablecimientoId !== "Todos" ? normalizedEstablecimientoId : undefined
+  }), [normalizedEstablecimientoId]);
 
   const notificationsState = useNotificacionesIndicador(notificationsFilters);
 
-  const establishmentOptions = useMemo(() => {
-    const activos = configState.establishments.filter((est) => est.isActive !== false);
+  const EstablecimientoOptions = useMemo(() => {
+    const activos = configState.Establecimientos.filter((est) => est.isActive !== false);
     return [
       { value: "Todos", label: "Todos los establecimientos" },
       ...activos.map((est) => ({ value: est.id, label: `${est.code ?? est.id} - ${est.name}` }))
     ];
-  }, [configState.establishments]);
+  }, [configState.Establecimientos]);
 
   const currencyOptions = useMemo(() => {
     if (!configState.currencies.length) {
@@ -98,7 +98,7 @@ const IndicadoresPage: React.FC = () => {
       indicadorId: NOTIFICADOR_GENERAL_ID,
       segmento: {
         empresaId: companyId,
-        establecimientoId: normalizedEstablishmentId,
+        establecimientoId: normalizedEstablecimientoId,
         moneda: defaultCurrencyCode
       },
       vigencia: {
@@ -110,7 +110,7 @@ const IndicadoresPage: React.FC = () => {
         telefono: ''
       }
     };
-  }, [companyId, normalizedEstablishmentId, defaultCurrencyCode]);
+  }, [companyId, normalizedEstablecimientoId, defaultCurrencyCode]);
 
   return (
     <div>
@@ -220,7 +220,7 @@ const IndicadoresPage: React.FC = () => {
         open={openNotificacionesModal}
         onClose={() => setOpenNotificacionesModal(false)}
         companyName={companyName}
-        establishments={establishmentOptions}
+        Establecimientos={EstablecimientoOptions}
         currencies={currencyOptions}
         createPayload={createNotificationPayload}
         notificationsState={notificationsState}

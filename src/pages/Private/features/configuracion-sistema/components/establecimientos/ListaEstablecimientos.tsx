@@ -1,46 +1,46 @@
-// src/features/configuration/components/establecimientos/EstablishmentsList.tsx
+// src/features/configuration/components/establecimientos/EstablecimientosList.tsx
 import { useState } from 'react';
 import { Search, Filter, Plus } from 'lucide-react';
-import type { Establishment } from '../../modelos/Establishment';
-import { EstablishmentCard } from './TarjetaEstablecimiento';
+import type { Establecimiento } from '../../modelos/Establecimiento';
+import { EstablecimientoCard } from './TarjetaEstablecimiento';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
 
 type ViewMode = 'grid' | 'table';
 type FilterStatus = 'all' | 'enabled' | 'disabled';
 
-interface EstablishmentsListProps {
-  establishments: Establishment[];
-  onEdit: (establishment: Establishment) => void;
-  onDelete: (establishment: Establishment) => void;
-  onToggleStatus: (establishment: Establishment) => void;
+interface EstablecimientosListProps {
+  Establecimientos: Establecimiento[];
+  onEdit: (Establecimiento: Establecimiento) => void;
+  onDelete: (Establecimiento: Establecimiento) => void;
+  onToggleStatus: (Establecimiento: Establecimiento) => void;
   onCreate: () => void;
   isLoading?: boolean;
 }
 
-export function EstablishmentsList({
-  establishments,
+export function EstablecimientosList({
+  Establecimientos,
   onEdit,
   onDelete,
   onToggleStatus,
   onCreate,
   isLoading = false
-}: EstablishmentsListProps) {
+}: EstablecimientosListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<'name' | 'code' | 'created'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  // Filter and search establishments
-  const filteredEstablishments = establishments
-    .filter(establishment => {
-      const matchesSearch = establishment.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           establishment.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           establishment.address.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter and search Establecimientos
+  const filteredEstablecimientos = Establecimientos
+    .filter(Establecimiento => {
+      const matchesSearch = Establecimiento.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           Establecimiento.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           Establecimiento.address.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = filterStatus === 'all' || 
-                           (filterStatus === 'enabled' && establishment.isActive) ||
-                           (filterStatus === 'disabled' && !establishment.isActive);
+                           (filterStatus === 'enabled' && Establecimiento.isActive) ||
+                           (filterStatus === 'disabled' && !Establecimiento.isActive);
       
       return matchesSearch && matchesStatus;
     })
@@ -72,9 +72,9 @@ export function EstablishmentsList({
   };
 
   const stats = {
-    total: establishments.length,
-    enabled: establishments.filter(e => e.isActive).length,
-    disabled: establishments.filter(e => !e.isActive).length
+    total: Establecimientos.length,
+    enabled: Establecimientos.filter(e => e.isActive).length,
+    disabled: Establecimientos.filter(e => !e.isActive).length
   };
 
   if (isLoading) {
@@ -210,7 +210,7 @@ export function EstablishmentsList({
       {/* Results Count */}
       <div className="flex items-center justify-between text-sm text-gray-600">
         <span>
-          {filteredEstablishments.length} de {establishments.length} establecimiento{establishments.length !== 1 ? 's' : ''}
+          {filteredEstablecimientos.length} de {Establecimientos.length} establecimiento{Establecimientos.length !== 1 ? 's' : ''}
           {(searchTerm || filterStatus !== 'all') && (
             <button
               onClick={() => {
@@ -246,7 +246,7 @@ export function EstablishmentsList({
       </div>
 
       {/* Content */}
-      {filteredEstablishments.length === 0 ? (
+      {filteredEstablecimientos.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">🏪</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -273,13 +273,13 @@ export function EstablishmentsList({
       ) : viewMode === 'grid' ? (
         /* Grid View */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEstablishments.map((establishment) => (
-            <EstablishmentCard
-              key={establishment.id}
-              establishment={establishment}
-              onEdit={() => onEdit(establishment)}
-              onDelete={() => onDelete(establishment)}
-              onToggleStatus={() => onToggleStatus(establishment)}
+          {filteredEstablecimientos.map((Establecimiento) => (
+            <EstablecimientoCard
+              key={Establecimiento.id}
+              Establecimiento={Establecimiento}
+              onEdit={() => onEdit(Establecimiento)}
+              onDelete={() => onDelete(Establecimiento)}
+              onToggleStatus={() => onToggleStatus(Establecimiento)}
             />
           ))}
         </div>
@@ -308,40 +308,40 @@ export function EstablishmentsList({
                 </tr>
               </thead>
               <tbody>
-                {filteredEstablishments.map((establishment) => (
-                  <tr key={establishment.id} className="border-b border-gray-100 hover:bg-gray-50">
+                {filteredEstablecimientos.map((Establecimiento) => (
+                  <tr key={Establecimiento.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-4 px-4">
                       <span className="font-mono text-sm font-medium text-gray-900">
-                        {establishment.code}
+                        {Establecimiento.code}
                       </span>
                     </td>
                     <td className="py-4 px-4">
                       <span className="font-medium text-gray-900">
-                        {establishment.name}
+                        {Establecimiento.name}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-gray-600 max-w-xs truncate">
-                      {establishment.address}
+                      {Establecimiento.address}
                     </td>
                     <td className="py-4 px-4">
                       <StatusIndicator
-                        status={establishment.isActive ? 'success' : 'error'}
-                        label={establishment.isActive ? 'Habilitado' : 'Inhabilitado'}
+                        status={Establecimiento.isActive ? 'success' : 'error'}
+                        label={Establecimiento.isActive ? 'Habilitado' : 'Inhabilitado'}
                         size="sm"
                       />
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-end space-x-2">
                         <button
-                          onClick={() => onToggleStatus(establishment)}
+                          onClick={() => onToggleStatus(Establecimiento)}
                           className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                          title={establishment.isActive ? 'Inhabilitar' : 'Habilitar'}
+                          title={Establecimiento.isActive ? 'Inhabilitar' : 'Habilitar'}
                         >
-                          {establishment.isActive ? '🟢' : '🔴'}
+                          {Establecimiento.isActive ? '🟢' : '🔴'}
                         </button>
                         
                         <button
-                          onClick={() => onEdit(establishment)}
+                          onClick={() => onEdit(Establecimiento)}
                           className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                           title="Editar"
                         >
@@ -349,7 +349,7 @@ export function EstablishmentsList({
                         </button>
                         
                         <button
-                          onClick={() => onDelete(establishment)}
+                          onClick={() => onDelete(Establecimiento)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Eliminar"
                         >

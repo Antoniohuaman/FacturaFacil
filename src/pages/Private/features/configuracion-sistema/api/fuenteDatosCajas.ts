@@ -9,7 +9,7 @@ import type { Caja, CreateCajaInput, UpdateCajaInput } from '../modelos/Caja';
  */
 export interface ICajasDataSource {
   /**
-   * List all cajas for a specific company and establishment
+   * List all cajas for a specific company and Establecimiento
    */
   list(empresaId: string, establecimientoId: string): Promise<Caja[]>;
 
@@ -91,14 +91,14 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
   async create(empresaId: string, _establecimientoId: string, input: CreateCajaInput): Promise<Caja> {
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    // Use establecimientoId from input (user can select different establishment)
-    const targetEstablishmentId = input.establecimientoId;
-    const cajas = this.loadData(empresaId, targetEstablishmentId);
+    // Use establecimientoId from input (user can select different Establecimiento)
+    const targetEstablecimientoId = input.establecimientoId;
+    const cajas = this.loadData(empresaId, targetEstablecimientoId);
     
     const newCaja: Caja = {
       id: crypto.randomUUID(),
       empresaId,
-      establecimientoId: targetEstablishmentId,
+      establecimientoId: targetEstablecimientoId,
       nombre: input.nombre,
       monedaId: input.monedaId,
       mediosPagoPermitidos: input.mediosPagoPermitidos,
@@ -115,7 +115,7 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
     };
 
     cajas.push(newCaja);
-    this.saveData(empresaId, targetEstablishmentId, cajas);
+    this.saveData(empresaId, targetEstablecimientoId, cajas);
     
     return newCaja;
   }

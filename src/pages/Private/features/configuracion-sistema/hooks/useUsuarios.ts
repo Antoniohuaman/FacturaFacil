@@ -25,7 +25,7 @@ interface UseUsersReturn {
   
   // Getters
   getUser: (id: string) => User | undefined;
-  getUsersByEstablishment: (establishmentId: string) => User[];
+  getUsersByEstablecimiento: (EstablecimientoId: string) => User[];
   getUsersByRole: (roleId: string) => User[];
   getActiveUsers: () => User[];
   getUserSummaries: () => UserSummary[];
@@ -48,7 +48,7 @@ interface UseUsersReturn {
     inactive: number;
     suspended: number;
     terminated: number;
-    byEstablishment: Record<string, number>;
+    byEstablecimiento: Record<string, number>;
     byRole: Record<string, number>;
   };
 }
@@ -80,8 +80,8 @@ const MOCK_USERS: User[] = [
     assignment: {
       position: 'Gerente de Ventas',
       department: 'Ventas',
-      establishmentId: 'est-1',
-      establishmentIds: ['est-1', 'est-2'],
+      EstablecimientoId: 'est-1',
+      EstablecimientoIds: ['est-1', 'est-2'],
       hireDate: new Date('2025-01-01'),
       assignmentType: 'FULL_TIME',
       salary: 3500.00,
@@ -145,8 +145,8 @@ const MOCK_USERS: User[] = [
     assignment: {
       position: 'Vendedora Senior',
       department: 'Ventas',
-      establishmentId: 'est-1',
-      establishmentIds: ['est-1'],
+      EstablecimientoId: 'est-1',
+      EstablecimientoIds: ['est-1'],
       hireDate: new Date('2025-01-05'),
       assignmentType: 'FULL_TIME',
       salary: 1800.00,
@@ -204,8 +204,8 @@ const MOCK_USERS: User[] = [
     assignment: {
       position: 'Vendedor',
       department: 'Ventas',
-      establishmentId: 'est-2',
-      establishmentIds: ['est-2'],
+      EstablecimientoId: 'est-2',
+      EstablecimientoIds: ['est-2'],
       hireDate: new Date('2025-01-10'),
       assignmentType: 'PART_TIME',
       salary: 1200.00,
@@ -359,11 +359,11 @@ export function useUsers(): UseUsersReturn {
           errors.push('El departamento es requerido');
         }
 
-        if (!assignment.establishmentId?.trim()) {
+        if (!assignment.EstablecimientoId?.trim()) {
           errors.push('El establecimiento principal es requerido');
         }
 
-        if (!assignment.establishmentIds || assignment.establishmentIds.length === 0) {
+        if (!assignment.EstablecimientoIds || assignment.EstablecimientoIds.length === 0) {
           errors.push('Debe seleccionar al menos un establecimiento');
         }
 
@@ -423,12 +423,12 @@ export function useUsers(): UseUsersReturn {
     [users],
   );
 
-  // Get users by establishment
-  const getUsersByEstablishment = useCallback(
-    (establishmentId: string): User[] =>
+  // Get users by Establecimiento
+  const getUsersByEstablecimiento = useCallback(
+    (EstablecimientoId: string): User[] =>
       users.filter(
         user =>
-          user.assignment.establishmentIds.includes(establishmentId) &&
+          user.assignment.EstablecimientoIds.includes(EstablecimientoId) &&
           user.status === 'ACTIVE',
       ),
     [users],
@@ -457,7 +457,7 @@ export function useUsers(): UseUsersReturn {
         code: user.code,
         fullName: user.personalInfo.fullName,
         position: user.assignment.position,
-        establishment: `Establecimiento ${user.assignment.establishmentId}`, // In real app, get name
+        Establecimiento: `Establecimiento ${user.assignment.EstablecimientoId}`, // In real app, get name
         status: user.status,
         lastLogin: user.systemAccess.lastLogin,
         avatar: user.avatar,
@@ -919,7 +919,7 @@ export function useUsers(): UseUsersReturn {
       inactive: 0,
       suspended: 0,
       terminated: 0,
-      byEstablishment: {} as Record<string, number>,
+      byEstablecimiento: {} as Record<string, number>,
       byRole: {} as Record<string, number>,
     };
 
@@ -939,10 +939,10 @@ export function useUsers(): UseUsersReturn {
           break;
       }
 
-      // By establishment
-      const establishment = user.assignment.establishmentId;
-      stats.byEstablishment[establishment] =
-        (stats.byEstablishment[establishment] || 0) + 1;
+      // By Establecimiento
+      const Establecimiento = user.assignment.EstablecimientoId;
+      stats.byEstablecimiento[Establecimiento] =
+        (stats.byEstablecimiento[Establecimiento] || 0) + 1;
 
       // By role
       user.systemAccess.roleIds.forEach(roleId => {
@@ -974,7 +974,7 @@ export function useUsers(): UseUsersReturn {
 
     // Getters
     getUser,
-    getUsersByEstablishment,
+    getUsersByEstablecimiento,
     getUsersByRole,
     getActiveUsers,
     getUserSummaries,

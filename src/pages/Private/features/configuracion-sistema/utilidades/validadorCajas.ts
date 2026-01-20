@@ -34,7 +34,7 @@ export function validateNombre(nombre: string): ValidationError | null {
 }
 
 /**
- * Validates nombre uniqueness within an establishment
+ * Validates nombre uniqueness within an Establecimiento
  */
 export function validateNombreUniqueness(
   nombre: string, 
@@ -69,7 +69,7 @@ export function validateMoneda(monedaId: string): ValidationError | null {
 }
 
 /**
- * Validates establishment selection
+ * Validates Establecimiento selection
  */
 export function validateEstablecimiento(establecimientoId: string): ValidationError | null {
   if (!establecimientoId || establecimientoId.trim().length === 0) {

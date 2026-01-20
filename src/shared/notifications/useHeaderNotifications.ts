@@ -44,7 +44,7 @@ const mapSunatNotifications = (comprobantes: readonly { id: string; type: string
 const mapStockNotifications = (
   products: readonly Product[],
   almacenes: readonly Almacen[],
-  currentEstablishmentId?: string,
+  currentEstablecimientoId?: string,
 ): HeaderNotification[] => {
   if (!almacenes.length || !products.length) {
     return [];
@@ -58,8 +58,8 @@ const mapStockNotifications = (
 
   const alerts = InventoryService.generateAlerts(Array.from(products), Array.from(almacenesActivos));
 
-  const filteredAlerts = currentEstablishmentId
-    ? alerts.filter((alert) => alert.establishmentId === currentEstablishmentId)
+  const filteredAlerts = currentEstablecimientoId
+    ? alerts.filter((alert) => alert.EstablecimientoId === currentEstablecimientoId)
     : alerts;
 
   if (!filteredAlerts.length) {
@@ -133,10 +133,10 @@ export const useHeaderNotifications = (): UseHeaderNotificationsResult => {
 
   const scopeKey = useMemo(() => {
     const companyId = session?.currentCompanyId || 'no-company';
-    const establishmentId = session?.currentEstablishmentId || 'no-establishment';
+    const EstablecimientoId = session?.currentEstablecimientoId || 'no-Establecimiento';
     const userId = session?.userId || 'anon';
-    return `${companyId}::${establishmentId}::${userId}`;
-  }, [session?.currentCompanyId, session?.currentEstablishmentId, session?.userId]);
+    return `${companyId}::${EstablecimientoId}::${userId}`;
+  }, [session?.currentCompanyId, session?.currentEstablecimientoId, session?.userId]);
 
   const storageKey = useMemo(
     () => `ff_headerNotifications_readIds:${scopeKey}`,
@@ -192,9 +192,9 @@ export const useHeaderNotifications = (): UseHeaderNotificationsResult => {
       mapStockNotifications(
         allProducts,
         configState.almacenes,
-        session?.currentEstablishmentId,
+        session?.currentEstablecimientoId,
       ),
-    [allProducts, configState.almacenes, session?.currentEstablishmentId],
+    [allProducts, configState.almacenes, session?.currentEstablecimientoId],
   );
 
   const cajaNotifications = useMemo(

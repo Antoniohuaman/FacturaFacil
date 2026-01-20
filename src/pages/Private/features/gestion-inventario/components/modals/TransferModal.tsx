@@ -208,7 +208,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                   <option value="">Seleccionar almacén de origen...</option>
                   {almacenes.map((wh) => (
                     <option key={wh.id} value={wh.id}>
-                      {wh.code} - {wh.name} ({wh.establishmentName})
+                      {wh.code} - {wh.name} ({wh.EstablecimientoName})
                     </option>
                   ))}
                 </select>
@@ -252,7 +252,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                     .filter(wh => wh.id !== almacenOrigenId)
                     .map((wh) => (
                       <option key={wh.id} value={wh.id}>
-                        {wh.code} - {wh.name} ({wh.establishmentName})
+                        {wh.code} - {wh.name} ({wh.EstablecimientoName})
                       </option>
                     ))}
                 </select>

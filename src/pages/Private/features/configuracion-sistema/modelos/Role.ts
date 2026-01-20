@@ -19,8 +19,8 @@ export interface Role {
       maxDiscountPercentage?: number;
       canModifyPrices: boolean;
       canViewReports: boolean;
-      canAccessAllEstablishments: boolean;
-      establishmentIds?: string[];
+      canAccessAllEstablecimientos: boolean;
+      EstablecimientoIds?: string[];
     };
     
     // Inventory module
@@ -58,15 +58,15 @@ export interface Role {
       canViewUserReports: boolean;
       canExportReports: boolean;
       canScheduleReports: boolean;
-      canViewAllEstablishments: boolean;
-      establishmentIds?: string[];
+      canViewAllEstablecimientos: boolean;
+      EstablecimientoIds?: string[];
     };
     
     // Configuration module
     configuration: {
       canView: boolean;
       canEditCompany: boolean;
-      canEditEstablishments: boolean;
+      canEditEstablecimientos: boolean;
       canEditUsers: boolean;
       canEditRoles: boolean;
       canEditTaxes: boolean;
@@ -116,9 +116,9 @@ export interface Role {
       maxDevices: number;
       allowedDeviceTypes: ('desktop' | 'tablet' | 'mobile')[];
     };
-    establishmentRestrictions?: {
-      allowedEstablishments: string[];
-      canSwitchEstablishments: boolean;
+    EstablecimientoRestrictions?: {
+      allowedEstablecimientos: string[];
+      canSwitchEstablecimientos: boolean;
     };
   };
   
@@ -169,7 +169,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canApplyDiscounts: true,
         canModifyPrices: true,
         canViewReports: true,
-        canAccessAllEstablishments: true,
+        canAccessAllEstablecimientos: true,
       },
       inventory: {
         canView: true,
@@ -201,12 +201,12 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canViewUserReports: true,
         canExportReports: true,
         canScheduleReports: true,
-        canViewAllEstablishments: true,
+        canViewAllEstablecimientos: true,
       },
       configuration: {
         canView: true,
         canEditCompany: true,
-        canEditEstablishments: true,
+        canEditEstablecimientos: true,
         canEditUsers: true,
         canEditRoles: true,
         canEditTaxes: true,
@@ -252,7 +252,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         maxDiscountPercentage: 20,
         canModifyPrices: true,
         canViewReports: true,
-        canAccessAllEstablishments: true,
+        canAccessAllEstablecimientos: true,
       },
       inventory: {
         canView: true,
@@ -284,12 +284,12 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canViewUserReports: true,
         canExportReports: true,
         canScheduleReports: true,
-        canViewAllEstablishments: true,
+        canViewAllEstablecimientos: true,
       },
       configuration: {
         canView: true,
         canEditCompany: false,
-        canEditEstablishments: false,
+        canEditEstablecimientos: false,
         canEditUsers: false,
         canEditRoles: false,
         canEditTaxes: false,
@@ -335,7 +335,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         maxDiscountPercentage: 5,
         canModifyPrices: false,
         canViewReports: false,
-        canAccessAllEstablishments: false,
+        canAccessAllEstablecimientos: false,
       },
       inventory: {
         canView: true,
@@ -367,12 +367,12 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
         canViewUserReports: false,
         canExportReports: false,
         canScheduleReports: false,
-        canViewAllEstablishments: false,
+        canViewAllEstablecimientos: false,
       },
       configuration: {
         canView: false,
         canEditCompany: false,
-        canEditEstablishments: false,
+        canEditEstablecimientos: false,
         canEditUsers: false,
         canEditRoles: false,
         canEditTaxes: false,

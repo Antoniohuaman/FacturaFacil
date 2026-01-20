@@ -15,21 +15,21 @@ const ReportsHub: React.FC = () => {
   const {
     dateRange,
     setDateRange,
-    establishmentId,
-    setEstablishmentId
+    EstablecimientoId,
+    setEstablecimientoId
   } = useIndicadoresFilters();
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const [exportingReportId, setExportingReportId] = useState<string | null>(null);
 
-  const establishmentOptions = useMemo(() => {
-    const activos = configState.establishments.filter((est) => est.isActive !== false);
+  const EstablecimientoOptions = useMemo(() => {
+    const activos = configState.Establecimientos.filter((est) => est.isActive !== false);
     return [
       { value: "Todos", label: "Todos los establecimientos" },
       ...activos.map((est) => ({ value: est.id, label: `${est.code ?? est.id} - ${est.name}` }))
     ];
-  }, [configState.establishments]);
+  }, [configState.Establecimientos]);
 
   const normalizedSearch = search.trim().toLowerCase();
 
@@ -77,10 +77,10 @@ const ReportsHub: React.FC = () => {
     } else {
       params.delete("to");
     }
-    if (establishmentId && establishmentId !== "Todos") {
-      params.set("establishmentId", establishmentId);
+    if (EstablecimientoId && EstablecimientoId !== "Todos") {
+      params.set("EstablecimientoId", EstablecimientoId);
     } else {
-      params.delete("establishmentId");
+      params.delete("EstablecimientoId");
     }
 
     const hubReturnPath = location.pathname.startsWith("/indicadores")
@@ -102,11 +102,11 @@ const ReportsHub: React.FC = () => {
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400">Establecimiento</p>
             <select
-              value={establishmentId}
-              onChange={(event) => setEstablishmentId(event.target.value)}
+              value={EstablecimientoId}
+              onChange={(event) => setEstablecimientoId(event.target.value)}
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             >
-              {establishmentOptions.map((option) => (
+              {EstablecimientoOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

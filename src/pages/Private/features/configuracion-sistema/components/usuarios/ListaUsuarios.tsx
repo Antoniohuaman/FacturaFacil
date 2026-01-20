@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../../modelos/User';
 import type { Role } from '../../modelos/Role';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 import { UserCard } from './TarjetaUsuario';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
 
@@ -26,12 +26,12 @@ type SortOrder = 'asc' | 'desc';
 interface UsersListProps {
   users: User[];
   roles: Role[];
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
   onEdit: (user: User) => void;
   onDelete: (user: User) => void;
   onChangeStatus: (user: User, status: UserStatus, reason?: string) => void;
   onAssignRole: (user: User) => void;
-  onRemoveRole: (user: User, establishmentId: string) => void;
+  onRemoveRole: (user: User, EstablecimientoId: string) => void;
   onCreate: () => void;
   isLoading?: boolean;
 }
@@ -39,7 +39,7 @@ interface UsersListProps {
 export function UsersList({
   users,
   roles,
-  establishments,
+  Establecimientos,
   onEdit,
   onDelete,
   onChangeStatus,
@@ -50,7 +50,7 @@ export function UsersList({
 }: UsersListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
-  const [filterEstablishment, setFilterEstablishment] = useState('ALL');
+  const [filterEstablecimiento, setFilterEstablecimiento] = useState('ALL');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -65,10 +65,10 @@ export function UsersList({
       
       const matchesStatus = filterStatus === 'ALL' || user.status === filterStatus;
       
-      const matchesEstablishment = filterEstablishment === 'ALL' || 
-                                   user.assignment.establishmentIds.includes(filterEstablishment);
+      const matchesEstablecimiento = filterEstablecimiento === 'ALL' || 
+                                   user.assignment.EstablecimientoIds.includes(filterEstablecimiento);
       
-      return matchesSearch && matchesStatus && matchesEstablishment;
+      return matchesSearch && matchesStatus && matchesEstablecimiento;
     })
     .sort((a, b) => {
       let comparison = 0;
@@ -87,7 +87,7 @@ export function UsersList({
           comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case 'roles':
-          comparison = a.assignment.establishmentIds.length - b.assignment.establishmentIds.length;
+          comparison = a.assignment.EstablecimientoIds.length - b.assignment.EstablecimientoIds.length;
           break;
       }
       
@@ -135,8 +135,8 @@ export function UsersList({
 
 
 
-  const getEstablishmentName = (establishmentId: string) => {
-    return establishments.find(est => est.id === establishmentId)?.name || 'Establecimiento no encontrado';
+  const getEstablecimientoName = (EstablecimientoId: string) => {
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.name || 'Establecimiento no encontrado';
   };
 
   const handleSort = (field: SortField) => {
@@ -151,7 +151,7 @@ export function UsersList({
   const clearFilters = () => {
     setSearchTerm('');
     setFilterStatus('ALL');
-    setFilterEstablishment('ALL');
+    setFilterEstablecimiento('ALL');
   };
 
   const stats = getUserStats();
@@ -262,14 +262,14 @@ export function UsersList({
             <option value="INACTIVE">Solo inactivos</option>
           </select>
           
-          {/* Establishment Filter */}
+          {/* Establecimiento Filter */}
           <select
-            value={filterEstablishment}
-            onChange={(e) => setFilterEstablishment(e.target.value)}
+            value={filterEstablecimiento}
+            onChange={(e) => setFilterEstablecimiento(e.target.value)}
             className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="ALL">Todos los establecimientos</option>
-            {establishments.map(est => (
+            {Establecimientos.map(est => (
               <option key={est.id} value={est.id}>
                 {est.code} - {est.name}
               </option>
@@ -306,7 +306,7 @@ export function UsersList({
       </div>
 
       {/* Active Filters */}
-      {(searchTerm || filterStatus !== 'ALL' || filterEstablishment !== 'ALL') && (
+      {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL') && (
         <div className="flex items-center space-x-2 text-sm">
           <span className="text-gray-600">Filtros activos:</span>
           {searchTerm && (
@@ -319,9 +319,9 @@ export function UsersList({
               Estado: {getStatusConfig(filterStatus).label}
             </span>
           )}
-          {filterEstablishment !== 'ALL' && (
+          {filterEstablecimiento !== 'ALL' && (
             <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded">
-              Establecimiento: {getEstablishmentName(filterEstablishment)}
+              Establecimiento: {getEstablecimientoName(filterEstablecimiento)}
             </span>
           )}
           <button
@@ -369,18 +369,18 @@ export function UsersList({
         <div className="text-center py-12">
           <div className="text-6xl mb-4">👥</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {(searchTerm || filterStatus !== 'ALL' || filterEstablishment !== 'ALL')
+              {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL')
                 ? 'No se encontraron usuarios'
                 : 'No hay usuarios'
             }
           </h3>
           <p className="text-gray-500 mb-6">
-              {(searchTerm || filterStatus !== 'ALL' || filterEstablishment !== 'ALL')
+              {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL')
                 ? 'Intenta ajustar los filtros de búsqueda'
                 : 'Invita a tu primer usuario para comenzar'
             }
           </p>
-          {(!searchTerm && filterStatus === 'ALL' && filterEstablishment === 'ALL') && (
+          {(!searchTerm && filterStatus === 'ALL' && filterEstablecimiento === 'ALL') && (
             <button
               onClick={onCreate}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -397,12 +397,12 @@ export function UsersList({
               key={user.id}
               user={user}
               roles={roles}
-              establishments={establishments}
+              Establecimientos={Establecimientos}
               onEdit={() => onEdit(user)}
               onDelete={() => onDelete(user)}
               onChangeStatus={(status, reason) => onChangeStatus(user, status, reason)}
               onAssignRole={() => onAssignRole(user)}
-              onRemoveRole={(establishmentId) => onRemoveRole(user, establishmentId)}
+              onRemoveRole={(EstablecimientoId) => onRemoveRole(user, EstablecimientoId)}
             />
           ))}
         </div>
@@ -482,12 +482,12 @@ export function UsersList({
                       </td>
                       <td className="py-4 px-4">
                         <div className="space-y-1">
-                          {user.assignment.establishmentIds.length === 0 ? (
+                          {user.assignment.EstablecimientoIds.length === 0 ? (
                             <span className="text-sm text-gray-500 italic">Sin roles</span>
                           ) : (
-                            user.assignment.establishmentIds.map((establishmentId: string, index: number) => (
+                            user.assignment.EstablecimientoIds.map((EstablecimientoId: string, index: number) => (
                               <div key={index} className="text-xs">
-                                <span className="font-medium">{getEstablishmentName(establishmentId)}</span>
+                                <span className="font-medium">{getEstablecimientoName(EstablecimientoId)}</span>
                                 <span className="text-gray-500"> → </span>
                                 <span className="text-blue-600">{user.systemAccess.roles[0]?.name || 'Sin rol'}</span>
                               </div>

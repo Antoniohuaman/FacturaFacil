@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Shield } from 'lucide-react';
 import type { User as UserModel } from '../../modelos/User';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 
 interface UserFormData {
   fullName: string;
@@ -13,14 +13,14 @@ interface UserFormData {
   phone: string;
   documentType: 'DNI' | 'CE' | 'PASSPORT' | '';
   documentNumber: string;
-  establishmentIds: string[];
+  EstablecimientoIds: string[];
   password: string;
   requirePasswordChange: boolean;
 }
 
 interface UserFormProps {
   user?: UserModel;
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
   existingEmails: string[];
   onSubmit: (data: UserFormData) => Promise<void>;
   onCancel: () => void;
@@ -82,7 +82,7 @@ const calculatePasswordStrength = (password: string): { score: number; label: st
 
 export function UserForm({
   user,
-  establishments,
+  Establecimientos,
   existingEmails,
   onSubmit,
   onCancel,
@@ -94,7 +94,7 @@ export function UserForm({
     phone: '',
     documentType: '',
     documentNumber: '',
-    establishmentIds: [],
+    EstablecimientoIds: [],
     password: generateSecurePassword(),
     requirePasswordChange: true
   });
@@ -113,7 +113,7 @@ export function UserForm({
         phone: user.personalInfo.phone || '',
         documentType: user.personalInfo.documentType || '',
         documentNumber: user.personalInfo.documentNumber || '',
-        establishmentIds: user.assignment.establishmentIds,
+        EstablecimientoIds: user.assignment.EstablecimientoIds,
         password: '', // Don't show password when editing
         requirePasswordChange: false
       });
@@ -177,7 +177,7 @@ export function UserForm({
         }
         break;
 
-      case 'establishmentIds':
+      case 'EstablecimientoIds':
         if (!value || value.length === 0) {
           return 'Debes seleccionar al menos un establecimiento';
         }
@@ -225,8 +225,8 @@ export function UserForm({
 
   const isFormValid = () => {
     const requiredFields = user
-      ? ['fullName', 'email', 'establishmentIds']
-      : ['fullName', 'email', 'establishmentIds', 'password'];
+      ? ['fullName', 'email', 'EstablecimientoIds']
+      : ['fullName', 'email', 'EstablecimientoIds', 'password'];
 
     // Check required fields
     for (const field of requiredFields) {
@@ -252,8 +252,8 @@ export function UserForm({
     // Validate all fields
     const newErrors: Record<string, string> = {};
     const fieldsToValidate = user
-      ? ['fullName', 'email', 'phone', 'documentNumber', 'establishmentIds']
-      : ['fullName', 'email', 'phone', 'documentNumber', 'establishmentIds', 'password'];
+      ? ['fullName', 'email', 'phone', 'documentNumber', 'EstablecimientoIds']
+      : ['fullName', 'email', 'phone', 'documentNumber', 'EstablecimientoIds', 'password'];
 
     fieldsToValidate.forEach(field => {
       const error = validateField(field, formData[field as keyof UserFormData]);
@@ -274,13 +274,13 @@ export function UserForm({
     return documentTypes.find(dt => dt.value === formData.documentType);
   };
 
-  const handleEstablishmentToggle = (establishmentId: string) => {
-    const currentIds = formData.establishmentIds;
-    const newIds = currentIds.includes(establishmentId)
-      ? currentIds.filter(id => id !== establishmentId)
-      : [...currentIds, establishmentId];
+  const handleEstablecimientoToggle = (EstablecimientoId: string) => {
+    const currentIds = formData.EstablecimientoIds;
+    const newIds = currentIds.includes(EstablecimientoId)
+      ? currentIds.filter(id => id !== EstablecimientoId)
+      : [...currentIds, EstablecimientoId];
 
-    handleFieldChange('establishmentIds', newIds);
+    handleFieldChange('EstablecimientoIds', newIds);
   };
 
   const handleGeneratePassword = () => {
@@ -489,7 +489,7 @@ export function UserForm({
             </div>
           </div>
 
-          {/* Establishments */}
+          {/* Establecimientos */}
           <div className="space-y-4">
             <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
               <Building2 className="w-4 h-4" />
@@ -501,29 +501,29 @@ export function UserForm({
             </p>
 
             <div className="space-y-2">
-              {establishments.length > 0 ? (
-                establishments.map((establishment) => (
+              {Establecimientos.length > 0 ? (
+                Establecimientos.map((Establecimiento) => (
                   <label
-                    key={establishment.id}
+                    key={Establecimiento.id}
                     className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      formData.establishmentIds.includes(establishment.id)
+                      formData.EstablecimientoIds.includes(Establecimiento.id)
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <input
                       type="checkbox"
-                      checked={formData.establishmentIds.includes(establishment.id)}
-                      onChange={() => handleEstablishmentToggle(establishment.id)}
+                      checked={formData.EstablecimientoIds.includes(Establecimiento.id)}
+                      onChange={() => handleEstablecimientoToggle(Establecimiento.id)}
                       className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       disabled={isLoading}
                     />
                     <div className="ml-3 flex-1">
                       <div className="font-medium text-gray-900">
-                        {establishment.name}
+                        {Establecimiento.name}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {establishment.address}
+                        {Establecimiento.address}
                       </div>
                     </div>
                   </label>
@@ -536,10 +536,10 @@ export function UserForm({
               )}
             </div>
 
-            {errors.establishmentIds && touchedFields.has('establishmentIds') && (
+            {errors.EstablecimientoIds && touchedFields.has('EstablecimientoIds') && (
               <p className="text-sm text-red-600 mt-2 flex items-center space-x-1">
                 <AlertCircle className="w-4 h-4" />
-                <span>{errors.establishmentIds}</span>
+                <span>{errors.EstablecimientoIds}</span>
               </p>
             )}
           </div>

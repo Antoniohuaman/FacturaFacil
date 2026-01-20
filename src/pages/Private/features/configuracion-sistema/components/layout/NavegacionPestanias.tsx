@@ -38,7 +38,7 @@ export function TabNavigation() {
       description: 'Datos legales y tributarios'
     },
     {
-      id: 'establishments',
+      id: 'Establecimientos',
       label: 'Establecimientos',
       icon: MapPin,
       path: '/configuracion/establecimientos',

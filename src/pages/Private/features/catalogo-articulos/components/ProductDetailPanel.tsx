@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { DetailPane } from '@/components/layouts/MasterDetail';
 import type { Product } from '../models/types';
-import type { Establishment } from '../../configuracion-sistema/modelos/Establishment';
+import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
 import type { Unit } from '../../configuracion-sistema/modelos/Unit';
 
 const UNIT_TYPE_LABELS: Record<string, string> = {
@@ -28,7 +28,7 @@ const dateFormatter = new Intl.DateTimeFormat('es-PE', {
 
 type ProductDetailPanelProps = {
   product: Product;
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
   units: Unit[];
   onEdit: (product: Product) => void;
   onClose: () => void;
@@ -142,33 +142,33 @@ function renderRecordList(
 
 const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
   product,
-  establishments,
+  Establecimientos,
   units,
   onEdit,
   onClose
 }) => {
-  const establishmentsById = useMemo(() => {
-    const map = new Map<string, Establishment>();
-    establishments.forEach((est) => map.set(est.id, est));
+  const EstablecimientosById = useMemo(() => {
+    const map = new Map<string, Establecimiento>();
+    Establecimientos.forEach((est) => map.set(est.id, est));
     return map;
-  }, [establishments]);
+  }, [Establecimientos]);
 
   const subtitleValue = [product.codigo, getUnitLabel(units, product.unidad)].filter(Boolean).join(' • ');
   const additionalUnits = product.unidadesMedidaAdicionales ?? [];
-  const enabledEstablishmentIds = product.disponibleEnTodos
-    ? establishments.filter(est => est.isActive).map(est => est.id)
+  const enabledEstablecimientoIds = product.disponibleEnTodos
+    ? Establecimientos.filter(est => est.isActive).map(est => est.id)
     : (product.establecimientoIds ?? []);
 
-  const establishmentBadges = enabledEstablishmentIds
+  const EstablecimientoBadges = enabledEstablecimientoIds
     .map((id) => {
-      const est = establishmentsById.get(id);
+      const est = EstablecimientosById.get(id);
       return est ? `${est.code} · ${est.name}` : id;
     })
     .filter(Boolean);
 
-  const stockByEstablishmentList = renderRecordList(
+  const stockByEstablecimientoList = renderRecordList(
     product.stockPorEstablecimiento,
-    (key) => establishmentsById.get(key)?.name ?? key,
+    (key) => EstablecimientosById.get(key)?.name ?? key,
     'Stock por establecimiento'
   );
 
@@ -287,9 +287,9 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
     {
       label: 'Habilitado en',
       value:
-        establishmentBadges.length > 0 ? (
+        EstablecimientoBadges.length > 0 ? (
           <div className="flex flex-wrap gap-2">
-            {establishmentBadges.map((badge) => (
+            {EstablecimientoBadges.map((badge) => (
               <span
                 key={badge}
                 className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -350,7 +350,7 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
         {pricingSection}
         {unitsSection}
         {availabilitySection}
-        {stockByEstablishmentList}
+        {stockByEstablecimientoList}
         {stockByalmacenList}
         {reservedStockList}
         {minStockList}

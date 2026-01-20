@@ -8,13 +8,13 @@ import {
   AlertTriangle, Play, NotebookPen
 } from 'lucide-react';
 import type { Series } from '../../modelos/Series';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
 import { DefaultSelector } from '../comunes/SelectorPredeterminado';
 
 interface SeriesCardProps {
   series: Series;
-  establishment: Establishment;
+  Establecimiento: Establecimiento;
   onEdit: () => void;
   onDelete: () => void;
   onToggleStatus: () => void;
@@ -92,7 +92,7 @@ const voucherTypeConfig = {
 
 export function SeriesCard({
   series,
-  establishment: _establishment, // Disponible para funcionalidad futura
+  Establecimiento: _Establecimiento, // Disponible para funcionalidad futura
   onEdit,
   onDelete, 
   onToggleStatus,

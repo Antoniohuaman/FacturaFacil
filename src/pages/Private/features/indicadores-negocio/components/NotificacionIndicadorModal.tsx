@@ -13,7 +13,7 @@ interface NotificacionIndicadorModalProps {
   open: boolean;
   onClose: () => void;
   companyName?: string;
-  establishments: SelectOption[];
+  Establecimientos: SelectOption[];
   currencies: SelectOption[];
   createPayload: () => NotificacionIndicadorPayload;
   notificationsState: UseNotificacionesIndicadorResult;
@@ -47,7 +47,7 @@ export const NotificacionIndicadorModal: React.FC<NotificacionIndicadorModalProp
   open,
   onClose,
   companyName,
-  establishments,
+  Establecimientos,
   currencies,
   createPayload,
   notificationsState
@@ -248,7 +248,7 @@ export const NotificacionIndicadorModal: React.FC<NotificacionIndicadorModalProp
             initialValue={formValue}
             isSaving={isSaving}
             generalError={formError}
-            establishments={establishments}
+            Establecimientos={Establecimientos}
             currencies={currencies}
             companyName={companyName}
             onSubmit={handleSubmit}

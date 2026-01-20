@@ -52,9 +52,9 @@ export interface MovimientoStock {
   almacenCodigo: string;
   almacenNombre: string;
   // Datos del establecimiento (desnormalizados para referencia)
-  establishmentId: string;
-  establishmentCodigo: string;
-  establishmentNombre: string;
+  EstablecimientoId: string;
+  EstablecimientoCodigo: string;
+  EstablecimientoNombre: string;
   // Campos para transferencias entre almacenes
   esTransferencia?: boolean;
   transferenciaId?: string; // ID único que vincula origen y destino
@@ -97,9 +97,9 @@ export interface StockAlert {
   almacenCodigo: string;
   almacenNombre: string;
   // Datos del establecimiento (desnormalizados para referencia)
-  establishmentId: string;
-  establishmentCodigo: string;
-  establishmentNombre: string;
+  EstablecimientoId: string;
+  EstablecimientoCodigo: string;
+  EstablecimientoNombre: string;
   faltante?: number; // Cantidad que falta para llegar al mínimo
   excedente?: number; // Cantidad que sobra del máximo
 }

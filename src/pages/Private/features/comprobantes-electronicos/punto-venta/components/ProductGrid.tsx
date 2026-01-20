@@ -8,7 +8,7 @@ import type { Product, CartItem, Currency } from '../../models/comprobante.types
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { useFeedback } from '../../../../../../shared/feedback';
-import { useCurrentEstablishmentId } from '../../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
 
 // Importar el modal REAL de productos del catálogo
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
@@ -112,7 +112,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 }) => {
   const { formatPrice } = useCurrency();
   const { addProduct, categories: catalogoCategories } = useProductStore();
-  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
   
   const {
     searchQuery,
@@ -126,7 +126,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     setSearchQuery,
     searchByCategory,
     clearSearch
-  } = useProductSearch({ establishmentId: currentEstablishmentId });
+  } = useProductSearch({ EstablecimientoId: currentEstablecimientoId });
 
   const { warning: showWarningToast } = useFeedback();
 

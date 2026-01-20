@@ -31,7 +31,7 @@ const ImportPage: React.FC = () => {
         importType,
         allProducts,
         configState.units.filter(u => u.isActive && u.isVisible !== false),
-        configState.establishments.filter(e => e.isActive),
+        configState.Establecimientos.filter(e => e.isActive),
         categories
       );
 

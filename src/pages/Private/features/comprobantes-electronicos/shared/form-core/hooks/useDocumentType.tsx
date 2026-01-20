@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
-import { useCurrentEstablishmentId } from '../../../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId } from '../../../../../../../contexts/UserSessionContext';
 import type { TipoComprobante } from '../../../models/comprobante.types';
 
 export interface UseDocumentTypeReturn {
@@ -29,7 +29,7 @@ export interface UseDocumentTypeReturn {
 export const useDocumentType = (): UseDocumentTypeReturn => {
   const location = useLocation();
   const { state } = useConfigurationContext();
-  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
 
   // ===================================================================
   // SERIES DINÁMICAS DESDE CONFIGURACIÓN
@@ -53,15 +53,15 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
         .filter(s => {
           const isActive = s.isActive && s.status === 'ACTIVE';
           // Si hay establecimiento seleccionado, filtrar por ese establecimiento
-          const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
-          return isActive && belongsToEstablishment;
+          const belongsToEstablecimiento = !currentEstablecimientoId || s.EstablecimientoId === currentEstablecimientoId;
+          return isActive && belongsToEstablecimiento;
         })
         .map(s => s.series);
     }
 
     // Si hay empresa pero no hay series, retornar vacío (no usar fallback)
     return [];
-  }, [state.series, state.company, currentEstablishmentId]);
+  }, [state.series, state.company, currentEstablecimientoId]);
   
   // ===================================================================
   // FUNCIONES DE UTILIDAD
@@ -82,8 +82,8 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
             const isActive = s.isActive && s.status === 'ACTIVE';
             const isCorrectType = s.documentType.code === '03';
             // Filtrar por establecimiento
-            const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
-            return isActive && isCorrectType && belongsToEstablishment;
+            const belongsToEstablecimiento = !currentEstablecimientoId || s.EstablecimientoId === currentEstablecimientoId;
+            return isActive && isCorrectType && belongsToEstablecimiento;
           })
           .map(s => s.series);
       }
@@ -95,14 +95,14 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
             const isActive = s.isActive && s.status === 'ACTIVE';
             const isCorrectType = s.documentType.code === '01';
             // Filtrar por establecimiento
-            const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
-            return isActive && isCorrectType && belongsToEstablishment;
+            const belongsToEstablecimiento = !currentEstablecimientoId || s.EstablecimientoId === currentEstablecimientoId;
+            return isActive && isCorrectType && belongsToEstablecimiento;
           })
           .map(s => s.series);
       }
       return availableSeries.filter(s => s.startsWith('F'));
     }
-  }, [state.series, availableSeries, currentEstablishmentId]);
+  }, [state.series, availableSeries, currentEstablecimientoId]);
 
   /**
    * Obtener serie por defecto para un tipo específico
@@ -192,7 +192,7 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
    * Si la serie actual no está disponible en el nuevo establecimiento, selecciona la primera disponible
    */
   useEffect(() => {
-    if (!currentEstablishmentId) return;
+    if (!currentEstablecimientoId) return;
 
     // Verificar si la serie actual sigue siendo válida para este establecimiento
     const seriesDisponibles = getSeriesParaTipo(tipoComprobante);
@@ -202,7 +202,7 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
       const nuevaSerie = seriesDisponibles[0] || '';
       setSerieSeleccionadaState(nuevaSerie);
     }
-  }, [currentEstablishmentId, tipoComprobante, getSeriesParaTipo, serieSeleccionada]);
+  }, [currentEstablecimientoId, tipoComprobante, getSeriesParaTipo, serieSeleccionada]);
 
   // ===================================================================
   // VALORES CALCULADOS

@@ -59,7 +59,7 @@ interface VoucherSampleData {
   };
   additional: {
     user?: string;
-    establishment?: string;
+    Establecimiento?: string;
     terminal?: string;
     notes?: string;
     qrCode?: string;
@@ -129,7 +129,7 @@ const DATOS_MUESTRA_PREDETERMINADOS: VoucherSampleData = {
   },
   additional: {
     user: 'JUAN PÉREZ VENDEDOR',
-    establishment: 'SUCURSAL PRINCIPAL',
+    Establecimiento: 'SUCURSAL PRINCIPAL',
     terminal: 'TERMINAL 001',
     notes: 'Gracias por su compra. Vuelva pronto.',
     qrCode: 'https://efact.sunat.gob.pe/qr?ruc=20123456789&tipo=03&serie=B001&numero=123',

@@ -616,7 +616,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
-                                  {wh.establishmentName || 'Sin establecimiento'}
+                                  {wh.EstablecimientoName || 'Sin establecimiento'}
                                 </p>
                               </div>
                               {isSelected && (
@@ -870,7 +870,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
-                                  {wh.establishmentName || 'Sin establecimiento'}
+                                  {wh.EstablecimientoName || 'Sin establecimiento'}
                                 </p>
                               </div>
                               {isSelected && (

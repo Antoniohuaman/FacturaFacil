@@ -2,7 +2,7 @@
 // src/contexts/UserSessionContext.tsx
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import type { Establishment } from '../pages/Private/features/configuracion-sistema/modelos/Establishment';
+import type { Establecimiento } from '../pages/Private/features/configuracion-sistema/modelos/Establecimiento';
 import type { Company } from '../pages/Private/features/configuracion-sistema/modelos/Company';
 
 /**
@@ -22,11 +22,11 @@ interface UserSession {
   // Empresa y establecimiento activos
   currentCompanyId: string;
   currentCompany: Company | null;
-  currentEstablishmentId: string;
-  currentEstablishment: Establishment | null;
+  currentEstablecimientoId: string;
+  currentEstablecimiento: Establecimiento | null;
 
   // Establecimientos disponibles para el usuario
-  availableEstablishments: Establishment[];
+  availableEstablecimientos: Establecimiento[];
 
   // Permisos y configuración
   permissions: string[];
@@ -40,14 +40,14 @@ interface UserSessionContextValue {
 
   // Acciones
   setSession: (session: UserSession) => void;
-  setCurrentEstablishment: (establishmentId: string, establishment: Establishment) => void;
+  setCurrentEstablecimiento: (EstablecimientoId: string, Establecimiento: Establecimiento) => void;
   setCurrentCompany: (companyId: string, company: Company) => void;
-  updateAvailableEstablishments: (establishments: Establishment[]) => void;
+  updateAvailableEstablecimientos: (Establecimientos: Establecimiento[]) => void;
   clearSession: () => void;
 
   // Helpers
   hasPermission: (permission: string) => boolean;
-  getEstablishmentById: (id: string) => Establishment | undefined;
+  getEstablecimientoById: (id: string) => Establecimiento | undefined;
 }
 
 const UserSessionContext = createContext<UserSessionContextValue | undefined>(undefined);
@@ -56,7 +56,7 @@ const SESSION_STORAGE_KEY = 'facturafacil_user_session';
 
 type GlobalUserSession = {
   currentCompanyId?: string;
-  currentEstablishmentId?: string;
+  currentEstablecimientoId?: string;
 };
 
 const syncGlobalSession = (session: UserSession | null) => {
@@ -67,7 +67,7 @@ const syncGlobalSession = (session: UserSession | null) => {
   if (session) {
     globalAny.__USER_SESSION__ = {
       currentCompanyId: session.currentCompanyId,
-      currentEstablishmentId: session.currentEstablishmentId,
+      currentEstablecimientoId: session.currentEstablecimientoId,
     };
   } else if (globalAny.__USER_SESSION__) {
     delete globalAny.__USER_SESSION__;
@@ -128,13 +128,13 @@ export function UserSessionProvider({ children }: UserSessionProviderProps) {
     setSessionState(newSession);
   }, []);
 
-  const setCurrentEstablishment = useCallback((establishmentId: string, establishment: Establishment) => {
+  const setCurrentEstablecimiento = useCallback((EstablecimientoId: string, Establecimiento: Establecimiento) => {
     setSessionState(prev => {
       if (!prev) return null;
       return {
         ...prev,
-        currentEstablishmentId: establishmentId,
-        currentEstablishment: establishment,
+        currentEstablecimientoId: EstablecimientoId,
+        currentEstablecimiento: Establecimiento,
       };
     });
   }, []);
@@ -150,12 +150,12 @@ export function UserSessionProvider({ children }: UserSessionProviderProps) {
     });
   }, []);
 
-  const updateAvailableEstablishments = useCallback((establishments: Establishment[]) => {
+  const updateAvailableEstablecimientos = useCallback((Establecimientos: Establecimiento[]) => {
     setSessionState(prev => {
       if (!prev) return null;
       return {
         ...prev,
-        availableEstablishments: establishments,
+        availableEstablecimientos: Establecimientos,
       };
     });
   }, []);
@@ -170,9 +170,9 @@ export function UserSessionProvider({ children }: UserSessionProviderProps) {
     return session.permissions.includes(permission) || session.permissions.includes('*');
   }, [session]);
 
-  const getEstablishmentById = useCallback((id: string): Establishment | undefined => {
+  const getEstablecimientoById = useCallback((id: string): Establecimiento | undefined => {
     if (!session) return undefined;
-    return session.availableEstablishments.find(est => est.id === id);
+    return session.availableEstablecimientos.find(est => est.id === id);
   }, [session]);
 
   const value: UserSessionContextValue = {
@@ -180,12 +180,12 @@ export function UserSessionProvider({ children }: UserSessionProviderProps) {
     isAuthenticated: !!session,
     loading,
     setSession,
-    setCurrentEstablishment,
+    setCurrentEstablecimiento,
     setCurrentCompany,
-    updateAvailableEstablishments,
+    updateAvailableEstablecimientos,
     clearSession,
     hasPermission,
-    getEstablishmentById,
+    getEstablecimientoById,
   };
 
   return (
@@ -211,9 +211,9 @@ export function useUserSession() {
  * Hook auxiliar para obtener el establecimiento actual
  * Retorna null si no hay sesión activa
  */
-export function useCurrentEstablishment(): Establishment | null {
+export function useCurrentEstablecimiento(): Establecimiento | null {
   const { session } = useUserSession();
-  return session?.currentEstablishment || null;
+  return session?.currentEstablecimiento || null;
 }
 
 /**
@@ -229,9 +229,9 @@ export function useCurrentCompany(): Company | null {
  * Hook auxiliar para obtener el ID del establecimiento actual
  * Retorna string vacío si no hay sesión activa
  */
-export function useCurrentEstablishmentId(): string {
+export function useCurrentEstablecimientoId(): string {
   const { session } = useUserSession();
-  return session?.currentEstablishmentId || '';
+  return session?.currentEstablecimientoId || '';
 }
 
 /**

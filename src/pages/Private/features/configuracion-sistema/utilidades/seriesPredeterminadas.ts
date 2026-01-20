@@ -58,13 +58,13 @@ const generateInitialSeriesCode = (documentType: DocumentType): string => {
 };
 
 export interface BuildMissingDefaultSeriesParams {
-  establishmentId: string;
+  EstablecimientoId: string;
   environmentType: "TESTING" | "PRODUCTION";
   existingSeries: Series[];
 }
 
 export const buildMissingDefaultSeries = ({
-  establishmentId,
+  EstablecimientoId,
   environmentType,
   existingSeries,
 }: BuildMissingDefaultSeriesParams): Series[] => {
@@ -77,7 +77,7 @@ export const buildMissingDefaultSeries = ({
 
     const alreadyHasSeriesForType = existingSeries.some(
       (series) =>
-        series.establishmentId === establishmentId &&
+        series.EstablecimientoId === EstablecimientoId &&
         series.documentType.code === documentType.code,
     );
 
@@ -100,11 +100,11 @@ export const buildMissingDefaultSeries = ({
     const requireCustomer = documentType.properties.requiresCustomerName;
 
     // Más robusto para futuro (si mañana agregas FE02/BE02, etc.)
-    const id = `series-${documentType.code.toLowerCase()}-${seriesCode.toLowerCase()}-${establishmentId}`;
+    const id = `series-${documentType.code.toLowerCase()}-${seriesCode.toLowerCase()}-${EstablecimientoId}`;
 
     const seed: Series = {
       id,
-      establishmentId,
+      EstablecimientoId,
       documentType,
       series: seriesCode,
       correlativeNumber: 1,

@@ -228,9 +228,9 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
                             </span>
                           )}
                         </div>
-                        {movimiento.establishmentNombre && (
+                        {movimiento.EstablecimientoNombre && (
                           <span className="text-xs text-[#4B5563] dark:text-gray-400">
-                            Est: {movimiento.establishmentNombre}
+                            Est: {movimiento.EstablecimientoNombre}
                           </span>
                         )}
                       </div>

@@ -28,7 +28,7 @@ interface UserFormData {
   phone: string;
   documentType: 'DNI' | 'CE' | 'PASSPORT' | '';
   documentNumber: string;
-  establishmentIds: string[];
+  EstablecimientoIds: string[];
   password: string;
   requirePasswordChange: boolean;
 }
@@ -36,7 +36,7 @@ interface UserFormData {
 export function UsersConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { users, establishments } = state;
+  const { users, Establecimientos } = state;
 
   const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
   const [showUserForm, setShowUserForm] = useState(false);
@@ -100,9 +100,9 @@ export function UsersConfiguration() {
           },
           assignment: {
             ...editingUser.assignment,
-            establishmentIds: data.establishmentIds.length > 0
-              ? data.establishmentIds
-              : [editingUser.assignment.establishmentId],
+            EstablecimientoIds: data.EstablecimientoIds.length > 0
+              ? data.EstablecimientoIds
+              : [editingUser.assignment.EstablecimientoId],
           },
           updatedAt: new Date(),
         };
@@ -125,10 +125,10 @@ export function UsersConfiguration() {
           assignment: {
             position: 'Usuario', // Default position
             department: 'General', // Default department
-            establishmentId: data.establishmentIds[0] || establishments[0]?.id || 'est-1',
-            establishmentIds: data.establishmentIds.length > 0
-              ? data.establishmentIds
-              : [establishments[0]?.id || 'est-1'],
+            EstablecimientoId: data.EstablecimientoIds[0] || Establecimientos[0]?.id || 'est-1',
+            EstablecimientoIds: data.EstablecimientoIds.length > 0
+              ? data.EstablecimientoIds
+              : [Establecimientos[0]?.id || 'est-1'],
             hireDate: new Date(),
             assignmentType: 'FULL_TIME',
             workSchedule: {
@@ -293,18 +293,18 @@ export function UsersConfiguration() {
     }
   };
 
-  // Handle remove establishment from user
-  const handleRemoveEstablishment = (user: User, establishmentId: string) => {
-    // Remove establishment from user's list
-    const updatedEstablishmentIds = user.assignment.establishmentIds.filter(
-      id => id !== establishmentId
+  // Handle remove Establecimiento from user
+  const handleRemoveEstablecimiento = (user: User, EstablecimientoId: string) => {
+    // Remove Establecimiento from user's list
+    const updatedEstablecimientoIds = user.assignment.EstablecimientoIds.filter(
+      id => id !== EstablecimientoId
     );
 
     const updatedUser: User = {
       ...user,
       assignment: {
         ...user.assignment,
-        establishmentIds: updatedEstablishmentIds,
+        EstablecimientoIds: updatedEstablecimientoIds,
       },
       updatedAt: new Date(),
     };
@@ -382,12 +382,12 @@ export function UsersConfiguration() {
         <UsersList
           users={users}
           roles={SYSTEM_ROLES as Role[]}
-          establishments={establishments}
+          Establecimientos={Establecimientos}
           onEdit={handleEditUser}
           onDelete={(user) => setDeleteModal({ show: true, user })}
           onChangeStatus={handleChangeStatus}
           onAssignRole={handleAssignRole}
-          onRemoveRole={handleRemoveEstablishment}
+          onRemoveRole={handleRemoveEstablecimiento}
           onCreate={() => setShowUserForm(true)}
           isLoading={isLoading}
         />
@@ -406,7 +406,7 @@ export function UsersConfiguration() {
       {showUserForm && (
         <UserForm
           user={editingUser || undefined}
-          establishments={establishments}
+          Establecimientos={Establecimientos}
           existingEmails={existingEmails}
           onSubmit={handleSubmitUser}
           onCancel={resetUserForm}
@@ -469,7 +469,7 @@ export function UsersConfiguration() {
           onClose={() => setCredentialsModal({ show: false })}
           credentials={credentialsModal.credentials}
           user={credentialsModal.user}
-          establishments={establishments}
+          Establecimientos={Establecimientos}
         />
       )}
 

@@ -26,7 +26,7 @@ import { DocumentoProductsSection } from '../components/DocumentoProductsSection
 import { useDocumentoContext } from '../contexts/DocumentosContext';
 import { useFeedback } from '../../../../../shared/feedback';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
-import { useCurrentEstablishmentId, useUserSession } from '../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Currency } from '../../comprobantes-electronicos/models/comprobante.types';
 
 const FormularioNotaVenta = () => {
@@ -34,7 +34,7 @@ const FormularioNotaVenta = () => {
   const location = useLocation();
   const { addDocumento, updateDocumento } = useDocumentoContext();
   const { state: configState } = useConfigurationContext();
-  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
   const { session } = useUserSession();
   const feedback = useFeedback();
 
@@ -97,12 +97,12 @@ const FormularioNotaVenta = () => {
           s.documentType.category === 'SALES_NOTE' ||
           s.documentType.name.toLowerCase().includes('nota de venta');
         // Filtrar por establecimiento actual
-        const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
+        const belongsToEstablecimiento = !currentEstablecimientoId || s.EstablecimientoId === currentEstablecimientoId;
         
-        return isActive && isNotaVenta && belongsToEstablishment;
+        return isActive && isNotaVenta && belongsToEstablecimiento;
       })
       .map(s => s.series);
-  }, [configState.series, currentEstablishmentId]);
+  }, [configState.series, currentEstablecimientoId]);
 
   const [serieSeleccionada, setSerieSeleccionada] = useState<string>(
     seriesNotaVenta[0] || ''

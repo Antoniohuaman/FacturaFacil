@@ -13,7 +13,7 @@ const buildQueryParams = (filters: IndicadoresFilters) => {
   const params = new URLSearchParams({
     startDate: startRange.startUtc,
     endDate: endRange.endUtc,
-    establishmentId: filters.establishmentId ?? 'Todos',
+    EstablecimientoId: filters.EstablecimientoId ?? 'Todos',
   });
   return params.toString();
 };

@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Product } from '../../models/types';
 import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
-import type { Establishment } from '../../../configuracion-sistema/modelos/Establishment';
+import type { Establecimiento } from '../../../configuracion-sistema/modelos/Establecimiento';
 import type { ColumnKey } from './columnConfig';
 import type { ProductTableColumnState } from '../../hooks/useProductColumnsManager';
 
-const getEstablishmentShortName = (name: string, maxLength = 18) => {
+const getEstablecimientoShortName = (name: string, maxLength = 18) => {
   const trimmed = name.trim().replace(/\s+/g, ' ');
   if (trimmed.length <= maxLength) {
     return trimmed;
@@ -23,28 +23,28 @@ const getEstablishmentShortName = (name: string, maxLength = 18) => {
 
 type AvailabilityCellProps = {
   row: Product;
-  establishments: Establishment[];
-  establishmentScope: string;
+  Establecimientos: Establecimiento[];
+  EstablecimientoScope: string;
 };
 
-const AvailabilityCell: React.FC<AvailabilityCellProps> = ({ row, establishments, establishmentScope }) => {
+const AvailabilityCell: React.FC<AvailabilityCellProps> = ({ row, Establecimientos, EstablecimientoScope }) => {
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const closeTimerRef = useRef<number | null>(null);
 
   const enabledActive = useMemo(() => {
-    const active = establishments.filter(est => est.isActive);
+    const active = Establecimientos.filter(est => est.isActive);
     const enabledIds = row.disponibleEnTodos ? active.map(est => est.id) : (row.establecimientoIds ?? []);
     return active.filter(est => enabledIds.includes(est.id));
-  }, [establishments, row.disponibleEnTodos, row.establecimientoIds]);
+  }, [Establecimientos, row.disponibleEnTodos, row.establecimientoIds]);
 
   const enabledInScope = useMemo(() => {
-    if (establishmentScope === 'ALL') {
+    if (EstablecimientoScope === 'ALL') {
       return null;
     }
-    return enabledActive.some(est => est.id === establishmentScope) || Boolean(row.disponibleEnTodos);
-  }, [enabledActive, establishmentScope, row.disponibleEnTodos]);
+    return enabledActive.some(est => est.id === EstablecimientoScope) || Boolean(row.disponibleEnTodos);
+  }, [enabledActive, EstablecimientoScope, row.disponibleEnTodos]);
 
   const computePosition = () => {
     const anchor = anchorRef.current;
@@ -119,7 +119,7 @@ const AvailabilityCell: React.FC<AvailabilityCellProps> = ({ row, establishments
     };
   }, []);
 
-  if (establishmentScope !== 'ALL') {
+  if (EstablecimientoScope !== 'ALL') {
     return (
       <td className="px-6 py-4 whitespace-nowrap bg-purple-50/50 dark:bg-purple-900/10">
         <span
@@ -204,7 +204,7 @@ const AvailabilityCell: React.FC<AvailabilityCellProps> = ({ row, establishments
           >
             <span className="font-mono font-semibold">{est.code}</span>
             <span className="text-purple-500">·</span>
-            <span className="truncate">{getEstablishmentShortName(est.name)}</span>
+            <span className="truncate">{getEstablecimientoShortName(est.name)}</span>
           </span>
         ))}
 
@@ -232,8 +232,8 @@ interface ProductTableRowProps {
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
   units: Unit[];
-  establishments: Establishment[];
-  establishmentScope?: string;
+  Establecimientos: Establecimiento[];
+  EstablecimientoScope?: string;
   formatCurrency: (amount: number) => string;
   onRowClick?: (productId: string) => void;
   isActive?: boolean;
@@ -267,8 +267,8 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   onEdit,
   onDelete,
   units,
-  establishments,
-  establishmentScope = 'ALL',
+  Establecimientos,
+  EstablecimientoScope = 'ALL',
   formatCurrency,
   onRowClick,
   isActive = false
@@ -335,7 +335,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
         );
       case 'establecimiento':
         return (
-          <AvailabilityCell row={row} establishments={establishments} establishmentScope={establishmentScope} />
+          <AvailabilityCell row={row} Establecimientos={Establecimientos} EstablecimientoScope={EstablecimientoScope} />
         );
       case 'imagen':
         return (

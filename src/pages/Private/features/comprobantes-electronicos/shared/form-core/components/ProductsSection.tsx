@@ -78,7 +78,7 @@ interface ProductsSectionProps {
   onClearGlobalDiscount?: () => void;
   getGlobalDiscountPreviewTotals?: (discount: DiscountInput | null) => PaymentTotals;
   refreshKey?: number;
-  selectedEstablishmentId?: string;
+  selectedEstablecimientoId?: string;
   preferredPriceColumnId?: string;
 }
 
@@ -149,7 +149,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
    getGlobalDiscountPreviewTotals,
   refreshKey = 0,
   preferredPriceColumnId,
-  // selectedEstablishmentId, // TODO: Usar para filtrar stock por establecimiento
+  // selectedEstablecimientoId, // TODO: Usar para filtrar stock por establecimiento
 }) => {
   const { baseCurrency, documentCurrency, formatPrice, convertPrice } = useCurrency();
   const documentDecimals = documentCurrency.decimalPlaces ?? 2;

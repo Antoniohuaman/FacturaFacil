@@ -2,7 +2,7 @@
 
 import * as XLSX from 'xlsx';
 import type { Product, ProductFormData } from '../models/types';
-import type { Establishment } from '../../configuracion-sistema/modelos/Establishment';
+import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
 import { inferUnitMeasureType } from './unitMeasureHelpers';
 
 // ====================================================================
@@ -86,7 +86,7 @@ export const COMPLETE_IMPORT_COLUMNS: ExcelColumn[] = [
 export function generateExcelTemplate(
   tipo: 'basica' | 'completa',
   availableUnits: Array<{ code: string; name: string }>,
-  availableEstablishments: Establishment[]
+  availableEstablecimientos: Establecimiento[]
 ): void {
   const columns = tipo === 'basica' ? BASIC_IMPORT_COLUMNS : COMPLETE_IMPORT_COLUMNS;
 
@@ -135,7 +135,7 @@ export function generateExcelTemplate(
     ['  - Inafecto (0.00%)'],
     [''],
     ['Disponibilidad (códigos de establecimiento separados por coma):'],
-    ...availableEstablishments.slice(0, 10).map(e => [`  - ${e.code} (${e.name})`]),
+    ...availableEstablecimientos.slice(0, 10).map(e => [`  - ${e.code} (${e.name})`]),
     [''],
     ['Tipo de existencia (opcional):'],
     ['  - MERCADERIAS'],
@@ -167,7 +167,7 @@ export function parseExcelFile(
   tipo: 'basica' | 'completa',
   _existingProducts: Product[],
   availableUnits: Array<{ code: string; name: string }>,
-  availableEstablishments: Establishment[],
+  availableEstablecimientos: Establecimiento[],
   availableCategories: Array<{ nombre: string }>
 ): Promise<ImportResult> {
   return new Promise((resolve, reject) => {
@@ -195,7 +195,7 @@ export function parseExcelFile(
           jsonData,
           tipo,
           availableUnits,
-          availableEstablishments,
+          availableEstablecimientos,
           availableCategories
         );
 
@@ -221,7 +221,7 @@ function validateAndParseRows(
   rows: Array<Record<string, unknown>>,
   tipo: 'basica' | 'completa',
   availableUnits: Array<{ code: string; name: string }> ,
-  availableEstablishments: Establishment[],
+  availableEstablecimientos: Establecimiento[],
   availableCategories: Array<{ nombre: string }>
 ): ImportResult {
   const columns = tipo === 'basica' ? BASIC_IMPORT_COLUMNS : COMPLETE_IMPORT_COLUMNS;
@@ -259,7 +259,7 @@ function validateAndParseRows(
         row,
         fila,
         availableUnits,
-        availableEstablishments,
+        availableEstablecimientos,
         availableCategories,
         errores,
         rowErrors
@@ -297,7 +297,7 @@ function parseRow(
   row: Record<string, unknown>,
   fila: number,
   availableUnits: Array<{ code: string; name: string }>,
-  availableEstablishments: Establishment[],
+  availableEstablecimientos: Establecimiento[],
   availableCategories: Array<{ nombre: string }>,
   errores: ImportValidationError[],
   rowErrors: string[]
@@ -350,7 +350,7 @@ function parseRow(
   const establecimientoIds: string[] = [];
 
   disponibilidadCodes.forEach(code => {
-    const est = availableEstablishments.find(e => e.code === code);
+    const est = availableEstablecimientos.find(e => e.code === code);
     if (est) {
       establecimientoIds.push(est.id);
     } else {
@@ -375,14 +375,14 @@ function parseRow(
   }
 
   if (establecimientoIds.length === 0 && disponibilidadCodes.length === 0) {
-    const active = availableEstablishments.filter(e => e.isActive);
-    const defaultEstablishmentId =
+    const active = availableEstablecimientos.filter(e => e.isActive);
+    const defaultEstablecimientoId =
       active.length === 1
         ? active[0].id
-        : (active.find(e => e.isMainEstablishment)?.id ?? active[0]?.id);
+        : (active.find(e => e.isMainEstablecimiento)?.id ?? active[0]?.id);
 
-    if (defaultEstablishmentId) {
-      establecimientoIds.push(defaultEstablishmentId);
+    if (defaultEstablecimientoId) {
+      establecimientoIds.push(defaultEstablecimientoId);
     }
   }
 

@@ -60,25 +60,25 @@ const ProductsPage: React.FC = () => {
   const exportVisibleRef = useRef<() => void>(() => {});
 
   // Estado del filtro de establecimiento desde URL
-  const [establishmentScope, setEstablishmentScope] = useState<string>(() => {
+  const [EstablecimientoScope, setEstablecimientoScope] = useState<string>(() => {
     return searchParams.get('est') || 'ALL';
   });
 
   // Establecimientos activos
-  const establishments = useMemo(
-    () => configState.establishments.filter(e => e.isActive),
-    [configState.establishments]
+  const Establecimientos = useMemo(
+    () => configState.Establecimientos.filter(e => e.isActive),
+    [configState.Establecimientos]
   );
 
   // Sincronizar filtro de establecimiento con URL
   useEffect(() => {
     const estParam = searchParams.get('est') || 'ALL';
-    setEstablishmentScope(estParam);
+    setEstablecimientoScope(estParam);
   }, [searchParams]);
 
   // Cambiar filtro de establecimiento
-  const handleEstablishmentChange = (newScope: string) => {
-    setEstablishmentScope(newScope);
+  const handleEstablecimientoChange = (newScope: string) => {
+    setEstablecimientoScope(newScope);
     const params = new URLSearchParams(searchParams);
     if (newScope === 'ALL') {
       params.delete('est');
@@ -225,7 +225,7 @@ const ProductsPage: React.FC = () => {
   // Calcular número de filtros activos
   const activeFiltersCount = useMemo(() => {
     let count = 0;
-    if (establishmentScope !== 'ALL') count++;
+    if (EstablecimientoScope !== 'ALL') count++;
     if (filters.categoria) count++;
     if (filters.unidad) count++;
     if (filters.marca) count++;
@@ -234,7 +234,7 @@ const ProductsPage: React.FC = () => {
     if (filters.impuesto) count++;
     if (filters.soloFavoritos) count++;
     return count;
-  }, [establishmentScope, filters]);
+  }, [EstablecimientoScope, filters]);
 
   const renderFilterBar = () => (
     <div className={`bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm transition-all duration-200 ${showFilters ? 'block' : 'hidden'}`}>
@@ -255,7 +255,7 @@ const ProductsPage: React.FC = () => {
           <button
             onClick={() => {
               resetFilters();
-              handleEstablishmentChange('ALL');
+              handleEstablecimientoChange('ALL');
             }}
             className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors flex items-center gap-1.5"
           >
@@ -276,7 +276,7 @@ const ProductsPage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
                 <span>Disponibilidad</span>
-                {establishmentScope !== 'ALL' && (
+                {EstablecimientoScope !== 'ALL' && (
                   <span className="ml-auto px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium">
                     Activo
                   </span>
@@ -284,12 +284,12 @@ const ProductsPage: React.FC = () => {
               </span>
             </label>
             <select
-              value={establishmentScope}
-              onChange={(e) => handleEstablishmentChange(e.target.value)}
+              value={EstablecimientoScope}
+              onChange={(e) => handleEstablecimientoChange(e.target.value)}
               className="w-full rounded-lg border-2 border-purple-200 dark:border-purple-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
             >
               <option value="ALL">📍 Todos (sin filtrar)</option>
-              {establishments.map(est => (
+              {Establecimientos.map(est => (
                 <option key={est.id} value={est.id}>
                   {est.code} - {est.name}
                 </option>
@@ -586,8 +586,8 @@ const ProductsPage: React.FC = () => {
       return;
     }
 
-    if (autoExportRequest.establishmentId && establishmentScope !== autoExportRequest.establishmentId) {
-      setEstablishmentScope(autoExportRequest.establishmentId);
+    if (autoExportRequest.EstablecimientoId && EstablecimientoScope !== autoExportRequest.EstablecimientoId) {
+      setEstablecimientoScope(autoExportRequest.EstablecimientoId);
       return;
     }
 
@@ -605,7 +605,7 @@ const ProductsPage: React.FC = () => {
     };
 
     void runAutoExport();
-  }, [autoExportRequest, establishmentScope, finishAutoExport, loading]);
+  }, [autoExportRequest, EstablecimientoScope, finishAutoExport, loading]);
 
   const masterSections = (
     <>
@@ -718,8 +718,8 @@ const ProductsPage: React.FC = () => {
         loading={loading}
         selectedProducts={selectedProducts}
         onSelectedProductsChange={setSelectedProducts}
-        establishmentScope={establishmentScope}
-        establishments={establishments}
+        EstablecimientoScope={EstablecimientoScope}
+        Establecimientos={Establecimientos}
         columns={productTableColumns}
         onToggleFavorite={handleToggleFavorite}
         onRowClick={handleOpenProductDetail}
@@ -760,7 +760,7 @@ const ProductsPage: React.FC = () => {
             activeProduct ? (
               <ProductDetailPanel
                 product={activeProduct}
-                establishments={establishments}
+                Establecimientos={Establecimientos}
                 units={configState.units}
                 onEdit={handleEditProduct}
                 onClose={handleCloseProductDetail}

@@ -30,7 +30,7 @@ type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 interface SeriesFormData {
   type: VoucherType;
   series: string;
-  establishmentId: string;
+  EstablecimientoId: string;
   initialNumber: number;
   currentNumber: number;
   isDefault: boolean;
@@ -171,7 +171,7 @@ interface ExtendedSeries extends Series {
 export function SeriesConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { series: rawSeries, establishments } = state;
+  const { series: rawSeries, Establecimientos } = state;
   
   // Fix existing series with incorrect documentType before processing
   const fixedSeries = rawSeries.map(fixSeriesDocumentType);
@@ -225,7 +225,7 @@ export function SeriesConfiguration() {
   const [formData, setFormData] = useState<SeriesFormData>({
     type: 'INVOICE',
     series: '',
-    establishmentId: '',
+    EstablecimientoId: '',
     initialNumber: 1,
     currentNumber: 1,
     isDefault: false,
@@ -240,7 +240,7 @@ export function SeriesConfiguration() {
   const [newCorrelative, setNewCorrelative] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [filterType, setFilterType] = useState<VoucherType | 'ALL'>('ALL');
-  const [filterEstablishment, setFilterEstablishment] = useState('ALL');
+  const [filterEstablecimiento, setFilterEstablecimiento] = useState('ALL');
 
   // Effect to fix and persist corrected series on first load
   useEffect(() => {
@@ -259,21 +259,21 @@ export function SeriesConfiguration() {
   // Filter series
   const filteredSeries = series.filter(s => {
     const matchesType = filterType === 'ALL' || s.type === filterType;
-    const matchesEstablishment = filterEstablishment === 'ALL' || s.establishmentId === filterEstablishment;
-    return matchesType && matchesEstablishment;
+    const matchesEstablecimiento = filterEstablecimiento === 'ALL' || s.EstablecimientoId === filterEstablecimiento;
+    return matchesType && matchesEstablecimiento;
   });
 
-  // Group series by establishment
-  const seriesByEstablishment = establishments.map(est => ({
-    establishment: est,
-    series: filteredSeries.filter(s => s.establishmentId === est.id)
+  // Group series by Establecimiento
+  const seriesByEstablecimiento = Establecimientos.map(est => ({
+    Establecimiento: est,
+    series: filteredSeries.filter(s => s.EstablecimientoId === est.id)
   }));
 
   const resetForm = () => {
     setFormData({
       type: 'INVOICE',
       series: '',
-      establishmentId: establishments[0]?.id || '',
+      EstablecimientoId: Establecimientos[0]?.id || '',
       initialNumber: 1,
       currentNumber: 1,
       isDefault: false,
@@ -324,7 +324,7 @@ export function SeriesConfiguration() {
     setFormData({
       type: seriesItem.type,
       series: seriesItem.series,
-      establishmentId: seriesItem.establishmentId,
+      EstablecimientoId: seriesItem.EstablecimientoId,
       initialNumber: seriesItem.initialNumber,
       currentNumber: seriesItem.currentNumber,
       isDefault: seriesItem.isDefault,
@@ -338,7 +338,7 @@ export function SeriesConfiguration() {
     setFormData({
       type: 'INVOICE',
       series: generateSeriesCode('INVOICE'),
-      establishmentId: establishments[0]?.id || '',
+      EstablecimientoId: Establecimientos[0]?.id || '',
       initialNumber: 1,
       currentNumber: 1,
       isDefault: false,
@@ -390,7 +390,7 @@ export function SeriesConfiguration() {
     // Rule 3: Check for duplicates
     const isDuplicate = series.some(s => 
       s.series === formData.series && 
-      s.establishmentId === formData.establishmentId && 
+      s.EstablecimientoId === formData.EstablecimientoId && 
       s.id !== editingId
     );
     
@@ -439,7 +439,7 @@ export function SeriesConfiguration() {
         // Create new
         const newSeries: Series = {
           id: Date.now().toString(),
-          establishmentId: formData.establishmentId,
+          EstablecimientoId: formData.EstablecimientoId,
           documentType: getDocumentTypeForVoucherType(formData.type),
           series: formData.series,
           correlativeNumber: formData.currentNumber,
@@ -650,19 +650,19 @@ export function SeriesConfiguration() {
                 </div>
               </div>
 
-              {/* Establishment */}
+              {/* Establecimiento */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Establecimiento *
                 </label>
                 <select
-                  value={formData.establishmentId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, establishmentId: e.target.value }))}
+                  value={formData.EstablecimientoId}
+                  onChange={(e) => setFormData(prev => ({ ...prev, EstablecimientoId: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
                   <option value="">Seleccionar establecimiento</option>
-                  {establishments.map(est => (
+                  {Establecimientos.map(est => (
                     <option key={est.id} value={est.id}>
                       {est.code} - {est.name}
                     </option>
@@ -815,34 +815,34 @@ export function SeriesConfiguration() {
           </select>
           
           <select
-            value={filterEstablishment}
-            onChange={(e) => setFilterEstablishment(e.target.value)}
+            value={filterEstablecimiento}
+            onChange={(e) => setFilterEstablecimiento(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="ALL">Todos los establecimientos</option>
-            {establishments.map(est => (
+            {Establecimientos.map(est => (
               <option key={est.id} value={est.id}>{est.code} - {est.name}</option>
             ))}
           </select>
         </div>
 
-        {/* Series by Establishment */}
+        {/* Series by Establecimiento */}
         <div className="space-y-8">
-          {seriesByEstablishment.map(({ establishment, series: establishmentSeries }) => (
-            <div key={establishment.id} className="space-y-4">
+          {seriesByEstablecimiento.map(({ Establecimiento, series: EstablecimientoSeries }) => (
+            <div key={Establecimiento.id} className="space-y-4">
               <div className="flex items-center space-x-3 pb-2 border-b border-gray-200">
                 <Building2 className="w-5 h-5 text-gray-600" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {establishment.code} - {establishment.name}
+                  {Establecimiento.code} - {Establecimiento.name}
                 </h3>
                 <StatusIndicator
-                  status={establishment.isActive ? 'success' : 'error'}
-                  label={establishment.isActive ? 'Activo' : 'Inactivo'}
+                  status={Establecimiento.isActive ? 'success' : 'error'}
+                  label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
                   size="sm"
                 />
               </div>
 
-              {establishmentSeries.length === 0 ? (
+              {EstablecimientoSeries.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-lg">
                   <FileText className="mx-auto w-8 h-8 text-gray-400" />
                   <p className="mt-2 text-gray-500">No hay series configuradas para este establecimiento</p>
@@ -855,7 +855,7 @@ export function SeriesConfiguration() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {establishmentSeries.map((seriesItem) => {
+                  {EstablecimientoSeries.map((seriesItem) => {
                     const config = voucherTypeConfig[seriesItem.type];
                     const Icon = config.icon;
                     

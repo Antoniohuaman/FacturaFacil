@@ -7,27 +7,27 @@ import { WorkspaceSwitcherModal } from './WorkspaceSwitcherModal';
 import { generateWorkspaceId } from '../shared/tenant';
 
 const CompanySelector = () => {
-  const { session, setCurrentEstablishment } = useUserSession();
+  const { session, setCurrentEstablecimiento } = useUserSession();
   const { workspaces, tenantId, setTenantId, activeWorkspace } = useTenant();
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const navigate = useNavigate();
 
   const selectedCompany = session?.currentCompany;
-  const selectedEstablishment = session?.currentEstablishment;
-  const availableEstablishments = session?.availableEstablishments || [];
+  const selectedEstablecimiento = session?.currentEstablecimiento;
+  const availableEstablecimientos = session?.availableEstablecimientos || [];
 
-  const handleSelectEstablishment = (establishmentId: string) => {
-    const establishment = availableEstablishments.find(e => e.id === establishmentId);
-    if (establishment) {
-      setCurrentEstablishment(establishmentId, establishment);
+  const handleSelectEstablecimiento = (EstablecimientoId: string) => {
+    const Establecimiento = availableEstablecimientos.find(e => e.id === EstablecimientoId);
+    if (Establecimiento) {
+      setCurrentEstablecimiento(EstablecimientoId, Establecimiento);
       setShowCompanyDropdown(false);
     }
   };
 
   const workspaceDisplayName = activeWorkspace?.nombreComercial || activeWorkspace?.razonSocial;
   const displayCompanyName = workspaceDisplayName || selectedCompany?.nombreComercial || selectedCompany?.razonSocial;
-  const displayEstablishmentName = activeWorkspace?.domicilioFiscal || selectedEstablishment?.name || 'Sin establecimiento';
+  const displayEstablecimientoName = activeWorkspace?.domicilioFiscal || selectedEstablecimiento?.name || 'Sin establecimiento';
 
   const handleNavigateToWorkspace = (mode: 'create_workspace' | 'edit_workspace', workspaceId?: string) => {
     navigate('/configuracion/empresa', { state: { workspaceMode: mode, workspaceId } });
@@ -85,9 +85,9 @@ const CompanySelector = () => {
                 {displayCompanyName || 'Sin empresa'}
               </div>
               <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 min-w-0"
-                   title={displayEstablishmentName}>
+                   title={displayEstablecimientoName}>
                 <MapPin size={11} className="flex-shrink-0" />
-                <span className="truncate">{displayEstablishmentName}</span>
+                <span className="truncate">{displayEstablecimientoName}</span>
               </div>
             </div>
           </div>
@@ -108,17 +108,17 @@ const CompanySelector = () => {
               </div>
 
               <div className="space-y-1">
-                {availableEstablishments.length === 0 ? (
+                {availableEstablecimientos.length === 0 ? (
                   <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                     No hay establecimientos disponibles
                   </div>
                 ) : (
-                  availableEstablishments.map((establishment) => (
+                  availableEstablecimientos.map((Establecimiento) => (
                     <button
-                      key={establishment.id}
-                      onClick={() => handleSelectEstablishment(establishment.id)}
+                      key={Establecimiento.id}
+                      onClick={() => handleSelectEstablecimiento(Establecimiento.id)}
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors duration-150 ${
-                        establishment.id === selectedEstablishment?.id
+                        Establecimiento.id === selectedEstablecimiento?.id
                           ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-l-3 border-blue-600 dark:border-blue-400'
                           : 'hover:bg-gray-50 dark:hover:bg-gray-700/70 text-gray-700 dark:text-gray-300 border-l-3 border-transparent'
                       }`}
@@ -127,15 +127,15 @@ const CompanySelector = () => {
                         <MapPin size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
                         <div>
                           <div className="font-medium flex items-center gap-2">
-                            {establishment.name}
-                            {establishment.isMainEstablishment && (
+                            {Establecimiento.name}
+                            {Establecimiento.isMainEstablecimiento && (
                               <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
                                 Principal
                               </span>
                             )}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {establishment.address}, {establishment.district}
+                            {Establecimiento.address}, {Establecimiento.district}
                           </div>
                         </div>
                       </div>

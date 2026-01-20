@@ -3,16 +3,16 @@ import type { Product, ProductSearchFilters, ProductSearchResult } from '../../.
 import { SEARCH_CONFIG } from '../../../models/constants';
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
 import {
-  isProductEnabledForEstablishment,
+  isProductEnabledForEstablecimiento,
 } from '../../../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
 
 type UseProductSearchParams = {
-  establishmentId?: string;
+  EstablecimientoId?: string;
 };
 
-export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {}) => {
+export const useProductSearch = ({ EstablecimientoId }: UseProductSearchParams = {}) => {
   // Obtener productos del catálogo real
   const { allProducts: catalogProducts } = useProductStore();
   const { state: { almacenes } } = useConfigurationContext();
@@ -20,12 +20,12 @@ export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {
   // Convertir productos del catálogo al formato de comprobantes
   const AVAILABLE_PRODUCTS: Product[] = useMemo(() => 
     catalogProducts
-      .filter((product) => isProductEnabledForEstablishment(product, establishmentId))
+      .filter((product) => isProductEnabledForEstablecimiento(product, EstablecimientoId))
       .map(p => {
         const summary = summarizeProductStock({
           product: p,
           almacenes,
-          establishmentId,
+          EstablecimientoId,
         });
         return {
           id: p.id,
@@ -40,7 +40,7 @@ export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {
           description: p.descripcion || ''
         };
       }),
-    [catalogProducts, establishmentId, almacenes]
+    [catalogProducts, EstablecimientoId, almacenes]
   );
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,7 +55,7 @@ export const useProductSearch = ({ establishmentId }: UseProductSearchParams = {
     setSelectedCategory('');
     setSearchFilters({});
     setSearchResults(AVAILABLE_PRODUCTS);
-  }, [establishmentId, AVAILABLE_PRODUCTS]);
+  }, [EstablecimientoId, AVAILABLE_PRODUCTS]);
 
   // Función de búsqueda (simulada - en producción sería una llamada a API)
   const performSearch = useCallback(async (query: string, filters: ProductSearchFilters = {}): Promise<ProductSearchResult> => {

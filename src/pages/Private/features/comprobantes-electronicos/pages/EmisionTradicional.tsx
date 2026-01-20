@@ -41,7 +41,7 @@ import { PreviewDocument } from '../shared/ui/PreviewDocument';
 import { useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
-import { useCurrentEstablishmentId, useUserSession } from '../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode } from '../models/comprobante.types';
@@ -72,15 +72,15 @@ const EmisionTradicional = () => {
   // ✅ Estado para forzar refresh del ProductSelector
   const [productSelectorKey, setProductSelectorKey] = useState(0);
 
-  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
 
   // Refrescar selector cuando cambie el establecimiento del header.
   useEffect(() => {
-    if (!currentEstablishmentId) {
+    if (!currentEstablecimientoId) {
       return;
     }
     setProductSelectorKey(prev => prev + 1);
-  }, [currentEstablishmentId]);
+  }, [currentEstablecimientoId]);
 
   // ✅ Estado para modal de configuración de campos
   const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
@@ -975,7 +975,7 @@ const EmisionTradicional = () => {
           formaPago={formaPago}
           onComplete={handleCobranzaComplete}
           isProcessing={isProcessing}
-          establishmentId={session?.currentEstablishmentId}
+          EstablecimientoId={session?.currentEstablecimientoId}
           creditTerms={creditTerms}
           creditPaymentMethodLabel={selectedPaymentMethod?.name}
           modeIntent={cobranzaMode}

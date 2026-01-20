@@ -29,14 +29,14 @@ const buildalmacenMap = (almacenes?: Almacen[]) => {
   return map;
 };
 
-const filteralmacenIds = (almacenes: Almacen[] | undefined, establishmentId?: string) => {
+const filteralmacenIds = (almacenes: Almacen[] | undefined, EstablecimientoId?: string) => {
   if (!almacenes || almacenes.length === 0) {
     return undefined;
   }
-  if (!establishmentId) {
+  if (!EstablecimientoId) {
     return undefined;
   }
-  const matches = almacenes.filter(wh => wh.establishmentId === establishmentId && wh.isActive !== false);
+  const matches = almacenes.filter(wh => wh.EstablecimientoId === EstablecimientoId && wh.isActive !== false);
   if (!matches.length) {
     return undefined;
   }
@@ -45,13 +45,13 @@ const filteralmacenIds = (almacenes: Almacen[] | undefined, establishmentId?: st
 
 const pickFallbackStock = (
   product: CatalogProduct | undefined | null,
-  establishmentId?: string
+  EstablecimientoId?: string
 ): number => {
   if (!product) {
     return 0;
   }
-  if (establishmentId && product.stockPorEstablecimiento) {
-    const candidate = product.stockPorEstablecimiento[establishmentId];
+  if (EstablecimientoId && product.stockPorEstablecimiento) {
+    const candidate = product.stockPorEstablecimiento[EstablecimientoId];
     if (candidate !== undefined) {
       return clampZero(toNumber(candidate));
     }
@@ -66,7 +66,7 @@ export interface almacenestockRecord {
   almacenId: string;
   almacenCode?: string;
   nombreAlmacen?: string;
-  establishmentId?: string;
+  EstablecimientoId?: string;
   stock: number;
   reserved: number;
   available: number;
@@ -84,17 +84,17 @@ export interface ProductStockSummary {
 export interface ProductStockInput {
   product?: CatalogProduct | null;
   almacenes?: Almacen[];
-  establishmentId?: string;
+  EstablecimientoId?: string;
   respectReservations?: boolean;
 }
 
 export const summarizeProductStock = (
   options: ProductStockInput
 ): ProductStockSummary => {
-  const { product, almacenes, establishmentId } = options;
+  const { product, almacenes, EstablecimientoId } = options;
   const respectReservations = options.respectReservations !== false;
   const almacenMap = buildalmacenMap(almacenes);
-  const filteredIds = filteralmacenIds(almacenes, establishmentId);
+  const filteredIds = filteralmacenIds(almacenes, EstablecimientoId);
   const unidadMinima = resolveUnidadMinima(product);
   const breakdown: almacenestockRecord[] = [];
 
@@ -114,7 +114,7 @@ export const summarizeProductStock = (
         almacenId,
         almacenCode: meta?.code,
         nombreAlmacen: meta?.name,
-        establishmentId: meta?.establishmentId,
+        EstablecimientoId: meta?.EstablecimientoId,
         stock,
         reserved,
         available,
@@ -123,13 +123,13 @@ export const summarizeProductStock = (
   }
 
   if (breakdown.length === 0) {
-    const fallbackStock = pickFallbackStock(product, establishmentId);
+    const fallbackStock = pickFallbackStock(product, EstablecimientoId);
     if (fallbackStock > 0 || product) {
       breakdown.push({
-        almacenId: establishmentId || 'general',
+        almacenId: EstablecimientoId || 'general',
         almacenCode: undefined,
         nombreAlmacen: undefined,
-        establishmentId,
+        EstablecimientoId,
         stock: fallbackStock,
         reserved: 0,
         available: fallbackStock,
@@ -187,13 +187,13 @@ export const getAvailableStockForUnit = (
 
 export interface almacenResolutionOptions {
   almacenes?: Almacen[];
-  establishmentId?: string;
+  EstablecimientoId?: string;
   preferredalmacenId?: string;
 }
 
 export interface almacenFIFOResolutionOptions {
   almacenes?: Almacen[];
-  establishmentId?: string;
+  EstablecimientoId?: string;
 }
 
 const normalizeSortValue = (value: unknown): string => {
@@ -231,13 +231,13 @@ const comparealmacenesStable = (a: Almacen, b: Almacen): number => {
 export const resolvealmacenesForSaleFIFO = (
   options: almacenFIFOResolutionOptions
 ): Almacen[] => {
-  const { almacenes = [], establishmentId } = options;
-  if (!establishmentId || !almacenes.length) {
+  const { almacenes = [], EstablecimientoId } = options;
+  if (!EstablecimientoId || !almacenes.length) {
     return [];
   }
 
   const matches = almacenes
-    .filter(wh => wh.establishmentId === establishmentId && wh.isActive !== false)
+    .filter(wh => wh.EstablecimientoId === EstablecimientoId && wh.isActive !== false)
     .slice();
 
   if (!matches.length) {
@@ -303,7 +303,7 @@ export const allocateSaleAcrossalmacenes = (
 export const resolvealmacenForSale = (
   options: almacenResolutionOptions
 ): Almacen | undefined => {
-  const { almacenes = [], establishmentId, preferredalmacenId } = options;
+  const { almacenes = [], EstablecimientoId, preferredalmacenId } = options;
   if (!almacenes.length) {
     return undefined;
   }
@@ -313,8 +313,8 @@ export const resolvealmacenForSale = (
       return preferred;
     }
   }
-  if (establishmentId) {
-    const matches = almacenes.filter(wh => wh.establishmentId === establishmentId && wh.isActive !== false);
+  if (EstablecimientoId) {
+    const matches = almacenes.filter(wh => wh.EstablecimientoId === EstablecimientoId && wh.isActive !== false);
     const main = matches.find(wh => wh.isMainalmacen);
     if (main) {
       return main;

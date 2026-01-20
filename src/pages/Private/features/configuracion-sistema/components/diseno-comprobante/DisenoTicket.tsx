@@ -163,7 +163,7 @@ export interface TicketVoucherDesign {
       alignment: 'left' | 'center' | 'right';
       fontSize: 'small' | 'medium' | 'large';
       showUser: boolean;
-      showEstablishment: boolean;
+      showEstablecimiento: boolean;
       showTerminal: boolean;
       lineSpacing: number;
     };
@@ -330,7 +330,7 @@ const DISENO_TICKET_BASE: TicketVoucherDesign = {
       alignment: 'center',
       fontSize: 'small',
       showUser: true,
-      showEstablishment: true,
+      showEstablecimiento: true,
       showTerminal: false,
       lineSpacing: 1,
     },

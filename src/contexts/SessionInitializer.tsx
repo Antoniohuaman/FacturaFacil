@@ -7,26 +7,26 @@ import { useConfigurationContext } from '../pages/Private/features/configuracion
  * Inicializa la sesión del usuario con el establecimiento principal o el primero disponible
  */
 export function SessionInitializer({ children }: { children: React.ReactNode }) {
-  const { session, setSession, setCurrentEstablishment, updateAvailableEstablishments } = useUserSession();
+  const { session, setSession, setCurrentEstablecimiento, updateAvailableEstablecimientos } = useUserSession();
   const { state } = useConfigurationContext();
   const initializedRef = useRef(false);
 
   // Inicializar o actualizar la sesión cuando se carguen los establecimientos
   useEffect(() => {
     // Solo proceder si hay establecimientos disponibles
-    if (state.establishments.length === 0) return;
+    if (state.Establecimientos.length === 0) return;
 
-    const activeEstablishments = state.establishments.filter(est => est.isActive);
-    if (activeEstablishments.length === 0) return;
+    const activeEstablecimientos = state.Establecimientos.filter(est => est.isActive);
+    if (activeEstablecimientos.length === 0) return;
 
     // Si no hay sesión activa y no hemos inicializado, crear una sesión inicial
     if (!session && !initializedRef.current) {
       // Buscar el establecimiento principal
-      const mainEstablishment = activeEstablishments.find(est => est.isMainEstablishment);
+      const mainEstablecimiento = activeEstablecimientos.find(est => est.isMainEstablecimiento);
       // O usar el primero disponible
-      const defaultEstablishment = mainEstablishment || activeEstablishments[0];
+      const defaultEstablecimiento = mainEstablecimiento || activeEstablecimientos[0];
 
-      if (defaultEstablishment && state.company) {
+      if (defaultEstablecimiento && state.company) {
         initializedRef.current = true;
         // Crear sesión inicial con datos mock del usuario
         setSession({
@@ -35,9 +35,9 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
           userEmail: 'antonio@sensiyo.com',
           currentCompanyId: state.company.id,
           currentCompany: state.company,
-          currentEstablishmentId: defaultEstablishment.id,
-          currentEstablishment: defaultEstablishment,
-          availableEstablishments: activeEstablishments,
+          currentEstablecimientoId: defaultEstablecimiento.id,
+          currentEstablecimiento: defaultEstablecimiento,
+          availableEstablecimientos: activeEstablecimientos,
           permissions: ['*'], // Permisos completos por defecto
           role: 'Administrador',
         });
@@ -47,30 +47,30 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
 
     // Si ya hay sesión, solo actualizar la lista de establecimientos disponibles si cambió
     if (session) {
-      const currentEstablishmentIds = session.availableEstablishments.map(e => e.id).sort().join(',');
-      const newEstablishmentIds = activeEstablishments.map(e => e.id).sort().join(',');
+      const currentEstablecimientoIds = session.availableEstablecimientos.map(e => e.id).sort().join(',');
+      const newEstablecimientoIds = activeEstablecimientos.map(e => e.id).sort().join(',');
 
-      if (currentEstablishmentIds !== newEstablishmentIds) {
-        updateAvailableEstablishments(activeEstablishments);
+      if (currentEstablecimientoIds !== newEstablecimientoIds) {
+        updateAvailableEstablecimientos(activeEstablecimientos);
       }
 
       // Si no tiene establecimiento seleccionado, asignar uno
-      if (!session.currentEstablishment) {
-        const mainEstablishment = activeEstablishments.find(est => est.isMainEstablishment);
-        const defaultEstablishment = mainEstablishment || activeEstablishments[0];
+      if (!session.currentEstablecimiento) {
+        const mainEstablecimiento = activeEstablecimientos.find(est => est.isMainEstablecimiento);
+        const defaultEstablecimiento = mainEstablecimiento || activeEstablecimientos[0];
 
-        if (defaultEstablishment) {
-          setCurrentEstablishment(defaultEstablishment.id, defaultEstablishment);
+        if (defaultEstablecimiento) {
+          setCurrentEstablecimiento(defaultEstablecimiento.id, defaultEstablecimiento);
         }
       }
     }
   }, [
     session,
     setSession,
-    setCurrentEstablishment,
-    updateAvailableEstablishments,
+    setCurrentEstablecimiento,
+    updateAvailableEstablecimientos,
     state.company,
-    state.establishments,
+    state.Establecimientos,
   ]);
 
   return <>{children}</>;

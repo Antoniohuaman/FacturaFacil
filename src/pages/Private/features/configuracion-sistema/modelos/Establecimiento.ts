@@ -1,6 +1,6 @@
-export interface Establishment {
+export interface Establecimiento {
   id: string;
-  code: string; // SUNAT establishment code (4 digits)
+  code: string; // SUNAT Establecimiento code (4 digits)
   name: string;
   address: string;
   district: string;
@@ -17,7 +17,7 @@ export interface Establishment {
   };
   
   // Business information
-  isMainEstablishment: boolean;
+  isMainEstablecimiento: boolean;
   businessHours: {
     monday?: BusinessHours;
     tuesday?: BusinessHours;
@@ -103,23 +103,23 @@ export interface BankAccount {
   isActive: boolean;
 }
 
-export interface UpdateEstablishmentRequest extends Partial<CreateEstablishmentRequest> {
+export interface UpdateEstablecimientoRequest extends Partial<CreateEstablecimientoRequest> {
   id: string;
 }
 
-export interface EstablishmentSummary {
+export interface EstablecimientoSummary {
   id: string;
   code: string;
   name: string;
   address: string;
   district: string;
-  status: Establishment['status'];
-  isMainEstablishment: boolean;
+  status: Establecimiento['status'];
+  isMainEstablecimiento: boolean;
   userCount?: number;
   hasPos: boolean;
 }
 
-export const ESTABLISHMENT_STATUS = [
+export const Establecimiento_STATUS = [
   { value: 'ACTIVE', label: 'Activo', color: 'green' },
   { value: 'INACTIVE', label: 'Inactivo', color: 'gray' },
   { value: 'SUSPENDED', label: 'Suspendido', color: 'yellow' },
@@ -162,7 +162,7 @@ export interface BankAccount {
   isActive: boolean;
 }
 
-export interface CreateEstablishmentRequest {
+export interface CreateEstablecimientoRequest {
   code: string;
   name: string;
   address: string;
@@ -176,7 +176,7 @@ export interface CreateEstablishmentRequest {
     latitude: number;
     longitude: number;
   };
-  businessHours?: Establishment['businessHours'];
+  businessHours?: Establecimiento['businessHours'];
   sunatConfiguration?: {
     annexCode?: string;
     economicActivity?: string;

@@ -6,7 +6,7 @@ import { useConfigurationContext } from '../../configuracion-sistema/contexto/Co
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 
 /**
- * ConfiguracionCaja - Read-only summary page for active establishment's cajas
+ * ConfiguracionCaja - Read-only summary page for active Establecimiento's cajas
  * Users must navigate to /configuracion/cajas to create/edit cajas
  */
 const ConfiguracionCaja: React.FC = () => {
@@ -15,12 +15,12 @@ const ConfiguracionCaja: React.FC = () => {
   const { session } = useUserSession();
 
   const empresaId = session?.currentCompanyId || '';
-  const establecimientoId = session?.currentEstablishmentId || '';
-  const establecimientoActual = session?.currentEstablishment;
+  const establecimientoId = session?.currentEstablecimientoId || '';
+  const establecimientoActual = session?.currentEstablecimiento;
 
   const { cajas, loading } = useCajas(empresaId, establecimientoId);
 
-  // Get enabled cajas for current establishment
+  // Get enabled cajas for current Establecimiento
   const cajasHabilitadas = useMemo(() => {
     return cajas.filter(c => c.habilitada);
   }, [cajas]);

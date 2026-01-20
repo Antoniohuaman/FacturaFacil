@@ -11,7 +11,7 @@ interface DisponibilidadToolbarEnhancedProps {
     id: string;
     code: string;
     name: string;
-    establishmentId: string;
+    EstablecimientoId: string;
   }>;
   totalItems: number;
   itemsMostrados: number;
@@ -40,8 +40,8 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
 
   // Establecimientos activos
   const establecimientos = useMemo(
-    () => configState.establishments.filter(e => e.isActive),
-    [configState.establishments]
+    () => configState.Establecimientos.filter(e => e.isActive),
+    [configState.Establecimientos]
   );
 
   // Handler para cambio de establecimiento (resetea almacén)

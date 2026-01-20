@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-// src/features/configuration/components/establecimientos/EstablishmentForm.tsx
+// src/features/configuration/components/establecimientos/EstablecimientoForm.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Building2, Hash, ToggleLeft, ToggleRight, X } from 'lucide-react';
-import type { Establishment } from '../../modelos/Establishment';
+import type { Establecimiento } from '../../modelos/Establecimiento';
 
-interface EstablishmentFormData {
+interface EstablecimientoFormData {
   code: string;
   name: string;
   address: string;
@@ -12,22 +12,22 @@ interface EstablishmentFormData {
   isEnabled: boolean;
 }
 
-interface EstablishmentFormProps {
-  establishment?: Establishment;
-  onSubmit: (data: EstablishmentFormData) => Promise<void>;
+interface EstablecimientoFormProps {
+  Establecimiento?: Establecimiento;
+  onSubmit: (data: EstablecimientoFormData) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
   existingCodes?: string[];
 }
 
-export function EstablishmentForm({ 
-  establishment, 
+export function EstablecimientoForm({ 
+  Establecimiento, 
   onSubmit, 
   onCancel, 
   isLoading = false,
   existingCodes = []
-}: EstablishmentFormProps) {
-  const [formData, setFormData] = useState<EstablishmentFormData>({
+}: EstablecimientoFormProps) {
+  const [formData, setFormData] = useState<EstablecimientoFormData>({
     code: '',
     name: '',
     address: '',
@@ -35,8 +35,8 @@ export function EstablishmentForm({
     isEnabled: true
   });
 
-  const [errors, setErrors] = useState<Partial<EstablishmentFormData>>({});
-  const [touchedFields, setTouchedFields] = useState<Set<keyof EstablishmentFormData>>(new Set());
+  const [errors, setErrors] = useState<Partial<EstablecimientoFormData>>({});
+  const [touchedFields, setTouchedFields] = useState<Set<keyof EstablecimientoFormData>>(new Set());
 
   const generateNextCode = useCallback((): string => {
     let nextNumber = 1;
@@ -46,24 +46,24 @@ export function EstablishmentForm({
     return `EST${nextNumber.toString().padStart(3, '0')}`;
   }, [existingCodes]);
 
-  // Load existing establishment data
+  // Load existing Establecimiento data
   useEffect(() => {
-    if (establishment) {
+    if (Establecimiento) {
       setFormData({
-        code: establishment.code,
-        name: establishment.name,
-        address: establishment.address,
-        ubigeo: establishment.postalCode || '',
-        isEnabled: establishment.isActive
+        code: Establecimiento.code,
+        name: Establecimiento.name,
+        address: Establecimiento.address,
+        ubigeo: Establecimiento.postalCode || '',
+        isEnabled: Establecimiento.isActive
       });
     } else {
-      // Generate next code for new establishment
+      // Generate next code for new Establecimiento
       const nextCode = generateNextCode();
       setFormData(prev => ({ ...prev, code: nextCode }));
     }
-  }, [establishment, generateNextCode]);
+  }, [Establecimiento, generateNextCode]);
 
-  const validateField = (field: keyof EstablishmentFormData, value: any): string | undefined => {
+  const validateField = (field: keyof EstablecimientoFormData, value: any): string | undefined => {
     switch (field) {
       case 'code':
         if (!value || value.trim() === '') {
@@ -72,7 +72,7 @@ export function EstablishmentForm({
         if (value.length < 3) {
           return 'El código debe tener al menos 3 caracteres';
         }
-        if (existingCodes.includes(value) && value !== establishment?.code) {
+        if (existingCodes.includes(value) && value !== Establecimiento?.code) {
           return 'Ya existe un establecimiento con este código';
         }
         break;
@@ -106,7 +106,7 @@ export function EstablishmentForm({
     }
   };
 
-  const handleFieldChange = (field: keyof EstablishmentFormData, value: any) => {
+  const handleFieldChange = (field: keyof EstablecimientoFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Mark field as touched
@@ -120,7 +120,7 @@ export function EstablishmentForm({
     }));
   };
 
-  const handleBlur = (field: keyof EstablishmentFormData) => {
+  const handleBlur = (field: keyof EstablecimientoFormData) => {
     setTouchedFields(prev => new Set(prev).add(field));
     const error = validateField(field, formData[field]);
     setErrors(prev => ({
@@ -132,7 +132,7 @@ export function EstablishmentForm({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
     
-    (Object.keys(formData) as Array<keyof EstablishmentFormData>).forEach(field => {
+    (Object.keys(formData) as Array<keyof EstablecimientoFormData>).forEach(field => {
       const error = validateField(field, formData[field]);
       if (error) {
         newErrors[field] = error;
@@ -140,7 +140,7 @@ export function EstablishmentForm({
     });
 
     setErrors(newErrors);
-    setTouchedFields(new Set(Object.keys(formData) as Array<keyof EstablishmentFormData>));
+    setTouchedFields(new Set(Object.keys(formData) as Array<keyof EstablecimientoFormData>));
     
     return Object.keys(newErrors).length === 0;
   };
@@ -171,10 +171,10 @@ export function EstablishmentForm({
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {establishment ? 'Editar Establecimiento' : 'Nuevo Establecimiento'}
+                  {Establecimiento ? 'Editar Establecimiento' : 'Nuevo Establecimiento'}
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {establishment ? 'Modifica los datos del establecimiento' : 'Crea un nuevo punto de venta'}
+                  {Establecimiento ? 'Modifica los datos del establecimiento' : 'Crea un nuevo punto de venta'}
                 </p>
               </div>
             </div>
@@ -359,7 +359,7 @@ export function EstablishmentForm({
                   <span>Guardando...</span>
                 </>
               ) : (
-                <span>{establishment ? 'Actualizar' : 'Crear'} Establecimiento</span>
+                <span>{Establecimiento ? 'Actualizar' : 'Crear'} Establecimiento</span>
               )}
             </button>
           </div>
