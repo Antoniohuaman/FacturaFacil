@@ -6,7 +6,7 @@
 import React, { useMemo } from 'react';
 import { FileText, ChevronDown, Calendar, Hash, DollarSign, CreditCard, User, Settings } from 'lucide-react';
 import { ConfigurationCard } from './ConfigurationCard';
-import { useConfigurationContext } from '../../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
 import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
 

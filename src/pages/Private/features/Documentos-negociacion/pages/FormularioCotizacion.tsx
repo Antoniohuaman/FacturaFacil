@@ -25,8 +25,8 @@ import { DocumentoProductsSection } from '../components/DocumentoProductsSection
 // Contextos
 import { useDocumentoContext } from '../contexts/DocumentosContext';
 import { useFeedback } from '../../../../../shared/feedback';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import { useCurrentEstablishmentId, useUserSession } from '../../../../../contexts/UserSessionContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useCurrentEstablecimientoId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Currency } from '../../comprobantes-electronicos/models/comprobante.types';
 
 const FormularioCotizacion = () => {
@@ -34,7 +34,7 @@ const FormularioCotizacion = () => {
   const location = useLocation();
   const { addDocumento, updateDocumento } = useDocumentoContext();
   const { state: configState } = useConfigurationContext();
-  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
   const { session } = useUserSession();
   const feedback = useFeedback();
 
@@ -97,12 +97,12 @@ const FormularioCotizacion = () => {
           s.documentType.category === 'QUOTATION' ||
           s.documentType.name.toLowerCase().includes('cotización');
         // Filtrar por establecimiento actual
-        const belongsToEstablishment = !currentEstablishmentId || s.establishmentId === currentEstablishmentId;
+        const belongsToEstablecimiento = !currentEstablecimientoId || s.EstablecimientoId === currentEstablecimientoId;
         
-        return isActive && isCotizacion && belongsToEstablishment;
+        return isActive && isCotizacion && belongsToEstablecimiento;
       })
       .map(s => s.series);
-  }, [configState.series, currentEstablishmentId]);
+  }, [configState.series, currentEstablecimientoId]);
 
   const [serieSeleccionada, setSerieSeleccionada] = useState<string>(
     seriesCotizacion[0] || ''

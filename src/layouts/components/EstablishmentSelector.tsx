@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Building2, ChevronDown, MapPin, CheckCircle2 } from 'lucide-react';
 import { useUserSession } from '../../contexts/UserSessionContext';
-import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 
-export default function EstablishmentSelector() {
+export default function SelectorEstablecimiento() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { session, setCurrentEstablishment } = useUserSession();
+  const { session, setCurrentEstablecimiento } = useUserSession();
   const { state } = useConfigurationContext();
 
   // Cerrar dropdown al hacer click fuera
@@ -22,22 +22,22 @@ export default function EstablishmentSelector() {
   }, []);
 
   // Obtener establecimiento actual
-  const currentEstablishment = session?.currentEstablishment;
+  const currentEstablecimiento = session?.currentEstablecimiento;
 
   // Obtener establecimientos disponibles (activos)
-  const availableEstablishments = state.establishments.filter(est => est.isActive);
+  const availableEstablecimientos = state.Establecimientos.filter(est => est.isActive);
 
   // Manejar cambio de establecimiento
-  const handleEstablishmentChange = (establishmentId: string) => {
-    const establishment = state.establishments.find(est => est.id === establishmentId);
-    if (establishment) {
-      setCurrentEstablishment(establishmentId, establishment);
+  const handleEstablecimientoChange = (EstablecimientoId: string) => {
+    const Establecimiento = state.Establecimientos.find(est => est.id === EstablecimientoId);
+    if (Establecimiento) {
+      setCurrentEstablecimiento(EstablecimientoId, Establecimiento);
       setShowDropdown(false);
     }
   };
 
   // Si no hay establecimiento seleccionado, mostrar aviso
-  if (!currentEstablishment) {
+  if (!currentEstablecimiento) {
     return (
       <div className="flex items-center space-x-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700">
         <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
@@ -53,13 +53,13 @@ export default function EstablishmentSelector() {
       <button
         className="group flex items-center gap-3 px-2 py-1 rounded-md transition-colors hover:bg-slate-50 dark:hover:bg-gray-800/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f70b4]"
         onClick={() => setShowDropdown(!showDropdown)}
-        title={`Cambiar establecimiento (Actual: ${currentEstablishment.name})`}
+        title={`Cambiar establecimiento (Actual: ${currentEstablecimiento.name})`}
       >
         <Building2 className="w-5 h-5 text-[#2f70b4] dark:text-[#2ccdb0]" />
         <div className="flex flex-col text-left leading-tight">
           <div className="flex items-center gap-1">
             <span className="text-sm font-semibold text-slate-900 dark:text-white">
-              {currentEstablishment.name}
+              {currentEstablecimiento.name}
             </span>
             <ChevronDown
               className={`w-3.5 h-3.5 text-slate-400 dark:text-gray-500 transition-transform duration-200 ${
@@ -69,7 +69,7 @@ export default function EstablishmentSelector() {
           </div>
           <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-gray-400">
             <MapPin className="w-3 h-3" />
-            {currentEstablishment.address}
+            {currentEstablecimiento.address}
           </span>
         </div>
       </button>
@@ -87,15 +87,15 @@ export default function EstablishmentSelector() {
           </div>
 
           <div className="py-1">
-            {availableEstablishments.length > 0 ? (
-              availableEstablishments.map(establishment => {
-                const isSelected = establishment.id === currentEstablishment.id;
-                const isMain = establishment.isMainEstablishment;
+            {availableEstablecimientos.length > 0 ? (
+              availableEstablecimientos.map(Establecimiento => {
+                const isSelected = Establecimiento.id === currentEstablecimiento.id;
+                const isMain = Establecimiento.isMainEstablecimiento;
 
                 return (
                   <button
-                    key={establishment.id}
-                    onClick={() => handleEstablishmentChange(establishment.id)}
+                    key={Establecimiento.id}
+                    onClick={() => handleEstablecimientoChange(Establecimiento.id)}
                     className={`w-full px-4 py-3 text-left transition-colors flex items-start space-x-3 ${
                       isSelected
                         ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-600'
@@ -123,7 +123,7 @@ export default function EstablishmentSelector() {
                               : 'text-slate-900 dark:text-white'
                           }`}
                         >
-                          {establishment.name}
+                          {Establecimiento.name}
                         </p>
                         {isMain && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
@@ -135,12 +135,12 @@ export default function EstablishmentSelector() {
                       <div className="flex items-center gap-1 mt-1">
                         <MapPin className="w-3 h-3 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                         <p className="text-xs text-slate-600 dark:text-gray-400 truncate">
-                          {establishment.address}
+                          {Establecimiento.address}
                         </p>
                       </div>
 
                       <p className="text-xs text-slate-500 dark:text-gray-500 mt-0.5">
-                        Código: {establishment.code}
+                        Código: {Establecimiento.code}
                       </p>
                     </div>
 
@@ -165,12 +165,12 @@ export default function EstablishmentSelector() {
             )}
           </div>
 
-          {availableEstablishments.length > 0 && (
+          {availableEstablecimientos.length > 0 && (
             <div className="border-t border-slate-100 dark:border-gray-700 pt-2 px-4">
               <p className="text-xs text-slate-500 dark:text-gray-400">
-                {availableEstablishments.length} establecimiento
-                {availableEstablishments.length !== 1 ? 's' : ''} disponible
-                {availableEstablishments.length !== 1 ? 's' : ''}
+                {availableEstablecimientos.length} establecimiento
+                {availableEstablecimientos.length !== 1 ? 's' : ''} disponible
+                {availableEstablecimientos.length !== 1 ? 's' : ''}
               </p>
             </div>
           )}

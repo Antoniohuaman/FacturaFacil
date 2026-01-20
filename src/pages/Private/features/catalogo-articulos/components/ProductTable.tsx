@@ -1,7 +1,7 @@
 import type { Product, FilterOptions } from '../models/types';
-import type { Establishment } from '../../configuracion-sistema/models/Establishment';
+import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
 import React, { useMemo } from 'react';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { ProductTableHeader } from './product-table/ProductTableHeader';
 import { ProductTableRow } from './product-table/ProductTableRow';
 import { ProductTableEmptyState } from './product-table/ProductTableEmptyState';
@@ -18,8 +18,8 @@ interface ProductTableProps {
   selectedProducts: Set<string>;
   onSelectedProductsChange: (selected: Set<string>) => void;
   // ✅ Nuevas props para filtro de establecimiento
-  establishmentScope?: string;
-  establishments?: Establishment[];
+  EstablecimientoScope?: string;
+  Establecimientos?: Establecimiento[];
   columns: ProductTableColumnState[];
   onToggleFavorite: (productId: string) => void;
   onRowClick?: (productId: string) => void;
@@ -35,16 +35,16 @@ const ProductTable: React.FC<ProductTableProps> = ({
   loading = false,
   selectedProducts,
   onSelectedProductsChange,
-  establishmentScope = 'ALL',
-  establishments: establishmentsProp,
+  EstablecimientoScope = 'ALL',
+  Establecimientos: EstablecimientosProp,
   columns,
   onToggleFavorite,
   onRowClick,
   activeProductId
 }) => {
   const { state: configState } = useConfigurationContext();
-  const establishmentsFromContext = configState.establishments || [];
-  const establishments = establishmentsProp || establishmentsFromContext;
+  const EstablecimientosFromContext = configState.Establecimientos || [];
+  const Establecimientos = EstablecimientosProp || EstablecimientosFromContext;
   const units = configState.units || [];
 
   const {
@@ -61,8 +61,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
     onFiltersChange,
     selectedProducts,
     onSelectedProductsChange,
-    establishmentScope,
-    establishments
+    EstablecimientoScope,
+    Establecimientos
   });
 
   const visibleColumns = useMemo(() => columns.filter(column => column.visible), [columns]);
@@ -120,8 +120,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   onEdit={onEditProduct}
                   onDelete={onDeleteProduct}
                   units={units}
-                  establishments={establishments}
-                  establishmentScope={establishmentScope}
+                  Establecimientos={Establecimientos}
+                  EstablecimientoScope={EstablecimientoScope}
                   formatCurrency={formatCurrency}
                   onRowClick={onRowClick}
                   isActive={activeProductId === row.id}
@@ -132,7 +132,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
         </div>
       </div>
 
-      {rows.length === 0 && <ProductTableEmptyState establishmentScope={establishmentScope} />}
+      {rows.length === 0 && <ProductTableEmptyState EstablecimientoScope={EstablecimientoScope} />}
     </>
   );
 };

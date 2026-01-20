@@ -8,8 +8,8 @@ import DisponibilidadTable from './DisponibilidadTable';
 import DisponibilidadPagination from './DisponibilidadPagination';
 import DisponibilidadSettings from './DisponibilidadSettings';
 import type { DisponibilidadItem } from '../../models/disponibilidad.types';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
-import type { Warehouse } from '../../../configuracion-sistema/models/Warehouse';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import type { Almacen } from '../../../configuracion-sistema/modelos/Almacen';
 import * as XLSX from 'xlsx';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { AutoExportRequest } from '@/shared/export/autoExportParams';
@@ -58,9 +58,9 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     cambiarItemsPorPagina,
     canEditThresholds,
     thresholdsTooltip,
-    selectedWarehouse,
+    selectedalmacen,
     selectedEstablecimiento,
-    warehouseScope,
+    almacenescope,
     updateStockThreshold
   } = useInventarioDisponibilidad();
   const { state: configState } = useConfigurationContext();
@@ -88,91 +88,91 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     cambiarItemsPorPagina(itemsPorPagina);
   }, [itemsPorPagina, cambiarItemsPorPagina]);
 
-  const selectedWarehouseId = selectedWarehouse?.id;
+  const selectedalmacenId = selectedalmacen?.id;
 
   const handleThresholdChange = useCallback(async ({
     productoId,
     field,
     value
   }: ThresholdChangePayload) => {
-    if (!selectedWarehouseId) {
+    if (!selectedalmacenId) {
       throw new Error('Selecciona un establecimiento y un almacén para editar los valores.');
     }
 
     await updateStockThreshold({
       productoId,
-      warehouseId: selectedWarehouseId,
+      almacenId: selectedalmacenId,
       field,
       value
     });
-  }, [selectedWarehouseId, updateStockThreshold]);
+  }, [selectedalmacenId, updateStockThreshold]);
 
-  const warehouseMap = useMemo(() => {
-    return new Map(configState.warehouses.map((warehouse) => [warehouse.id, warehouse]));
-  }, [configState.warehouses]);
+  const almacenMap = useMemo(() => {
+    return new Map(configState.almacenes.map((almacen) => [almacen.id, almacen]));
+  }, [configState.almacenes]);
 
-  const establishmentMap = useMemo(() => {
-    return new Map(configState.establishments.map((est) => [est.id, est]));
-  }, [configState.establishments]);
+  const EstablecimientoMap = useMemo(() => {
+    return new Map(configState.Establecimientos.map((est) => [est.id, est]));
+  }, [configState.Establecimientos]);
 
   const handleExportStockActual = useCallback(() => {
-    const scopeWarehouses = warehouseScope
-      .map(id => warehouseMap.get(id))
-      .filter((warehouse): warehouse is Warehouse => Boolean(warehouse));
+    const scopealmacenes = almacenescope
+      .map(id => almacenMap.get(id))
+      .filter((almacen): almacen is Almacen => Boolean(almacen));
 
-    const formatWarehouseLabel = (warehouse?: Warehouse) => {
-      if (!warehouse) return '';
-      const code = warehouse.code || warehouse.id;
-      if (code && warehouse.name) return `${code} - ${warehouse.name}`;
-      return warehouse.name || code || warehouse.id;
+    const formatalmacenLabel = (almacen?: Almacen) => {
+      if (!almacen) return '';
+      const codigo = almacen.codigoAlmacen || almacen.id;
+      if (codigo && almacen.nombreAlmacen) return `${codigo} - ${almacen.nombreAlmacen}`;
+      return almacen.nombreAlmacen || codigo || almacen.id;
     };
 
-    const formatEstablishmentLabel = (establishment?: { id?: string; code?: string; name?: string }) => {
-      if (!establishment) return '';
-      const fromMap = establishment.id ? establishmentMap.get(establishment.id) : undefined;
-      const code = fromMap?.code ?? establishment.code ?? establishment.id;
-      const name = fromMap?.name ?? establishment.name;
+    const formatEstablecimientoLabel = (Establecimiento?: { id?: string; code?: string; name?: string }) => {
+      if (!Establecimiento) return '';
+      const fromMap = Establecimiento.id ? EstablecimientoMap.get(Establecimiento.id) : undefined;
+      const code = fromMap?.code ?? Establecimiento.code ?? Establecimiento.id;
+      const name = fromMap?.name ?? Establecimiento.name;
       if (code && name) return `${code} - ${name}`;
-      return name || code || establishment.id || '';
+      return name || code || Establecimiento.id || '';
     };
 
-    const derivedEstablishments = new Map<string, { id?: string; code?: string; name?: string }>();
-    scopeWarehouses.forEach(warehouse => {
-      if (!warehouse.establishmentId) {
+    const derivedEstablecimientos = new Map<string, { id?: string; code?: string; name?: string }>();
+    scopealmacenes.forEach(almacen => {
+      if (!almacen.establecimientoId) {
         return;
       }
-      derivedEstablishments.set(warehouse.establishmentId, {
-        id: warehouse.establishmentId,
-        code: warehouse.establishmentCode,
-        name: warehouse.establishmentName
+      derivedEstablecimientos.set(almacen.establecimientoId, {
+        id: almacen.establecimientoId,
+        code: almacen.codigoEstablecimientoDesnormalizado,
+        name: almacen.nombreEstablecimientoDesnormalizado
       });
     });
 
-    const establishmentLabel = (() => {
+    const EstablecimientoLabel = (() => {
       if (selectedEstablecimiento) {
-        return formatEstablishmentLabel(selectedEstablecimiento);
+        return formatEstablecimientoLabel(selectedEstablecimiento);
       }
-      if (derivedEstablishments.size === 1) {
-        const single = derivedEstablishments.values().next().value;
-        return formatEstablishmentLabel(single);
+      if (derivedEstablecimientos.size === 1) {
+        const single = derivedEstablecimientos.values().next().value;
+        return formatEstablecimientoLabel(single);
       }
-      if (derivedEstablishments.size > 1) {
+      if (derivedEstablecimientos.size > 1) {
         return 'Todos los establecimientos (consolidado)';
       }
       if (filtros.establecimientoId) {
-        return formatEstablishmentLabel({ id: filtros.establecimientoId });
+        return formatEstablecimientoLabel({ id: filtros.establecimientoId });
       }
       return 'No definido';
     })();
 
-    const warehouseLabel = (() => {
-      if (selectedWarehouse) {
-        return formatWarehouseLabel(selectedWarehouse);
+    const almacenLabel = (() => {
+      if (selectedalmacen) {
+        return formatalmacenLabel(selectedalmacen);
       }
-      if (scopeWarehouses.length === 1) {
-        return formatWarehouseLabel(scopeWarehouses[0]);
+      if (scopealmacenes.length === 1) {
+        return formatalmacenLabel(scopealmacenes[0]);
       }
-      if (scopeWarehouses.length > 1) {
+      if (scopealmacenes.length > 1) {
         return 'Todos los almacenes (consolidado)';
       }
       if (filtros.almacenId) {
@@ -181,8 +181,8 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
       return 'Sin almacenes disponibles';
     })();
 
-    const includedCodes = scopeWarehouses
-      .map(warehouse => warehouse.code || warehouse.id)
+    const includedCodes = scopealmacenes
+      .map(almacen => almacen.codigoAlmacen || almacen.id)
       .filter(Boolean)
       .join(', ');
 
@@ -202,8 +202,8 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     ];
 
     const exportRows = datosExportacion.map(item => ({
-      'Establecimiento': establishmentLabel,
-      'Almacén (alcance)': warehouseLabel,
+      'Establecimiento': EstablecimientoLabel,
+      'Almacén (alcance)': almacenLabel,
       'Almacenes incluidos (códigos)': includedCodes || '—',
       'Código (SKU)': item.sku ?? '',
       'Producto': item.nombre,
@@ -241,10 +241,10 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     filtros.almacenId,
     filtros.establecimientoId,
     selectedEstablecimiento,
-    selectedWarehouse,
-    warehouseMap,
-    warehouseScope,
-    establishmentMap
+    selectedalmacen,
+    almacenMap,
+    almacenescope,
+    EstablecimientoMap
   ]);
 
   useEffect(() => {
@@ -292,7 +292,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
           canEditThresholds={canEditThresholds}
           editThresholdMessage={thresholdsTooltip}
           onUpdateThreshold={handleThresholdChange}
-          selectedWarehouseName={selectedWarehouse?.name}
+          selectednombreAlmacen={selectedalmacen?.nombreAlmacen}
         />
       </div>
 

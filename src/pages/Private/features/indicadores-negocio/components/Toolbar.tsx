@@ -1,5 +1,5 @@
 import DateRangePicker from './DateRangePicker';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useIndicadoresFilters } from '../hooks/useIndicadoresFilters';
 import type { DateRange } from '../models/dateRange';
 
@@ -8,20 +8,20 @@ export default function Toolbar() {
   const { state: configState } = useConfigurationContext();
   const {
     dateRange,
-    establishmentId,
+    EstablecimientoId,
     setDateRange,
-    setEstablishmentId
+    setEstablecimientoId
   } = useIndicadoresFilters();
 
   // Obtener establecimientos activos desde la configuración
-  const establishments = configState.establishments.filter(e => e.isActive);
-  const establishmentOptions = [
+  const Establecimientos = configState.Establecimientos.filter(e => e.isActive);
+  const EstablecimientoOptions = [
     { id: 'Todos', name: 'Todos los establecimientos' },
-    ...establishments.map(est => ({ id: est.id, name: `${est.code} - ${est.name}` }))
+    ...Establecimientos.map(est => ({ id: est.id, name: `${est.code} - ${est.name}` }))
   ];
 
-  const handleEstablishmentChange = (establishment: string) => {
-    setEstablishmentId(establishment);
+  const handleEstablecimientoChange = (Establecimiento: string) => {
+    setEstablecimientoId(Establecimiento);
   };
 
   const handleDateRangeChange = (range: DateRange) => {
@@ -46,11 +46,11 @@ export default function Toolbar() {
           <div className="flex items-center space-x-3">
             <label className="text-sm font-medium text-slate-700 dark:text-gray-300 min-w-[90px]">Establecimiento:</label>
             <select
-              value={establishmentId}
-              onChange={(e) => handleEstablishmentChange(e.target.value)}
+              value={EstablecimientoId}
+              onChange={(e) => handleEstablecimientoChange(e.target.value)}
               className="h-10 px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white min-w-[150px]"
             >
-              {establishmentOptions.map((option) => (
+              {EstablecimientoOptions.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.name}
                 </option>

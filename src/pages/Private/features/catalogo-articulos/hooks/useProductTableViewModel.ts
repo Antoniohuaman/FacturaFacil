@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import type { Product, FilterOptions } from '../models/types';
-import type { Establishment } from '../../configuracion-sistema/models/Establishment';
+import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
 
 interface UseProductTableViewModelParams {
   products: Product[];
@@ -8,8 +8,8 @@ interface UseProductTableViewModelParams {
   onFiltersChange: (filters: Partial<FilterOptions>) => void;
   selectedProducts: Set<string>;
   onSelectedProductsChange: (selected: Set<string>) => void;
-  establishmentScope?: string;
-  establishments: Establishment[];
+  EstablecimientoScope?: string;
+  Establecimientos: Establecimiento[];
 }
 
 export const useProductTableViewModel = ({
@@ -18,19 +18,19 @@ export const useProductTableViewModel = ({
   onFiltersChange,
   selectedProducts,
   onSelectedProductsChange,
-  establishmentScope = 'ALL',
-  establishments
+  EstablecimientoScope = 'ALL',
+  Establecimientos
 }: UseProductTableViewModelParams) => {
-  const activeEstablishmentIds = useMemo(() => {
-    return new Set(establishments.filter(est => est.isActive).map(est => est.id));
-  }, [establishments]);
+  const activeEstablecimientoIds = useMemo(() => {
+    return new Set(Establecimientos.filter(est => est.isActive).map(est => est.id));
+  }, [Establecimientos]);
 
   const rows = useMemo<Product[]>(() => {
-    if (establishmentScope === 'ALL') {
+    if (EstablecimientoScope === 'ALL') {
       return products;
     }
 
-    if (!establishmentScope || !activeEstablishmentIds.has(establishmentScope)) {
+    if (!EstablecimientoScope || !activeEstablecimientoIds.has(EstablecimientoScope)) {
       return [];
     }
 
@@ -38,9 +38,9 @@ export const useProductTableViewModel = ({
       if (product.disponibleEnTodos) {
         return true;
       }
-      return Boolean(product.establecimientoIds?.includes(establishmentScope));
+      return Boolean(product.establecimientoIds?.includes(EstablecimientoScope));
     });
-  }, [activeEstablishmentIds, establishmentScope, products]);
+  }, [activeEstablecimientoIds, EstablecimientoScope, products]);
 
   const handleSelectAll = useCallback(
     (checked: boolean) => {

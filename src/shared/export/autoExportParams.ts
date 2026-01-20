@@ -3,7 +3,7 @@ const REPORT_ID_PARAM = 'reportId';
 const RETURN_TO_PARAM = 'returnTo';
 const FROM_PARAM = 'from';
 const TO_PARAM = 'to';
-const ESTABLISHMENT_PARAM = 'establishmentId';
+const Establecimiento_PARAM = 'EstablecimientoId';
 
 export const REPORTS_HUB_PATH = '/indicadores?view=reportes';
 
@@ -11,7 +11,7 @@ export interface AutoExportRequest {
   reportId: string;
   from?: string;
   to?: string;
-  establishmentId?: string;
+  EstablecimientoId?: string;
   returnTo?: string;
 }
 
@@ -29,7 +29,7 @@ export const parseAutoExportRequest = (searchParams: URLSearchParams): AutoExpor
     reportId,
     from: searchParams.get(FROM_PARAM) ?? undefined,
     to: searchParams.get(TO_PARAM) ?? undefined,
-    establishmentId: searchParams.get(ESTABLISHMENT_PARAM) ?? undefined,
+    EstablecimientoId: searchParams.get(Establecimiento_PARAM) ?? undefined,
     returnTo: searchParams.get(RETURN_TO_PARAM) ?? undefined
   };
 };
@@ -41,7 +41,7 @@ export const stripAutoExportParams = (searchParams: URLSearchParams): URLSearchP
   next.delete(RETURN_TO_PARAM);
   next.delete(FROM_PARAM);
   next.delete(TO_PARAM);
-  next.delete(ESTABLISHMENT_PARAM);
+  next.delete(Establecimiento_PARAM);
   return next;
 };
 

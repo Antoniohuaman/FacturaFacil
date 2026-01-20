@@ -1,5 +1,5 @@
 import type { Product as CatalogProduct } from '../../pages/Private/features/catalogo-articulos/models/types';
-import type { Warehouse } from '../../pages/Private/features/configuracion-sistema/models/Warehouse';
+import type { Almacen } from '../../pages/Private/features/configuracion-sistema/modelos/Almacen';
 import {
   convertFromUnidadMinima,
   convertToUnidadMinima,
@@ -21,22 +21,24 @@ const toNumber = (value: unknown): number => {
 
 const clampZero = (value: number): number => (value < 0 ? 0 : value);
 
-const buildWarehouseMap = (warehouses?: Warehouse[]) => {
-  const map = new Map<string, Warehouse>();
-  warehouses?.forEach(warehouse => {
-    map.set(warehouse.id, warehouse);
+const buildalmacenMap = (almacenes?: Almacen[]) => {
+  const map = new Map<string, Almacen>();
+  almacenes?.forEach(almacen => {
+    map.set(almacen.id, almacen);
   });
   return map;
 };
 
-const filterWarehouseIds = (warehouses: Warehouse[] | undefined, establishmentId?: string) => {
-  if (!warehouses || warehouses.length === 0) {
+const filteralmacenIds = (almacenes: Almacen[] | undefined, EstablecimientoId?: string) => {
+  if (!almacenes || almacenes.length === 0) {
     return undefined;
   }
-  if (!establishmentId) {
+  if (!EstablecimientoId) {
     return undefined;
   }
-  const matches = warehouses.filter(wh => wh.establishmentId === establishmentId && wh.isActive !== false);
+  const matches = almacenes.filter(
+    wh => wh.establecimientoId === EstablecimientoId && wh.estaActivoAlmacen !== false,
+  );
   if (!matches.length) {
     return undefined;
   }
@@ -45,13 +47,13 @@ const filterWarehouseIds = (warehouses: Warehouse[] | undefined, establishmentId
 
 const pickFallbackStock = (
   product: CatalogProduct | undefined | null,
-  establishmentId?: string
+  EstablecimientoId?: string
 ): number => {
   if (!product) {
     return 0;
   }
-  if (establishmentId && product.stockPorEstablecimiento) {
-    const candidate = product.stockPorEstablecimiento[establishmentId];
+  if (EstablecimientoId && product.stockPorEstablecimiento) {
+    const candidate = product.stockPorEstablecimiento[EstablecimientoId];
     if (candidate !== undefined) {
       return clampZero(toNumber(candidate));
     }
@@ -62,11 +64,11 @@ const pickFallbackStock = (
   return 0;
 };
 
-export interface WarehouseStockRecord {
-  warehouseId: string;
-  warehouseCode?: string;
-  warehouseName?: string;
-  establishmentId?: string;
+export interface almacenestockRecord {
+  almacenId: string;
+  almacenCode?: string;
+  nombreAlmacen?: string;
+  EstablecimientoId?: string;
   stock: number;
   reserved: number;
   available: number;
@@ -78,43 +80,43 @@ export interface ProductStockSummary {
   totalStock: number;
   totalReserved: number;
   totalAvailable: number;
-  breakdown: WarehouseStockRecord[];
+  breakdown: almacenestockRecord[];
 }
 
 export interface ProductStockInput {
   product?: CatalogProduct | null;
-  warehouses?: Warehouse[];
-  establishmentId?: string;
+  almacenes?: Almacen[];
+  EstablecimientoId?: string;
   respectReservations?: boolean;
 }
 
 export const summarizeProductStock = (
   options: ProductStockInput
 ): ProductStockSummary => {
-  const { product, warehouses, establishmentId } = options;
+  const { product, almacenes, EstablecimientoId } = options;
   const respectReservations = options.respectReservations !== false;
-  const warehouseMap = buildWarehouseMap(warehouses);
-  const filteredIds = filterWarehouseIds(warehouses, establishmentId);
+  const almacenMap = buildalmacenMap(almacenes);
+  const filteredIds = filteralmacenIds(almacenes, EstablecimientoId);
   const unidadMinima = resolveUnidadMinima(product);
-  const breakdown: WarehouseStockRecord[] = [];
+  const breakdown: almacenestockRecord[] = [];
 
   if (product?.stockPorAlmacen) {
     const reservedMap = product.stockReservadoPorAlmacen || {};
-    Object.entries(product.stockPorAlmacen).forEach(([warehouseId, stockValue]) => {
-      if (filteredIds && !filteredIds.has(warehouseId)) {
+    Object.entries(product.stockPorAlmacen).forEach(([almacenId, stockValue]) => {
+      if (filteredIds && !filteredIds.has(almacenId)) {
         return;
       }
       const stock = clampZero(toNumber(stockValue));
-      const reservedRaw = respectReservations ? reservedMap[warehouseId] : 0;
+      const reservedRaw = respectReservations ? reservedMap[almacenId] : 0;
       const reserved = clampZero(toNumber(reservedRaw));
       const available = stock <= reserved ? 0 : stock - reserved;
-      const meta = warehouseMap.get(warehouseId);
+      const meta = almacenMap.get(almacenId);
 
       breakdown.push({
-        warehouseId,
-        warehouseCode: meta?.code,
-        warehouseName: meta?.name,
-        establishmentId: meta?.establishmentId,
+        almacenId,
+        almacenCode: meta?.codigoAlmacen,
+        nombreAlmacen: meta?.nombreAlmacen,
+        EstablecimientoId: meta?.establecimientoId,
         stock,
         reserved,
         available,
@@ -123,13 +125,13 @@ export const summarizeProductStock = (
   }
 
   if (breakdown.length === 0) {
-    const fallbackStock = pickFallbackStock(product, establishmentId);
+    const fallbackStock = pickFallbackStock(product, EstablecimientoId);
     if (fallbackStock > 0 || product) {
       breakdown.push({
-        warehouseId: establishmentId || 'general',
-        warehouseCode: undefined,
-        warehouseName: undefined,
-        establishmentId,
+        almacenId: EstablecimientoId || 'general',
+        almacenCode: undefined,
+        nombreAlmacen: undefined,
+        EstablecimientoId,
         stock: fallbackStock,
         reserved: 0,
         available: fallbackStock,
@@ -185,15 +187,15 @@ export const getAvailableStockForUnit = (
   };
 };
 
-export interface WarehouseResolutionOptions {
-  warehouses?: Warehouse[];
-  establishmentId?: string;
-  preferredWarehouseId?: string;
+export interface almacenResolutionOptions {
+  almacenes?: Almacen[];
+  EstablecimientoId?: string;
+  preferredalmacenId?: string;
 }
 
-export interface WarehouseFIFOResolutionOptions {
-  warehouses?: Warehouse[];
-  establishmentId?: string;
+export interface almacenFIFOResolutionOptions {
+  almacenes?: Almacen[];
+  EstablecimientoId?: string;
 }
 
 const normalizeSortValue = (value: unknown): string => {
@@ -203,17 +205,17 @@ const normalizeSortValue = (value: unknown): string => {
   return value.trim().toLowerCase();
 };
 
-const compareWarehousesStable = (a: Warehouse, b: Warehouse): number => {
-  const aCode = normalizeSortValue(a.code);
-  const bCode = normalizeSortValue(b.code);
+const comparealmacenesStable = (a: Almacen, b: Almacen): number => {
+  const aCode = normalizeSortValue(a.codigoAlmacen);
+  const bCode = normalizeSortValue(b.codigoAlmacen);
   if (aCode && bCode && aCode !== bCode) {
     return aCode.localeCompare(bCode);
   }
   if (aCode && !bCode) return -1;
   if (!aCode && bCode) return 1;
 
-  const aName = normalizeSortValue(a.name);
-  const bName = normalizeSortValue(b.name);
+  const aName = normalizeSortValue(a.nombreAlmacen);
+  const bName = normalizeSortValue(b.nombreAlmacen);
   if (aName && bName && aName !== bName) {
     return aName.localeCompare(bName);
   }
@@ -225,38 +227,38 @@ const compareWarehousesStable = (a: Warehouse, b: Warehouse): number => {
 
 /**
  * Devuelve la lista ordenada FIFO de almacenes activos del establecimiento:
- * 1) almacén principal (isMainWarehouse) si existe
+ * 1) almacén principal (esAlmacenPrincipal) si existe
  * 2) resto de almacenes activos en orden estable
  */
-export const resolveWarehousesForSaleFIFO = (
-  options: WarehouseFIFOResolutionOptions
-): Warehouse[] => {
-  const { warehouses = [], establishmentId } = options;
-  if (!establishmentId || !warehouses.length) {
+export const resolvealmacenesForSaleFIFO = (
+  options: almacenFIFOResolutionOptions
+): Almacen[] => {
+  const { almacenes = [], EstablecimientoId } = options;
+  if (!EstablecimientoId || !almacenes.length) {
     return [];
   }
 
-  const matches = warehouses
-    .filter(wh => wh.establishmentId === establishmentId && wh.isActive !== false)
+  const matches = almacenes
+    .filter(wh => wh.establecimientoId === EstablecimientoId && wh.estaActivoAlmacen !== false)
     .slice();
 
   if (!matches.length) {
     return [];
   }
 
-  const mains = matches.filter(wh => Boolean(wh.isMainWarehouse)).sort(compareWarehousesStable);
-  const rest = matches.filter(wh => !wh.isMainWarehouse).sort(compareWarehousesStable);
+  const mains = matches.filter(wh => Boolean(wh.esAlmacenPrincipal)).sort(comparealmacenesStable);
+  const rest = matches.filter(wh => !wh.esAlmacenPrincipal).sort(comparealmacenesStable);
   return [...mains, ...rest];
 };
 
-export interface WarehouseDiscountAllocation {
-  warehouseId: string;
+export interface almacenDiscountAllocation {
+  almacenId: string;
   qtyUnidadMinima: number;
 }
 
-export interface AllocateSaleAcrossWarehousesOptions {
+export interface AllocateSaleAcrossalmacenesOptions {
   product: CatalogProduct;
-  warehousesOrdered: Warehouse[];
+  almacenesOrdered: Almacen[];
   qtyUnidadMinima: number;
   respectReservations?: boolean;
 }
@@ -266,13 +268,13 @@ export interface AllocateSaleAcrossWarehousesOptions {
  * respetando el stock disponible por almacén (stock - reservado).
  * No inventa stock: si no alcanza, retorna una asignación parcial.
  */
-export const allocateSaleAcrossWarehouses = (
-  options: AllocateSaleAcrossWarehousesOptions
-): WarehouseDiscountAllocation[] => {
-  const { product, warehousesOrdered } = options;
+export const allocateSaleAcrossalmacenes = (
+  options: AllocateSaleAcrossalmacenesOptions
+): almacenDiscountAllocation[] => {
+  const { product, almacenesOrdered } = options;
   const respectReservations = options.respectReservations !== false;
   const requested = toNumber(options.qtyUnidadMinima);
-  if (!product || !warehousesOrdered.length || requested <= 0) {
+  if (!product || !almacenesOrdered.length || requested <= 0) {
     return [];
   }
 
@@ -280,19 +282,19 @@ export const allocateSaleAcrossWarehouses = (
   const reservedMap = respectReservations ? (product.stockReservadoPorAlmacen ?? {}) : {};
 
   let remaining = requested;
-  const allocations: WarehouseDiscountAllocation[] = [];
+  const allocations: almacenDiscountAllocation[] = [];
 
-  for (const warehouse of warehousesOrdered) {
+  for (const almacen of almacenesOrdered) {
     if (remaining <= 0) break;
-    const stock = toNumber(stockMap[warehouse.id]);
-    const reserved = toNumber(reservedMap[warehouse.id]);
+    const stock = toNumber(stockMap[almacen.id]);
+    const reserved = toNumber(reservedMap[almacen.id]);
     const available = stock <= reserved ? 0 : stock - reserved;
     if (available <= 0) {
       continue;
     }
     const take = remaining <= available ? remaining : available;
     if (take > 0) {
-      allocations.push({ warehouseId: warehouse.id, qtyUnidadMinima: take });
+      allocations.push({ almacenId: almacen.id, qtyUnidadMinima: take });
       remaining -= take;
     }
   }
@@ -300,22 +302,24 @@ export const allocateSaleAcrossWarehouses = (
   return allocations;
 };
 
-export const resolveWarehouseForSale = (
-  options: WarehouseResolutionOptions
-): Warehouse | undefined => {
-  const { warehouses = [], establishmentId, preferredWarehouseId } = options;
-  if (!warehouses.length) {
+export const resolvealmacenForSale = (
+  options: almacenResolutionOptions
+): Almacen | undefined => {
+  const { almacenes = [], EstablecimientoId, preferredalmacenId } = options;
+  if (!almacenes.length) {
     return undefined;
   }
-  if (preferredWarehouseId) {
-    const preferred = warehouses.find(wh => wh.id === preferredWarehouseId);
+  if (preferredalmacenId) {
+    const preferred = almacenes.find(wh => wh.id === preferredalmacenId);
     if (preferred) {
       return preferred;
     }
   }
-  if (establishmentId) {
-    const matches = warehouses.filter(wh => wh.establishmentId === establishmentId && wh.isActive !== false);
-    const main = matches.find(wh => wh.isMainWarehouse);
+  if (EstablecimientoId) {
+    const matches = almacenes.filter(
+      wh => wh.establecimientoId === EstablecimientoId && wh.estaActivoAlmacen !== false,
+    );
+    const main = matches.find(wh => wh.esAlmacenPrincipal);
     if (main) {
       return main;
     }
@@ -323,21 +327,21 @@ export const resolveWarehouseForSale = (
       return matches[0];
     }
   }
-  const main = warehouses.find(wh => wh.isMainWarehouse);
-  return main || warehouses[0];
+  const main = almacenes.find(wh => wh.esAlmacenPrincipal);
+  return main || almacenes[0];
 };
 
-export const getWarehouseAvailability = (
+export const getalmacenAvailability = (
   summary: ProductStockSummary,
-  warehouseId?: string
-): WarehouseStockRecord | undefined => {
+  almacenId?: string
+): almacenestockRecord | undefined => {
   if (!summary.breakdown.length) {
     return undefined;
   }
-  if (!warehouseId) {
+  if (!almacenId) {
     return summary.breakdown[0];
   }
-  return summary.breakdown.find(record => record.warehouseId === warehouseId);
+  return summary.breakdown.find(record => record.almacenId === almacenId);
 };
 
 export const hasSufficientStock = (
@@ -352,19 +356,19 @@ export const hasSufficientStock = (
 
 export const projectAvailableAfterMovement = (
   summary: ProductStockSummary,
-  warehouseId: string | undefined,
+  almacenId: string | undefined,
   movementCantidadUnidadMinima: number
 ): ProductStockSummary => {
   if (movementCantidadUnidadMinima <= 0) {
     return summary;
   }
-  const targetWarehouseId = warehouseId || summary.breakdown[0]?.warehouseId;
-  if (!targetWarehouseId) {
+  const targetalmacenId = almacenId || summary.breakdown[0]?.almacenId;
+  if (!targetalmacenId) {
     return summary;
   }
 
   const nextBreakdown = summary.breakdown.map(record => {
-    if (record.warehouseId !== targetWarehouseId) {
+    if (record.almacenId !== targetalmacenId) {
       return record;
     }
     const nextAvailable = clampZero(record.available - movementCantidadUnidadMinima);

@@ -1,6 +1,6 @@
 import { tryEnsureEmpresaId, tryLsKey } from '../../../../../shared/tenant';
 import type { Product, Package } from '../models/types';
-import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
+import type { Category } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { inferUnitMeasureType } from './unitMeasureHelpers';
 
 const LEGACY_KEYS = [

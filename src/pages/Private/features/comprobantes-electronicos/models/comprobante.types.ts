@@ -417,7 +417,7 @@ export type ClientSelectHandler = (client: ClientData) => void;
 
 export interface CompanyData {
   name: string;
-  businessName: string;
+  razonSocial: string;
   ruc: string;
   address: string;
   phone: string;

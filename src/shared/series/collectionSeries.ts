@@ -1,4 +1,4 @@
-import type { Series } from '../../pages/Private/features/configuracion-sistema/models/Series';
+import type { Series } from '../../pages/Private/features/configuracion-sistema/modelos/Series';
 
 export const COLLECTION_DOCUMENT_CODE = 'RC';
 
@@ -11,18 +11,18 @@ export const isCollectionSeries = (series: Series): boolean => {
 
 export const filterCollectionSeries = (
   seriesList: Series[],
-  establishmentId?: string
+  EstablecimientoId?: string
 ): Series[] => {
   return seriesList.filter((series) => {
     if (!isCollectionSeries(series)) {
       return false;
     }
 
-    const matchesEstablishment =
-      !establishmentId || series.establishmentId === establishmentId;
+    const matchesEstablecimiento =
+      !EstablecimientoId || series.EstablecimientoId === EstablecimientoId;
 
     return (
-      matchesEstablishment &&
+      matchesEstablecimiento &&
       series.isActive &&
       series.status === 'ACTIVE'
     );

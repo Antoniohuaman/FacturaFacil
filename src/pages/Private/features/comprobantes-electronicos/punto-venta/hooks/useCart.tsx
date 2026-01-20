@@ -5,7 +5,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { CartItem, Product, IgvType } from '../../models/comprobante.types';
 import { SYSTEM_CONFIG } from '../../models/constants';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../../contexts/UserSessionContext';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
@@ -129,7 +129,7 @@ export const useCart = (): UseCartReturn => {
   // ===================================================================
   // CONFIGURACIÓN Y ESTADO
   // ===================================================================
-  const { state: { warehouses, salesPreferences, taxes } } = useConfigurationContext();
+  const { state: { almacenes, salesPreferences, taxes } } = useConfigurationContext();
   const allowNegativeStock = useMemo(() => {
     if (typeof salesPreferences?.allowNegativeStock === 'boolean') {
       return salesPreferences.allowNegativeStock;
@@ -189,7 +189,7 @@ export const useCart = (): UseCartReturn => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const { session } = useUserSession();
   const { allProducts: catalogProducts } = useProductStore();
-  const establishmentId = session?.currentEstablishmentId;
+  const EstablecimientoId = session?.currentEstablecimientoId;
 
   const catalogLookup = useMemo(() => {
     const map = new Map<string, CatalogProduct>();
@@ -217,8 +217,8 @@ export const useCart = (): UseCartReturn => {
 
     const summary = summarizeProductStock({
       product: catalogProduct,
-      warehouses,
-      establishmentId,
+      almacenes,
+      EstablecimientoId,
     });
 
     const requiredUnidadMinima = calculateRequiredUnidadMinima({
@@ -246,7 +246,7 @@ export const useCart = (): UseCartReturn => {
     }
 
     return true;
-  }, [allowNegativeStock, establishmentId, findCatalogProduct, warehouses]);
+  }, [allowNegativeStock, EstablecimientoId, findCatalogProduct, almacenes]);
 
   const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
     const price = Number.isFinite(product.price) ? product.price : 0;

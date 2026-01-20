@@ -1,35 +1,35 @@
 import React, { useMemo } from 'react';
-import type { Establishment } from '../../../configuracion-sistema/models/Establishment';
+import type { Establecimiento } from '../../../configuracion-sistema/modelos/Establecimiento';
 import type { ProductFormData } from '../../models/types';
 
 interface ProductAvailabilitySectionProps {
   formData: ProductFormData;
   setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>;
-  establishments: Establishment[];
+  Establecimientos: Establecimiento[];
 }
 
 export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProps> = ({
   formData,
   setFormData,
-  establishments
+  Establecimientos
 }) => {
-  const activeEstablishments = useMemo(
-    () => establishments.filter(est => est.isActive),
-    [establishments]
+  const activeEstablecimientos = useMemo(
+    () => Establecimientos.filter(est => est.isActive),
+    [Establecimientos]
   );
   const selectedSet = useMemo(() => new Set(formData.establecimientoIds), [formData.establecimientoIds]);
 
   const selectedCount = useMemo(() => {
     let count = 0;
-    activeEstablishments.forEach(est => {
+    activeEstablecimientos.forEach(est => {
       if (selectedSet.has(est.id)) {
         count += 1;
       }
     });
     return count;
-  }, [activeEstablishments, selectedSet]);
+  }, [activeEstablecimientos, selectedSet]);
 
-  if (activeEstablishments.length <= 1) {
+  if (activeEstablecimientos.length <= 1) {
     return null;
   }
 
@@ -38,7 +38,7 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
       <label className="block text-xs font-medium text-gray-700">Disponibilidad</label>
 
       <div className="rounded-md border border-gray-200 bg-white p-1.5 max-h-36 overflow-y-auto">
-        {activeEstablishments.map(est => {
+        {activeEstablecimientos.map(est => {
           const checked = selectedSet.has(est.id);
           return (
             <label
@@ -68,7 +68,7 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
       </div>
 
       <p className="text-[10px] text-gray-600">
-        {selectedCount} de {activeEstablishments.length} habilitado(s)
+        {selectedCount} de {activeEstablecimientos.length} habilitado(s)
       </p>
     </div>
   );

@@ -11,7 +11,7 @@ import { useComprobanteContext } from '../../pages/Private/features/comprobantes
 import type { Comprobante } from '../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import { useCobranzasContext } from '../../pages/Private/features/gestion-cobranzas/context/CobranzasContext';
 import type { CuentaPorCobrarSummary } from '../../pages/Private/features/gestion-cobranzas/models/cobranzas.types';
-import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import type { Movimiento } from '../../pages/Private/features/control-caja/models';
 import { useIndicadores } from '../../pages/Private/features/indicadores-negocio/hooks/useIndicadores';
@@ -98,7 +98,7 @@ interface InventorySearchEntity {
   stockReservado: number;
   stockDisponible: number;
   stockMinimo?: number;
-  warehouses: Array<{ id: string; name: string; quantity: number }>;
+  almacenes: Array<{ id: string; name: string; quantity: number }>;
 }
 
 interface IndicadorSearchEntity {
@@ -618,13 +618,13 @@ const SearchBarContent = ({
   const comprobantes = comprobanteState.comprobantes;
   const { cuentas } = useCobranzasContext();
   const { state: configState } = useConfigurationContext();
-  const warehouseNameMap = useMemo(() => {
+  const nombreAlmacenMap = useMemo(() => {
     const map = new Map<string, string>();
-    configState.warehouses.forEach((warehouse) => {
-      map.set(warehouse.id, warehouse.name ?? warehouse.code ?? warehouse.id);
+    configState.almacenes.forEach((almacen) => {
+      map.set(almacen.id, almacen.nombreAlmacen ?? almacen.codigoAlmacen ?? almacen.id);
     });
     return map;
-  }, [configState.warehouses]);
+  }, [configState.almacenes]);
   const { status: cajaStatus, movimientos, getResumen, aperturaActual } = useCaja();
   const cajaResumen = useMemo(() => getResumen(), [getResumen]);
   const movimientoDateFormatter = useMemo(
@@ -632,10 +632,10 @@ const SearchBarContent = ({
     []
   );
   const indicadoresDateRange = useIndicadoresFiltersStore((state) => state.dateRange);
-  const indicadoresEstablishmentId = useIndicadoresFiltersStore((state) => state.establishmentId);
+  const indicadoresEstablecimientoId = useIndicadoresFiltersStore((state) => state.EstablecimientoId);
   const indicadoresFilters = useMemo(
-    () => ({ dateRange: indicadoresDateRange, establishmentId: indicadoresEstablishmentId }),
-    [indicadoresDateRange, indicadoresEstablishmentId]
+    () => ({ dateRange: indicadoresDateRange, EstablecimientoId: indicadoresEstablecimientoId }),
+    [indicadoresDateRange, indicadoresEstablecimientoId]
   );
   const { data: indicadoresData, status: indicadoresStatus } = useIndicadores(indicadoresFilters);
   const queryTokens = useMemo(() => tokenizeQuery(searchQuery), [searchQuery]);
@@ -899,9 +899,9 @@ const SearchBarContent = ({
       const stockDisponible = Math.max(stockReal - stockReservado, 0);
       const stockMinimo = Object.values(producto.stockMinimoPorAlmacen ?? {}).reduce((sum, qty) => sum + Number(qty ?? 0), 0) || undefined;
       const situacion = stockDisponible === 0 ? 'Sin stock' : stockMinimo && stockDisponible < stockMinimo ? 'Bajo' : 'OK';
-      const warehouses = stockEntries.map(([warehouseId, qty]) => ({
-        id: warehouseId,
-        name: warehouseNameMap.get(warehouseId) ?? warehouseId,
+      const almacenes = stockEntries.map(([almacenId, qty]) => ({
+        id: almacenId,
+        name: nombreAlmacenMap.get(almacenId) ?? almacenId,
         quantity: Number(qty ?? 0),
       }));
       const haystack = buildRichHaystack(
@@ -915,7 +915,7 @@ const SearchBarContent = ({
         stockReal,
         stockReservado,
         stockDisponible,
-        ...warehouses.map((entry) => `${entry.name} ${entry.quantity}`)
+        ...almacenes.map((entry) => `${entry.name} ${entry.quantity}`)
       );
       return {
         id: `inventory-${producto.id}`,
@@ -935,7 +935,7 @@ const SearchBarContent = ({
           stockReservado,
           stockDisponible,
           stockMinimo,
-          warehouses,
+          almacenes,
         },
         keywords: [
           { value: producto.nombre, weight: 140, isKey: true },
@@ -952,7 +952,7 @@ const SearchBarContent = ({
         ],
       } satisfies SearchDatasetItem<InventorySearchEntity>;
     });
-  }, [productosCatalog, warehouseNameMap]);
+  }, [productosCatalog, nombreAlmacenMap]);
 
   const indicadoresItems = useMemo<SearchDatasetItem<IndicadorSearchEntity>[]>(() => {
     if (indicadoresStatus !== 'success') {

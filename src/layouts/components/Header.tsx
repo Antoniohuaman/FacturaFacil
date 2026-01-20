@@ -3,7 +3,7 @@ import { Bell, Settings, Menu } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
-import EstablishmentSelector from './EstablishmentSelector';
+import SelectorEstablecimiento from './EstablishmentSelector';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
@@ -151,7 +151,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
       {/* Información de sesión activa */}
       <div className="flex items-center space-x-4 text-sm">
         {/* Selector de Establecimiento */}
-        <EstablishmentSelector />
+        <SelectorEstablecimiento />
 
         {/* Estado de caja con dropdown */}
         <div className="relative" ref={cashMenuRef}>

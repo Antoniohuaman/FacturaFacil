@@ -58,16 +58,16 @@ const pickIdentifier = (venta: DevVentaSnapshot) => venta.clienteId || venta.cli
 const filterVentas = (
   ventas: DevVentaSnapshot[],
   range: IndicadoresFilters['dateRange'],
-  establishmentId?: string,
+  EstablecimientoId?: string,
   estado: DevVentaEstado = 'emitido'
 ) => {
   const { start, end } = getRangeBounds(range);
-  const normalizedEstablishment = (establishmentId && establishmentId !== 'Todos') ? establishmentId : null;
+  const normalizedEstablecimiento = (EstablecimientoId && EstablecimientoId !== 'Todos') ? EstablecimientoId : null;
   return ventas.filter((venta) => {
     if (estado && venta.estado !== estado) {
       return false;
     }
-    if (normalizedEstablishment && venta.establecimientoId !== normalizedEstablishment) {
+    if (normalizedEstablecimiento && venta.establecimientoId !== normalizedEstablecimiento) {
       return false;
     }
     const ventaDate = new Date(venta.fechaEmision).getTime();
@@ -78,15 +78,15 @@ const filterVentas = (
 const filterVentasHistoricasAntesDelRango = (
   ventas: DevVentaSnapshot[],
   range: IndicadoresFilters['dateRange'],
-  establishmentId?: string
+  EstablecimientoId?: string
 ) => {
   const { start } = getRangeBounds(range);
-  const normalizedEstablishment = (establishmentId && establishmentId !== 'Todos') ? establishmentId : null;
+  const normalizedEstablecimiento = (EstablecimientoId && EstablecimientoId !== 'Todos') ? EstablecimientoId : null;
   return ventas.filter((venta) => {
     if (venta.estado !== 'emitido') {
       return false;
     }
-    if (normalizedEstablishment && venta.establecimientoId !== normalizedEstablishment) {
+    if (normalizedEstablecimiento && venta.establecimientoId !== normalizedEstablecimiento) {
       return false;
     }
     const ventaDate = new Date(venta.fechaEmision).getTime();
@@ -399,11 +399,11 @@ export const resolveIndicadoresFromDevLocal = async (filters: IndicadoresFilters
     return createEmptyIndicadoresData();
   }
 
-  const currentRangeVentas = filterVentas(ventas, filters.dateRange, filters.establishmentId);
+  const currentRangeVentas = filterVentas(ventas, filters.dateRange, filters.EstablecimientoId);
   const previousRange = buildPreviousRange(filters.dateRange);
-  const previousRangeVentas = filterVentas(ventas, previousRange, filters.establishmentId);
-  const ventasPreviasHistoricas = filterVentasHistoricasAntesDelRango(ventas, filters.dateRange, filters.establishmentId);
-  const ventasAnuladasPeriodo = filterVentas(ventas, filters.dateRange, filters.establishmentId, 'anulado');
+  const previousRangeVentas = filterVentas(ventas, previousRange, filters.EstablecimientoId);
+  const ventasPreviasHistoricas = filterVentasHistoricasAntesDelRango(ventas, filters.dateRange, filters.EstablecimientoId);
+  const ventasAnuladasPeriodo = filterVentas(ventas, filters.dateRange, filters.EstablecimientoId, 'anulado');
 
   const totalActual = currentRangeVentas.reduce((acc, venta) => acc + convertToBaseCurrency(venta), 0);
   const totalPrevio = previousRangeVentas.reduce((acc, venta) => acc + convertToBaseCurrency(venta), 0);

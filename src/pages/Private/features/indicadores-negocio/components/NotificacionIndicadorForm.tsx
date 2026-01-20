@@ -41,7 +41,7 @@ interface NotificacionIndicadorFormProps {
   initialValue: NotificacionIndicadorPayload;
   isSaving?: boolean;
   generalError?: string | null;
-  establishments: SelectOption[];
+  Establecimientos: SelectOption[];
   currencies: SelectOption[];
   companyName?: string;
   onSubmit: (value: NotificacionIndicadorPayload) => void;
@@ -105,7 +105,7 @@ export const NotificacionIndicadorForm: React.FC<NotificacionIndicadorFormProps>
   initialValue,
   isSaving,
   generalError,
-  establishments,
+  Establecimientos,
   currencies,
   companyName,
   onSubmit,
@@ -317,7 +317,7 @@ export const NotificacionIndicadorForm: React.FC<NotificacionIndicadorFormProps>
             value={formValue.segmento.establecimientoId ?? 'Todos'}
             onChange={(event) => handleSegmentoChange('establecimientoId', event.target.value)}
           >
-            {establishments.map((option) => (
+            {Establecimientos.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import ImportModal from '../components/ImportModal';
 import { useProductStore } from '../hooks/useProductStore';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { parseExcelFile, exportImportErrors, type ImportResult } from '../utils/excelHelpers';
 
 type ImportStep = 'select' | 'preview' | 'result';
@@ -31,7 +31,7 @@ const ImportPage: React.FC = () => {
         importType,
         allProducts,
         configState.units.filter(u => u.isActive && u.isVisible !== false),
-        configState.establishments.filter(e => e.isActive),
+        configState.Establecimientos.filter(e => e.isActive),
         categories
       );
 

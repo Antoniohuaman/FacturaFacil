@@ -2,11 +2,11 @@
 // Scoped by empresaId and establecimientoId from ConfigurationContext
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useConfigurationContext } from '../context/ConfigurationContext';
-import type { Caja, CreateCajaInput, UpdateCajaInput } from '../models/Caja';
-import { cajasDataSource } from '../api/cajasDataSource';
-import type { ValidationError } from '../utils/cajasValidator';
-import { validateCreateCaja, validateUpdateCaja } from '../utils/cajasValidator';
+import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import type { Caja, CreateCajaInput, UpdateCajaInput } from '../modelos/Caja';
+import { cajasDataSource } from '../api/fuenteDatosCajas';
+import type { ValidationError } from '../utilidades/validadorCajas';
+import { validateCreateCaja, validateUpdateCaja } from '../utilidades/validadorCajas';
 
 interface UseCajasReturn {
   cajas: Caja[];
@@ -23,7 +23,7 @@ interface UseCajasReturn {
   // Getters
   getCaja: (id: string) => Caja | undefined;
   getEnabledCajas: () => Caja[];
-  getCajasByEstablishment: (establecimientoId: string) => Caja[];
+  getCajasByEstablecimiento: (establecimientoId: string) => Caja[];
   
   // Validation
   validateCaja: (input: CreateCajaInput | UpdateCajaInput, cajaId?: string) => ValidationError[];
@@ -37,7 +37,7 @@ interface UseCajasReturn {
 }
 
 /**
- * Hook for managing cajas scoped by company and establishment
+ * Hook for managing cajas scoped by company and Establecimiento
  * Requires empresaId from company and establecimientoId from UserSessionContext
  */
 export function useCajas(empresaId?: string, establecimientoId?: string): UseCajasReturn {
@@ -49,7 +49,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
   const cajas = useMemo(() => state.cajas || [], [state.cajas]);
 
   /**
-   * Load cajas for current company and establishment
+   * Load cajas for current company and Establecimiento
    */
   const loadCajas = useCallback(async () => {
     if (!empresaId || !establecimientoId) {
@@ -194,14 +194,14 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
    * Get only enabled cajas
    */
   const getEnabledCajas = useCallback((): Caja[] => {
-    return cajas.filter(c => c.habilitada);
+    return cajas.filter(c => c.habilitadaCaja);
   }, [cajas]);
 
   /**
-   * Get cajas by specific establishment
+   * Get cajas by specific Establecimiento
    */
-  const getCajasByEstablishment = useCallback((estId: string): Caja[] => {
-    return cajas.filter(c => c.establecimientoId === estId);
+  const getCajasByEstablecimiento = useCallback((estId: string): Caja[] => {
+    return cajas.filter(c => c.establecimientoIdCaja === estId);
   }, [cajas]);
 
   /**
@@ -228,8 +228,8 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
   const getCajasStats = useCallback(() => {
     return {
       total: cajas.length,
-      enabled: cajas.filter(c => c.habilitada).length,
-      disabled: cajas.filter(c => !c.habilitada).length
+      enabled: cajas.filter(c => c.habilitadaCaja).length,
+      disabled: cajas.filter(c => !c.habilitadaCaja).length
     };
   }, [cajas]);
 
@@ -251,7 +251,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
     deleteCaja,
     getCaja,
     getEnabledCajas,
-    getCajasByEstablishment,
+    getCajasByEstablecimiento,
     validateCaja,
     getCajasStats
   };

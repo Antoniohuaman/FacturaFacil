@@ -2,10 +2,10 @@
 import { InventoryService } from '../services/inventory.service';
 import { StockRepository } from '../repositories/stock.repository';
 import type { MovimientoMotivo, MovimientoTipo, MovimientoStock } from '../models';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
-import { resolveWarehouseForSale } from '../../../../../shared/inventory/stockGateway';
+import { resolvealmacenForSale } from '../../../../../shared/inventory/stockGateway';
 
 /**
  * Fachada de inventario para mantener la separación de responsabilidades.
@@ -13,7 +13,7 @@ import { resolveWarehouseForSale } from '../../../../../shared/inventory/stockGa
  * sin que el módulo de catálogo mutile el stock directamente.
  */
 export function useInventoryFacade() {
-  const { state: { warehouses } } = useConfigurationContext();
+  const { state: { almacenes } } = useConfigurationContext();
   const { allProducts, updateProduct } = useProductStore();
   const { session } = useUserSession();
 
@@ -33,7 +33,7 @@ export function useInventoryFacade() {
     establecimientoCodigo?: string,
     establecimientoNombre?: string,
     options?: {
-      warehouseId?: string;
+      almacenId?: string;
       allowNegativeStock?: boolean;
     }
   ) => {
@@ -43,26 +43,26 @@ export function useInventoryFacade() {
       return;
     }
 
-    const resolvedWarehouse = resolveWarehouseForSale({
-      warehouses,
-      establishmentId: establecimientoId,
-      preferredWarehouseId: options?.warehouseId,
+    const resolvedalmacen = resolvealmacenForSale({
+      almacenes,
+      EstablecimientoId: establecimientoId,
+      preferredalmacenId: options?.almacenId,
     });
-    const explicitWarehouse = !resolvedWarehouse && options?.warehouseId
-      ? warehouses.find(w => w.id === options.warehouseId && w.isActive !== false)
+    const explicitalmacen = !resolvedalmacen && options?.almacenId
+      ? almacenes.find(w => w.id === options.almacenId && w.estaActivoAlmacen !== false)
       : undefined;
-    const warehouse = resolvedWarehouse || explicitWarehouse;
+    const almacen = resolvedalmacen || explicitalmacen;
 
-    if (!warehouse) {
+    if (!almacen) {
       throw new Error(
         `[InventoryFacade] No se pudo resolver un almacén válido para el establecimiento ${establecimientoId || '(sin establecimiento)'}; se cancela el movimiento para evitar corrupción de stock.`
       );
     }
 
-    const warehouseId = warehouse.id;
-    const warehouseCode = warehouse?.code || 'N/A';
-    const warehouseName = warehouse?.name || 'Sin almacén';
-    const stockActual = InventoryService.getStock(product, warehouseId);
+    const almacenId = almacen.id;
+    const almacenCode = almacen?.codigoAlmacen || 'N/A';
+    const nombreAlmacen = almacen?.nombreAlmacen || 'Sin almacén';
+    const stockActual = InventoryService.getStock(product, almacenId);
     const allowNegativeStock = Boolean(options?.allowNegativeStock);
 
     const isEntrada = tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION';
@@ -70,19 +70,19 @@ export function useInventoryFacade() {
     const cantidadNueva = allowNegativeStock ? cantidadNuevaRaw : Math.max(0, cantidadNuevaRaw);
     const delta = cantidadNueva - stockActual;
 
-    const updatedProductSnapshot = InventoryService.updateStock(product, warehouseId, cantidadNueva, { allowNegativeStock });
+    const updatedProductSnapshot = InventoryService.updateStock(product, almacenId, cantidadNueva, { allowNegativeStock });
     const totalStock = InventoryService.getTotalStock(updatedProductSnapshot);
 
-    const movementEstablishmentId = establecimientoId || warehouse?.establishmentId || '';
+    const movementEstablecimientoId = establecimientoId || almacen?.establecimientoId || '';
     let nextStockPorEstablecimiento = product.stockPorEstablecimiento;
-    if (movementEstablishmentId) {
-      const prevValue = product.stockPorEstablecimiento?.[movementEstablishmentId];
+    if (movementEstablecimientoId) {
+      const prevValue = product.stockPorEstablecimiento?.[movementEstablecimientoId];
       let nextValue: number | undefined;
       if (typeof prevValue === 'number') {
         nextValue = allowNegativeStock ? prevValue + delta : Math.max(0, prevValue + delta);
-      } else if (warehouses && warehouses.length) {
-        nextValue = warehouses
-          .filter(w => w.establishmentId === movementEstablishmentId)
+      } else if (almacenes && almacenes.length) {
+        nextValue = almacenes
+          .filter(w => w.establecimientoId === movementEstablecimientoId)
           .reduce((sum, w) => sum + (updatedProductSnapshot.stockPorAlmacen?.[w.id] ?? 0), 0);
       } else {
         nextValue = allowNegativeStock ? totalStock : Math.max(0, totalStock);
@@ -90,7 +90,7 @@ export function useInventoryFacade() {
 
       nextStockPorEstablecimiento = {
         ...(product.stockPorEstablecimiento ?? {}),
-        [movementEstablishmentId]: nextValue,
+        [movementEstablecimientoId]: nextValue,
       };
     }
 
@@ -121,12 +121,12 @@ export function useInventoryFacade() {
       documentoReferencia,
       fecha: new Date(),
       ubicacion,
-      warehouseId,
-      warehouseCodigo: warehouseCode,
-      warehouseNombre: warehouseName,
-      establishmentId: movementEstablishmentId,
-      establishmentCodigo: establecimientoCodigo || warehouse?.establishmentCode || '',
-      establishmentNombre: establecimientoNombre || warehouse?.establishmentName || ''
+      almacenId,
+      almacenCodigo: almacenCode,
+      almacenNombre: nombreAlmacen,
+      EstablecimientoId: movementEstablecimientoId,
+      EstablecimientoCodigo: establecimientoCodigo || almacen?.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: establecimientoNombre || almacen?.nombreEstablecimientoDesnormalizado || ''
     };
 
     StockRepository.addMovement(mov);

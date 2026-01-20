@@ -6,12 +6,12 @@
 import { useMemo } from 'react';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import {
-  isProductEnabledForEstablishment,
+  isProductEnabledForEstablecimiento,
   type Product as CatalogoProduct,
 } from '../../catalogo-articulos/models/types';
 import type { Product as POSProduct } from '../models/comprobante.types';
 import { usePriceCalculator } from '../../lista-precios/hooks/usePriceCalculator';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import {
   getAvailableStockForUnit,
   summarizeProductStock,
@@ -43,7 +43,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
   const { establecimientoId, soloConStock = false } = options;
   const { allProducts } = useProductStore();
   const { getUnitPrice, baseColumn } = usePriceCalculator();
-  const { state: { warehouses } } = useConfigurationContext();
+  const { state: { almacenes } } = useConfigurationContext();
 
   const availableProducts = useMemo(() => {
     if (!establecimientoId) {
@@ -59,8 +59,8 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
       }
       const summary = summarizeProductStock({
         product,
-        warehouses,
-        establishmentId: establecimientoId,
+        almacenes,
+        EstablecimientoId: establecimientoId,
       });
       stockCache.set(product.id, summary);
       return summary;
@@ -70,7 +70,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
     const filtered = allProducts.filter(product => {
       const summary = getSummary(product);
 
-      if (!isProductEnabledForEstablishment(product, establecimientoId)) {
+      if (!isProductEnabledForEstablecimiento(product, establecimientoId)) {
         return false;
       }
 
@@ -88,8 +88,8 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
       const resolvedPrice = priceFromList ?? product.precio ?? 0;
       const stockInfo = getAvailableStockForUnit({
         product,
-        warehouses,
-        establishmentId: establecimientoId,
+        almacenes,
+        EstablecimientoId: establecimientoId,
         unitCode: mappedUnit,
       });
       const requiresStockControl = Boolean(
@@ -131,7 +131,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
     });
 
     return posProducts;
-  }, [allProducts, establecimientoId, soloConStock, baseColumn?.id, baseColumn?.name, getUnitPrice, warehouses]);
+  }, [allProducts, establecimientoId, soloConStock, baseColumn?.id, baseColumn?.name, getUnitPrice, almacenes]);
 
   return availableProducts;
 };

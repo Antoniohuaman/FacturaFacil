@@ -35,13 +35,13 @@ export const InventoryPage: React.FC = () => {
     // Estados
     selectedView,
     filterPeriodo,
-    warehouseFiltro,
+    almacenFiltro,
     showAdjustmentModal,
     showMassUpdateModal,
     showTransferModal,
     selectedProductId,
     suggestedQuantity,
-    warehouses,
+    almacenes,
     stockAlerts,
     filteredMovements,
     allProducts,
@@ -49,7 +49,7 @@ export const InventoryPage: React.FC = () => {
     // Setters
     setSelectedView,
     setFilterPeriodo,
-    setWarehouseFiltro,
+    setalmacenFiltro,
     setShowAdjustmentModal,
     setShowMassUpdateModal,
     setShowTransferModal,
@@ -79,8 +79,8 @@ export const InventoryPage: React.FC = () => {
       'Cantidad': mov.cantidad,
       'Stock Anterior': mov.cantidadAnterior,
       'Stock Nuevo': mov.cantidadNueva,
-      'Almacén': mov.warehouseNombre || 'N/A',
-      'Establecimiento': mov.establishmentNombre || 'N/A',
+      'Almacén': mov.almacenNombre || 'N/A',
+      'Establecimiento': mov.EstablecimientoNombre || 'N/A',
       'Usuario': mov.usuario,
       'Observaciones': mov.observaciones || '',
       'Documento': mov.documentoReferencia || ''
@@ -162,7 +162,7 @@ export const InventoryPage: React.FC = () => {
         <div className="px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <SummaryCards
             products={allProducts}
-            warehouseFiltro={warehouseFiltro}
+            almacenFiltro={almacenFiltro}
           />
         </div>
       )}
@@ -255,14 +255,14 @@ export const InventoryPage: React.FC = () => {
 
             {/* Filtro de almacén */}
             <select
-              value={warehouseFiltro}
-              onChange={(e) => setWarehouseFiltro(e.target.value)}
+              value={almacenFiltro}
+              onChange={(e) => setalmacenFiltro(e.target.value)}
               className="h-9 px-3 py-2 border border-[#E5E7EB] dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-[#111827] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 dark:focus:ring-[#8B5CF6]/35 transition-all duration-150"
             >
               <option value="todos">Todos los almacenes</option>
-              {warehouses.map(wh => (
+              {almacenes.map(wh => (
                 <option key={wh.id} value={wh.id}>
-                  {wh.name} ({wh.establishmentName})
+                  {wh.codigoAlmacen} - {wh.nombreAlmacen}
                 </option>
               ))}
             </select>
@@ -318,7 +318,7 @@ export const InventoryPage: React.FC = () => {
         {selectedView === 'movimientos' && (
           <MovementsTable
             movimientos={filteredMovements}
-            warehouseFiltro={warehouseFiltro}
+            almacenFiltro={almacenFiltro}
           />
         )}
 

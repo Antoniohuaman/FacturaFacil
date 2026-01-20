@@ -15,16 +15,16 @@ import ControlCajaHome from "../pages/Private/features/control-caja/pages/Home";
 import { SesionesCajaPage } from "../pages/Private/features/control-caja/pages/SesionesCajaPage";
 import ClientesPage from "../pages/Private/features/gestion-clientes/pages/ClientesPage";
 import IndicadoresPage from "../pages/Private/features/indicadores-negocio/pages/IndicadoresPage";
-import { ConfigurationDashboard } from "../pages/Private/features/configuracion-sistema/pages/ConfigurationDashboard";
-import { CompanyConfiguration } from "../pages/Private/features/configuracion-sistema/pages/CompanyConfiguration";
-import { EstablishmentsConfiguration } from "../pages/Private/features/configuracion-sistema/pages/EstablishmentsConfiguration";
-import { WarehousesConfiguration } from "../pages/Private/features/configuracion-sistema/pages/WarehousesConfiguration";
-import { UsersConfiguration } from "../pages/Private/features/configuracion-sistema/pages/UsersConfiguration";
-import { SeriesConfiguration } from "../pages/Private/features/configuracion-sistema/pages/SeriesConfiguration";
-import { BusinessConfiguration } from "../pages/Private/features/configuracion-sistema/pages/BusinessConfiguration";
-import { VoucherDesignConfigurationNew } from "../pages/Private/features/configuracion-sistema/pages/VoucherDesignConfigurationNew";
-import { CajasConfiguration } from "../pages/Private/features/configuracion-sistema/pages/CajasConfiguration";
-import { CajaFormPage } from "../pages/Private/features/configuracion-sistema/pages/CajaFormPage";
+import { ConfigurationDashboard } from "../pages/Private/features/configuracion-sistema/paginas/PanelConfiguracion";
+import { CompanyConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEmpresa";
+import { EstablecimientosConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEstablecimientos";
+import { ConfiguracionAlmacenes } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionAlmacenes";
+import { UsersConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionUsuarios";
+import { SeriesConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionSeries";
+import { BusinessConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionNegocio";
+import { VoucherDesignConfigurationNew } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionDisenoComprobante";
+import { CajasConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionCajas";
+import { CajaFormPage } from "../pages/Private/features/configuracion-sistema/paginas/PaginaFormularioCaja";
 import CatalogoArticulosMain from "../pages/Private/features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../pages/Private/features/lista-precios/components/ListaPrecios";
 import { InventoryPage } from "../pages/Private/features/gestion-inventario/pages/InventoryPage";
@@ -82,8 +82,8 @@ export const privateRoutes: RouteObject[] = [
       { path: "/indicadores", element: <IndicadoresPage /> },
       { path: "/configuracion", element: <ConfigurationDashboard /> },
       { path: "/configuracion/empresa", element: <CompanyConfiguration /> },
-      { path: "/configuracion/establecimientos", element: <EstablishmentsConfiguration /> },
-      { path: "/configuracion/almacenes", element: <WarehousesConfiguration /> },
+      { path: "/configuracion/establecimientos", element: <EstablecimientosConfiguration /> },
+      { path: "/configuracion/almacenes", element: <ConfiguracionAlmacenes /> },
       { path: "/configuracion/usuarios", element: <UsersConfiguration /> },
       { path: "/configuracion/empleados", loader: () => redirect("/configuracion/usuarios") },
       { path: "/configuracion/series", element: <SeriesConfiguration /> },

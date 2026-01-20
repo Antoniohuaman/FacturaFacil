@@ -16,10 +16,10 @@ import type {
   TipoComprobante,
 } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
-import { useBankAccounts } from '../../../configuracion-sistema/hooks/useBankAccounts';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useBankAccounts } from '../../../configuracion-sistema/hooks/useCuentasBancarias';
 import { useCaja } from '../../../control-caja/context/CajaContext';
-import { useCurrentEstablishmentId } from '../../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
 import { filterCollectionSeries, getNextCollectionDocument } from '../../../../../../shared/series/collectionSeries';
 import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '../payments/CreditInstallmentsTable';
 import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models/cobranzas.types';
@@ -136,7 +136,7 @@ interface CobranzaModalProps {
   formaPago?: string;
   onComplete: (payload: PaymentCollectionPayload) => Promise<boolean> | boolean;
   isProcessing?: boolean;
-  establishmentId?: string;
+  EstablecimientoId?: string;
   creditTerms?: ComprobanteCreditTerms;
   creditPaymentMethodLabel?: string;
   modeIntent?: PaymentCollectionMode;
@@ -222,7 +222,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   formaPago,
   onComplete,
   isProcessing = false,
-  establishmentId,
+  EstablecimientoId,
   creditTerms,
   creditPaymentMethodLabel,
   modeIntent,
@@ -234,8 +234,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const { cajas } = state;
   const { status: cajaStatus, aperturaActual } = useCaja();
   const isCajaOpen = cajaStatus === 'abierta';
-  const currentEstablishmentId = useCurrentEstablishmentId();
-  const effectiveEstablishmentId = establishmentId || currentEstablishmentId;
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
+  const effectiveEstablecimientoId = EstablecimientoId || currentEstablecimientoId;
   const docTypeLabel = tipoComprobante === 'factura' ? 'Factura' : 'Boleta';
   const esBoleta = tipoComprobante === 'boleta';
   const isCobranzasContext = context === 'cobranzas';
@@ -268,22 +268,22 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   }, [paymentMeansOptions]);
 
   const cobranzasSeries = useMemo(
-    () => filterCollectionSeries(state.series, effectiveEstablishmentId || undefined),
-    [state.series, effectiveEstablishmentId],
+    () => filterCollectionSeries(state.series, effectiveEstablecimientoId || undefined),
+    [state.series, effectiveEstablecimientoId],
   );
   const [collectionSeriesId, setCollectionSeriesId] = useState('');
 
-  const cajaOptions = useMemo(() => cajas.filter((caja) => caja.habilitada), [cajas]);
+  const cajaOptions = useMemo(() => cajas.filter((caja) => caja.habilitadaCaja), [cajas]);
 
   const cajaAbierta = useMemo(() => {
     if (!aperturaActual) return undefined;
     return cajas.find((caja) => caja.id === aperturaActual.cajaId);
   }, [aperturaActual, cajas]);
 
-  const cajaAbiertaNombre = cajaAbierta?.nombre ?? null;
+  const cajaAbiertaNombre = cajaAbierta?.nombreCaja ?? null;
 
   const defaultCajaDestino = useMemo(
-    () => (cajaAbierta && cajaAbierta.habilitada ? cajaAbierta : cajaOptions[0] ?? null),
+    () => (cajaAbierta && cajaAbierta.habilitadaCaja ? cajaAbierta : cajaOptions[0] ?? null),
     [cajaAbierta, cajaOptions],
   );
 
@@ -507,14 +507,14 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     if (!matches.length) {
       return null;
     }
-    if (effectiveEstablishmentId) {
-      const establishmentMatch = matches.find((match) => match.establishmentId === effectiveEstablishmentId);
-      if (establishmentMatch) {
-        return establishmentMatch;
+    if (effectiveEstablecimientoId) {
+      const EstablecimientoMatch = matches.find((match) => match.EstablecimientoId === effectiveEstablecimientoId);
+      if (EstablecimientoMatch) {
+        return EstablecimientoMatch;
       }
     }
     return matches[0];
-  }, [effectiveEstablishmentId, serie, state.series]);
+  }, [effectiveEstablecimientoId, serie, state.series]);
   const documentTypeInfo = documentSeriesMeta?.documentType;
 
   const formaPagoDisplay = useMemo(() => {
@@ -828,7 +828,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     if (!isOpen) {
       return;
     }
-    if (cajaAbierta && cajaAbierta.habilitada) {
+    if (cajaAbierta && cajaAbierta.habilitadaCaja) {
       setCajaDestinoId(cajaAbierta.id);
     }
   }, [cajaAbierta, isOpen]);
@@ -997,7 +997,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       const resolvedCajaDestinoLabel = (() => {
         if (enforcedMode !== 'contado') return undefined;
         const found = cajas.find((caja) => caja.id === resolvedCajaDestinoId);
-        return found?.nombre ?? undefined;
+        return found?.nombreCaja ?? undefined;
       })();
 
       const payload: PaymentCollectionPayload = {
@@ -1304,7 +1304,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               >
                                 {cajaOptions.map((option) => (
                                   <option key={option.id} value={option.id}>
-                                    {option.nombre}
+                                    {option.nombreCaja}
                                   </option>
                                 ))}
                               </select>

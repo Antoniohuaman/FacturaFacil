@@ -82,11 +82,11 @@ export class StockRepository {
   /**
    * Obtener movimientos por almacén
    */
-  static getMovementsByWarehouse(warehouseId: string): MovimientoStock[] {
+  static getMovementsByalmacen(almacenId: string): MovimientoStock[] {
     return this.getMovements().filter(mov =>
-      mov.warehouseId === warehouseId ||
-      mov.warehouseOrigenId === warehouseId ||
-      mov.warehouseDestinoId === warehouseId
+      mov.almacenId === almacenId ||
+      mov.almacenOrigenId === almacenId ||
+      mov.almacenDestinoId === almacenId
     );
   }
 

@@ -63,7 +63,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   CONTEXT_INVALID: 'Contexto de trabajo inválido',
   CONTEXT_UNAUTHORIZED: 'No tienes acceso a este espacio de trabajo',
   COMPANY_NOT_FOUND: 'Empresa no encontrada',
-  ESTABLISHMENT_NOT_FOUND: 'Establecimiento no encontrado',
+  Establecimiento_NOT_FOUND: 'Establecimiento no encontrado',
   
   // Default
   UNKNOWN_ERROR: 'Ha ocurrido un error inesperado. Por favor, intenta nuevamente',

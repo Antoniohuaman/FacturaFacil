@@ -1,12 +1,12 @@
 import React from 'react';
 
 interface ProductTableEmptyStateProps {
-  establishmentScope?: string;
+  EstablecimientoScope?: string;
 }
 
-export const ProductTableEmptyState: React.FC<ProductTableEmptyStateProps> = ({ establishmentScope = 'ALL' }) => {
+export const ProductTableEmptyState: React.FC<ProductTableEmptyStateProps> = ({ EstablecimientoScope = 'ALL' }) => {
   const message =
-    establishmentScope !== 'ALL'
+    EstablecimientoScope !== 'ALL'
       ? 'No hay productos habilitados en el establecimiento seleccionado. Intenta cambiar el filtro o crea nuevos productos.'
       : 'Comienza creando un nuevo producto o ajusta los filtros de búsqueda.';
 

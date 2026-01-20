@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ArrowRight, Package, Building2, AlertCircle } from 'lucide-react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 
 interface TransferModalProps {
   isOpen: boolean;
@@ -13,8 +13,8 @@ interface TransferModalProps {
 
 export interface TransferData {
   productoId: string;
-  warehouseOrigenId: string;
-  warehouseDestinoId: string;
+  almacenOrigenId: string;
+  almacenDestinoId: string;
   cantidad: number;
   documentoReferencia: string;
   observaciones: string;
@@ -27,12 +27,12 @@ const TransferModal: React.FC<TransferModalProps> = ({
 }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const warehouses = configState.warehouses.filter(w => w.isActive);
+  const almacenes = configState.almacenes.filter(w => w.estaActivoAlmacen);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [warehouseOrigenId, setWarehouseOrigenId] = useState('');
-  const [warehouseDestinoId, setWarehouseDestinoId] = useState('');
+  const [almacenOrigenId, setalmacenOrigenId] = useState('');
+  const [almacenDestinoId, setalmacenDestinoId] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [documentoReferencia, setDocumentoReferencia] = useState('');
   const [observaciones, setObservaciones] = useState('');
@@ -43,8 +43,8 @@ const TransferModal: React.FC<TransferModalProps> = ({
     if (!isOpen) {
       setSearchTerm('');
       setSelectedProductId('');
-      setWarehouseOrigenId('');
-      setWarehouseDestinoId('');
+      setalmacenOrigenId('');
+      setalmacenDestinoId('');
       setCantidad('');
       setDocumentoReferencia('');
       setObservaciones('');
@@ -53,14 +53,14 @@ const TransferModal: React.FC<TransferModalProps> = ({
   }, [isOpen]);
 
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
-  const warehouseOrigen = warehouses.find(w => w.id === warehouseOrigenId);
-  const warehouseDestino = warehouses.find(w => w.id === warehouseDestinoId);
+  const almacenOrigen = almacenes.find(w => w.id === almacenOrigenId);
+  const almacenDestino = almacenes.find(w => w.id === almacenDestinoId);
 
   // Calcular stock disponible en origen
-  const stockDisponibleOrigen = selectedProduct?.stockPorAlmacen?.[warehouseOrigenId] ?? 0;
+  const stockDisponibleOrigen = selectedProduct?.stockPorAlmacen?.[almacenOrigenId] ?? 0;
 
   // Calcular stock actual en destino
-  const stockActualDestino = selectedProduct?.stockPorAlmacen?.[warehouseDestinoId] ?? 0;
+  const stockActualDestino = selectedProduct?.stockPorAlmacen?.[almacenDestinoId] ?? 0;
 
   const filteredProducts = allProducts.filter(p =>
     (p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,17 +75,17 @@ const TransferModal: React.FC<TransferModalProps> = ({
       return;
     }
 
-    if (!warehouseOrigenId) {
+    if (!almacenOrigenId) {
       alert('Por favor selecciona el almacén de origen');
       return;
     }
 
-    if (!warehouseDestinoId) {
+    if (!almacenDestinoId) {
       alert('Por favor selecciona el almacén de destino');
       return;
     }
 
-    if (warehouseOrigenId === warehouseDestinoId) {
+    if (almacenOrigenId === almacenDestinoId) {
       alert('El almacén de origen y destino no pueden ser el mismo');
       return;
     }
@@ -97,15 +97,15 @@ const TransferModal: React.FC<TransferModalProps> = ({
     }
 
     if (cantidadNum > stockDisponibleOrigen) {
-      alert(`No hay suficiente stock en ${warehouseOrigen?.name}. Disponible: ${stockDisponibleOrigen}`);
+      alert(`No hay suficiente stock en ${almacenOrigen?.nombreAlmacen}. Disponible: ${stockDisponibleOrigen}`);
       return;
     }
 
     // Ejecutar transferencia
     onTransfer({
       productoId: selectedProductId,
-      warehouseOrigenId,
-      warehouseDestinoId,
+      almacenOrigenId,
+      almacenDestinoId,
       cantidad: cantidadNum,
       documentoReferencia,
       observaciones
@@ -201,19 +201,19 @@ const TransferModal: React.FC<TransferModalProps> = ({
                 </div>
 
                 <select
-                  value={warehouseOrigenId}
-                  onChange={(e) => setWarehouseOrigenId(e.target.value)}
+                  value={almacenOrigenId}
+                  onChange={(e) => setalmacenOrigenId(e.target.value)}
                   className="w-full px-4 py-2.5 border border-blue-300 dark:border-blue-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white mb-3"
                 >
                   <option value="">Seleccionar almacén de origen...</option>
-                  {warehouses.map((wh) => (
+                  {almacenes.map((wh) => (
                     <option key={wh.id} value={wh.id}>
-                      {wh.code} - {wh.name} ({wh.establishmentName})
+                      {wh.codigoAlmacen} - {wh.nombreAlmacen} ({wh.nombreEstablecimientoDesnormalizado})
                     </option>
                   ))}
                 </select>
 
-                {warehouseOrigenId && (
+                {almacenOrigenId && (
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Stock disponible:</span>
@@ -242,22 +242,22 @@ const TransferModal: React.FC<TransferModalProps> = ({
                 </div>
 
                 <select
-                  value={warehouseDestinoId}
-                  onChange={(e) => setWarehouseDestinoId(e.target.value)}
+                  value={almacenDestinoId}
+                  onChange={(e) => setalmacenDestinoId(e.target.value)}
                   className="w-full px-4 py-2.5 border border-purple-300 dark:border-purple-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 dark:text-white mb-3"
-                  disabled={!warehouseOrigenId}
+                  disabled={!almacenOrigenId}
                 >
                   <option value="">Seleccionar almacén de destino...</option>
-                  {warehouses
-                    .filter(wh => wh.id !== warehouseOrigenId)
+                  {almacenes
+                    .filter(wh => wh.id !== almacenOrigenId)
                     .map((wh) => (
                       <option key={wh.id} value={wh.id}>
-                        {wh.code} - {wh.name} ({wh.establishmentName})
+                        {wh.codigoAlmacen} - {wh.nombreAlmacen} ({wh.nombreEstablecimientoDesnormalizado})
                       </option>
                     ))}
                 </select>
 
-                {warehouseDestinoId && (
+                {almacenDestinoId && (
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-purple-200 dark:border-purple-700">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Stock actual:</span>
@@ -270,7 +270,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
               </div>
 
               {/* Cantidad */}
-              {warehouseOrigenId && warehouseDestinoId && (
+              {almacenOrigenId && almacenDestinoId && (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -328,8 +328,8 @@ const TransferModal: React.FC<TransferModalProps> = ({
                       <div className="flex-1 text-sm text-amber-800 dark:text-amber-300">
                         <p className="font-semibold mb-1">Resumen de la transferencia:</p>
                         <ul className="space-y-1">
-                          <li>• Se restará <strong>{cantidad || 0}</strong> unidades de <strong>{warehouseOrigen?.name}</strong></li>
-                          <li>• Se sumará <strong>{cantidad || 0}</strong> unidades a <strong>{warehouseDestino?.name}</strong></li>
+                          <li>• Se restará <strong>{cantidad || 0}</strong> unidades de <strong>{almacenOrigen?.nombreAlmacen}</strong></li>
+                          <li>• Se sumará <strong>{cantidad || 0}</strong> unidades a <strong>{almacenDestino?.nombreAlmacen}</strong></li>
                           <li>• Nuevo stock origen: <strong>{stockDisponibleOrigen - Number(cantidad || 0)}</strong> unidades</li>
                           <li>• Nuevo stock destino: <strong>{stockActualDestino + Number(cantidad || 0)}</strong> unidades</li>
                         </ul>
@@ -352,7 +352,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!selectedProductId || !warehouseOrigenId || !warehouseDestinoId || !cantidad || Number(cantidad) <= 0 || Number(cantidad) > stockDisponibleOrigen}
+            disabled={!selectedProductId || !almacenOrigenId || !almacenDestinoId || !cantidad || Number(cantidad) <= 0 || Number(cantidad) > stockDisponibleOrigen}
             className="px-6 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
           >
             <ArrowRight className="w-4 h-4" />

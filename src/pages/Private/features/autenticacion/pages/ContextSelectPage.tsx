@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { useAuth } from '../hooks';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
-import { buildMissingDefaultSeries } from '../../configuracion-sistema/utils/seriesDefaults';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { buildMissingDefaultSeries } from '../../configuracion-sistema/utilidades/seriesPredeterminadas';
 import type { Empresa, Establecimiento } from '../types/auth.types';
 
 /**
@@ -19,7 +19,7 @@ import type { Empresa, Establecimiento } from '../types/auth.types';
 export function ContextSelectPage() {
   const navigate = useNavigate();
   const { user, empresas, selectContext, isLoading } = useAuth();
-  const { setSession, updateAvailableEstablishments } = useUserSession();
+  const { setSession, updateAvailableEstablecimientos } = useUserSession();
   const { state: configState, dispatch } = useConfigurationContext();
 
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(
@@ -38,10 +38,10 @@ export function ContextSelectPage() {
 
   // Sincronizar establecimientos desde configuración cuando se carga
   useEffect(() => {
-    if (configState.establishments.length > 0 && selectedEmpresa) {
-      updateAvailableEstablishments(configState.establishments.filter(e => e.isActive));
+    if (configState.Establecimientos.length > 0 && selectedEmpresa) {
+      updateAvailableEstablecimientos(configState.Establecimientos.filter(e => e.isActive));
     }
-  }, [configState.establishments, selectedEmpresa, updateAvailableEstablishments]);
+  }, [configState.Establecimientos, selectedEmpresa, updateAvailableEstablecimientos]);
 
   const handleContinue = async () => {
     if (!selectedEmpresa || !selectedEstablecimiento || !user) return;
@@ -59,36 +59,36 @@ export function ContextSelectPage() {
       const companyForConfig = {
         id: selectedEmpresa.id,
         ruc: selectedEmpresa.ruc,
-        businessName: selectedEmpresa.razonSocial,
-        tradeName: selectedEmpresa.nombreComercial || selectedEmpresa.razonSocial,
-        address: selectedEmpresa.direccion || '',
-        district: '',
-        province: '',
-        department: '',
-        postalCode: '',
-        phones: [],
-        emails: [],
-        website: undefined,
-        logo: selectedEmpresa.logo,
-        footerText: undefined,
-        economicActivity: '',
-        taxRegime: 'GENERAL' as const,
-        baseCurrency: 'PEN' as const,
-        legalRepresentative: {
-          name: '',
-          documentType: 'DNI' as const,
-          documentNumber: ''
+        razonSocial: selectedEmpresa.razonSocial,
+        nombreComercial: selectedEmpresa.nombreComercial || selectedEmpresa.razonSocial,
+        direccionFiscal: selectedEmpresa.direccion || '',
+        distrito: '',
+        provincia: '',
+        departamento: '',
+        codigoPostal: '',
+        telefonos: [],
+        correosElectronicos: [],
+        sitioWeb: undefined,
+        logoEmpresa: selectedEmpresa.logo,
+        textoPiePagina: undefined,
+        actividadEconomica: '',
+        regimenTributario: 'GENERAL' as const,
+        monedaBase: 'PEN' as const,
+        representanteLegal: {
+          nombreRepresentanteLegal: '',
+          tipoDocumentoRepresentante: 'DNI' as const,
+          numeroDocumentoRepresentante: ''
         },
-        digitalCertificate: undefined,
-        sunatConfiguration: {
-          isConfigured: false,
-          username: undefined,
-          environment: 'TESTING' as const,
-          lastSyncDate: undefined
+        certificadoDigital: undefined,
+        configuracionSunatEmpresa: {
+          estaConfiguradoEnSunat: false,
+          usuarioSunat: undefined,
+          entornoSunat: 'TESTING' as const,
+          fechaUltimaSincronizacionSunat: undefined
         },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isActive: selectedEmpresa.estado === 'activa'
+        creadoEl: new Date(),
+        actualizadoEl: new Date(),
+        estaActiva: selectedEmpresa.estado === 'activa'
       };
 
       // Si la empresa NO existe en ConfigurationContext, crearla
@@ -97,14 +97,14 @@ export function ContextSelectPage() {
       }
 
       // Si el establecimiento NO existe en ConfigurationContext, crearlo
-      const establishmentExists = configState.establishments.find(
+      const EstablecimientoExists = configState.Establecimientos.find(
         est => est.code === selectedEstablecimiento.codigo
       );
 
-      let fullEstablishment = establishmentExists;
+      let fullEstablecimiento = EstablecimientoExists;
 
-      if (!establishmentExists) {
-        const newEstablishment = {
+      if (!EstablecimientoExists) {
+        const newEstablecimiento = {
           id: selectedEstablecimiento.id,
           code: selectedEstablecimiento.codigo,
           name: selectedEstablecimiento.nombre,
@@ -115,7 +115,7 @@ export function ContextSelectPage() {
           postalCode: '',
           phone: undefined,
           email: undefined,
-          isMainEstablishment: selectedEstablecimiento.esPrincipal || true,
+          isMainEstablecimiento: selectedEstablecimiento.esPrincipal || true,
           businessHours: {
             monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
             tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
@@ -152,7 +152,7 @@ export function ContextSelectPage() {
           },
           inventoryConfiguration: {
             managesInventory: true,
-            isWarehouse: false,
+            isalmacen: false,
             allowNegativeStock: false,
             autoTransferStock: false
           },
@@ -169,14 +169,14 @@ export function ContextSelectPage() {
           isActive: selectedEstablecimiento.activo
         };
 
-        dispatch({ type: 'ADD_ESTABLISHMENT', payload: newEstablishment });
-        fullEstablishment = newEstablishment;
+        dispatch({ type: 'ADD_Establecimiento', payload: newEstablecimiento });
+        fullEstablecimiento = newEstablecimiento;
 
         // Crear series por defecto para el nuevo establecimiento usando la lógica centralizada
         const environmentType: 'TESTING' | 'PRODUCTION' = 'TESTING';
 
         const defaultSeries = buildMissingDefaultSeries({
-          establishmentId: newEstablishment.id,
+          EstablecimientoId: newEstablecimiento.id,
           environmentType,
           existingSeries: configState.series,
         });
@@ -196,9 +196,9 @@ export function ContextSelectPage() {
         userEmail: user.email,
         currentCompanyId: selectedEmpresa.id,
         currentCompany: companyData,
-        currentEstablishmentId: fullEstablishment?.id || selectedEstablecimiento.id,
-        currentEstablishment: fullEstablishment || null,
-        availableEstablishments: configState.establishments.filter(e => e.isActive),
+        currentEstablecimientoId: fullEstablecimiento?.id || selectedEstablecimiento.id,
+        currentEstablecimiento: fullEstablecimiento || null,
+        availableEstablecimientos: configState.Establecimientos.filter(e => e.isActive),
         permissions: ['*'], // Por defecto admin tiene todos los permisos
         role: user.rol,
       });

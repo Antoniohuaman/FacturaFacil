@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCaja } from '../../control-caja/context/CajaContext';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { normalizePaymentMethodLabel } from '@/shared/payments/normalizePaymentMethodLabel';
 
 // Hook consolidado para manejar el estado del comprobante

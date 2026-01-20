@@ -1,7 +1,7 @@
 // src/features/catalogo-articulos/components/ImportModal.tsx
 
 import React, { useState, useRef } from 'react';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { generateExcelTemplate } from '../utils/excelHelpers';
 
 interface ImportModalProps {
@@ -23,7 +23,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { state: configState } = useConfigurationContext();
-  const establishments = configState.establishments.filter(e => e.isActive);
+  const Establecimientos = configState.Establecimientos.filter(e => e.isActive);
   const units = configState.units.filter(u => u.isActive && u.isVisible !== false);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -86,7 +86,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
 
   const downloadTemplate = () => {
     try {
-      generateExcelTemplate(tipo, units, establishments);
+      generateExcelTemplate(tipo, units, Establecimientos);
     } catch (error) {
       console.error('Error al generar plantilla:', error);
       alert('Error al generar la plantilla. Por favor intenta de nuevo.');

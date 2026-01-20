@@ -2,11 +2,11 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings2, AlertCircle, ExternalLink, Banknote, Clock } from 'lucide-react';
 import { useCajas } from '../../configuracion-sistema/hooks/useCajas';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 
 /**
- * ConfiguracionCaja - Read-only summary page for active establishment's cajas
+ * ConfiguracionCaja - Read-only summary page for active Establecimiento's cajas
  * Users must navigate to /configuracion/cajas to create/edit cajas
  */
 const ConfiguracionCaja: React.FC = () => {
@@ -15,14 +15,14 @@ const ConfiguracionCaja: React.FC = () => {
   const { session } = useUserSession();
 
   const empresaId = session?.currentCompanyId || '';
-  const establecimientoId = session?.currentEstablishmentId || '';
-  const establecimientoActual = session?.currentEstablishment;
+  const establecimientoId = session?.currentEstablecimientoId || '';
+  const establecimientoActual = session?.currentEstablecimiento;
 
   const { cajas, loading } = useCajas(empresaId, establecimientoId);
 
-  // Get enabled cajas for current establishment
+  // Get enabled cajas for current Establecimiento
   const cajasHabilitadas = useMemo(() => {
-    return cajas.filter(c => c.habilitada);
+    return cajas.filter(c => c.habilitadaCaja);
   }, [cajas]);
 
   const handleGoToConfiguration = () => {
@@ -151,13 +151,13 @@ const ConfiguracionCaja: React.FC = () => {
             <div className="space-y-3">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Cajas Registradas</h3>
               {cajas.map((caja) => {
-                const currency = state.currencies.find(c => c.id === caja.monedaId);
+                const currency = state.currencies.find(c => c.id === caja.monedaIdCaja);
                 return (
                   <div
                     key={caja.id}
                     className={`
                       border rounded-lg p-4
-                      ${caja.habilitada 
+                      ${caja.habilitadaCaja 
                         ? 'bg-white border-green-200' 
                         : 'bg-gray-50 border-gray-200'}
                     `}
@@ -165,25 +165,25 @@ const ConfiguracionCaja: React.FC = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h4 className="text-lg font-semibold text-gray-900">{caja.nombre}</h4>
+                          <h4 className="text-lg font-semibold text-gray-900">{caja.nombreCaja}</h4>
                           <span className={`
                             px-2.5 py-0.5 rounded-full text-xs font-medium
-                            ${caja.habilitada 
+                            ${caja.habilitadaCaja 
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-gray-200 text-gray-700'}
                           `}>
-                            {caja.habilitada ? 'Habilitada' : 'Inhabilitada'}
+                            {caja.habilitadaCaja ? 'Habilitada' : 'Inhabilitada'}
                           </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-600">
                           <div>
-                            <span className="font-medium">Moneda:</span> {currency?.code || caja.monedaId}
+                            <span className="font-medium">Moneda:</span> {currency?.code || caja.monedaIdCaja}
                           </div>
                           <div>
-                            <span className="font-medium">Límite Máximo:</span> {currency?.symbol || 'S/'} {caja.limiteMaximo.toFixed(2)}
+                            <span className="font-medium">Límite Máximo:</span> {currency?.symbol || 'S/'} {caja.limiteMaximoCaja.toFixed(2)}
                           </div>
                           <div>
-                            <span className="font-medium">Margen de Descuadre:</span> {caja.margenDescuadre}%
+                            <span className="font-medium">Margen de Descuadre:</span> {caja.margenDescuadreCaja}%
                           </div>
                           <div>
                             <span className="font-medium">Medios de Pago:</span> {caja.mediosPagoPermitidos.length}

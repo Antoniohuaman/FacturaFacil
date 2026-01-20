@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import CreditScheduleEditor from '../../pages/Private/features/configuracion-sistema/components/business/CreditScheduleEditor';
-import type { PaymentMethod } from '../../pages/Private/features/configuracion-sistema/models/PaymentMethod';
+import CreditScheduleEditor from '../../pages/Private/features/configuracion-sistema/components/negocio/EditorCronogramaCredito';
+import type { PaymentMethod } from '../../pages/Private/features/configuracion-sistema/modelos/PaymentMethod';
 import type { CreditInstallmentDefinition } from './paymentTerms';
 import { buildCreditPaymentMethodName, validateCreditScheduleTemplate } from './paymentTerms';
 import { normalizePaymentMethodLabel } from './normalizePaymentMethodLabel';

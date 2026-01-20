@@ -8,7 +8,7 @@ import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, Slider
 import type { CartSidebarProps, Product, ComprobanteCreditTerms, Currency, DiscountInput, DiscountMode, PaymentTotals } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { UI_MESSAGES } from '../../models/constants';
-import type { PaymentMethod } from '../../../configuracion-sistema/models/PaymentMethod';
+import type { PaymentMethod } from '../../../configuracion-sistema/modelos/PaymentMethod';
 import { CreditScheduleSummaryCard } from '../../shared/payments/CreditScheduleSummaryCard';
 import { CartItemsList } from './cart/CartItemsList';
 import { ClientSection } from './client/ClientSection';

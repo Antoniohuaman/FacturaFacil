@@ -12,9 +12,9 @@ import { calcularResumenCaja } from "../utils/calculations";
 import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/errors";
 import { lsKey } from "../../../../../shared/tenant";
 import { useTenant } from "../../../../../shared/tenant/TenantContext";
-import { useConfigurationContext } from "../../configuracion-sistema/context/ConfigurationContext";
-import { useCurrentCompanyId, useCurrentEstablishmentId } from "../../../../../contexts/UserSessionContext";
-import { resolveActiveCajaForEstablecimiento, NoActiveCajaError } from "../../configuracion-sistema/utils/cajaSelection";
+import { useConfigurationContext } from "../../configuracion-sistema/contexto/ContextoConfiguracion";
+import { useCurrentCompanyId, useCurrentEstablecimientoId } from "../../../../../contexts/UserSessionContext";
+import { resolveActiveCajaForEstablecimiento, NoActiveCajaError } from "../../configuracion-sistema/utilidades/seleccionCaja";
 import type { MedioPago } from "../../../../../shared/payments/medioPago";
 
 type PersistedMovimiento = Omit<Movimiento, 'fecha'> & { fecha: string };
@@ -114,7 +114,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const { tenantId } = useTenant();
   const { state: configurationState } = useConfigurationContext();
   const empresaId = useCurrentCompanyId();
-  const establecimientoId = useCurrentEstablishmentId();
+  const establecimientoId = useCurrentEstablecimientoId();
   const lastTenantIdRef = useRef<string | null>(null);
   const lastScopeRef = useRef<string | null>(null);
 
@@ -248,7 +248,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       setActiveCajaMediosPago(activeCaja.mediosPagoPermitidos);
       // Margen de descuadre se interpreta como porcentaje (0-50).
       // Margen permitido en monto = (margenDescuadre / 100) * saldoEsperado.
-      setMargenDescuadre(activeCaja.margenDescuadre);
+      setMargenDescuadre(activeCaja.margenDescuadreCaja);
     } catch (error) {
       if (error instanceof NoActiveCajaError) {
         console.error('[Caja] No se pudo resolver caja activa:', error.message);

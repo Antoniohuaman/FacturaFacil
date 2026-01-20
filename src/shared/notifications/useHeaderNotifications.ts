@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useComprobanteContext } from '../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useProductStore } from '../../pages/Private/features/catalogo-articulos/hooks/useProductStore';
-import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { InventoryService } from '../../pages/Private/features/gestion-inventario/services/inventory.service';
 import { evaluateStockAlert } from '../../pages/Private/features/gestion-inventario/utils/stockAlerts';
 import type { Product } from '../../pages/Private/features/catalogo-articulos/models/types';
-import type { Warehouse } from '../../pages/Private/features/configuracion-sistema/models/Warehouse';
+import type { Almacen } from '../../pages/Private/features/configuracion-sistema/modelos/Almacen';
 import type { HeaderNotification, UseHeaderNotificationsResult } from './types';
 
 const mapSunatNotifications = (comprobantes: readonly { id: string; type: string; client: string; status: string; date: string }[]): HeaderNotification[] => {
@@ -43,23 +43,23 @@ const mapSunatNotifications = (comprobantes: readonly { id: string; type: string
 
 const mapStockNotifications = (
   products: readonly Product[],
-  warehouses: readonly Warehouse[],
-  currentEstablishmentId?: string,
+  almacenes: readonly Almacen[],
+  currentEstablecimientoId?: string,
 ): HeaderNotification[] => {
-  if (!warehouses.length || !products.length) {
+  if (!almacenes.length || !products.length) {
     return [];
   }
 
-  const activeWarehouses = warehouses.filter((wh) => wh.isActive);
+  const almacenesActivos = almacenes.filter((almacen) => almacen.estaActivoAlmacen);
 
-  if (!activeWarehouses.length) {
+  if (!almacenesActivos.length) {
     return [];
   }
 
-  const alerts = InventoryService.generateAlerts(Array.from(products), Array.from(activeWarehouses));
+  const alerts = InventoryService.generateAlerts(Array.from(products), Array.from(almacenesActivos));
 
-  const filteredAlerts = currentEstablishmentId
-    ? alerts.filter((alert) => alert.establishmentId === currentEstablishmentId)
+  const filteredAlerts = currentEstablecimientoId
+    ? alerts.filter((alert) => alert.EstablecimientoId === currentEstablecimientoId)
     : alerts;
 
   if (!filteredAlerts.length) {
@@ -94,7 +94,7 @@ const mapStockNotifications = (
         : 'Stock bajo';
 
     return {
-      id: `stock-${alert.productoId}-${alert.warehouseId}`,
+      id: `stock-${alert.productoId}-${alert.almacenId}`,
       title: `${titlePrefix} · ${alert.productoNombre}`,
       message: baseMessageParts.join(' · '),
       createdAt: Date.now(),
@@ -133,10 +133,10 @@ export const useHeaderNotifications = (): UseHeaderNotificationsResult => {
 
   const scopeKey = useMemo(() => {
     const companyId = session?.currentCompanyId || 'no-company';
-    const establishmentId = session?.currentEstablishmentId || 'no-establishment';
+    const EstablecimientoId = session?.currentEstablecimientoId || 'no-Establecimiento';
     const userId = session?.userId || 'anon';
-    return `${companyId}::${establishmentId}::${userId}`;
-  }, [session?.currentCompanyId, session?.currentEstablishmentId, session?.userId]);
+    return `${companyId}::${EstablecimientoId}::${userId}`;
+  }, [session?.currentCompanyId, session?.currentEstablecimientoId, session?.userId]);
 
   const storageKey = useMemo(
     () => `ff_headerNotifications_readIds:${scopeKey}`,
@@ -191,10 +191,10 @@ export const useHeaderNotifications = (): UseHeaderNotificationsResult => {
     () =>
       mapStockNotifications(
         allProducts,
-        configState.warehouses,
-        session?.currentEstablishmentId,
+        configState.almacenes,
+        session?.currentEstablecimientoId,
       ),
-    [allProducts, configState.warehouses, session?.currentEstablishmentId],
+    [allProducts, configState.almacenes, session?.currentEstablecimientoId],
   );
 
   const cajaNotifications = useMemo(

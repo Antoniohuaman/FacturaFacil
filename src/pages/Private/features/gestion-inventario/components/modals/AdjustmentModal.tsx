@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import type { MovimientoTipo, MovimientoMotivo } from '../../models';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
-import { useConfigurationContext } from '../../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 
 interface AdjustmentModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ interface AdjustmentModalProps {
 
 interface AdjustmentData {
   productoId: string;
-  warehouseId: string;
+  almacenId: string;
   tipo: MovimientoTipo;
   motivo: MovimientoMotivo;
   cantidad: number;
@@ -32,10 +32,10 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
 }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const warehouses = configState.warehouses.filter(w => w.isActive);
+  const almacenes = configState.almacenes.filter(w => w.estaActivoAlmacen);
 
   // PASO 1: Primero seleccionar almacén
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
+  const [selectedalmacenId, setSelectedalmacenId] = useState('');
 
   // PASO 2: Luego seleccionar producto
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,14 +104,14 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
       return;
     }
 
-    if (!selectedWarehouseId) {
+    if (!selectedalmacenId) {
       alert('Por favor selecciona un almacén');
       return;
     }
 
     onAdjust({
       productoId: selectedProductId,
-      warehouseId: selectedWarehouseId,
+      almacenId: selectedalmacenId,
       tipo,
       motivo,
       cantidad: Number(cantidad),
@@ -126,18 +126,18 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
     setCantidad('');
     setObservaciones('');
     setDocumentoReferencia('');
-    setSelectedWarehouseId('');
+    setSelectedalmacenId('');
     setSearchTerm('');
   };
 
   if (!isOpen) return null;
 
-  const selectedWarehouse = warehouses.find(w => w.id === selectedWarehouseId);
+  const selectedalmacen = almacenes.find(w => w.id === selectedalmacenId);
 
   // Obtener stock actual del almacén seleccionado
-  const stockActualAlmacen = selectedProduct?.stockPorAlmacen?.[selectedWarehouseId] ?? 0;
+  const stockActualAlmacen = selectedProduct?.stockPorAlmacen?.[selectedalmacenId] ?? 0;
 
-  const newStock = selectedProduct && selectedWarehouseId
+  const newStock = selectedProduct && selectedalmacenId
     ? tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION'
       ? stockActualAlmacen + Number(cantidad || 0)
       : stockActualAlmacen - Number(cantidad || 0)
@@ -196,9 +196,9 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                 </label>
               </div>
               <select
-                value={selectedWarehouseId}
+                value={selectedalmacenId}
                 onChange={(e) => {
-                  setSelectedWarehouseId(e.target.value);
+                  setSelectedalmacenId(e.target.value);
                   // Reset producto al cambiar almacén
                   setSelectedProductId('');
                   setSearchTerm('');
@@ -207,21 +207,21 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                 required
               >
                 <option value="">Seleccionar almacén...</option>
-                {warehouses.map(wh => (
+                {almacenes.map(wh => (
                   <option key={wh.id} value={wh.id}>
-                    [{wh.code}] {wh.name} - {wh.establishmentName}
+                    [{wh.codigoAlmacen}] {wh.nombreAlmacen} - {wh.nombreEstablecimientoDesnormalizado}
                   </option>
                 ))}
               </select>
-              {selectedWarehouseId && selectedWarehouse && (
+              {selectedalmacenId && selectedalmacen && (
                 <p className="mt-2 text-xs text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded">
-                  ✓ Movimiento se aplicará en el almacén {selectedWarehouse.name} del establecimiento {selectedWarehouse.establishmentName}
+                  ✓ Movimiento se aplicará en el almacén {selectedalmacen.nombreAlmacen} del establecimiento {selectedalmacen.nombreEstablecimientoDesnormalizado}
                 </p>
               )}
             </div>
 
             {/* PASO 2: Product Selection (SEGUNDO - solo si hay almacén) */}
-            {selectedWarehouseId && (
+            {selectedalmacenId && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   2. Buscar Producto <span className="text-red-500">*</span>
@@ -238,7 +238,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                     <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
                       {filteredProducts.map((product) => {
                         // Mostrar stock del almacén seleccionado
-                        const stockEnAlmacen = selectedWarehouseId ? (product.stockPorAlmacen?.[selectedWarehouseId] ?? 0) : 0;
+                        const stockEnAlmacen = selectedalmacenId ? (product.stockPorAlmacen?.[selectedalmacenId] ?? 0) : 0;
                         return (
                           <button
                             key={product.id}
@@ -272,7 +272,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                         <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">{selectedProduct.codigo}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Stock en {selectedWarehouse?.code}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Stock en {selectedalmacen?.codigoAlmacen}</p>
                         <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stockActualAlmacen}</p>
                       </div>
                     </div>
@@ -343,10 +343,10 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
-              {selectedProduct && selectedWarehouseId && cantidad && (
+              {selectedProduct && selectedalmacenId && cantidad && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nuevo Stock en {selectedWarehouse?.code}
+                    Nuevo Stock en {selectedalmacen?.codigoAlmacen}
                   </label>
                   <div className={`
                     w-full px-4 py-2 border-2 rounded-md font-bold text-lg

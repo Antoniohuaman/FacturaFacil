@@ -28,7 +28,7 @@ export function TenantDataResetEffect() {
 
     useIndicadoresFiltersStore.setState({
       dateRange: createCurrentMonthRange(),
-      establishmentId: 'Todos',
+      EstablecimientoId: 'Todos',
     });
   }, [tenantId]);
 

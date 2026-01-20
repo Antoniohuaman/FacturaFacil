@@ -33,8 +33,8 @@ import { useProductStore, type ProductInput } from '../hooks/useProductStore';
 import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
 import { useProductForm } from '../hooks/useProductForm';
 import type { Product } from '../models/types';
-import { useConfigurationContext, type Category } from '../../configuracion-sistema/context/ConfigurationContext';
-import { useCurrentEstablishmentId } from '@/contexts/UserSessionContext';
+import { useConfigurationContext, type Category } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useCurrentEstablecimientoId } from '@/contexts/UserSessionContext';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -53,20 +53,20 @@ const ProductModal: React.FC<ProductModalProps> = ({
 }) => {
   const { addCategory, categories: globalCategories, allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const currentEstablishmentId = useCurrentEstablishmentId();
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
 
-  const establishments = useMemo(
-    () => configState.establishments.filter(est => est.isActive),
-    [configState.establishments]
+  const Establecimientos = useMemo(
+    () => configState.Establecimientos.filter(est => est.isActive),
+    [configState.Establecimientos]
   );
 
-  const defaultEstablishmentId = useMemo(() => {
-    if (currentEstablishmentId && establishments.some(est => est.id === currentEstablishmentId)) {
-      return currentEstablishmentId;
+  const defaultEstablecimientoId = useMemo(() => {
+    if (currentEstablecimientoId && Establecimientos.some(est => est.id === currentEstablecimientoId)) {
+      return currentEstablecimientoId;
     }
-    const main = establishments.find(est => est.isMainEstablishment);
-    return (main?.id ?? establishments[0]?.id ?? '');
-  }, [currentEstablishmentId, establishments]);
+    const main = Establecimientos.find(est => est.isMainEstablecimiento);
+    return (main?.id ?? Establecimientos[0]?.id ?? '');
+  }, [currentEstablecimientoId, Establecimientos]);
 
   const availableUnits = useMemo(
     () => configState.units.filter(unit => unit.isActive && unit.isVisible !== false),
@@ -169,8 +169,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
     onSave,
     onClose,
     defaultTaxLabel,
-    activeEstablishments: establishments,
-    defaultEstablishmentId
+    activeEstablecimientos: Establecimientos,
+    defaultEstablecimientoId
   });
 
   const showBarcode = isFieldVisible('codigoBarras');
@@ -178,7 +178,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const showCategory = isFieldVisible('categoria');
   const showAlias = isFieldVisible('alias');
   const showSunat = isFieldVisible('codigoSunat');
-  const showAvailability = establishments.length > 1;
+  const showAvailability = Establecimientos.length > 1;
 
   if (!isOpen) return null;
 
@@ -249,7 +249,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     <ProductAvailabilitySection
                       formData={formData}
                       setFormData={setFormData}
-                      establishments={establishments}
+                      Establecimientos={Establecimientos}
                     />
                   )}
                 </div>

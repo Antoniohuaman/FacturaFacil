@@ -1,7 +1,7 @@
 // src/features/gestion-inventario/services/inventory.service.ts
 
 import type { Product } from '../../catalogo-articulos/models/types';
-import type { Warehouse } from '../../configuracion-sistema/models/Warehouse';
+import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type {
   MovimientoStock,
   StockAdjustmentData,
@@ -21,15 +21,15 @@ export class InventoryService {
   /**
    * Obtener stock actual de un producto en un almacén específico
    */
-  static getStock(product: Product, warehouseId: string): number {
-    return product.stockPorAlmacen?.[warehouseId] ?? 0;
+  static getStock(product: Product, almacenId: string): number {
+    return product.stockPorAlmacen?.[almacenId] ?? 0;
   }
 
   /**
    * Obtener stock reservado de un producto en un almacén específico
    */
-  static getReservedStock(product: Product, warehouseId: string): number {
-    return Math.max(0, product.stockReservadoPorAlmacen?.[warehouseId] ?? 0);
+  static getReservedStock(product: Product, almacenId: string): number {
+    return Math.max(0, product.stockReservadoPorAlmacen?.[almacenId] ?? 0);
   }
 
   /**
@@ -45,7 +45,7 @@ export class InventoryService {
    */
   static updateStock(
     product: Product,
-    warehouseId: string,
+    almacenId: string,
     newQuantity: number,
     options?: { allowNegativeStock?: boolean }
   ): Product {
@@ -56,7 +56,7 @@ export class InventoryService {
       ...product,
       stockPorAlmacen: {
         ...product.stockPorAlmacen,
-        [warehouseId]: allowNegativeStock ? normalizedQuantity : Math.max(0, normalizedQuantity)
+        [almacenId]: allowNegativeStock ? normalizedQuantity : Math.max(0, normalizedQuantity)
       },
       fechaActualizacion: new Date()
     };
@@ -67,7 +67,7 @@ export class InventoryService {
    */
   static updateThresholds(
     product: Product,
-    warehouseId: string,
+    almacenId: string,
     updates: { stockMinimo?: number | null; stockMaximo?: number | null }
   ): Product {
     const hasMinUpdate = Object.prototype.hasOwnProperty.call(updates, 'stockMinimo');
@@ -79,18 +79,18 @@ export class InventoryService {
     if (hasMinUpdate) {
       const normalizedMin = updates.stockMinimo ?? undefined;
       if (normalizedMin === undefined) {
-        delete nextMinMap[warehouseId];
+        delete nextMinMap[almacenId];
       } else {
-        nextMinMap[warehouseId] = normalizedMin;
+        nextMinMap[almacenId] = normalizedMin;
       }
     }
 
     if (hasMaxUpdate) {
       const normalizedMax = updates.stockMaximo ?? undefined;
       if (normalizedMax === undefined) {
-        delete nextMaxMap[warehouseId];
+        delete nextMaxMap[almacenId];
       } else {
-        nextMaxMap[warehouseId] = normalizedMax;
+        nextMaxMap[almacenId] = normalizedMax;
       }
     }
 
@@ -107,11 +107,11 @@ export class InventoryService {
    */
   static registerAdjustment(
     product: Product,
-    warehouse: Warehouse,
+    almacen: Almacen,
     data: StockAdjustmentData,
     usuario: string
   ): { product: Product; movement: MovimientoStock } {
-    const stockActual = this.getStock(product, data.warehouseId);
+    const stockActual = this.getStock(product, data.almacenId);
     let nuevoStock = stockActual;
 
     // Calcular nuevo stock según el tipo de movimiento
@@ -129,7 +129,7 @@ export class InventoryService {
     }
 
     // Actualizar producto
-    const updatedProduct = this.updateStock(product, data.warehouseId, nuevoStock);
+    const updatedProduct = this.updateStock(product, data.almacenId, nuevoStock);
 
     // Crear movimiento
     const movement: MovimientoStock = {
@@ -146,12 +146,12 @@ export class InventoryService {
       observaciones: data.observaciones,
       documentoReferencia: data.documentoReferencia,
       fecha: new Date(),
-      warehouseId: warehouse.id,
-      warehouseCodigo: warehouse.code,
-      warehouseNombre: warehouse.name,
-      establishmentId: warehouse.establishmentId,
-      establishmentCodigo: warehouse.establishmentCode || '',
-      establishmentNombre: warehouse.establishmentName || '',
+      almacenId: almacen.id,
+      almacenCodigo: almacen.codigoAlmacen,
+      almacenNombre: almacen.nombreAlmacen,
+      EstablecimientoId: almacen.establecimientoId,
+      EstablecimientoCodigo: almacen.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacen.nombreEstablecimientoDesnormalizado || '',
       esTransferencia: false
     };
 
@@ -166,24 +166,24 @@ export class InventoryService {
    */
   static registerTransfer(
     product: Product,
-    warehouseOrigen: Warehouse,
-    warehouseDestino: Warehouse,
+    almacenOrigen: Almacen,
+    almacenDestino: Almacen,
     data: StockTransferData,
     usuario: string
   ): { product: Product; movements: MovimientoStock[] } {
-    const stockOrigen = this.getStock(product, data.warehouseOrigenId);
-    const stockDestino = this.getStock(product, data.warehouseDestinoId);
+    const stockOrigen = this.getStock(product, data.almacenOrigenId);
+    const stockDestino = this.getStock(product, data.almacenDestinoId);
 
     // Validar stock disponible
     if (stockOrigen < data.cantidad) {
-      throw new Error(`Stock insuficiente en ${warehouseOrigen.name}. Disponible: ${stockOrigen}`);
+      throw new Error(`Stock insuficiente en ${almacenOrigen.nombreAlmacen}. Disponible: ${stockOrigen}`);
     }
 
     const transferenciaId = `TRANS-${Date.now()}`;
 
     // Actualizar stocks
-    let updatedProduct = this.updateStock(product, data.warehouseOrigenId, stockOrigen - data.cantidad);
-    updatedProduct = this.updateStock(updatedProduct, data.warehouseDestinoId, stockDestino + data.cantidad);
+    let updatedProduct = this.updateStock(product, data.almacenOrigenId, stockOrigen - data.cantidad);
+    updatedProduct = this.updateStock(updatedProduct, data.almacenDestinoId, stockDestino + data.cantidad);
 
     // Crear movimiento de salida (origen)
     const movimientoSalida: MovimientoStock = {
@@ -197,21 +197,21 @@ export class InventoryService {
       cantidadAnterior: stockOrigen,
       cantidadNueva: stockOrigen - data.cantidad,
       usuario,
-      observaciones: data.observaciones || `Transferencia a ${warehouseDestino.name}`,
+      observaciones: data.observaciones || `Transferencia a ${almacenDestino.nombreAlmacen}`,
       documentoReferencia: data.documentoReferencia,
       fecha: new Date(),
-      warehouseId: warehouseOrigen.id,
-      warehouseCodigo: warehouseOrigen.code,
-      warehouseNombre: warehouseOrigen.name,
-      establishmentId: warehouseOrigen.establishmentId,
-      establishmentCodigo: warehouseOrigen.establishmentCode || '',
-      establishmentNombre: warehouseOrigen.establishmentName || '',
+      almacenId: almacenOrigen.id,
+      almacenCodigo: almacenOrigen.codigoAlmacen,
+      almacenNombre: almacenOrigen.nombreAlmacen,
+      EstablecimientoId: almacenOrigen.establecimientoId,
+      EstablecimientoCodigo: almacenOrigen.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacenOrigen.nombreEstablecimientoDesnormalizado || '',
       esTransferencia: true,
       transferenciaId,
-      warehouseOrigenId: warehouseOrigen.id,
-      warehouseOrigenNombre: warehouseOrigen.name,
-      warehouseDestinoId: warehouseDestino.id,
-      warehouseDestinoNombre: warehouseDestino.name
+      almacenOrigenId: almacenOrigen.id,
+      almacenOrigenNombre: almacenOrigen.nombreAlmacen,
+      almacenDestinoId: almacenDestino.id,
+      almacenDestinoNombre: almacenDestino.nombreAlmacen
     };
 
     // Crear movimiento de entrada (destino)
@@ -226,21 +226,21 @@ export class InventoryService {
       cantidadAnterior: stockDestino,
       cantidadNueva: stockDestino + data.cantidad,
       usuario,
-      observaciones: data.observaciones || `Transferencia desde ${warehouseOrigen.name}`,
+      observaciones: data.observaciones || `Transferencia desde ${almacenOrigen.nombreAlmacen}`,
       documentoReferencia: data.documentoReferencia,
       fecha: new Date(),
-      warehouseId: warehouseDestino.id,
-      warehouseCodigo: warehouseDestino.code,
-      warehouseNombre: warehouseDestino.name,
-      establishmentId: warehouseDestino.establishmentId,
-      establishmentCodigo: warehouseDestino.establishmentCode || '',
-      establishmentNombre: warehouseDestino.establishmentName || '',
+      almacenId: almacenDestino.id,
+      almacenCodigo: almacenDestino.codigoAlmacen,
+      almacenNombre: almacenDestino.nombreAlmacen,
+      EstablecimientoId: almacenDestino.establecimientoId,
+      EstablecimientoCodigo: almacenDestino.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacenDestino.nombreEstablecimientoDesnormalizado || '',
       esTransferencia: true,
       transferenciaId,
-      warehouseOrigenId: warehouseOrigen.id,
-      warehouseOrigenNombre: warehouseOrigen.name,
-      warehouseDestinoId: warehouseDestino.id,
-      warehouseDestinoNombre: warehouseDestino.name,
+      almacenOrigenId: almacenOrigen.id,
+      almacenOrigenNombre: almacenOrigen.nombreAlmacen,
+      almacenDestinoId: almacenDestino.id,
+      almacenDestinoNombre: almacenDestino.nombreAlmacen,
       movimientoRelacionadoId: movimientoSalida.id
     };
 
@@ -258,17 +258,17 @@ export class InventoryService {
    */
   static generateAlerts(
     products: Product[],
-    warehouses: Warehouse[]
+    almacenes: Almacen[]
   ): StockAlert[] {
     const alerts: StockAlert[] = [];
 
     products.forEach(product => {
-      warehouses.forEach(warehouse => {
-        const stockReal = this.getStock(product, warehouse.id);
-        const stockReservado = this.getReservedStock(product, warehouse.id);
+      almacenes.forEach(almacen => {
+        const stockReal = this.getStock(product, almacen.id);
+        const stockReservado = this.getReservedStock(product, almacen.id);
         const stockDisponible = Math.max(0, stockReal - stockReservado);
-        const stockMinimo = product.stockMinimoPorAlmacen?.[warehouse.id];
-        const stockMaximo = product.stockMaximoPorAlmacen?.[warehouse.id];
+        const stockMinimo = product.stockMinimoPorAlmacen?.[almacen.id];
+        const stockMaximo = product.stockMaximoPorAlmacen?.[almacen.id];
         const evaluation = evaluateStockAlert({
           disponible: stockDisponible,
           stockMinimo,
@@ -297,12 +297,12 @@ export class InventoryService {
           estado,
           alertType: evaluation.type === 'OVER' ? 'OVER' : 'LOW',
           isCritical: evaluation.isCritical,
-          warehouseId: warehouse.id,
-          warehouseCodigo: warehouse.code,
-          warehouseNombre: warehouse.name,
-          establishmentId: warehouse.establishmentId,
-          establishmentCodigo: warehouse.establishmentCode || '',
-          establishmentNombre: warehouse.establishmentName || '',
+          almacenId: almacen.id,
+          almacenCodigo: almacen.codigoAlmacen,
+          almacenNombre: almacen.nombreAlmacen,
+          EstablecimientoId: almacen.establecimientoId,
+          EstablecimientoCodigo: almacen.codigoEstablecimientoDesnormalizado || '',
+          EstablecimientoNombre: almacen.nombreEstablecimientoDesnormalizado || '',
           faltante: evaluation.missing,
           excedente: evaluation.excess
         });
@@ -321,7 +321,7 @@ export class InventoryService {
    */
   static processMassUpdate(
     products: Product[],
-    warehouses: Warehouse[],
+    almacenes: Almacen[],
     data: MassStockUpdateData,
     usuario: string
   ): { updatedProducts: Product[]; movements: MovimientoStock[] } {
@@ -330,17 +330,17 @@ export class InventoryService {
 
     data.updates.forEach(update => {
       const product = products.find(p => p.id === update.productoId);
-      const warehouse = warehouses.find(w => w.id === update.warehouseId);
+      const almacen = almacenes.find(w => w.id === update.almacenId);
 
-      if (!product || !warehouse) {
-        console.warn(`Producto ${update.productoId} o almacén ${update.warehouseId} no encontrado`);
+      if (!product || !almacen) {
+        console.warn(`Producto ${update.productoId} o almacén ${update.almacenId} no encontrado`);
         return;
       }
 
       try {
         const adjustmentData: StockAdjustmentData = {
           productoId: update.productoId,
-          warehouseId: update.warehouseId,
+          almacenId: update.almacenId,
           tipo: data.tipo,
           motivo: data.motivo,
           cantidad: update.cantidad,
@@ -348,7 +348,7 @@ export class InventoryService {
           documentoReferencia: ''
         };
 
-        const result = this.registerAdjustment(product, warehouse, adjustmentData, usuario);
+        const result = this.registerAdjustment(product, almacen, adjustmentData, usuario);
         updatedProducts.push(result.product);
         movements.push(result.movement);
       } catch (error) {

@@ -14,7 +14,7 @@ export const generateWorkspaceId = (): string => {
 };
 
 type GlobalSession = {
-  __USER_SESSION__?: { currentCompanyId?: string; currentEstablishmentId?: string };
+  __USER_SESSION__?: { currentCompanyId?: string; currentEstablecimientoId?: string };
   __FF_ACTIVE_WORKSPACE_ID?: string;
 };
 
@@ -64,7 +64,7 @@ export function getTenantEstablecimientoId(): string {
   }
 
   const globalAny = globalThis as typeof globalThis & GlobalSession;
-  const sessionEstId = globalAny.__USER_SESSION__?.currentEstablishmentId;
+  const sessionEstId = globalAny.__USER_SESSION__?.currentEstablecimientoId;
   if (sessionEstId && sessionEstId.trim() !== '') {
     return sessionEstId;
   }

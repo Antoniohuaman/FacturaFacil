@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import type { PreviewData } from '../../models/comprobante.types';
-import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useVoucherDesignConfig';
-import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/models/VoucherDesignUnified';
+import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useConfiguracionDisenoComprobante';
+import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/modelos/VoucherDesignUnified';
 import { formatMoney } from '@/shared/currency';
-import { useCurrentEstablishment } from '@/contexts/UserSessionContext';
+import { useCurrentEstablecimiento } from '@/contexts/UserSessionContext';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';
 
 interface PreviewTicketProps {
@@ -13,7 +13,7 @@ interface PreviewTicketProps {
 
 export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => {
   const config = useVoucherDesignConfigReader('TICKET');
-  const currentEstablishment = useCurrentEstablishment();
+  const currentEstablecimiento = useCurrentEstablecimiento();
 
   const {
     companyData,
@@ -44,10 +44,10 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
   const productFields = config.productFields as VoucherDesignTicketConfig['productFields'];
   const descriptionMaxLength = productFields.descripcion?.maxLength ?? 30;
 
-  const establishmentNameFromData = (data as unknown as { establishmentName?: string }).establishmentName;
-  const rawEstablishmentName = establishmentNameFromData || currentEstablishment?.name || '';
-  const establishmentName = rawEstablishmentName.trim();
-  const shouldShowEstablishment = Boolean(config.documentFields.establecimiento.visible && establishmentName);
+  const EstablecimientoNameFromData = (data as unknown as { EstablecimientoName?: string }).EstablecimientoName;
+  const rawEstablecimientoName = EstablecimientoNameFromData || currentEstablecimiento?.name || '';
+  const EstablecimientoName = rawEstablecimientoName.trim();
+  const shouldShowEstablecimiento = Boolean(config.documentFields.establecimiento.visible && EstablecimientoName);
 
   const truncateText = (text: string, maxLength: number) => {
     return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
@@ -147,8 +147,8 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
             <p><span className="font-semibold">Cliente:</span> {truncateText(clientData.nombre, 32)}</p>
             <p><span className="font-semibold">{clientData.tipoDocumento.toUpperCase()}:</span> {clientData.documento}</p>
             <p><span className="font-semibold">Forma de pago:</span> {paymentMethod}</p>
-            {shouldShowEstablishment && (
-              <p><span className="font-semibold">{config.documentFields.establecimiento.label}:</span> {truncateText(establishmentName, 35)}</p>
+            {shouldShowEstablecimiento && (
+              <p><span className="font-semibold">{config.documentFields.establecimiento.label}:</span> {truncateText(EstablecimientoName, 35)}</p>
             )}
             {config.documentFields.direccion.visible && clientData.direccion && (
               <p><span className="font-semibold">{config.documentFields.direccion.label}:</span> {truncateText(clientData.direccion, 35)}</p>

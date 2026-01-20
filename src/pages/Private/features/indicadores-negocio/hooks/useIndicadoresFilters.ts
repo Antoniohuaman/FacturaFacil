@@ -4,24 +4,24 @@ import { useIndicadoresFiltersStore } from '../store/indicadoresFiltersStore';
 
 export const useIndicadoresFilters = () => {
   const dateRange = useIndicadoresFiltersStore((state) => state.dateRange);
-  const establishmentId = useIndicadoresFiltersStore((state) => state.establishmentId);
+  const EstablecimientoId = useIndicadoresFiltersStore((state) => state.EstablecimientoId);
   const setDateRange = useIndicadoresFiltersStore((state) => state.setDateRange);
-  const setEstablishmentId = useIndicadoresFiltersStore((state) => state.setEstablishmentId);
+  const setEstablecimientoId = useIndicadoresFiltersStore((state) => state.setEstablecimientoId);
   const reset = useIndicadoresFiltersStore((state) => state.reset);
 
   const handleDateRangeChange = useCallback((range: DateRange) => {
     setDateRange(range);
   }, [setDateRange]);
 
-  const handleEstablishmentChange = useCallback((id: string) => {
-    setEstablishmentId(id);
-  }, [setEstablishmentId]);
+  const handleEstablecimientoChange = useCallback((id: string) => {
+    setEstablecimientoId(id);
+  }, [setEstablecimientoId]);
 
   return {
     dateRange,
-    establishmentId,
+    EstablecimientoId,
     setDateRange: handleDateRangeChange,
-    setEstablishmentId: handleEstablishmentChange,
+    setEstablecimientoId: handleEstablecimientoChange,
     resetFilters: reset
   };
 };

@@ -4,7 +4,7 @@ import type { EffectivePriceMatrix, EffectivePriceResult } from '../utils/priceH
 import { isGlobalColumn } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
-import { useConfigurationContext } from '../../configuracion-sistema/context/ConfigurationContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { ProductPricingTable } from './product-pricing/ProductPricingTable';
 import type { CellStatus, InlineCellState } from './product-pricing/types';
 import { FALLBACK_UNIT_CODE, cellKey, getDefaultValidityRange } from './product-pricing/utils';

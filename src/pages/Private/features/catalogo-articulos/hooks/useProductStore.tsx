@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Category } from '../../configuracion-sistema/context/ConfigurationContext';
+import type { Category } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type {
   Product,
   Package,

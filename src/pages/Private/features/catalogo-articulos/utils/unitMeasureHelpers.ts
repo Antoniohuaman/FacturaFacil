@@ -1,4 +1,4 @@
-import type { Unit } from '../../configuracion-sistema/models/Unit';
+import type { Unit } from '../../configuracion-sistema/modelos/Unit';
 import type { UnitMeasureType } from '../models/types';
 
 export interface UnitMeasureTypeOption {
