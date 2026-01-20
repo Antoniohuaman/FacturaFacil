@@ -11,7 +11,6 @@ import {
   PowerOff
 } from 'lucide-react';
 import type { User } from '../../modelos/User';
-import type { Role } from '../../modelos/Role';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { UserCard } from './TarjetaUsuario';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
@@ -25,7 +24,6 @@ type SortOrder = 'asc' | 'desc';
 
 interface UsersListProps {
   users: User[];
-  roles: Role[];
   Establecimientos: Establecimiento[];
   onEdit: (user: User) => void;
   onDelete: (user: User) => void;
@@ -38,7 +36,6 @@ interface UsersListProps {
 
 export function UsersList({
   users,
-  roles,
   Establecimientos,
   onEdit,
   onDelete,
@@ -396,7 +393,6 @@ export function UsersList({
             <UserCard
               key={user.id}
               user={user}
-              roles={roles}
               Establecimientos={Establecimientos}
               onEdit={() => onEdit(user)}
               onDelete={() => onDelete(user)}

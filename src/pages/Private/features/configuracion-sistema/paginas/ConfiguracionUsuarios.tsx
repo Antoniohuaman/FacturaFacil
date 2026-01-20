@@ -381,7 +381,6 @@ export function UsersConfiguration() {
       {activeTab === 'users' && (
         <UsersList
           users={users}
-          roles={SYSTEM_ROLES as Role[]}
           Establecimientos={Establecimientos}
           onEdit={handleEditUser}
           onDelete={(user) => setDeleteModal({ show: true, user })}

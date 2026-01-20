@@ -38,17 +38,9 @@ export function CajasConfiguration() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [cajaToDelete, setCajaToDelete] = useState<Caja | null>(null);
 
-  // Get all cajas for the company (not filtered by Establecimiento yet)
-  const allCajasForCompany = useMemo(() => {
-    if (!empresaId) return [];
-    // In a real scenario, you'd fetch all cajas for the company
-    // For now, we'll use the cajas from the current Establecimiento
-    return cajas;
-  }, [cajas, empresaId]);
-
   // Filter cajas
   const filteredCajas = useMemo(() => {
-    let result = allCajasForCompany;
+    let result = cajas;
 
     // Filter by Establecimiento if not "all"
     if (filterEstablecimientoId && filterEstablecimientoId !== 'all') {
@@ -71,7 +63,7 @@ export function CajasConfiguration() {
     }
 
     return result;
-  }, [allCajasForCompany, filterEstablecimientoId, searchText, filterStatus]);
+  }, [cajas, filterEstablecimientoId, searchText, filterStatus]);
 
   const handleToggleEnabled = async (id: string) => {
     try {

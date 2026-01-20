@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/usuarios/UserCard.tsx
 import { useState } from 'react';
@@ -21,7 +20,6 @@ import {
   PowerOff
 } from 'lucide-react';
 import type { User } from '../../modelos/User';
-import type { Role } from '../../modelos/Role';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
 
@@ -30,7 +28,6 @@ type UserStatus = User['status'];
 
 interface UserCardProps {
   user: User;
-  roles: Role[];
   Establecimientos: Establecimiento[];
   onEdit: () => void;
   onDelete: () => void;
@@ -43,7 +40,6 @@ interface UserCardProps {
 
 export function UserCard({
   user,
-  roles: _roles, // Mantener para compatibilidad futura
   Establecimientos,
   onEdit,
   onDelete,
