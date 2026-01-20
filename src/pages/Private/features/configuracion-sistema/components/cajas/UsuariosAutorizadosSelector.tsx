@@ -1,4 +1,5 @@
 import React from 'react';
+import { Checkbox } from '@/contasis';
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 import type { User } from '../../modelos/User';
 import type { Role } from '../../modelos/Role';
@@ -27,13 +28,13 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
     if (filterByCashPermission) {
       users = users.filter((user: User) => {
         // Check if any of the user's roles have canOpenRegister permission
-        return user.systemAccess.roles.some((role: Role) => 
+        return user.systemAccess.roles.some((role: Role) =>
           role.permissions?.cash?.canOpenRegister === true
         );
       });
     }
 
-    return users.sort((a: User, b: User) => 
+    return users.sort((a: User, b: User) =>
       a.personalInfo.fullName.localeCompare(b.personalInfo.fullName)
     );
   }, [state.users, filterByCashPermission]);
@@ -74,7 +75,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
             </span>
           )}
         </label>
-        
+
         {availableUsers.length > 0 && (
           <div className="flex gap-2 text-xs">
             <button
@@ -100,7 +101,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
 
       {availableUsers.length === 0 ? (
         <div className="text-sm text-gray-500 dark:text-gray-400 italic p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-          {filterByCashPermission 
+          {filterByCashPermission
             ? 'No hay usuarios activos con permiso para abrir caja. Por favor, asigna roles con permisos de caja a los usuarios.'
             : 'No hay usuarios activos disponibles.'
           }
@@ -115,12 +116,10 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
               `}
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={value.includes(user.id)}
                 onChange={() => handleToggleUser(user.id)}
                 disabled={disabled}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:cursor-not-allowed"
               />
               <div className="ml-3 flex-1">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">

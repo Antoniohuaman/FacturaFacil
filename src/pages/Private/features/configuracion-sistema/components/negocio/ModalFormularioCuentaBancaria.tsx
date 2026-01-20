@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
+import { Button, Select, Input } from '@/contasis';
 import type { CurrencyDescriptor } from '@/shared/currency';
 import type { BankAccount, BankAccountInput, BankAccountType } from '../../modelos/BankAccount';
 import { BANK_ACCOUNT_TYPES } from '../../modelos/BankAccount';
@@ -164,166 +165,153 @@ export function BankAccountFormModal({
                 {mode === 'create' ? 'Agregar información bancaria' : 'Editar información bancaria'}
               </h2>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="tertiary"
+              size="sm"
+              icon={<X />}
+              iconOnly
               onClick={handleClose}
-              className="text-gray-400 transition hover:text-gray-600"
-              aria-label="Cerrar"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            />
           </div>
 
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Banco *</label>
-                <select
+                <Select
+                  label="Banco"
                   value={form.bankId}
                   onChange={(e) => setForm((prev) => ({ ...prev, bankId: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Selecciona un banco</option>
-                  {bankOptions.map((bank) => (
-                    <option key={bank.id} value={bank.id}>
-                      {bank.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.bankId && <p className="text-xs text-red-600">{errors.bankId}</p>}
+                  options={[
+                    { value: '', label: 'Selecciona un banco' },
+                    ...bankOptions.map((bank) => ({ value: bank.id, label: bank.name }))
+                  ]}
+                  error={errors.bankId}
+                  helperText={errors.bankId}
+                  required
+                  size="small"
+                />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Tipo de cuenta *</label>
-                <select
+                <Select
+                  label="Tipo de cuenta"
                   value={form.accountType}
                   onChange={(e) => setForm((prev) => ({ ...prev, accountType: e.target.value as BankAccountType }))}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {BANK_ACCOUNT_TYPES.map((item) => (
-                    <option key={item.value} value={item.value}>{item.label}</option>
-                  ))}
-                </select>
-                {errors.accountType && <p className="text-xs text-red-600">{errors.accountType}</p>}
+                  options={BANK_ACCOUNT_TYPES.map((item) => ({ value: item.value, label: item.label }))}
+                  error={errors.accountType}
+                  helperText={errors.accountType}
+                  required
+                  size="small"
+                />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Moneda *</label>
-                <select
+                <Select
+                  label="Moneda"
                   value={form.currencyCode}
                   onChange={(e) => setForm((prev) => ({ ...prev, currencyCode: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Selecciona la moneda</option>
-                  {currencyOptions.map((currency) => (
-                    <option key={currency.code} value={currency.code}>
-                      {currency.code} · {currency.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.currencyCode && <p className="text-xs text-red-600">{errors.currencyCode}</p>}
+                  options={[
+                    { value: '', label: 'Selecciona la moneda' },
+                    ...currencyOptions.map((currency) => ({
+                      value: currency.code,
+                      label: `${currency.code} · ${currency.name}`
+                    }))
+                  ]}
+                  error={errors.currencyCode}
+                  helperText={errors.currencyCode}
+                  required
+                  size="small"
+                />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Descripción *</label>
-                <input
-                  type="text"
-                  value={form.description}
-                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  maxLength={60}
-                  placeholder="Alias o etiqueta"
-                />
-                {errors.description && <p className="text-xs text-red-600">{errors.description}</p>}
-              </div>
+              <Input
+                label="Descripción *"
+                type="text"
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                maxLength={60}
+                placeholder="Alias o etiqueta"
+                error={errors.description}
+              />
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Número de cuenta *</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.accountNumber}
-                  onChange={(e) => setForm((prev) => ({ ...prev, accountNumber: sanitizeDigits(e.target.value) }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  maxLength={30}
-                  placeholder="Solo dígitos"
-                />
-                {errors.accountNumber && <p className="text-xs text-red-600">{errors.accountNumber}</p>}
-              </div>
+              <Input
+                label="Número de cuenta *"
+                type="text"
+                inputMode="numeric"
+                value={form.accountNumber}
+                onChange={(e) => setForm((prev) => ({ ...prev, accountNumber: sanitizeDigits(e.target.value) }))}
+                maxLength={30}
+                placeholder="Solo dígitos"
+                error={errors.accountNumber}
+              />
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">CCI *</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.cci}
-                  onChange={(e) => setForm((prev) => ({ ...prev, cci: sanitizeDigits(e.target.value) }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  maxLength={30}
-                  placeholder="Código de cuenta interbancario"
-                />
-                {errors.cci && <p className="text-xs text-red-600">{errors.cci}</p>}
-              </div>
+              <Input
+                label="CCI *"
+                type="text"
+                inputMode="numeric"
+                value={form.cci}
+                onChange={(e) => setForm((prev) => ({ ...prev, cci: sanitizeDigits(e.target.value) }))}
+                maxLength={30}
+                placeholder="Código de cuenta interbancario"
+                error={errors.cci}
+              />
 
               <div className="space-y-1.5 md:col-span-2">
                 <div className="flex items-center justify-between gap-2">
                   <label className="text-sm font-medium text-gray-700">Cuenta contable (opcional)</label>
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => setShowAccountingModal(true)}
-                    className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                    variant="tertiary"
+                    size="sm"
                   >
                     Crear cuenta contable
-                  </button>
+                  </Button>
                 </div>
 
                 {accountingAccounts.length ? (
                   <div className="flex items-center gap-2">
-                    <select
+                    <Select
                       value={form.accountingAccountId ?? ''}
                       onChange={(e) => setForm((prev) => ({ ...prev, accountingAccountId: e.target.value || null }))}
-                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Sin cuenta contable</option>
-                      {accountingAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.code}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: 'Sin cuenta contable' },
+                        ...accountingAccounts.map((account) => ({ value: account.id, label: account.code }))
+                      ]}
+                      size="small"
+                    />
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-3 rounded-md border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600">
                     <span>Aún no tienes cuentas contables.</span>
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => setShowAccountingModal(true)}
-                      className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                      variant="tertiary"
+                      size="sm"
                     >
                       Crear
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={handleClose}
                 disabled={submitting}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
               >
-                {submitting && <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />}
-                <span>Guardar</span>
-              </button>
+                Guardar
+              </Button>
             </div>
           </form>
         </div>

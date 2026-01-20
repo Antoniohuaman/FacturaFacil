@@ -3,6 +3,7 @@
 // ===================================================================
 
 import React from 'react';
+import { Button, RadioButton } from '@/contasis';
 import type { DraftAction } from '../../models/comprobante.types';
 
 export interface DraftModalProps {
@@ -141,35 +142,32 @@ export const DraftModal: React.FC<DraftModalProps> = ({
           </label>
           <div className="space-y-2">
             {actionOptions.map((option) => (
-              <label key={option.value} className="flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  name="draftAction"
-                  value={option.value}
-                  checked={draftAction === option.value}
-                  onChange={() => handleActionChange(option.value)}
-                  className="mr-2 text-blue-600 focus:ring-blue-500"
-                  disabled={isLoading}
-                />
-                <span className="text-sm text-gray-900">
-                  {option.label}
-                </span>
-              </label>
+              <RadioButton
+                key={option.value}
+                name="draftAction"
+                value={option.value}
+                checked={draftAction === option.value}
+                onChange={() => handleActionChange(option.value)}
+                disabled={isLoading}
+                label={option.label}
+              />
             ))}
           </div>
         </div>
         
         {/* Botones de acción */}
         <div className="flex justify-end space-x-3 mt-6">
-          <button
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          <Button
+            variant="secondary"
+            size="md"
             onClick={handleClose}
             disabled={isLoading}
           >
             Cancelar
-          </button>
-          <button
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
             onClick={handleSave}
             disabled={isLoading}
           >
@@ -196,7 +194,7 @@ export const DraftModal: React.FC<DraftModalProps> = ({
               </svg>
             )}
             <span>{isLoading ? 'Guardando...' : 'Guardar borrador'}</span>
-          </button>
+          </Button>
         </div>
       </div>
     </div>

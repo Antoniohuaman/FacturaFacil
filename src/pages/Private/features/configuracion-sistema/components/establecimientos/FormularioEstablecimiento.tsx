@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/establecimientos/EstablecimientoForm.tsx
 import { useState, useEffect, useCallback } from 'react';
-import { MapPin, Building2, Hash, ToggleLeft, ToggleRight, X } from 'lucide-react';
+import { MapPin, Building2, Hash, ToggleLeft, ToggleRight, X, Loader2 } from 'lucide-react';
+import { Input, Button } from '@/contasis';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 
 interface EstablecimientoFormData {
@@ -20,10 +21,10 @@ interface EstablecimientoFormProps {
   existingCodes?: string[];
 }
 
-export function EstablecimientoForm({ 
-  Establecimiento, 
-  onSubmit, 
-  onCancel, 
+export function EstablecimientoForm({
+  Establecimiento,
+  onSubmit,
+  onCancel,
   isLoading = false,
   existingCodes = []
 }: EstablecimientoFormProps) {
@@ -76,7 +77,7 @@ export function EstablecimientoForm({
           return 'Ya existe un establecimiento con este código';
         }
         break;
-      
+
       case 'name':
         if (!value || value.trim() === '') {
           return 'El nombre es obligatorio';
@@ -85,7 +86,7 @@ export function EstablecimientoForm({
           return 'El nombre debe tener al menos 3 caracteres';
         }
         break;
-      
+
       case 'address':
         if (!value || value.trim() === '') {
           return 'La dirección es obligatoria';
@@ -94,7 +95,7 @@ export function EstablecimientoForm({
           return 'La dirección debe ser más específica';
         }
         break;
-      
+
       case 'ubigeo':
         if (value && value.length !== 6) {
           return 'El ubigeo debe tener 6 dígitos';
@@ -108,10 +109,10 @@ export function EstablecimientoForm({
 
   const handleFieldChange = (field: keyof EstablecimientoFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
+
     // Mark field as touched
     setTouchedFields(prev => new Set(prev).add(field));
-    
+
     // Validate field
     const error = validateField(field, value);
     setErrors(prev => ({
@@ -131,7 +132,7 @@ export function EstablecimientoForm({
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     (Object.keys(formData) as Array<keyof EstablecimientoFormData>).forEach(field => {
       const error = validateField(field, formData[field]);
       if (error) {
@@ -141,13 +142,13 @@ export function EstablecimientoForm({
 
     setErrors(newErrors);
     setTouchedFields(new Set(Object.keys(formData) as Array<keyof EstablecimientoFormData>));
-    
+
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -155,10 +156,10 @@ export function EstablecimientoForm({
     await onSubmit(formData);
   };
 
-  const isFormValid = Object.keys(errors).length === 0 && 
-                     formData.code.trim() !== '' && 
-                     formData.name.trim() !== '' && 
-                     formData.address.trim() !== '';
+  const isFormValid = Object.keys(errors).length === 0 &&
+    formData.code.trim() !== '' &&
+    formData.name.trim() !== '' &&
+    formData.address.trim() !== '';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -192,33 +193,18 @@ export function EstablecimientoForm({
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Code */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Código *
-              </label>
-              <div className="relative">
-                <Hash className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => handleFieldChange('code', e.target.value.toUpperCase())}
-                  onBlur={() => handleBlur('code')}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.code && touchedFields.has('code')
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
-                  placeholder="EST001"
-                  maxLength={10}
-                />
-              </div>
-              {errors.code && touchedFields.has('code') && (
-                <p className="text-sm text-red-600 mt-1">{errors.code}</p>
-              )}
-              <p className="text-xs text-gray-500 mt-1">
-                Código único para identificar el establecimiento
-              </p>
-            </div>
+            <Input
+              label="Código *"
+              type="text"
+              value={formData.code}
+              onChange={(e) => handleFieldChange('code', e.target.value.toUpperCase())}
+              onBlur={() => handleBlur('code')}
+              error={errors.code && touchedFields.has('code') ? errors.code : undefined}
+              placeholder="EST001"
+              maxLength={10}
+              leftIcon={<Hash />}
+              helperText="Código único para identificar el establecimiento"
+            />
 
             {/* Status Toggle */}
             <div>
@@ -248,29 +234,16 @@ export function EstablecimientoForm({
           </div>
 
           {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre del Establecimiento *
-            </label>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => handleFieldChange('name', e.target.value)}
-                onBlur={() => handleBlur('name')}
-                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.name && touchedFields.has('name')
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-300'
-                }`}
-                placeholder="Sucursal Principal, Local Centro, Tienda Norte..."
-              />
-            </div>
-            {errors.name && touchedFields.has('name') && (
-              <p className="text-sm text-red-600 mt-1">{errors.name}</p>
-            )}
-          </div>
+          <Input
+            label="Nombre del Establecimiento *"
+            type="text"
+            value={formData.name}
+            onChange={(e) => handleFieldChange('name', e.target.value)}
+            onBlur={() => handleBlur('name')}
+            error={errors.name && touchedFields.has('name') ? errors.name : undefined}
+            placeholder="Sucursal Principal, Local Centro, Tienda Norte..."
+            leftIcon={<Building2 />}
+          />
 
           {/* Address */}
           <div>
@@ -283,11 +256,10 @@ export function EstablecimientoForm({
                 value={formData.address}
                 onChange={(e) => handleFieldChange('address', e.target.value)}
                 onBlur={() => handleBlur('address')}
-                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
-                  errors.address && touchedFields.has('address')
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-300'
-                }`}
+                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${errors.address && touchedFields.has('address')
+                  ? 'border-red-300 bg-red-50'
+                  : 'border-gray-300'
+                  }`}
                 rows={3}
                 placeholder="Jr. Los Tulipanes 123, Urb. Las Flores, San Juan de Lurigancho, Lima"
               />
@@ -301,30 +273,16 @@ export function EstablecimientoForm({
           </div>
 
           {/* Ubigeo */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Código de Ubigeo
-            </label>
-            <input
-              type="text"
-              value={formData.ubigeo}
-              onChange={(e) => handleFieldChange('ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))}
-              onBlur={() => handleBlur('ubigeo')}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.ubigeo && touchedFields.has('ubigeo')
-                  ? 'border-red-300 bg-red-50'
-                  : 'border-gray-300'
-              }`}
-              placeholder="150101"
-              maxLength={6}
-            />
-            {errors.ubigeo && touchedFields.has('ubigeo') && (
-              <p className="text-sm text-red-600 mt-1">{errors.ubigeo}</p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">
-              Código de ubicación geográfica según INEI (opcional, 6 dígitos)
-            </p>
-          </div>
+          <Input
+            label="Código de Ubigeo"
+            type="text"
+            value={formData.ubigeo}
+            onChange={(e) => handleFieldChange('ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onBlur={() => handleBlur('ubigeo')}
+            error={errors.ubigeo && touchedFields.has('ubigeo') ? errors.ubigeo : undefined}
+            placeholder="150101"
+            maxLength={6}
+          />
 
           {/* Form Summary */}
           {formData.code && formData.name && (
@@ -340,28 +298,21 @@ export function EstablecimientoForm({
 
           {/* Actions */}
           <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={onCancel}
               disabled={isLoading}
-              className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               type="submit"
               disabled={!isFormValid || isLoading}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
+              icon={isLoading ? <Loader2 className="animate-spin" /> : undefined}
             >
-              {isLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Guardando...</span>
-                </>
-              ) : (
-                <span>{Establecimiento ? 'Actualizar' : 'Crear'} Establecimiento</span>
-              )}
-            </button>
+              {isLoading ? 'Guardando...' : `${Establecimiento ? 'Actualizar' : 'Crear'} Establecimiento`}
+            </Button>
           </div>
         </form>
       </div>

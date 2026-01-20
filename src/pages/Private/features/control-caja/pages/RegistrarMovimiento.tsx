@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React, { useState } from 'react';
+import { Button, Textarea } from '@/contasis';
 import { useCaja } from '../context/CajaContext';
 import { Plus, TrendingUp, TrendingDown, Receipt } from 'lucide-react';
 import { EmptyState } from '../components/common/EmptyState';
@@ -183,24 +184,23 @@ const RegistrarMovimiento: React.FC = () => {
 
           {/* Observaciones */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Observaciones
-            </label>
-            <textarea
+            <Textarea
+              label="Observaciones"
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
               rows={3}
               placeholder="Detalles adicionales (opcional)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
               disabled={isLoading}
             />
           </div>
 
           {/* Botón submit */}
-          <button
+          <Button
+            variant="primary"
+            size="lg"
             type="submit"
             disabled={isLoading || !concepto || !monto || parseFloat(monto) <= 0}
-            className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold flex items-center justify-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full"
           >
             {isLoading ? (
               <>
@@ -213,7 +213,7 @@ const RegistrarMovimiento: React.FC = () => {
                 Registrar Movimiento
               </>
             )}
-          </button>
+          </Button>
         </form>
       </div>
 

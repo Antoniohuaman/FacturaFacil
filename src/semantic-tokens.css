@@ -12,6 +12,10 @@
   --surface-3: theme('colors.neutral.10');          /* Fondo para tablas */
   --surface-hover: theme('colors.neutral.30');      /* Hover sobre superficie */
   --surface-pressed: theme('colors.neutral.40');    /* Pressed sobre superficie */
+  --surface-selected: theme('colors.primary.light'); /* Superficie seleccionada/activa */
+
+  /* === BRAND === */
+  --brand: theme('colors.primary.DEFAULT');         /* Color de marca principal */
 
   /* === TEXTOS === */
   --text-primary: theme('colors.neutral.100');      /* Títulos principales #1E293B */
@@ -25,6 +29,7 @@
   --border-default: theme('colors.neutral.50');        /* Separaciones estructurales (sidebar, cards, tables, tabs, modals) */
   --border-strong: theme('colors.neutral.60');         /* Elementos interactivos (inputs, selects, buttons outline) */
   --border-focus: theme('colors.primary.DEFAULT');     /* Bordes de foco/activo */
+  --border-brand: theme('colors.primary.DEFAULT');     /* Bordes de marca (checkbox/radio checked, elementos destacados) */
   --border-disabled: theme('colors.neutral.40');       /* Bordes de elementos deshabilitados */
   --border-secondary: theme('colors.neutral.50');      /* Bordes secundarios (para botones) */
 
@@ -74,6 +79,10 @@
   --surface-3: #131C2C;         /* Fondo para tablas */
   --surface-hover: theme('colors.neutral.90');      /* Hover sobre superficie */
   --surface-pressed: theme('colors.neutral.80');    /* Pressed sobre superficie */
+  --surface-selected: theme('colors.neutral.90');   /* Superficie seleccionada/activa */
+
+  /* === BRAND === */
+  --brand: theme('colors.primary.dark');            /* Color de marca principal */
 
   /* === TEXTOS (invertidos) === */
   --text-primary: theme('colors.neutral.40');       /* Títulos principales #F8FAFC */
@@ -87,6 +96,7 @@
   --border-default: #384252;      /* Separaciones estructurales (sidebar, cards, tables, modals) - visible */
   --border-strong: #475569;       /* Elementos interactivos (inputs, selects, buttons) - destacado */
   --border-focus: theme('colors.primary.light');       /* Estado de foco en inputs */
+  --border-brand: theme('colors.primary.dark');        /* Bordes de marca (checkbox/radio checked) - mismo color que light */
   --border-disabled: theme('colors.neutral.60');       /* Bordes de elementos deshabilitados */
   
   /* === PRIMARIOS === */

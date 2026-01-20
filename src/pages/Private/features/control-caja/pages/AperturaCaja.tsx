@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Button, Textarea } from '@/contasis';
 import { useCaja } from '../context/CajaContext';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { DollarSign, Save, AlertCircle } from 'lucide-react';
@@ -253,24 +254,23 @@ const AperturaCaja: React.FC = () => {
 
           {/* Notas */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notas de Apertura
-            </label>
-            <textarea
+            <Textarea
+              label="Notas de Apertura"
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
               placeholder="Observaciones, comentarios, etc."
               disabled={status === 'abierta' || isLoading}
             />
           </div>
 
           {/* Botón de submit */}
-          <button
+          <Button
+            variant="primary"
+            size="lg"
             type="submit"
             disabled={status === 'abierta' || isLoading || !isFormValid()}
-            className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold flex items-center justify-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full"
           >
             {isLoading ? (
               <>
@@ -283,7 +283,7 @@ const AperturaCaja: React.FC = () => {
                 {status === 'abierta' ? 'Caja Abierta' : 'Abrir Caja'}
               </>
             )}
-          </button>
+          </Button>
         </form>
       </div>
 

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings2, AlertCircle, ExternalLink, Banknote, Clock } from 'lucide-react';
+import { Button } from '@/contasis';
 import { useCajas } from '../../configuracion-sistema/hooks/useCajas';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
@@ -79,20 +80,22 @@ const ConfiguracionCaja: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              variant="secondary"
+              size="md"
               onClick={handleViewSessions}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
             >
               <Clock className="w-4 h-4" />
               Ver Sesiones
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
               onClick={handleGoToConfiguration}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
             >
               Editar en Configuración
               <ExternalLink className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -118,13 +121,14 @@ const ConfiguracionCaja: React.FC = () => {
             <p className="text-gray-600 mb-6 max-w-md mx-auto">
               Este establecimiento no tiene cajas configuradas. Crea al menos una caja para comenzar a operar.
             </p>
-            <button
+            <Button
+              variant="primary"
+              size="lg"
               onClick={handleGoToConfiguration}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Ir a Configuración
               <ExternalLink className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
         )}
 
@@ -210,13 +214,14 @@ const ConfiguracionCaja: React.FC = () => {
 
             {/* Action button */}
             <div className="pt-6 border-t border-gray-200">
-              <button
+              <Button
+                variant="primary"
+                size="lg"
                 onClick={handleGoToConfiguration}
-                className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
               >
                 Administrar Cajas
                 <ExternalLink className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
           </div>
         )}

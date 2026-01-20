@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
 import SelectorEstablecimiento from './EstablishmentSelector';
+import CompanySelector from '@/components/CompanySelector';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
@@ -30,7 +31,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
   const { session } = useUserSession();
   const { status, aperturaActual, getResumen } = useCaja();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useHeaderNotifications();
-  
+
   // Calcular resumen de caja (saldo actual = apertura + ingresos - egresos)
   const resumenCaja = getResumen();
   const montoActual = resumenCaja.saldo;
@@ -121,19 +122,19 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
           <Menu className="w-5 h-5 text-slate-600 dark:text-gray-300" />
         </button>
       )}
-      
+
       {/* Logo */}
-      <button 
+      <button
         onClick={() => navigate('/indicadores')}
         className="flex items-center ml-1 hover:opacity-80 transition-opacity"
       >
-        <img 
+        <img
           src="/Senciyo_Logo.png"
           alt="SenciYO"
           className="h-8 w-auto object-contain dark:filter dark:invert dark:brightness-0 dark:contrast-100"
         />
       </button>
-      
+
       {/* SearchBar */}
       <div className="flex-1 flex justify-center px-8">
         <div className="w-full max-w-3xl">
@@ -147,37 +148,38 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
           </div>
         </div>
       </div>
-      
+
       {/* Información de sesión activa */}
       <div className="flex items-center space-x-4 text-sm">
+        {/* Selector de Empresa */}
+        <div className="max-w-xs">
+          <CompanySelector />
+        </div>
+
         {/* Selector de Establecimiento */}
         <SelectorEstablecimiento />
 
         {/* Estado de caja con dropdown */}
         <div className="relative" ref={cashMenuRef}>
-          <button 
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-              cajaAbierta
+          <button
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${cajaAbierta
                 ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30'
                 : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'
-            }`}
+              }`}
             onClick={() => setShowCashMenu(!showCashMenu)}
           >
             <span className="text-slate-700 dark:text-gray-200 font-medium">Caja</span>
-            <span className={`flex items-center space-x-1 font-medium ${
-              cajaAbierta ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${
-                cajaAbierta ? 'bg-green-500 dark:bg-green-400 animate-pulse' : 'bg-red-500 dark:bg-red-400'
-              }`}></span>
+            <span className={`flex items-center space-x-1 font-medium ${cajaAbierta ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+              }`}>
+              <span className={`w-2 h-2 rounded-full ${cajaAbierta ? 'bg-green-500 dark:bg-green-400 animate-pulse' : 'bg-red-500 dark:bg-red-400'
+                }`}></span>
               <span>{cajaAbierta ? 'Activa' : 'Cerrada'}</span>
             </span>
-            <svg 
-              className={`w-3 h-3 transition-transform duration-200 ${
-                cajaAbierta ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-              } ${showCashMenu ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              className={`w-3 h-3 transition-transform duration-200 ${cajaAbierta ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                } ${showCashMenu ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -191,7 +193,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
                 <>
                   <div className="px-4 pb-3 border-b border-slate-100 dark:border-gray-700">
                     <h3 className="font-medium text-slate-900 dark:text-white text-sm mb-3">Información de Caja</h3>
-                    
+
                     {/* Encargado */}
                     <div className="flex items-center space-x-2 mb-2">
                       <svg className="w-5 h-5 text-slate-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -268,10 +270,10 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
             </div>
           )}
         </div>
-        
+
         {/* Botón de notificaciones */}
         <div className="relative" ref={notificationsRef}>
-          <button 
+          <button
             className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
             onClick={() => setShowNotifications(!showNotifications)}
             aria-label="Ver notificaciones"
@@ -326,18 +328,17 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
                       notification.severity === 'error'
                         ? 'border-red-500'
                         : notification.severity === 'warning'
-                        ? 'border-yellow-500'
-                        : notification.severity === 'success'
-                        ? 'border-emerald-500'
-                        : 'border-slate-300';
+                          ? 'border-yellow-500'
+                          : notification.severity === 'success'
+                            ? 'border-emerald-500'
+                            : 'border-slate-300';
 
                     return (
                       <button
                         key={notification.id}
                         type="button"
-                        className={`w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 ${borderColor} ${
-                          isUnread ? 'bg-slate-50/80 dark:bg-gray-800/60' : ''
-                        }`}
+                        className={`w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 ${borderColor} ${isUnread ? 'bg-slate-50/80 dark:bg-gray-800/60' : ''
+                          }`}
                         onClick={() => {
                           if (notification.link) {
                             navigate(notification.link);
@@ -379,7 +380,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
             </div>
           )}
         </div>
-        
+
         {/* Botón de configuración */}
         <div className="relative ml-4">
           <button
@@ -393,16 +394,16 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
           {/* Indicador de configuración incompleta */}
           <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
         </div>
-        
+
         {/* Perfil/Menu con dropdown */}
         <div className="relative ml-4" ref={menuRef}>
-          <button 
+          <button
             className="relative w-10 h-10 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center group"
             onClick={() => setShowUserDropdown(!showUserDropdown)}
           >
             <div className="w-8 h-8 rounded-full overflow-hidden">
-              <img 
-                src="/perfil.jpg?v=2" 
+              <img
+                src="/perfil.jpg?v=2"
                 alt="Foto de perfil"
                 className="w-full h-full object-cover"
               />
@@ -411,7 +412,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
           {/* Dropdown Menu */}
           {showUserDropdown && (
-            <UserDropdown 
+            <UserDropdown
               userName={userInfo.userName}
               userRole={userInfo.userRole}
               userEmail={userInfo.userEmail}

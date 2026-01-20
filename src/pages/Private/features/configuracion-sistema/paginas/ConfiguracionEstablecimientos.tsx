@@ -17,14 +17,14 @@ import {
   FileText,
   Navigation,
   Mail,
-  Phone,
-  Globe
+  Phone
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 // import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
 import { StatusIndicator } from '../components/comunes/IndicadorEstado';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { ubigeoData } from '../datos/ubigeo';
+import { Button, Select, Input } from '@/contasis';
 
 interface EstablecimientoFormData {
   code: string;
@@ -99,12 +99,12 @@ export function EstablecimientosConfiguration() {
   // Filter Establecimientos
   const filteredEstablecimientos = Establecimientos.filter(est => {
     const matchesSearch = est.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         est.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         est.address.toLowerCase().includes(searchTerm.toLowerCase());
+      est.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      est.address.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = filterStatus === 'all' ||
-                         (filterStatus === 'active' && est.isActive) ||
-                         (filterStatus === 'inactive' && !est.isActive);
+      (filterStatus === 'active' && est.isActive) ||
+      (filterStatus === 'inactive' && !est.isActive);
 
     return matchesSearch && matchesStatus;
   });
@@ -235,10 +235,10 @@ export function EstablecimientosConfiguration() {
         updatedEstablecimientos = Establecimientos.map(est =>
           est.id === editingEstablecimientoId
             ? {
-                ...est,
-                ...formData,
-                updatedAt: new Date()
-              }
+              ...est,
+              ...formData,
+              updatedAt: new Date()
+            }
             : est
         );
         showToast('success', 'Establecimiento actualizado correctamente');
@@ -351,13 +351,12 @@ export function EstablecimientosConfiguration() {
           {toasts.map((toast) => (
             <div
               key={toast.id}
-              className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${
-                toast.type === 'success'
-                  ? 'bg-green-50 border border-green-200 text-green-800'
-                  : toast.type === 'error'
+              className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${toast.type === 'success'
+                ? 'bg-green-50 border border-green-200 text-green-800'
+                : toast.type === 'error'
                   ? 'bg-red-50 border border-red-200 text-red-800'
                   : 'bg-yellow-50 border border-yellow-200 text-yellow-800'
-              }`}
+                }`}
             >
               {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600" />}
               {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-600" />}
@@ -408,66 +407,34 @@ export function EstablecimientosConfiguration() {
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Hash className="w-4 h-4 text-gray-400" />
-                    Código <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.code}
-                      onChange={(e) => {
-                        setFormData(prev => ({ ...prev, code: e.target.value }));
-                        if (formErrors.code) setFormErrors(prev => ({ ...prev, code: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                        formErrors.code
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      placeholder="Ej: 0001"
-                      required
-                      maxLength={4}
-                    />
-                  </div>
-                  {formErrors.code && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.code}
-                    </p>
-                  )}
-                </div>
+                <Input
+                  label="Código"
+                  type="text"
+                  value={formData.code}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, code: e.target.value }));
+                    if (formErrors.code) setFormErrors(prev => ({ ...prev, code: '' }));
+                  }}
+                  error={formErrors.code}
+                  placeholder="Ej: 0001"
+                  leftIcon={<Hash />}
+                  required
+                  maxLength={4}
+                />
 
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    Nombre del Establecimiento <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => {
-                        setFormData(prev => ({ ...prev, name: e.target.value }));
-                        if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                        formErrors.name
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      placeholder="Ej: Sede Central, Sucursal Norte..."
-                      required
-                    />
-                  </div>
-                  {formErrors.name && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.name}
-                    </p>
-                  )}
-                </div>
+                <Input
+                  label="Nombre del Establecimiento"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, name: e.target.value }));
+                    if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                  }}
+                  error={formErrors.name}
+                  placeholder="Ej: Sede Central, Sucursal Norte..."
+                  leftIcon={<FileText />}
+                  required
+                />
               </div>
             </div>
           </div>
@@ -486,193 +453,108 @@ export function EstablecimientosConfiguration() {
               </div>
             </div>
             <div className="p-6 space-y-6">
-              <div className="group">
-                <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                  <Navigation className="w-4 h-4 text-gray-400" />
-                  Dirección <span className="text-red-500">*</span>
-                  </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, address: e.target.value }));
-                      if (formErrors.address) setFormErrors(prev => ({ ...prev, address: '' }));
-                    }}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                      formErrors.address
-                        ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    placeholder="Ej: Av. Los Pinos 123, Urbanización..."
-                    required
-                  />
-                </div>
-                {formErrors.address && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                    <AlertCircle className="w-4 h-4" />
-                    {formErrors.address}
-                  </p>
-                )}
-              </div>
+              <Input
+                label="Dirección"
+                type="text"
+                value={formData.address}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, address: e.target.value }));
+                  if (formErrors.address) setFormErrors(prev => ({ ...prev, address: '' }));
+                }}
+                error={formErrors.address}
+                placeholder="Ej: Av. Los Pinos 123, Urbanización..."
+                leftIcon={<Navigation />}
+                required
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Globe className="w-4 h-4 text-gray-400" />
-                    Departamento <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.department}
-                      onChange={(e) => {
-                        const newDept = e.target.value;
-                        setFormData(prev => ({
-                          ...prev,
-                          department: newDept,
-                          province: '',
-                          district: ''
-                        }));
-                        if (formErrors.department) setFormErrors(prev => ({ ...prev, department: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white ${
-                        formErrors.department
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      required
-                    >
-                      <option value="">Seleccionar...</option>
-                      {ubigeoData.map((dept) => (
-                        <option key={dept.code} value={dept.name}>
-                          {dept.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                  {formErrors.department && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.department}
-                    </p>
-                  )}
+                  <Select
+                    label="Departamento"
+                    value={formData.department}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                      const value = e.target.value;
+                      setFormData(prev => ({
+                        ...prev,
+                        department: value,
+                        province: '',
+                        district: ''
+                      }));
+                      if (formErrors.department) setFormErrors(prev => ({ ...prev, department: '' }));
+                    }}
+                    options={[
+                      { value: '', label: 'Seleccionar...' },
+                      ...ubigeoData.map(dept => ({
+                        value: dept.name,
+                        label: dept.name
+                      }))
+                    ]}
+                    placeholder="Seleccionar..."
+                    error={formErrors.department}
+                    required
+                  />
                 </div>
 
                 <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    Provincia <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.province}
-                      onChange={(e) => {
-                        const newProv = e.target.value;
-                        setFormData(prev => ({
-                          ...prev,
-                          province: newProv,
-                          district: ''
-                        }));
-                        if (formErrors.province) setFormErrors(prev => ({ ...prev, province: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none ${
-                        formErrors.province
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : !formData.department
-                          ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                          : 'border-gray-300 hover:border-gray-400 bg-white'
-                      }`}
-                      required
-                      disabled={!formData.department}
-                    >
-                      <option value="">
-                        {formData.department ? 'Seleccionar...' : 'Selecciona departamento primero'}
-                      </option>
-                      {availableProvinces.map((prov) => (
-                        <option key={prov.code} value={prov.name}>
-                          {prov.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                  {formErrors.province && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.province}
-                    </p>
-                  )}
+                  <Select
+                    label="Provincia"
+                    value={formData.province}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                      const value = e.target.value;
+                      setFormData(prev => ({
+                        ...prev,
+                        province: value,
+                        district: ''
+                      }));
+                      if (formErrors.province) setFormErrors(prev => ({ ...prev, province: '' }));
+                    }}
+                    options={[
+                      { value: '', label: formData.department ? 'Seleccionar...' : 'Selecciona departamento primero' },
+                      ...availableProvinces.map(prov => ({
+                        value: prov.name,
+                        label: prov.name
+                      }))
+                    ]}
+                    placeholder={formData.department ? 'Seleccionar...' : 'Selecciona departamento primero'}
+                    disabled={!formData.department}
+                    error={formErrors.province}
+                    required
+                  />
                 </div>
 
                 <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Navigation className="w-4 h-4 text-gray-400" />
-                    Distrito <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.district}
-                      onChange={(e) => {
-                        setFormData(prev => ({ ...prev, district: e.target.value }));
-                        if (formErrors.district) setFormErrors(prev => ({ ...prev, district: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none ${
-                        formErrors.district
-                          ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                          : !formData.province
-                          ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                          : 'border-gray-300 hover:border-gray-400 bg-white'
-                      }`}
-                      required
-                      disabled={!formData.province}
-                    >
-                      <option value="">
-                        {formData.province ? 'Seleccionar...' : 'Selecciona provincia primero'}
-                      </option>
-                      {availableDistricts.map((dist) => (
-                        <option key={dist.code} value={dist.name}>
-                          {dist.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                  {formErrors.district && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.district}
-                    </p>
-                  )}
+                  <Select
+                    label="Distrito"
+                    value={formData.district}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                      const value = e.target.value;
+                      setFormData(prev => ({ ...prev, district: value }));
+                      if (formErrors.district) setFormErrors(prev => ({ ...prev, district: '' }));
+                    }}
+                    options={[
+                      { value: '', label: formData.province ? 'Seleccionar...' : 'Selecciona provincia primero' },
+                      ...availableDistricts.map(dist => ({
+                        value: dist.name,
+                        label: dist.name
+                      }))
+                    ]}
+                    placeholder={formData.province ? 'Seleccionar...' : 'Selecciona provincia primero'}
+                    disabled={!formData.province}
+                    error={formErrors.district}
+                    required
+                  />
                 </div>
               </div>
 
-              <div className="group">
-                <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                  <Hash className="w-4 h-4 text-gray-400" />
-                  Código Postal
-                  <span className="text-xs text-gray-500">(Opcional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.postalCode}
-                  onChange={(e) => setFormData(prev => ({ ...prev, postalCode: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-400"
-                  placeholder="Ej: 15001"
-                />
-              </div>
+              <Input
+                label="Código Postal"
+                type="text"
+                value={formData.postalCode}
+                onChange={(e) => setFormData(prev => ({ ...prev, postalCode: e.target.value }))}
+                placeholder="Ej: 15001"
+                leftIcon={<Hash />}
+                helperText="Opcional"
+              />
             </div>
           </div>
 
@@ -691,48 +573,29 @@ export function EstablecimientosConfiguration() {
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    Teléfono
-                    <span className="text-xs text-gray-500">(Opcional)</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-400"
-                    placeholder="Ej: +51 999 999 999"
-                  />
-                </div>
+                <Input
+                  label="Teléfono"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="Ej: +51 999 999 999"
+                  leftIcon={<Phone />}
+                  helperText="Opcional"
+                />
 
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 mb-2 items-center gap-2">
-                    <Mail className="w-4 h-4 text-gray-400" />
-                    Correo Electrónico
-                    <span className="text-xs text-gray-500">(Opcional)</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, email: e.target.value }));
-                      if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
-                    }}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                      formErrors.email
-                        ? 'border-red-300 bg-red-50 focus:ring-red-200'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    placeholder="Ej: establecimiento@empresa.com"
-                  />
-                  {formErrors.email && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.email}
-                    </p>
-                  )}
-                </div>
+                <Input
+                  label="Correo Electrónico"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, email: e.target.value }));
+                    if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+                  }}
+                  error={formErrors.email}
+                  placeholder="Ej: establecimiento@empresa.com"
+                  leftIcon={<Mail />}
+                  helperText="Opcional"
+                />
               </div>
             </div>
           </div>
@@ -744,20 +607,20 @@ export function EstablecimientosConfiguration() {
               Los campos marcados con <span className="text-red-500 font-medium">*</span> son obligatorios
             </p>
             <div className="flex gap-3">
-              <button
+              <Button
                 type="button"
                 onClick={handleCancel}
-                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all font-medium hover:border-gray-400"
+                variant="secondary"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 flex items-center gap-2"
+                variant="primary"
+                icon={<CheckCircle />}
               >
-                <CheckCircle className="w-5 h-5" />
                 {editingEstablecimientoId ? 'Actualizar' : 'Crear'} Establecimiento
-              </button>
+              </Button>
             </div>
           </div>
         </form>
@@ -772,13 +635,12 @@ export function EstablecimientosConfiguration() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${
-              toast.type === 'success'
-                ? 'bg-green-50 border border-green-200 text-green-800'
-                : toast.type === 'error'
+            className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${toast.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : toast.type === 'error'
                 ? 'bg-red-50 border border-red-200 text-red-800'
                 : 'bg-yellow-50 border border-yellow-200 text-yellow-800'
-            }`}
+              }`}
           >
             {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600" />}
             {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-600" />}
@@ -824,7 +686,7 @@ export function EstablecimientosConfiguration() {
 
       {/* Header */}
       <div className="flex items-center space-x-4">
-        <button 
+        <button
           onClick={() => navigate('/configuracion')}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
         >
@@ -886,35 +748,35 @@ export function EstablecimientosConfiguration() {
       {/* Filters and Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar establecimientos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          
-          <select
+          <Input
+            type="text"
+            placeholder="Buscar establecimientos..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            leftIcon={<Search />}
+          />
+
+          <Select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="active">Solo activos</option>
-            <option value="inactive">Solo inactivos</option>
-          </select>
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as any)}
+            size="medium"
+            options={[
+              { value: 'all', label: 'Todos los estados' },
+              { value: 'active', label: 'Solo activos' },
+              { value: 'inactive', label: 'Solo inactivos' }
+            ]}
+          />
         </div>
 
-        <button
+        <Button
           onClick={handleNew}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          variant="primary"
+          size="md"
+          icon={<Plus className="w-5 h-5" />}
+          iconPosition="left"
         >
-          <Plus className="w-4 h-4 mr-2" />
           Nuevo Establecimiento
-        </button>
+        </Button>
       </div>
 
       {/* Establecimientos List */}
@@ -923,8 +785,8 @@ export function EstablecimientosConfiguration() {
           <div className="text-center py-12">
             <Building className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm || filterStatus !== 'all' 
-                ? 'No se encontraron establecimientos' 
+              {searchTerm || filterStatus !== 'all'
+                ? 'No se encontraron establecimientos'
                 : 'No hay establecimientos registrados'
               }
             </h3>
@@ -966,17 +828,17 @@ export function EstablecimientosConfiguration() {
                         label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
                       />
                     </div>
-                    
+
                     <p className="text-gray-600 mb-2">
                       {Establecimiento.address}
                     </p>
-                    
+
                     <div className="flex items-center space-x-6 text-sm text-gray-500">
                       <span>{Establecimiento.district}, {Establecimiento.province}</span>
                       <span>{Establecimiento.department}</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => handleEdit(Establecimiento)}
@@ -985,19 +847,18 @@ export function EstablecimientosConfiguration() {
                     >
                       <Edit className="w-4 h-4" />
                     </button>
-                    
+
                     <button
                       onClick={() => handleToggleStatus(Establecimiento.id)}
-                      className={`p-2 rounded-lg transition-colors ${
-                        Establecimiento.isActive 
-                          ? 'text-red-400 hover:text-red-600 hover:bg-red-50' 
-                          : 'text-green-400 hover:text-green-600 hover:bg-green-50'
-                      }`}
+                      className={`p-2 rounded-lg transition-colors ${Establecimiento.isActive
+                        ? 'text-red-400 hover:text-red-600 hover:bg-red-50'
+                        : 'text-green-400 hover:text-green-600 hover:bg-green-50'
+                        }`}
                       title={Establecimiento.isActive ? 'Desactivar' : 'Activar'}
                     >
                       <MapPin className="w-4 h-4" />
                     </button>
-                    
+
                     <button
                       onClick={() => openDeleteConfirmation(Establecimiento)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"

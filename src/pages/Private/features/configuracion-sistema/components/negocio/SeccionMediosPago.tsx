@@ -10,6 +10,8 @@ import {
 } from '../../../../../../shared/payments/paymentMeans';
 import { normalizePaymentMethodLabel } from '../../../../../../shared/payments/normalizePaymentMethodLabel';
 import { CreditPaymentMethodModal } from '../../../../../../shared/payments/CreditPaymentMethodModal';
+import { Button, Checkbox } from '@/contasis';
+
 
 interface PaymentMethodsSectionProps {
   paymentMethods: PaymentMethod[];
@@ -252,13 +254,15 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
                       {method.display.isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                     </button>
 
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Edit3 />}
+                      iconPosition="left"
                       onClick={() => handleEdit(method)}
-                      className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
                     >
-                      <Edit3 className="mr-1 h-4 w-4" />
                       Editar
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -409,14 +413,15 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
                     <DefaultSelector isDefault={isDefault} onSetDefault={() => handleDefaultMean(mean.code)} size="sm" />
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Edit3 />}
+                      iconPosition="left"
                       onClick={() => openMeanEditor(mean.code)}
-                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                     >
-                      <Edit3 className="h-4 w-4" />
-                      <span>Editar</span>
-                    </button>
+                      Editar
+                    </Button>
                   </td>
                 </tr>
               );
@@ -452,13 +457,15 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
         </div>
 
         {activeTab === 'forms' && (
-          <button
+          <Button
             onClick={openNewCreditForm}
-            className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            variant="primary"
+            size="md"
+            icon={<Plus className="w-5 h-5" />}
+            iconPosition="left"
           >
-            <Plus className="h-4 w-4" />
-            <span>Nuevo crédito</span>
-          </button>
+            Nuevo crédito
+          </Button>
         )}
       </div>
 
@@ -514,49 +521,37 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
               </div>
 
               <div className="grid grid-cols-3 gap-3 text-xs font-medium text-slate-700">
-                <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={meanDraft.visible}
-                    onChange={(e) => setMeanDraft(prev => ({ ...prev, visible: e.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Visible</span>
-                </label>
-                <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={meanDraft.favorite}
-                    onChange={(e) => setMeanDraft(prev => ({ ...prev, favorite: e.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Favorito</span>
-                </label>
-                <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={meanDraft.isDefault}
-                    onChange={(e) => setMeanDraft(prev => ({ ...prev, isDefault: e.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Por defecto</span>
-                </label>
+                <Checkbox
+                  label="Visible"
+                  checked={meanDraft.visible}
+                  onChange={(e) => setMeanDraft(prev => ({ ...prev, visible: e.target.checked }))}
+                />
+                <Checkbox
+                  label="Favorito"
+                  checked={meanDraft.favorite}
+                  onChange={(e) => setMeanDraft(prev => ({ ...prev, favorite: e.target.checked }))}
+                />
+                <Checkbox
+                  label="Por defecto"
+                  checked={meanDraft.isDefault}
+                  onChange={(e) => setMeanDraft(prev => ({ ...prev, isDefault: e.target.checked }))}
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-1">
-                <button
+                <Button
                   type="button"
                   onClick={closeMeanEditor}
-                  className="rounded-md border border-slate-200 bg-white px-4 py-2 text-slate-700 hover:bg-slate-50"
+                  variant="secondary"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                  variant="primary"
                 >
                   Guardar cambios
-                </button>
+                </Button>
               </div>
             </form>
           </div>

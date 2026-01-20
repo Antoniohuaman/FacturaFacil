@@ -1,6 +1,7 @@
 // src/features/configuration/components/negocio/TaxesSection.tsx
 import { useMemo, useState } from 'react';
 import { Receipt, Calculator, AlertCircle, Info, Settings } from 'lucide-react';
+import { RadioButton } from '@/contasis';
 import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
 import { DefaultSelector } from '../comunes/SelectorPredeterminado';
 import { ConfigurationCard } from '../comunes/TarjetaConfiguracion';
@@ -14,15 +15,15 @@ interface TaxesSectionProps {
   isLoading?: boolean;
 }
 
-export function TaxesSection({ 
+export function TaxesSection({
   taxes,
   pricesIncludeTax,
-  onUpdate, 
-  isLoading = false 
+  onUpdate,
+  isLoading = false
 }: TaxesSectionProps) {
   const [isUpdating, setIsUpdating] = useState(false);
 
-   const sortedTaxes = useMemo(
+  const sortedTaxes = useMemo(
     () => {
       const byName = [...taxes].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
       // keep default tax at top if exists
@@ -46,13 +47,13 @@ export function TaxesSection({
   const getExampleCalculation = () => {
     const basePrice = 100;
     const igvRate = 0.18; // 18%
-    
+
     if (pricesIncludeTax) {
       // Prices include IGV
       const priceWithIgv = basePrice;
       const priceWithoutIgv = basePrice / (1 + igvRate);
       const igvAmount = priceWithIgv - priceWithoutIgv;
-      
+
       return {
         display: `S/ ${basePrice.toFixed(2)}`,
         breakdown: `Base: S/ ${priceWithoutIgv.toFixed(2)} + IGV: S/ ${igvAmount.toFixed(2)} = S/ ${priceWithIgv.toFixed(2)}`
@@ -62,7 +63,7 @@ export function TaxesSection({
       const priceWithoutIgv = basePrice;
       const igvAmount = priceWithoutIgv * igvRate;
       const priceWithIgv = priceWithoutIgv + igvAmount;
-      
+
       return {
         display: `S/ ${priceWithoutIgv.toFixed(2)}`,
         breakdown: `Base: S/ ${priceWithoutIgv.toFixed(2)} + IGV: S/ ${igvAmount.toFixed(2)} = S/ ${priceWithIgv.toFixed(2)}`
@@ -102,20 +103,19 @@ export function TaxesSection({
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* With IGV Option */}
-            <div 
-              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                pricesIncludeTax
+            <div
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${pricesIncludeTax
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
+                }`}
               onClick={() => handlePriceToggle(true)}
             >
               <div className="flex items-start space-x-3">
-                <input
-                  type="radio"
+                <RadioButton
+                  name="pricesIncludeTax"
+                  value="true"
                   checked={pricesIncludeTax}
                   onChange={() => handlePriceToggle(true)}
-                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   disabled={isUpdating}
                 />
                 <div className="flex-1">
@@ -134,20 +134,19 @@ export function TaxesSection({
             </div>
 
             {/* Without IGV Option */}
-            <div 
-              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                !pricesIncludeTax
+            <div
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${!pricesIncludeTax
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
+                }`}
               onClick={() => handlePriceToggle(false)}
             >
               <div className="flex items-start space-x-3">
-                <input
-                  type="radio"
+                <RadioButton
+                  name="pricesIncludeTax"
+                  value="false"
                   checked={!pricesIncludeTax}
                   onChange={() => handlePriceToggle(false)}
-                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   disabled={isUpdating}
                 />
                 <div className="flex-1">

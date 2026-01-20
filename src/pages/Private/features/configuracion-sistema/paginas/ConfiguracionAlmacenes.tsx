@@ -18,6 +18,7 @@ import {
   Package,
   Boxes as IconoAlmacen
 } from 'lucide-react';
+import { Button, Select, Input, Checkbox } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { StatusIndicator } from '../components/comunes/IndicadorEstado';
 import type { Almacen } from '../modelos/Almacen';
@@ -227,17 +228,17 @@ export function ConfiguracionAlmacenes() {
         updatedAlmacenes = almacenes.map(almacen =>
           almacen.id === editingAlmacenId
             ? {
-                ...almacen,
-                codigoAlmacen: formData.codigoAlmacen,
-                nombreAlmacen: formData.nombreAlmacen,
-                establecimientoId: formData.establecimientoId,
-                nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.name,
-                codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.code,
-                descripcionAlmacen: formData.descripcionAlmacen || undefined,
-                ubicacionAlmacen: formData.ubicacionAlmacen || undefined,
-                esAlmacenPrincipal: formData.esAlmacenPrincipal,
-                actualizadoElAlmacen: new Date()
-              }
+              ...almacen,
+              codigoAlmacen: formData.codigoAlmacen,
+              nombreAlmacen: formData.nombreAlmacen,
+              establecimientoId: formData.establecimientoId,
+              nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.name,
+              codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.code,
+              descripcionAlmacen: formData.descripcionAlmacen || undefined,
+              ubicacionAlmacen: formData.ubicacionAlmacen || undefined,
+              esAlmacenPrincipal: formData.esAlmacenPrincipal,
+              actualizadoElAlmacen: new Date()
+            }
             : almacen
         );
         showToast('success', 'Almacén actualizado correctamente');
@@ -323,10 +324,10 @@ export function ConfiguracionAlmacenes() {
       const updatedAlmacenes = almacenes.map(item =>
         item.id === id
           ? {
-              ...item,
-              estaActivoAlmacen: !item.estaActivoAlmacen,
-              actualizadoElAlmacen: new Date(),
-            }
+            ...item,
+            estaActivoAlmacen: !item.estaActivoAlmacen,
+            actualizadoElAlmacen: new Date(),
+          }
           : item
       );
       dispatch({ type: 'SET_ALMACENES', payload: updatedAlmacenes });
@@ -347,13 +348,12 @@ export function ConfiguracionAlmacenes() {
           {toasts.map(toast => (
             <div
               key={toast.id}
-              className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${
-                toast.type === 'success'
-                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
-                  : toast.type === 'error'
+              className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${toast.type === 'success'
+                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
+                : toast.type === 'error'
                   ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
                   : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200'
-              }`}
+                }`}
             >
               {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />}
               {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />}
@@ -402,123 +402,67 @@ export function ConfiguracionAlmacenes() {
               </div>
             </div>
             <div className="p-6 space-y-6">
-              <div className="group">
-                <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
-                  <Building className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  Establecimiento <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={formData.establecimientoId}
-                    onChange={e => handleEstablecimientoChange(e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all appearance-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                      formErrors.establecimientoId
-                        ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                    }`}
-                    required
-                  >
-                    <option value="">Seleccionar establecimiento...</option>
-                    {activeEstablecimientos.map(est => (
-                      <option key={est.id} value={est.id}>
-                        [{est.code}] {est.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-                {formErrors.establecimientoId && (
-                  <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5 animate-slide-in">
-                    <AlertCircle className="w-4 h-4" />
-                    {formErrors.establecimientoId}
-                  </p>
-                )}
-                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  El almacén pertenecerá a este establecimiento
-                </p>
+              {/* Establecimiento */}
+              <div>
+                <Select
+                  label="Establecimiento"
+                  value={formData.establecimientoId}
+                  onChange={e => handleEstablecimientoChange(e.target.value)}
+                  required
+                  error={formErrors.establecimientoId}
+                  helperText="El almacén pertenecerá a este establecimiento"
+                  options={[
+                    { value: '', label: 'Seleccionar establecimiento...' },
+                    ...activeEstablecimientos.map(est => ({
+                      value: est.id,
+                      label: `[${est.code}] ${est.name}`
+                    }))
+                  ]}
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
-                    <Hash className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                    Código <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.codigoAlmacen}
-                      onChange={e => {
-                        setFormData(prev => ({ ...prev, codigoAlmacen: e.target.value }));
-                        if (formErrors.codigoAlmacen) setFormErrors(prev => ({ ...prev, codigoAlmacen: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                        formErrors.codigoAlmacen
-                          ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
-                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
-                      placeholder="Ej: 0001"
-                      required
-                      maxLength={4}
-                    />
-                  </div>
-                  {formErrors.codigoAlmacen && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.codigoAlmacen}
-                    </p>
-                  )}
-                </div>
-
-                <div className="group">
-                  <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
-                    <FileText className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                    Nombre del Almacén <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.nombreAlmacen}
-                      onChange={e => {
-                        setFormData(prev => ({ ...prev, nombreAlmacen: e.target.value }));
-                        if (formErrors.nombreAlmacen) setFormErrors(prev => ({ ...prev, nombreAlmacen: '' }));
-                      }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                        formErrors.nombreAlmacen
-                          ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 focus:ring-red-200'
-                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
-                      placeholder="Ej: Almacén Principal, Almacén Norte..."
-                      required
-                    />
-                  </div>
-                  {formErrors.nombreAlmacen && (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5 animate-slide-in">
-                      <AlertCircle className="w-4 h-4" />
-                      {formErrors.nombreAlmacen}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="group">
-                <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  Ubicación Física
-                  <span className="text-xs text-gray-500 dark:text-gray-400">(Opcional)</span>
-                </label>
-                <input
+                {/* Código */}
+                <Input
+                  label="Código"
                   type="text"
-                  value={formData.ubicacionAlmacen}
-                  onChange={e => setFormData(prev => ({ ...prev, ubicacionAlmacen: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all hover:border-gray-400 dark:hover:border-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  placeholder="Ej: Piso 1 - Zona A, Edificio Principal..."
+                  value={formData.codigoAlmacen}
+                  onChange={e => {
+                    setFormData(prev => ({ ...prev, codigoAlmacen: e.target.value }));
+                    if (formErrors.codigoAlmacen) setFormErrors(prev => ({ ...prev, codigoAlmacen: '' }));
+                  }}
+                  error={formErrors.codigoAlmacen}
+                  placeholder="Ej: 0001"
+                  leftIcon={<Hash />}
+                  required
+                  maxLength={4}
+                />
+
+                {/* Nombre */}
+                <Input
+                  label="Nombre del Almacén"
+                  type="text"
+                  value={formData.nombreAlmacen}
+                  onChange={e => {
+                    setFormData(prev => ({ ...prev, nombreAlmacen: e.target.value }));
+                    if (formErrors.nombreAlmacen) setFormErrors(prev => ({ ...prev, nombreAlmacen: '' }));
+                  }}
+                  error={formErrors.nombreAlmacen}
+                  placeholder="Ej: Almacén Principal, Almacén Norte..."
+                  leftIcon={<FileText />}
+                  required
                 />
               </div>
+
+              {/* Ubicación */}
+              <Input
+                label="Ubicación Física"
+                type="text"
+                value={formData.ubicacionAlmacen}
+                onChange={e => setFormData(prev => ({ ...prev, ubicacionAlmacen: e.target.value }))}
+                placeholder="Ej: Piso 1 - Zona A, Edificio Principal..."
+                helperText="Opcional"
+              />
 
               <div className="group">
                 <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
@@ -535,20 +479,16 @@ export function ConfiguracionAlmacenes() {
                 />
               </div>
 
-              <div className="flex items-start space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                <input
-                  type="checkbox"
-                  id="esAlmacenPrincipal"
+              {/* Almacén Principal */}
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                <Checkbox
                   checked={formData.esAlmacenPrincipal}
                   onChange={e => setFormData(prev => ({ ...prev, esAlmacenPrincipal: e.target.checked }))}
-                  className="mt-0.5 w-4 h-4 text-blue-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+                  label="Marcar como almacén principal"
                 />
-                <label htmlFor="esAlmacenPrincipal" className="flex-1 cursor-pointer">
-                  <span className="text-sm font-medium text-gray-900 dark:text.white">Marcar como almacén principal</span>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    Este será el almacén por defecto para operaciones de inventario en este establecimiento
-                  </p>
-                </label>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-7">
+                  Este será el almacén por defecto para operaciones de inventario en este establecimiento
+                </p>
               </div>
             </div>
           </div>
@@ -559,20 +499,20 @@ export function ConfiguracionAlmacenes() {
               Los campos marcados con <span className="text-red-500 font-medium">*</span> son obligatorios
             </p>
             <div className="flex gap-3">
-              <button
+              <Button
                 type="button"
                 onClick={handleCancel}
-                className="px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all font-medium hover:border-gray-400 dark:hover:border-gray-500"
+                variant="secondary"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 flex items-center gap-2"
+                variant="primary"
+                icon={<CheckCircle />}
               >
-                <CheckCircle className="w-5 h-5" />
                 {editingAlmacenId ? 'Actualizar' : 'Crear'} Almacén
-              </button>
+              </Button>
             </div>
           </div>
         </form>
@@ -586,13 +526,12 @@ export function ConfiguracionAlmacenes() {
         {toasts.map(toast => (
           <div
             key={toast.id}
-            className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${
-              toast.type === 'success'
-                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
-                : toast.type === 'error'
+            className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${toast.type === 'success'
+              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
+              : toast.type === 'error'
                 ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
                 : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200'
-            }`}
+              }`}
           >
             {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />}
             {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />}
@@ -606,12 +545,10 @@ export function ConfiguracionAlmacenes() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full transform transition-all animate-scale-in">
             <div className="p-6">
-              <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-4 ${
-                deleteConfirmation.tieneMovimientosInventario ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-red-100 dark:bg-red-900/30'
-              }`}>
-                <AlertCircle className={`w-6 h-6 ${
-                  deleteConfirmation.tieneMovimientosInventario ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
-                }`} />
+              <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-4 ${deleteConfirmation.tieneMovimientosInventario ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-red-100 dark:bg-red-900/30'
+                }`}>
+                <AlertCircle className={`w-6 h-6 ${deleteConfirmation.tieneMovimientosInventario ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
+                  }`} />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">
                 {deleteConfirmation.tieneMovimientosInventario ? '¡Almacén con movimientos!' : '¿Eliminar almacén?'}
@@ -725,49 +662,47 @@ export function ConfiguracionAlmacenes() {
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0 gap-4">
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 flex-1">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar almacenes..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400"
-            />
-          </div>
+          <Input
+            type="text"
+            placeholder="Buscar almacenes..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            leftIcon={<Search />}
+          />
 
-          <select
+          <Select
             value={filterEstablecimiento}
             onChange={e => setFilterEstablecimiento(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
-          >
-            <option value="all">Todos los establecimientos</option>
-            {Establecimientos.map(est => (
-              <option key={est.id} value={est.id}>
-                [{est.code}] {est.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: 'all', label: 'Todos los establecimientos' },
+              ...Establecimientos.map(est => ({
+                value: est.id,
+                label: `[${est.code}] ${est.name}`
+              }))
+            ]}
+          />
 
-          <select
+          <Select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value as FilterStatus)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="active">Solo activos</option>
-            <option value="inactive">Solo inactivos</option>
-          </select>
+            options={[
+              { value: 'all', label: 'Todos los estados' },
+              { value: 'active', label: 'Solo activos' },
+              { value: 'inactive', label: 'Solo inactivos' }
+            ]}
+          />
         </div>
 
-        <button
+        <Button
           onClick={handleNew}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          variant="primary"
+          size="md"
+          icon={<Plus className="w-5 h-5" />}
+          iconPosition="left"
         >
-          <Plus className="w-4 h-4 mr-2" />
           Nuevo Almacén
-        </button>
-      </div>
+        </Button>
+      </div >
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         {filteredAlmacenes.length === 0 ? (
@@ -843,45 +778,41 @@ export function ConfiguracionAlmacenes() {
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
-                    <button
+                    <Button
                       onClick={() => handleEdit(almacen)}
-                      className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                      variant="tertiary"
+                      iconOnly
+                      icon={<Edit />}
+                      size="sm"
                       title="Editar"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
+                    />
 
-                    <button
+                    <Button
                       onClick={() => handleToggleStatus(almacen.id)}
-                      className={`p-2 rounded-lg transition-colors ${
-                        almacen.estaActivoAlmacen
-                          ? 'text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30'
-                          : 'text-green-400 dark:text-green-500 hover:text-green-600 dark:hover:text-green-400 hover.bg-green-50 dark:hover:bg-green-900/30'
-                      }`}
+                      variant="tertiary"
+                      iconOnly
+                      icon={almacen.estaActivoAlmacen ? <XCircle /> : <CheckCircle />}
+                      size="sm"
                       title={almacen.estaActivoAlmacen ? 'Deshabilitar' : 'Habilitar'}
-                    >
-                      {almacen.estaActivoAlmacen ? (
-                        <XCircle className="w-4 h-4" />
-                      ) : (
-                        <CheckCircle className="w-4 h-4" />
-                      )}
-                    </button>
+                    />
 
-                    <button
+                    <Button
                       onClick={() => openDeleteConfirmation(almacen)}
-                      className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                      variant="tertiary"
+                      iconOnly
+                      icon={<Trash2 />}
+                      size="sm"
                       title="Eliminar"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                    />
+                  </div >
+                </div >
+              </div >
+            ))
+            }
+          </div >
         )}
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
 

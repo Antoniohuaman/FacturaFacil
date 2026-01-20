@@ -4,6 +4,7 @@
 // src/features/configuration/components/usuarios/UserForm.tsx
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Shield } from 'lucide-react';
+import { Button, Select, Input, Checkbox } from '@/contasis';
 import type { User as UserModel } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 
@@ -57,11 +58,11 @@ const generateSecurePassword = (): string => {
 
   // Shuffle
   return password.split('').sort(() => Math.random() - 0.5).join('');
-};
+}
 
 // Password strength calculator
 const calculatePasswordStrength = (password: string): { score: number; label: string; color: string } => {
-  if (!password) return { score: 0, label: 'Sin contraseña', color: 'gray' };
+  if (!password) return { score: 0, label: 'Sin contraseña', color: 'gray' }
 
   let score = 0;
 
@@ -75,10 +76,10 @@ const calculatePasswordStrength = (password: string): { score: number; label: st
   if (/[0-9]/.test(password)) score += 1;
   if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score += 1;
 
-  if (score <= 2) return { score, label: 'Débil', color: 'red' };
-  if (score <= 4) return { score, label: 'Media', color: 'yellow' };
-  return { score, label: 'Fuerte', color: 'green' };
-};
+  if (score <= 2) return { score, label: 'Débil', color: 'red' }
+  if (score <= 4) return { score, label: 'Media', color: 'yellow' }
+  return { score, label: 'Fuerte', color: 'green' }
+}
 
 export function UserForm({
   user,
@@ -194,12 +195,12 @@ export function UserForm({
     }
 
     return null;
-  };
+  }
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setTouchedFields(prev => new Set(prev).add(field));
-    
+
     // Validate field
     const error = validateField(field, value);
     setErrors(prev => ({
@@ -212,7 +213,7 @@ export function UserForm({
       setFormData(prev => ({ ...prev, documentNumber: '' }));
       setErrors(prev => ({ ...prev, documentNumber: '' }));
     }
-  };
+  }
 
   const handleBlur = (field: string) => {
     setTouchedFields(prev => new Set(prev).add(field));
@@ -221,7 +222,7 @@ export function UserForm({
       ...prev,
       [field]: error || ''
     }));
-  };
+  }
 
   const isFormValid = () => {
     const requiredFields = user
@@ -244,13 +245,13 @@ export function UserForm({
     }
 
     return true;
-  };
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate all fields
-    const newErrors: Record<string, string> = {};
+    const newErrors: Record<string, string> = {}
     const fieldsToValidate = user
       ? ['fullName', 'email', 'phone', 'documentNumber', 'EstablecimientoIds']
       : ['fullName', 'email', 'phone', 'documentNumber', 'EstablecimientoIds', 'password'];
@@ -268,11 +269,11 @@ export function UserForm({
     }
 
     await onSubmit(formData);
-  };
+  }
 
   const getDocumentTypeConfig = () => {
     return documentTypes.find(dt => dt.value === formData.documentType);
-  };
+  }
 
   const handleEstablecimientoToggle = (EstablecimientoId: string) => {
     const currentIds = formData.EstablecimientoIds;
@@ -281,13 +282,13 @@ export function UserForm({
       : [...currentIds, EstablecimientoId];
 
     handleFieldChange('EstablecimientoIds', newIds);
-  };
+  }
 
   const handleGeneratePassword = () => {
     const newPassword = generateSecurePassword();
     handleFieldChange('password', newPassword);
     setPasswordCopied(false);
-  };
+  }
 
   const handleCopyPassword = async () => {
     try {
@@ -297,7 +298,7 @@ export function UserForm({
     } catch (err) {
       console.error('Failed to copy password:', err);
     }
-  };
+  }
 
   const passwordStrength = calculatePasswordStrength(formData.password);
 
@@ -320,13 +321,14 @@ export function UserForm({
                 </p>
               </div>
             </div>
-            <button
+            <Button
+              variant="tertiary"
+              size="sm"
+              icon={<X />}
+              iconOnly
               onClick={onCancel}
               disabled={isLoading}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            />
           </div>
         </div>
 
@@ -339,91 +341,44 @@ export function UserForm({
             </h4>
 
             {/* Full Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre Completo *
-              </label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => handleFieldChange('fullName', e.target.value)}
-                onBlur={() => handleBlur('fullName')}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.fullName && touchedFields.has('fullName')
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-300'
-                }`}
-                placeholder="Juan Pérez García"
-                disabled={isLoading}
-              />
-              
-              {errors.fullName && touchedFields.has('fullName') && (
-                <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.fullName}</span>
-                </p>
-              )}
-            </div>
+            <Input
+              label="Nombre Completo"
+              type="text"
+              value={formData.fullName}
+              onChange={(e) => handleFieldChange('fullName', e.target.value)}
+              onBlur={() => handleBlur('fullName')}
+              error={errors.fullName && touchedFields.has('fullName') ? errors.fullName : undefined}
+              placeholder="Juan Pérez García"
+              disabled={isLoading}
+              required
+            />
 
             {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Correo Electrónico *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleFieldChange('email', e.target.value.toLowerCase())}
-                  onBlur={() => handleBlur('email')}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.email && touchedFields.has('email')
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
-                  placeholder="juan@empresa.com"
-                  disabled={isLoading}
-                />
-              </div>
-              
-              {errors.email && touchedFields.has('email') && (
-                <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.email}</span>
-                </p>
-              )}
-            </div>
+            <Input
+              label="Correo Electrónico"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleFieldChange('email', e.target.value.toLowerCase())}
+              onBlur={() => handleBlur('email')}
+              error={errors.email && touchedFields.has('email') ? errors.email : undefined}
+              placeholder="juan@empresa.com"
+              leftIcon={<Mail />}
+              disabled={isLoading}
+              required
+            />
 
             {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Teléfono
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleFieldChange('phone', e.target.value)}
-                  onBlur={() => handleBlur('phone')}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.phone && touchedFields.has('phone')
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
-                  placeholder="+51 987 654 321"
-                  disabled={isLoading}
-                />
-              </div>
-              
-              {errors.phone && touchedFields.has('phone') && (
-                <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.phone}</span>
-                </p>
-              )}
-            </div>
+            <Input
+              label="Teléfono"
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => handleFieldChange('phone', e.target.value)}
+              onBlur={() => handleBlur('phone')}
+              error={errors.phone && touchedFields.has('phone') ? errors.phone : undefined}
+              placeholder="+51 987 654 321"
+              leftIcon={<Phone />}
+              disabled={isLoading}
+            />
           </div>
 
           {/* Document Information */}
@@ -436,56 +391,42 @@ export function UserForm({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Document Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo de Documento
-                </label>
-                <select
-                  value={formData.documentType}
-                  onChange={(e) => handleFieldChange('documentType', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled={isLoading}
-                >
-                  <option value="">Seleccionar tipo</option>
-                  {documentTypes.map(docType => (
-                    <option key={docType.value} value={docType.value}>
-                      {docType.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Tipo de Documento"
+                value={formData.documentType}
+                onChange={(e) => handleFieldChange('documentType', e.target.value)}
+                options={[
+                  { value: '', label: 'Seleccionar tipo' },
+                  ...documentTypes.map(docType => ({
+                    value: docType.value,
+                    label: docType.label
+                  }))
+                ]}
+                disabled={isLoading}
+              />
 
               {/* Document Number */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Número de Documento
-                </label>
-                <input
-                  type="text"
-                  value={formData.documentNumber}
-                  onChange={(e) => {
-                    let value = e.target.value;
+              <Input
+                label="Número de Documento"
+                type="text"
+                value={formData.documentNumber}
+                onChange={(e) => {
+                  let value = e.target.value;
 
-                    // Format based on document type
-                    if (formData.documentType === 'DNI') {
-                      value = value.replace(/\D/g, '').slice(0, 8);
-                    } else if (formData.documentType === 'CE') {
-                      value = value.replace(/\D/g, '').slice(0, 9);
-                    } else if (formData.documentType === 'PASSPORT') {
-                      value = value.toUpperCase().slice(0, 12);
-                    }
+                  // Format based on document type
+                  if (formData.documentType === 'DNI') {
+                    value = value.replace(/\D/g, '').slice(0, 8);
+                  } else if (formData.documentType === 'CE') {
+                    value = value.replace(/\D/g, '').slice(0, 9);
+                  } else if (formData.documentType === 'PASSPORT') {
+                    value = value.toUpperCase().slice(0, 12);
+                  }
 
-                    setFormData({ ...formData, documentNumber: value });
-                  }}
-                  placeholder={getDocumentTypeConfig()?.placeholder}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.documentNumber ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.documentNumber && (
-                  <p className="text-sm text-red-600 mt-1">{errors.documentNumber}</p>
-                )}
-              </div>
+                  setFormData({ ...formData, documentNumber: value });
+                }}
+                placeholder={getDocumentTypeConfig()?.placeholder}
+                error={errors.documentNumber}
+              />
             </div>
           </div>
 
@@ -505,17 +446,14 @@ export function UserForm({
                 Establecimientos.map((Establecimiento) => (
                   <label
                     key={Establecimiento.id}
-                    className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      formData.EstablecimientoIds.includes(Establecimiento.id)
+                    className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.EstablecimientoIds.includes(Establecimiento.id)
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={formData.EstablecimientoIds.includes(Establecimiento.id)}
                       onChange={() => handleEstablecimientoToggle(Establecimiento.id)}
-                      className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       disabled={isLoading}
                     />
                     <div className="ml-3 flex-1">
@@ -584,47 +522,39 @@ export function UserForm({
                       value={formData.password}
                       onChange={(e) => handleFieldChange('password', e.target.value)}
                       onBlur={() => handleBlur('password')}
-                      className={`w-full pl-10 pr-32 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm ${
-                        errors.password && touchedFields.has('password')
+                      className={`w-full pl-10 pr-32 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm ${errors.password && touchedFields.has('password')
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-300 bg-white'
-                      }`}
+                        }`}
                       placeholder="Ingresa una contraseña segura"
                       disabled={isLoading}
                     />
 
                     {/* Action Buttons */}
                     <div className="absolute right-2 top-2 flex items-center space-x-1">
-                      <button
-                        type="button"
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        icon={showPassword ? <EyeOff /> : <Eye />}
+                        iconOnly
                         onClick={() => setShowPassword(!showPassword)}
-                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        title={showPassword ? 'Ocultar' : 'Mostrar'}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                      />
 
-                      <button
-                        type="button"
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        icon={passwordCopied ? <Check /> : <Copy />}
+                        iconOnly
                         onClick={handleCopyPassword}
-                        className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        title="Copiar contraseña"
-                      >
-                        {passwordCopied ? (
-                          <Check className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </button>
+                      />
 
-                      <button
-                        type="button"
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        icon={<RefreshCw />}
+                        iconOnly
                         onClick={handleGeneratePassword}
-                        className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded transition-colors"
-                        title="Generar nueva contraseña"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
+                      />
                     </div>
                   </div>
 
@@ -633,12 +563,11 @@ export function UserForm({
                     <div className="mt-3 space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Fortaleza de la contraseña:</span>
-                        <span className={`font-semibold ${
-                          passwordStrength.color === 'green' ? 'text-green-600' :
-                          passwordStrength.color === 'yellow' ? 'text-yellow-600' :
-                          passwordStrength.color === 'red' ? 'text-red-600' :
-                          'text-gray-600'
-                        }`}>
+                        <span className={`font-semibold ${passwordStrength.color === 'green' ? 'text-green-600' :
+                            passwordStrength.color === 'yellow' ? 'text-yellow-600' :
+                              passwordStrength.color === 'red' ? 'text-red-600' :
+                                'text-gray-600'
+                          }`}>
                           {passwordStrength.label}
                         </span>
                       </div>
@@ -646,12 +575,11 @@ export function UserForm({
                       {/* Strength Bar */}
                       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                         <div
-                          className={`h-full transition-all duration-300 rounded-full ${
-                            passwordStrength.color === 'green' ? 'bg-green-500' :
-                            passwordStrength.color === 'yellow' ? 'bg-yellow-500' :
-                            passwordStrength.color === 'red' ? 'bg-red-500' :
-                            'bg-gray-400'
-                          }`}
+                          className={`h-full transition-all duration-300 rounded-full ${passwordStrength.color === 'green' ? 'bg-green-500' :
+                              passwordStrength.color === 'yellow' ? 'bg-yellow-500' :
+                                passwordStrength.color === 'red' ? 'bg-red-500' :
+                                  'bg-gray-400'
+                            }`}
                           style={{ width: `${(passwordStrength.score / 6) * 100}%` }}
                         />
                       </div>
@@ -688,12 +616,10 @@ export function UserForm({
 
                 {/* Require Password Change Option */}
                 <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-200">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="requirePasswordChange"
                     checked={formData.requirePasswordChange}
                     onChange={(e) => handleFieldChange('requirePasswordChange', e.target.checked)}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isLoading}
                   />
                   <label htmlFor="requirePasswordChange" className="flex-1 cursor-pointer">
@@ -726,24 +652,25 @@ export function UserForm({
 
           {/* Submit Button */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="md"
               onClick={onCancel}
               disabled={isLoading}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
               type="submit"
               disabled={isLoading || !isFormValid()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               {isLoading ? 'Guardando...' : (user ? 'Actualizar' : 'Invitar')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
     </div>
   );
-};
+}

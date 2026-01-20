@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect } from 'react';
+import { Checkbox } from '@/contasis';
 import type { Role } from '../../modelos/Role';
 import { ROLE_LEVELS, SYSTEM_ROLES } from '../../modelos/Role';
 import { Shield, ChevronDown, ChevronRight, Info, AlertTriangle } from 'lucide-react';
@@ -75,7 +76,7 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
   };
 
   const renderPermissionModule = (moduleName: string, permissions: any) => {
-    const permissionEntries = Object.entries(permissions).filter(([, value]) => 
+    const permissionEntries = Object.entries(permissions).filter(([, value]) =>
       typeof value === 'boolean' && value === true
     );
 
@@ -106,7 +107,7 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
   const hasConflictingRoles = () => {
     const selectedRoles = roles.filter(role => selectedRoleIds.includes(role.id));
     const levels = selectedRoles.map(role => role.level);
-    
+
     // Check if there are both ADMIN and STAFF role levels selected
     return levels.includes('ADMIN') && levels.includes('STAFF');
   };
@@ -184,13 +185,11 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
               <div key={role.id} className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={isSelected}
                       onChange={() => handleRoleToggle(role.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    
+
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-medium text-gray-900">{role.name}</h4>

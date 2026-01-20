@@ -1,87 +1,19 @@
-
-import { NavLink } from "react-router-dom";
-import { FileText, Package, DollarSign, ShoppingCart, Users, BarChart3, Receipt, Wallet, Boxes, Coins } from "lucide-react";
-import { useEffect, useRef } from "react";
-import CompanySelector from "../../components/CompanySelector";
-import { useUserSession } from "../../contexts/UserSessionContext";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Sidebar } from "@/contasis";
+import type { Module } from "@/contasis";
 import { useComprobanteContext } from "../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 import { useDocumentoContext } from "../../pages/Private/features/Documentos-negociacion/contexts/DocumentosContext";
+import { useTheme } from "../../contexts/ThemeContext";
 
 interface SideNavProps {
   collapsed?: boolean;
 }
 
-const mainItems = [
-  {
-    to: "/comprobantes",
-    label: "Comprobantes",
-    description: "Facturación detallada",
-    icon: FileText,
-    useDynamicBadge: true
-  },
-  {
-    to: "/punto-venta",
-    label: "Punto de Venta",
-    description: "Ventas rápidas",
-    icon: ShoppingCart
-  },
-  {
-    to: "/documentos-negociacion",
-    label: "Documentos",
-    description: "Cotizaciones y notas de venta",
-    icon: Receipt,
-    useDynamicBadge: true
-  },
-  { 
-    to: "/catalogo", 
-    label: "Productos", 
-    description: "Gestionar catálogo",
-    icon: Package
-  },
-  { 
-    to: "/inventario", 
-    label: "Control Stock", 
-    description: "Control de stock",
-    icon: Boxes
-  },
-  { 
-    to: "/lista-precios", 
-    label: "Precios", 
-    description: "Configurar tarifas",
-    icon: DollarSign
-  },
-  {
-    to: "/control-caja",
-    label: "Caja",
-    description: "Control de efectivo",
-    icon: Wallet
-  },
-  {
-    to: "/cobranzas",
-    label: "Cobranzas",
-    description: "Seguimiento de pagos",
-    icon: Coins
-  },
-  { 
-    to: "/clientes", 
-    label: "Clientes", 
-    description: "Base de datos",
-    icon: Users
-  },
-  { 
-    to: "/indicadores", 
-    label: "Indicadores", 
-    description: "Analytics y KPIs",
-    icon: BarChart3
-  },
-];
-
 export default function SideNav({ collapsed = false }: SideNavProps) {
-  const { session } = useUserSession();
-  const currentCompany = session?.currentCompany;
-  const currentEstablecimiento = session?.currentEstablecimiento;
-
-  const navScrollRef = useRef<HTMLElement | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { theme } = useTheme();
 
   // Obtener conteo de comprobantes del contexto
   const { state } = useComprobanteContext();
@@ -91,162 +23,107 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const { state: documentoState } = useDocumentoContext();
   const documentosCount = documentoState.documentos.length;
 
-  // Obtener iniciales de la empresa para el botón compacto
-  const companyName = currentCompany?.nombreComercial || currentCompany?.razonSocial || 'Empresa';
-  const companyInitials = companyName
-    .split(' ').slice(0, 2).map((word: string) => word[0]).join('').toUpperCase();
-
-  const companyTitle = currentCompany && currentEstablecimiento
-    ? `${companyName} - ${currentEstablecimiento.name}`
-    : 'Sin empresa seleccionada';
-
-  // Crear items con badge dinámico
-  const mainItemsWithBadges = mainItems.map(item => {
-    if (item.useDynamicBadge) {
-      if (item.to === '/comprobantes') {
-        return {
-          ...item,
-          badge: comprobantesCount > 0 ? String(comprobantesCount) : undefined,
-          badgeColor: 'blue' as const
-        };
-      }
-      if (item.to === '/documentos-negociacion') {
-        return {
-          ...item,
-          badge: documentosCount > 0 ? String(documentosCount) : undefined,
-          badgeColor: 'blue' as const
-        };
-      }
-    }
-    return item;
-  });
+  // Determinar el módulo activo basado en la ruta
+  const [activeModule, setActiveModule] = useState<string>("");
 
   useEffect(() => {
-    const nav = navScrollRef.current;
-    if (!nav) {
-      return;
+    const path = location.pathname;
+    if (path.startsWith('/comprobantes')) setActiveModule('comprobantes');
+    else if (path.startsWith('/punto-venta')) setActiveModule('punto-venta');
+    else if (path.startsWith('/documentos-negociacion')) setActiveModule('documentos');
+    else if (path.startsWith('/catalogo')) setActiveModule('productos');
+    else if (path.startsWith('/inventario')) setActiveModule('inventario');
+    else if (path.startsWith('/lista-precios')) setActiveModule('precios');
+    else if (path.startsWith('/control-caja')) setActiveModule('caja');
+    else if (path.startsWith('/cobranzas')) setActiveModule('cobranzas');
+    else if (path.startsWith('/clientes')) setActiveModule('clientes');
+    else if (path.startsWith('/indicadores')) setActiveModule('indicadores');
+    else setActiveModule('');
+  }, [location.pathname]);
+
+  const modules: Module[] = [
+    {
+      id: "comprobantes",
+      title: "Comprobantes",
+      icon: "FileText",
+      badge: comprobantesCount > 0 ? String(comprobantesCount) : undefined
+    },
+    {
+      id: "punto-venta",
+      title: "Punto de Venta",
+      icon: "ShoppingCart"
+    },
+    {
+      id: "documentos",
+      title: "Documentos",
+      icon: "Receipt",
+      badge: documentosCount > 0 ? String(documentosCount) : undefined
+    },
+    {
+      id: "productos",
+      title: "Productos",
+      icon: "Package"
+    },
+    {
+      id: "inventario",
+      title: "Control Stock",
+      icon: "Boxes"
+    },
+    {
+      id: "precios",
+      title: "Precios",
+      icon: "DollarSign"
+    },
+    {
+      id: "caja",
+      title: "Caja",
+      icon: "Wallet"
+    },
+    {
+      id: "cobranzas",
+      title: "Cobranzas",
+      icon: "Coins"
+    },
+    {
+      id: "clientes",
+      title: "Clientes",
+      icon: "Users"
+    },
+    {
+      id: "indicadores",
+      title: "Indicadores",
+      icon: "BarChart3"
     }
+  ];
 
-    // Nota: React registra ciertos eventos (wheel/touch) como listeners passive.
-    // Para poder usar preventDefault() sin warnings y sin romper el scroll interno,
-    // escuchamos el wheel nativo en el contenedor scroll real con { passive: false }.
-    const handleWheel = (event: WheelEvent) => {
-      const scrollTop = nav.scrollTop;
-      const scrollHeight = nav.scrollHeight;
-      const clientHeight = nav.clientHeight;
-
-      const atTop = scrollTop <= 0;
-      const atBottom = scrollTop >= scrollHeight - clientHeight;
-
-      if ((atTop && event.deltaY < 0) || (atBottom && event.deltaY > 0)) {
-        event.preventDefault();
-      }
+  const handleModuleChange = (moduleId: string) => {
+    const routeMap: Record<string, string> = {
+      'comprobantes': '/comprobantes',
+      'punto-venta': '/punto-venta',
+      'documentos': '/documentos-negociacion',
+      'productos': '/catalogo',
+      'inventario': '/inventario',
+      'precios': '/lista-precios',
+      'caja': '/control-caja',
+      'cobranzas': '/cobranzas',
+      'clientes': '/clientes',
+      'indicadores': '/indicadores'
     };
 
-    nav.addEventListener('wheel', handleWheel, { passive: false });
+    const route = routeMap[moduleId];
+    if (route) {
+      navigate(route);
+    }
+  };
 
-    return () => {
-      nav.removeEventListener('wheel', handleWheel);
-    };
-  }, []);
 
   return (
-    <aside
-      className={`h-full flex flex-col bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700 transition-all duration-300 shadow-sm overflow-hidden`}
-    >
-      {/* Header con título */}
-      <div className="p-2 border-b border-gray-100/50 dark:border-gray-700/50">
-        <div className="flex items-center justify-center">
-          {/* Título removido para simplificar */}
-        </div>
-      </div>
-
-      {/* Selector de empresa - MOVIDO MÁS ARRIBA */}
-      {!collapsed ? (
-        <div className="border-b border-gray-100/50 dark:border-gray-700/50">
-          <CompanySelector />
-        </div>
-      ) : (
-        /* Versión compacta del selector cuando está contraído */
-        <div className="p-2 border-b border-gray-100/50 dark:border-gray-700/50 flex justify-center">
-          <div className="relative">
-            <button
-              className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm transition-all duration-200"
-              title={companyTitle}
-            >
-              {companyInitials}
-            </button>
-            {/* Indicador de empresa activa */}
-            {session && <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
-          </div>
-        </div>
-      )}
-      
-      {/* Navegación principal */}
-      <nav ref={navScrollRef} className="flex-1 flex flex-col p-2 overflow-y-auto overscroll-contain">
-        <div className="space-y-1 mt-2">
-          {mainItemsWithBadges.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={() =>
-              `flex items-center rounded-lg transition-all group relative ${
-                collapsed ? 'justify-center p-3 mx-1' : 'px-1 py-1'
-              }`
-            }
-            title={collapsed ? `${item.label}` : undefined}
-          >
-            {({ isActive }) => (
-              <>
-                <div
-                  className={`w-full flex items-center rounded-lg transition-colors duration-150 ${
-                          collapsed ? 'justify-center p-3' : 'px-4 py-2'
-                  } ${
-                    isActive
-                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-700/50'
-                      : 'text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700/70 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                  style={{
-                    minHeight: '36px'
-                  }}
-                >
-                  <span className={`flex items-center justify-center flex-shrink-0 w-5 h-5 transition-colors duration-150`}>
-                    <item.icon size={20} />
-                  </span>
-                  
-                      {!collapsed && (
-                        <>
-                          <span className="ml-3 text-sm font-medium transition-colors duration-200">{item.label}</span>
-                      
-                      {'badge' in item && item.badge && (
-                        <span className={`ml-auto px-2 py-1 text-xs font-medium rounded-full transition-colors duration-200 ${
-                          'badgeColor' in item && item.badgeColor === 'blue'
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                        }`}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-                
-                {collapsed && 'badge' in item && item.badge && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-800"></div>
-                )}
-                
-                {collapsed && (
-                  <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-[60]">
-                    {item.label}
-                  </div>
-                )}
-              </>
-            )}
-          </NavLink>
-        ))}
-        </div>
-
-      </nav>
-    </aside>
+    <Sidebar
+      isOpen={!collapsed}
+      modules={modules}
+      activeModule={activeModule}
+      onModuleChange={handleModuleChange}
+      theme={theme === "system" ? undefined : theme}
+    />
   );
 }

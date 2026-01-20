@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Tag, Package, AlertTriangle, Pencil, Trash2, Plus } from 'lucide-react';
+import { Button } from '@/contasis';
 
 export interface Category {
   id: string;
@@ -172,12 +173,12 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
                 >
                   Cancelar
                 </button>
-                <button
+                <Button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 transition-colors"
+                  variant="primary"
                 >
                   {category ? 'Actualizar' : 'Crear'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -197,13 +198,13 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
           </p>
         </div>
 
-        <button
+        <Button
           onClick={handleCreateCategory}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+          variant="primary"
+          icon={<Plus />}
         >
-          <Plus className="w-4 h-4 mr-2" />
           Nueva categoría
-        </button>
+        </Button>
       </div>
 
       {/* Search */}
@@ -366,13 +367,15 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
           </p>
           {!searchTerm && (
             <div className="mt-6">
-              <button
+              <Button
+                variant="primary"
+                size="md"
+                icon={<Plus />}
+                iconPosition="left"
                 onClick={handleCreateCategory}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
               >
-                <Plus className="w-4 h-4 mr-2" />
                 Nueva categoría
-              </button>
+              </Button>
             </div>
           )}
         </div>

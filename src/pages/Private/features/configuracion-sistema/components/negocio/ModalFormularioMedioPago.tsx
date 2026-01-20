@@ -1,6 +1,7 @@
 // src/features/configuration/components/negocio/PaymentMethodFormModal.tsx
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { Button, Select, Input } from '@/contasis';
 import type { PaymentMethod } from '../../modelos/PaymentMethod';
 
 interface PaymentMethodFormModalProps {
@@ -10,11 +11,11 @@ interface PaymentMethodFormModalProps {
   onUpdate: (methods: PaymentMethod[]) => Promise<void>;
 }
 
-export function PaymentMethodFormModal({ 
-  isOpen, 
-  onClose, 
-  paymentMethods, 
-  onUpdate 
+export function PaymentMethodFormModal({
+  isOpen,
+  onClose,
+  paymentMethods,
+  onUpdate
 }: PaymentMethodFormModalProps) {
   const [formData, setFormData] = useState({ code: '', name: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,15 +77,15 @@ export function PaymentMethodFormModal({
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      
+
       const updatedMethods = [...paymentMethods, newMethod];
-      
+
       // Guardar el ID de la nueva forma de pago en sessionStorage
       // para que se autoseleccione al regresar al formulario de emisión
       sessionStorage.setItem('lastCreatedPaymentMethod', newMethod.id);
 
       await onUpdate(updatedMethods);
-      
+
       // Cerrar modal y resetear form
       resetForm();
       onClose();
@@ -105,7 +106,7 @@ export function PaymentMethodFormModal({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Overlay */}
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
         onClick={handleClose}
       ></div>
@@ -131,59 +132,44 @@ export function PaymentMethodFormModal({
               {/* Informational help removed per request */}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Código Normativo *
-                  </label>
-                  <select
-                    value={formData.code}
-                    onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                    required
-                  >
-                    <option value="">Selecciona un código</option>
-                    <option value="CONTADO">CONTADO - Pago inmediato</option>
-                    <option value="CREDITO">CREDITO - Pago diferido</option>
-                  </select>
-                  {/* helper text removed */}
-                </div>
+                <Select
+                  label="Código Normativo"
+                  value={formData.code}
+                  onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                  required
+                  options={[
+                    { value: '', label: 'Selecciona un código' },
+                    { value: 'CONTADO', label: 'CONTADO - Pago inmediato' },
+                    { value: 'CREDITO', label: 'CREDITO - Pago diferido' }
+                  ]}
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre Personalizado *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ej: Efectivo, Yape, Tarjeta Visa, Crédito 30 días..."
-                    required
-                    maxLength={50}
-                  />
-                  {/* helper text removed */}
-                </div>
+                <Input
+                  label="Nombre Personalizado"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ej: Efectivo, Yape, Tarjeta Visa, Crédito 30 días..."
+                  required
+                  maxLength={50}
+                />
               </div>
 
               <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   onClick={handleClose}
                   disabled={isSubmitting}
-                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
                   type="submit"
                   disabled={isSubmitting || !formData.code.trim() || !formData.name.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
                 >
-                  {isSubmitting && (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  )}
-                  <span>Crear Forma de Pago</span>
-                </button>
+                  {isSubmitting ? 'Creando...' : 'Crear Forma de Pago'}
+                </Button>
               </div>
             </form>
           </div>

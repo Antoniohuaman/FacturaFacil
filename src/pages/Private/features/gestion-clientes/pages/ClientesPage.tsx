@@ -27,6 +27,7 @@ import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
+import { Button } from '@/contasis';
 
 type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
 
@@ -1184,13 +1185,13 @@ function ClientesPage() {
 							</button>
 						)}
 						<div className="flex-1 min-w-[1px]" />
-						<button
+						<Button
 							onClick={() => setShowClientModal(true)}
-							style={{ backgroundColor: PRIMARY_COLOR }}
-							className="px-6 py-2 text-white text-sm font-medium rounded-lg shadow-sm hover:opacity-95 transition-opacity"
+							variant="primary"
+							size="md"
 						>
 							Nuevo cliente
-						</button>
+						</Button>
 						<div className="relative">
 							<button
 								ref={exportButtonRef}

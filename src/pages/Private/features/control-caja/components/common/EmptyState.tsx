@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '@/contasis';
 
 interface EmptyStateProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -19,12 +20,13 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
       <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
       <p className="text-sm text-gray-600 text-center max-w-md mb-6">{description}</p>
       {action && (
-        <button
+        <Button
+          variant="primary"
+          size="md"
           onClick={action.onClick}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
         >
           {action.label}
-        </button>
+        </Button>
       )}
     </div>
   );

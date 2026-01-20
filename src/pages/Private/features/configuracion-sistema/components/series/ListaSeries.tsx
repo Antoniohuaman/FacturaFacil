@@ -1,6 +1,7 @@
 // src/features/configuration/components/series/SeriesList.tsx
 import { useState } from 'react';
 import { FileText, Receipt, Clipboard, MessageSquare, Building2, Search, Plus, NotebookPen } from 'lucide-react';
+import { Select, Input, Button } from '@/contasis';
 import type { Series } from '../../modelos/Series';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 
@@ -112,15 +113,15 @@ export function SeriesList({
   // Filter series
   const filteredSeries = series.filter(s => {
     const matchesSearch = s.series.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         getEstablecimientoName(s.EstablecimientoId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         voucherTypeConfig[s.documentType.category].label.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      getEstablecimientoName(s.EstablecimientoId).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      voucherTypeConfig[s.documentType.category].label.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesType = filterType === 'ALL' || s.documentType.category === filterType;
-    const matchesStatus = filterStatus === 'all' || 
-                         (filterStatus === 'active' && s.isActive) ||
-                         (filterStatus === 'inactive' && !s.isActive);
+    const matchesStatus = filterStatus === 'all' ||
+      (filterStatus === 'active' && s.isActive) ||
+      (filterStatus === 'inactive' && !s.isActive);
     const matchesEstablecimiento = filterEstablecimiento === 'ALL' || s.EstablecimientoId === filterEstablecimiento;
-    
+
     return matchesSearch && matchesType && matchesStatus && matchesEstablecimiento;
   });
 
@@ -159,7 +160,7 @@ export function SeriesList({
           <div className="w-32 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
           <div className="w-48 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
         </div>
-        
+
         {/* Loading skeleton for cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
@@ -177,38 +178,33 @@ export function SeriesList({
         {getTypeStats().map(({ type, config, count, activeCount }) => {
           const Icon = config.icon;
           const isSelected = filterType === type;
-          
+
           return (
             <button
               key={type}
               onClick={() => setFilterType(isSelected ? 'ALL' : type)}
-              className={`p-4 rounded-lg border-2 text-left transition-all ${
-                isSelected
-                  ? `border-${config.color}-500 bg-${config.color}-50`
-                  : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-              }`}
+              className={`p-4 rounded-lg border-2 text-left transition-all ${isSelected
+                ? `border-${config.color}-500 bg-${config.color}-50`
+                : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <Icon className={`w-6 h-6 ${
-                  isSelected ? `text-${config.color}-600` : 'text-gray-600'
-                }`} />
+                <Icon className={`w-6 h-6 ${isSelected ? `text-${config.color}-600` : 'text-gray-600'
+                  }`} />
                 <div className="text-right">
-                  <div className={`text-2xl font-bold ${
-                    isSelected ? `text-${config.color}-900` : 'text-gray-900'
-                  }`}>
+                  <div className={`text-2xl font-bold ${isSelected ? `text-${config.color}-900` : 'text-gray-900'
+                    }`}>
                     {count}
                   </div>
                 </div>
               </div>
               <div>
-                <h3 className={`font-medium text-sm ${
-                  isSelected ? `text-${config.color}-900` : 'text-gray-900'
-                }`}>
+                <h3 className={`font-medium text-sm ${isSelected ? `text-${config.color}-900` : 'text-gray-900'
+                  }`}>
                   {config.label}
                 </h3>
-                <p className={`text-xs mt-1 ${
-                  isSelected ? `text-${config.color}-700` : 'text-gray-500'
-                }`}>
+                <p className={`text-xs mt-1 ${isSelected ? `text-${config.color}-700` : 'text-gray-500'
+                  }`}>
                   {activeCount} activa{activeCount !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -221,41 +217,41 @@ export function SeriesList({
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <input
+          <div className="flex-1 max-w-md">
+            <Input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar series..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              leftIcon={<Search />}
             />
           </div>
-          
+
           {/* Status Filter */}
-          <select
+          <Select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="active">Solo activas</option>
-            <option value="inactive">Solo inactivas</option>
-          </select>
-          
+            size="medium"
+            options={[
+              { value: 'all', label: 'Todos los estados' },
+              { value: 'active', label: 'Solo activas' },
+              { value: 'inactive', label: 'Solo inactivas' }
+            ]}
+          />
+
           {/* Establecimiento Filter */}
-          <select
+          <Select
             value={filterEstablecimiento}
             onChange={(e) => setFilterEstablecimiento(e.target.value)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los establecimientos</option>
-            {Establecimientos.map(est => (
-              <option key={est.id} value={est.id}>
-                {est.code} - {est.name}
-              </option>
-            ))}
-          </select>
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los establecimientos' },
+              ...Establecimientos.map(est => ({
+                value: est.id,
+                label: `${est.code} - ${est.name}`
+              }))
+            ]}
+          />
         </div>
 
         {/* Actions */}
@@ -264,35 +260,33 @@ export function SeriesList({
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                viewMode === 'grid'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'grid'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               Tarjetas
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                viewMode === 'table'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'table'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               Lista
             </button>
           </div>
 
           {/* Create Button */}
-          <button
+          <Button
             onClick={onCreate}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            variant="primary"
+            icon={<Plus />}
           >
-            <Plus className="w-5 h-5" />
             <span className="hidden sm:inline">Nueva Serie</span>
             <span className="sm:hidden">Nueva</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -353,12 +347,12 @@ export function SeriesList({
             }
           </p>
           {(!searchTerm && filterType === 'ALL' && filterStatus === 'all' && filterEstablecimiento === 'ALL') && (
-            <button
+            <Button
               onClick={onCreate}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="primary"
             >
               Crear Primera Serie
-            </button>
+            </Button>
           )}
         </div>
       ) : viewMode === 'grid' ? (
@@ -419,7 +413,7 @@ export function SeriesList({
                 {filteredSeries.map((seriesItem) => {
                   const config = voucherTypeConfig[seriesItem.documentType.category];
                   const Establecimiento = Establecimientos.find(est => est.id === seriesItem.EstablecimientoId);
-                  
+
                   return (
                     <tr key={seriesItem.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-4 px-4">

@@ -10,6 +10,7 @@ import {
   Power,
   PowerOff
 } from 'lucide-react';
+import { Select, Input, Button } from '@/contasis';
 import type { User } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { UserCard } from './TarjetaUsuario';
@@ -57,19 +58,19 @@ export function UsersList({
   const filteredUsers = users
     .filter(user => {
       const matchesSearch = user.personalInfo.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           user.personalInfo.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (user.personalInfo.documentNumber && user.personalInfo.documentNumber.includes(searchTerm));
-      
+        user.personalInfo.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.personalInfo.documentNumber && user.personalInfo.documentNumber.includes(searchTerm));
+
       const matchesStatus = filterStatus === 'ALL' || user.status === filterStatus;
-      
-      const matchesEstablecimiento = filterEstablecimiento === 'ALL' || 
-                                   user.assignment.EstablecimientoIds.includes(filterEstablecimiento);
-      
+
+      const matchesEstablecimiento = filterEstablecimiento === 'ALL' ||
+        user.assignment.EstablecimientoIds.includes(filterEstablecimiento);
+
       return matchesSearch && matchesStatus && matchesEstablecimiento;
     })
     .sort((a, b) => {
       let comparison = 0;
-      
+
       switch (sortField) {
         case 'name':
           comparison = a.personalInfo.fullName.localeCompare(b.personalInfo.fullName);
@@ -87,7 +88,7 @@ export function UsersList({
           comparison = a.assignment.EstablecimientoIds.length - b.assignment.EstablecimientoIds.length;
           break;
       }
-      
+
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
@@ -102,27 +103,27 @@ export function UsersList({
 
   const getStatusConfig = (status: UserStatus) => {
     const configs = {
-      ACTIVE: { 
-        label: 'Activo', 
-        color: 'success' as const, 
+      ACTIVE: {
+        label: 'Activo',
+        color: 'success' as const,
         icon: UserCheck,
         description: 'Usuario activo con acceso al sistema'
       },
-      INACTIVE: { 
-        label: 'Inactivo', 
-        color: 'warning' as const, 
+      INACTIVE: {
+        label: 'Inactivo',
+        color: 'warning' as const,
         icon: X,
         description: 'Usuario deshabilitado sin acceso'
       },
-      SUSPENDED: { 
-        label: 'Suspendido', 
-        color: 'error' as const, 
+      SUSPENDED: {
+        label: 'Suspendido',
+        color: 'error' as const,
         icon: X,
         description: 'Usuario temporalmente suspendido'
       },
-      TERMINATED: { 
-        label: 'Desvinculado', 
-        color: 'error' as const, 
+      TERMINATED: {
+        label: 'Desvinculado',
+        color: 'error' as const,
         icon: X,
         description: 'Usuario desvinculado de la empresa'
       }
@@ -162,13 +163,13 @@ export function UsersList({
             <div key={i} className="h-24 bg-gray-200 rounded-lg animate-pulse"></div>
           ))}
         </div>
-        
+
         {/* Loading skeleton for filters */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
           <div className="w-48 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
         </div>
-        
+
         {/* Loading skeleton for cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {[...Array(6)].map((_, i) => (
@@ -228,14 +229,13 @@ export function UsersList({
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <input
+          <div className="flex-1 max-w-md">
+            <Input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por nombre, email o documento..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              leftIcon={<Search />}
             />
             {searchTerm && (
               <button
@@ -246,32 +246,33 @@ export function UsersList({
               </button>
             )}
           </div>
-          
+
           {/* Status Filter */}
-          <select
+          <Select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los estados</option>
-            <option value="ACTIVE">Solo activos</option>
-            <option value="INVITED">Solo invitados</option>
-            <option value="INACTIVE">Solo inactivos</option>
-          </select>
-          
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los estados' },
+              { value: 'ACTIVE', label: 'Solo activos' },
+              { value: 'INVITED', label: 'Solo invitados' },
+              { value: 'INACTIVE', label: 'Solo inactivos' }
+            ]}
+          />
+
           {/* Establecimiento Filter */}
-          <select
+          <Select
             value={filterEstablecimiento}
             onChange={(e) => setFilterEstablecimiento(e.target.value)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los establecimientos</option>
-            {Establecimientos.map(est => (
-              <option key={est.id} value={est.id}>
-                {est.code} - {est.name}
-              </option>
-            ))}
-          </select>
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los establecimientos' },
+              ...Establecimientos.map(est => ({
+                value: est.id,
+                label: `${est.code} - ${est.name}`
+              }))
+            ]}
+          />
         </div>
 
         {/* Actions */}
@@ -280,21 +281,19 @@ export function UsersList({
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                viewMode === 'grid'
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'grid'
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               Tarjetas
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                viewMode === 'table'
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'table'
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               Lista
             </button>
@@ -335,7 +334,7 @@ export function UsersList({
         <span>
           {filteredUsers.length} de {users.length} usuario{users.length !== 1 ? 's' : ''}
         </span>
-        
+
         {/* Sort Dropdown */}
         <div className="relative">
           <select
@@ -366,24 +365,24 @@ export function UsersList({
         <div className="text-center py-12">
           <div className="text-6xl mb-4">👥</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL')
-                ? 'No se encontraron usuarios'
-                : 'No hay usuarios'
+            {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL')
+              ? 'No se encontraron usuarios'
+              : 'No hay usuarios'
             }
           </h3>
           <p className="text-gray-500 mb-6">
-              {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL')
-                ? 'Intenta ajustar los filtros de búsqueda'
-                : 'Invita a tu primer usuario para comenzar'
+            {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL')
+              ? 'Intenta ajustar los filtros de búsqueda'
+              : 'Invita a tu primer usuario para comenzar'
             }
           </p>
           {(!searchTerm && filterStatus === 'ALL' && filterEstablecimiento === 'ALL') && (
-            <button
+            <Button
               onClick={onCreate}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="primary"
             >
               Nuevo Usuario
-            </button>
+            </Button>
           )}
         </div>
       ) : viewMode === 'grid' ? (
@@ -409,25 +408,25 @@ export function UsersList({
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th 
+                  <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('name')}
                   >
                     Usuario {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th 
+                  <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('email')}
                   >
                     Email {sortField === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th 
+                  <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('status')}
                   >
                     Estado {sortField === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th 
+                  <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('roles')}
                   >
@@ -439,7 +438,7 @@ export function UsersList({
               <tbody>
                 {filteredUsers.map((user) => {
                   const statusConfig = getStatusConfig(user.status);
-                  
+
                   return (
                     <tr
                       key={user.id}

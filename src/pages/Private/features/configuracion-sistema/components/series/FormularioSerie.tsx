@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/series/SeriesForm.tsx
 import { useState, useEffect, useCallback } from 'react';
-import { X, FileText, Receipt, Clipboard, MessageSquare, Building2, Hash, AlertCircle, CheckCircle, Info, NotebookPen } from 'lucide-react';
+import { X, FileText, Receipt, Clipboard, MessageSquare, Hash, CheckCircle, Info, NotebookPen } from 'lucide-react';
+import { Input, Button, RadioButton, Select } from '@/contasis';
 import type { Series } from '../../modelos/Series';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
@@ -99,7 +100,7 @@ export function SeriesForm({
 
   const generateSeriesCode = useCallback((type: VoucherType): string => {
     const config = voucherTypeConfig[type];
-    
+
     if (!config.prefix) {
       // For SALE_NOTE and QUOTE, suggest a pattern
       const patterns = {
@@ -107,7 +108,7 @@ export function SeriesForm({
         QUOTE: ['COT1', 'PRES', 'QT01']
       };
       const suggestions = patterns[type as keyof typeof patterns];
-      
+
       // Find first available suggestion
       for (const suggestion of suggestions) {
         if (!existingSeries.some(s => s.series === suggestion)) {
@@ -116,12 +117,12 @@ export function SeriesForm({
       }
       return '';
     }
-    
+
     // For INVOICE and RECEIPT, find next available number
     const existingNumbers = existingSeries
       .filter(s => s.documentType.category === type && s.series.startsWith(config.prefix))
       .map(s => parseInt(s.series.substring(1)) || 0);
-    
+
     const nextNumber = Math.max(0, ...existingNumbers) + 1;
     return `${config.prefix}${nextNumber.toString().padStart(3, '0')}`;
   }, [existingSeries]);
@@ -154,7 +155,7 @@ export function SeriesForm({
       type,
       series: newSeries
     }));
-    
+
     // Clear series-related errors
     const newErrors = { ...errors };
     delete newErrors.series;
@@ -167,37 +168,37 @@ export function SeriesForm({
         if (!value || value.trim() === '') {
           return 'El código de serie es obligatorio';
         }
-        
+
         const config = voucherTypeConfig[formData.type];
-        
+
         // Check prefix for INVOICE/RECEIPT
         if (config.prefix && !value.startsWith(config.prefix)) {
           return `Debe comenzar con "${config.prefix}" para ${config.label}`;
         }
-        
+
         // Check length for SALE_NOTE/QUOTE
         if (!config.prefix && value.length !== 4) {
           return `Debe tener exactamente 4 caracteres para ${config.label}`;
         }
-        
+
         // Check for duplicates
-        const isDuplicate = existingSeries.some(s => 
-          s.series === value && 
-          s.EstablecimientoId === formData.EstablecimientoId && 
+        const isDuplicate = existingSeries.some(s =>
+          s.series === value &&
+          s.EstablecimientoId === formData.EstablecimientoId &&
           s.id !== series?.id
         );
-        
+
         if (isDuplicate) {
           return 'Ya existe una serie con este código en el establecimiento seleccionado';
         }
         break;
-      
+
       case 'EstablecimientoId':
         if (!value) {
           return 'Debe seleccionar un establecimiento';
         }
         break;
-      
+
       case 'initialNumber':
         const num = parseInt(value);
         if (isNaN(num) || num < 1) {
@@ -208,14 +209,14 @@ export function SeriesForm({
         }
         break;
     }
-    
+
     return null;
   };
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setTouchedFields(prev => new Set(prev).add(field));
-    
+
     // Validate field
     const error = validateField(field, value);
     setErrors(prev => ({
@@ -243,30 +244,30 @@ export function SeriesForm({
 
   const isFormValid = () => {
     const requiredFields = ['series', 'EstablecimientoId', 'initialNumber'];
-    
+
     for (const field of requiredFields) {
       const error = validateField(field, formData[field as keyof SeriesFormData]);
       if (error) return false;
     }
-    
+
     return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate all fields
     const newErrors: Record<string, string> = {};
     const fieldsToValidate = ['series', 'EstablecimientoId', 'initialNumber'];
-    
+
     fieldsToValidate.forEach(field => {
       const error = validateField(field, formData[field as keyof SeriesFormData]);
       if (error) newErrors[field] = error;
     });
-    
+
     setErrors(newErrors);
     setTouchedFields(new Set(fieldsToValidate));
-    
+
     if (Object.keys(newErrors).some(key => newErrors[key])) {
       return;
     }
@@ -279,9 +280,9 @@ export function SeriesForm({
   };
 
   const hasDefaultInEstablecimiento = () => {
-    return existingSeries.some(s => 
-      s.documentType.category === formData.type && 
-      s.EstablecimientoId === formData.EstablecimientoId && 
+    return existingSeries.some(s =>
+      s.documentType.category === formData.type &&
+      s.EstablecimientoId === formData.EstablecimientoId &&
       s.isDefault &&
       s.id !== series?.id
     );
@@ -321,33 +322,29 @@ export function SeriesForm({
               {Object.entries(voucherTypeConfig).map(([type, config]) => {
                 const Icon = config.icon;
                 const isSelected = formData.type === type;
-                
+
                 return (
                   <div key={type}>
-                    <input
-                      type="radio"
-                      id={type}
-                      name="type"
-                      checked={isSelected}
-                      onChange={() => handleTypeChange(type as VoucherType)}
-                      className="sr-only"
-                      disabled={isLoading}
-                    />
                     <label
-                      htmlFor={type}
                       className={`
                         block p-4 rounded-lg border-2 cursor-pointer transition-all
-                        ${isSelected 
-                          ? `border-${config.color}-500 bg-${config.color}-50` 
+                        ${isSelected
+                          ? `border-${config.color}-500 bg-${config.color}-50`
                           : 'border-gray-200 hover:border-gray-300 bg-white'
                         }
                         ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
                       `}
                     >
                       <div className="flex items-center space-x-3">
-                        <Icon className={`w-5 h-5 ${
-                          isSelected ? `text-${config.color}-600` : 'text-gray-500'
-                        }`} />
+                        <RadioButton
+                          name="type"
+                          value={type}
+                          checked={isSelected}
+                          onChange={() => handleTypeChange(type as VoucherType)}
+                          disabled={isLoading}
+                        />
+                        <Icon className={`w-5 h-5 ${isSelected ? `text-${config.color}-600` : 'text-gray-500'
+                          }`} />
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">{config.label}</div>
                           <div className="text-xs text-gray-500 mt-1">{config.description}</div>
@@ -364,34 +361,20 @@ export function SeriesForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Series Code */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Código de Serie *
-              </label>
-              <div className="relative">
-                <Hash className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.series}
-                  onChange={(e) => handleFieldChange('series', e.target.value.toUpperCase())}
-                  onBlur={() => handleBlur('series')}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono ${
-                    errors.series && touchedFields.has('series')
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
-                  placeholder={voucherTypeConfig[formData.type].examples[0]}
-                  maxLength={4}
-                  disabled={isLoading}
-                />
-              </div>
-              
-              {errors.series && touchedFields.has('series') && (
-                <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.series}</span>
-                </p>
-              )}
-              
+              <Input
+                label="Código de Serie *"
+                type="text"
+                value={formData.series}
+                onChange={(e) => handleFieldChange('series', e.target.value.toUpperCase())}
+                onBlur={() => handleBlur('series')}
+                error={errors.series && touchedFields.has('series') ? errors.series : undefined}
+                placeholder={voucherTypeConfig[formData.type].examples[0]}
+                maxLength={4}
+                disabled={isLoading}
+                leftIcon={<Hash />}
+                className="font-mono"
+              />
+
               <div className="mt-2">
                 <p className="text-xs text-gray-600">{voucherTypeConfig[formData.type].rules}</p>
                 <p className="text-xs text-gray-500 mt-1">
@@ -401,84 +384,48 @@ export function SeriesForm({
             </div>
 
             {/* Establecimiento */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Establecimiento *
-              </label>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <select
-                  value={formData.EstablecimientoId}
-                  onChange={(e) => handleFieldChange('EstablecimientoId', e.target.value)}
-                  onBlur={() => handleBlur('EstablecimientoId')}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.EstablecimientoId && touchedFields.has('EstablecimientoId')
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300'
-                  }`}
-                  disabled={isLoading}
-                >
-                  <option value="">Seleccionar establecimiento</option>
-                  {Establecimientos
-                    .filter(est => est.isActive)
-                    .map(est => (
-                      <option key={est.id} value={est.id}>
-                        {est.code} - {est.name}
-                      </option>
-                    ))
-                  }
-                </select>
-              </div>
-              
-              {errors.EstablecimientoId && touchedFields.has('EstablecimientoId') && (
-                <p className="text-sm text-red-600 mt-1 flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.EstablecimientoId}</span>
-                </p>
-              )}
-            </div>
+            <Select
+              label="Establecimiento *"
+              value={formData.EstablecimientoId}
+              onChange={(e) => handleFieldChange('EstablecimientoId', e.target.value)}
+              onBlur={() => handleBlur('EstablecimientoId')}
+              error={errors.EstablecimientoId && touchedFields.has('EstablecimientoId') ? errors.EstablecimientoId : undefined}
+              disabled={isLoading}
+              options={[
+                { value: '', label: 'Seleccionar establecimiento' },
+                ...Establecimientos
+                  .filter(est => est.isActive)
+                  .map(est => ({
+                    value: est.id,
+                    label: `${est.code} - ${est.name}`
+                  }))
+              ]}
+            />
           </div>
 
           {/* Correlative Numbers */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Número Inicial *
-              </label>
-              <input
-                type="number"
-                value={formData.initialNumber}
-                onChange={(e) => handleFieldChange('initialNumber', parseInt(e.target.value) || 1)}
-                onBlur={() => handleBlur('initialNumber')}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono ${
-                  errors.initialNumber && touchedFields.has('initialNumber')
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-300'
-                }`}
-                min="1"
-                max="99999999"
-                disabled={isLoading}
-              />
-              
-              {errors.initialNumber && touchedFields.has('initialNumber') && (
-                <p className="text-sm text-red-600 mt-1">{errors.initialNumber}</p>
-              )}
-            </div>
+            <Input
+              label="Número Inicial *"
+              type="number"
+              value={formData.initialNumber}
+              onChange={(e) => handleFieldChange('initialNumber', parseInt(e.target.value) || 1)}
+              onBlur={() => handleBlur('initialNumber')}
+              error={errors.initialNumber && touchedFields.has('initialNumber') ? errors.initialNumber : undefined}
+              min={1}
+              max={99999999}
+              disabled={isLoading}
+              className="font-mono"
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Número Actual
-              </label>
-              <input
-                type="number"
-                value={formData.currentNumber}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 font-mono"
-                disabled
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {series ? 'No se puede modificar en series existentes' : 'Se ajusta automáticamente al número inicial'}
-              </p>
-            </div>
+            <Input
+              label="Número Actual"
+              type="number"
+              value={formData.currentNumber}
+              disabled
+              className="font-mono"
+              helperText={series ? 'No se puede modificar en series existentes' : 'Se ajusta automáticamente al número inicial'}
+            />
           </div>
 
           {/* Configuration Options */}
@@ -491,7 +438,7 @@ export function SeriesForm({
                 description={`Se selecciona automáticamente para ${voucherTypeConfig[formData.type].label} en este establecimiento`}
                 disabled={isLoading || (!formData.EstablecimientoId)}
               />
-              
+
               {hasDefaultInEstablecimiento() && formData.isDefault && (
                 <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <div className="flex items-start space-x-2">
@@ -541,24 +488,24 @@ export function SeriesForm({
 
           {/* Actions */}
           <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-            <button
+            <Button
               type="button"
               onClick={onCancel}
               disabled={isLoading}
-              className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50"
+              variant="secondary"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={!isFormValid() || isLoading}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
+              variant="primary"
             >
               {isLoading && (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               )}
-              <span>{series ? 'Actualizar Serie' : 'Crear Serie'}</span>
-            </button>
+              <span>{series ? 'Actualizar' : 'Crear'} Serie</span>
+            </Button>
           </div>
         </form>
       </div>

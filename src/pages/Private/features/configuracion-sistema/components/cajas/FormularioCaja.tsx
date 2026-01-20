@@ -1,14 +1,15 @@
 // CajaForm component - Create/Edit cash register form with inline validations
 import { useState, useEffect } from 'react';
+import { Button, Select, Input, Textarea } from '@/contasis';
 import type { CreateCajaInput, UpdateCajaInput, MedioPago } from '../../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../../modelos/Caja';
 import type { Currency } from '../../modelos/Currency';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import type { ValidationError } from '../../utilidades/validadorCajas';
-import { 
-  validateNombre, 
+import {
+  validateNombre,
   validateNombreUniqueness,
-  validateMoneda, 
+  validateMoneda,
   validateEstablecimiento,
   validateMediosPago,
   validateLimiteMaximo,
@@ -39,7 +40,7 @@ export function CajaForm({
   isEditing = false,
 }: CajaFormProps) {
   const { state } = useConfigurationContext();
-  
+
   const [formData, setFormData] = useState<CreateCajaInput>({
     establecimientoIdCaja: initialData?.establecimientoIdCaja || defaultEstablecimientoId,
     nombreCaja: initialData?.nombreCaja || '',
@@ -69,7 +70,7 @@ export function CajaForm({
     if (touched.has('nombreCaja')) {
       const nombreError = validateNombre(formData.nombreCaja);
       if (nombreError) newErrors.push(nombreError);
-      
+
       const uniquenessError = validateNombreUniqueness(
         formData.nombreCaja,
         state.cajas,
@@ -131,19 +132,19 @@ export function CajaForm({
     // Mark all fields as touched
     setTouched(new Set([
       'establecimientoIdCaja',
-      'nombreCaja', 
-      'monedaIdCaja', 
-      'mediosPagoPermitidos', 
-      'limiteMaximoCaja', 
+      'nombreCaja',
+      'monedaIdCaja',
+      'mediosPagoPermitidos',
+      'limiteMaximoCaja',
       'margenDescuadreCaja'
     ]));
 
     // Validate all fields
     const allErrors: ValidationError[] = [];
-    
+
     const establecimientoError = validateEstablecimiento(formData.establecimientoIdCaja);
     if (establecimientoError) allErrors.push(establecimientoError);
-    
+
     const nombreError = validateNombre(formData.nombreCaja);
     if (nombreError) allErrors.push(nombreError);
 
@@ -154,16 +155,16 @@ export function CajaForm({
       isEditing ? initialData?.id : undefined
     );
     if (uniquenessError) allErrors.push(uniquenessError);
-    
+
     const monedaError = validateMoneda(formData.monedaIdCaja);
     if (monedaError) allErrors.push(monedaError);
-    
+
     const mediosError = validateMediosPago(formData.mediosPagoPermitidos, formData.habilitadaCaja);
     if (mediosError) allErrors.push(mediosError);
-    
+
     const limiteError = validateLimiteMaximo(formData.limiteMaximoCaja);
     if (limiteError) allErrors.push(limiteError);
-    
+
     const margenError = validateMargenDescuadre(formData.margenDescuadreCaja);
     if (margenError) allErrors.push(margenError);
 
@@ -190,38 +191,25 @@ export function CajaForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Establecimiento */}
       <div>
-        <label htmlFor="establecimiento" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Establecimiento <span className="text-red-500">*</span>
-        </label>
-        <select
-          id="establecimiento"
+        <Select
+          label="Establecimiento"
           value={formData.establecimientoIdCaja}
-          onChange={(e) => setFormData(prev => ({ ...prev, establecimientoIdCaja: e.target.value }))}
-          onBlur={() => handleBlur('establecimientoIdCaja')}
-          disabled={isEditing} // Cannot change Establecimiento when editing
-          className={`
-            w-full px-4 py-2 border rounded-lg
-            focus:outline-none focus:ring-2 focus:ring-blue-500
-            dark:bg-gray-800 dark:border-gray-600 dark:text-white
-            disabled:bg-gray-100 disabled:cursor-not-allowed dark:disabled:bg-gray-700
-            ${fieldError('establecimientoIdCaja') ? 'border-red-500' : 'border-gray-300'}
-          `}
-          aria-label="Establecimiento"
-          aria-describedby={fieldError('establecimientoIdCaja') ? 'establecimiento-error' : undefined}
-          aria-invalid={!!fieldError('establecimientoIdCaja')}
-        >
-          <option value="">Seleccionar establecimiento</option>
-          {Establecimientos.map((est) => (
-            <option key={est.id} value={est.id}>
-              {est.name} - {est.code}
-            </option>
-          ))}
-        </select>
-        {fieldError('establecimientoIdCaja') && (
-          <span id="establecimiento-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
-            {fieldError('establecimientoIdCaja')}
-          </span>
-        )}
+          onChange={(e) => {
+            setFormData(prev => ({ ...prev, establecimientoIdCaja: e.target.value }));
+            handleBlur('establecimientoIdCaja');
+          }}
+          disabled={isEditing}
+          required
+          error={fieldError('establecimientoIdCaja')}
+          helperText={fieldError('establecimientoIdCaja')}
+          options={[
+            { value: '', label: 'Seleccionar establecimiento' },
+            ...Establecimientos.map((est) => ({
+              value: est.id,
+              label: `${est.name} - ${est.code}`
+            }))
+          ]}
+        />
         {isEditing && (
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             No se puede cambiar el establecimiento de una caja existente
@@ -231,34 +219,19 @@ export function CajaForm({
 
       {/* Nombre */}
       <div>
-        <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Nombre de Caja <span className="text-red-500">*</span>
-        </label>
-        <input
-          id="nombre"
+        <Input
+          label="Nombre de Caja"
           type="text"
           value={formData.nombreCaja}
           onChange={(e) => setFormData(prev => ({ ...prev, nombreCaja: e.target.value }))}
           onBlur={() => handleBlur('nombreCaja')}
           maxLength={CAJA_CONSTRAINTS.maxLongitudNombreCaja}
-          className={`
-            w-full px-4 py-2 border rounded-lg
-            focus:outline-none focus:ring-2 focus:ring-blue-500
-            dark:bg-gray-800 dark:border-gray-600 dark:text-white
-            ${fieldError('nombreCaja') ? 'border-red-500' : 'border-gray-300'}
-          `}
           placeholder="Ej: Caja Principal"
-          aria-label="Nombre de caja"
-          aria-describedby={fieldError('nombreCaja') ? 'nombre-error' : undefined}
-          aria-invalid={!!fieldError('nombreCaja')}
+          required
+          error={fieldError('nombreCaja')}
         />
-        <div className="flex justify-between mt-1">
-          {fieldError('nombreCaja') && (
-            <span id="nombre-error" className="text-sm text-red-600 dark:text-red-400">
-              {fieldError('nombreCaja')}
-            </span>
-          )}
-          <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+        <div className="flex justify-end mt-1">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {formData.nombreCaja.length}/{CAJA_CONSTRAINTS.maxLongitudNombreCaja}
           </span>
         </div>
@@ -266,36 +239,24 @@ export function CajaForm({
 
       {/* Moneda */}
       <div>
-        <label htmlFor="moneda" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Moneda <span className="text-red-500">*</span>
-        </label>
-        <select
-          id="moneda"
+        <Select
+          label="Moneda"
           value={formData.monedaIdCaja}
-          onChange={(e) => setFormData(prev => ({ ...prev, monedaIdCaja: e.target.value }))}
-          onBlur={() => handleBlur('monedaIdCaja')}
-          className={`
-            w-full px-4 py-2 border rounded-lg
-            focus:outline-none focus:ring-2 focus:ring-blue-500
-            dark:bg-gray-800 dark:border-gray-600 dark:text-white
-            ${fieldError('monedaIdCaja') ? 'border-red-500' : 'border-gray-300'}
-          `}
-          aria-label="Moneda"
-          aria-describedby={fieldError('monedaIdCaja') ? 'moneda-error' : undefined}
-          aria-invalid={!!fieldError('monedaIdCaja')}
-        >
-          <option value="">Seleccionar moneda</option>
-          {currencies.filter(c => c.isActive).map((currency) => (
-            <option key={currency.id} value={currency.id}>
-              {currency.code} - {currency.name}
-            </option>
-          ))}
-        </select>
-        {fieldError('monedaIdCaja') && (
-          <span id="moneda-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
-            {fieldError('monedaIdCaja')}
-          </span>
-        )}
+          onChange={(e) => {
+            setFormData(prev => ({ ...prev, monedaIdCaja: e.target.value }));
+            handleBlur('monedaIdCaja');
+          }}
+          options={[
+            { value: '', label: 'Seleccionar moneda' },
+            ...currencies.filter(c => c.isActive).map((currency) => ({
+              value: currency.id,
+              label: `${currency.code} - ${currency.name}`
+            }))
+          ]}
+          error={fieldError('monedaIdCaja')}
+          helperText={fieldError('monedaIdCaja')}
+          required
+        />
       </div>
 
       {/* Medios de Pago */}
@@ -331,67 +292,31 @@ export function CajaForm({
 
       {/* Límite Máximo y Margen */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="limiteMaximo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Límite Máximo <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="limiteMaximo"
-            type="number"
-            min={CAJA_CONSTRAINTS.LIMITE_MIN}
-            step="0.01"
-            value={formData.limiteMaximoCaja}
-            onChange={(e) => setFormData(prev => ({ ...prev, limiteMaximoCaja: parseFloat(e.target.value) || 0 }))}
-            onBlur={() => handleBlur('limiteMaximoCaja')}
-            className={`
-              w-full px-4 py-2 border rounded-lg
-              focus:outline-none focus:ring-2 focus:ring-blue-500
-              dark:bg-gray-800 dark:border-gray-600 dark:text-white
-              ${fieldError('limiteMaximoCaja') ? 'border-red-500' : 'border-gray-300'}
-            `}
-            aria-label="Límite máximo"
-            aria-describedby={fieldError('limiteMaximoCaja') ? 'limite-error' : undefined}
-            aria-invalid={!!fieldError('limiteMaximoCaja')}
-          />
-          {fieldError('limiteMaximoCaja') && (
-            <span id="limite-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
-              {fieldError('limiteMaximoCaja')}
-            </span>
-          )}
-        </div>
+        <Input
+          label="Límite Máximo"
+          type="number"
+          min={CAJA_CONSTRAINTS.LIMITE_MIN}
+          step="0.01"
+          value={formData.limiteMaximoCaja}
+          onChange={(e) => setFormData(prev => ({ ...prev, limiteMaximoCaja: parseFloat(e.target.value) || 0 }))}
+          onBlur={() => handleBlur('limiteMaximoCaja')}
+          required
+          error={fieldError('limiteMaximoCaja')}
+        />
 
-        <div>
-          <label htmlFor="margenDescuadre" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Margen de Descuadre (%) <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="margenDescuadre"
-            type="number"
-            min={CAJA_CONSTRAINTS.MARGEN_MIN}
-            max={CAJA_CONSTRAINTS.MARGEN_MAX}
-            step="0.1"
-            value={formData.margenDescuadreCaja}
-            onChange={(e) => setFormData(prev => ({ ...prev, margenDescuadreCaja: parseFloat(e.target.value) || 0 }))}
-            onBlur={() => handleBlur('margenDescuadreCaja')}
-            className={`
-              w-full px-4 py-2 border rounded-lg
-              focus:outline-none focus:ring-2 focus:ring-blue-500
-              dark:bg-gray-800 dark:border-gray-600 dark:text-white
-              ${fieldError('margenDescuadreCaja') ? 'border-red-500' : 'border-gray-300'}
-            `}
-            aria-label="Margen de descuadre"
-            aria-describedby={fieldError('margenDescuadreCaja') ? 'margen-error' : undefined}
-            aria-invalid={!!fieldError('margenDescuadreCaja')}
-          />
-          {fieldError('margenDescuadreCaja') && (
-            <span id="margen-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
-              {fieldError('margenDescuadreCaja')}
-            </span>
-          )}
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Rango: {CAJA_CONSTRAINTS.MARGEN_MIN}-{CAJA_CONSTRAINTS.MARGEN_MAX}%
-          </p>
-        </div>
+        <Input
+          label="Margen de Descuadre (%)"
+          type="number"
+          min={CAJA_CONSTRAINTS.MARGEN_MIN}
+          max={CAJA_CONSTRAINTS.MARGEN_MAX}
+          step="0.1"
+          value={formData.margenDescuadreCaja}
+          onChange={(e) => setFormData(prev => ({ ...prev, margenDescuadreCaja: parseFloat(e.target.value) || 0 }))}
+          onBlur={() => handleBlur('margenDescuadreCaja')}
+          required
+          error={fieldError('margenDescuadreCaja')}
+          helperText={`Rango: ${CAJA_CONSTRAINTS.MARGEN_MIN}-${CAJA_CONSTRAINTS.MARGEN_MAX}%`}
+        />
       </div>
 
       {/* Habilitada */}
@@ -424,17 +349,12 @@ export function CajaForm({
 
       {/* Observaciones */}
       <div>
-        <label htmlFor="observaciones" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Observaciones
-        </label>
-        <textarea
-          id="observaciones"
+        <Textarea
+          label="Observaciones"
           value={formData.observacionesCaja}
           onChange={(e) => setFormData(prev => ({ ...prev, observacionesCaja: e.target.value }))}
           rows={3}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           placeholder="Notas adicionales sobre esta caja..."
-          aria-label="Observaciones"
         />
       </div>
 
@@ -454,21 +374,22 @@ export function CajaForm({
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="md"
           onClick={onCancel}
-          className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           disabled={isSubmitting}
         >
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="primary"
+          size="md"
           type="submit"
           disabled={isSubmitting || errors.length > 0}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
           {isSubmitting ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Crear Caja')}
-        </button>
+        </Button>
       </div>
     </form>
   );

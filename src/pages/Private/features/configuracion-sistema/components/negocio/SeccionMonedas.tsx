@@ -1,6 +1,7 @@
 // src/features/configuration/components/negocio/CurrenciesSection.tsx
 import { useState } from 'react';
 import { DollarSign, TrendingUp, AlertCircle, History } from 'lucide-react';
+import { Button } from '@/contasis';
 import type { Currency, ExchangeRate } from '../../modelos/Currency';
 import { DefaultSelector } from '../comunes/SelectorPredeterminado';
 import { ConfigurationCard } from '../comunes/TarjetaConfiguracion';
@@ -14,11 +15,11 @@ interface CurrenciesSectionProps {
   isLoading?: boolean;
 }
 
-export function CurrenciesSection({ 
-  currencies, 
+export function CurrenciesSection({
+  currencies,
   exchangeRates = [],
-  onUpdateCurrencies, 
-  isLoading = false 
+  onUpdateCurrencies,
+  isLoading = false
 }: CurrenciesSectionProps) {
   const { baseCurrency, setBaseCurrency } = useCurrencyManager();
   const [showRateHistory, setShowRateHistory] = useState<string | null>(null);
@@ -60,7 +61,7 @@ export function CurrenciesSection({
   const formatDate = (date: Date): string => {
     return new Intl.DateTimeFormat('es-PE', {
       day: '2-digit',
-      month: '2-digit', 
+      month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -73,7 +74,7 @@ export function CurrenciesSection({
 
     const latest = rates[0].rate;
     const previous = rates[1].rate;
-    
+
     if (latest > previous) return 'up';
     if (latest < previous) return 'down';
     return 'stable';
@@ -105,22 +106,20 @@ export function CurrenciesSection({
           const latestRate = getLatestExchangeRate(currency.code);
           const trend = calculateTrend(currency.code);
           const hasHistory = getCurrencyHistory(currency.code).length > 0;
-          
+
           return (
             <div key={currency.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 {/* Currency Info */}
                 <div className="flex items-center space-x-4">
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                    currency.isBaseCurrency 
-                      ? 'bg-green-50 border-2 border-green-200' 
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${currency.isBaseCurrency
+                      ? 'bg-green-50 border-2 border-green-200'
                       : 'bg-gray-50 border-2 border-gray-200'
-                  }`}>
-                    <DollarSign className={`w-6 h-6 ${
-                      currency.isBaseCurrency ? 'text-green-600' : 'text-gray-600'
-                    }`} />
+                    }`}>
+                    <DollarSign className={`w-6 h-6 ${currency.isBaseCurrency ? 'text-green-600' : 'text-gray-600'
+                      }`} />
                   </div>
-                  
+
                   <div>
                     <div className="flex items-center space-x-3">
                       <h4 className="font-semibold text-gray-900 text-lg">
@@ -133,7 +132,7 @@ export function CurrenciesSection({
                         {currency.symbol}
                       </span>
                     </div>
-                    
+
                     {/* Exchange Rate Info */}
                     {!currency.isBaseCurrency && (
                       <div className="flex items-center space-x-4 mt-2">
@@ -142,20 +141,19 @@ export function CurrenciesSection({
                             <span className="text-sm text-gray-600">
                               1 {currency.code} = {formatRate(latestRate.rate)} {baseCurrency.code}
                             </span>
-                            
+
                             {trend && (
-                              <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                trend === 'up' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : trend === 'down' 
+                              <div className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs font-medium ${trend === 'up'
+                                  ? 'bg-green-100 text-green-800'
+                                  : trend === 'down'
                                     ? 'bg-red-100 text-red-800'
                                     : 'bg-gray-100 text-gray-800'
-                              }`}>
+                                }`}>
                                 {trend === 'up' ? '↗️' : trend === 'down' ? '↘️' : '➡️'}
                                 <span>{trend === 'up' ? 'Subió' : trend === 'down' ? 'Bajó' : 'Estable'}</span>
                               </div>
                             )}
-                            
+
                             <span className="text-xs text-gray-500">
                               {formatDate(latestRate.date)}
                             </span>
@@ -183,16 +181,17 @@ export function CurrenciesSection({
                   {/* Exchange Rate Actions */}
                   {!currency.isBaseCurrency && hasHistory && (
                     <div className="flex items-center space-x-2">
-                      
-                        <button
-                          onClick={() => setShowRateHistory(
-                            showRateHistory === currency.code ? null : currency.code
-                          )}
-                          className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
-                        >
-                          <History className="w-4 h-4" />
-                          <span>Historial</span>
-                        </button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<History />}
+                        iconPosition="left"
+                        onClick={() => setShowRateHistory(
+                          showRateHistory === currency.code ? null : currency.code
+                        )}
+                      >
+                        Historial
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -205,7 +204,7 @@ export function CurrenciesSection({
                     <TrendingUp className="w-4 h-4 text-gray-600" />
                     <h5 className="font-medium text-gray-900">Historial de Tipos de Cambio</h5>
                   </div>
-                  
+
                   <div className="overflow-hidden">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {getCurrencyHistory(currency.code).map((rate) => (
@@ -237,27 +236,27 @@ export function CurrenciesSection({
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Moneda Base</h4>
               <p className="text-sm text-gray-600 leading-relaxed">
-                La moneda base es la moneda principal de tu empresa y se usa como referencia 
+                La moneda base es la moneda principal de tu empresa y se usa como referencia
                 para todos los cálculos. Debe coincidir con la moneda base configurada en los datos de empresa.
               </p>
             </div>
-            
+
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Tipos de Cambio</h4>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Los tipos de cambio se usan para convertir precios y montos entre diferentes monedas. 
+                Los tipos de cambio se usan para convertir precios y montos entre diferentes monedas.
                 Actualízalos regularmente para mantener la precisión en tus transacciones.
               </p>
             </div>
           </div>
-          
+
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start space-x-3">
               <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
                 <h4 className="font-medium text-blue-900">Importante</h4>
                 <p className="text-sm text-blue-800 mt-1">
-                  Los tipos de cambio afectan la facturación en monedas extranjeras. 
+                  Los tipos de cambio afectan la facturación en monedas extranjeras.
                   Asegúrate de mantenerlos actualizados según las tasas oficiales.
                 </p>
               </div>

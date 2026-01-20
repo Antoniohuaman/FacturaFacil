@@ -1,6 +1,7 @@
 // src/features/gestion-inventario/components/disponibilidad/DisponibilidadSettings.tsx
 
 import React, { useState } from 'react';
+import { Button } from '@/contasis';
 import { usePreferenciasDisponibilidad } from '../../stores/usePreferenciasDisponibilidad';
 import type {
   DensidadTabla,
@@ -318,12 +319,13 @@ const DisponibilidadSettings: React.FC<DisponibilidadSettingsProps> = ({
           >
             Resetear preferencias
           </button>
-          <button
+          <Button
+            variant="primary"
+            size="md"
             onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Cerrar
-          </button>
+          </Button>
         </div>
       </div>
     </div>

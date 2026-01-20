@@ -16,6 +16,7 @@ import { CredentialsModal } from '../components/usuarios/ModalCredenciales';
 import { SYSTEM_ROLES } from '../modelos/Role';
 import type { User } from '../modelos/User';
 import type { Role } from '../modelos/Role';
+import { Button } from '@/contasis';
 
 // Modal for Role Assignment
 import RoleAssignment from '../components/usuarios/AsignacionRol';
@@ -328,19 +329,21 @@ export function UsersConfiguration() {
               Usuarios y Roles
             </h1>
             <p className="text-gray-600">
-              Gestiona usuarios del sistema, roles y permisos por establecimiento
+              Gestiona usuarios del sistema, roles y permisos por establecimiento.
             </p>
           </div>
         </div>
 
         {activeTab === 'users' && (
-          <button
+          <Button
             onClick={() => setShowUserForm(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            variant="primary"
+            size="md"
+            icon={<Plus className="w-5 h-5" />}
+            iconPosition="left"
           >
-            <Plus className="w-5 h-5" />
-            <span>Nuevo Usuario</span>
-          </button>
+            Nuevo Usuario
+          </Button>
         )}
       </div>
 
@@ -349,11 +352,10 @@ export function UsersConfiguration() {
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('users')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'users'
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'users'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+              }`}
           >
             <div className="flex items-center space-x-2">
               <Users className="w-5 h-5" />
@@ -363,11 +365,10 @@ export function UsersConfiguration() {
 
           <button
             onClick={() => setActiveTab('roles')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'roles'
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'roles'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+              }`}
           >
             <div className="flex items-center space-x-2">
               <Shield className="w-5 h-5" />
@@ -438,24 +439,26 @@ export function UsersConfiguration() {
 
             {/* Footer */}
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end space-x-3">
-              <button
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => {
                   setRoleAssignmentModal({ show: false });
                   setSelectedRoleIds([]);
                   setRoleError('');
                 }}
                 disabled={isLoading}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
                 onClick={handleSaveRoleAssignment}
                 disabled={isLoading || selectedRoleIds.length === 0}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Guardando...' : 'Asignar Roles'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

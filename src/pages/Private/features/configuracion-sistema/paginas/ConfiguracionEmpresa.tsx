@@ -11,6 +11,7 @@ import {
   Shield,
   ArrowLeft
 } from 'lucide-react';
+import { Button, Select, Input, RadioButton, PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
 import { StatusIndicator } from '../components/comunes/IndicadorEstado';
@@ -33,6 +34,7 @@ import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
 import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
+
 
 interface CompanyFormData {
   ruc: string;
@@ -177,7 +179,7 @@ export function CompanyConfiguration() {
   const workspaceIdForSubmit = isCreateWorkspaceMode
     ? ensuredWorkspaceIdRef.current
     : workspaceState?.workspaceId || activeWorkspace?.id;
-  
+
   const [formData, setFormData] = useState<CompanyFormData>({
     ruc: '',
     razonSocial: '',
@@ -190,7 +192,7 @@ export function CompanyConfiguration() {
     correosElectronicos: [''],
     actividadEconomica: ''
   });
-  
+
   const [rucValidation, setRucValidation] = useState<{
     isValid: boolean;
     message: string;
@@ -272,7 +274,7 @@ export function CompanyConfiguration() {
       if (pendingData) {
         try {
           const parsedData = JSON.parse(pendingData);
-          
+
           // Crear objeto Company completo para el contexto
           const newCompany: Company = {
             id: 'company-1',
@@ -311,7 +313,7 @@ export function CompanyConfiguration() {
 
           // Guardar la empresa en el contexto
           dispatch({ type: 'SET_COMPANY', payload: newCompany });
-          
+
           // Cargar los datos en el formulario
           setFormData(prev => ({
             ...prev,
@@ -321,7 +323,7 @@ export function CompanyConfiguration() {
             direccionFiscal: parsedData.direccion || '',
             telefonos: parsedData.telefono ? [parsedData.telefono] : [''],
           }));
-          
+
           // Limpiar los datos pendientes después de procesarlos
           localStorage.removeItem('pending_company_data');
         } catch (error) {
@@ -477,7 +479,7 @@ export function CompanyConfiguration() {
       if (isNewCompany && state.Establecimientos.length === 0) {
         // Parsear ubigeo para obtener Departamento, Provincia y Distrito
         const location = parseUbigeoCode(formData.ubigeo);
-        
+
         // 1. CREAR ESTABLECIMIENTO POR DEFECTO
         const createdEstablecimiento: Establecimiento = {
           id: 'est-main',
@@ -680,386 +682,348 @@ export function CompanyConfiguration() {
   // For new company: require RUC validation + has changes
   // For existing company: allow updates without re-validating RUC but require changes
   const isFormValid = formData.ruc.length === 11 &&
-                    formData.razonSocial.trim() !== '' &&
-                    formData.direccionFiscal.trim() !== '' &&
-                    (company?.id ? true : rucValidation?.isValid === true) &&
-                    hasChanges; // Only enable if there are changes
+    formData.razonSocial.trim() !== '' &&
+    formData.direccionFiscal.trim() !== '' &&
+    (company?.id ? true : rucValidation?.isValid === true) &&
+    hasChanges; // Only enable if there are changes
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center space-x-3">
-        <button 
-          onClick={() => navigate('/configuracion')}
-          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            Configuración de Empresa
-          </h1>
-        </div>
-      </div>
+      <PageHeader
+        title="Configuración de Empresa"
+        actions={
+          <Button
+            variant="secondary"
+            icon={<ArrowLeft />}
+            onClick={() => navigate('/configuracion')}
+          >
+            Volver
+          </Button>
+        }
+      />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Company Legal Data */}
-        <ConfigurationCard
-          title="Datos Legales y Tributarios"
-          density="compact"
-        >
-          <div className="space-y-2">
-            {/* RUC Validator Component */}
-            <RucValidator
-              value={formData.ruc}
-              onChange={(ruc) => setFormData(prev => ({ ...prev, ruc }))}
-              onValidation={handleRucValidation}
-            />
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-4xl mx-auto p-6 space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Company Legal Data */}
+            <ConfigurationCard
+              title="Datos Legales y Tributarios"
+              density="compact"
+            >
+              <div className="space-y-2">
+                {/* RUC Validator Component */}
+                <RucValidator
+                  value={formData.ruc}
+                  onChange={(ruc) => setFormData(prev => ({ ...prev, ruc }))}
+                  onValidation={handleRucValidation}
+                />
 
-            {/* Business Name */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Razón Social <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formData.razonSocial}
-                  onChange={(e) => setFormData(prev => ({ ...prev, razonSocial: e.target.value }))}
-                  className={`
+                {/* Business Name */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Razón Social <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formData.razonSocial}
+                      onChange={(e) => setFormData(prev => ({ ...prev, razonSocial: e.target.value }))}
+                      className={`
                     w-full h-10 px-3 text-sm pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     bg-gray-50 dark:bg-gray-800 transition-all duration-200
                     ${formData.razonSocial ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
                     text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
                   `}
-                  readOnly
-                  placeholder="Se completará automáticamente al validar el RUC"
-                />
-                {formData.razonSocial && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      readOnly
+                      placeholder="Se completará automáticamente al validar el RUC"
+                    />
+                    {formData.razonSocial && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* Trade Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Nombre Comercial
-              </label>
-              <input
-                type="text"
-                value={formData.nombreComercial}
-                onChange={(e) => setFormData(prev => ({ ...prev, nombreComercial: e.target.value }))}
-                className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                placeholder="Nombre con el que se conoce tu empresa"
-              />
-            </div>
+                {/* Trade Name */}
+                <div>
+                  <Input
+                    label="Nombre Comercial"
+                    type="text"
+                    value={formData.nombreComercial}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nombreComercial: e.target.value }))}
+                    placeholder="Nombre con el que se conoce tu empresa"
+                  />
+                </div>
 
-            {/* Fiscal Address */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Domicilio Fiscal <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <textarea
-                  value={formData.direccionFiscal}
-                  onChange={(e) => setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }))}
-                  className={`
+                {/* Fiscal Address */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Domicilio Fiscal <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      value={formData.direccionFiscal}
+                      onChange={(e) => setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }))}
+                      className={`
                     w-full min-h-[72px] px-3 py-2 text-sm pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     bg-gray-50 dark:bg-gray-800 transition-all duration-200
                     ${formData.direccionFiscal ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
                     text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
                   `}
-                  rows={2}
-                  readOnly
-                  placeholder="Se completará automáticamente al validar el RUC"
+                      rows={2}
+                      readOnly
+                      placeholder="Se completará automáticamente al validar el RUC"
+                    />
+                    {formData.direccionFiscal && (
+                      <div className="absolute right-3 top-3">
+                        <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Input
+                  label="Actividad Económica"
+                  type="text"
+                  value={formData.actividadEconomica}
+                  onChange={(e) => setFormData(prev => ({ ...prev, actividadEconomica: e.target.value }))}
                 />
-                {formData.direccionFiscal && (
-                  <div className="absolute right-3 top-3">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+            </ConfigurationCard>
+
+            {/* Global Parameters */}
+            <ConfigurationCard
+              title="Parámetros Globales"
+              density="compact"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Base Currency */}
+                <Select
+                  label="Moneda Base"
+                  value={formData.monedaBase}
+                  onChange={(e) => setFormData(prev => ({ ...prev, monedaBase: e.target.value as 'PEN' | 'USD' }))}
+                  required
+                  helperText="Impacta catálogos de productos, emisión y POS"
+                  options={[
+                    { value: 'PEN', label: 'PEN - Soles Peruanos' },
+                    { value: 'USD', label: 'USD - Dólares Americanos' }
+                  ]}
+                />
+
+                {/* Environment */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Ambiente
+                  </label>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <RadioButton
+                        name="environment"
+                        value="TEST"
+                        checked={formData.entornoSunat === 'TEST'}
+                        onChange={() => handleEnvironmentChange('TEST')}
+                        disabled={company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'}
+                        label="Prueba"
+                      />
+                      {formData.entornoSunat === 'TEST' && (
+                        <StatusIndicator status="warning" label="Activo" size="sm" />
+                      )}
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <RadioButton
+                        name="environment"
+                        value="PRODUCTION"
+                        checked={formData.entornoSunat === 'PRODUCTION'}
+                        onChange={() => handleEnvironmentChange('PRODUCTION')}
+                        label="Producción"
+                      />
+                      {formData.entornoSunat === 'PRODUCTION' && (
+                        <StatusIndicator status="success" label="Activo" size="sm" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Warning: Test Mode */}
+                  {formData.entornoSunat === 'TEST' && company?.configuracionSunatEmpresa?.entornoSunat !== 'PRODUCTION' && (
+                    <div className="mt-2 p-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                      <div className="flex items-start gap-1.5 text-xs text-yellow-800 dark:text-yellow-200 leading-tight">
+                        <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>Los documentos emitidos en prueba no tienen validez legal</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Info: Production Mode Locked */}
+                  {company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION' && (
+                    <div className="mt-2 p-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                      <div className="flex items-start gap-1.5 text-xs text-blue-800 dark:text-blue-200 leading-tight">
+                        <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium">Ambiente de Producción Activado</p>
+                          <p className="text-xs mt-0.5">Por seguridad, no es posible regresar al ambiente de prueba una vez activado producción.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </ConfigurationCard>
+
+            {/* Contact Information */}
+            <ConfigurationCard
+              title="Información de Contacto"
+              density="compact"
+            >
+              <div className="space-y-6">
+                {/* Phones */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Teléfonos
+                  </label>
+                  <div className="space-y-2">
+                    {formData.telefonos.map((phone, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <div className="flex-1">
+                          <Input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => handleArrayFieldChange('telefonos', index, e.target.value)}
+                            placeholder="+51 987 654 321"
+                            leftIcon={<Phone />}
+                          />
+                        </div>
+                        {formData.telefonos.length > 1 && (
+                          <Button
+                            type="button"
+                            onClick={() => removeArrayField('telefonos', index)}
+                            variant="tertiary"
+                            iconOnly
+                            size="sm"
+                            icon={<X />}
+                            className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    variant="tertiary"
+                    onClick={() => addArrayField('telefonos')}
+                  >
+                    + Agregar teléfono
+                  </Button>
+                </div>
+
+                {/* Emails */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Correos Electrónicos
+                  </label>
+                  <div className="space-y-2">
+                    {formData.correosElectronicos.map((email, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <div className="flex-1">
+                          <Input
+                            type="email"
+                            value={email}
+                            onChange={(e) => handleArrayFieldChange('correosElectronicos', index, e.target.value)}
+                            placeholder="contacto@miempresa.com"
+                            leftIcon={<Mail />}
+                          />
+                        </div>
+                        {formData.correosElectronicos.length > 1 && (
+                          <Button
+                            type="button"
+                            onClick={() => removeArrayField('correosElectronicos', index)}
+                            variant="tertiary"
+                            iconOnly
+                            size="sm"
+                            icon={<X />}
+                            className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    variant="tertiary"
+                    onClick={() => addArrayField('correosElectronicos')}
+                  >
+                    + Agregar correo
+                  </Button>
+                </div>
+              </div>
+            </ConfigurationCard>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
+              {/* Form Status Indicator */}
+              <div className="flex items-center gap-3">
+                {isFormValid && hasChanges && (
+                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400 animate-in slide-in-from-left duration-300">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span className="text-sm font-medium">
+                      {company?.id ? 'Listo para guardar cambios' : 'Formulario completo y listo para guardar'}
+                    </span>
+                  </div>
+                )}
+                {company?.id && !hasChanges && (
+                  <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span className="text-sm font-medium">Sin cambios pendientes</span>
+                  </div>
+                )}
+                {!isFormValid && formData.ruc.length === 11 && !rucValidation?.isValid && !company?.id && (
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                    <Shield className="w-5 h-5" />
+                    <span className="text-sm font-medium">Valida el RUC para continuar</span>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Economic Activity */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Actividad Económica
-              </label>
-              <input
-                type="text"
-                value={formData.actividadEconomica}
-                onChange={(e) => setFormData(prev => ({ ...prev, actividadEconomica: e.target.value }))}
-                className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                placeholder="Ej: Comercio al por menor"
-              />
-            </div>
-          </div>
-        </ConfigurationCard>
-
-        {/* Global Parameters */}
-        <ConfigurationCard
-          title="Parámetros Globales"
-          density="compact"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {/* Base Currency */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Moneda Base *
-              </label>
-              <select
-                value={formData.monedaBase}
-                onChange={(e) => setFormData(prev => ({ ...prev, monedaBase: e.target.value as 'PEN' | 'USD' }))}
-                className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              >
-                <option value="PEN">PEN - Soles Peruanos</option>
-                <option value="USD">USD - Dólares Americanos</option>
-              </select>
-            </div>
-
-            {/* Environment */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Ambiente
-              </label>
-              <div className="space-y-1.5">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    id="test"
-                    name="environment"
-                    checked={formData.entornoSunat === 'TEST'}
-                    onChange={() => handleEnvironmentChange('TEST')}
-                    disabled={company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800"
-                  />
-                  <label htmlFor="test" className={`flex items-center space-x-2 ${company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION' ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Prueba</span>
-                    {formData.entornoSunat === 'TEST' && (
-                      <StatusIndicator status="warning" label="Activo" size="sm" />
-                    )}
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    id="production"
-                    name="environment"
-                    checked={formData.entornoSunat === 'PRODUCTION'}
-                    onChange={() => handleEnvironmentChange('PRODUCTION')}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-800"
-                  />
-                  <label htmlFor="production" className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Producción</span>
-                    {formData.entornoSunat === 'PRODUCTION' && (
-                      <StatusIndicator status="success" label="Activo" size="sm" />
-                    )}
-                  </label>
-                </div>
-              </div>
-
-              {/* Warning: Test Mode */}
-              {formData.entornoSunat === 'TEST' && company?.configuracionSunatEmpresa?.entornoSunat !== 'PRODUCTION' && (
-                <div className="mt-2 p-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-                  <div className="flex items-start gap-1.5 text-xs text-yellow-800 dark:text-yellow-200 leading-tight">
-                    <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span>Los documentos emitidos en prueba no tienen validez legal</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Info: Production Mode Locked */}
-              {company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION' && (
-                <div className="mt-2 p-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                  <div className="flex items-start gap-1.5 text-xs text-blue-800 dark:text-blue-200 leading-tight">
-                    <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-medium">Ambiente de Producción Activado</p>
-                      <p className="text-xs mt-0.5">Por seguridad, no es posible regresar al ambiente de prueba una vez activado producción.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </ConfigurationCard>
-
-        {/* Contact Information */}
-        <ConfigurationCard
-          title="Información de Contacto"
-          density="compact"
-        >
-          <div className="space-y-2">
-            {/* Phones */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Teléfonos
-              </label>
-              <div className="space-y-2">
-                {formData.telefonos.map((phone, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => handleArrayFieldChange('telefonos', index, e.target.value)}
-                        placeholder="+51 987 654 321"
-                        className="w-full h-10 pl-10 pr-4 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                      />
-                    </div>
-                    {formData.telefonos.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeArrayField('telefonos', index)}
-                        className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                
-                <button
-                  type="button"
-                  onClick={() => addArrayField('telefonos')}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate('/configuracion')}
                 >
-                  + Agregar teléfono
-                </button>
-              </div>
-            </div>
+                  Cancelar
+                </Button>
 
-            {/* Emails */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Correos Electrónicos
-              </label>
-              <div className="space-y-2">
-                {formData.correosElectronicos.map((email, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <div className="relative flex-1">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => handleArrayFieldChange('correosElectronicos', index, e.target.value)}
-                        placeholder="contacto@miempresa.com"
-                        className="w-full h-10 pl-10 pr-4 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                      />
-                    </div>
-                    {formData.correosElectronicos.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeArrayField('correosElectronicos', index)}
-                        className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                
-                <button
-                  type="button"
-                  onClick={() => addArrayField('correosElectronicos')}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+                <Button
+                  variant="primary"
+                  type="submit"
+                  disabled={!isFormValid || isLoading}
+                  icon={isLoading ? <Loader2 className="animate-spin" /> : undefined}
                 >
-                  + Agregar correo
-                </button>
+                  {isLoading ? 'Guardando...' : company?.id ? 'Guardar Cambios' : 'Crear Empresa'}
+                </Button>
               </div>
             </div>
-          </div>
-        </ConfigurationCard>
+          </form>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
-          {/* Form Status Indicator */}
-          <div className="flex items-center gap-3">
-            {isFormValid && hasChanges && (
-              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 animate-in slide-in-from-left duration-300">
-                <CheckCircle2 className="w-5 h-5" />
-                <span className="text-sm font-medium">
-                  {company?.id ? 'Listo para guardar cambios' : 'Formulario completo y listo para guardar'}
-                </span>
-              </div>
-            )}
-            {company?.id && !hasChanges && (
-              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                <CheckCircle2 className="w-5 h-5" />
-                <span className="text-sm font-medium">Sin cambios pendientes</span>
-              </div>
-            )}
-            {!isFormValid && formData.ruc.length === 11 && !rucValidation?.isValid && !company?.id && (
-              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                <Shield className="w-5 h-5" />
-                <span className="text-sm font-medium">Valida el RUC para continuar</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/configuracion')}
-              className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="submit"
-              disabled={!isFormValid || isLoading}
-              className={`
-                px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2
-                ${isFormValid && !isLoading
-                  ? 'text-white shadow-lg hover:shadow-xl hover:scale-105'
-                  : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                }
-              `}
-              style={isFormValid && !isLoading ? { backgroundColor: '#1478D4' } : {}}
-              onMouseEnter={isFormValid && !isLoading ? (e) => e.currentTarget.style.backgroundColor = '#1068C4' : undefined}
-              onMouseLeave={isFormValid && !isLoading ? (e) => e.currentTarget.style.backgroundColor = '#1478D4' : undefined}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Guardando...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Guardar Configuración</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* Production Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showProductionModal}
-        onClose={() => setShowProductionModal(false)}
-        onConfirm={confirmProductionChange}
-        title="⚠️ Cambiar a Ambiente de Producción"
-        message="Esta es una acción IRREVERSIBLE. Al activar producción:
+          {/* Production Confirmation Modal */}
+          <ConfirmationModal
+            isOpen={showProductionModal}
+            onClose={() => setShowProductionModal(false)}
+            onConfirm={confirmProductionChange}
+            title="⚠️ Cambiar a Ambiente de Producción"
+            message={`Esta es una acción IRREVERSIBLE. Al activar producción:
 
 • Se eliminarán todos los documentos de prueba
 • Necesitarás un Certificado Digital válido
 • Los documentos tendrán validez legal ante SUNAT
 • NO podrás volver al ambiente de pruebas
 
-¿Estás seguro de continuar?"
-        type="warning"
-        confirmText="Sí, Activar Producción"
-        cancelText="No, Mantener en Prueba"
-      />
+¿Estás seguro de continuar?`}
+            type="warning"
+            confirmText="Sí, Activar Producción"
+            cancelText="No, Mantener en Prueba"
+          />
+        </div>
+      </div>
     </div>
   );
-}
+};

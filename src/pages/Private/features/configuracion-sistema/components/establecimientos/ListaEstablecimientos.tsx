@@ -1,6 +1,7 @@
 // src/features/configuration/components/establecimientos/EstablecimientosList.tsx
 import { useState } from 'react';
 import { Search, Filter, Plus } from 'lucide-react';
+import { Select, Input, Button } from '@/contasis';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { EstablecimientoCard } from './TarjetaEstablecimiento';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
@@ -35,18 +36,18 @@ export function EstablecimientosList({
   const filteredEstablecimientos = Establecimientos
     .filter(Establecimiento => {
       const matchesSearch = Establecimiento.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           Establecimiento.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           Establecimiento.address.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = filterStatus === 'all' || 
-                           (filterStatus === 'enabled' && Establecimiento.isActive) ||
-                           (filterStatus === 'disabled' && !Establecimiento.isActive);
-      
+        Establecimiento.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        Establecimiento.address.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus = filterStatus === 'all' ||
+        (filterStatus === 'enabled' && Establecimiento.isActive) ||
+        (filterStatus === 'disabled' && !Establecimiento.isActive);
+
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
       let comparison = 0;
-      
+
       switch (sortBy) {
         case 'name':
           comparison = a.name.localeCompare(b.name);
@@ -58,7 +59,7 @@ export function EstablecimientosList({
           comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
       }
-      
+
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
@@ -85,7 +86,7 @@ export function EstablecimientosList({
           <div className="flex-1 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
           <div className="w-48 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
         </div>
-        
+
         {/* Loading skeleton for cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
@@ -135,14 +136,13 @@ export function EstablecimientosList({
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <input
+          <div className="flex-1 max-w-md">
+            <Input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por nombre, código o dirección..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              leftIcon={<Search />}
             />
             {searchTerm && (
               <button
@@ -153,19 +153,22 @@ export function EstablecimientosList({
               </button>
             )}
           </div>
-          
+
           {/* Status Filter */}
           <div className="relative">
-            <Filter className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <select
+            <Filter className="absolute left-3 top-3 w-5 h-5 text-gray-400 z-10" />
+            <Select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-              className="pl-10 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white min-w-48"
-            >
-              <option value="all">Todos los estados</option>
-              <option value="enabled">Solo habilitados</option>
-              <option value="disabled">Solo inhabilitados</option>
-            </select>
+              size="medium"
+              containerClassName="min-w-48"
+              className="pl-10"
+              options={[
+                { value: 'all', label: 'Todos los estados' },
+                { value: 'enabled', label: 'Solo habilitados' },
+                { value: 'disabled', label: 'Solo inhabilitados' }
+              ]}
+            />
           </div>
         </div>
 
@@ -175,35 +178,33 @@ export function EstablecimientosList({
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                viewMode === 'grid'
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'grid'
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               Tarjetas
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                viewMode === 'table'
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${viewMode === 'table'
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               Tabla
             </button>
           </div>
 
           {/* Create Button */}
-          <button
+          <Button
             onClick={onCreate}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            variant="primary"
+            icon={<Plus />}
           >
-            <Plus className="w-5 h-5" />
             <span className="hidden sm:inline">Nuevo Establecimiento</span>
             <span className="sm:hidden">Nuevo</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -223,25 +224,26 @@ export function EstablecimientosList({
             </button>
           )}
         </span>
-        
+
         {/* Sort Dropdown */}
         <div className="relative">
-          <select
+          <Select
             value={`${sortBy}-${sortOrder}`}
             onChange={(e) => {
               const [field, order] = e.target.value.split('-');
               setSortBy(field as 'name' | 'code' | 'created');
               setSortOrder(order as 'asc' | 'desc');
             }}
-            className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="name-asc">Nombre A-Z</option>
-            <option value="name-desc">Nombre Z-A</option>
-            <option value="code-asc">Código A-Z</option>
-            <option value="code-desc">Código Z-A</option>
-            <option value="created-desc">Más reciente</option>
-            <option value="created-asc">Más antiguo</option>
-          </select>
+            size="small"
+            options={[
+              { value: 'name-asc', label: 'Nombre A-Z' },
+              { value: 'name-desc', label: 'Nombre Z-A' },
+              { value: 'code-asc', label: 'Código A-Z' },
+              { value: 'code-desc', label: 'Código Z-A' },
+              { value: 'created-desc', label: 'Más reciente' },
+              { value: 'created-asc', label: 'Más antiguo' }
+            ]}
+          />
         </div>
       </div>
 
@@ -250,7 +252,7 @@ export function EstablecimientosList({
         <div className="text-center py-12">
           <div className="text-6xl mb-4">🏪</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm || filterStatus !== 'all' 
+            {searchTerm || filterStatus !== 'all'
               ? 'No se encontraron establecimientos'
               : 'No hay establecimientos'
             }
@@ -262,12 +264,12 @@ export function EstablecimientosList({
             }
           </p>
           {(!searchTerm && filterStatus === 'all') && (
-            <button
+            <Button
               onClick={onCreate}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="primary"
             >
               Crear Primer Establecimiento
-            </button>
+            </Button>
           )}
         </div>
       ) : viewMode === 'grid' ? (
@@ -290,13 +292,13 @@ export function EstablecimientosList({
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th 
+                  <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('code')}
                   >
                     Código {sortBy === 'code' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th 
+                  <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('name')}
                   >
@@ -339,7 +341,7 @@ export function EstablecimientosList({
                         >
                           {Establecimiento.isActive ? '🟢' : '🔴'}
                         </button>
-                        
+
                         <button
                           onClick={() => onEdit(Establecimiento)}
                           className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -347,7 +349,7 @@ export function EstablecimientosList({
                         >
                           ✏️
                         </button>
-                        
+
                         <button
                           onClick={() => onDelete(Establecimiento)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import type { CartItem, Currency, PaymentTotals, DiscountInput, DiscountMode } from '../../../models/comprobante.types';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
 import { CheckSquare, Square, SlidersHorizontal, Percent } from 'lucide-react';
+import { RadioButton } from '@/contasis';
 import { usePriceBook } from '../hooks/usePriceBook';
 import type { PriceColumnOption } from '../hooks/usePriceBook';
 import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
@@ -1129,28 +1130,22 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                     Aplica un ajuste porcentual a todas las líneas del comprobante.
                   </p>
                   <div className="space-y-3 text-sm text-gray-700">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="price-mode"
-                        className="text-violet-600 focus:ring-violet-500"
-                        checked={globalPricing.mode === 'none'}
-                        onChange={() => handleGlobalModeChange('none')}
-                      />
-                      Sin regla global
-                    </label>
+                    <RadioButton
+                      name="price-mode"
+                      value="none"
+                      checked={globalPricing.mode === 'none'}
+                      onChange={() => handleGlobalModeChange('none')}
+                      label="Sin regla global"
+                    />
                     <div className="space-y-1">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="price-mode"
-                          className="text-violet-600 focus:ring-violet-500"
-                          checked={globalPricing.mode === 'discount'}
-                          onChange={() => handleGlobalModeChange('discount')}
-                          disabled={!hasGlobalDiscountRule}
-                        />
-                        Descuento global (%)
-                      </label>
+                      <RadioButton
+                        name="price-mode"
+                        value="discount"
+                        checked={globalPricing.mode === 'discount'}
+                        onChange={() => handleGlobalModeChange('discount')}
+                        disabled={!hasGlobalDiscountRule}
+                        label="Descuento global (%)"
+                      />
                       <div className="pl-6">
                         <span className="inline-flex items-center justify-center rounded-md border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-700 bg-gray-50">
                           {discountValueLabel}
@@ -1158,17 +1153,14 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="price-mode"
-                          className="text-violet-600 focus:ring-violet-500"
-                          checked={globalPricing.mode === 'increase'}
-                          onChange={() => handleGlobalModeChange('increase')}
-                          disabled={!hasGlobalIncreaseRule}
-                        />
-                        Aumento global (%)
-                      </label>
+                      <RadioButton
+                        name="price-mode"
+                        value="increase"
+                        checked={globalPricing.mode === 'increase'}
+                        onChange={() => handleGlobalModeChange('increase')}
+                        disabled={!hasGlobalIncreaseRule}
+                        label="Aumento global (%)"
+                      />
                       <div className="pl-6">
                         <span className="inline-flex items-center justify-center rounded-md border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-700 bg-gray-50">
                           {increaseValueLabel}

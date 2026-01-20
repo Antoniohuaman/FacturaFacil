@@ -31,6 +31,7 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Button } from '@/contasis';
 import type { ColumnConfig } from '../types/columnConfig';
 
 interface DatePreset {
@@ -458,21 +459,21 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
           {/* Botones de Acción - Solo en Lista Comprobantes */}
           {!hideActionButtons && (
             <>
-              <button
+              <Button
                 onClick={() => navigate('/comprobantes/emision?tipo=factura')}
-                className="h-[44px] px-5 border-2 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 rounded-[12px] font-semibold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                aria-label="Crear nueva factura"
+                variant="secondary"
+                size="md"
               >
                 Nueva factura
-              </button>
+              </Button>
 
-              <button
+              <Button
                 onClick={() => navigate('/comprobantes/emision?tipo=boleta')}
-                className="h-[44px] px-5 bg-blue-600 dark:bg-blue-600 text-white rounded-[12px] font-semibold text-sm hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm"
-                aria-label="Crear nueva boleta"
+                variant="primary"
+                size="md"
               >
                 Nueva boleta
-              </button>
+              </Button>
 
               <button
                 title="Más tipos de comprobantes"

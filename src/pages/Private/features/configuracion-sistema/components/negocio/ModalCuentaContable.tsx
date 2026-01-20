@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import { Input, Button } from '@/contasis';
 import type { AccountingAccount, AccountingAccountInput } from '../../modelos/AccountingAccount';
 
 interface AccountingAccountModalProps {
@@ -86,43 +87,36 @@ export function AccountingAccountModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700" htmlFor="accounting-code">
-              Código de cuenta contable
-            </label>
-            <input
-              id="accounting-code"
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              value={code}
-              onChange={(event) => setCode(sanitizeDigits(event.target.value))}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ej. 1041"
-              maxLength={12}
-            />
-            <p className="text-xs text-gray-500">Solo dígitos, máximo 12. Se conserva el formato exacto (sin perder ceros).</p>
-            {(fieldError || errorMessage) && (
-              <p className="text-xs text-red-600">{fieldError || errorMessage}</p>
-            )}
-          </div>
+          <Input
+            id="accounting-code"
+            label="Código de cuenta contable"
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={code}
+            onChange={(event) => setCode(sanitizeDigits(event.target.value))}
+            placeholder="Ej. 1041"
+            maxLength={12}
+            helperText="Solo dígitos, máximo 12. Se conserva el formato exacto (sin perder ceros)."
+            error={fieldError || errorMessage || undefined}
+          />
 
           <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
-            <button
+            <Button
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              variant="secondary"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
+              variant="primary"
             >
               {submitting ? 'Guardando…' : 'Guardar'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

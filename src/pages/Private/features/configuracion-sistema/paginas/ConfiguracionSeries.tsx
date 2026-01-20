@@ -1,7 +1,7 @@
 // src/features/configuration/pages/SeriesConfiguration.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   ArrowLeft,
   Plus,
   Edit3,
@@ -24,6 +24,7 @@ import { StatusIndicator } from '../components/comunes/IndicadorEstado';
 import { ConfirmationModal } from '../components/comunes/ModalConfirmacion';
 import type { Series, DocumentType } from '../modelos/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
+import { Button, Select, Input, Checkbox, RadioButton } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -84,10 +85,10 @@ const getDocumentTypeForVoucherType = (voucherType: VoucherType): DocumentType =
     'QUOTE': 'COT',       // Cotización (custom)
     'COLLECTION': 'RC'    // Recibo de Cobranza
   };
-  
+
   const sunatCode = documentTypeMap[voucherType];
   const documentType = SUNAT_DOCUMENT_TYPES.find(dt => dt.code === sunatCode);
-  
+
   if (!documentType) {
     // Fallback for non-SUNAT documents (Nota de Venta y Cotización)
     return {
@@ -117,7 +118,7 @@ const getDocumentTypeForVoucherType = (voucherType: VoucherType): DocumentType =
       isActive: true,
     } as DocumentType;
   }
-  
+
   return documentType;
 };
 
@@ -125,7 +126,7 @@ const getDocumentTypeForVoucherType = (voucherType: VoucherType): DocumentType =
 const fixSeriesDocumentType = (series: Series): Series => {
   const seriesCode = series.series;
   let correctType: VoucherType;
-  
+
   if (seriesCode.startsWith('B')) {
     correctType = 'RECEIPT';
   } else if (seriesCode.startsWith('F')) {
@@ -142,19 +143,19 @@ const fixSeriesDocumentType = (series: Series): Series => {
       return series; // Don't modify if we can't determine
     }
   }
-  
+
   const correctDocumentType = getDocumentTypeForVoucherType(correctType);
-  
+
   // Only update if the current documentType is incorrect
-  if (series.documentType.category !== correctType && 
-      (correctType === 'RECEIPT' || correctType === 'INVOICE' || 
-       (series.documentType.category === 'OTHER' && (correctType === 'SALE_NOTE' || correctType === 'QUOTE')))) {
+  if (series.documentType.category !== correctType &&
+    (correctType === 'RECEIPT' || correctType === 'INVOICE' ||
+      (series.documentType.category === 'OTHER' && (correctType === 'SALE_NOTE' || correctType === 'QUOTE')))) {
     return {
       ...series,
       documentType: correctDocumentType
     };
   }
-  
+
   return series;
 };
 
@@ -172,10 +173,10 @@ export function SeriesConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
   const { series: rawSeries, Establecimientos } = state;
-  
+
   // Fix existing series with incorrect documentType before processing
   const fixedSeries = rawSeries.map(fixSeriesDocumentType);
-  
+
   // Transform Series to ExtendedSeries for component compatibility
   const series: ExtendedSeries[] = fixedSeries.map(s => {
     // Map documentType.category to VoucherType
@@ -208,7 +209,7 @@ export function SeriesConfiguration() {
       default:
         voucherType = 'INVOICE'; // Default fallback
     }
-    
+
     return {
       ...s,
       type: voucherType,
@@ -219,7 +220,7 @@ export function SeriesConfiguration() {
       hasUsage: s.correlativeNumber > (s.configuration?.startNumber || 1)
     };
   });
-  
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<SeriesFormData>({
@@ -288,26 +289,26 @@ export function SeriesConfiguration() {
       // For SALE_NOTE and QUOTE, return empty string - user enters freely
       return '';
     }
-    
+
     // For INVOICE and RECEIPT, suggest next series with appropriate prefix
     const prefix = type === 'INVOICE' ? 'F' : type === 'RECEIPT' ? 'B' : 'C';
-    
+
     const existingNumbers = series
       .filter(s => s.type === type && s.series.startsWith(prefix))
       .map(s => {
         const numberPart = s.series.substring(1);
         return parseInt(numberPart) || 0;
       });
-    
+
     const nextNumber = Math.max(0, ...existingNumbers) + 1;
-    
+
     // If it's the first series of this type, suggest nice default codes
     if (existingNumbers.length === 0) {
       if (type === 'INVOICE') return 'FE01';
       if (type === 'RECEIPT') return 'BE01';
       return 'CE01';
     }
-    
+
     // Otherwise, suggest with F/B + padded number
     return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
   };
@@ -352,7 +353,7 @@ export function SeriesConfiguration() {
     if (formData.series.length !== 4) {
       return `La serie debe tener exactamente 4 caracteres`;
     }
-    
+
     // Rule 2: Validate format based on type
     if (formData.type === 'INVOICE') {
       if (!formData.series.startsWith('F')) {
@@ -386,24 +387,24 @@ export function SeriesConfiguration() {
         return `La serie debe contener solo letras (A-Z) o números (0-9)`;
       }
     }
-    
+
     // Rule 3: Check for duplicates
-    const isDuplicate = series.some(s => 
-      s.series === formData.series && 
-      s.EstablecimientoId === formData.EstablecimientoId && 
+    const isDuplicate = series.some(s =>
+      s.series === formData.series &&
+      s.EstablecimientoId === formData.EstablecimientoId &&
       s.id !== editingId
     );
-    
+
     if (isDuplicate) {
       return 'Ya existe una serie con este código en el establecimiento seleccionado';
     }
-    
+
     return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validationError = validateSeries();
     if (validationError) {
       alert(validationError);
@@ -420,19 +421,19 @@ export function SeriesConfiguration() {
         updatedSeries = rawSeries.map(s =>
           s.id === editingId
             ? {
-                ...s,
-                series: formData.series,
-                correlativeNumber: formData.currentNumber,
-                configuration: {
-                  ...s.configuration,
-                  startNumber: formData.initialNumber,
-                  minimumDigits: 8,
-                  autoIncrement: true,
-                  allowManualNumber: false,
-                  requireAuthorization: false
-                },
-                updatedAt: new Date()
-              }
+              ...s,
+              series: formData.series,
+              correlativeNumber: formData.currentNumber,
+              configuration: {
+                ...s.configuration,
+                startNumber: formData.initialNumber,
+                minimumDigits: 8,
+                autoIncrement: true,
+                allowManualNumber: false,
+                requireAuthorization: false
+              },
+              updatedAt: new Date()
+            }
             : s
         );
       } else {
@@ -473,7 +474,7 @@ export function SeriesConfiguration() {
           createdBy: 'system',
           isActive: formData.isActive
         };
-        
+
         updatedSeries = [...rawSeries, newSeries];
       }
 
@@ -512,7 +513,7 @@ export function SeriesConfiguration() {
 
   const handleAdjustCorrelative = async (seriesItem: ExtendedSeries) => {
     const newNumber = parseInt(newCorrelative);
-    
+
     if (newNumber <= seriesItem.currentNumber) {
       alert('El nuevo correlativo debe ser mayor al actual');
       return;
@@ -526,7 +527,7 @@ export function SeriesConfiguration() {
           ? { ...s, correlativeNumber: newNumber, updatedAt: new Date() }
           : s
       );
-      
+
       dispatch({ type: 'SET_SERIES', payload: updatedSeries });
       setAdjustModal({ show: false });
       setNewCorrelative('');
@@ -552,12 +553,13 @@ export function SeriesConfiguration() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <button 
+          <Button
             onClick={() => navigate('/configuracion')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
+            variant="tertiary"
+            size="sm"
+            icon={<ArrowLeft className="w-5 h-5" />}
+            iconOnly
+          />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               Series de Comprobantes
@@ -568,14 +570,15 @@ export function SeriesConfiguration() {
           </div>
         </div>
 
-        <button
+        <Button
           onClick={handleNew}
-          className="flex items-center space-x-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
-          style={{ backgroundColor: '#1478D4' }}
+          variant="primary"
+          size="md"
+          icon={<Plus className="w-5 h-5" />}
+          iconPosition="left"
         >
-          <Plus className="w-5 h-5" />
-          <span>Nueva Serie</span>
-        </button>
+          Nueva Serie
+        </Button>
       </div>
 
       {/* Stats */}
@@ -583,7 +586,7 @@ export function SeriesConfiguration() {
         {Object.entries(voucherTypeConfig).map(([type, config]) => {
           const count = series.filter(s => s.type === type).length;
           const Icon = config.icon;
-          
+
           return (
             <div key={type} className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="flex items-center justify-between">
@@ -615,30 +618,26 @@ export function SeriesConfiguration() {
                   {Object.entries(voucherTypeConfig).map(([type, config]) => {
                     const Icon = config.icon;
                     const isSelected = formData.type === type;
-                    
+
                     return (
                       <div key={type}>
-                        <input
-                          type="radio"
-                          id={type}
-                          name="type"
-                          checked={isSelected}
-                          onChange={() => handleTypeChange(type as VoucherType)}
-                          className="sr-only"
-                        />
                         <label
-                          htmlFor={type}
                           className={`
                             flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all
-                            ${isSelected 
-                              ? `border-${config.color}-500 bg-${config.color}-50` 
+                            ${isSelected
+                              ? `border-${config.color}-500 bg-${config.color}-50`
                               : 'border-gray-200 hover:border-gray-300'
                             }
                           `}
                         >
-                          <Icon className={`w-5 h-5 mr-3 ${
-                            isSelected ? `text-${config.color}-600` : 'text-gray-500'
-                          }`} />
+                          <RadioButton
+                            name="type"
+                            value={type}
+                            checked={isSelected}
+                            onChange={() => handleTypeChange(type as VoucherType)}
+                          />
+                          <Icon className={`w-5 h-5 mx-2 ${isSelected ? `text-${config.color}-600` : 'text-gray-500'
+                            }`} />
                           <div>
                             <div className="font-medium text-gray-900">{config.label}</div>
                             <div className="text-xs text-gray-500">{config.description}</div>
@@ -650,104 +649,78 @@ export function SeriesConfiguration() {
                 </div>
               </div>
 
-              {/* Establecimiento */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Establecimiento *
-                </label>
-                <select
-                  value={formData.EstablecimientoId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, EstablecimientoId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Seleccionar establecimiento</option>
-                  {Establecimientos.map(est => (
-                    <option key={est.id} value={est.id}>
-                      {est.code} - {est.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Establecimiento"
+                value={formData.EstablecimientoId}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, EstablecimientoId: e.target.value }))}
+                options={[
+                  { value: '', label: 'Seleccionar establecimiento' },
+                  ...Establecimientos.map(est => ({
+                    value: est.id,
+                    label: `${est.code} - ${est.name}`
+                  }))
+                ]}
+                required
+              />
             </div>
 
             {/* Series Code */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Código de Serie *
-              </label>
-              <input
-                type="text"
-                value={formData.series}
-                onChange={(e) => setFormData(prev => ({ ...prev, series: e.target.value.toUpperCase() }))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder={
-                  formData.type === 'INVOICE' ? 'FE01' :
-                  formData.type === 'RECEIPT' ? 'BE01' : 
-                  formData.type === 'QUOTE' ? 'CT01' :
-                  'NV01'
-                }
-                maxLength={4}
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.type === 'INVOICE' ? 'Factura: Debe empezar con "F" + 3 caracteres (ej: FE01, FT01, F001)' :
-                 formData.type === 'RECEIPT' ? 'Boleta: Debe empezar con "B" + 3 caracteres (ej: BE01, BL01, B001)' :
-                 formData.type === 'QUOTE' ? 'Cotización: Serie libre de 4 caracteres (ej: CT01, C001, COT1)' :
-                 'Nota de Venta: Serie libre de 4 caracteres (ej: NV01, NT01, NOTA)'
-                }
-              </p>
-            </div>
+            <Input
+              label="Código de Serie"
+              type="text"
+              value={formData.series}
+              onChange={(e) => setFormData(prev => ({ ...prev, series: e.target.value.toUpperCase() }))}
+              placeholder={
+                formData.type === 'INVOICE' ? 'FE01' :
+                  formData.type === 'RECEIPT' ? 'BE01' :
+                    formData.type === 'QUOTE' ? 'CT01' :
+                      'NV01'
+              }
+              maxLength={4}
+              helperText={
+                formData.type === 'INVOICE' ? 'Factura: Debe empezar con "F" + 3 caracteres (ej: FE01, FT01, F001)' :
+                  formData.type === 'RECEIPT' ? 'Boleta: Debe empezar con "B" + 3 caracteres (ej: BE01, BL01, B001)' :
+                    formData.type === 'QUOTE' ? 'Cotización: Serie libre de 4 caracteres (ej: CT01, C001, COT1)' :
+                      'Nota de Venta: Serie libre de 4 caracteres (ej: NV01, NT01, NOTA)'
+              }
+              required
+            />
 
             {/* Correlative Numbers */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Número Inicial *
-                </label>
-                <input
-                  type="number"
-                  value={formData.initialNumber}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    initialNumber: parseInt(e.target.value) || 1,
-                    currentNumber: parseInt(e.target.value) || 1
-                  }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min="1"
-                  max="99999999"
-                  required
-                />
-              </div>
+              <Input
+                label="Número Inicial"
+                type="number"
+                value={formData.initialNumber}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  initialNumber: parseInt(e.target.value) || 1,
+                  currentNumber: parseInt(e.target.value) || 1
+                }))}
+                min={1}
+                max={99999999}
+                required
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Número Actual
-                </label>
-                <input
-                  type="number"
-                  value={formData.currentNumber}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
-                  readOnly
-                />
-              </div>
+              <Input
+                label="Número Actual"
+                type="number"
+                value={formData.currentNumber}
+                readOnly
+              />
             </div>
 
             {/* Settings */}
             <div className="space-y-4 pt-4 border-t border-gray-200">
               <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Serie por Defecto</label>
-                  <p className="text-sm text-gray-500">
-                    Se selecciona automáticamente para este tipo de comprobante
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
+                <Checkbox
+                  label="Serie por Defecto"
                   checked={formData.isDefault}
                   onChange={(e) => setFormData(prev => ({ ...prev, isDefault: e.target.checked }))}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
+                <p className="text-sm text-gray-500">
+                  Se selecciona automáticamente para este tipo de comprobante
+                </p>
               </div>
 
               <div className="flex items-center justify-between">
@@ -757,40 +730,38 @@ export function SeriesConfiguration() {
                     Solo las series activas pueden usarse para emitir documentos
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                  className="flex items-center space-x-2"
-                >
-                  {formData.isActive ? (
-                    <ToggleRight className="w-8 h-8 text-green-600" />
-                  ) : (
-                    <ToggleLeft className="w-8 h-8 text-gray-400" />
-                  )}
+                <div className="flex items-center space-x-3">
+                  <Button
+                    variant="tertiary"
+                    iconOnly
+                    icon={formData.isActive ? <ToggleRight /> : <ToggleLeft />}
+                    onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
+                    className={formData.isActive ? 'text-green-600' : 'text-gray-400'}
+                  />
                   <span className={`font-medium ${formData.isActive ? 'text-green-600' : 'text-gray-500'}`}>
                     {formData.isActive ? 'Activa' : 'Inactiva'}
                   </span>
-                </button>
+                </div>
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-              <button
-                type="button"
+              <Button
                 onClick={resetForm}
-                className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                variant="secondary"
+                size="md"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={isLoading}
-                className="px-6 py-3 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                style={!isLoading ? { backgroundColor: '#1478D4' } : {}}
+                variant="primary"
+                size="md"
               >
                 {isLoading ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear Serie'}
-              </button>
+              </Button>
             </div>
           </form>
         </ConfigurationCard>
@@ -803,27 +774,31 @@ export function SeriesConfiguration() {
       >
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <select
+          <Select
             value={filterType}
-            onChange={(e) => setFilterType(e.target.value as VoucherType | 'ALL')}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los tipos</option>
-            {Object.entries(voucherTypeConfig).map(([type, config]) => (
-              <option key={type} value={type}>{config.label}</option>
-            ))}
-          </select>
-          
-          <select
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterType(e.target.value as VoucherType | 'ALL')}
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los tipos' },
+              ...Object.entries(voucherTypeConfig).map(([type, config]) => ({
+                value: type,
+                label: config.label
+              }))
+            ]}
+          />
+
+          <Select
             value={filterEstablecimiento}
-            onChange={(e) => setFilterEstablecimiento(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los establecimientos</option>
-            {Establecimientos.map(est => (
-              <option key={est.id} value={est.id}>{est.code} - {est.name}</option>
-            ))}
-          </select>
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterEstablecimiento(e.target.value)}
+            size="medium"
+            options={[
+              { value: 'ALL', label: 'Todos los establecimientos' },
+              ...Establecimientos.map(est => ({
+                value: est.id,
+                label: `${est.code} - ${est.name}`
+              }))
+            ]}
+          />
         </div>
 
         {/* Series by Establecimiento */}
@@ -846,27 +821,28 @@ export function SeriesConfiguration() {
                 <div className="text-center py-8 bg-gray-50 rounded-lg">
                   <FileText className="mx-auto w-8 h-8 text-gray-400" />
                   <p className="mt-2 text-gray-500">No hay series configuradas para este establecimiento</p>
-                  <button
+                  <Button
                     onClick={handleNew}
-                    className="mt-3 text-blue-600 hover:text-blue-700 font-medium"
+                    variant="tertiary"
+                    size="sm"
                   >
                     Crear primera serie
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {EstablecimientoSeries.map((seriesItem) => {
                     const config = voucherTypeConfig[seriesItem.type];
                     const Icon = config.icon;
-                    
+
                     return (
                       <div
                         key={seriesItem.id}
                         data-focus={`configuracion:series:${seriesItem.id}`}
                         className={`
                           border-2 rounded-lg p-4 transition-all
-                          ${seriesItem.isActive 
-                            ? 'border-gray-200 bg-white' 
+                          ${seriesItem.isActive
+                            ? 'border-gray-200 bg-white'
                             : 'border-gray-100 bg-gray-50'
                           }
                         `}
@@ -901,34 +877,34 @@ export function SeriesConfiguration() {
                           </div>
 
                           <div className="flex items-center space-x-1">
-                            <button
+                            <Button
+                              variant="tertiary"
+                              iconOnly
+                              size="sm"
+                              icon={seriesItem.isActive ? <ToggleRight /> : <ToggleLeft />}
                               onClick={() => toggleSeriesStatus(seriesItem)}
-                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                               title={seriesItem.isActive ? 'Desactivar' : 'Activar'}
-                            >
-                              {seriesItem.isActive ? (
-                                <ToggleRight className="w-5 h-5 text-green-600" />
-                              ) : (
-                                <ToggleLeft className="w-5 h-5 text-gray-400" />
-                              )}
-                            </button>
-                            
-                            <button
+                              className={seriesItem.isActive ? 'text-green-600' : 'text-gray-400'}
+                            />
+
+                            <Button
                               onClick={() => handleEdit(seriesItem)}
-                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                              variant="tertiary"
+                              size="sm"
+                              icon={<Edit3 />}
+                              iconOnly
                               title="Editar"
-                            >
-                              <Edit3 className="w-5 h-5" />
-                            </button>
-                            
-                            <button
+                            />
+
+                            <Button
                               onClick={() => setDeleteModal({ show: true, series: seriesItem })}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              variant="tertiary"
+                              size="sm"
+                              icon={<Trash2 className="text-red-600" />}
+                              iconOnly
                               title="Eliminar"
                               disabled={seriesItem.isDefault || seriesItem.hasUsage}
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
+                            />
                           </div>
                         </div>
 
@@ -939,16 +915,17 @@ export function SeriesConfiguration() {
                               <span className="font-mono font-semibold text-gray-900">
                                 {seriesItem.currentNumber.toString().padStart(8, '0')}
                               </span>
-                              <button
+                              <Button
                                 onClick={() => {
                                   setAdjustModal({ show: true, series: seriesItem });
                                   setNewCorrelative(seriesItem.currentNumber.toString());
                                 }}
-                                className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                variant="tertiary"
+                                size="sm"
+                                icon={<Hash className="w-4 h-4" />}
+                                iconOnly
                                 title="Ajustar correlativo"
-                              >
-                                <Hash className="w-4 h-4" />
-                              </button>
+                              />
                             </div>
                           </div>
 
@@ -1006,7 +983,7 @@ export function SeriesConfiguration() {
                 Ajustar Correlativo
               </h4>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-gray-600 mb-2">
@@ -1016,24 +993,17 @@ export function SeriesConfiguration() {
                   Correlativo actual: <span className="font-mono font-semibold">{adjustModal.series.currentNumber}</span>
                 </p>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nuevo Correlativo
-                </label>
-                <input
-                  type="number"
-                  value={newCorrelative}
-                  onChange={(e) => setNewCorrelative(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min={adjustModal.series.currentNumber + 1}
-                  max="99999999"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Debe ser mayor a {adjustModal.series.currentNumber}
-                </p>
-              </div>
-              
+
+              <Input
+                label="Nuevo Correlativo"
+                type="number"
+                value={newCorrelative}
+                onChange={(e) => setNewCorrelative(e.target.value)}
+                min={adjustModal.series.currentNumber + 1}
+                max={99999999}
+                helperText={`Debe ser mayor a ${adjustModal.series.currentNumber}`}
+              />
+
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <div className="flex items-start space-x-2">
                   <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -1042,25 +1012,26 @@ export function SeriesConfiguration() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-end space-x-3">
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => {
                     setAdjustModal({ show: false });
                     setNewCorrelative('');
                   }}
-                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
                   onClick={() => handleAdjustCorrelative(adjustModal.series!)}
                   disabled={isLoading || parseInt(newCorrelative) <= adjustModal.series!.currentNumber}
                   className="px-4 py-2 text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={!(isLoading || parseInt(newCorrelative) <= adjustModal.series!.currentNumber) ? { backgroundColor: '#1478D4' } : {}}
                 >
                   {isLoading ? 'Ajustando...' : 'Ajustar'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

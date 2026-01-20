@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Banknote, Eye, EyeOff, Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { Button } from '@/contasis';
 import { currencyManager, type CurrencyDescriptor } from '@/shared/currency';
 import { useBankAccounts } from '../../hooks/useCuentasBancarias';
 import { useAccountingAccounts } from '../../hooks/useCuentasContables';
@@ -131,13 +132,15 @@ export function BankAccountsSection() {
             Registra las cuentas que usarás para pagos y conciliaciones.
           </p>
           <div className="mt-4">
-            <button
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Plus />}
+              iconPosition="left"
               onClick={openCreate}
-              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
             >
-              <Plus className="h-4 w-4" />
               Agregar cuenta bancaria
-            </button>
+            </Button>
           </div>
         </div>
       );
@@ -257,13 +260,15 @@ export function BankAccountsSection() {
         </div>
         <div className="flex items-center gap-2">
           <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">{accounts.length} cuentas</div>
-          <button
+          <Button
+            variant="primary"
+            size="md"
+            icon={<Plus />}
+            iconPosition="left"
             onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
           >
-            <Plus className="h-4 w-4" />
             Agregar cuenta bancaria
-          </button>
+          </Button>
         </div>
       </div>
 
