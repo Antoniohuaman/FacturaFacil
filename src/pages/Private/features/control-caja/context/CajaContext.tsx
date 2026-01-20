@@ -248,7 +248,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       setActiveCajaMediosPago(activeCaja.mediosPagoPermitidos);
       // Margen de descuadre se interpreta como porcentaje (0-50).
       // Margen permitido en monto = (margenDescuadre / 100) * saldoEsperado.
-      setMargenDescuadre(activeCaja.margenDescuadre);
+      setMargenDescuadre(activeCaja.margenDescuadreCaja);
     } catch (error) {
       if (error instanceof NoActiveCajaError) {
         console.error('[Caja] No se pudo resolver caja activa:', error.message);

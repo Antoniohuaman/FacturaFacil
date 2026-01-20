@@ -29,7 +29,7 @@ export function resolveActiveCajaForEstablecimiento(
   }
 
   const scoped = cajas.filter(
-    (caja) => caja.empresaId === empresaId && caja.establecimientoId === establecimientoId && caja.habilitada,
+    (caja) => caja.empresaId === empresaId && caja.establecimientoIdCaja === establecimientoId && caja.habilitadaCaja,
   );
 
   if (scoped.length === 0) {

@@ -66,8 +66,8 @@ export interface Movimiento {
 }
 
 export interface ConfiguracionCaja {
-  margenDescuadre: number;
-  limiteCaja: number;
-  mediosPago: string[];
-  usuariosAutorizados: string[];
+  margenDescuadreCaja: number;
+  limiteMaximoCaja: number;
+  mediosPagoPermitidos: string[];
+  usuariosAutorizadosCaja: string[];
 }

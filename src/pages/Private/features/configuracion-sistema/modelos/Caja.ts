@@ -6,50 +6,50 @@ export type MedioPago = SharedMedioPago;
 
 export interface DispositivosCaja {
   impresoraPorDefecto?: string;
-  pos?: string;
+  posDispositivo?: string;
 }
 
 export interface Caja {
   id: string;
   empresaId: string;
-  establecimientoId: string;
-  nombre: string;
-  monedaId: string; // References Currency.id from the system's currency catalog
+  establecimientoIdCaja: string;
+  nombreCaja: string;
+  monedaIdCaja: string; // References Currency.id from the system's currency catalog
   mediosPagoPermitidos: MedioPago[];
-  limiteMaximo: number; // Maximum cash limit (≥ 0)
-  margenDescuadre: number; // Allowed discrepancy margin (0-50)
-  habilitada: boolean;
-  usuariosAutorizados: string[]; // User/Role IDs authorized to operate this cash register
-  dispositivos?: DispositivosCaja;
-  observaciones?: string;
-  tieneHistorial: boolean; // Indicates if this caja has been used in any session (prevents deletion)
+  limiteMaximoCaja: number; // Maximum cash limit (≥ 0)
+  margenDescuadreCaja: number; // Allowed discrepancy margin (0-50)
+  habilitadaCaja: boolean;
+  usuariosAutorizadosCaja: string[]; // User/Role IDs authorized to operate this cash register
+  dispositivosCaja?: DispositivosCaja;
+  observacionesCaja?: string;
+  tieneHistorialMovimientos: boolean; // Indicates if this caja has been used in any session (prevents deletion)
   tieneSesionAbierta: boolean; // Indicates if this caja has an active session (prevents editing/deletion)
-  createdAt: Date;
-  updatedAt: Date;
+  creadoElCaja: Date;
+  actualizadoElCaja: Date;
 }
 
 export interface CreateCajaInput {
-  establecimientoId: string; // Required: Establecimiento where this caja will be created
-  nombre: string;
-  monedaId: string;
+  establecimientoIdCaja: string; // Required: Establecimiento where this caja will be created
+  nombreCaja: string;
+  monedaIdCaja: string;
   mediosPagoPermitidos: MedioPago[];
-  limiteMaximo: number;
-  margenDescuadre: number;
-  habilitada: boolean;
-  usuariosAutorizados?: string[];
-  dispositivos?: DispositivosCaja;
-  observaciones?: string;
+  limiteMaximoCaja: number;
+  margenDescuadreCaja: number;
+  habilitadaCaja: boolean;
+  usuariosAutorizadosCaja?: string[];
+  dispositivosCaja?: DispositivosCaja;
+  observacionesCaja?: string;
 }
 
 export interface UpdateCajaInput extends Partial<CreateCajaInput> {
   id?: string; // Optional since id is passed as parameter to update method
-  tieneHistorial?: boolean; // Can be updated when operations occur
+  tieneHistorialMovimientos?: boolean; // Can be updated when operations occur
   tieneSesionAbierta?: boolean; // Can be updated when sessions open/close
 }
 
 // Validation constraints
 export const CAJA_CONSTRAINTS = {
-  NOMBRE_MAX_LENGTH: 60,
+  maxLongitudNombreCaja: 60,
   MARGEN_MIN: 0,
   MARGEN_MAX: 50,
   LIMITE_MIN: 0

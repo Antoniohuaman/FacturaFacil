@@ -3,6 +3,17 @@
 
 import type { Caja, CreateCajaInput, UpdateCajaInput } from '../modelos/Caja';
 
+const coerceDateValue = (value: unknown): Date | undefined => {
+  if (value instanceof Date) {
+    return new Date(value);
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const candidate = new Date(value);
+    return Number.isNaN(candidate.getTime()) ? undefined : candidate;
+  }
+  return undefined;
+};
+
 /**
  * Interface defining all data operations for Cajas
  * Allows easy swapping between LocalStorage, REST API, or other implementations
@@ -35,7 +46,7 @@ export interface ICajasDataSource {
 
   /**
    * Delete a caja
-   * Validation: Only allows deletion if habilitada === false AND tieneHistorial === false
+   * Validation: Only allows deletion if habilitadaCaja === false AND tieneHistorialMovimientos === false
    * @throws Error if caja is enabled or has history
    */
   delete(empresaId: string, establecimientoId: string, id: string): Promise<void>;
@@ -59,13 +70,29 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
     if (!data) return [];
     
     try {
-      const parsed = JSON.parse(data) as Caja[];
-      // Convert date strings back to Date objects
-      return parsed.map(caja => ({
-        ...caja,
-        createdAt: new Date(caja.createdAt),
-        updatedAt: new Date(caja.updatedAt)
-      }));
+      type LegacyCajaRecord = Partial<Caja> & Record<string, unknown>;
+      const parsed = JSON.parse(data) as LegacyCajaRecord[];
+      return parsed.map((caja) => {
+        const createdAt = coerceDateValue(caja.creadoElCaja) ?? coerceDateValue(caja.createdAt) ?? new Date();
+        const updatedAt = coerceDateValue(caja.actualizadoElCaja) ?? coerceDateValue(caja.updatedAt) ?? new Date();
+
+        return {
+          ...caja,
+          establecimientoIdCaja: caja.establecimientoIdCaja ?? caja.establecimientoId ?? '',
+          nombreCaja: caja.nombreCaja ?? caja.nombre ?? '',
+          monedaIdCaja: caja.monedaIdCaja ?? caja.monedaId ?? '',
+          limiteMaximoCaja: caja.limiteMaximoCaja ?? caja.limiteMaximo ?? 0,
+          margenDescuadreCaja: caja.margenDescuadreCaja ?? caja.margenDescuadre ?? 0,
+          habilitadaCaja: caja.habilitadaCaja ?? caja.habilitada ?? false,
+          usuariosAutorizadosCaja: caja.usuariosAutorizadosCaja ?? caja.usuariosAutorizados ?? [],
+          dispositivosCaja: caja.dispositivosCaja ?? caja.dispositivos,
+          observacionesCaja: caja.observacionesCaja ?? caja.observaciones,
+          tieneHistorialMovimientos: caja.tieneHistorialMovimientos ?? caja.tieneHistorial ?? false,
+          tieneSesionAbierta: caja.tieneSesionAbierta ?? false,
+          creadoElCaja: createdAt,
+          actualizadoElCaja: updatedAt
+        } as Caja;
+      });
     } catch {
       return [];
     }
@@ -92,26 +119,26 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
     await new Promise(resolve => setTimeout(resolve, 100));
     
     // Use establecimientoId from input (user can select different Establecimiento)
-    const targetEstablecimientoId = input.establecimientoId;
+    const targetEstablecimientoId = input.establecimientoIdCaja;
     const cajas = this.loadData(empresaId, targetEstablecimientoId);
     
     const newCaja: Caja = {
       id: crypto.randomUUID(),
       empresaId,
-      establecimientoId: targetEstablecimientoId,
-      nombre: input.nombre,
-      monedaId: input.monedaId,
+      establecimientoIdCaja: targetEstablecimientoId,
+      nombreCaja: input.nombreCaja,
+      monedaIdCaja: input.monedaIdCaja,
       mediosPagoPermitidos: input.mediosPagoPermitidos,
-      limiteMaximo: input.limiteMaximo,
-      margenDescuadre: input.margenDescuadre,
-      habilitada: input.habilitada,
-      usuariosAutorizados: input.usuariosAutorizados || [],
-      dispositivos: input.dispositivos,
-      observaciones: input.observaciones,
-      tieneHistorial: false, // New cajas start with no history
+      limiteMaximoCaja: input.limiteMaximoCaja,
+      margenDescuadreCaja: input.margenDescuadreCaja,
+      habilitadaCaja: input.habilitadaCaja,
+      usuariosAutorizadosCaja: input.usuariosAutorizadosCaja || [],
+      dispositivosCaja: input.dispositivosCaja,
+      observacionesCaja: input.observacionesCaja,
+      tieneHistorialMovimientos: false, // New cajas start with no history
       tieneSesionAbierta: false, // New cajas start with no active session
-      createdAt: new Date(),
-      updatedAt: new Date()
+      creadoElCaja: new Date(),
+      actualizadoElCaja: new Date()
     };
 
     cajas.push(newCaja);
@@ -135,8 +162,8 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
       ...input,
       id, // Ensure ID doesn't change
       empresaId, // Ensure scope doesn't change
-      establecimientoId,
-      updatedAt: new Date()
+      establecimientoIdCaja: establecimientoId,
+      actualizadoElCaja: new Date()
     };
 
     cajas[index] = updatedCaja;
@@ -157,8 +184,8 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
 
     cajas[index] = {
       ...cajas[index],
-      habilitada: !cajas[index].habilitada,
-      updatedAt: new Date()
+      habilitadaCaja: !cajas[index].habilitadaCaja,
+      actualizadoElCaja: new Date()
     };
 
     this.saveData(empresaId, establecimientoId, cajas);
@@ -177,11 +204,11 @@ export class LocalStorageCajasDataSource implements ICajasDataSource {
     }
 
     // Validation rule: can only delete if disabled AND has no history
-    if (caja.habilitada) {
+    if (caja.habilitadaCaja) {
       throw new Error('La caja está habilitada.');
     }
 
-    if (caja.tieneHistorial) {
+    if (caja.tieneHistorialMovimientos) {
       throw new Error('La caja ya tiene historial de uso.');
     }
 

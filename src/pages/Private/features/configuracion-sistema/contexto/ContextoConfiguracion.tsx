@@ -61,6 +61,17 @@ type StorageKey = string | null;
 
 const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefined);
 
+type PersistedCaja = Caja | (Partial<Caja> & Record<string, unknown>);
+
+type RawTenantConfig = {
+  version: 1;
+  company: Company | null;
+  Establecimientos: Establecimiento[];
+  almacenes: Almacen[];
+  cajas: PersistedCaja[];
+  salesPreferences: SalesPreferences;
+};
+
 type PersistedTenantConfig = {
   version: 1;
   company: Company | null;
@@ -125,13 +136,45 @@ const reviveAlmacen = (almacen: Almacen): Almacen => ({
   isMainalmacen: almacen.esAlmacenPrincipal,
 });
 
-const reviveCaja = (caja: Caja): Caja => ({
-  ...caja,
-  createdAt: reviveDate(caja.createdAt) ?? new Date(),
-  updatedAt: reviveDate(caja.updatedAt) ?? new Date(),
-});
+const reviveCaja = (caja: PersistedCaja): Caja => {
+  const legacy = caja as Partial<Caja> & Record<string, unknown>;
+  return {
+    ...caja,
+    establecimientoIdCaja: (caja.establecimientoIdCaja as string) ?? (legacy.establecimientoId as string) ?? '',
+    nombreCaja: (caja.nombreCaja as string) ?? (legacy.nombre as string) ?? '',
+    monedaIdCaja: (caja.monedaIdCaja as string) ?? (legacy.monedaId as string) ?? '',
+    limiteMaximoCaja: (caja.limiteMaximoCaja as number) ?? (legacy.limiteMaximo as number) ?? 0,
+    margenDescuadreCaja: (caja.margenDescuadreCaja as number) ?? (legacy.margenDescuadre as number) ?? 0,
+    habilitadaCaja:
+      typeof caja.habilitadaCaja === 'boolean'
+        ? caja.habilitadaCaja
+        : typeof legacy.habilitada === 'boolean'
+          ? (legacy.habilitada as boolean)
+          : false,
+    usuariosAutorizadosCaja:
+      (caja.usuariosAutorizadosCaja as string[] | undefined)
+        ?? (legacy.usuariosAutorizados as string[] | undefined)
+        ?? [],
+    dispositivosCaja:
+      (caja.dispositivosCaja as Caja['dispositivosCaja'])
+        ?? (legacy.dispositivos as Caja['dispositivosCaja']),
+    observacionesCaja: (caja.observacionesCaja as string | undefined) ?? (legacy.observaciones as string | undefined),
+    tieneHistorialMovimientos:
+      typeof caja.tieneHistorialMovimientos === 'boolean'
+        ? caja.tieneHistorialMovimientos
+        : typeof legacy.tieneHistorial === 'boolean'
+          ? (legacy.tieneHistorial as boolean)
+          : false,
+    creadoElCaja:
+      reviveDate((caja.creadoElCaja as Date | string | undefined) ?? (legacy.createdAt as Date | string | undefined))
+        ?? new Date(),
+    actualizadoElCaja:
+      reviveDate((caja.actualizadoElCaja as Date | string | undefined) ?? (legacy.updatedAt as Date | string | undefined))
+        ?? new Date(),
+  } as Caja;
+};
 
-const reviveTenantConfig = (config: PersistedTenantConfig): PersistedTenantConfig => ({
+const reviveTenantConfig = (config: RawTenantConfig): PersistedTenantConfig => ({
   ...config,
   company: config.company ? reviveCompany(config.company) : null,
   Establecimientos: config.Establecimientos.map(reviveEstablecimiento),
@@ -139,7 +182,7 @@ const reviveTenantConfig = (config: PersistedTenantConfig): PersistedTenantConfi
   cajas: config.cajas.map(reviveCaja),
 });
 
-const isPersistedTenantConfig = (value: unknown): value is PersistedTenantConfig => {
+const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
   if (!isRecord(value)) return false;
   if (value.version !== 1) return false;
 
@@ -237,7 +280,7 @@ const loadTenantConfigFromStorage = (storageKey: StorageKey): PersistedTenantCon
     }
 
     const parsed: unknown = JSON.parse(raw);
-    if (!isPersistedTenantConfig(parsed)) {
+    if (!isRawTenantConfig(parsed)) {
       return null;
     }
 

@@ -39,39 +39,39 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: 
   return (
     <div className={`
       bg-white dark:bg-gray-800 rounded-lg border 
-      ${caja.habilitada ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700'}
+      ${caja.habilitadaCaja ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700'}
       p-6 hover:shadow-md transition-shadow duration-200
     `}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {caja.nombre}
+              {caja.nombreCaja}
             </h3>
             <span className={`
               px-2.5 py-0.5 rounded-full text-xs font-medium
-              ${caja.habilitada 
+              ${caja.habilitadaCaja 
                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}
             `}>
-              {caja.habilitada ? 'Habilitada' : 'Inhabilitada'}
+              {caja.habilitadaCaja ? 'Habilitada' : 'Inhabilitada'}
             </span>
           </div>
           
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <div className="flex items-center gap-2">
               <span className="font-medium">Moneda:</span>
-              <span>{currency?.code || caja.monedaId}</span>
+              <span>{currency?.code || caja.monedaIdCaja}</span>
             </div>
             
             <div className="flex items-center gap-2">
               <span className="font-medium">Límite Máximo:</span>
-              <span>{currency?.symbol || 'S/'} {caja.limiteMaximo.toFixed(2)}</span>
+              <span>{currency?.symbol || 'S/'} {caja.limiteMaximoCaja.toFixed(2)}</span>
             </div>
 
             <div className="flex items-center gap-2">
               <span className="font-medium">Margen de Descuadre:</span>
-              <span>{caja.margenDescuadre}%</span>
+              <span>{caja.margenDescuadreCaja}%</span>
             </div>
           </div>
         </div>
@@ -89,13 +89,13 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: 
             onClick={handleToggleEnabled}
             className={`
               p-2 rounded-lg transition-colors
-              ${caja.habilitada
+              ${caja.habilitadaCaja
                 ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30'
                 : 'text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30'}
             `}
-            title={caja.habilitada ? 'Inhabilitar' : 'Habilitar'}
+            title={caja.habilitadaCaja ? 'Inhabilitar' : 'Habilitar'}
           >
-            {caja.habilitada ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+            {caja.habilitadaCaja ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
           </button>
 
           <button
@@ -147,20 +147,20 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: 
       <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
         <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>
-            Actualizado: {formatDate(caja.updatedAt)}
+            Actualizado: {formatDate(caja.actualizadoElCaja)}
           </span>
-          {caja.usuariosAutorizados.length > 0 && (
+          {caja.usuariosAutorizadosCaja.length > 0 && (
             <span>
-              {caja.usuariosAutorizados.length} usuario(s) autorizado(s)
+              {caja.usuariosAutorizadosCaja.length} usuario(s) autorizado(s)
             </span>
           )}
         </div>
       </div>
 
-      {caja.observaciones && (
+      {caja.observacionesCaja && (
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
           <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-            {caja.observaciones}
+            {caja.observacionesCaja}
           </p>
         </div>
       )}
@@ -168,7 +168,7 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: 
       {/* Ver Turnos Link */}
       <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
         <Link
-          to={`/caja/sesiones?cajaId=${caja.id}&establecimientoId=${caja.establecimientoId}`}
+          to={`/caja/sesiones?cajaId=${caja.id}&establecimientoId=${caja.establecimientoIdCaja}`}
           className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
         >
           <Clock className="w-4 h-4" />

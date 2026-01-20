@@ -101,10 +101,10 @@ async function ensureDefaultOperationalSetup({
   try {
     const storedCajas = await cajasDataSource.list(empresaId, establecimientoId);
     existingDefaultCaja = storedCajas.find((caja) => {
-      if (caja.empresaId !== empresaId || caja.establecimientoId !== establecimientoId) {
+      if (caja.empresaId !== empresaId || caja.establecimientoIdCaja !== establecimientoId) {
         return false;
       }
-      return caja.nombre.trim().toLowerCase() === 'caja 1';
+      return caja.nombreCaja.trim().toLowerCase() === 'caja 1';
     });
   } catch {
     existingDefaultCaja = undefined;
@@ -112,10 +112,10 @@ async function ensureDefaultOperationalSetup({
 
   if (!existingDefaultCaja) {
     existingDefaultCaja = configState.cajas.find((caja) => {
-      if (caja.empresaId !== empresaId || caja.establecimientoId !== establecimientoId) {
+      if (caja.empresaId !== empresaId || caja.establecimientoIdCaja !== establecimientoId) {
         return false;
       }
-      return caja.nombre.trim().toLowerCase() === 'caja 1';
+      return caja.nombreCaja.trim().toLowerCase() === 'caja 1';
     });
   }
 
@@ -124,12 +124,12 @@ async function ensureDefaultOperationalSetup({
       return;
     }
 
-    if (existingDefaultCaja.usuariosAutorizados.includes(userId)) {
+    if (existingDefaultCaja.usuariosAutorizadosCaja.includes(userId)) {
       return;
     }
 
     const updated = await cajasDataSource.update(empresaId, establecimientoId, existingDefaultCaja.id, {
-      usuariosAutorizados: [...existingDefaultCaja.usuariosAutorizados, userId],
+      usuariosAutorizadosCaja: [...existingDefaultCaja.usuariosAutorizadosCaja, userId],
     });
 
     dispatch({ type: 'UPDATE_CAJA', payload: updated });
@@ -139,14 +139,14 @@ async function ensureDefaultOperationalSetup({
   const mediosPagoPermitidos = [...MEDIOS_PAGO_DISPONIBLES];
 
   const createInput: CreateCajaInput = {
-    establecimientoId,
-    nombre: 'Caja 1',
-    monedaId,
+    establecimientoIdCaja: establecimientoId,
+    nombreCaja: 'Caja 1',
+    monedaIdCaja: monedaId,
     mediosPagoPermitidos,
-    limiteMaximo: CAJA_CONSTRAINTS.LIMITE_MIN,
-    margenDescuadre: CAJA_CONSTRAINTS.MARGEN_MIN,
-    habilitada: true,
-    usuariosAutorizados: userId ? [userId] : [],
+    limiteMaximoCaja: CAJA_CONSTRAINTS.LIMITE_MIN,
+    margenDescuadreCaja: CAJA_CONSTRAINTS.MARGEN_MIN,
+    habilitadaCaja: true,
+    usuariosAutorizadosCaja: userId ? [userId] : [],
   };
 
   const nuevaCaja = await cajasDataSource.create(empresaId, establecimientoId, createInput);

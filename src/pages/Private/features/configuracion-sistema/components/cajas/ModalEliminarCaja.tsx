@@ -13,9 +13,9 @@ export function DeleteCajaModal({ isOpen, caja, onConfirm, onCancel }: DeleteCaj
   if (!isOpen || !caja) return null;
 
   // Validation checks
-  const canDelete = !caja.habilitada && !caja.tieneHistorial && !caja.tieneSesionAbierta;
-  const isEnabled = caja.habilitada;
-  const hasHistory = caja.tieneHistorial;
+  const canDelete = !caja.habilitadaCaja && !caja.tieneHistorialMovimientos && !caja.tieneSesionAbierta;
+  const isEnabled = caja.habilitadaCaja;
+  const hasHistory = caja.tieneHistorialMovimientos;
   const hasOpenSession = caja.tieneSesionAbierta;
 
   return (
@@ -48,7 +48,7 @@ export function DeleteCajaModal({ isOpen, caja, onConfirm, onCancel }: DeleteCaj
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                Eliminar Caja: {caja.nombre}
+                Eliminar Caja: {caja.nombreCaja}
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                 Solo puedes eliminar una caja inhabilitada y sin historial de uso. 

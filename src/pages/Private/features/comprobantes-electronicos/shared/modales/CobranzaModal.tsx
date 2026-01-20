@@ -273,17 +273,17 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   );
   const [collectionSeriesId, setCollectionSeriesId] = useState('');
 
-  const cajaOptions = useMemo(() => cajas.filter((caja) => caja.habilitada), [cajas]);
+  const cajaOptions = useMemo(() => cajas.filter((caja) => caja.habilitadaCaja), [cajas]);
 
   const cajaAbierta = useMemo(() => {
     if (!aperturaActual) return undefined;
     return cajas.find((caja) => caja.id === aperturaActual.cajaId);
   }, [aperturaActual, cajas]);
 
-  const cajaAbiertaNombre = cajaAbierta?.nombre ?? null;
+  const cajaAbiertaNombre = cajaAbierta?.nombreCaja ?? null;
 
   const defaultCajaDestino = useMemo(
-    () => (cajaAbierta && cajaAbierta.habilitada ? cajaAbierta : cajaOptions[0] ?? null),
+    () => (cajaAbierta && cajaAbierta.habilitadaCaja ? cajaAbierta : cajaOptions[0] ?? null),
     [cajaAbierta, cajaOptions],
   );
 
@@ -828,7 +828,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     if (!isOpen) {
       return;
     }
-    if (cajaAbierta && cajaAbierta.habilitada) {
+    if (cajaAbierta && cajaAbierta.habilitadaCaja) {
       setCajaDestinoId(cajaAbierta.id);
     }
   }, [cajaAbierta, isOpen]);
@@ -997,7 +997,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       const resolvedCajaDestinoLabel = (() => {
         if (enforcedMode !== 'contado') return undefined;
         const found = cajas.find((caja) => caja.id === resolvedCajaDestinoId);
-        return found?.nombre ?? undefined;
+        return found?.nombreCaja ?? undefined;
       })();
 
       const payload: PaymentCollectionPayload = {
@@ -1304,7 +1304,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               >
                                 {cajaOptions.map((option) => (
                                   <option key={option.id} value={option.id}>
-                                    {option.nombre}
+                                    {option.nombreCaja}
                                   </option>
                                 ))}
                               </select>

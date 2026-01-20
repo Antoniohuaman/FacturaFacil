@@ -24,7 +24,6 @@ export function CajaFormPage() {
   const establecimientoId = session?.currentEstablecimientoId || '';
   
   const {
-    cajas,
     getCaja,
     createCaja,
     updateCaja,
@@ -41,10 +40,6 @@ export function CajaFormPage() {
       navigate('/configuracion/cajas');
     }
   }, [isEditing, loading, currentCaja, navigate]);
-
-  const existingNames = cajas
-    .filter(c => c.id !== id)
-    .map(c => c.nombre.trim().toLowerCase());
 
   const handleSubmit = async (data: CreateCajaInput | UpdateCajaInput) => {
     setSubmitError(null);
@@ -148,16 +143,16 @@ export function CajaFormPage() {
           <CajaForm
             initialData={currentCaja ? {
               id: currentCaja.id,
-              establecimientoId: currentCaja.establecimientoId,
-              nombre: currentCaja.nombre,
-              monedaId: currentCaja.monedaId,
+              establecimientoIdCaja: currentCaja.establecimientoIdCaja,
+              nombreCaja: currentCaja.nombreCaja,
+              monedaIdCaja: currentCaja.monedaIdCaja,
               mediosPagoPermitidos: currentCaja.mediosPagoPermitidos,
-              limiteMaximo: currentCaja.limiteMaximo,
-              margenDescuadre: currentCaja.margenDescuadre,
-              habilitada: currentCaja.habilitada,
-              usuariosAutorizados: currentCaja.usuariosAutorizados,
-              dispositivos: currentCaja.dispositivos,
-              observaciones: currentCaja.observaciones
+              limiteMaximoCaja: currentCaja.limiteMaximoCaja,
+              margenDescuadreCaja: currentCaja.margenDescuadreCaja,
+              habilitadaCaja: currentCaja.habilitadaCaja,
+              usuariosAutorizadosCaja: currentCaja.usuariosAutorizadosCaja,
+              dispositivosCaja: currentCaja.dispositivosCaja,
+              observacionesCaja: currentCaja.observacionesCaja
             } : undefined}
             currencies={state.currencies}
             Establecimientos={state.Establecimientos}
@@ -165,7 +160,6 @@ export function CajaFormPage() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isEditing={isEditing}
-            existingNames={existingNames}
           />
         </div>
       </div>

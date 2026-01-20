@@ -7,6 +7,7 @@ import type { Establecimiento } from '../../modelos/Establecimiento';
 import type { ValidationError } from '../../utilidades/validadorCajas';
 import { 
   validateNombre, 
+  validateNombreUniqueness,
   validateMoneda, 
   validateEstablecimiento,
   validateMediosPago,
@@ -26,7 +27,6 @@ interface CajaFormProps {
   onSubmit: (data: CreateCajaInput | UpdateCajaInput) => Promise<void>;
   onCancel: () => void;
   isEditing?: boolean;
-  existingNames?: string[]; // For uniqueness validation
 }
 
 export function CajaForm({
@@ -37,21 +37,20 @@ export function CajaForm({
   onSubmit,
   onCancel,
   isEditing = false,
-  existingNames = []
 }: CajaFormProps) {
   const { state } = useConfigurationContext();
   
   const [formData, setFormData] = useState<CreateCajaInput>({
-    establecimientoId: initialData?.establecimientoId || defaultEstablecimientoId,
-    nombre: initialData?.nombre || '',
-    monedaId: initialData?.monedaId || '',
+    establecimientoIdCaja: initialData?.establecimientoIdCaja || defaultEstablecimientoId,
+    nombreCaja: initialData?.nombreCaja || '',
+    monedaIdCaja: initialData?.monedaIdCaja || '',
     mediosPagoPermitidos: initialData?.mediosPagoPermitidos || [],
-    limiteMaximo: initialData?.limiteMaximo || 0,
-    margenDescuadre: initialData?.margenDescuadre || 0,
-    habilitada: initialData?.habilitada ?? true,
-    usuariosAutorizados: initialData?.usuariosAutorizados || [],
-    dispositivos: initialData?.dispositivos || {},
-    observaciones: initialData?.observaciones || ''
+    limiteMaximoCaja: initialData?.limiteMaximoCaja || 0,
+    margenDescuadreCaja: initialData?.margenDescuadreCaja || 0,
+    habilitadaCaja: initialData?.habilitadaCaja ?? true,
+    usuariosAutorizadosCaja: initialData?.usuariosAutorizadosCaja || [],
+    dispositivosCaja: initialData?.dispositivosCaja || {},
+    observacionesCaja: initialData?.observacionesCaja || ''
   });
 
   const [errors, setErrors] = useState<ValidationError[]>([]);
@@ -62,52 +61,55 @@ export function CajaForm({
   useEffect(() => {
     const newErrors: ValidationError[] = [];
 
-    if (touched.has('establecimientoId')) {
-      const establecimientoError = validateEstablecimiento(formData.establecimientoId);
+    if (touched.has('establecimientoIdCaja')) {
+      const establecimientoError = validateEstablecimiento(formData.establecimientoIdCaja);
       if (establecimientoError) newErrors.push(establecimientoError);
     }
 
-    if (touched.has('nombre')) {
-      const nombreError = validateNombre(formData.nombre);
+    if (touched.has('nombreCaja')) {
+      const nombreError = validateNombre(formData.nombreCaja);
       if (nombreError) newErrors.push(nombreError);
       
-      // Check uniqueness
-      if (formData.nombre && existingNames.includes(formData.nombre.trim().toLowerCase()) && !isEditing) {
-        newErrors.push({ field: 'nombre', message: 'Ya existe una caja con este nombre' });
-      }
+      const uniquenessError = validateNombreUniqueness(
+        formData.nombreCaja,
+        state.cajas,
+        formData.establecimientoIdCaja,
+        isEditing ? initialData?.id : undefined
+      );
+      if (uniquenessError) newErrors.push(uniquenessError);
     }
 
-    if (touched.has('monedaId')) {
-      const monedaError = validateMoneda(formData.monedaId);
+    if (touched.has('monedaIdCaja')) {
+      const monedaError = validateMoneda(formData.monedaIdCaja);
       if (monedaError) newErrors.push(monedaError);
     }
 
-    if (touched.has('mediosPagoPermitidos') || touched.has('habilitada')) {
-      const mediosError = validateMediosPago(formData.mediosPagoPermitidos, formData.habilitada);
+    if (touched.has('mediosPagoPermitidos') || touched.has('habilitadaCaja')) {
+      const mediosError = validateMediosPago(formData.mediosPagoPermitidos, formData.habilitadaCaja);
       if (mediosError) newErrors.push(mediosError);
     }
 
-    if (touched.has('limiteMaximo')) {
-      const limiteError = validateLimiteMaximo(formData.limiteMaximo);
+    if (touched.has('limiteMaximoCaja')) {
+      const limiteError = validateLimiteMaximo(formData.limiteMaximoCaja);
       if (limiteError) newErrors.push(limiteError);
     }
 
-    if (touched.has('margenDescuadre')) {
-      const margenError = validateMargenDescuadre(formData.margenDescuadre);
+    if (touched.has('margenDescuadreCaja')) {
+      const margenError = validateMargenDescuadre(formData.margenDescuadreCaja);
       if (margenError) newErrors.push(margenError);
     }
 
-    if (touched.has('usuariosAutorizados') || touched.has('habilitada')) {
+    if (touched.has('usuariosAutorizadosCaja') || touched.has('habilitadaCaja')) {
       const usuariosError = validateUsuariosAutorizados(
-        formData.usuariosAutorizados,
+        formData.usuariosAutorizadosCaja,
         state.users,
-        formData.habilitada
+        formData.habilitadaCaja
       );
       if (usuariosError) newErrors.push(usuariosError);
     }
 
     setErrors(newErrors);
-  }, [formData, touched, existingNames, isEditing, state.users]);
+  }, [formData, touched, initialData?.id, isEditing, state.cajas, state.users]);
 
   const handleBlur = (field: string) => {
     setTouched(prev => new Set(prev).add(field));
@@ -128,33 +130,41 @@ export function CajaForm({
 
     // Mark all fields as touched
     setTouched(new Set([
-      'establecimientoId',
-      'nombre', 
-      'monedaId', 
+      'establecimientoIdCaja',
+      'nombreCaja', 
+      'monedaIdCaja', 
       'mediosPagoPermitidos', 
-      'limiteMaximo', 
-      'margenDescuadre'
+      'limiteMaximoCaja', 
+      'margenDescuadreCaja'
     ]));
 
     // Validate all fields
     const allErrors: ValidationError[] = [];
     
-    const establecimientoError = validateEstablecimiento(formData.establecimientoId);
+    const establecimientoError = validateEstablecimiento(formData.establecimientoIdCaja);
     if (establecimientoError) allErrors.push(establecimientoError);
     
-    const nombreError = validateNombre(formData.nombre);
+    const nombreError = validateNombre(formData.nombreCaja);
     if (nombreError) allErrors.push(nombreError);
+
+    const uniquenessError = validateNombreUniqueness(
+      formData.nombreCaja,
+      state.cajas,
+      formData.establecimientoIdCaja,
+      isEditing ? initialData?.id : undefined
+    );
+    if (uniquenessError) allErrors.push(uniquenessError);
     
-    const monedaError = validateMoneda(formData.monedaId);
+    const monedaError = validateMoneda(formData.monedaIdCaja);
     if (monedaError) allErrors.push(monedaError);
     
-    const mediosError = validateMediosPago(formData.mediosPagoPermitidos, formData.habilitada);
+    const mediosError = validateMediosPago(formData.mediosPagoPermitidos, formData.habilitadaCaja);
     if (mediosError) allErrors.push(mediosError);
     
-    const limiteError = validateLimiteMaximo(formData.limiteMaximo);
+    const limiteError = validateLimiteMaximo(formData.limiteMaximoCaja);
     if (limiteError) allErrors.push(limiteError);
     
-    const margenError = validateMargenDescuadre(formData.margenDescuadre);
+    const margenError = validateMargenDescuadre(formData.margenDescuadreCaja);
     if (margenError) allErrors.push(margenError);
 
     if (allErrors.length > 0) {
@@ -185,20 +195,20 @@ export function CajaForm({
         </label>
         <select
           id="establecimiento"
-          value={formData.establecimientoId}
-          onChange={(e) => setFormData(prev => ({ ...prev, establecimientoId: e.target.value }))}
-          onBlur={() => handleBlur('establecimientoId')}
+          value={formData.establecimientoIdCaja}
+          onChange={(e) => setFormData(prev => ({ ...prev, establecimientoIdCaja: e.target.value }))}
+          onBlur={() => handleBlur('establecimientoIdCaja')}
           disabled={isEditing} // Cannot change Establecimiento when editing
           className={`
             w-full px-4 py-2 border rounded-lg
             focus:outline-none focus:ring-2 focus:ring-blue-500
             dark:bg-gray-800 dark:border-gray-600 dark:text-white
             disabled:bg-gray-100 disabled:cursor-not-allowed dark:disabled:bg-gray-700
-            ${fieldError('establecimientoId') ? 'border-red-500' : 'border-gray-300'}
+            ${fieldError('establecimientoIdCaja') ? 'border-red-500' : 'border-gray-300'}
           `}
           aria-label="Establecimiento"
-          aria-describedby={fieldError('establecimientoId') ? 'establecimiento-error' : undefined}
-          aria-invalid={!!fieldError('establecimientoId')}
+          aria-describedby={fieldError('establecimientoIdCaja') ? 'establecimiento-error' : undefined}
+          aria-invalid={!!fieldError('establecimientoIdCaja')}
         >
           <option value="">Seleccionar establecimiento</option>
           {Establecimientos.map((est) => (
@@ -207,9 +217,9 @@ export function CajaForm({
             </option>
           ))}
         </select>
-        {fieldError('establecimientoId') && (
+        {fieldError('establecimientoIdCaja') && (
           <span id="establecimiento-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
-            {fieldError('establecimientoId')}
+            {fieldError('establecimientoIdCaja')}
           </span>
         )}
         {isEditing && (
@@ -227,29 +237,29 @@ export function CajaForm({
         <input
           id="nombre"
           type="text"
-          value={formData.nombre}
-          onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
-          onBlur={() => handleBlur('nombre')}
-          maxLength={CAJA_CONSTRAINTS.NOMBRE_MAX_LENGTH}
+          value={formData.nombreCaja}
+          onChange={(e) => setFormData(prev => ({ ...prev, nombreCaja: e.target.value }))}
+          onBlur={() => handleBlur('nombreCaja')}
+          maxLength={CAJA_CONSTRAINTS.maxLongitudNombreCaja}
           className={`
             w-full px-4 py-2 border rounded-lg
             focus:outline-none focus:ring-2 focus:ring-blue-500
             dark:bg-gray-800 dark:border-gray-600 dark:text-white
-            ${fieldError('nombre') ? 'border-red-500' : 'border-gray-300'}
+            ${fieldError('nombreCaja') ? 'border-red-500' : 'border-gray-300'}
           `}
           placeholder="Ej: Caja Principal"
           aria-label="Nombre de caja"
-          aria-describedby={fieldError('nombre') ? 'nombre-error' : undefined}
-          aria-invalid={!!fieldError('nombre')}
+          aria-describedby={fieldError('nombreCaja') ? 'nombre-error' : undefined}
+          aria-invalid={!!fieldError('nombreCaja')}
         />
         <div className="flex justify-between mt-1">
-          {fieldError('nombre') && (
+          {fieldError('nombreCaja') && (
             <span id="nombre-error" className="text-sm text-red-600 dark:text-red-400">
-              {fieldError('nombre')}
+              {fieldError('nombreCaja')}
             </span>
           )}
           <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
-            {formData.nombre.length}/{CAJA_CONSTRAINTS.NOMBRE_MAX_LENGTH}
+            {formData.nombreCaja.length}/{CAJA_CONSTRAINTS.maxLongitudNombreCaja}
           </span>
         </div>
       </div>
@@ -261,18 +271,18 @@ export function CajaForm({
         </label>
         <select
           id="moneda"
-          value={formData.monedaId}
-          onChange={(e) => setFormData(prev => ({ ...prev, monedaId: e.target.value }))}
-          onBlur={() => handleBlur('monedaId')}
+          value={formData.monedaIdCaja}
+          onChange={(e) => setFormData(prev => ({ ...prev, monedaIdCaja: e.target.value }))}
+          onBlur={() => handleBlur('monedaIdCaja')}
           className={`
             w-full px-4 py-2 border rounded-lg
             focus:outline-none focus:ring-2 focus:ring-blue-500
             dark:bg-gray-800 dark:border-gray-600 dark:text-white
-            ${fieldError('monedaId') ? 'border-red-500' : 'border-gray-300'}
+            ${fieldError('monedaIdCaja') ? 'border-red-500' : 'border-gray-300'}
           `}
           aria-label="Moneda"
-          aria-describedby={fieldError('monedaId') ? 'moneda-error' : undefined}
-          aria-invalid={!!fieldError('monedaId')}
+          aria-describedby={fieldError('monedaIdCaja') ? 'moneda-error' : undefined}
+          aria-invalid={!!fieldError('monedaIdCaja')}
         >
           <option value="">Seleccionar moneda</option>
           {currencies.filter(c => c.isActive).map((currency) => (
@@ -281,9 +291,9 @@ export function CajaForm({
             </option>
           ))}
         </select>
-        {fieldError('monedaId') && (
+        {fieldError('monedaIdCaja') && (
           <span id="moneda-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
-            {fieldError('monedaId')}
+            {fieldError('monedaIdCaja')}
           </span>
         )}
       </div>
@@ -291,7 +301,7 @@ export function CajaForm({
       {/* Medios de Pago */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Medios de Pago Permitidos {formData.habilitada && <span className="text-red-500">*</span>}
+          Medios de Pago Permitidos {formData.habilitadaCaja && <span className="text-red-500">*</span>}
         </label>
         <div className="flex flex-wrap gap-2">
           {MEDIOS_PAGO_DISPONIBLES.map((medio) => (
@@ -330,22 +340,22 @@ export function CajaForm({
             type="number"
             min={CAJA_CONSTRAINTS.LIMITE_MIN}
             step="0.01"
-            value={formData.limiteMaximo}
-            onChange={(e) => setFormData(prev => ({ ...prev, limiteMaximo: parseFloat(e.target.value) || 0 }))}
-            onBlur={() => handleBlur('limiteMaximo')}
+            value={formData.limiteMaximoCaja}
+            onChange={(e) => setFormData(prev => ({ ...prev, limiteMaximoCaja: parseFloat(e.target.value) || 0 }))}
+            onBlur={() => handleBlur('limiteMaximoCaja')}
             className={`
               w-full px-4 py-2 border rounded-lg
               focus:outline-none focus:ring-2 focus:ring-blue-500
               dark:bg-gray-800 dark:border-gray-600 dark:text-white
-              ${fieldError('limiteMaximo') ? 'border-red-500' : 'border-gray-300'}
+              ${fieldError('limiteMaximoCaja') ? 'border-red-500' : 'border-gray-300'}
             `}
             aria-label="Límite máximo"
-            aria-describedby={fieldError('limiteMaximo') ? 'limite-error' : undefined}
-            aria-invalid={!!fieldError('limiteMaximo')}
+            aria-describedby={fieldError('limiteMaximoCaja') ? 'limite-error' : undefined}
+            aria-invalid={!!fieldError('limiteMaximoCaja')}
           />
-          {fieldError('limiteMaximo') && (
+          {fieldError('limiteMaximoCaja') && (
             <span id="limite-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
-              {fieldError('limiteMaximo')}
+              {fieldError('limiteMaximoCaja')}
             </span>
           )}
         </div>
@@ -360,22 +370,22 @@ export function CajaForm({
             min={CAJA_CONSTRAINTS.MARGEN_MIN}
             max={CAJA_CONSTRAINTS.MARGEN_MAX}
             step="0.1"
-            value={formData.margenDescuadre}
-            onChange={(e) => setFormData(prev => ({ ...prev, margenDescuadre: parseFloat(e.target.value) || 0 }))}
-            onBlur={() => handleBlur('margenDescuadre')}
+            value={formData.margenDescuadreCaja}
+            onChange={(e) => setFormData(prev => ({ ...prev, margenDescuadreCaja: parseFloat(e.target.value) || 0 }))}
+            onBlur={() => handleBlur('margenDescuadreCaja')}
             className={`
               w-full px-4 py-2 border rounded-lg
               focus:outline-none focus:ring-2 focus:ring-blue-500
               dark:bg-gray-800 dark:border-gray-600 dark:text-white
-              ${fieldError('margenDescuadre') ? 'border-red-500' : 'border-gray-300'}
+              ${fieldError('margenDescuadreCaja') ? 'border-red-500' : 'border-gray-300'}
             `}
             aria-label="Margen de descuadre"
-            aria-describedby={fieldError('margenDescuadre') ? 'margen-error' : undefined}
-            aria-invalid={!!fieldError('margenDescuadre')}
+            aria-describedby={fieldError('margenDescuadreCaja') ? 'margen-error' : undefined}
+            aria-invalid={!!fieldError('margenDescuadreCaja')}
           />
-          {fieldError('margenDescuadre') && (
+          {fieldError('margenDescuadreCaja') && (
             <span id="margen-error" className="text-sm text-red-600 dark:text-red-400 mt-1 block">
-              {fieldError('margenDescuadre')}
+              {fieldError('margenDescuadreCaja')}
             </span>
           )}
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -389,21 +399,21 @@ export function CajaForm({
         <button
           type="button"
           role="switch"
-          aria-checked={formData.habilitada}
+          aria-checked={formData.habilitadaCaja}
           onClick={() => {
-            setFormData(prev => ({ ...prev, habilitada: !prev.habilitada }));
-            setTouched(prev => new Set(prev).add('habilitada'));
+            setFormData(prev => ({ ...prev, habilitadaCaja: !prev.habilitadaCaja }));
+            setTouched(prev => new Set(prev).add('habilitadaCaja'));
           }}
           className={`
             relative inline-flex h-6 w-11 items-center rounded-full transition-colors
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-            ${formData.habilitada ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}
+            ${formData.habilitadaCaja ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}
           `}
         >
           <span
             className={`
               inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-              ${formData.habilitada ? 'translate-x-6' : 'translate-x-1'}
+              ${formData.habilitadaCaja ? 'translate-x-6' : 'translate-x-1'}
             `}
           />
         </button>
@@ -419,8 +429,8 @@ export function CajaForm({
         </label>
         <textarea
           id="observaciones"
-          value={formData.observaciones}
-          onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
+          value={formData.observacionesCaja}
+          onChange={(e) => setFormData(prev => ({ ...prev, observacionesCaja: e.target.value }))}
           rows={3}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           placeholder="Notas adicionales sobre esta caja..."
@@ -431,14 +441,14 @@ export function CajaForm({
       {/* Usuarios Autorizados */}
       <div>
         <UsuariosAutorizadosSelector
-          value={formData.usuariosAutorizados || []}
+          value={formData.usuariosAutorizadosCaja || []}
           onChange={(selectedIds) => {
-            setFormData(prev => ({ ...prev, usuariosAutorizados: selectedIds }));
-            setTouched(prev => new Set(prev).add('usuariosAutorizados'));
+            setFormData(prev => ({ ...prev, usuariosAutorizadosCaja: selectedIds }));
+            setTouched(prev => new Set(prev).add('usuariosAutorizadosCaja'));
           }}
           filterByCashPermission={true}
           disabled={isSubmitting}
-          error={getFieldError(errors, 'usuariosAutorizados')}
+          error={getFieldError(errors, 'usuariosAutorizadosCaja') || getFieldError(errors, 'usuariosAutorizados')}
         />
       </div>
 

@@ -194,14 +194,14 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
    * Get only enabled cajas
    */
   const getEnabledCajas = useCallback((): Caja[] => {
-    return cajas.filter(c => c.habilitada);
+    return cajas.filter(c => c.habilitadaCaja);
   }, [cajas]);
 
   /**
    * Get cajas by specific Establecimiento
    */
   const getCajasByEstablecimiento = useCallback((estId: string): Caja[] => {
-    return cajas.filter(c => c.establecimientoId === estId);
+    return cajas.filter(c => c.establecimientoIdCaja === estId);
   }, [cajas]);
 
   /**
@@ -228,8 +228,8 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
   const getCajasStats = useCallback(() => {
     return {
       total: cajas.length,
-      enabled: cajas.filter(c => c.habilitada).length,
-      disabled: cajas.filter(c => !c.habilitada).length
+      enabled: cajas.filter(c => c.habilitadaCaja).length,
+      disabled: cajas.filter(c => !c.habilitadaCaja).length
     };
   }, [cajas]);
 

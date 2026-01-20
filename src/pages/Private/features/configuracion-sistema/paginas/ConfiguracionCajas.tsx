@@ -52,22 +52,22 @@ export function CajasConfiguration() {
 
     // Filter by Establecimiento if not "all"
     if (filterEstablecimientoId && filterEstablecimientoId !== 'all') {
-      result = result.filter(caja => caja.establecimientoId === filterEstablecimientoId);
+      result = result.filter(caja => caja.establecimientoIdCaja === filterEstablecimientoId);
     }
 
     // Filter by search text
     if (searchText) {
       const search = searchText.toLowerCase();
       result = result.filter(caja => 
-        caja.nombre.toLowerCase().includes(search)
+        caja.nombreCaja.toLowerCase().includes(search)
       );
     }
 
     // Filter by status
     if (filterStatus === 'enabled') {
-      result = result.filter(caja => caja.habilitada);
+      result = result.filter(caja => caja.habilitadaCaja);
     } else if (filterStatus === 'disabled') {
-      result = result.filter(caja => !caja.habilitada);
+      result = result.filter(caja => !caja.habilitadaCaja);
     }
 
     return result;
@@ -79,8 +79,8 @@ export function CajasConfiguration() {
       const caja = cajas.find(c => c.id === id);
       if (caja) {
         success(
-          caja.habilitada ? 'Caja deshabilitada' : 'Caja habilitada',
-          `La caja "${caja.nombre}" ha sido ${caja.habilitada ? 'deshabilitada' : 'habilitada'} exitosamente.`
+          caja.habilitadaCaja ? 'Caja deshabilitada' : 'Caja habilitada',
+          `La caja "${caja.nombreCaja}" ha sido ${caja.habilitadaCaja ? 'deshabilitada' : 'habilitada'} exitosamente.`
         );
       }
     } catch (err) {
@@ -112,7 +112,7 @@ export function CajasConfiguration() {
       await deleteCaja(cajaToDelete.id);
       success(
         'Caja eliminada',
-        `La caja "${cajaToDelete.nombre}" ha sido eliminada exitosamente.`
+        `La caja "${cajaToDelete.nombreCaja}" ha sido eliminada exitosamente.`
       );
       setDeleteModalOpen(false);
       setCajaToDelete(null);
@@ -263,13 +263,13 @@ export function CajasConfiguration() {
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Habilitadas:</span>
                 <span className="ml-2 font-semibold text-green-600 dark:text-green-400">
-                  {filteredCajas.filter(c => c.habilitada).length}
+                  {filteredCajas.filter(c => c.habilitadaCaja).length}
                 </span>
               </div>
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Inhabilitadas:</span>
                 <span className="ml-2 font-semibold text-gray-600 dark:text-gray-400">
-                  {filteredCajas.filter(c => !c.habilitada).length}
+                  {filteredCajas.filter(c => !c.habilitadaCaja).length}
                 </span>
               </div>
             </div>
@@ -323,7 +323,7 @@ export function CajasConfiguration() {
         {!loading && filteredCajas.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCajas.map((caja) => {
-              const currency = state.currencies.find(c => c.id === caja.monedaId);
+              const currency = state.currencies.find(c => c.id === caja.monedaIdCaja);
               return (
                 <CajaCard
                   key={caja.id}
