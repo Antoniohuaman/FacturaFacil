@@ -258,14 +258,14 @@ export function TaxesSection({
                           <div>
                             <div className="font-medium text-gray-900">{tax.name}</div>
                             {tax.shortName && (
-                              <div className="text-xs text-gray-500">{tax.shortName}</div>
+                              <div className="text-gray-500">{tax.shortName}</div>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-2 align-middle text-gray-700">
-                        <div className="text-xs font-mono text-gray-500">{tax.sunatCode}</div>
-                        <div className="text-xs text-gray-600">{affectationLabel}</div>
+                        <div className="font-mono text-gray-500">{tax.sunatCode}</div>
+                        <div className="text-gray-600">{affectationLabel}</div>
                       </td>
                       <td className="px-4 py-2 align-middle text-right font-mono text-gray-900">
                         {rateLabel}
