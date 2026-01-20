@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Download, Printer, FileText, Receipt, Eye } from 'lucide-react';
+import { Button } from '@/contasis';
 import { formatMoney } from '@/shared/currency';
 import { PreviewDocument } from '../ui/PreviewDocument';
 import { PreviewTicket } from '../ui/PreviewTicket';
@@ -174,29 +175,32 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
               </div>
 
               <div className="flex items-center gap-3">
-                <button
+                <Button
+                  variant="secondary"
+                  size="md"
                   onClick={handleDownload}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200"
                 >
                   <Download className="h-4 w-4" />
                   Descargar
-                </button>
+                </Button>
 
-                <button
+                <Button
+                  variant="secondary"
+                  size="md"
                   onClick={handlePrint}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200"
                 >
                   <Printer className="h-4 w-4" />
                   Imprimir
-                </button>
+                </Button>
 
-                <button
+                <Button
+                  variant="primary"
+                  size="md"
                   onClick={handleCreateDocument}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 shadow-lg hover:shadow-xl"
                 >
                   <FileText className="h-4 w-4" />
                   Crear Comprobante
-                </button>
+                </Button>
               </div>
             </div>
           </div>

@@ -3,7 +3,7 @@
 // src/features/configuration/components/series/SeriesForm.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { X, FileText, Receipt, Clipboard, MessageSquare, Building2, Hash, AlertCircle, CheckCircle, Info, NotebookPen } from 'lucide-react';
-import { Input, Button } from '@/contasis';
+import { Input, Button, RadioButton } from '@/contasis';
 import type { Series } from '../../models/Series';
 import type { Establishment } from '../../models/Establishment';
 import { SettingsToggle } from '../common/SettingsToggle';
@@ -325,17 +325,7 @@ export function SeriesForm({
                 
                 return (
                   <div key={type}>
-                    <input
-                      type="radio"
-                      id={type}
-                      name="type"
-                      checked={isSelected}
-                      onChange={() => handleTypeChange(type as VoucherType)}
-                      className="sr-only"
-                      disabled={isLoading}
-                    />
                     <label
-                      htmlFor={type}
                       className={`
                         block p-4 rounded-lg border-2 cursor-pointer transition-all
                         ${isSelected 
@@ -346,6 +336,13 @@ export function SeriesForm({
                       `}
                     >
                       <div className="flex items-center space-x-3">
+                        <RadioButton
+                          name="type"
+                          value={type}
+                          checked={isSelected}
+                          onChange={() => handleTypeChange(type as VoucherType)}
+                          disabled={isLoading}
+                        />
                         <Icon className={`w-5 h-5 ${
                           isSelected ? `text-${config.color}-600` : 'text-gray-500'
                         }`} />

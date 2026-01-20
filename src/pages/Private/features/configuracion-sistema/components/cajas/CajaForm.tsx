@@ -1,6 +1,6 @@
 // CajaForm component - Create/Edit cash register form with inline validations
 import { useState, useEffect } from 'react';
-import { Button, Select, Input } from '@/contasis';
+import { Button, Select, Input, Textarea } from '@/contasis';
 import type { CreateCajaInput, UpdateCajaInput, MedioPago } from '../../models/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../../models/Caja';
 import type { Currency } from '../../models/Currency';
@@ -232,8 +232,10 @@ export function CajaForm({
         <Select
           label="Moneda"
           value={formData.monedaId}
-          onChange={(e) => setFormData(prev => ({ ...prev, monedaId: e.target.value }))}
-          onBlur={() => handleBlur('monedaId')}
+          onChange={(value) => {
+            setFormData(prev => ({ ...prev, monedaId: value }));
+            handleBlur('monedaId');
+          }}
           options={[
             { value: '', label: 'Seleccionar moneda' },
             ...currencies.filter(c => c.isActive).map((currency) => ({
@@ -337,17 +339,12 @@ export function CajaForm({
 
       {/* Observaciones */}
       <div>
-        <label htmlFor="observaciones" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Observaciones
-        </label>
-        <textarea
-          id="observaciones"
+        <Textarea
+          label="Observaciones"
           value={formData.observaciones}
           onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
           rows={3}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           placeholder="Notas adicionales sobre esta caja..."
-          aria-label="Observaciones"
         />
       </div>
 

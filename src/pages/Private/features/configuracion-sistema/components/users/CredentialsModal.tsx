@@ -146,20 +146,19 @@ ${establishmentsText || '  - Ninguno'}
                 {credentials.fullName.split(' ').map(n => n[0]).join('').substring(0, 2)}
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">{credentials.fullName}</h3>
-                <p className="text-xs text-gray-600 flex items-center space-x-1">
-                  <Mail className="w-3 h-3" />
-                  <span>{credentials.email}</span>
-                </p>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {credentials.fullName}
+                </h3>
+                <p className="text-sm text-gray-600">{credentials.email}</p>
               </div>
             </div>
 
             {/* Credentials */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               {/* Username */}
               <div className="bg-white rounded-lg p-3 border border-blue-200">
                 <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5 block">
-                  Nombre de Usuario
+                  Usuario
                 </label>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2 flex-1">
@@ -320,24 +319,25 @@ ${establishmentsText || '  - Ninguno'}
                     <span className="text-sm">Copiar Credenciales</span>
                   </>
                 )}
-              </button>
+              </Button>
 
-              <button
+              <Button
                 onClick={handleSendWhatsApp}
-                className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#25D366] text-white rounded-lg hover:bg-[#20BA5A] transition-colors font-medium shadow-lg shadow-green-500/30"
+                className="flex-1 bg-[#25D366] hover:bg-[#20BA5A] border-[#25D366] text-white rounded-lg transition-colors font-medium shadow-lg shadow-green-500/30"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span className="text-sm">Enviar por WhatsApp</span>
-              </button>
+              </Button>
             </div>
 
             {/* Close button */}
-            <button
+            <Button
+              variant="secondary"
               onClick={onClose}
-              className="w-full px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              className="w-full"
             >
               <span className="text-sm">Cerrar</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>

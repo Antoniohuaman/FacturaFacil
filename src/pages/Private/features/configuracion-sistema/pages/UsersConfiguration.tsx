@@ -442,24 +442,26 @@ export function UsersConfiguration() {
 
             {/* Footer */}
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end space-x-3">
-              <button
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => {
                   setRoleAssignmentModal({ show: false });
                   setSelectedRoleIds([]);
                   setRoleError('');
                 }}
                 disabled={isLoading}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
                 onClick={handleSaveRoleAssignment}
                 disabled={isLoading || selectedRoleIds.length === 0}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Guardando...' : 'Asignar Roles'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

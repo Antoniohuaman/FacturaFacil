@@ -483,10 +483,13 @@ export function EstablishmentsConfiguration() {
                       }));
                       if (formErrors.department) setFormErrors(prev => ({ ...prev, department: '' }));
                     }}
-                    options={ubigeoData.map(dept => ({
-                      value: dept.name,
-                      label: dept.name
-                    }))}
+                    options={[
+                      { value: '', label: 'Seleccionar...' },
+                      ...ubigeoData.map(dept => ({
+                        value: dept.name,
+                        label: dept.name
+                      }))
+                    ]}
                     placeholder="Seleccionar..."
                     error={!!formErrors.department}
                     helperText={formErrors.department}
@@ -506,10 +509,13 @@ export function EstablishmentsConfiguration() {
                       }));
                       if (formErrors.province) setFormErrors(prev => ({ ...prev, province: '' }));
                     }}
-                    options={availableProvinces.map(prov => ({
-                      value: prov.name,
-                      label: prov.name
-                    }))}
+                    options={[
+                      { value: '', label: formData.department ? 'Seleccionar...' : 'Selecciona departamento primero' },
+                      ...availableProvinces.map(prov => ({
+                        value: prov.name,
+                        label: prov.name
+                      }))
+                    ]}
                     placeholder={formData.department ? 'Seleccionar...' : 'Selecciona departamento primero'}
                     disabled={!formData.department}
                     error={!!formErrors.province}
@@ -526,10 +532,13 @@ export function EstablishmentsConfiguration() {
                       setFormData(prev => ({ ...prev, district: value }));
                       if (formErrors.district) setFormErrors(prev => ({ ...prev, district: '' }));
                     }}
-                    options={availableDistricts.map(dist => ({
-                      value: dist.name,
-                      label: dist.name
-                    }))}
+                    options={[
+                      { value: '', label: formData.province ? 'Seleccionar...' : 'Selecciona provincia primero' },
+                      ...availableDistricts.map(dist => ({
+                        value: dist.name,
+                        label: dist.name
+                      }))
+                    ]}
                     placeholder={formData.province ? 'Seleccionar...' : 'Selecciona provincia primero'}
                     disabled={!formData.province}
                     error={!!formErrors.district}

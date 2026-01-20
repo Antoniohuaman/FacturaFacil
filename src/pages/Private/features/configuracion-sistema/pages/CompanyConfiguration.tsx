@@ -11,7 +11,7 @@ import {
   Shield,
   ArrowLeft
 } from 'lucide-react';
-import { Button, Select, Input } from '@/contasis';
+import { Button, Select, Input, RadioButton, PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../context/ConfigurationContext';
 import { ConfigurationCard } from '../components/common/ConfigurationCard';
 import { StatusIndicator } from '../components/common/StatusIndicator';
@@ -686,26 +686,24 @@ export function CompanyConfiguration() {
                     hasChanges; // Only enable if there are changes
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button
-          variant="tertiary"
-          iconOnly
-          icon={<ArrowLeft />}
-          onClick={() => navigate('/configuracion')}
-        />
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Configuración de Empresa
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Configura los datos legales y tributarios de tu empresa
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Configuración de Empresa"
+        actions={
+          <Button
+            variant="secondary"
+            icon={<ArrowLeft />}
+            onClick={() => navigate('/configuracion')}
+          >
+            Volver
+          </Button>
+        }
+      />
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-4xl mx-auto p-6 space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-8">
         {/* Company Legal Data */}
         <ConfigurationCard
           title="Datos Legales y Tributarios"
@@ -825,39 +823,31 @@ export function CompanyConfiguration() {
                 Ambiente
               </label>
               <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="radio"
-                    id="test"
+                <div className="flex items-center space-x-2">
+                  <RadioButton
                     name="environment"
+                    value="TEST"
                     checked={formData.environment === 'TEST'}
                     onChange={() => handleEnvironmentChange('TEST')}
                     disabled={company?.sunatConfiguration?.environment === 'PRODUCTION'}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800"
+                    label="Prueba"
                   />
-                  <label htmlFor="test" className={`flex items-center space-x-2 ${company?.sunatConfiguration?.environment === 'PRODUCTION' ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Prueba</span>
-                    {formData.environment === 'TEST' && (
-                      <StatusIndicator status="warning" label="Activo" size="sm" />
-                    )}
-                  </label>
+                  {formData.environment === 'TEST' && (
+                    <StatusIndicator status="warning" label="Activo" size="sm" />
+                  )}
                 </div>
 
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="radio"
-                    id="production"
+                <div className="flex items-center space-x-2">
+                  <RadioButton
                     name="environment"
+                    value="PRODUCTION"
                     checked={formData.environment === 'PRODUCTION'}
                     onChange={() => handleEnvironmentChange('PRODUCTION')}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-800"
+                    label="Producción"
                   />
-                  <label htmlFor="production" className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Producción</span>
-                    {formData.environment === 'PRODUCTION' && (
-                      <StatusIndicator status="success" label="Activo" size="sm" />
-                    )}
-                  </label>
+                  {formData.environment === 'PRODUCTION' && (
+                    <StatusIndicator status="success" label="Activo" size="sm" />
+                  )}
                 </div>
               </div>
 
@@ -1041,6 +1031,8 @@ export function CompanyConfiguration() {
         confirmText="Sí, Activar Producción"
         cancelText="No, Mantener en Prueba"
       />
+        </div>
+      </div>
     </div>
   );
 }

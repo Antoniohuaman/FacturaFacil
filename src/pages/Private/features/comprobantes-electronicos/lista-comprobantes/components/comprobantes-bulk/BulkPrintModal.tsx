@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, FileText, File } from 'lucide-react';
+import { RadioButton } from '@/contasis';
 
 type PrintFormat = 'ticket' | 'a4';
 type PrintOutput = 'combined' | 'separate';
@@ -124,12 +125,11 @@ export const BulkPrintModal = ({ isOpen, onClose, onConfirm, selectedCount }: Bu
               </label>
               <div className="space-y-2">
                 <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <input
-                    type="radio"
+                  <RadioButton
                     name="output"
+                    value="combined"
                     checked={preferences.output === 'combined'}
                     onChange={() => setPreferences(p => ({ ...p, output: 'combined' }))}
-                    className="mt-0.5 text-blue-600 focus:ring-blue-500"
                   />
                   <div>
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -142,12 +142,11 @@ export const BulkPrintModal = ({ isOpen, onClose, onConfirm, selectedCount }: Bu
                 </label>
 
                 <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <input
-                    type="radio"
+                  <RadioButton
                     name="output"
+                    value="separate"
                     checked={preferences.output === 'separate'}
                     onChange={() => setPreferences(p => ({ ...p, output: 'separate' }))}
-                    className="mt-0.5 text-blue-600 focus:ring-blue-500"
                   />
                   <div>
                     <div className="text-sm font-medium text-gray-900 dark:text-white">

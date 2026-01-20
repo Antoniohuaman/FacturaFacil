@@ -1,6 +1,7 @@
 // src/features/configuration/components/business/TaxesSection.tsx
 import { useMemo, useState } from 'react';
 import { Receipt, Calculator, AlertCircle, Info, Settings } from 'lucide-react';
+import { RadioButton } from '@/contasis';
 import { SettingsToggle } from '../common/SettingsToggle';
 import { DefaultSelector } from '../common/DefaultSelector';
 import { ConfigurationCard } from '../common/ConfigurationCard';
@@ -111,11 +112,11 @@ export function TaxesSection({
               onClick={() => handlePriceToggle(true)}
             >
               <div className="flex items-start space-x-3">
-                <input
-                  type="radio"
+                <RadioButton
+                  name="pricesIncludeTax"
+                  value="true"
                   checked={pricesIncludeTax}
                   onChange={() => handlePriceToggle(true)}
-                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   disabled={isUpdating}
                 />
                 <div className="flex-1">
@@ -143,11 +144,11 @@ export function TaxesSection({
               onClick={() => handlePriceToggle(false)}
             >
               <div className="flex items-start space-x-3">
-                <input
-                  type="radio"
+                <RadioButton
+                  name="pricesIncludeTax"
+                  value="false"
                   checked={!pricesIncludeTax}
                   onChange={() => handlePriceToggle(false)}
-                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   disabled={isUpdating}
                 />
                 <div className="flex-1">

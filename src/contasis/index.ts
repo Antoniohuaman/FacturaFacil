@@ -22,5 +22,12 @@ export type { RadioButtonProps } from './components/RadioButton';
 export { Textarea } from './components/Textarea';
 export type { TextareaProps } from './components/Textarea';
 
+// Layout
 export { Sidebar } from './layout/Sidebar';
 export type { SidebarProps, Module } from './layout/Sidebar';
+
+export { PageHeader } from './layout/PageHeader';
+export type { PageHeaderProps } from './layout/PageHeader';
+
+export { Toolbar } from './layout/Toolbar';
+export type { ToolbarProps } from './layout/Toolbar';

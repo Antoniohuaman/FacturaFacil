@@ -452,11 +452,9 @@ export function UserForm({
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={formData.establishmentIds.includes(establishment.id)}
                       onChange={() => handleEstablishmentToggle(establishment.id)}
-                      className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       disabled={isLoading}
                     />
                     <div className="ml-3 flex-1">

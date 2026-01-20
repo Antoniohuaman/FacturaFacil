@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React, { useState, useEffect, useRef } from 'react';
+import { Button } from '@/contasis';
 import { useCaja } from '../context/CajaContext';
 import { FileBarChart, Download, Filter, X, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -320,20 +321,23 @@ const ReportesCaja: React.FC<ReportesCajaProps> = ({ autoExportRequest, onAutoEx
                 Limpiar
               </button>
             )}
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={exportarExcel}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors text-sm"
             >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Exportar Excel</span>
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
               onClick={exportarCSV}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors text-sm"
+              className="bg-green-600 hover:bg-green-700 border-green-600 hover:border-green-700"
             >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Exportar CSV</span>
-            </button>
+            </Button>
           </div>
         </div>
 

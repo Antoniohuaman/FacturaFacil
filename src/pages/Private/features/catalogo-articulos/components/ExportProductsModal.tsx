@@ -2,6 +2,7 @@
 // src/features/catalogo-articulos/components/ExportProductsModal.tsx
 
 import React, { useState, useEffect } from 'react';
+import { RadioButton } from '@/contasis';
 import type { Product } from '../models/types';
 import { exportProductsToExcel } from '../utils/excelHelpers';
 
@@ -253,13 +254,11 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        <input
-                          type="radio"
+                        <RadioButton
                           name="columnSet"
                           value={option.value}
                           checked={columnSet === option.value}
                           onChange={(e) => setColumnSet(e.target.value as any)}
-                          className="mt-1 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
                         />
                         <div className="ml-3">
                           <div className="text-sm font-medium text-gray-900">{option.label}</div>

@@ -24,7 +24,7 @@ import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import type { Series, DocumentType } from '../models/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../models/Series';
-import { Button, Select, Input, Checkbox } from '@/contasis';
+import { Button, Select, Input, Checkbox, RadioButton } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -621,16 +621,7 @@ export function SeriesConfiguration() {
                     
                     return (
                       <div key={type}>
-                        <input
-                          type="radio"
-                          id={type}
-                          name="type"
-                          checked={isSelected}
-                          onChange={() => handleTypeChange(type as VoucherType)}
-                          className="sr-only"
-                        />
                         <label
-                          htmlFor={type}
                           className={`
                             flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all
                             ${isSelected 
@@ -639,7 +630,13 @@ export function SeriesConfiguration() {
                             }
                           `}
                         >
-                          <Icon className={`w-5 h-5 mr-3 ${
+                          <RadioButton
+                            name="type"
+                            value={type}
+                            checked={isSelected}
+                            onChange={() => handleTypeChange(type as VoucherType)}
+                          />
+                          <Icon className={`w-5 h-5 mx-2 ${
                             isSelected ? `text-${config.color}-600` : 'text-gray-500'
                           }`} />
                           <div>
