@@ -311,7 +311,7 @@ export function CajasConfiguration() {
         {!loading && filteredCajas.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCajas.map((caja) => {
-              const currency = state.currencies.find((c: any) => c.id === caja.monedaIdCaja);
+              const currency = state.currencies.find((currencyItem) => currencyItem.id === caja.monedaIdCaja);
               return (
                 <CajaCard
                   key={caja.id}

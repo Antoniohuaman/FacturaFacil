@@ -13,6 +13,7 @@ import {
   BarChart3,
   Coins
 } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 /**
  * Mapea nombres de iconos a componentes de Lucide React
@@ -20,8 +21,8 @@ import {
  * @param size - Tamaño del icono (default: 20)
  * @returns Componente JSX del icono
  */
-export const getIconComponent = (iconName: string, size: number = 20): JSX.Element => {
-  const icons: Record<string, JSX.Element> = {
+export const getIconComponent = (iconName: string, size: number = 20): ReactElement => {
+  const icons: Record<string, ReactElement> = {
     FileText: <FileText size={size} />,
     ShoppingCart: <ShoppingCart size={size} />,
     Folder: <Folder size={size} />,

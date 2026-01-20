@@ -1,4 +1,6 @@
-import React, { forwardRef, InputHTMLAttributes } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import type { InputHTMLAttributes } from 'react';
+
 import { Check, Minus } from 'lucide-react';
 
 /**
@@ -48,16 +50,16 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     ref
   ) => {
     // Estado interno del checkbox para indeterminate
-    const checkboxRef = React.useRef<HTMLInputElement>(null);
-    
-    React.useEffect(() => {
+    const checkboxRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
       if (checkboxRef.current) {
         checkboxRef.current.indeterminate = indeterminate;
       }
     }, [indeterminate]);
 
     // Merge refs
-    React.useImperativeHandle(ref, () => checkboxRef.current as HTMLInputElement);
+    useImperativeHandle(ref, () => checkboxRef.current as HTMLInputElement);
 
     // Clases base del checkbox visual
     const sizeClasses = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';

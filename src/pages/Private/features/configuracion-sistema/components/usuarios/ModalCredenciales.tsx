@@ -1,6 +1,6 @@
 // src/features/configuration/components/usuarios/CredentialsModal.tsx
 import { useState } from 'react';
-import { X, Copy, Check, User, Lock, Mail, Shield, Building2, MessageCircle } from 'lucide-react';
+import { X, Copy, Check, User, Lock, Shield, Building2, MessageCircle } from 'lucide-react';
 import { Button } from '@/contasis';
 import type { User as UserModel } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';

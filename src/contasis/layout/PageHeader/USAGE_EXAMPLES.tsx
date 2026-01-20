@@ -13,15 +13,8 @@
  * ✅ El contenido se les pasa como props (composition pattern)
  */
 
-import React, { useState } from 'react';
-import { 
-  PageHeader, 
-  Toolbar, 
-  Button, 
-  ToggleButton,
-  Search,
-  SegmentedControl 
-} from '@contasis/ui';
+import { useState } from 'react';
+import { PageHeader, Toolbar, Button } from '@/contasis';
 import { 
   Filter, 
   RefreshCw, 
@@ -68,26 +61,24 @@ export const ComprobantesPage = () => {
       <Toolbar
         leftContent={
           <>
-            <ToggleButton
-              value="filter"
-              activeValue={showFilters ? 'filter' : ''}
+            <Button
+              variant={showFilters ? 'primary' : 'secondary'}
               icon={<Filter />}
-              label="Filtrar"
               iconOnly
-              onChange={() => setShowFilters(!showFilters)}
+              aria-pressed={showFilters}
+              onClick={() => setShowFilters(!showFilters)}
             />
             <Button 
               icon={<RefreshCw />} 
               variant="secondary" 
               iconOnly
             />
-            <ToggleButton
-              value="columns"
-              activeValue={showColumns ? 'columns' : ''}
+            <Button
+              variant={showColumns ? 'primary' : 'secondary'}
               icon={<Columns />}
-              label="Columnas"
               iconOnly
-              onChange={() => setShowColumns(!showColumns)}
+              aria-pressed={showColumns}
+              onClick={() => setShowColumns(!showColumns)}
             />
           </>
         }
@@ -133,13 +124,12 @@ export const ClientesPage = () => {
       <Toolbar
         leftContent={
           <>
-            <ToggleButton
-              value="filter"
-              activeValue={showFilters ? 'filter' : ''}
+            <Button
+              variant={showFilters ? 'primary' : 'secondary'}
               icon={<Filter />}
-              label="Filtrar"
               iconOnly
-              onChange={() => setShowFilters(!showFilters)}
+              aria-pressed={showFilters}
+              onClick={() => setShowFilters(!showFilters)}
             />
             <input
               type="text"
@@ -194,13 +184,12 @@ export const PuntoVentaPage = () => {
       <Toolbar
         leftContent={
           <>
-            <ToggleButton
-              value="filter"
-              activeValue={showFilters ? 'filter' : ''}
+            <Button
+              variant={showFilters ? 'primary' : 'secondary'}
               icon={<Filter />}
-              label="Filtrar"
               iconOnly
-              onChange={() => setShowFilters(!showFilters)}
+              aria-pressed={showFilters}
+              onClick={() => setShowFilters(!showFilters)}
             />
             <input
               type="text"
@@ -213,23 +202,32 @@ export const PuntoVentaPage = () => {
         }
         rightContent={
           <>
-            <ToggleButton
-              value="favorites"
-              activeValue={showFavorites ? 'favorites' : ''}
+            <Button
+              variant={showFavorites ? 'primary' : 'secondary'}
               icon={<Star />}
-              label="Favoritos"
-              onChange={() => setShowFavorites(!showFavorites)}
-              badge={favoritesCount > 0 ? favoritesCount : undefined}
-            />
-            <SegmentedControl
-              options={[
-                { value: 'grid', label: 'Vista en cuadrícula', icon: LayoutGrid, iconOnly: true },
-                { value: 'list', label: 'Vista de lista', icon: List, iconOnly: true },
-              ]}
-              value={viewMode}
-              onChange={(value) => setViewMode(value as 'grid' | 'list')}
-              size="md"
-            />
+              aria-pressed={showFavorites}
+              onClick={() => setShowFavorites(!showFavorites)}
+            >
+              Favoritos{favoritesCount > 0 ? ` (${favoritesCount})` : ''}
+            </Button>
+            <div className="flex items-center gap-2" role="group" aria-label="Cambiar vista">
+              <Button
+                variant={viewMode === 'grid' ? 'primary' : 'secondary'}
+                icon={<LayoutGrid />}
+                iconOnly
+                aria-pressed={viewMode === 'grid'}
+                aria-label="Vista en cuadrícula"
+                onClick={() => setViewMode('grid')}
+              />
+              <Button
+                variant={viewMode === 'list' ? 'primary' : 'secondary'}
+                icon={<List />}
+                iconOnly
+                aria-pressed={viewMode === 'list'}
+                aria-label="Vista de lista"
+                onClick={() => setViewMode('list')}
+              />
+            </div>
           </>
         }
       />
@@ -287,7 +285,7 @@ export const NuevaEmisionPage = () => {
 // EJEMPLO 5: Toolbar sin acciones primarias (solo consulta)
 // ============================================================================
 export const ReportesPage = () => {
-  const [dateRange, setDateRange] = useState('');
+  const [dateRange, setDateRange] = useState('7d');
 
   return (
     <div className="flex flex-col h-full">
@@ -304,10 +302,14 @@ export const ReportesPage = () => {
         leftContent={
           <>
             {/* Aquí irían tus filtros de fecha, tipo de reporte, etc. */}
-            <select className="px-3 py-2 border rounded-lg">
-              <option>Últimos 7 días</option>
-              <option>Último mes</option>
-              <option>Personalizado</option>
+            <select
+              className="px-3 py-2 border rounded-lg"
+              value={dateRange}
+              onChange={(event) => setDateRange(event.target.value)}
+            >
+              <option value="7d">Últimos 7 días</option>
+              <option value="1m">Último mes</option>
+              <option value="custom">Personalizado</option>
             </select>
           </>
         }

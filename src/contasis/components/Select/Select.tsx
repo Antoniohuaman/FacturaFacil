@@ -1,4 +1,5 @@
-import React, { forwardRef, SelectHTMLAttributes } from 'react';
+import { forwardRef } from 'react';
+import type { SelectHTMLAttributes } from 'react';
 import { ChevronDown, AlertCircle } from 'lucide-react';
 
 export interface SelectOption {

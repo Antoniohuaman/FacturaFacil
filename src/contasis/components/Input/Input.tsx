@@ -1,4 +1,5 @@
-import React, { useState, forwardRef, InputHTMLAttributes } from 'react';
+import { forwardRef, useState } from 'react';
+import type { InputHTMLAttributes, ReactNode } from 'react';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
@@ -21,11 +22,11 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   /**
    * Icono a mostrar a la izquierda del input
    */
-  leftIcon?: React.ReactNode;
+  leftIcon?: ReactNode;
   /**
    * Icono a mostrar a la derecha del input
    */
-  rightIcon?: React.ReactNode;
+  rightIcon?: ReactNode;
   /**
    * Tamaño del input
    */

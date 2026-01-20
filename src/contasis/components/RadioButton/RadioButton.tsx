@@ -1,4 +1,5 @@
-import React, { forwardRef, InputHTMLAttributes } from 'react';
+import { forwardRef } from 'react';
+import type { InputHTMLAttributes } from 'react';
 
 /**
  * RadioButton Props

@@ -101,6 +101,7 @@ export const Sidebar = ({
     <aside
       className="sidebar-container"
       data-open={isOpen}
+      data-theme={theme}
     >
       <nav className="sidebar-nav">
         {modules.map(module => renderModule(module))}
