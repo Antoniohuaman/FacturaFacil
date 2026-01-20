@@ -49,7 +49,7 @@ export function useInventoryFacade() {
       preferredalmacenId: options?.almacenId,
     });
     const explicitalmacen = !resolvedalmacen && options?.almacenId
-      ? almacenes.find(w => w.id === options.almacenId && w.isActive !== false)
+      ? almacenes.find(w => w.id === options.almacenId && w.estaActivoAlmacen !== false)
       : undefined;
     const almacen = resolvedalmacen || explicitalmacen;
 
@@ -60,8 +60,8 @@ export function useInventoryFacade() {
     }
 
     const almacenId = almacen.id;
-    const almacenCode = almacen?.code || 'N/A';
-    const nombreAlmacen = almacen?.name || 'Sin almacén';
+    const almacenCode = almacen?.codigoAlmacen || 'N/A';
+    const nombreAlmacen = almacen?.nombreAlmacen || 'Sin almacén';
     const stockActual = InventoryService.getStock(product, almacenId);
     const allowNegativeStock = Boolean(options?.allowNegativeStock);
 
@@ -73,7 +73,7 @@ export function useInventoryFacade() {
     const updatedProductSnapshot = InventoryService.updateStock(product, almacenId, cantidadNueva, { allowNegativeStock });
     const totalStock = InventoryService.getTotalStock(updatedProductSnapshot);
 
-    const movementEstablecimientoId = establecimientoId || almacen?.EstablecimientoId || '';
+    const movementEstablecimientoId = establecimientoId || almacen?.establecimientoId || '';
     let nextStockPorEstablecimiento = product.stockPorEstablecimiento;
     if (movementEstablecimientoId) {
       const prevValue = product.stockPorEstablecimiento?.[movementEstablecimientoId];
@@ -82,7 +82,7 @@ export function useInventoryFacade() {
         nextValue = allowNegativeStock ? prevValue + delta : Math.max(0, prevValue + delta);
       } else if (almacenes && almacenes.length) {
         nextValue = almacenes
-          .filter(w => w.EstablecimientoId === movementEstablecimientoId)
+          .filter(w => w.establecimientoId === movementEstablecimientoId)
           .reduce((sum, w) => sum + (updatedProductSnapshot.stockPorAlmacen?.[w.id] ?? 0), 0);
       } else {
         nextValue = allowNegativeStock ? totalStock : Math.max(0, totalStock);
@@ -125,8 +125,8 @@ export function useInventoryFacade() {
       almacenCodigo: almacenCode,
       almacenNombre: nombreAlmacen,
       EstablecimientoId: movementEstablecimientoId,
-      EstablecimientoCodigo: establecimientoCodigo || almacen?.EstablecimientoCode || '',
-      EstablecimientoNombre: establecimientoNombre || almacen?.EstablecimientoName || ''
+      EstablecimientoCodigo: establecimientoCodigo || almacen?.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: establecimientoNombre || almacen?.nombreEstablecimientoDesnormalizado || ''
     };
 
     StockRepository.addMovement(mov);

@@ -1,118 +1,49 @@
 // src/features/configuracion-sistema/modelos/almacen.ts
 
+export interface ConfiguracionInventarioAlmacen {
+  permiteStockNegativoAlmacen: boolean;
+  controlEstrictoStock: boolean;
+  requiereAprobacionMovimientos: boolean;
+  capacidadMaxima?: number;
+  unidadCapacidad?: 'units' | 'm3' | 'm2';
+}
+
 /**
  * Representa un almacén dentro de un establecimiento
  * Jerarquía: RUC (Company) → Establecimiento → Almacén
- *
- * Un establecimiento puede tener uno o varios almacenes.
- * Cada almacén es donde físicamente se gestiona el inventario.
  */
 export interface Almacen {
-  /** Identificador único del almacén */
   id: string;
-
-  /** Código único del almacén (4 dígitos, ej: 0001) */
   codigoAlmacen: string;
-
-  /** Alias legada: código en inglés */
-  code: string;
-
-  /** Nombre descriptivo del almacén */
   nombreAlmacen: string;
-
-  /** Alias legada: nombre en inglés */
-  name: string;
-
-  /** ID del establecimiento al que pertenece este almacén */
   establecimientoId: string;
-
-  /** Alias legada del ID del establecimiento */
-  EstablecimientoId: string;
-
-  /** Nombre del establecimiento (desnormalizado para mostrar) */
   nombreEstablecimientoDesnormalizado?: string;
-
-  /** Alias legada del nombre del establecimiento */
-  EstablecimientoName?: string;
-
-  /** Código del establecimiento (desnormalizado para mostrar) */
   codigoEstablecimientoDesnormalizado?: string;
-
-  /** Alias legada del código del establecimiento */
-  EstablecimientoCode?: string;
-
-  /** Descripción opcional del almacén */
   descripcionAlmacen?: string;
-
-  /** Ubicación física dentro del establecimiento */
   ubicacionAlmacen?: string;
-
-  /** Alias legada: ubicación */
-  location?: string;
-
-  /** Indica si el almacén está activo/habilitado */
   estaActivoAlmacen: boolean;
-
-  /** Alias legada: estado activo */
-  isActive: boolean;
-
-  /** Indica si es el almacén principal del establecimiento */
   esAlmacenPrincipal: boolean;
-
-  /** Alias legada: almacén principal */
-  isMainalmacen: boolean;
-
-  /** Configuración de gestión de inventario */
-  configuracionInventarioAlmacen: {
-    /** Permitir stock negativo */
-    permiteStockNegativoAlmacen: boolean;
-
-    /** Control estricto de stock (requiere ajustes documentados) */
-    controlEstrictoStock: boolean;
-
-    /** Requiere aprobación para movimientos */
-    requiereAprobacionMovimientos: boolean;
-
-    /** Capacidad máxima del almacén (opcional, en unidades o m³) */
-    capacidadMaxima?: number;
-
-    /** Unidad de medida de capacidad */
-    unidadCapacidad?: 'units' | 'm3' | 'm2';
-  };
-
-  /** Metadatos de auditoría */
+  configuracionInventarioAlmacen: ConfiguracionInventarioAlmacen;
   creadoElAlmacen: Date;
   actualizadoElAlmacen: Date;
-  createdBy?: string;
-  updatedBy?: string;
-
-  /** Indica si el almacén tiene movimientos de inventario asociados */
+  creadoPor?: string;
+  actualizadoPor?: string;
   tieneMovimientosInventario?: boolean;
 }
 
 /**
- * DTO para crear o actualizar un almacén
+ * DTO para crear o actualizar un almacén desde formularios.
+ * Usa los mismos nombres de campos que el modelo canónico.
  */
 export interface AlmacenFormData {
   codigoAlmacen: string;
   nombreAlmacen: string;
   establecimientoId: string;
+  nombreEstablecimientoDesnormalizado?: string;
+  codigoEstablecimientoDesnormalizado?: string;
   descripcionAlmacen?: string;
   ubicacionAlmacen?: string;
   estaActivoAlmacen: boolean;
   esAlmacenPrincipal: boolean;
-  configuracionInventarioAlmacen: {
-    permiteStockNegativoAlmacen: boolean;
-    controlEstrictoStock: boolean;
-    requiereAprobacionMovimientos: boolean;
-    capacidadMaxima?: number;
-    unidadCapacidad?: 'units' | 'm3' | 'm2';
-  };
+  configuracionInventarioAlmacen: ConfiguracionInventarioAlmacen;
 }
-
-export type AlmacenSinAlias = Omit<
-  Almacen,
-  'code' | 'name' | 'EstablecimientoId' | 'EstablecimientoName' | 'EstablecimientoCode' | 'location' | 'isActive' | 'isMainalmacen'
-> & Partial<Pick<Almacen, 'EstablecimientoName' | 'EstablecimientoCode' | 'location'>>;
-
-export type almacen = Almacen;

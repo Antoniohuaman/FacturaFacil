@@ -27,7 +27,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
 }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const almacenes = configState.almacenes.filter(w => w.isActive);
+  const almacenes = configState.almacenes.filter(w => w.estaActivoAlmacen);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -97,7 +97,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
     }
 
     if (cantidadNum > stockDisponibleOrigen) {
-      alert(`No hay suficiente stock en ${almacenOrigen?.name}. Disponible: ${stockDisponibleOrigen}`);
+      alert(`No hay suficiente stock en ${almacenOrigen?.nombreAlmacen}. Disponible: ${stockDisponibleOrigen}`);
       return;
     }
 
@@ -208,7 +208,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                   <option value="">Seleccionar almacén de origen...</option>
                   {almacenes.map((wh) => (
                     <option key={wh.id} value={wh.id}>
-                      {wh.code} - {wh.name} ({wh.EstablecimientoName})
+                      {wh.codigoAlmacen} - {wh.nombreAlmacen} ({wh.nombreEstablecimientoDesnormalizado})
                     </option>
                   ))}
                 </select>
@@ -252,7 +252,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                     .filter(wh => wh.id !== almacenOrigenId)
                     .map((wh) => (
                       <option key={wh.id} value={wh.id}>
-                        {wh.code} - {wh.name} ({wh.EstablecimientoName})
+                        {wh.codigoAlmacen} - {wh.nombreAlmacen} ({wh.nombreEstablecimientoDesnormalizado})
                       </option>
                     ))}
                 </select>
@@ -328,8 +328,8 @@ const TransferModal: React.FC<TransferModalProps> = ({
                       <div className="flex-1 text-sm text-amber-800 dark:text-amber-300">
                         <p className="font-semibold mb-1">Resumen de la transferencia:</p>
                         <ul className="space-y-1">
-                          <li>• Se restará <strong>{cantidad || 0}</strong> unidades de <strong>{almacenOrigen?.name}</strong></li>
-                          <li>• Se sumará <strong>{cantidad || 0}</strong> unidades a <strong>{almacenDestino?.name}</strong></li>
+                          <li>• Se restará <strong>{cantidad || 0}</strong> unidades de <strong>{almacenOrigen?.nombreAlmacen}</strong></li>
+                          <li>• Se sumará <strong>{cantidad || 0}</strong> unidades a <strong>{almacenDestino?.nombreAlmacen}</strong></li>
                           <li>• Nuevo stock origen: <strong>{stockDisponibleOrigen - Number(cantidad || 0)}</strong> unidades</li>
                           <li>• Nuevo stock destino: <strong>{stockActualDestino + Number(cantidad || 0)}</strong> unidades</li>
                         </ul>

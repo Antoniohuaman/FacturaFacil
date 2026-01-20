@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { StatusIndicator } from '../components/comunes/IndicadorEstado';
-import type { Almacen, AlmacenSinAlias } from '../modelos/Almacen';
+import type { Almacen } from '../modelos/Almacen';
 
 interface Toast {
   id: string;
@@ -54,18 +54,6 @@ const FORM_STATE_INICIAL: FormState = {
   ubicacionAlmacen: '',
   esAlmacenPrincipal: false
 };
-
-const sincronizarAliasAlmacen = (almacen: AlmacenSinAlias): Almacen => ({
-  ...almacen,
-  code: almacen.codigoAlmacen,
-  name: almacen.nombreAlmacen,
-  EstablecimientoName: almacen.nombreEstablecimientoDesnormalizado,
-  EstablecimientoCode: almacen.codigoEstablecimientoDesnormalizado,
-  EstablecimientoId: almacen.establecimientoId,
-  location: almacen.ubicacionAlmacen,
-  isActive: almacen.estaActivoAlmacen,
-  isMainalmacen: almacen.esAlmacenPrincipal,
-});
 
 export function ConfiguracionAlmacenes() {
   const navigate = useNavigate();
@@ -238,7 +226,7 @@ export function ConfiguracionAlmacenes() {
       if (editingAlmacenId) {
         updatedAlmacenes = almacenes.map(almacen =>
           almacen.id === editingAlmacenId
-            ? sincronizarAliasAlmacen({
+            ? {
                 ...almacen,
                 codigoAlmacen: formData.codigoAlmacen,
                 nombreAlmacen: formData.nombreAlmacen,
@@ -249,12 +237,12 @@ export function ConfiguracionAlmacenes() {
                 ubicacionAlmacen: formData.ubicacionAlmacen || undefined,
                 esAlmacenPrincipal: formData.esAlmacenPrincipal,
                 actualizadoElAlmacen: new Date()
-              })
+              }
             : almacen
         );
         showToast('success', 'Almacén actualizado correctamente');
       } else {
-        const nuevoAlmacen: Almacen = sincronizarAliasAlmacen({
+        const nuevoAlmacen: Almacen = {
           id: generateUniqueId(),
           codigoAlmacen: formData.codigoAlmacen,
           nombreAlmacen: formData.nombreAlmacen,
@@ -273,7 +261,7 @@ export function ConfiguracionAlmacenes() {
           creadoElAlmacen: new Date(),
           actualizadoElAlmacen: new Date(),
           tieneMovimientosInventario: false
-        });
+        };
 
         updatedAlmacenes = [...almacenes, nuevoAlmacen];
         showToast('success', 'Almacén creado correctamente');
@@ -334,11 +322,11 @@ export function ConfiguracionAlmacenes() {
     try {
       const updatedAlmacenes = almacenes.map(item =>
         item.id === id
-          ? sincronizarAliasAlmacen({
+          ? {
               ...item,
               estaActivoAlmacen: !item.estaActivoAlmacen,
               actualizadoElAlmacen: new Date(),
-            })
+            }
           : item
       );
       dispatch({ type: 'SET_ALMACENES', payload: updatedAlmacenes });

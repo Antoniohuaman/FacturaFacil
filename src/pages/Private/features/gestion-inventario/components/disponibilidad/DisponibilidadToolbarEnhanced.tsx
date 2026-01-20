@@ -3,16 +3,12 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { DisponibilidadFilters } from '../../models/disponibilidad.types';
+import type { Almacen } from '../../../configuracion-sistema/modelos/Almacen';
 
 interface DisponibilidadToolbarEnhancedProps {
   filtros: DisponibilidadFilters;
   onFiltrosChange: (filtros: Partial<DisponibilidadFilters>) => void;
-  almacenesDisponibles: Array<{
-    id: string;
-    code: string;
-    name: string;
-    EstablecimientoId: string;
-  }>;
+  almacenesDisponibles: Almacen[];
   totalItems: number;
   itemsMostrados: number;
   onOpenSettings: () => void;
@@ -68,7 +64,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
   }, [isActionsOpen]);
 
   // Nombres para chips de filtros activos
-  const almacenNombre = almacenesDisponibles.find(a => a.id === filtros.almacenId)?.name;
+  const almacenNombre = almacenesDisponibles.find(a => a.id === filtros.almacenId)?.nombreAlmacen;
 
   // Limpiar todos los filtros
   const limpiarFiltros = () => {
@@ -121,7 +117,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
               <option value="">Todos los almacenes</option>
               {almacenesDisponibles.map((alm) => (
                 <option key={alm.id} value={alm.id}>
-                  {alm.code} - {alm.name}
+                  {alm.codigoAlmacen} - {alm.nombreAlmacen}
                 </option>
               ))}
             </select>

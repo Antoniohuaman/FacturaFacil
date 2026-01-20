@@ -122,19 +122,99 @@ const reviveEstablecimiento = (est: Establecimiento): Establecimiento => ({
     : est.sunatConfiguration,
 });
 
-const reviveAlmacen = (almacen: Almacen): Almacen => ({
-  ...almacen,
-  creadoElAlmacen: reviveDate(almacen.creadoElAlmacen) ?? new Date(),
-  actualizadoElAlmacen: reviveDate(almacen.actualizadoElAlmacen) ?? new Date(),
-  code: almacen.codigoAlmacen,
-  name: almacen.nombreAlmacen,
-  EstablecimientoName: almacen.nombreEstablecimientoDesnormalizado,
-  EstablecimientoCode: almacen.codigoEstablecimientoDesnormalizado,
-  EstablecimientoId: almacen.establecimientoId,
-  location: almacen.ubicacionAlmacen,
-  isActive: almacen.estaActivoAlmacen,
-  isMainalmacen: almacen.esAlmacenPrincipal,
-});
+const reviveAlmacen = (raw: Almacen | (Partial<Almacen> & Record<string, unknown>)): Almacen => {
+  const legacy = raw as Record<string, unknown>;
+  const legacyInventory = legacy.inventorySettings as Record<string, unknown> | undefined;
+  const canonicalInventory = (raw as Almacen).configuracionInventarioAlmacen;
+
+  const resolvedConfig = canonicalInventory ?? {
+    permiteStockNegativoAlmacen: Boolean(legacy.permiteStockNegativoAlmacen ?? legacyInventory?.allowNegativeStock ?? false),
+    controlEstrictoStock: Boolean(legacy.controlEstrictoStock ?? legacyInventory?.strictStockControl ?? false),
+    requiereAprobacionMovimientos: Boolean(legacy.requiereAprobacionMovimientos ?? legacyInventory?.requireApproval ?? false),
+    capacidadMaxima: (legacy.capacidadMaxima as number | undefined) ?? (legacyInventory?.maxCapacity as number | undefined),
+    unidadCapacidad: (legacy.unidadCapacidad as 'units' | 'm3' | 'm2' | undefined)
+      ?? (legacyInventory?.capacityUnit as 'units' | 'm3' | 'm2' | undefined),
+  };
+
+  return {
+    id: (raw as Almacen).id ?? (legacy.id as string) ?? '',
+    codigoAlmacen: (raw as Almacen).codigoAlmacen
+      ?? (legacy.codigoAlmacen as string)
+      ?? (legacy.code as string)
+      ?? '',
+    nombreAlmacen: (raw as Almacen).nombreAlmacen
+      ?? (legacy.nombreAlmacen as string)
+      ?? (legacy.name as string)
+      ?? '',
+    establecimientoId: (raw as Almacen).establecimientoId
+      ?? (legacy.establecimientoId as string)
+      ?? (legacy.EstablecimientoId as string)
+      ?? (legacy.establishmentId as string)
+      ?? '',
+    nombreEstablecimientoDesnormalizado:
+      (raw as Almacen).nombreEstablecimientoDesnormalizado
+      ?? (legacy.nombreEstablecimientoDesnormalizado as string | undefined)
+      ?? (legacy.EstablecimientoName as string | undefined)
+      ?? (legacy.establishmentName as string | undefined),
+    codigoEstablecimientoDesnormalizado:
+      (raw as Almacen).codigoEstablecimientoDesnormalizado
+      ?? (legacy.codigoEstablecimientoDesnormalizado as string | undefined)
+      ?? (legacy.EstablecimientoCode as string | undefined)
+      ?? (legacy.establishmentCode as string | undefined),
+    descripcionAlmacen:
+      (raw as Almacen).descripcionAlmacen
+      ?? (legacy.descripcionAlmacen as string | undefined)
+      ?? (legacy.description as string | undefined),
+    ubicacionAlmacen:
+      (raw as Almacen).ubicacionAlmacen
+      ?? (legacy.ubicacionAlmacen as string | undefined)
+      ?? (legacy.location as string | undefined),
+    estaActivoAlmacen:
+      (raw as Almacen).estaActivoAlmacen
+      ?? (legacy.estaActivoAlmacen as boolean | undefined)
+      ?? (legacy.isActive as boolean | undefined)
+      ?? true,
+    esAlmacenPrincipal:
+      (raw as Almacen).esAlmacenPrincipal
+      ?? (legacy.esAlmacenPrincipal as boolean | undefined)
+      ?? (legacy.isMainalmacen as boolean | undefined)
+      ?? (legacy.isMainWarehouse as boolean | undefined)
+      ?? false,
+    configuracionInventarioAlmacen: {
+      permiteStockNegativoAlmacen:
+        canonicalInventory?.permiteStockNegativoAlmacen
+          ?? resolvedConfig.permiteStockNegativoAlmacen,
+      controlEstrictoStock:
+        canonicalInventory?.controlEstrictoStock
+          ?? resolvedConfig.controlEstrictoStock,
+      requiereAprobacionMovimientos:
+        canonicalInventory?.requiereAprobacionMovimientos
+          ?? resolvedConfig.requiereAprobacionMovimientos,
+      capacidadMaxima:
+        canonicalInventory?.capacidadMaxima
+          ?? resolvedConfig.capacidadMaxima,
+      unidadCapacidad:
+        canonicalInventory?.unidadCapacidad
+          ?? resolvedConfig.unidadCapacidad,
+    },
+    creadoElAlmacen:
+      reviveDate((raw as Almacen).creadoElAlmacen ?? (legacy.createdAt as Date | string | undefined))
+        ?? new Date(),
+    actualizadoElAlmacen:
+      reviveDate((raw as Almacen).actualizadoElAlmacen ?? (legacy.updatedAt as Date | string | undefined))
+        ?? new Date(),
+    creadoPor: (raw as Almacen).creadoPor ?? (legacy.creadoPor as string | undefined) ?? (legacy.createdBy as string | undefined),
+    actualizadoPor:
+      (raw as Almacen).actualizadoPor
+        ?? (legacy.actualizadoPor as string | undefined)
+        ?? (legacy.updatedBy as string | undefined),
+    tieneMovimientosInventario:
+      (raw as Almacen).tieneMovimientosInventario
+      ?? (legacy.tieneMovimientosInventario as boolean | undefined)
+      ?? (legacy.hasMovements as boolean | undefined)
+      ?? false,
+  };
+};
 
 const reviveCaja = (caja: PersistedCaja): Caja => {
   const legacy = caja as Partial<Caja> & Record<string, unknown>;

@@ -147,11 +147,11 @@ export class InventoryService {
       documentoReferencia: data.documentoReferencia,
       fecha: new Date(),
       almacenId: almacen.id,
-      almacenCodigo: almacen.code,
-      almacenNombre: almacen.name,
-      EstablecimientoId: almacen.EstablecimientoId,
-      EstablecimientoCodigo: almacen.EstablecimientoCode || '',
-      EstablecimientoNombre: almacen.EstablecimientoName || '',
+      almacenCodigo: almacen.codigoAlmacen,
+      almacenNombre: almacen.nombreAlmacen,
+      EstablecimientoId: almacen.establecimientoId,
+      EstablecimientoCodigo: almacen.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacen.nombreEstablecimientoDesnormalizado || '',
       esTransferencia: false
     };
 
@@ -176,7 +176,7 @@ export class InventoryService {
 
     // Validar stock disponible
     if (stockOrigen < data.cantidad) {
-      throw new Error(`Stock insuficiente en ${almacenOrigen.name}. Disponible: ${stockOrigen}`);
+      throw new Error(`Stock insuficiente en ${almacenOrigen.nombreAlmacen}. Disponible: ${stockOrigen}`);
     }
 
     const transferenciaId = `TRANS-${Date.now()}`;
@@ -197,21 +197,21 @@ export class InventoryService {
       cantidadAnterior: stockOrigen,
       cantidadNueva: stockOrigen - data.cantidad,
       usuario,
-      observaciones: data.observaciones || `Transferencia a ${almacenDestino.name}`,
+      observaciones: data.observaciones || `Transferencia a ${almacenDestino.nombreAlmacen}`,
       documentoReferencia: data.documentoReferencia,
       fecha: new Date(),
       almacenId: almacenOrigen.id,
-      almacenCodigo: almacenOrigen.code,
-      almacenNombre: almacenOrigen.name,
-      EstablecimientoId: almacenOrigen.EstablecimientoId,
-      EstablecimientoCodigo: almacenOrigen.EstablecimientoCode || '',
-      EstablecimientoNombre: almacenOrigen.EstablecimientoName || '',
+      almacenCodigo: almacenOrigen.codigoAlmacen,
+      almacenNombre: almacenOrigen.nombreAlmacen,
+      EstablecimientoId: almacenOrigen.establecimientoId,
+      EstablecimientoCodigo: almacenOrigen.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacenOrigen.nombreEstablecimientoDesnormalizado || '',
       esTransferencia: true,
       transferenciaId,
       almacenOrigenId: almacenOrigen.id,
-      almacenOrigenNombre: almacenOrigen.name,
+      almacenOrigenNombre: almacenOrigen.nombreAlmacen,
       almacenDestinoId: almacenDestino.id,
-      almacenDestinoNombre: almacenDestino.name
+      almacenDestinoNombre: almacenDestino.nombreAlmacen
     };
 
     // Crear movimiento de entrada (destino)
@@ -226,21 +226,21 @@ export class InventoryService {
       cantidadAnterior: stockDestino,
       cantidadNueva: stockDestino + data.cantidad,
       usuario,
-      observaciones: data.observaciones || `Transferencia desde ${almacenOrigen.name}`,
+      observaciones: data.observaciones || `Transferencia desde ${almacenOrigen.nombreAlmacen}`,
       documentoReferencia: data.documentoReferencia,
       fecha: new Date(),
       almacenId: almacenDestino.id,
-      almacenCodigo: almacenDestino.code,
-      almacenNombre: almacenDestino.name,
-      EstablecimientoId: almacenDestino.EstablecimientoId,
-      EstablecimientoCodigo: almacenDestino.EstablecimientoCode || '',
-      EstablecimientoNombre: almacenDestino.EstablecimientoName || '',
+      almacenCodigo: almacenDestino.codigoAlmacen,
+      almacenNombre: almacenDestino.nombreAlmacen,
+      EstablecimientoId: almacenDestino.establecimientoId,
+      EstablecimientoCodigo: almacenDestino.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacenDestino.nombreEstablecimientoDesnormalizado || '',
       esTransferencia: true,
       transferenciaId,
       almacenOrigenId: almacenOrigen.id,
-      almacenOrigenNombre: almacenOrigen.name,
+      almacenOrigenNombre: almacenOrigen.nombreAlmacen,
       almacenDestinoId: almacenDestino.id,
-      almacenDestinoNombre: almacenDestino.name,
+      almacenDestinoNombre: almacenDestino.nombreAlmacen,
       movimientoRelacionadoId: movimientoSalida.id
     };
 
@@ -298,11 +298,11 @@ export class InventoryService {
           alertType: evaluation.type === 'OVER' ? 'OVER' : 'LOW',
           isCritical: evaluation.isCritical,
           almacenId: almacen.id,
-          almacenCodigo: almacen.code,
-          almacenNombre: almacen.name,
-          EstablecimientoId: almacen.EstablecimientoId,
-          EstablecimientoCodigo: almacen.EstablecimientoCode || '',
-          EstablecimientoNombre: almacen.EstablecimientoName || '',
+          almacenCodigo: almacen.codigoAlmacen,
+          almacenNombre: almacen.nombreAlmacen,
+          EstablecimientoId: almacen.establecimientoId,
+          EstablecimientoCodigo: almacen.codigoEstablecimientoDesnormalizado || '',
+          EstablecimientoNombre: almacen.nombreEstablecimientoDesnormalizado || '',
           faltante: evaluation.missing,
           excedente: evaluation.excess
         });

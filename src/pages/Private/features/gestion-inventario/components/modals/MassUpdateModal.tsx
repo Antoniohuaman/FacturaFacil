@@ -19,7 +19,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
   const { allProducts, updateProduct } = useProductStore();
   const { user } = useAuth();
   const { state: configState } = useConfigurationContext();
-  const almacenes = configState.almacenes.filter(w => w.isActive);
+  const almacenes = configState.almacenes.filter(w => w.estaActivoAlmacen);
 
   const [activeTab, setActiveTab] = useState<'reset' | 'import' | 'manual'>('reset');
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
@@ -310,7 +310,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
       importData.forEach(({ codigo, almacen: codigoAlmacen, cantidad }) => {
         // Si el archivo tiene columna ALMACEN, solo procesar si coincide con el almacén actual
         if (codigoAlmacen) {
-          const targetCode = (almacenObjetivo.code ?? almacenObjetivo.id).toUpperCase();
+          const targetCode = (almacenObjetivo.codigoAlmacen ?? almacenObjetivo.id).toUpperCase();
           if (codigoAlmacen.toUpperCase() !== targetCode) {
             return; // Saltar este registro, no es para este almacén
           }
@@ -396,7 +396,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
         const stockActual = producto.stockPorAlmacen?.[almacen.id] ?? 0;
         data.push([
           producto.codigo,
-          almacen.code,
+          almacen.codigoAlmacen,
           stockActual
         ]);
       });
@@ -609,14 +609,14 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2">
                                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-200 truncate">
-                                    {wh.name}
+                                    {wh.nombreAlmacen}
                                   </p>
                                   <span className="px-2 py-0.5 text-xs font-medium bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full">
-                                    {wh.code}
+                                    {wh.codigoAlmacen}
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
-                                  {wh.EstablecimientoName || 'Sin establecimiento'}
+                                  {wh.nombreEstablecimientoDesnormalizado || 'Sin establecimiento'}
                                 </p>
                               </div>
                               {isSelected && (
@@ -863,14 +863,14 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2">
                                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-200 truncate">
-                                    {wh.name}
+                                    {wh.nombreAlmacen}
                                   </p>
                                   <span className="px-2 py-0.5 text-xs font-medium bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full">
-                                    {wh.code}
+                                    {wh.codigoAlmacen}
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
-                                  {wh.EstablecimientoName || 'Sin establecimiento'}
+                                  {wh.nombreEstablecimientoDesnormalizado || 'Sin establecimiento'}
                                 </p>
                               </div>
                               {isSelected && (

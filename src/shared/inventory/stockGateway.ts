@@ -36,7 +36,9 @@ const filteralmacenIds = (almacenes: Almacen[] | undefined, EstablecimientoId?: 
   if (!EstablecimientoId) {
     return undefined;
   }
-  const matches = almacenes.filter(wh => wh.EstablecimientoId === EstablecimientoId && wh.isActive !== false);
+  const matches = almacenes.filter(
+    wh => wh.establecimientoId === EstablecimientoId && wh.estaActivoAlmacen !== false,
+  );
   if (!matches.length) {
     return undefined;
   }
@@ -112,9 +114,9 @@ export const summarizeProductStock = (
 
       breakdown.push({
         almacenId,
-        almacenCode: meta?.code,
-        nombreAlmacen: meta?.name,
-        EstablecimientoId: meta?.EstablecimientoId,
+        almacenCode: meta?.codigoAlmacen,
+        nombreAlmacen: meta?.nombreAlmacen,
+        EstablecimientoId: meta?.establecimientoId,
         stock,
         reserved,
         available,
@@ -204,16 +206,16 @@ const normalizeSortValue = (value: unknown): string => {
 };
 
 const comparealmacenesStable = (a: Almacen, b: Almacen): number => {
-  const aCode = normalizeSortValue(a.code);
-  const bCode = normalizeSortValue(b.code);
+  const aCode = normalizeSortValue(a.codigoAlmacen);
+  const bCode = normalizeSortValue(b.codigoAlmacen);
   if (aCode && bCode && aCode !== bCode) {
     return aCode.localeCompare(bCode);
   }
   if (aCode && !bCode) return -1;
   if (!aCode && bCode) return 1;
 
-  const aName = normalizeSortValue(a.name);
-  const bName = normalizeSortValue(b.name);
+  const aName = normalizeSortValue(a.nombreAlmacen);
+  const bName = normalizeSortValue(b.nombreAlmacen);
   if (aName && bName && aName !== bName) {
     return aName.localeCompare(bName);
   }
@@ -225,7 +227,7 @@ const comparealmacenesStable = (a: Almacen, b: Almacen): number => {
 
 /**
  * Devuelve la lista ordenada FIFO de almacenes activos del establecimiento:
- * 1) almacén principal (isMainalmacen) si existe
+ * 1) almacén principal (esAlmacenPrincipal) si existe
  * 2) resto de almacenes activos en orden estable
  */
 export const resolvealmacenesForSaleFIFO = (
@@ -237,15 +239,15 @@ export const resolvealmacenesForSaleFIFO = (
   }
 
   const matches = almacenes
-    .filter(wh => wh.EstablecimientoId === EstablecimientoId && wh.isActive !== false)
+    .filter(wh => wh.establecimientoId === EstablecimientoId && wh.estaActivoAlmacen !== false)
     .slice();
 
   if (!matches.length) {
     return [];
   }
 
-  const mains = matches.filter(wh => Boolean(wh.isMainalmacen)).sort(comparealmacenesStable);
-  const rest = matches.filter(wh => !wh.isMainalmacen).sort(comparealmacenesStable);
+  const mains = matches.filter(wh => Boolean(wh.esAlmacenPrincipal)).sort(comparealmacenesStable);
+  const rest = matches.filter(wh => !wh.esAlmacenPrincipal).sort(comparealmacenesStable);
   return [...mains, ...rest];
 };
 
@@ -314,8 +316,10 @@ export const resolvealmacenForSale = (
     }
   }
   if (EstablecimientoId) {
-    const matches = almacenes.filter(wh => wh.EstablecimientoId === EstablecimientoId && wh.isActive !== false);
-    const main = matches.find(wh => wh.isMainalmacen);
+    const matches = almacenes.filter(
+      wh => wh.establecimientoId === EstablecimientoId && wh.estaActivoAlmacen !== false,
+    );
+    const main = matches.find(wh => wh.esAlmacenPrincipal);
     if (main) {
       return main;
     }
@@ -323,7 +327,7 @@ export const resolvealmacenForSale = (
       return matches[0];
     }
   }
-  const main = almacenes.find(wh => wh.isMainalmacen);
+  const main = almacenes.find(wh => wh.esAlmacenPrincipal);
   return main || almacenes[0];
 };
 

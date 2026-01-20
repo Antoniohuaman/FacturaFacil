@@ -32,7 +32,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
 }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const almacenes = configState.almacenes.filter(w => w.isActive);
+  const almacenes = configState.almacenes.filter(w => w.estaActivoAlmacen);
 
   // PASO 1: Primero seleccionar almacén
   const [selectedalmacenId, setSelectedalmacenId] = useState('');
@@ -209,13 +209,13 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                 <option value="">Seleccionar almacén...</option>
                 {almacenes.map(wh => (
                   <option key={wh.id} value={wh.id}>
-                    [{wh.code}] {wh.name} - {wh.EstablecimientoName}
+                    [{wh.codigoAlmacen}] {wh.nombreAlmacen} - {wh.nombreEstablecimientoDesnormalizado}
                   </option>
                 ))}
               </select>
               {selectedalmacenId && selectedalmacen && (
                 <p className="mt-2 text-xs text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded">
-                  ✓ Movimiento se aplicará en el almacén {selectedalmacen.name} del establecimiento {selectedalmacen.EstablecimientoName}
+                  ✓ Movimiento se aplicará en el almacén {selectedalmacen.nombreAlmacen} del establecimiento {selectedalmacen.nombreEstablecimientoDesnormalizado}
                 </p>
               )}
             </div>
@@ -272,7 +272,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                         <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">{selectedProduct.codigo}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Stock en {selectedalmacen?.code}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Stock en {selectedalmacen?.codigoAlmacen}</p>
                         <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stockActualAlmacen}</p>
                       </div>
                     </div>
@@ -346,7 +346,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
               {selectedProduct && selectedalmacenId && cantidad && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nuevo Stock en {selectedalmacen?.code}
+                    Nuevo Stock en {selectedalmacen?.codigoAlmacen}
                   </label>
                   <div className={`
                     w-full px-4 py-2 border-2 rounded-md font-bold text-lg

@@ -621,7 +621,7 @@ const SearchBarContent = ({
   const nombreAlmacenMap = useMemo(() => {
     const map = new Map<string, string>();
     configState.almacenes.forEach((almacen) => {
-      map.set(almacen.id, almacen.name ?? almacen.code ?? almacen.id);
+      map.set(almacen.id, almacen.nombreAlmacen ?? almacen.codigoAlmacen ?? almacen.id);
     });
     return map;
   }, [configState.almacenes]);

@@ -122,9 +122,9 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
 
     const formatalmacenLabel = (almacen?: Almacen) => {
       if (!almacen) return '';
-      const code = almacen.code || almacen.id;
-      if (code && almacen.name) return `${code} - ${almacen.name}`;
-      return almacen.name || code || almacen.id;
+      const codigo = almacen.codigoAlmacen || almacen.id;
+      if (codigo && almacen.nombreAlmacen) return `${codigo} - ${almacen.nombreAlmacen}`;
+      return almacen.nombreAlmacen || codigo || almacen.id;
     };
 
     const formatEstablecimientoLabel = (Establecimiento?: { id?: string; code?: string; name?: string }) => {
@@ -138,13 +138,13 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
 
     const derivedEstablecimientos = new Map<string, { id?: string; code?: string; name?: string }>();
     scopealmacenes.forEach(almacen => {
-      if (!almacen.EstablecimientoId) {
+      if (!almacen.establecimientoId) {
         return;
       }
-      derivedEstablecimientos.set(almacen.EstablecimientoId, {
-        id: almacen.EstablecimientoId,
-        code: almacen.EstablecimientoCode,
-        name: almacen.EstablecimientoName
+      derivedEstablecimientos.set(almacen.establecimientoId, {
+        id: almacen.establecimientoId,
+        code: almacen.codigoEstablecimientoDesnormalizado,
+        name: almacen.nombreEstablecimientoDesnormalizado
       });
     });
 
@@ -182,7 +182,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     })();
 
     const includedCodes = scopealmacenes
-      .map(almacen => almacen.code || almacen.id)
+      .map(almacen => almacen.codigoAlmacen || almacen.id)
       .filter(Boolean)
       .join(', ');
 
@@ -292,7 +292,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
           canEditThresholds={canEditThresholds}
           editThresholdMessage={thresholdsTooltip}
           onUpdateThreshold={handleThresholdChange}
-          selectednombreAlmacen={selectedalmacen?.name}
+          selectednombreAlmacen={selectedalmacen?.nombreAlmacen}
         />
       </div>
 

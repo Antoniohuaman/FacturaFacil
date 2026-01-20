@@ -1,7 +1,7 @@
 ﻿// src/features/configuracion-sistema/hooks/useAlmacenes.ts
 
 import { useMemo, useState } from 'react';
-import type { Almacen, AlmacenSinAlias } from '../modelos/Almacen';
+import type { Almacen } from '../modelos/Almacen';
 
 /**
  * Hook para gestionar almacenes (CRUD + validaciones)
@@ -12,19 +12,7 @@ import type { Almacen, AlmacenSinAlias } from '../modelos/Almacen';
  * - Habilitar/deshabilitar almacenes
  * - Filtrar almacenes por establecimiento
  */
-const sincronizarAliasAlmacen = (almacen: AlmacenSinAlias): Almacen => ({
-  ...almacen,
-  code: almacen.codigoAlmacen,
-  name: almacen.nombreAlmacen,
-  EstablecimientoName: almacen.nombreEstablecimientoDesnormalizado,
-  EstablecimientoCode: almacen.codigoEstablecimientoDesnormalizado,
-  EstablecimientoId: almacen.establecimientoId,
-  location: almacen.ubicacionAlmacen,
-  isActive: almacen.estaActivoAlmacen,
-  isMainalmacen: almacen.esAlmacenPrincipal,
-});
-
-const ALMACENES_BASE: AlmacenSinAlias[] = [
+const ALMACENES_BASE: Almacen[] = [
   {
     id: 'alm-1',
     codigoAlmacen: '0001',
@@ -94,9 +82,7 @@ const ALMACENES_BASE: AlmacenSinAlias[] = [
 ];
 
 export function useAlmacenes() {
-  const [almacenes, setAlmacenes] = useState<Almacen[]>(
-    ALMACENES_BASE.map(sincronizarAliasAlmacen)
-  );
+  const [almacenes, setAlmacenes] = useState<Almacen[]>(ALMACENES_BASE);
 
   const obtenerAlmacenesPorEstablecimiento = useMemo(() => {
     return (establecimientoId: string) =>
@@ -144,13 +130,13 @@ export function useAlmacenes() {
   const crearAlmacen = (
     almacen: Omit<Almacen, 'id' | 'creadoElAlmacen' | 'actualizadoElAlmacen'>
   ): Almacen => {
-    const nuevoAlmacen: Almacen = sincronizarAliasAlmacen({
+    const nuevoAlmacen: Almacen = {
       ...almacen,
       id: `alm-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       creadoElAlmacen: new Date(),
       actualizadoElAlmacen: new Date(),
       tieneMovimientosInventario: false,
-    });
+    };
 
     setAlmacenes((prev) => [...prev, nuevoAlmacen]);
     return nuevoAlmacen;
@@ -162,11 +148,11 @@ export function useAlmacenes() {
       prev.map((almacen) => {
         if (almacen.id === id) {
           success = true;
-          return sincronizarAliasAlmacen({
+          return {
             ...almacen,
             ...updates,
             actualizadoElAlmacen: new Date(),
-          });
+          };
         }
         return almacen;
       })

@@ -33,7 +33,7 @@ export const useInventarioDisponibilidad = () => {
   const currentEstablecimientoId = useCurrentEstablecimientoId();
 
   const almacenesActivos = useMemo(
-    () => configState.almacenes.filter(w => w.isActive),
+    () => configState.almacenes.filter(w => w.estaActivoAlmacen),
     [configState.almacenes]
   );
 
@@ -82,7 +82,7 @@ export const useInventarioDisponibilidad = () => {
     if (!currentEstablecimientoId) {
       return [];
     }
-    return almacenesActivos.filter(w => w.EstablecimientoId === currentEstablecimientoId);
+    return almacenesActivos.filter(w => w.establecimientoId === currentEstablecimientoId);
   }, [almacenesActivos, currentEstablecimientoId]);
 
   const almacenescope = useMemo(() => {
@@ -96,13 +96,13 @@ export const useInventarioDisponibilidad = () => {
 
     if (filtros.almacenId) {
       const match = almacenesActivos.find(
-        w => w.id === filtros.almacenId && w.EstablecimientoId === currentEstablecimientoId
+        w => w.id === filtros.almacenId && w.establecimientoId === currentEstablecimientoId
       );
       return match ? [match.id] : [];
     }
 
     return almacenesActivos
-      .filter(w => w.EstablecimientoId === currentEstablecimientoId)
+      .filter(w => w.establecimientoId === currentEstablecimientoId)
       .map(w => w.id);
   }, [almacenesActivos, currentEstablecimientoId, filtros.almacenId]);
   const hasSinglealmacen = almacenescope.length === 1;
@@ -113,7 +113,7 @@ export const useInventarioDisponibilidad = () => {
         const almacenSigueValido = !prev.almacenId
           ? true
           : almacenesActivos.some(
-              w => w.id === prev.almacenId && w.EstablecimientoId === currentEstablecimientoId
+              w => w.id === prev.almacenId && w.establecimientoId === currentEstablecimientoId
             );
         if (almacenSigueValido) {
           return prev;
@@ -123,7 +123,7 @@ export const useInventarioDisponibilidad = () => {
 
       const almacenSigueValido = prev.almacenId
         ? almacenesActivos.some(
-            w => w.id === prev.almacenId && w.EstablecimientoId === currentEstablecimientoId
+            w => w.id === prev.almacenId && w.establecimientoId === currentEstablecimientoId
           )
         : true;
       return {
@@ -365,7 +365,7 @@ export const useInventarioDisponibilidad = () => {
       const almacenEsValido = !nextAlmacenId
         ? true
         : almacenesActivos.some(
-            w => w.id === nextAlmacenId && w.EstablecimientoId === currentEstablecimientoId
+            w => w.id === nextAlmacenId && w.establecimientoId === currentEstablecimientoId
           );
 
       return {
