@@ -11,7 +11,6 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  Play,
   Settings,
   TrendingUp,
   Shield,
@@ -376,56 +375,6 @@ export function ConfigurationDashboard() {
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Acciones Rápidas
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
-                <Play className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <div className="text-left">
-                  <p className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-700 dark:group-hover:text-blue-300">
-                    Configuración Inicial
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Completa los datos básicos
-                  </p>
-                </div>
-              </button>
-
-              <Link
-                to="/configuracion/empresa"
-                className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-yellow-300 dark:hover:border-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all group"
-              >
-                <Shield className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                <div className="text-left">
-                  <p className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-yellow-700 dark:group-hover:text-yellow-300">
-                    Cambiar a Producción
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Activar facturación oficial
-                  </p>
-                </div>
-              </Link>
-
-              <Link
-                to="/configuracion/usuarios"
-                className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
-              >
-                <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                <div className="text-left">
-                  <p className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-purple-700 dark:group-hover:text-purple-300">
-                    Gestionar Usuarios
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Invitar y asignar roles
-                  </p>
-                </div>
-              </Link>
-            </div>
-          </div>
         </div>
       </div>
     </div>
