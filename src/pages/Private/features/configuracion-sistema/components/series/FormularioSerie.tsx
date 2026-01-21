@@ -3,10 +3,9 @@
 // src/features/configuration/components/series/SeriesForm.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { X, FileText, Receipt, Clipboard, MessageSquare, Hash, CheckCircle, Info, NotebookPen } from 'lucide-react';
-import { Input, Button, RadioButton, Select } from '@/contasis';
+import { Input, Button, RadioButton, Select, Switch } from '@/contasis';
 import type { Series } from '../../modelos/Series';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -431,13 +430,18 @@ export function SeriesForm({
           {/* Configuration Options */}
           <div className="space-y-4">
             <div className="border border-gray-200 rounded-lg p-4">
-              <SettingsToggle
-                enabled={formData.isDefault}
-                onToggle={(enabled: boolean) => handleFieldChange('isDefault', enabled)}
-                label="Serie por Defecto"
-                description={`Se selecciona automáticamente para ${voucherTypeConfig[formData.type].label} en este establecimiento`}
-                disabled={isLoading || (!formData.EstablecimientoId)}
-              />
+              <div className="space-y-3">
+                <Switch
+                  checked={formData.isDefault}
+                  onChange={(enabled: boolean) => handleFieldChange('isDefault', enabled)}
+                  label="Serie por Defecto"
+                  disabled={isLoading || (!formData.EstablecimientoId)}
+                  size="md"
+                />
+                <p className="text-sm text-gray-600">
+                  Se selecciona automáticamente para {voucherTypeConfig[formData.type].label} en este establecimiento
+                </p>
+              </div>
 
               {hasDefaultInEstablecimiento() && formData.isDefault && (
                 <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -452,13 +456,18 @@ export function SeriesForm({
             </div>
 
             <div className="border border-gray-200 rounded-lg p-4">
-              <SettingsToggle
-                enabled={formData.isActive}
-                onToggle={(enabled: boolean) => handleFieldChange('isActive', enabled)}
-                label="Serie Activa"
-                description="Solo las series activas pueden usarse para emitir documentos"
-                disabled={isLoading}
-              />
+              <div className="space-y-3">
+                <Switch
+                  checked={formData.isActive}
+                  onChange={(checked: boolean) => handleFieldChange('isActive', checked)}
+                  label="Serie Activa"
+                  disabled={isLoading}
+                  size="md"
+                />
+                <p className="text-sm text-gray-600">
+                  Solo las series activas pueden usarse para emitir documentos
+                </p>
+              </div>
             </div>
           </div>
 

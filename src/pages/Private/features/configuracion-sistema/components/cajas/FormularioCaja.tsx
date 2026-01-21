@@ -1,6 +1,6 @@
 // CajaForm component - Create/Edit cash register form with inline validations
 import { useState, useEffect } from 'react';
-import { Button, Select, Input, Textarea } from '@/contasis';
+import { Button, Select, Input, Textarea, Switch } from '@/contasis';
 import type { CreateCajaInput, UpdateCajaInput, MedioPago } from '../../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../../modelos/Caja';
 import type { Currency } from '../../modelos/Currency';

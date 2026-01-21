@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Package } from 'lucide-react';
 import { ConfigurationCard } from '../comunes/TarjetaConfiguracion';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
+import { Switch } from '@/contasis';
 
 export type SalesPreferences = {
   allowNegativeStock: boolean;
@@ -53,17 +53,18 @@ export function SalesPreferencesSection({
       icon={Package}
     >
       <div className="space-y-3">
-        <SettingsToggle
-          enabled={isStrictModeEnabled}
-          onToggle={handleStrictStockToggle}
+        <Switch
+          checked={isStrictModeEnabled}
+          onChange={handleStrictStockToggle}
           label="Stock estricto"
           disabled={isUpdating}
+          size="md"
         />
 
         <p className="text-sm text-gray-600">
           {isStrictModeEnabled
-            ? 'Activado: no podras vender productos agotados.'
-            : 'Desactivado: podras vender aunque este agotado.'}
+            ? 'Activado: no podrás vender productos agotados.'
+            : 'Desactivado: podrás vender aunque esté agotado.'}
         </p>
       </div>
     </ConfigurationCard>

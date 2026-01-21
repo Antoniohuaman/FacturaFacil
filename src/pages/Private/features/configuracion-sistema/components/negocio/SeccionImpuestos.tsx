@@ -1,8 +1,7 @@
 // src/features/configuration/components/negocio/TaxesSection.tsx
 import { useMemo, useState } from 'react';
 import { Receipt, Calculator, AlertCircle, Info, Settings } from 'lucide-react';
-import { RadioButton } from '@/contasis';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
+import { RadioButton, Switch } from '@/contasis';
 import { DefaultSelector } from '../comunes/SelectorPredeterminado';
 import { ConfigurationCard } from '../comunes/TarjetaConfiguracion';
 import type { Tax } from '../../modelos/Tax';
@@ -271,11 +270,11 @@ export function TaxesSection({
                         {rateLabel}
                       </td>
                       <td className="px-4 py-2 align-middle text-center">
-                        <SettingsToggle
-                          enabled={tax.isActive}
-                          onToggle={handleToggleActive}
-                          label=""
+                        <Switch
+                          checked={tax.isActive}
+                          onChange={handleToggleActive}
                           disabled={isUpdating}
+                          size="sm"
                         />
                       </td>
                       <td className="px-4 py-2 align-middle text-center">

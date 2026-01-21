@@ -429,7 +429,7 @@ export function UnitsSection({
             <Select
               value={filterMode}
               onChange={(e) => setFilterMode(e.target.value as FilterMode)}
-              size="small"
+              size="medium"
               options={[
                 { value: 'all', label: 'Todas' },
                 { value: 'favorites', label: 'Favoritas' },
@@ -443,7 +443,7 @@ export function UnitsSection({
             <Select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value as Unit['category'] | 'all')}
-              size="small"
+              size="medium"
               options={[
                 { value: 'all', label: 'Todas las categorías' },
                 ...UNIT_CATEGORIES.map((cat) => ({

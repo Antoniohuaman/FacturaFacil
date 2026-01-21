@@ -19,6 +19,9 @@ export type { CheckboxProps } from './components/Checkbox';
 export { RadioButton } from './components/RadioButton';
 export type { RadioButtonProps } from './components/RadioButton';
 
+export { Switch } from './components/Switch';
+export type { SwitchProps } from './components/Switch';
+
 export { Textarea } from './components/Textarea';
 export type { TextareaProps } from './components/Textarea';
 
