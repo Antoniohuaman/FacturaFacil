@@ -1,7 +1,7 @@
 // SesionesCajaPage - Historial de sesiones de caja
 import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, User, CheckCircle, XCircle, Eye, Calendar } from 'lucide-react';
+import { ArrowLeft, User, CheckCircle, XCircle, Eye, Calendar, Clock } from 'lucide-react';
 import { PageHeader } from '@/contasis';
 
 // Placeholder types - replace with actual types when implementing

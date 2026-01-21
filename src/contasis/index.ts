@@ -34,3 +34,6 @@ export type { PageHeaderProps } from './layout/PageHeader';
 
 export { Toolbar } from './layout/Toolbar';
 export type { ToolbarProps } from './layout/Toolbar';
+
+export { TopBar } from './layout/TopBar';
+export type { TopBarProps } from './layout/TopBar';

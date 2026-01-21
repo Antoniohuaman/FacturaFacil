@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/configuration/components/empresa/RucValidator.tsx
 import { useState } from 'react';
-import { CheckCircle2, AlertTriangle, Loader2, Search, Building2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Search, Building2 } from 'lucide-react';
 import { Button } from '@/contasis';
 
 interface RucValidatorProps {

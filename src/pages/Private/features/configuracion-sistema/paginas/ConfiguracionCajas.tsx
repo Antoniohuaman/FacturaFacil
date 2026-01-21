@@ -22,7 +22,6 @@ export function CajasConfiguration() {
 
   const empresaId = session?.currentCompanyId || '';
   const establecimientoId = session?.currentEstablecimientoId || '';
-  const establecimientoActual = session?.currentEstablecimiento;
 
   const {
     cajas,
