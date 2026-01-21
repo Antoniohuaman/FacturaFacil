@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
 
 // Type helper for user status
 type UserStatus = User['status'];
@@ -173,7 +173,7 @@ export function UserCard({
                 <h3 className="font-semibold text-gray-900 truncate">
                   {user.personalInfo.fullName}
                 </h3>
-                <StatusIndicator
+                <IndicadorEstado
                   status={configEstado.color}
                   label={configEstado.label}
                   size="xs"

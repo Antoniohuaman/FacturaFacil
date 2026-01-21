@@ -14,7 +14,7 @@ import { Select, Input, Button } from '@/contasis';
 import type { User } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { UserCard } from './TarjetaUsuario';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
 
 type UserStatus = User['status'];
 
@@ -469,7 +469,7 @@ export function UsersList({
                         )}
                       </td>
                       <td className="py-4 px-4">
-                        <StatusIndicator
+                        <IndicadorEstado
                           status={configEstado.color}
                           label={configEstado.label}
                           size="sm"

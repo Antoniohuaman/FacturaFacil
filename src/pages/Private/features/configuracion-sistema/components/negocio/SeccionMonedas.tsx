@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { DollarSign, TrendingUp, AlertCircle, History } from 'lucide-react';
 import { Button } from '@/contasis';
 import type { Currency, ExchangeRate } from '../../modelos/Currency';
-import { DefaultSelector } from '../comunes/SelectorPredeterminado';
-import { ConfigurationCard } from '../comunes/TarjetaConfiguracion';
+import { SelectorPredeterminado } from '../comunes/SelectorPredeterminado';
+import { TarjetaConfiguracion } from '../comunes/TarjetaConfiguracion';
 import { useCurrencyManager } from '@/shared/currency';
 import type { CurrencyCode } from '@/shared/currency';
 
@@ -172,7 +172,7 @@ export function CurrenciesSection({
                 {/* Actions */}
                 <div className="flex items-center space-x-3">
                   {/* Default Selector */}
-                  <DefaultSelector
+                  <SelectorPredeterminado
                     isDefault={currency.isBaseCurrency}
                     onSetDefault={() => { void setDefaultCurrency(currency.id); }}
                     label="Base"
@@ -227,7 +227,7 @@ export function CurrenciesSection({
       </div>
 
       {/* Info Card */}
-      <ConfigurationCard
+      <TarjetaConfiguracion
         title="Información sobre Tipos de Cambio"
         description="Cómo funcionan las monedas en el sistema"
       >
@@ -263,7 +263,7 @@ export function CurrenciesSection({
             </div>
           </div>
         </div>
-      </ConfigurationCard>
+      </TarjetaConfiguracion>
     </div>
   );
 }

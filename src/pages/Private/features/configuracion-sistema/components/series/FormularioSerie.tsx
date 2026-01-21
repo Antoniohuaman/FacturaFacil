@@ -6,7 +6,7 @@ import { X, FileText, Receipt, Clipboard, MessageSquare, Hash, CheckCircle, Info
 import { Input, Button, RadioButton, Select } from '@/contasis';
 import type { Series } from '../../modelos/Series';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
+import { InterruptorConfiguracion } from '../comunes/InterruptorConfiguracion';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -431,7 +431,7 @@ export function SeriesForm({
           {/* Configuration Options */}
           <div className="space-y-4">
             <div className="border border-gray-200 rounded-lg p-4">
-              <SettingsToggle
+              <InterruptorConfiguracion
                 enabled={datosFormulario.isDefault}
                 onToggle={(enabled: boolean) => handleFieldChange('isDefault', enabled)}
                 label="Serie por Defecto"
@@ -452,7 +452,7 @@ export function SeriesForm({
             </div>
 
             <div className="border border-gray-200 rounded-lg p-4">
-              <SettingsToggle
+              <InterruptorConfiguracion
                 enabled={datosFormulario.isActive}
                 onToggle={(enabled: boolean) => handleFieldChange('isActive', enabled)}
                 label="Serie Activa"

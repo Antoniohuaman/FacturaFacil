@@ -5,7 +5,7 @@ import { useAccountingAccounts } from '../../hooks/useCuentasContables';
 import { useBankAccounts } from '../../hooks/useCuentasBancarias';
 import type { AccountingAccount } from '../../modelos/AccountingAccount';
 import { AccountingAccountModal } from './ModalCuentaContable';
-import { ConfirmationModal } from '../comunes/ModalConfirmacion';
+import { ModalConfirmacion } from '../comunes/ModalConfirmacion';
 
 interface AccountingAccountsSectionProps {
   onBack?: () => void;
@@ -188,7 +188,7 @@ export function AccountingAccountsSection({ onBack }: AccountingAccountsSectionP
         onSubmit={manejarEnvio}
       />
 
-      <ConfirmationModal
+      <ModalConfirmacion
         isOpen={Boolean(deleting)}
         onClose={() => setDeleting(null)}
         onConfirm={handleConfirmDelete}

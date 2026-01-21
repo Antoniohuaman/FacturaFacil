@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 // import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
-import { StatusIndicator } from '../components/comunes/IndicadorEstado';
+import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { ubigeoData } from '../datos/ubigeo';
 import { Button, Select, Input } from '@/contasis';
@@ -827,7 +827,7 @@ export function EstablecimientosConfiguration() {
                       <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                         {Establecimiento.codigoEstablecimiento}
                       </span>
-                      <StatusIndicator
+                      <IndicadorEstado
                         status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
                         label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
                       />

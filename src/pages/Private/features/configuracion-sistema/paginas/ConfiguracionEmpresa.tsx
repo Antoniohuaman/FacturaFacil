@@ -13,9 +13,9 @@ import {
 } from 'lucide-react';
 import { Button, Select, Input, RadioButton, PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
-import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
-import { StatusIndicator } from '../components/comunes/IndicadorEstado';
-import { ConfirmationModal } from '../components/comunes/ModalConfirmacion';
+import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion';
+import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
+import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import { RucValidator } from '../components/empresa/ValidadorRuc';
 import { parseUbigeoCode } from '../datos/ubigeo';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
@@ -707,7 +707,7 @@ export function CompanyConfiguration() {
         <div className="max-w-4xl mx-auto p-6 space-y-8">
           <form onSubmit={manejarEnvio} className="space-y-8">
             {/* Company Legal Data */}
-            <ConfigurationCard
+            <TarjetaConfiguracion
               title="Datos Legales y Tributarios"
               density="compact"
             >
@@ -791,10 +791,10 @@ export function CompanyConfiguration() {
                   onChange={(e) => setFormData(prev => ({ ...prev, actividadEconomica: e.target.value }))}
                 />
               </div>
-            </ConfigurationCard>
+            </TarjetaConfiguracion>
 
             {/* Global Parameters */}
-            <ConfigurationCard
+            <TarjetaConfiguracion
               title="Parámetros Globales"
               density="compact"
             >
@@ -828,7 +828,7 @@ export function CompanyConfiguration() {
                         label="Prueba"
                       />
                       {datosFormulario.entornoSunat === 'TEST' && (
-                        <StatusIndicator status="warning" label="Activo" size="sm" />
+                        <IndicadorEstado status="warning" label="Activo" size="sm" />
                       )}
                     </div>
 
@@ -841,7 +841,7 @@ export function CompanyConfiguration() {
                         label="Producción"
                       />
                       {datosFormulario.entornoSunat === 'PRODUCTION' && (
-                        <StatusIndicator status="success" label="Activo" size="sm" />
+                        <IndicadorEstado status="success" label="Activo" size="sm" />
                       )}
                     </div>
                   </div>
@@ -870,10 +870,10 @@ export function CompanyConfiguration() {
                   )}
                 </div>
               </div>
-            </ConfigurationCard>
+            </TarjetaConfiguracion>
 
             {/* Contact Information */}
-            <ConfigurationCard
+            <TarjetaConfiguracion
               title="Información de Contacto"
               density="compact"
             >
@@ -956,7 +956,7 @@ export function CompanyConfiguration() {
                   </Button>
                 </div>
               </div>
-            </ConfigurationCard>
+            </TarjetaConfiguracion>
 
             {/* Actions */}
             <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -1005,7 +1005,7 @@ export function CompanyConfiguration() {
           </form>
 
           {/* Production Confirmation Modal */}
-          <ConfirmationModal
+          <ModalConfirmacion
             isOpen={showProductionModal}
             onClose={() => setShowProductionModal(false)}
             onConfirm={confirmProductionChange}

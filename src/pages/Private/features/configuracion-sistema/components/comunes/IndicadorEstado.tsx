@@ -12,7 +12,7 @@ interface StatusIndicatorProps {
   pulse?: boolean;
 }
 
-export function StatusIndicator({ 
+export function IndicadorEstado({ 
   status, 
   label, 
   showIcon = true, 

@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { Button, Select, Input, Checkbox } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
-import { StatusIndicator } from '../components/comunes/IndicadorEstado';
+import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Almacen } from '../modelos/Almacen';
 
 interface Toast {
@@ -753,7 +753,7 @@ export function ConfiguracionAlmacenes() {
                           Con movimientos
                         </span>
                       )}
-                      <StatusIndicator
+                      <IndicadorEstado
                         status={almacen.estaActivoAlmacen ? 'success' : 'error'}
                         label={almacen.estaActivoAlmacen ? 'Activo' : 'Inactivo'}
                       />

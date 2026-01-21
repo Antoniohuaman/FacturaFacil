@@ -17,7 +17,7 @@ interface ConfigurationCardProps {
   density?: 'default' | 'compact';
 }
 
-export function ConfigurationCard({ 
+export function TarjetaConfiguracion({ 
   title, 
   description, 
   children, 

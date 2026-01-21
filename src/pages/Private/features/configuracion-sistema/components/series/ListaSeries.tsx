@@ -7,7 +7,7 @@ import type { Establecimiento } from '../../modelos/Establecimiento';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 import { SeriesCard } from './TarjetaSerie';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
 
 type FilterType = VoucherType | 'ALL';
 type filtroEstado = 'all' | 'active' | 'inactive';
@@ -366,7 +366,7 @@ export function SeriesList({
                 <h3 className="text-lg font-semibold text-gray-900">
                   {Establecimiento.codigoEstablecimiento} - {Establecimiento.nombreEstablecimiento}
                 </h3>
-                <StatusIndicator
+                <IndicadorEstado
                   status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
                   label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
                   size="sm"
@@ -443,7 +443,7 @@ export function SeriesList({
                         </span>
                       </td>
                       <td className="py-4 px-4">
-                        <StatusIndicator
+                        <IndicadorEstado
                           status={seriesItem.isActive ? 'success' : 'error'}
                           label={seriesItem.isActive ? 'Activa' : 'Inactiva'}
                           size="sm"

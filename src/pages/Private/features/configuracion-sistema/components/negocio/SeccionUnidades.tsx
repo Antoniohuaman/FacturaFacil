@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import { Button, Select, Input } from '@/contasis';
 import type { Unit } from '../../modelos/Unit';
-import { DefaultSelector } from '../comunes/SelectorPredeterminado';
-import { ConfigurationCard } from '../comunes/TarjetaConfiguracion';
+import { SelectorPredeterminado } from '../comunes/SelectorPredeterminado';
+import { TarjetaConfiguracion } from '../comunes/TarjetaConfiguracion';
 import { SUNAT_UNITS, UNIT_CATEGORIES } from '../../modelos/Unit';
 
 interface UnitsSectionProps {
@@ -486,7 +486,7 @@ export function UnitsSection({
 
       {/* Sección de Favoritos */}
       {favoriteUnits.length > 0 && (
-        <ConfigurationCard
+        <TarjetaConfiguracion
           title="⭐ Unidades Favoritas"
           description="Acceso rápido a tus unidades más utilizadas"
         >
@@ -531,12 +531,12 @@ export function UnitsSection({
               );
             })}
           </div>
-        </ConfigurationCard>
+        </TarjetaConfiguracion>
       )}
 
       {/* Formulario Mejorado */}
       {showForm && (
-        <ConfigurationCard
+        <TarjetaConfiguracion
           title={editingId ? '✏️ Editar Unidad de Medida' : '➕ Nueva Unidad de Medida'}
           description={editingId ? 'Modifica los datos de la unidad seleccionada' : 'Crea una unidad personalizada para tus productos'}
         >
@@ -641,7 +641,7 @@ export function UnitsSection({
               </Button>
             </div>
           </form>
-        </ConfigurationCard>
+        </TarjetaConfiguracion>
       )}
 
       {/* Vista Principal de Unidades */}
@@ -727,7 +727,7 @@ export function UnitsSection({
                       {/* Acciones (aparecen al hover) */}
                       <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                         <div className="flex items-center space-x-2">
-                          <DefaultSelector
+                          <SelectorPredeterminado
                             isDefault={isDefaultUnit(unit)}
                             onSetDefault={() => setDefaultUnit(unit.id)}
                             size="sm"
@@ -837,7 +837,7 @@ export function UnitsSection({
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        <DefaultSelector
+                        <SelectorPredeterminado
                           isDefault={isDefaultUnit(unit)}
                           onSetDefault={() => setDefaultUnit(unit.id)}
                           size="sm"

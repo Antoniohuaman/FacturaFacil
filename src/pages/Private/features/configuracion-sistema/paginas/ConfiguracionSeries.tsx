@@ -19,9 +19,9 @@ import {
   NotebookPen
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
-import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
-import { StatusIndicator } from '../components/comunes/IndicadorEstado';
-import { ConfirmationModal } from '../components/comunes/ModalConfirmacion';
+import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion';
+import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
+import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import type { Series, DocumentType } from '../modelos/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
 import { Button, Select, Input, Checkbox, RadioButton } from '@/contasis';
@@ -603,7 +603,7 @@ export function SeriesConfiguration() {
 
       {/* Form Modal */}
       {showForm && (
-        <ConfigurationCard
+        <TarjetaConfiguracion
           title={editingId ? "Editar Serie" : "Nueva Serie"}
           description="Configura la serie de comprobantes"
         >
@@ -764,11 +764,11 @@ export function SeriesConfiguration() {
               </Button>
             </div>
           </form>
-        </ConfigurationCard>
+        </TarjetaConfiguracion>
       )}
 
       {/* List */}
-      <ConfigurationCard
+      <TarjetaConfiguracion
         title="Series por Establecimiento"
         description="Gestiona todas las series de tus establecimientos"
       >
@@ -810,7 +810,7 @@ export function SeriesConfiguration() {
                 <h3 className="text-lg font-semibold text-gray-900">
                   {Establecimiento.codigoEstablecimiento} - {Establecimiento.nombreEstablecimiento}
                 </h3>
-                <StatusIndicator
+                <IndicadorEstado
                   status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
                   label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
                   size="sm"
@@ -858,14 +858,14 @@ export function SeriesConfiguration() {
                                   {seriesItem.series}
                                 </span>
                                 {seriesItem.isDefault && (
-                                  <StatusIndicator
+                                  <IndicadorEstado
                                     status="success"
                                     label="Por defecto"
                                     size="sm"
                                   />
                                 )}
                                 {!seriesItem.isActive && (
-                                  <StatusIndicator
+                                  <IndicadorEstado
                                     status="error"
                                     label="Inactiva"
                                     size="sm"
@@ -931,7 +931,7 @@ export function SeriesConfiguration() {
 
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Estado de Uso</p>
-                            <StatusIndicator
+                            <IndicadorEstado
                               status={seriesItem.hasUsage ? 'warning' : 'pending'}
                               label={seriesItem.hasUsage ? 'En uso' : 'Sin uso'}
                               size="sm"
@@ -958,10 +958,10 @@ export function SeriesConfiguration() {
             </p>
           </div>
         )}
-      </ConfigurationCard>
+      </TarjetaConfiguracion>
 
       {/* Delete Modal */}
-      <ConfirmationModal
+      <ModalConfirmacion
         isOpen={deleteModal.show}
         onClose={() => setDeleteModal({ show: false })}
         onConfirm={() => deleteModal.series && handleDelete(deleteModal.series)}

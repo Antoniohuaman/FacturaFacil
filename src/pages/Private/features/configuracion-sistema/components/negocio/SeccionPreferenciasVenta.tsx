@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Package } from 'lucide-react';
-import { ConfigurationCard } from '../comunes/TarjetaConfiguracion';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
+import { TarjetaConfiguracion } from '../comunes/TarjetaConfiguracion';
+import { InterruptorConfiguracion } from '../comunes/InterruptorConfiguracion';
 
 export type SalesPreferences = {
   allowNegativeStock: boolean;
@@ -47,13 +47,13 @@ export function SalesPreferencesSection({
   }
 
   return (
-    <ConfigurationCard
+    <TarjetaConfiguracion
       title="Control de stock en ventas"
       description="Bloquea la venta de productos sin stock."
       icon={Package}
     >
       <div className="space-y-3">
-        <SettingsToggle
+        <InterruptorConfiguracion
           enabled={isStrictModeEnabled}
           onToggle={handleStrictStockToggle}
           label="Stock estricto"
@@ -66,6 +66,6 @@ export function SalesPreferencesSection({
             : 'Desactivado: podras vender aunque este agotado.'}
         </p>
       </div>
-    </ConfigurationCard>
+    </TarjetaConfiguracion>
   );
 }

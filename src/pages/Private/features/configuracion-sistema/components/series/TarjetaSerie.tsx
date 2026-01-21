@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import type { Series } from '../../modelos/Series';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
-import { DefaultSelector } from '../comunes/SelectorPredeterminado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
+import { SelectorPredeterminado } from '../comunes/SelectorPredeterminado';
 
 interface SeriesCardProps {
   series: Series;
@@ -213,12 +213,12 @@ export function SeriesCard({
             </p>
             
             <div className="flex items-center space-x-2">
-              <StatusIndicator
+              <IndicadorEstado
                 status={series.isActive ? 'success' : 'error'}
                 label={series.isActive ? 'Activa' : 'Inactiva'}
                 size="xs"
               />
-              <StatusIndicator
+              <IndicadorEstado
                 status={usage.status}
                 label={usage.label}
                 size="xs"
@@ -410,7 +410,7 @@ export function SeriesCard({
           <div className="flex items-center justify-between">
             {/* Default Selector */}
             {series.isActive && (
-              <DefaultSelector
+              <SelectorPredeterminado
                 isDefault={series.isDefault}
                 onSetDefault={onSetDefault}
                 label="Por defecto"

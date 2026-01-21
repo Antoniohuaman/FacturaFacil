@@ -9,7 +9,7 @@ interface SettingsToggleProps {
   color?: 'blue' | 'green' | 'red' | 'yellow';
 }
 
-export function SettingsToggle({ 
+export function InterruptorConfiguracion({ 
   enabled, 
   onToggle, 
   label, 

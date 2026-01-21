@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { CreditCard, Plus, Edit3, Trash2, Star, Eye, EyeOff, X } from 'lucide-react';
 import type { PaymentMethod } from '../../modelos/PaymentMethod';
-import { DefaultSelector } from '../comunes/SelectorPredeterminado';
+import { SelectorPredeterminado } from '../comunes/SelectorPredeterminado';
 import {
   PAYMENT_MEANS_CATALOG,
   loadPaymentMeansPreferences,
@@ -227,7 +227,7 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <DefaultSelector
+                    <SelectorPredeterminado
                       isDefault={method.isDefault}
                       onSetDefault={() => toggleDefault(method.id)}
                       size="sm"
@@ -295,7 +295,7 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <DefaultSelector
+                  <SelectorPredeterminado
                     isDefault={method.isDefault}
                     onSetDefault={() => toggleDefault(method.id)}
                     size="sm"
@@ -410,7 +410,7 @@ export function PaymentMethodsSection({ paymentMethods, onUpdate, isLoading = fa
                     </button>
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <DefaultSelector isDefault={isDefault} onSetDefault={() => handleDefaultMean(mean.code)} size="sm" />
+                    <SelectorPredeterminado isDefault={isDefault} onSetDefault={() => handleDefaultMean(mean.code)} size="sm" />
                   </td>
                   <td className="px-3 py-2 text-center">
                     <Button

@@ -2,9 +2,9 @@
 import { useMemo, useState } from 'react';
 import { Receipt, Calculator, AlertCircle, Info, Settings } from 'lucide-react';
 import { RadioButton } from '@/contasis';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
-import { DefaultSelector } from '../comunes/SelectorPredeterminado';
-import { ConfigurationCard } from '../comunes/TarjetaConfiguracion';
+import { InterruptorConfiguracion } from '../comunes/InterruptorConfiguracion';
+import { SelectorPredeterminado } from '../comunes/SelectorPredeterminado';
+import { TarjetaConfiguracion } from '../comunes/TarjetaConfiguracion';
 import type { Tax } from '../../modelos/Tax';
 import { normalizeTaxes } from '../../modelos/Tax';
 
@@ -95,7 +95,7 @@ export function TaxesSection({
       </div>
 
       {/* Price Configuration */}
-      <ConfigurationCard
+      <TarjetaConfiguracion
         title="Configuración de Precios"
         description="Define si los precios de tus productos incluyen o no el IGV"
         icon={Calculator}
@@ -180,10 +180,10 @@ export function TaxesSection({
             </div>
           </div>
         </div>
-      </ConfigurationCard>
+      </TarjetaConfiguracion>
 
       {/* Tax Affectations */}
-      <ConfigurationCard
+      <TarjetaConfiguracion
         title="Afectaciones Tributarias"
         description="Configura los tipos de afectación fiscal disponibles para tus productos"
         icon={Settings}
@@ -271,7 +271,7 @@ export function TaxesSection({
                         {rateLabel}
                       </td>
                       <td className="px-4 py-2 align-middle text-center">
-                        <SettingsToggle
+                        <InterruptorConfiguracion
                           enabled={tax.isActive}
                           onToggle={handleToggleActive}
                           label=""
@@ -279,7 +279,7 @@ export function TaxesSection({
                         />
                       </td>
                       <td className="px-4 py-2 align-middle text-center">
-                        <DefaultSelector
+                        <SelectorPredeterminado
                           isDefault={tax.isDefault}
                           onSetDefault={handleSetDefault}
                           disabled={isUpdating}
@@ -310,7 +310,7 @@ export function TaxesSection({
             </div>
           </div>
         </div>
-      </ConfigurationCard>
+      </TarjetaConfiguracion>
 
       {/* Help and Documentation */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">

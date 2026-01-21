@@ -4,7 +4,7 @@ import { Search, Filter, Plus } from 'lucide-react';
 import { Select, Input, Button } from '@/contasis';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { EstablecimientoCard } from './TarjetaEstablecimiento';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
 
 type ViewMode = 'grid' | 'table';
 type filtroEstado = 'all' | 'enabled' | 'disabled';
@@ -326,7 +326,7 @@ export function EstablecimientosList({
                       {Establecimiento.direccionEstablecimiento}
                     </td>
                     <td className="py-4 px-4">
-                      <StatusIndicator
+                      <IndicadorEstado
                         status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
                         label={Establecimiento.estaActivoEstablecimiento ? 'Habilitado' : 'Inhabilitado'}
                         size="sm"

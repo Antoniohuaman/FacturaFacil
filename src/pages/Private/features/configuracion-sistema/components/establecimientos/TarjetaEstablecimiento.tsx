@@ -13,7 +13,7 @@ import {
   Building2
 } from 'lucide-react';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
 
 interface EstablecimientoCardProps {
   Establecimiento: Establecimiento;
@@ -90,7 +90,7 @@ export function EstablecimientoCard({
               <h3 className="font-semibold text-gray-900 truncate">
                 {Establecimiento.nombreEstablecimiento}
               </h3>
-              <StatusIndicator
+              <IndicadorEstado
                 status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
                 label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
                 size="xs"

@@ -2,7 +2,7 @@
 // src/features/configuration/components/empresa/LogoUploader.tsx
 import { useState, useRef } from 'react';
 import { Upload, X, Image, Eye, EyeOff, Download, RotateCcw } from 'lucide-react';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
+import { InterruptorConfiguracion } from '../comunes/InterruptorConfiguracion';
 
 interface LogoData {
   url: string;
@@ -210,7 +210,7 @@ export function LogoUploader({
 
           {/* Show in Print Toggle */}
           <div className="pt-3 border-t border-gray-200">
-            <SettingsToggle
+            <InterruptorConfiguracion
               enabled={logo.showInPrint}
               onToggle={handleToggleShowInPrint}
               label="Mostrar en Impresión"
