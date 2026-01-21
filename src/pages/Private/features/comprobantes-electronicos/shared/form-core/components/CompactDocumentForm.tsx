@@ -137,6 +137,7 @@ interface CompactDocumentFormProps {
 
   // Reglas especiales según medio de pago (ej. crédito)
   isCreditMethod?: boolean;
+  creditDueDate?: string | null;
 
   // Modal de configuración
   onOpenFieldsConfig?: () => void;
@@ -179,6 +180,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   formaPago = "contado",
   setFormaPago,
   isCreditMethod,
+  creditDueDate,
   onOpenFieldsConfig,
   onVistaPrevia,
   clienteSeleccionado,
@@ -460,6 +462,18 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sincronizar fecha de vencimiento con el cronograma de crédito cuando aplique
+  useEffect(() => {
+    if (!isCreditMethod || !creditDueDate) {
+      return;
+    }
+
+    if (creditDueDate !== localFechaVencimiento) {
+      setLocalFechaVencimiento(creditDueDate);
+      onOptionalFieldsChange?.({ fechaVencimiento: creditDueDate });
+    }
+  }, [creditDueDate, isCreditMethod, localFechaVencimiento, onOptionalFieldsChange]);
 
   return (
     <>
@@ -818,7 +832,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               </div>
 
               {/* Fila 3: Fecha Vencimiento + Placeholder */}
-              {config.optionalFields.fechaVencimiento.visible && (isCreditMethod ?? true) && (
+              {isCreditMethod === true && (
                 <div className="col-span-6">
                   <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="fecha-vencimiento">
                     <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
