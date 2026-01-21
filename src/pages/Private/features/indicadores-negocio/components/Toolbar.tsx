@@ -14,10 +14,15 @@ export default function Toolbar() {
   } = useIndicadoresFilters();
 
   // Obtener establecimientos activos desde la configuración
-  const Establecimientos = configState.Establecimientos.filter(e => e.isActive);
+  const Establecimientos = configState.Establecimientos.filter(
+    e => e.estaActivoEstablecimiento !== false
+  );
   const EstablecimientoOptions = [
     { id: 'Todos', name: 'Todos los establecimientos' },
-    ...Establecimientos.map(est => ({ id: est.id, name: `${est.code} - ${est.name}` }))
+    ...Establecimientos.map(est => ({
+      id: est.id,
+      name: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
+    }))
   ];
 
   const handleEstablecimientoChange = (Establecimiento: string) => {

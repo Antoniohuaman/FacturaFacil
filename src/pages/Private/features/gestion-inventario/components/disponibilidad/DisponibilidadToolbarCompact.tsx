@@ -36,7 +36,7 @@ const DisponibilidadToolbarCompact: React.FC<DisponibilidadToolbarCompactProps> 
 
   // Establecimientos activos
   const establecimientos = useMemo(
-    () => configState.Establecimientos.filter(e => e.isActive),
+    () => configState.Establecimientos.filter(e => e.estaActivoEstablecimiento !== false),
     [configState.Establecimientos]
   );
 
@@ -82,7 +82,7 @@ const DisponibilidadToolbarCompact: React.FC<DisponibilidadToolbarCompactProps> 
               <option value="">Todos los establecimientos</option>
               {establecimientos.map((est) => (
                 <option key={est.id} value={est.id}>
-                  {est.code} - {est.name}
+                  {est.codigoEstablecimiento} - {est.nombreEstablecimiento}
                 </option>
               ))}
             </select>

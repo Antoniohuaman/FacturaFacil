@@ -6,11 +6,11 @@ import { Input, Button } from '@/contasis';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 
 interface EstablecimientoFormData {
-  code: string;
-  name: string;
-  address: string;
-  ubigeo: string;
-  isEnabled: boolean;
+  codigoEstablecimiento: string;
+  nombreEstablecimiento: string;
+  direccionEstablecimiento: string;
+  codigoPostalEstablecimiento: string;
+  estaActivoEstablecimiento: boolean;
 }
 
 interface EstablecimientoFormProps {
@@ -29,11 +29,11 @@ export function EstablecimientoForm({
   existingCodes = []
 }: EstablecimientoFormProps) {
   const [formData, setFormData] = useState<EstablecimientoFormData>({
-    code: '',
-    name: '',
-    address: '',
-    ubigeo: '',
-    isEnabled: true
+    codigoEstablecimiento: '',
+    nombreEstablecimiento: '',
+    direccionEstablecimiento: '',
+    codigoPostalEstablecimiento: '',
+    estaActivoEstablecimiento: true
   });
 
   const [errors, setErrors] = useState<Partial<EstablecimientoFormData>>({});
@@ -51,34 +51,34 @@ export function EstablecimientoForm({
   useEffect(() => {
     if (Establecimiento) {
       setFormData({
-        code: Establecimiento.code,
-        name: Establecimiento.name,
-        address: Establecimiento.address,
-        ubigeo: Establecimiento.postalCode || '',
-        isEnabled: Establecimiento.isActive
+        codigoEstablecimiento: Establecimiento.codigoEstablecimiento,
+        nombreEstablecimiento: Establecimiento.nombreEstablecimiento,
+        direccionEstablecimiento: Establecimiento.direccionEstablecimiento,
+        codigoPostalEstablecimiento: Establecimiento.codigoPostalEstablecimiento || '',
+        estaActivoEstablecimiento: Establecimiento.estaActivoEstablecimiento
       });
     } else {
       // Generate next code for new Establecimiento
       const nextCode = generateNextCode();
-      setFormData(prev => ({ ...prev, code: nextCode }));
+      setFormData(prev => ({ ...prev, codigoEstablecimiento: nextCode }));
     }
   }, [Establecimiento, generateNextCode]);
 
   const validateField = (field: keyof EstablecimientoFormData, value: any): string | undefined => {
     switch (field) {
-      case 'code':
+      case 'codigoEstablecimiento':
         if (!value || value.trim() === '') {
           return 'El código es obligatorio';
         }
         if (value.length < 3) {
           return 'El código debe tener al menos 3 caracteres';
         }
-        if (existingCodes.includes(value) && value !== Establecimiento?.code) {
+        if (existingCodes.includes(value) && value !== Establecimiento?.codigoEstablecimiento) {
           return 'Ya existe un establecimiento con este código';
         }
         break;
 
-      case 'name':
+      case 'nombreEstablecimiento':
         if (!value || value.trim() === '') {
           return 'El nombre es obligatorio';
         }
@@ -87,7 +87,7 @@ export function EstablecimientoForm({
         }
         break;
 
-      case 'address':
+      case 'direccionEstablecimiento':
         if (!value || value.trim() === '') {
           return 'La dirección es obligatoria';
         }
@@ -96,7 +96,7 @@ export function EstablecimientoForm({
         }
         break;
 
-      case 'ubigeo':
+      case 'codigoPostalEstablecimiento':
         if (value && value.length !== 6) {
           return 'El ubigeo debe tener 6 dígitos';
         }
@@ -157,9 +157,9 @@ export function EstablecimientoForm({
   };
 
   const isFormValid = Object.keys(errors).length === 0 &&
-    formData.code.trim() !== '' &&
-    formData.name.trim() !== '' &&
-    formData.address.trim() !== '';
+    formData.codigoEstablecimiento.trim() !== '' &&
+    formData.nombreEstablecimiento.trim() !== '' &&
+    formData.direccionEstablecimiento.trim() !== '';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -196,10 +196,10 @@ export function EstablecimientoForm({
             <Input
               label="Código *"
               type="text"
-              value={formData.code}
-              onChange={(e) => handleFieldChange('code', e.target.value.toUpperCase())}
-              onBlur={() => handleBlur('code')}
-              error={errors.code && touchedFields.has('code') ? errors.code : undefined}
+              value={formData.codigoEstablecimiento}
+              onChange={(e) => handleFieldChange('codigoEstablecimiento', e.target.value.toUpperCase())}
+              onBlur={() => handleBlur('codigoEstablecimiento')}
+              error={errors.codigoEstablecimiento && touchedFields.has('codigoEstablecimiento') ? errors.codigoEstablecimiento : undefined}
               placeholder="EST001"
               maxLength={10}
               leftIcon={<Hash />}
@@ -214,16 +214,16 @@ export function EstablecimientoForm({
               <div className="flex items-center space-x-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => handleFieldChange('isEnabled', !formData.isEnabled)}
+                  onClick={() => handleFieldChange('estaActivoEstablecimiento', !formData.estaActivoEstablecimiento)}
                   className="flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
                 >
-                  {formData.isEnabled ? (
+                  {formData.estaActivoEstablecimiento ? (
                     <ToggleRight className="w-8 h-8 text-green-600" />
                   ) : (
                     <ToggleLeft className="w-8 h-8 text-gray-400" />
                   )}
-                  <span className={`font-medium ${formData.isEnabled ? 'text-green-600' : 'text-gray-500'}`}>
-                    {formData.isEnabled ? 'Habilitado' : 'Inhabilitado'}
+                  <span className={`font-medium ${formData.estaActivoEstablecimiento ? 'text-green-600' : 'text-gray-500'}`}>
+                    {formData.estaActivoEstablecimiento ? 'Habilitado' : 'Inhabilitado'}
                   </span>
                 </button>
               </div>
@@ -237,10 +237,10 @@ export function EstablecimientoForm({
           <Input
             label="Nombre del Establecimiento *"
             type="text"
-            value={formData.name}
-            onChange={(e) => handleFieldChange('name', e.target.value)}
-            onBlur={() => handleBlur('name')}
-            error={errors.name && touchedFields.has('name') ? errors.name : undefined}
+            value={formData.nombreEstablecimiento}
+            onChange={(e) => handleFieldChange('nombreEstablecimiento', e.target.value)}
+            onBlur={() => handleBlur('nombreEstablecimiento')}
+            error={errors.nombreEstablecimiento && touchedFields.has('nombreEstablecimiento') ? errors.nombreEstablecimiento : undefined}
             placeholder="Sucursal Principal, Local Centro, Tienda Norte..."
             leftIcon={<Building2 />}
           />
@@ -253,10 +253,10 @@ export function EstablecimientoForm({
             <div className="relative">
               <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <textarea
-                value={formData.address}
-                onChange={(e) => handleFieldChange('address', e.target.value)}
-                onBlur={() => handleBlur('address')}
-                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${errors.address && touchedFields.has('address')
+                value={formData.direccionEstablecimiento}
+                onChange={(e) => handleFieldChange('direccionEstablecimiento', e.target.value)}
+                onBlur={() => handleBlur('direccionEstablecimiento')}
+                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${errors.direccionEstablecimiento && touchedFields.has('direccionEstablecimiento')
                   ? 'border-red-300 bg-red-50'
                   : 'border-gray-300'
                   }`}
@@ -264,8 +264,8 @@ export function EstablecimientoForm({
                 placeholder="Jr. Los Tulipanes 123, Urb. Las Flores, San Juan de Lurigancho, Lima"
               />
             </div>
-            {errors.address && touchedFields.has('address') && (
-              <p className="text-sm text-red-600 mt-1">{errors.address}</p>
+            {errors.direccionEstablecimiento && touchedFields.has('direccionEstablecimiento') && (
+              <p className="text-sm text-red-600 mt-1">{errors.direccionEstablecimiento}</p>
             )}
             <p className="text-xs text-gray-500 mt-1">
               Incluye calle, número, urbanización, distrito y provincia
@@ -276,22 +276,22 @@ export function EstablecimientoForm({
           <Input
             label="Código de Ubigeo"
             type="text"
-            value={formData.ubigeo}
-            onChange={(e) => handleFieldChange('ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))}
-            onBlur={() => handleBlur('ubigeo')}
-            error={errors.ubigeo && touchedFields.has('ubigeo') ? errors.ubigeo : undefined}
+            value={formData.codigoPostalEstablecimiento}
+            onChange={(e) => handleFieldChange('codigoPostalEstablecimiento', e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onBlur={() => handleBlur('codigoPostalEstablecimiento')}
+            error={errors.codigoPostalEstablecimiento && touchedFields.has('codigoPostalEstablecimiento') ? errors.codigoPostalEstablecimiento : undefined}
             placeholder="150101"
             maxLength={6}
           />
 
           {/* Form Summary */}
-          {formData.code && formData.name && (
+          {formData.codigoEstablecimiento && formData.nombreEstablecimiento && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-medium text-blue-900 mb-2">Resumen del Establecimiento</h4>
               <div className="text-sm text-blue-800 space-y-1">
-                <p><span className="font-medium">Código:</span> {formData.code}</p>
-                <p><span className="font-medium">Nombre:</span> {formData.name}</p>
-                <p><span className="font-medium">Estado:</span> {formData.isEnabled ? 'Habilitado' : 'Inhabilitado'}</p>
+                <p><span className="font-medium">Código:</span> {formData.codigoEstablecimiento}</p>
+                <p><span className="font-medium">Nombre:</span> {formData.nombreEstablecimiento}</p>
+                <p><span className="font-medium">Estado:</span> {formData.estaActivoEstablecimiento ? 'Habilitado' : 'Inhabilitado'}</p>
               </div>
             </div>
           )}

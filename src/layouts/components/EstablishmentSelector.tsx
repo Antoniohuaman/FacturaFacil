@@ -25,7 +25,7 @@ export default function SelectorEstablecimiento() {
   const currentEstablecimiento = session?.currentEstablecimiento;
 
   // Obtener establecimientos disponibles (activos)
-  const availableEstablecimientos = state.Establecimientos.filter(est => est.isActive);
+  const availableEstablecimientos = state.Establecimientos.filter(est => est.estaActivoEstablecimiento);
 
   // Manejar cambio de establecimiento
   const handleEstablecimientoChange = (EstablecimientoId: string) => {
@@ -53,13 +53,13 @@ export default function SelectorEstablecimiento() {
       <button
         className="group flex items-center gap-3 px-2 py-1 rounded-md transition-colors hover:bg-slate-50 dark:hover:bg-gray-800/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f70b4]"
         onClick={() => setShowDropdown(!showDropdown)}
-        title={`Cambiar establecimiento (Actual: ${currentEstablecimiento.name})`}
+        title={`Cambiar establecimiento (Actual: ${currentEstablecimiento.nombreEstablecimiento})`}
       >
         <Building2 className="w-5 h-5 text-[#2f70b4] dark:text-[#2ccdb0]" />
         <div className="flex flex-col text-left leading-tight">
           <div className="flex items-center gap-1">
             <span className="text-sm font-semibold text-slate-900 dark:text-white">
-              {currentEstablecimiento.name}
+              {currentEstablecimiento.nombreEstablecimiento}
             </span>
             <ChevronDown
               className={`w-3.5 h-3.5 text-slate-400 dark:text-gray-500 transition-transform duration-200 ${
@@ -69,7 +69,7 @@ export default function SelectorEstablecimiento() {
           </div>
           <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-gray-400">
             <MapPin className="w-3 h-3" />
-            {currentEstablecimiento.address}
+            {currentEstablecimiento.direccionEstablecimiento}
           </span>
         </div>
       </button>
@@ -123,7 +123,7 @@ export default function SelectorEstablecimiento() {
                               : 'text-slate-900 dark:text-white'
                           }`}
                         >
-                          {Establecimiento.name}
+                            {Establecimiento.nombreEstablecimiento}
                         </p>
                         {isMain && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
@@ -135,12 +135,12 @@ export default function SelectorEstablecimiento() {
                       <div className="flex items-center gap-1 mt-1">
                         <MapPin className="w-3 h-3 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                         <p className="text-xs text-slate-600 dark:text-gray-400 truncate">
-                          {Establecimiento.address}
+                          {Establecimiento.direccionEstablecimiento}
                         </p>
                       </div>
 
                       <p className="text-xs text-slate-500 dark:text-gray-500 mt-0.5">
-                        Código: {Establecimiento.code}
+                        Código: {Establecimiento.codigoEstablecimiento}
                       </p>
                     </div>
 

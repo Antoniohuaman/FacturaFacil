@@ -458,10 +458,10 @@ export function UserForm({
                     />
                     <div className="ml-3 flex-1">
                       <div className="font-medium text-gray-900">
-                        {Establecimiento.name}
+                        {Establecimiento.nombreEstablecimiento}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {Establecimiento.address}
+                        {Establecimiento.direccionEstablecimiento}
                       </div>
                     </div>
                   </label>

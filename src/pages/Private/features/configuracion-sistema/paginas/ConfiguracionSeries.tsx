@@ -657,7 +657,7 @@ export function SeriesConfiguration() {
                   { value: '', label: 'Seleccionar establecimiento' },
                   ...Establecimientos.map(est => ({
                     value: est.id,
-                    label: `${est.code} - ${est.name}`
+                    label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
                   }))
                 ]}
                 required
@@ -795,7 +795,7 @@ export function SeriesConfiguration() {
               { value: 'ALL', label: 'Todos los establecimientos' },
               ...Establecimientos.map(est => ({
                 value: est.id,
-                label: `${est.code} - ${est.name}`
+                label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
               }))
             ]}
           />
@@ -808,11 +808,11 @@ export function SeriesConfiguration() {
               <div className="flex items-center space-x-3 pb-2 border-b border-gray-200">
                 <Building2 className="w-5 h-5 text-gray-600" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {Establecimiento.code} - {Establecimiento.name}
+                  {Establecimiento.codigoEstablecimiento} - {Establecimiento.nombreEstablecimiento}
                 </h3>
                 <StatusIndicator
-                  status={Establecimiento.isActive ? 'success' : 'error'}
-                  label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
+                  status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
+                  label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
                   size="sm"
                 />
               </div>

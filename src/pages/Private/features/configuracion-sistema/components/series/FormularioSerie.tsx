@@ -394,10 +394,10 @@ export function SeriesForm({
               options={[
                 { value: '', label: 'Seleccionar establecimiento' },
                 ...Establecimientos
-                  .filter(est => est.isActive)
+                  .filter(est => est.estaActivoEstablecimiento)
                   .map(est => ({
                     value: est.id,
-                    label: `${est.code} - ${est.name}`
+                    label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
                   }))
               ]}
             />
@@ -479,7 +479,7 @@ export function SeriesForm({
                 <div>
                   <p className="text-blue-700"><strong>Establecimiento:</strong></p>
                   <p className="text-blue-900">
-                    {getEstablecimientoName(formData.EstablecimientoId)?.name || 'No seleccionado'}
+                    {getEstablecimientoName(formData.EstablecimientoId)?.nombreEstablecimiento || 'No seleccionado'}
                   </p>
                 </div>
               </div>

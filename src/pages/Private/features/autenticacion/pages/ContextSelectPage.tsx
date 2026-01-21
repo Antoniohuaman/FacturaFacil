@@ -6,7 +6,8 @@ import { useAuth } from '../hooks';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { buildMissingDefaultSeries } from '../../configuracion-sistema/utilidades/seriesPredeterminadas';
-import type { Empresa, Establecimiento } from '../types/auth.types';
+import type { Empresa, Establecimiento as AuthEstablecimiento } from '../types/auth.types';
+import type { Establecimiento as ConfigEstablecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
 
 /**
  * ============================================
@@ -25,7 +26,7 @@ export function ContextSelectPage() {
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(
     empresas.length === 1 ? empresas[0] : null
   );
-  const [selectedEstablecimiento, setSelectedEstablecimiento] = useState<Establecimiento | null>(
+  const [selectedEstablecimiento, setSelectedEstablecimiento] = useState<AuthEstablecimiento | null>(
     null
   );
 
@@ -39,7 +40,7 @@ export function ContextSelectPage() {
   // Sincronizar establecimientos desde configuración cuando se carga
   useEffect(() => {
     if (configState.Establecimientos.length > 0 && selectedEmpresa) {
-      updateAvailableEstablecimientos(configState.Establecimientos.filter(e => e.isActive));
+      updateAvailableEstablecimientos(configState.Establecimientos.filter(e => e.estaActivoEstablecimiento));
     }
   }, [configState.Establecimientos, selectedEmpresa, updateAvailableEstablecimientos]);
 
@@ -98,21 +99,21 @@ export function ContextSelectPage() {
 
       // Si el establecimiento NO existe en ConfigurationContext, crearlo
       const EstablecimientoExists = configState.Establecimientos.find(
-        est => est.code === selectedEstablecimiento.codigo
+        est => est.codigoEstablecimiento === selectedEstablecimiento.codigo
       );
 
-      let fullEstablecimiento = EstablecimientoExists;
+      let fullEstablecimiento: ConfigEstablecimiento | undefined = EstablecimientoExists;
 
       if (!EstablecimientoExists) {
-        const newEstablecimiento = {
+        const newEstablecimiento: ConfigEstablecimiento = {
           id: selectedEstablecimiento.id,
-          code: selectedEstablecimiento.codigo,
-          name: selectedEstablecimiento.nombre,
-          address: selectedEstablecimiento.direccion || '',
-          district: '',
-          province: '',
-          department: '',
-          postalCode: '',
+          codigoEstablecimiento: selectedEstablecimiento.codigo,
+          nombreEstablecimiento: selectedEstablecimiento.nombre,
+          direccionEstablecimiento: selectedEstablecimiento.direccion || '',
+          distritoEstablecimiento: '',
+          provinciaEstablecimiento: '',
+          departamentoEstablecimiento: '',
+          codigoPostalEstablecimiento: '',
           phone: undefined,
           email: undefined,
           isMainEstablecimiento: selectedEstablecimiento.esPrincipal || true,
@@ -163,10 +164,10 @@ export function ContextSelectPage() {
             defaultTaxId: 'IGV',
             bankAccounts: []
           },
-          status: 'ACTIVE' as const,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          isActive: selectedEstablecimiento.activo
+          estadoEstablecimiento: 'ACTIVE',
+          creadoElEstablecimiento: new Date(),
+          actualizadoElEstablecimiento: new Date(),
+          estaActivoEstablecimiento: selectedEstablecimiento.activo
         };
 
         dispatch({ type: 'ADD_Establecimiento', payload: newEstablecimiento });
@@ -198,7 +199,7 @@ export function ContextSelectPage() {
         currentCompany: companyData,
         currentEstablecimientoId: fullEstablecimiento?.id || selectedEstablecimiento.id,
         currentEstablecimiento: fullEstablecimiento || null,
-        availableEstablecimientos: configState.Establecimientos.filter(e => e.isActive),
+        availableEstablecimientos: configState.Establecimientos.filter(e => e.estaActivoEstablecimiento),
         permissions: ['*'], // Por defecto admin tiene todos los permisos
         role: user.rol,
       });

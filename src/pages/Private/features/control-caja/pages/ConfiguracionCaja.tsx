@@ -75,7 +75,7 @@ const ConfiguracionCaja: React.FC = () => {
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Configuración de Cajas</h2>
               <p className="text-sm text-gray-600 mt-1">
-                Establecimiento: <span className="font-medium">{establecimientoActual?.name || 'N/A'}</span>
+                Establecimiento: <span className="font-medium">{establecimientoActual?.nombreEstablecimiento || 'N/A'}</span>
               </p>
             </div>
           </div>

@@ -135,7 +135,9 @@ export function generateExcelTemplate(
     ['  - Inafecto (0.00%)'],
     [''],
     ['Disponibilidad (códigos de establecimiento separados por coma):'],
-    ...availableEstablecimientos.slice(0, 10).map(e => [`  - ${e.code} (${e.name})`]),
+    ...availableEstablecimientos.slice(0, 10).map(
+      e => [`  - ${e.codigoEstablecimiento} (${e.nombreEstablecimiento})`]
+    ),
     [''],
     ['Tipo de existencia (opcional):'],
     ['  - MERCADERIAS'],
@@ -350,7 +352,7 @@ function parseRow(
   const establecimientoIds: string[] = [];
 
   disponibilidadCodes.forEach(code => {
-    const est = availableEstablecimientos.find(e => e.code === code);
+    const est = availableEstablecimientos.find(e => e.codigoEstablecimiento === code);
     if (est) {
       establecimientoIds.push(est.id);
     } else {
@@ -375,7 +377,7 @@ function parseRow(
   }
 
   if (establecimientoIds.length === 0 && disponibilidadCodes.length === 0) {
-    const active = availableEstablecimientos.filter(e => e.isActive);
+    const active = availableEstablecimientos.filter(e => e.estaActivoEstablecimiento !== false);
     const defaultEstablecimientoId =
       active.length === 1
         ? active[0].id

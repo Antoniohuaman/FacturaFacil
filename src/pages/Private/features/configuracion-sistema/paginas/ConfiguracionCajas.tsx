@@ -173,7 +173,7 @@ export function CajasConfiguration() {
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 {filterEstablecimientoId === 'all'
                   ? 'Mostrando cajas de todos los establecimientos'
-                  : `Establecimiento: ${establecimientoActual?.name || 'N/A'}`}
+                  : `Establecimiento: ${establecimientoActual?.nombreEstablecimiento || 'N/A'}`}
               </p>
             </div>
             <Button
@@ -202,7 +202,7 @@ export function CajasConfiguration() {
                     { value: 'all', label: 'Todos los establecimientos' },
                     ...state.Establecimientos.map((est) => ({
                       value: est.id,
-                      label: est.name
+                      label: est.nombreEstablecimiento
                     }))
                   ]}
                 />

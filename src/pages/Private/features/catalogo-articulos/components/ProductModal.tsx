@@ -56,7 +56,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const currentEstablecimientoId = useCurrentEstablecimientoId();
 
   const Establecimientos = useMemo(
-    () => configState.Establecimientos.filter(est => est.isActive),
+    () => configState.Establecimientos.filter(est => est.estaActivoEstablecimiento !== false),
     [configState.Establecimientos]
   );
 

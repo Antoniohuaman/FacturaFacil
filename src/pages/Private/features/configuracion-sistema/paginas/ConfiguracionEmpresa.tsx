@@ -218,11 +218,11 @@ export function CompanyConfiguration() {
       establecimientos: [
         {
           id: Establecimiento.id,
-          codigo: Establecimiento.code,
-          nombre: Establecimiento.name,
-          direccion: Establecimiento.address,
+          codigo: Establecimiento.codigoEstablecimiento,
+          nombre: Establecimiento.nombreEstablecimiento,
+          direccion: Establecimiento.direccionEstablecimiento,
           esPrincipal: Establecimiento.isMainEstablecimiento,
-          activo: Establecimiento.isActive,
+          activo: Establecimiento.estaActivoEstablecimiento,
         },
       ],
       configuracion: {
@@ -483,13 +483,13 @@ export function CompanyConfiguration() {
         // 1. CREAR ESTABLECIMIENTO POR DEFECTO
         const createdEstablecimiento: Establecimiento = {
           id: 'est-main',
-          code: '0001',
-          name: 'Establecimiento',
-          address: formData.direccionFiscal,
-          district: location?.district || 'Lima',
-          province: location?.province || 'Lima',
-          department: location?.department || 'Lima',
-          postalCode: formData.ubigeo,
+          codigoEstablecimiento: '0001',
+          nombreEstablecimiento: 'Establecimiento',
+          direccionEstablecimiento: formData.direccionFiscal,
+          distritoEstablecimiento: location?.district || 'Lima',
+          provinciaEstablecimiento: location?.province || 'Lima',
+          departamentoEstablecimiento: location?.department || 'Lima',
+          codigoPostalEstablecimiento: formData.ubigeo,
           phone: cleanPhones[0],
           email: cleanEmails[0],
           isMainEstablecimiento: true,
@@ -540,10 +540,10 @@ export function CompanyConfiguration() {
             defaultTaxId: 'IGV',
             bankAccounts: [],
           },
-          status: 'ACTIVE',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          isActive: true,
+          estadoEstablecimiento: 'ACTIVE',
+          creadoElEstablecimiento: new Date(),
+          actualizadoElEstablecimiento: new Date(),
+          estaActivoEstablecimiento: true,
         };
 
         defaultEstablecimiento = createdEstablecimiento;
@@ -555,10 +555,10 @@ export function CompanyConfiguration() {
           codigoAlmacen: '0001',
           nombreAlmacen: 'Almacén',
           establecimientoId: createdEstablecimiento.id,
-          nombreEstablecimientoDesnormalizado: createdEstablecimiento.name,
-          codigoEstablecimientoDesnormalizado: createdEstablecimiento.code,
+          nombreEstablecimientoDesnormalizado: createdEstablecimiento.nombreEstablecimiento,
+          codigoEstablecimientoDesnormalizado: createdEstablecimiento.codigoEstablecimiento,
           descripcionAlmacen: 'Almacén principal de la empresa',
-          ubicacionAlmacen: createdEstablecimiento.address || undefined,
+          ubicacionAlmacen: createdEstablecimiento.direccionEstablecimiento || undefined,
           estaActivoAlmacen: true,
           esAlmacenPrincipal: true,
           configuracionInventarioAlmacen: {

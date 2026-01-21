@@ -77,7 +77,10 @@ export function ConfiguracionAlmacenes() {
   });
 
   const activeEstablecimientos = useMemo(
-    () => Establecimientos.filter(est => est.isActive !== false && est.status !== 'INACTIVE'),
+    () =>
+      Establecimientos.filter(
+        est => est.estaActivoEstablecimiento !== false && est.estadoEstablecimiento !== 'INACTIVE'
+      ),
     [Establecimientos]
   );
 
@@ -232,8 +235,8 @@ export function ConfiguracionAlmacenes() {
               codigoAlmacen: formData.codigoAlmacen,
               nombreAlmacen: formData.nombreAlmacen,
               establecimientoId: formData.establecimientoId,
-              nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.name,
-              codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.code,
+              nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.nombreEstablecimiento,
+              codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.codigoEstablecimiento,
               descripcionAlmacen: formData.descripcionAlmacen || undefined,
               ubicacionAlmacen: formData.ubicacionAlmacen || undefined,
               esAlmacenPrincipal: formData.esAlmacenPrincipal,
@@ -248,8 +251,8 @@ export function ConfiguracionAlmacenes() {
           codigoAlmacen: formData.codigoAlmacen,
           nombreAlmacen: formData.nombreAlmacen,
           establecimientoId: formData.establecimientoId,
-          nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.name,
-          codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.code,
+          nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.nombreEstablecimiento,
+          codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.codigoEstablecimiento,
           descripcionAlmacen: formData.descripcionAlmacen || undefined,
           ubicacionAlmacen: formData.ubicacionAlmacen || undefined,
           estaActivoAlmacen: true,
@@ -415,7 +418,7 @@ export function ConfiguracionAlmacenes() {
                     { value: '', label: 'Seleccionar establecimiento...' },
                     ...activeEstablecimientos.map(est => ({
                       value: est.id,
-                      label: `[${est.code}] ${est.name}`
+                      label: `[${est.codigoEstablecimiento}] ${est.nombreEstablecimiento}`
                     }))
                   ]}
                 />
@@ -677,7 +680,7 @@ export function ConfiguracionAlmacenes() {
               { value: 'all', label: 'Todos los establecimientos' },
               ...Establecimientos.map(est => ({
                 value: est.id,
-                label: `[${est.code}] ${est.name}`
+                label: `[${est.codigoEstablecimiento}] ${est.nombreEstablecimiento}`
               }))
             ]}
           />

@@ -22,7 +22,9 @@ export const useProductTableViewModel = ({
   Establecimientos
 }: UseProductTableViewModelParams) => {
   const activeEstablecimientoIds = useMemo(() => {
-    return new Set(Establecimientos.filter(est => est.isActive).map(est => est.id));
+    return new Set(
+      Establecimientos.filter(est => est.estaActivoEstablecimiento !== false).map(est => est.id)
+    );
   }, [Establecimientos]);
 
   const rows = useMemo<Product[]>(() => {

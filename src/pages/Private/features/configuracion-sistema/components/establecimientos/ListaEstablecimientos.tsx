@@ -35,13 +35,13 @@ export function EstablecimientosList({
   // Filter and search Establecimientos
   const filteredEstablecimientos = Establecimientos
     .filter(Establecimiento => {
-      const matchesSearch = Establecimiento.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        Establecimiento.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        Establecimiento.address.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = Establecimiento.nombreEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        Establecimiento.codigoEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        Establecimiento.direccionEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus = filterStatus === 'all' ||
-        (filterStatus === 'enabled' && Establecimiento.isActive) ||
-        (filterStatus === 'disabled' && !Establecimiento.isActive);
+        (filterStatus === 'enabled' && Establecimiento.estaActivoEstablecimiento) ||
+        (filterStatus === 'disabled' && !Establecimiento.estaActivoEstablecimiento);
 
       return matchesSearch && matchesStatus;
     })
@@ -50,13 +50,13 @@ export function EstablecimientosList({
 
       switch (sortBy) {
         case 'name':
-          comparison = a.name.localeCompare(b.name);
+          comparison = a.nombreEstablecimiento.localeCompare(b.nombreEstablecimiento);
           break;
         case 'code':
-          comparison = a.code.localeCompare(b.code);
+          comparison = a.codigoEstablecimiento.localeCompare(b.codigoEstablecimiento);
           break;
         case 'created':
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          comparison = new Date(a.creadoElEstablecimiento).getTime() - new Date(b.creadoElEstablecimiento).getTime();
           break;
       }
 
@@ -74,8 +74,8 @@ export function EstablecimientosList({
 
   const stats = {
     total: Establecimientos.length,
-    enabled: Establecimientos.filter(e => e.isActive).length,
-    disabled: Establecimientos.filter(e => !e.isActive).length
+    enabled: Establecimientos.filter(e => e.estaActivoEstablecimiento).length,
+    disabled: Establecimientos.filter(e => !e.estaActivoEstablecimiento).length
   };
 
   if (isLoading) {
@@ -314,21 +314,21 @@ export function EstablecimientosList({
                   <tr key={Establecimiento.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-4 px-4">
                       <span className="font-mono text-sm font-medium text-gray-900">
-                        {Establecimiento.code}
+                        {Establecimiento.codigoEstablecimiento}
                       </span>
                     </td>
                     <td className="py-4 px-4">
                       <span className="font-medium text-gray-900">
-                        {Establecimiento.name}
+                        {Establecimiento.nombreEstablecimiento}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-gray-600 max-w-xs truncate">
-                      {Establecimiento.address}
+                      {Establecimiento.direccionEstablecimiento}
                     </td>
                     <td className="py-4 px-4">
                       <StatusIndicator
-                        status={Establecimiento.isActive ? 'success' : 'error'}
-                        label={Establecimiento.isActive ? 'Habilitado' : 'Inhabilitado'}
+                        status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
+                        label={Establecimiento.estaActivoEstablecimiento ? 'Habilitado' : 'Inhabilitado'}
                         size="sm"
                       />
                     </td>
@@ -337,9 +337,9 @@ export function EstablecimientosList({
                         <button
                           onClick={() => onToggleStatus(Establecimiento)}
                           className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                          title={Establecimiento.isActive ? 'Inhabilitar' : 'Habilitar'}
+                          title={Establecimiento.estaActivoEstablecimiento ? 'Inhabilitar' : 'Habilitar'}
                         >
-                          {Establecimiento.isActive ? '🟢' : '🔴'}
+                          {Establecimiento.estaActivoEstablecimiento ? '🟢' : '🔴'}
                         </button>
 
                         <button

@@ -1,12 +1,12 @@
 export interface Establecimiento {
   id: string;
-  code: string; // SUNAT Establecimiento code (4 digits)
-  name: string;
-  address: string;
-  district: string;
-  province: string;
-  department: string;
-  postalCode?: string;
+  codigoEstablecimiento: string; // SUNAT Establecimiento code (4 digits)
+  nombreEstablecimiento: string;
+  direccionEstablecimiento: string;
+  distritoEstablecimiento: string;
+  provinciaEstablecimiento: string;
+  departamentoEstablecimiento: string;
+  codigoPostalEstablecimiento?: string;
   phone?: string;
   email?: string;
   
@@ -77,11 +77,11 @@ export interface Establecimiento {
     bankAccounts: BankAccount[];
   };
   
-  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  estadoEstablecimiento: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  isActive: boolean;
+  creadoElEstablecimiento: Date;
+  actualizadoElEstablecimiento: Date;
+  estaActivoEstablecimiento: boolean;
 }
 
 export interface BusinessHours {
@@ -109,11 +109,11 @@ export interface UpdateEstablecimientoRequest extends Partial<CreateEstablecimie
 
 export interface EstablecimientoSummary {
   id: string;
-  code: string;
-  name: string;
-  address: string;
-  district: string;
-  status: Establecimiento['status'];
+  codigoEstablecimiento: string;
+  nombreEstablecimiento: string;
+  direccionEstablecimiento: string;
+  distritoEstablecimiento: string;
+  estadoEstablecimiento: Establecimiento['estadoEstablecimiento'];
   isMainEstablecimiento: boolean;
   userCount?: number;
   hasPos: boolean;
@@ -163,13 +163,13 @@ export interface BankAccount {
 }
 
 export interface CreateEstablecimientoRequest {
-  code: string;
-  name: string;
-  address: string;
-  district: string;
-  province: string;
-  department: string;
-  postalCode?: string;
+  codigoEstablecimiento: string;
+  nombreEstablecimiento: string;
+  direccionEstablecimiento: string;
+  distritoEstablecimiento: string;
+  provinciaEstablecimiento: string;
+  departamentoEstablecimiento: string;
+  codigoPostalEstablecimiento?: string;
   phone?: string;
   email?: string;
   coordinates?: {

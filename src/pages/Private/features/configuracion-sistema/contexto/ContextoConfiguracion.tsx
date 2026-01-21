@@ -112,8 +112,8 @@ const reviveCompany = (company: Company): Company => {
 
 const reviveEstablecimiento = (est: Establecimiento): Establecimiento => ({
   ...est,
-  createdAt: reviveDate(est.createdAt) ?? new Date(),
-  updatedAt: reviveDate(est.updatedAt) ?? new Date(),
+  creadoElEstablecimiento: reviveDate(est.creadoElEstablecimiento) ?? new Date(),
+  actualizadoElEstablecimiento: reviveDate(est.actualizadoElEstablecimiento) ?? new Date(),
   sunatConfiguration: est.sunatConfiguration
     ? {
         ...est.sunatConfiguration,

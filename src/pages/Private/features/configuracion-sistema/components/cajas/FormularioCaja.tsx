@@ -206,7 +206,7 @@ export function CajaForm({
             { value: '', label: 'Seleccionar establecimiento' },
             ...Establecimientos.map((est) => ({
               value: est.id,
-              label: `${est.name} - ${est.code}`
+              label: `${est.nombreEstablecimiento} - ${est.codigoEstablecimiento}`
             }))
           ]}
         />
