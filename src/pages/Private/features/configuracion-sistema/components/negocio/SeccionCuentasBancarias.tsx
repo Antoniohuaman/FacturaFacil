@@ -47,7 +47,7 @@ export function BankAccountsSection() {
     setShowModal(true);
   };
 
-  const handleSubmit = async (values: Parameters<typeof createAccount>[0]) => {
+  const manejarEnvio = async (values: Parameters<typeof createAccount>[0]) => {
     try {
       if (editing) {
         await updateAccount(editing.id, values);
@@ -290,7 +290,7 @@ export function BankAccountsSection() {
           setShowModal(false);
           setEditing(null);
         }}
-        onSubmit={handleSubmit}
+        onSubmit={manejarEnvio}
       />
 
       <ConfirmationModal
@@ -308,3 +308,4 @@ export function BankAccountsSection() {
     </div>
   );
 }
+

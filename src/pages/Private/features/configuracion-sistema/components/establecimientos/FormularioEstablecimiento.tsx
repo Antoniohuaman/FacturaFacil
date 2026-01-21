@@ -28,7 +28,7 @@ export function EstablecimientoForm({
   isLoading = false,
   existingCodes = []
 }: EstablecimientoFormProps) {
-  const [formData, setFormData] = useState<EstablecimientoFormData>({
+  const [datosFormulario, setFormData] = useState<EstablecimientoFormData>({
     codigoEstablecimiento: '',
     nombreEstablecimiento: '',
     direccionEstablecimiento: '',
@@ -123,7 +123,7 @@ export function EstablecimientoForm({
 
   const handleBlur = (field: keyof EstablecimientoFormData) => {
     setTouchedFields(prev => new Set(prev).add(field));
-    const error = validateField(field, formData[field]);
+    const error = validateField(field, datosFormulario[field]);
     setErrors(prev => ({
       ...prev,
       [field]: error
@@ -133,33 +133,33 @@ export function EstablecimientoForm({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    (Object.keys(formData) as Array<keyof EstablecimientoFormData>).forEach(field => {
-      const error = validateField(field, formData[field]);
+    (Object.keys(datosFormulario) as Array<keyof EstablecimientoFormData>).forEach(field => {
+      const error = validateField(field, datosFormulario[field]);
       if (error) {
         newErrors[field] = error;
       }
     });
 
     setErrors(newErrors);
-    setTouchedFields(new Set(Object.keys(formData) as Array<keyof EstablecimientoFormData>));
+    setTouchedFields(new Set(Object.keys(datosFormulario) as Array<keyof EstablecimientoFormData>));
 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    await onSubmit(formData);
+    await onSubmit(datosFormulario);
   };
 
   const isFormValid = Object.keys(errors).length === 0 &&
-    formData.codigoEstablecimiento.trim() !== '' &&
-    formData.nombreEstablecimiento.trim() !== '' &&
-    formData.direccionEstablecimiento.trim() !== '';
+    datosFormulario.codigoEstablecimiento.trim() !== '' &&
+    datosFormulario.nombreEstablecimiento.trim() !== '' &&
+    datosFormulario.direccionEstablecimiento.trim() !== '';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -189,14 +189,14 @@ export function EstablecimientoForm({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={manejarEnvio} className="p-6 space-y-6">
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Code */}
             <Input
               label="Código *"
               type="text"
-              value={formData.codigoEstablecimiento}
+              value={datosFormulario.codigoEstablecimiento}
               onChange={(e) => handleFieldChange('codigoEstablecimiento', e.target.value.toUpperCase())}
               onBlur={() => handleBlur('codigoEstablecimiento')}
               error={errors.codigoEstablecimiento && touchedFields.has('codigoEstablecimiento') ? errors.codigoEstablecimiento : undefined}
@@ -214,16 +214,16 @@ export function EstablecimientoForm({
               <div className="flex items-center space-x-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => handleFieldChange('estaActivoEstablecimiento', !formData.estaActivoEstablecimiento)}
+                  onClick={() => handleFieldChange('estaActivoEstablecimiento', !datosFormulario.estaActivoEstablecimiento)}
                   className="flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
                 >
-                  {formData.estaActivoEstablecimiento ? (
+                  {datosFormulario.estaActivoEstablecimiento ? (
                     <ToggleRight className="w-8 h-8 text-green-600" />
                   ) : (
                     <ToggleLeft className="w-8 h-8 text-gray-400" />
                   )}
-                  <span className={`font-medium ${formData.estaActivoEstablecimiento ? 'text-green-600' : 'text-gray-500'}`}>
-                    {formData.estaActivoEstablecimiento ? 'Habilitado' : 'Inhabilitado'}
+                  <span className={`font-medium ${datosFormulario.estaActivoEstablecimiento ? 'text-green-600' : 'text-gray-500'}`}>
+                    {datosFormulario.estaActivoEstablecimiento ? 'Habilitado' : 'Inhabilitado'}
                   </span>
                 </button>
               </div>
@@ -237,7 +237,7 @@ export function EstablecimientoForm({
           <Input
             label="Nombre del Establecimiento *"
             type="text"
-            value={formData.nombreEstablecimiento}
+            value={datosFormulario.nombreEstablecimiento}
             onChange={(e) => handleFieldChange('nombreEstablecimiento', e.target.value)}
             onBlur={() => handleBlur('nombreEstablecimiento')}
             error={errors.nombreEstablecimiento && touchedFields.has('nombreEstablecimiento') ? errors.nombreEstablecimiento : undefined}
@@ -253,7 +253,7 @@ export function EstablecimientoForm({
             <div className="relative">
               <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <textarea
-                value={formData.direccionEstablecimiento}
+                value={datosFormulario.direccionEstablecimiento}
                 onChange={(e) => handleFieldChange('direccionEstablecimiento', e.target.value)}
                 onBlur={() => handleBlur('direccionEstablecimiento')}
                 className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${errors.direccionEstablecimiento && touchedFields.has('direccionEstablecimiento')
@@ -276,7 +276,7 @@ export function EstablecimientoForm({
           <Input
             label="Código de Ubigeo"
             type="text"
-            value={formData.codigoPostalEstablecimiento}
+            value={datosFormulario.codigoPostalEstablecimiento}
             onChange={(e) => handleFieldChange('codigoPostalEstablecimiento', e.target.value.replace(/\D/g, '').slice(0, 6))}
             onBlur={() => handleBlur('codigoPostalEstablecimiento')}
             error={errors.codigoPostalEstablecimiento && touchedFields.has('codigoPostalEstablecimiento') ? errors.codigoPostalEstablecimiento : undefined}
@@ -285,13 +285,13 @@ export function EstablecimientoForm({
           />
 
           {/* Form Summary */}
-          {formData.codigoEstablecimiento && formData.nombreEstablecimiento && (
+          {datosFormulario.codigoEstablecimiento && datosFormulario.nombreEstablecimiento && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-medium text-blue-900 mb-2">Resumen del Establecimiento</h4>
               <div className="text-sm text-blue-800 space-y-1">
-                <p><span className="font-medium">Código:</span> {formData.codigoEstablecimiento}</p>
-                <p><span className="font-medium">Nombre:</span> {formData.nombreEstablecimiento}</p>
-                <p><span className="font-medium">Estado:</span> {formData.estaActivoEstablecimiento ? 'Habilitado' : 'Inhabilitado'}</p>
+                <p><span className="font-medium">Código:</span> {datosFormulario.codigoEstablecimiento}</p>
+                <p><span className="font-medium">Nombre:</span> {datosFormulario.nombreEstablecimiento}</p>
+                <p><span className="font-medium">Estado:</span> {datosFormulario.estaActivoEstablecimiento ? 'Habilitado' : 'Inhabilitado'}</p>
               </div>
             </div>
           )}
@@ -319,3 +319,4 @@ export function EstablecimientoForm({
     </div>
   );
 }
+

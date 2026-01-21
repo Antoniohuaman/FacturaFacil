@@ -7,7 +7,7 @@ import { EstablecimientoCard } from './TarjetaEstablecimiento';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
 
 type ViewMode = 'grid' | 'table';
-type FilterStatus = 'all' | 'enabled' | 'disabled';
+type filtroEstado = 'all' | 'enabled' | 'disabled';
 
 interface EstablecimientosListProps {
   Establecimientos: Establecimiento[];
@@ -27,7 +27,7 @@ export function EstablecimientosList({
   isLoading = false
 }: EstablecimientosListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filtroEstado, setFilterStatus] = useState<filtroEstado>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<'name' | 'code' | 'created'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -39,9 +39,9 @@ export function EstablecimientosList({
         Establecimiento.codigoEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
         Establecimiento.direccionEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesStatus = filterStatus === 'all' ||
-        (filterStatus === 'enabled' && Establecimiento.estaActivoEstablecimiento) ||
-        (filterStatus === 'disabled' && !Establecimiento.estaActivoEstablecimiento);
+      const matchesStatus = filtroEstado === 'all' ||
+        (filtroEstado === 'enabled' && Establecimiento.estaActivoEstablecimiento) ||
+        (filtroEstado === 'disabled' && !Establecimiento.estaActivoEstablecimiento);
 
       return matchesSearch && matchesStatus;
     })
@@ -63,7 +63,7 @@ export function EstablecimientosList({
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
-  const handleSort = (field: 'name' | 'code' | 'created') => {
+  const manejarOrden = (field: 'name' | 'code' | 'created') => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -158,8 +158,8 @@ export function EstablecimientosList({
           <div className="relative">
             <Filter className="absolute left-3 top-3 w-5 h-5 text-gray-400 z-10" />
             <Select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+              value={filtroEstado}
+              onChange={(e) => setFilterStatus(e.target.value as filtroEstado)}
               size="medium"
               containerClassName="min-w-48"
               className="pl-10"
@@ -212,7 +212,7 @@ export function EstablecimientosList({
       <div className="flex items-center justify-between text-sm text-gray-600">
         <span>
           {filteredEstablecimientos.length} de {Establecimientos.length} establecimiento{Establecimientos.length !== 1 ? 's' : ''}
-          {(searchTerm || filterStatus !== 'all') && (
+          {(searchTerm || filtroEstado !== 'all') && (
             <button
               onClick={() => {
                 setSearchTerm('');
@@ -252,18 +252,18 @@ export function EstablecimientosList({
         <div className="text-center py-12">
           <div className="text-6xl mb-4">🏪</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm || filterStatus !== 'all'
+            {searchTerm || filtroEstado !== 'all'
               ? 'No se encontraron establecimientos'
               : 'No hay establecimientos'
             }
           </h3>
           <p className="text-gray-500 mb-6">
-            {searchTerm || filterStatus !== 'all'
+            {searchTerm || filtroEstado !== 'all'
               ? 'Intenta ajustar los filtros de búsqueda'
               : 'Crea tu primer establecimiento para comenzar'
             }
           </p>
-          {(!searchTerm && filterStatus === 'all') && (
+          {(!searchTerm && filtroEstado === 'all') && (
             <Button
               onClick={onCreate}
               variant="primary"
@@ -294,13 +294,13 @@ export function EstablecimientosList({
                 <tr>
                   <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('code')}
+                    onClick={() => manejarOrden('code')}
                   >
                     Código {sortBy === 'code' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
                   <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('name')}
+                    onClick={() => manejarOrden('name')}
                   >
                     Nombre {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
@@ -369,3 +369,4 @@ export function EstablecimientosList({
     </div>
   );
 }
+

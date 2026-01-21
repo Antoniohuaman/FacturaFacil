@@ -41,7 +41,7 @@ export function CajaFormPage() {
     }
   }, [isEditing, loading, currentCaja, navigate]);
 
-  const handleSubmit = async (data: CreateCajaInput | UpdateCajaInput) => {
+  const manejarEnvio = async (data: CreateCajaInput | UpdateCajaInput) => {
     setSubmitError(null);
 
     try {
@@ -157,7 +157,7 @@ export function CajaFormPage() {
             currencies={state.currencies}
             Establecimientos={state.Establecimientos}
             defaultEstablecimientoId={establecimientoId}
-            onSubmit={handleSubmit}
+            onSubmit={manejarEnvio}
             onCancel={handleCancel}
             isEditing={isEditing}
           />
@@ -169,3 +169,4 @@ export function CajaFormPage() {
     </div>
   );
 }
+

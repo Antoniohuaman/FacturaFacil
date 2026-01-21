@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
+/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/EstablecimientosConfiguration.tsx
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -56,7 +56,7 @@ export function EstablecimientosConfiguration() {
   const { Establecimientos } = state;
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filtroEstado, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingEstablecimientoId, setEditingEstablecimientoId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -67,7 +67,7 @@ export function EstablecimientosConfiguration() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const [formData, setFormData] = useState<EstablecimientoFormData>({
+  const [datosFormulario, setFormData] = useState<EstablecimientoFormData>({
     codigoEstablecimiento: '',
     nombreEstablecimiento: '',
     direccionEstablecimiento: '',
@@ -81,16 +81,16 @@ export function EstablecimientosConfiguration() {
 
   // Ubigeo cascading logic
   const selectedDepartment = useMemo(() => {
-    return ubigeoData.find(dept => dept.name === formData.departamentoEstablecimiento);
-  }, [formData.departamentoEstablecimiento]);
+    return ubigeoData.find(dept => dept.name === datosFormulario.departamentoEstablecimiento);
+  }, [datosFormulario.departamentoEstablecimiento]);
 
   const availableProvinces = useMemo(() => {
     return selectedDepartment?.provinces || [];
   }, [selectedDepartment]);
 
   const selectedProvince = useMemo(() => {
-    return availableProvinces.find(prov => prov.name === formData.provinciaEstablecimiento);
-  }, [availableProvinces, formData.provinciaEstablecimiento]);
+    return availableProvinces.find(prov => prov.name === datosFormulario.provinciaEstablecimiento);
+  }, [availableProvinces, datosFormulario.provinciaEstablecimiento]);
 
   const availableDistricts = useMemo(() => {
     return selectedProvince?.districts || [];
@@ -102,9 +102,9 @@ export function EstablecimientosConfiguration() {
       est.codigoEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
       est.direccionEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = filterStatus === 'all' ||
-      (filterStatus === 'active' && est.estaActivoEstablecimiento) ||
-      (filterStatus === 'inactive' && !est.estaActivoEstablecimiento);
+    const matchesStatus = filtroEstado === 'all' ||
+      (filtroEstado === 'active' && est.estaActivoEstablecimiento) ||
+      (filtroEstado === 'inactive' && !est.estaActivoEstablecimiento);
 
     return matchesSearch && matchesStatus;
   });
@@ -143,42 +143,42 @@ export function EstablecimientosConfiguration() {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.codigoEstablecimiento.trim()) {
-      errors.codigoEstablecimiento = 'El cÃ³digo es obligatorio';
-    } else if (formData.codigoEstablecimiento.length > 4) {
-      errors.codigoEstablecimiento = 'El cÃ³digo no puede tener mÃ¡s de 4 caracteres';
+    if (!datosFormulario.codigoEstablecimiento.trim()) {
+      errors.codigoEstablecimiento = 'El código es obligatorio';
+    } else if (datosFormulario.codigoEstablecimiento.length > 4) {
+      errors.codigoEstablecimiento = 'El código no puede tener más de 4 caracteres';
     } else {
       // Check for duplicate code
       const isDuplicate = Establecimientos.some(
-        est => est.codigoEstablecimiento === formData.codigoEstablecimiento && est.id !== editingEstablecimientoId
+        est => est.codigoEstablecimiento === datosFormulario.codigoEstablecimiento && est.id !== editingEstablecimientoId
       );
       if (isDuplicate) {
-        errors.codigoEstablecimiento = 'Ya existe un establecimiento con este cÃ³digo';
+        errors.codigoEstablecimiento = 'Ya existe un establecimiento con este código';
       }
     }
 
-    if (!formData.nombreEstablecimiento.trim()) {
+    if (!datosFormulario.nombreEstablecimiento.trim()) {
       errors.nombreEstablecimiento = 'El nombre es obligatorio';
     }
 
-    if (!formData.direccionEstablecimiento.trim()) {
-      errors.direccionEstablecimiento = 'La direcciÃ³n es obligatoria';
+    if (!datosFormulario.direccionEstablecimiento.trim()) {
+      errors.direccionEstablecimiento = 'La dirección es obligatoria';
     }
 
-    if (!formData.distritoEstablecimiento.trim()) {
+    if (!datosFormulario.distritoEstablecimiento.trim()) {
       errors.distritoEstablecimiento = 'El distrito es obligatorio';
     }
 
-    if (!formData.provinciaEstablecimiento.trim()) {
+    if (!datosFormulario.provinciaEstablecimiento.trim()) {
       errors.provinciaEstablecimiento = 'La provincia es obligatoria';
     }
 
-    if (!formData.departamentoEstablecimiento.trim()) {
+    if (!datosFormulario.departamentoEstablecimiento.trim()) {
       errors.departamentoEstablecimiento = 'El departamento es obligatorio';
     }
 
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'El email no es vÃ¡lido';
+    if (datosFormulario.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datosFormulario.email)) {
+      errors.email = 'El email no es válido';
     }
 
     setFormErrors(errors);
@@ -219,7 +219,7 @@ export function EstablecimientosConfiguration() {
     setShowForm(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const manejarEnvio = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -236,7 +236,7 @@ export function EstablecimientosConfiguration() {
           est.id === editingEstablecimientoId
             ? {
               ...est,
-              ...formData,
+              ...datosFormulario,
               actualizadoElEstablecimiento: new Date()
             }
             : est
@@ -246,7 +246,7 @@ export function EstablecimientosConfiguration() {
         // Create new - with unique ID
         const newEstablecimiento: Establecimiento = {
           id: generateUniqueId(),
-          ...formData,
+          ...datosFormulario,
           coordinates: undefined,
           businessHours: {},
           sunatConfiguration: {
@@ -390,13 +390,13 @@ export function EstablecimientosConfiguration() {
           </div>
           <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
             <Building className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-blue-900">CÃ³digo: {formData.codigoEstablecimiento}</span>
+            <span className="text-sm font-medium text-blue-900">Código: {datosFormulario.codigoEstablecimiento}</span>
           </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* SecciÃ³n 1: IdentificaciÃ³n */}
+        <form onSubmit={manejarEnvio} className="space-y-6">
+          {/* Sección 1: Identificación */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -404,17 +404,17 @@ export function EstablecimientosConfiguration() {
                   <Building className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">IdentificaciÃ³n</h3>
-                  <p className="text-sm text-gray-600">InformaciÃ³n bÃ¡sica del establecimiento</p>
+                  <h3 className="text-lg font-semibold text-gray-900">Identificación</h3>
+                  <p className="text-sm text-gray-600">Información básica del establecimiento</p>
                 </div>
               </div>
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input
-                  label="CÃ³digo"
+                  label="Código"
                   type="text"
-                  value={formData.codigoEstablecimiento}
+                  value={datosFormulario.codigoEstablecimiento}
                   onChange={(e) => {
                     setFormData(prev => ({ ...prev, codigoEstablecimiento: e.target.value }));
                     if (formErrors.codigoEstablecimiento) setFormErrors(prev => ({ ...prev, codigoEstablecimiento: '' }));
@@ -429,7 +429,7 @@ export function EstablecimientosConfiguration() {
                 <Input
                   label="Nombre del Establecimiento"
                   type="text"
-                  value={formData.nombreEstablecimiento}
+                  value={datosFormulario.nombreEstablecimiento}
                   onChange={(e) => {
                     setFormData(prev => ({ ...prev, nombreEstablecimiento: e.target.value }));
                     if (formErrors.nombreEstablecimiento) setFormErrors(prev => ({ ...prev, nombreEstablecimiento: '' }));
@@ -443,7 +443,7 @@ export function EstablecimientosConfiguration() {
             </div>
           </div>
 
-          {/* SecciÃ³n 2: UbicaciÃ³n */}
+          {/* Sección 2: Ubicación */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -451,22 +451,22 @@ export function EstablecimientosConfiguration() {
                   <MapPin className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">UbicaciÃ³n</h3>
-                  <p className="text-sm text-gray-600">DirecciÃ³n y datos geogrÃ¡ficos</p>
+                  <h3 className="text-lg font-semibold text-gray-900">Ubicación</h3>
+                  <p className="text-sm text-gray-600">Dirección y datos geográficos</p>
                 </div>
               </div>
             </div>
             <div className="p-6 space-y-6">
               <Input
-                label="DirecciÃ³n"
+                label="Dirección"
                 type="text"
-                value={formData.direccionEstablecimiento}
+                value={datosFormulario.direccionEstablecimiento}
                 onChange={(e) => {
                   setFormData(prev => ({ ...prev, direccionEstablecimiento: e.target.value }));
                   if (formErrors.direccionEstablecimiento) setFormErrors(prev => ({ ...prev, direccionEstablecimiento: '' }));
                 }}
                 error={formErrors.direccionEstablecimiento}
-                placeholder="Ej: Av. Los Pinos 123, UrbanizaciÃ³n..."
+                placeholder="Ej: Av. Los Pinos 123, Urbanización..."
                 leftIcon={<Navigation />}
                 required
               />
@@ -475,7 +475,7 @@ export function EstablecimientosConfiguration() {
                 <div className="group">
                   <Select
                     label="Departamento"
-                    value={formData.departamentoEstablecimiento}
+                    value={datosFormulario.departamentoEstablecimiento}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const value = e.target.value;
                       setFormData(prev => ({
@@ -502,7 +502,7 @@ export function EstablecimientosConfiguration() {
                 <div className="group">
                   <Select
                     label="Provincia"
-                    value={formData.provinciaEstablecimiento}
+                    value={datosFormulario.provinciaEstablecimiento}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const value = e.target.value;
                       setFormData(prev => ({
@@ -513,14 +513,14 @@ export function EstablecimientosConfiguration() {
                       if (formErrors.provinciaEstablecimiento) setFormErrors(prev => ({ ...prev, provinciaEstablecimiento: '' }));
                     }}
                     options={[
-                      { value: '', label: formData.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero' },
+                      { value: '', label: datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero' },
                       ...availableProvinces.map(prov => ({
                         value: prov.name,
                         label: prov.name
                       }))
                     ]}
-                    placeholder={formData.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero'}
-                    disabled={!formData.departamentoEstablecimiento}
+                    placeholder={datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero'}
+                    disabled={!datosFormulario.departamentoEstablecimiento}
                     error={formErrors.provinciaEstablecimiento}
                     required
                   />
@@ -529,21 +529,21 @@ export function EstablecimientosConfiguration() {
                 <div className="group">
                   <Select
                     label="Distrito"
-                    value={formData.distritoEstablecimiento}
+                    value={datosFormulario.distritoEstablecimiento}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const value = e.target.value;
                       setFormData(prev => ({ ...prev, distritoEstablecimiento: value }));
                       if (formErrors.distritoEstablecimiento) setFormErrors(prev => ({ ...prev, distritoEstablecimiento: '' }));
                     }}
                     options={[
-                      { value: '', label: formData.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero' },
+                      { value: '', label: datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero' },
                       ...availableDistricts.map(dist => ({
                         value: dist.name,
                         label: dist.name
                       }))
                     ]}
-                    placeholder={formData.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero'}
-                    disabled={!formData.provinciaEstablecimiento}
+                    placeholder={datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero'}
+                    disabled={!datosFormulario.provinciaEstablecimiento}
                     error={formErrors.distritoEstablecimiento}
                     required
                   />
@@ -551,9 +551,9 @@ export function EstablecimientosConfiguration() {
               </div>
 
               <Input
-                label="CÃ³digo Postal"
+                label="Código Postal"
                 type="text"
-                value={formData.codigoPostalEstablecimiento}
+                value={datosFormulario.codigoPostalEstablecimiento}
                 onChange={(e) => setFormData(prev => ({ ...prev, codigoPostalEstablecimiento: e.target.value }))}
                 placeholder="Ej: 15001"
                 leftIcon={<Hash />}
@@ -562,7 +562,7 @@ export function EstablecimientosConfiguration() {
             </div>
           </div>
 
-          {/* SecciÃ³n 3: InformaciÃ³n de Contacto */}
+          {/* Sección 3: Información de Contacto */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -570,17 +570,17 @@ export function EstablecimientosConfiguration() {
                   <Phone className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">InformaciÃ³n de Contacto</h3>
-                  <p className="text-sm text-gray-600">Datos opcionales para comunicaciÃ³n</p>
+                  <h3 className="text-lg font-semibold text-gray-900">Información de Contacto</h3>
+                  <p className="text-sm text-gray-600">Datos opcionales para comunicación</p>
                 </div>
               </div>
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input
-                  label="TelÃ©fono"
+                  label="Teléfono"
                   type="tel"
-                  value={formData.phone}
+                  value={datosFormulario.phone}
                   onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                   placeholder="Ej: +51 999 999 999"
                   leftIcon={<Phone />}
@@ -588,9 +588,9 @@ export function EstablecimientosConfiguration() {
                 />
 
                 <Input
-                  label="Correo ElectrÃ³nico"
+                  label="Correo Electrónico"
                   type="email"
-                  value={formData.email}
+                  value={datosFormulario.email}
                   onChange={(e) => {
                     setFormData(prev => ({ ...prev, email: e.target.value }));
                     if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
@@ -604,7 +604,7 @@ export function EstablecimientosConfiguration() {
             </div>
           </div>
 
-          {/* Botones de AcciÃ³n */}
+          {/* Botones de Acción */}
           <div className="flex items-center justify-between pt-2">
             <p className="text-sm text-gray-500 flex items-center gap-1.5">
               <AlertCircle className="w-4 h-4" />
@@ -663,11 +663,11 @@ export function EstablecimientosConfiguration() {
                 <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
-                Â¿Eliminar establecimiento?
+                ¿Eliminar establecimiento?
               </h3>
               <p className="text-gray-600 text-center mb-6">
-                Â¿EstÃ¡s seguro de eliminar el establecimiento <span className="font-semibold">"{deleteConfirmation.EstablecimientoName}"</span>?
-                Esta acciÃ³n no se puede deshacer.
+                ¿Estás seguro de eliminar el establecimiento <span className="font-semibold">"{deleteConfirmation.EstablecimientoName}"</span>?
+                Esta acción no se puede deshacer.
               </p>
               <div className="flex gap-3">
                 <button
@@ -761,7 +761,7 @@ export function EstablecimientosConfiguration() {
           />
 
           <Select
-            value={filterStatus}
+            value={filtroEstado}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as any)}
             size="medium"
             options={[
@@ -789,18 +789,18 @@ export function EstablecimientosConfiguration() {
           <div className="text-center py-12">
             <Building className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm || filterStatus !== 'all'
+              {searchTerm || filtroEstado !== 'all'
                 ? 'No se encontraron establecimientos'
                 : 'No hay establecimientos registrados'
               }
             </h3>
             <p className="text-gray-500 mb-6">
-              {searchTerm || filterStatus !== 'all'
-                ? 'Intenta cambiar los filtros de bÃºsqueda'
+              {searchTerm || filtroEstado !== 'all'
+                ? 'Intenta cambiar los filtros de búsqueda'
                 : 'Comienza registrando tu primer establecimiento'
               }
             </p>
-            {(!searchTerm && filterStatus === 'all') && (
+            {(!searchTerm && filtroEstado === 'all') && (
               <button
                 onClick={handleNew}
                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -880,3 +880,6 @@ export function EstablecimientosConfiguration() {
     </div>
   );
 }
+
+
+

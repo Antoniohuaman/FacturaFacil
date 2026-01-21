@@ -37,7 +37,7 @@ export function AccountingAccountsSection({ onBack }: AccountingAccountsSectionP
     setFormError(null);
   };
 
-  const handleSubmit = async (input: { code: string }) => {
+  const manejarEnvio = async (input: { code: string }) => {
     setFormError(null);
     if (editing) {
       await updateAccount(editing.id, input);
@@ -185,7 +185,7 @@ export function AccountingAccountsSection({ onBack }: AccountingAccountsSectionP
         initialData={editing ?? undefined}
         errorMessage={formError}
         onClose={closeModal}
-        onSubmit={handleSubmit}
+        onSubmit={manejarEnvio}
       />
 
       <ConfirmationModal
@@ -201,3 +201,4 @@ export function AccountingAccountsSection({ onBack }: AccountingAccountsSectionP
     </div>
   );
 }
+

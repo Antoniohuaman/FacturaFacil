@@ -27,7 +27,7 @@ export function UnitsSection({
 }: UnitsSectionProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ code: '', name: '', category: 'OTHER' as Unit['category'] });
+  const [datosFormulario, setFormData] = useState({ code: '', name: '', category: 'OTHER' as Unit['category'] });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ code?: string; name?: string }>({});
 
@@ -110,19 +110,19 @@ export function UnitsSection({
   const validateForm = () => {
     const newErrors: { code?: string; name?: string } = {};
 
-    if (!formData.code.trim()) {
+    if (!datosFormulario.code.trim()) {
       newErrors.code = 'El código es obligatorio';
-    } else if (formData.code.length > 6) {
+    } else if (datosFormulario.code.length > 6) {
       newErrors.code = 'El código no puede tener más de 6 caracteres';
-    } else if (!/^[A-Z0-9]+$/.test(formData.code)) {
+    } else if (!/^[A-Z0-9]+$/.test(datosFormulario.code)) {
       newErrors.code = 'El código solo puede contener letras y números';
-    } else if (units.some(u => u.code === formData.code && u.id !== editingId)) {
+    } else if (units.some(u => u.code === datosFormulario.code && u.id !== editingId)) {
       newErrors.code = 'Ya existe una unidad con este código';
     }
 
-    if (!formData.name.trim()) {
+    if (!datosFormulario.name.trim()) {
       newErrors.name = 'El nombre es obligatorio';
-    } else if (formData.name.length < 3) {
+    } else if (datosFormulario.name.length < 3) {
       newErrors.name = 'El nombre debe tener al menos 3 caracteres';
     }
 
@@ -136,7 +136,7 @@ export function UnitsSection({
     setShowForm(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) return;
@@ -152,9 +152,9 @@ export function UnitsSection({
           u.id === editingId
             ? {
               ...u,
-              name: formData.name,
-              code: formData.code.toUpperCase(),
-              category: formData.category,
+              name: datosFormulario.name,
+              code: datosFormulario.code.toUpperCase(),
+              category: datosFormulario.category,
               updatedAt: new Date()
             }
             : u
@@ -163,11 +163,11 @@ export function UnitsSection({
         // Create new
         const newUnit: Unit = {
           id: `custom-${Date.now()}`,
-          code: formData.code.toUpperCase(),
-          name: formData.name,
-          symbol: formData.code.toUpperCase(),
-          description: formData.name,
-          category: formData.category,
+          code: datosFormulario.code.toUpperCase(),
+          name: datosFormulario.name,
+          symbol: datosFormulario.code.toUpperCase(),
+          description: datosFormulario.name,
+          category: datosFormulario.category,
           decimalPlaces: 0,
           isActive: true,
           isSystem: false,
@@ -540,12 +540,12 @@ export function UnitsSection({
           title={editingId ? '✏️ Editar Unidad de Medida' : '➕ Nueva Unidad de Medida'}
           description={editingId ? 'Modifica los datos de la unidad seleccionada' : 'Crea una unidad personalizada para tus productos'}
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={manejarEnvio} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <Input
                 label="Código SUNAT"
                 type="text"
-                value={formData.code}
+                value={datosFormulario.code}
                 onChange={(e) => handleCodeChange(e.target.value)}
                 error={errors.code}
                 helperText={errors.code || "Máximo 6 caracteres en mayúsculas"}
@@ -557,7 +557,7 @@ export function UnitsSection({
               <Input
                 label="Nombre"
                 type="text"
-                value={formData.name}
+                value={datosFormulario.name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 error={errors.name}
                 placeholder="Piezas"
@@ -566,7 +566,7 @@ export function UnitsSection({
 
               <Select
                 label="Categoría"
-                value={formData.category}
+                value={datosFormulario.category}
                 onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as Unit['category'] }))}
                 options={UNIT_CATEGORIES.map((cat) => ({
                   value: cat.value,
@@ -969,3 +969,4 @@ export function UnitsSection({
     </div>
   );
 }
+

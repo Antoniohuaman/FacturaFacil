@@ -140,8 +140,8 @@ export function UserCard({
     }
   };
 
-  const statusConfig = getStatusConfig(user.status);
-  const StatusIcon = statusConfig.icon;
+  const configEstado = getStatusConfig(user.status);
+  const StatusIcon = configEstado.icon;
 
   return (
     <>
@@ -174,8 +174,8 @@ export function UserCard({
                   {user.personalInfo.fullName}
                 </h3>
                 <StatusIndicator
-                  status={statusConfig.color}
-                  label={statusConfig.label}
+                  status={configEstado.color}
+                  label={configEstado.label}
                   size="xs"
                 />
               </div>
@@ -334,15 +334,15 @@ export function UserCard({
         )}
 
         {/* Status Information */}
-        <div className={`mb-4 p-3 border rounded-lg ${statusConfig.bgColor}`}>
+        <div className={`mb-4 p-3 border rounded-lg ${configEstado.bgColor}`}>
           <div className="flex items-center space-x-2 mb-1">
             <StatusIcon className="w-4 h-4" />
-            <span className={`font-medium ${statusConfig.textColor}`}>
-              {statusConfig.label}
+            <span className={`font-medium ${configEstado.textColor}`}>
+              {configEstado.label}
             </span>
           </div>
-          <p className={`text-sm ${statusConfig.textColor}`}>
-            {statusConfig.description}
+          <p className={`text-sm ${configEstado.textColor}`}>
+            {configEstado.description}
           </p>
           
           {/* Additional status info */}

@@ -10,7 +10,7 @@ import { SeriesCard } from './TarjetaSerie';
 import { StatusIndicator } from '../comunes/IndicadorEstado';
 
 type FilterType = VoucherType | 'ALL';
-type FilterStatus = 'all' | 'active' | 'inactive';
+type filtroEstado = 'all' | 'active' | 'inactive';
 
 interface SeriesListProps {
   series: Series[];
@@ -106,7 +106,7 @@ export function SeriesList({
 }: SeriesListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('ALL');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filtroEstado, setFilterStatus] = useState<filtroEstado>('all');
   const [filterEstablecimiento, setFilterEstablecimiento] = useState('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
@@ -117,9 +117,9 @@ export function SeriesList({
       voucherTypeConfig[s.documentType.category].label.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesType = filterType === 'ALL' || s.documentType.category === filterType;
-    const matchesStatus = filterStatus === 'all' ||
-      (filterStatus === 'active' && s.isActive) ||
-      (filterStatus === 'inactive' && !s.isActive);
+    const matchesStatus = filtroEstado === 'all' ||
+      (filtroEstado === 'active' && s.isActive) ||
+      (filtroEstado === 'inactive' && !s.isActive);
     const matchesEstablecimiento = filterEstablecimiento === 'ALL' || s.EstablecimientoId === filterEstablecimiento;
 
     return matchesSearch && matchesType && matchesStatus && matchesEstablecimiento;
@@ -229,8 +229,8 @@ export function SeriesList({
 
           {/* Status Filter */}
           <Select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+            value={filtroEstado}
+            onChange={(e) => setFilterStatus(e.target.value as filtroEstado)}
             size="medium"
             options={[
               { value: 'all', label: 'Todos los estados' },
@@ -291,7 +291,7 @@ export function SeriesList({
       </div>
 
       {/* Active Filters */}
-      {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablecimiento !== 'ALL') && (
+      {(searchTerm || filterType !== 'ALL' || filtroEstado !== 'all' || filterEstablecimiento !== 'ALL') && (
         <div className="flex items-center space-x-2 text-sm">
           <span className="text-gray-600">Filtros activos:</span>
           {searchTerm && (
@@ -304,9 +304,9 @@ export function SeriesList({
               Tipo: {voucherTypeConfig[filterType].label}
             </span>
           )}
-          {filterStatus !== 'all' && (
+          {filtroEstado !== 'all' && (
             <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
-              Estado: {filterStatus === 'active' ? 'Activas' : 'Inactivas'}
+              Estado: {filtroEstado === 'active' ? 'Activas' : 'Inactivas'}
             </span>
           )}
           {filterEstablecimiento !== 'ALL' && (
@@ -335,18 +335,18 @@ export function SeriesList({
         <div className="text-center py-12">
           <div className="text-6xl mb-4">📄</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablecimiento !== 'ALL')
+            {(searchTerm || filterType !== 'ALL' || filtroEstado !== 'all' || filterEstablecimiento !== 'ALL')
               ? 'No se encontraron series'
               : 'No hay series configuradas'
             }
           </h3>
           <p className="text-gray-500 mb-6">
-            {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablecimiento !== 'ALL')
+            {(searchTerm || filterType !== 'ALL' || filtroEstado !== 'all' || filterEstablecimiento !== 'ALL')
               ? 'Intenta ajustar los filtros de búsqueda'
               : 'Crea tu primera serie para comenzar a emitir comprobantes'
             }
           </p>
-          {(!searchTerm && filterType === 'ALL' && filterStatus === 'all' && filterEstablecimiento === 'ALL') && (
+          {(!searchTerm && filterType === 'ALL' && filtroEstado === 'all' && filterEstablecimiento === 'ALL') && (
             <Button
               onClick={onCreate}
               variant="primary"

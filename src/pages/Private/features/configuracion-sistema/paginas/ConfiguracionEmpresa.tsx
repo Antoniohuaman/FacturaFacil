@@ -180,7 +180,7 @@ export function CompanyConfiguration() {
     ? ensuredWorkspaceIdRef.current
     : workspaceState?.workspaceId || activeWorkspace?.id;
 
-  const [formData, setFormData] = useState<CompanyFormData>({
+  const [datosFormulario, setFormData] = useState<CompanyFormData>({
     ruc: '',
     razonSocial: '',
     nombreComercial: '',
@@ -342,19 +342,19 @@ export function CompanyConfiguration() {
 
     // Deep comparison of form data vs original data
     const hasFormChanges =
-      formData.ruc !== originalData.ruc ||
-      formData.razonSocial !== originalData.razonSocial ||
-      formData.nombreComercial !== originalData.nombreComercial ||
-      formData.direccionFiscal !== originalData.direccionFiscal ||
-      formData.ubigeo !== originalData.ubigeo ||
-      formData.monedaBase !== originalData.monedaBase ||
-      formData.entornoSunat !== originalData.entornoSunat ||
-      formData.actividadEconomica !== originalData.actividadEconomica ||
-      JSON.stringify(formData.telefonos) !== JSON.stringify(originalData.telefonos) ||
-      JSON.stringify(formData.correosElectronicos) !== JSON.stringify(originalData.correosElectronicos);
+      datosFormulario.ruc !== originalData.ruc ||
+      datosFormulario.razonSocial !== originalData.razonSocial ||
+      datosFormulario.nombreComercial !== originalData.nombreComercial ||
+      datosFormulario.direccionFiscal !== originalData.direccionFiscal ||
+      datosFormulario.ubigeo !== originalData.ubigeo ||
+      datosFormulario.monedaBase !== originalData.monedaBase ||
+      datosFormulario.entornoSunat !== originalData.entornoSunat ||
+      datosFormulario.actividadEconomica !== originalData.actividadEconomica ||
+      JSON.stringify(datosFormulario.telefonos) !== JSON.stringify(originalData.telefonos) ||
+      JSON.stringify(datosFormulario.correosElectronicos) !== JSON.stringify(originalData.correosElectronicos);
 
     setHasChanges(hasFormChanges);
-  }, [formData, originalData]);
+  }, [datosFormulario, originalData]);
 
   // Handle RUC validation callback from RucValidator component
   const handleRucValidation = (result: { isValid: boolean; message: string; data?: any }) => {
@@ -414,7 +414,7 @@ export function CompanyConfiguration() {
     setShowProductionModal(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -423,25 +423,25 @@ export function CompanyConfiguration() {
       ensuredWorkspaceIdRef.current = targetWorkspaceId;
 
       // Filter out empty phones and emails
-      const cleanPhones = formData.telefonos.filter(phone => phone.trim() !== '');
-      const cleanEmails = formData.correosElectronicos.filter(email => email.trim() !== '');
+      const cleanPhones = datosFormulario.telefonos.filter(phone => phone.trim() !== '');
+      const cleanEmails = datosFormulario.correosElectronicos.filter(email => email.trim() !== '');
 
       const updatedCompany: Company = {
         id: company?.id || '1',
-        ruc: formData.ruc,
-        razonSocial: formData.razonSocial,
-        nombreComercial: formData.nombreComercial || undefined,
-        direccionFiscal: formData.direccionFiscal,
+        ruc: datosFormulario.ruc,
+        razonSocial: datosFormulario.razonSocial,
+        nombreComercial: datosFormulario.nombreComercial || undefined,
+        direccionFiscal: datosFormulario.direccionFiscal,
         distrito: company?.distrito || '',
         provincia: company?.provincia || '',
         departamento: company?.departamento || '',
-        codigoPostal: formData.ubigeo,
+        codigoPostal: datosFormulario.ubigeo,
         telefonos: cleanPhones.length > 0 ? cleanPhones : [],
         correosElectronicos: cleanEmails.length > 0 ? cleanEmails : [],
         sitioWeb: company?.sitioWeb,
-        actividadEconomica: formData.actividadEconomica,
+        actividadEconomica: datosFormulario.actividadEconomica,
         regimenTributario: company?.regimenTributario || 'GENERAL',
-        monedaBase: formData.monedaBase,
+        monedaBase: datosFormulario.monedaBase,
         representanteLegal: company?.representanteLegal || {
           nombreRepresentanteLegal: '',
           tipoDocumentoRepresentante: 'DNI',
@@ -451,7 +451,7 @@ export function CompanyConfiguration() {
         configuracionSunatEmpresa: {
           estaConfiguradoEnSunat: company?.configuracionSunatEmpresa?.estaConfiguradoEnSunat || false,
           usuarioSunat: company?.configuracionSunatEmpresa?.usuarioSunat,
-          entornoSunat: formData.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
+          entornoSunat: datosFormulario.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
           fechaUltimaSincronizacionSunat: company?.configuracionSunatEmpresa?.fechaUltimaSincronizacionSunat
         },
         creadoEl: company?.creadoEl || new Date(),
@@ -463,10 +463,10 @@ export function CompanyConfiguration() {
 
       const workspace = createOrUpdateWorkspace({
         id: targetWorkspaceId,
-        ruc: formData.ruc,
-        razonSocial: formData.razonSocial,
-        nombreComercial: formData.nombreComercial,
-        domicilioFiscal: formData.direccionFiscal,
+        ruc: datosFormulario.ruc,
+        razonSocial: datosFormulario.razonSocial,
+        nombreComercial: datosFormulario.nombreComercial,
+        domicilioFiscal: datosFormulario.direccionFiscal,
       });
       ensuredWorkspaceIdRef.current = workspace.id;
 
@@ -478,18 +478,18 @@ export function CompanyConfiguration() {
 
       if (isNewCompany && state.Establecimientos.length === 0) {
         // Parsear ubigeo para obtener Departamento, Provincia y Distrito
-        const location = parseUbigeoCode(formData.ubigeo);
+        const location = parseUbigeoCode(datosFormulario.ubigeo);
 
         // 1. CREAR ESTABLECIMIENTO POR DEFECTO
         const createdEstablecimiento: Establecimiento = {
           id: 'est-main',
           codigoEstablecimiento: '0001',
           nombreEstablecimiento: 'Establecimiento',
-          direccionEstablecimiento: formData.direccionFiscal,
+          direccionEstablecimiento: datosFormulario.direccionFiscal,
           distritoEstablecimiento: location?.district || 'Lima',
           provinciaEstablecimiento: location?.province || 'Lima',
           departamentoEstablecimiento: location?.department || 'Lima',
-          codigoPostalEstablecimiento: formData.ubigeo,
+          codigoPostalEstablecimiento: datosFormulario.ubigeo,
           phone: cleanPhones[0],
           email: cleanEmails[0],
           isMainEstablecimiento: true,
@@ -575,7 +575,7 @@ export function CompanyConfiguration() {
 
         // 3. CREAR SERIES POR DEFECTO (FACTURA, BOLETA y documentos internos serieables)
         const environmentType =
-          formData.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION';
+          datosFormulario.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION';
 
         const defaultSeries: Series[] = buildMissingDefaultSeries({
           EstablecimientoId: createdEstablecimiento.id,
@@ -681,9 +681,9 @@ export function CompanyConfiguration() {
   // Form validation logic
   // For new company: require RUC validation + has changes
   // For existing company: allow updates without re-validating RUC but require changes
-  const isFormValid = formData.ruc.length === 11 &&
-    formData.razonSocial.trim() !== '' &&
-    formData.direccionFiscal.trim() !== '' &&
+  const isFormValid = datosFormulario.ruc.length === 11 &&
+    datosFormulario.razonSocial.trim() !== '' &&
+    datosFormulario.direccionFiscal.trim() !== '' &&
     (company?.id ? true : rucValidation?.isValid === true) &&
     hasChanges; // Only enable if there are changes
 
@@ -705,7 +705,7 @@ export function CompanyConfiguration() {
 
       <div className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto p-6 space-y-8">
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={manejarEnvio} className="space-y-8">
             {/* Company Legal Data */}
             <ConfigurationCard
               title="Datos Legales y Tributarios"
@@ -714,7 +714,7 @@ export function CompanyConfiguration() {
               <div className="space-y-2">
                 {/* RUC Validator Component */}
                 <RucValidator
-                  value={formData.ruc}
+                  value={datosFormulario.ruc}
                   onChange={(ruc) => setFormData(prev => ({ ...prev, ruc }))}
                   onValidation={handleRucValidation}
                 />
@@ -727,18 +727,18 @@ export function CompanyConfiguration() {
                   <div className="relative">
                     <input
                       type="text"
-                      value={formData.razonSocial}
+                      value={datosFormulario.razonSocial}
                       onChange={(e) => setFormData(prev => ({ ...prev, razonSocial: e.target.value }))}
                       className={`
                     w-full h-10 px-3 text-sm pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     bg-gray-50 dark:bg-gray-800 transition-all duration-200
-                    ${formData.razonSocial ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
+                    ${datosFormulario.razonSocial ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
                     text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
                   `}
                       readOnly
                       placeholder="Se completará automáticamente al validar el RUC"
                     />
-                    {formData.razonSocial && (
+                    {datosFormulario.razonSocial && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                       </div>
@@ -751,7 +751,7 @@ export function CompanyConfiguration() {
                   <Input
                     label="Nombre Comercial"
                     type="text"
-                    value={formData.nombreComercial}
+                    value={datosFormulario.nombreComercial}
                     onChange={(e) => setFormData(prev => ({ ...prev, nombreComercial: e.target.value }))}
                     placeholder="Nombre con el que se conoce tu empresa"
                   />
@@ -764,19 +764,19 @@ export function CompanyConfiguration() {
                   </label>
                   <div className="relative">
                     <textarea
-                      value={formData.direccionFiscal}
+                      value={datosFormulario.direccionFiscal}
                       onChange={(e) => setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }))}
                       className={`
                     w-full min-h-[72px] px-3 py-2 text-sm pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     bg-gray-50 dark:bg-gray-800 transition-all duration-200
-                    ${formData.direccionFiscal ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
+                    ${datosFormulario.direccionFiscal ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
                     text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
                   `}
                       rows={2}
                       readOnly
                       placeholder="Se completará automáticamente al validar el RUC"
                     />
-                    {formData.direccionFiscal && (
+                    {datosFormulario.direccionFiscal && (
                       <div className="absolute right-3 top-3">
                         <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                       </div>
@@ -787,7 +787,7 @@ export function CompanyConfiguration() {
                 <Input
                   label="Actividad Económica"
                   type="text"
-                  value={formData.actividadEconomica}
+                  value={datosFormulario.actividadEconomica}
                   onChange={(e) => setFormData(prev => ({ ...prev, actividadEconomica: e.target.value }))}
                 />
               </div>
@@ -802,7 +802,7 @@ export function CompanyConfiguration() {
                 {/* Base Currency */}
                 <Select
                   label="Moneda Base"
-                  value={formData.monedaBase}
+                  value={datosFormulario.monedaBase}
                   onChange={(e) => setFormData(prev => ({ ...prev, monedaBase: e.target.value as 'PEN' | 'USD' }))}
                   required
                   helperText="Impacta catálogos de productos, emisión y POS"
@@ -822,12 +822,12 @@ export function CompanyConfiguration() {
                       <RadioButton
                         name="environment"
                         value="TEST"
-                        checked={formData.entornoSunat === 'TEST'}
+                        checked={datosFormulario.entornoSunat === 'TEST'}
                         onChange={() => handleEnvironmentChange('TEST')}
                         disabled={company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'}
                         label="Prueba"
                       />
-                      {formData.entornoSunat === 'TEST' && (
+                      {datosFormulario.entornoSunat === 'TEST' && (
                         <StatusIndicator status="warning" label="Activo" size="sm" />
                       )}
                     </div>
@@ -836,18 +836,18 @@ export function CompanyConfiguration() {
                       <RadioButton
                         name="environment"
                         value="PRODUCTION"
-                        checked={formData.entornoSunat === 'PRODUCTION'}
+                        checked={datosFormulario.entornoSunat === 'PRODUCTION'}
                         onChange={() => handleEnvironmentChange('PRODUCTION')}
                         label="Producción"
                       />
-                      {formData.entornoSunat === 'PRODUCTION' && (
+                      {datosFormulario.entornoSunat === 'PRODUCTION' && (
                         <StatusIndicator status="success" label="Activo" size="sm" />
                       )}
                     </div>
                   </div>
 
                   {/* Warning: Test Mode */}
-                  {formData.entornoSunat === 'TEST' && company?.configuracionSunatEmpresa?.entornoSunat !== 'PRODUCTION' && (
+                  {datosFormulario.entornoSunat === 'TEST' && company?.configuracionSunatEmpresa?.entornoSunat !== 'PRODUCTION' && (
                     <div className="mt-2 p-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
                       <div className="flex items-start gap-1.5 text-xs text-yellow-800 dark:text-yellow-200 leading-tight">
                         <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -884,7 +884,7 @@ export function CompanyConfiguration() {
                     Teléfonos
                   </label>
                   <div className="space-y-2">
-                    {formData.telefonos.map((phone, index) => (
+                    {datosFormulario.telefonos.map((phone, index) => (
                       <div key={index} className="flex items-center space-x-2">
                         <div className="flex-1">
                           <Input
@@ -895,7 +895,7 @@ export function CompanyConfiguration() {
                             leftIcon={<Phone />}
                           />
                         </div>
-                        {formData.telefonos.length > 1 && (
+                        {datosFormulario.telefonos.length > 1 && (
                           <Button
                             type="button"
                             onClick={() => removeArrayField('telefonos', index)}
@@ -923,7 +923,7 @@ export function CompanyConfiguration() {
                     Correos Electrónicos
                   </label>
                   <div className="space-y-2">
-                    {formData.correosElectronicos.map((email, index) => (
+                    {datosFormulario.correosElectronicos.map((email, index) => (
                       <div key={index} className="flex items-center space-x-2">
                         <div className="flex-1">
                           <Input
@@ -934,7 +934,7 @@ export function CompanyConfiguration() {
                             leftIcon={<Mail />}
                           />
                         </div>
-                        {formData.correosElectronicos.length > 1 && (
+                        {datosFormulario.correosElectronicos.length > 1 && (
                           <Button
                             type="button"
                             onClick={() => removeArrayField('correosElectronicos', index)}
@@ -976,7 +976,7 @@ export function CompanyConfiguration() {
                     <span className="text-sm font-medium">Sin cambios pendientes</span>
                   </div>
                 )}
-                {!isFormValid && formData.ruc.length === 11 && !rucValidation?.isValid && !company?.id && (
+                {!isFormValid && datosFormulario.ruc.length === 11 && !rucValidation?.isValid && !company?.id && (
                   <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                     <Shield className="w-5 h-5" />
                     <span className="text-sm font-medium">Valida el RUC para continuar</span>
@@ -1027,3 +1027,5 @@ export function CompanyConfiguration() {
     </div>
   );
 };
+
+

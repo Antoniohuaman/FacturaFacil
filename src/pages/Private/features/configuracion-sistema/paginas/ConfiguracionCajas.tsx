@@ -13,7 +13,7 @@ import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/
 import { Button, Select, Input } from '@/contasis';
 import type { Caja } from '../modelos/Caja';
 
-type FilterStatus = 'all' | 'enabled' | 'disabled';
+type filtroEstado = 'all' | 'enabled' | 'disabled';
 
 export function CajasConfiguration() {
   const navigate = useNavigate();
@@ -34,7 +34,7 @@ export function CajasConfiguration() {
   } = useCajas(empresaId, establecimientoId);
 
   const [searchText, setSearchText] = useState('');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filtroEstado, setFilterStatus] = useState<filtroEstado>('all');
   const [filterEstablecimientoId, setFilterEstablecimientoId] = useState<string>(establecimientoId);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [cajaToDelete, setCajaToDelete] = useState<Caja | null>(null);
@@ -57,14 +57,14 @@ export function CajasConfiguration() {
     }
 
     // Filter by status
-    if (filterStatus === 'enabled') {
+    if (filtroEstado === 'enabled') {
       result = result.filter(caja => caja.habilitadaCaja);
-    } else if (filterStatus === 'disabled') {
+    } else if (filtroEstado === 'disabled') {
       result = result.filter(caja => !caja.habilitadaCaja);
     }
 
     return result;
-  }, [cajas, filterEstablecimientoId, searchText, filterStatus]);
+  }, [cajas, filterEstablecimientoId, searchText, filtroEstado]);
 
   const handleToggleEnabled = async (id: string) => {
     try {
@@ -228,8 +228,8 @@ export function CajasConfiguration() {
                   <Select
                     id="status-filter"
                     label="Estado"
-                    value={filterStatus}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as FilterStatus)}
+                    value={filtroEstado}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as filtroEstado)}
                     size="medium"
                     containerClassName="flex-1"
                     options={[
@@ -288,14 +288,14 @@ export function CajasConfiguration() {
           <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <Banknote className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {searchText || filterStatus !== 'all' ? 'No se encontraron cajas' : 'No hay cajas configuradas'}
+              {searchText || filtroEstado !== 'all' ? 'No se encontraron cajas' : 'No hay cajas configuradas'}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-              {searchText || filterStatus !== 'all'
+              {searchText || filtroEstado !== 'all'
                 ? 'Intenta ajustar los filtros de búsqueda para encontrar lo que buscas.'
                 : 'Comienza creando tu primera caja para gestionar operaciones de efectivo en este establecimiento.'}
             </p>
-            {!searchText && filterStatus === 'all' && (
+            {!searchText && filtroEstado === 'all' && (
               <Button
                 onClick={handleCreate}
                 variant="primary"
@@ -340,3 +340,4 @@ export function CajasConfiguration() {
     </div>
   );
 }
+
