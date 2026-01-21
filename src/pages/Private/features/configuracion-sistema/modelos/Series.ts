@@ -4,7 +4,7 @@ export interface Series {
   documentType: DocumentType;
   series: string; // Serie (ej: F001, B001)
   correlativeNumber: number; // Número correlativo actual
-  
+
   // Configuration
   configuration: {
     prefix?: string; // Prefijo opcional antes de la serie
@@ -16,11 +16,11 @@ export interface Series {
     allowManualNumber: boolean; // Permitir número manual
     requireAuthorization: boolean; // Requiere autorización para usar
   };
-  
+
   // SUNAT specific
   sunatConfiguration: {
     isElectronic: boolean; // Es comprobante electrónico
-    environmentType: 'TESTING' | 'PRODUCTION';
+    environmentType: 'PRUEBA' | 'PRODUCTION';
     certificateRequired: boolean;
     mustReportToSunat: boolean;
     maxDaysToReport: number; // Días máximos para reportar a SUNAT
@@ -28,11 +28,11 @@ export interface Series {
     authorizationDate?: Date;
     expiryDate?: Date;
   };
-  
+
   // Status and control
   status: 'ACTIVE' | 'INACTIVE' | 'EXHAUSTED' | 'EXPIRED' | 'CANCELLED';
   isDefault: boolean; // Serie por defecto para este tipo de documento
-  
+
   // Usage statistics
   statistics: {
     documentsIssued: number;
@@ -40,7 +40,7 @@ export interface Series {
     averageDocumentsPerDay: number;
     estimatedExhaustionDate?: Date;
   };
-  
+
   // Validation rules
   validation: {
     allowZeroAmount: boolean;
@@ -53,7 +53,7 @@ export interface Series {
       end: string;
     };
   };
-  
+
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -67,7 +67,7 @@ export interface DocumentType {
   name: string;
   shortName: string;
   category: 'INVOICE' | 'RECEIPT' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | 'GUIDE' | 'QUOTATION' | 'SALES_NOTE' | 'COLLECTION' | 'OTHER';
-  
+
   // Document properties
   properties: {
     affectsTaxes: boolean;
@@ -81,7 +81,7 @@ export interface DocumentType {
     isElectronic: boolean;
     requiresSignature: boolean;
   };
-  
+
   // Series configuration
   seriesConfiguration: {
     defaultPrefix: string;
@@ -89,7 +89,7 @@ export interface DocumentType {
     correlativeLength: number; // Length of correlative number
     allowedPrefixes: string[];
   };
-  
+
   isActive: boolean;
 }
 

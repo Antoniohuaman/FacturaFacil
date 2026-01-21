@@ -7,3 +7,17 @@ export type {
   ApiResponse,
   PaginatedResponse,
 } from './api.types';
+
+export { usuariosService } from './usuarios.service';
+export type {
+  Usuario,
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  RegisterResponse,
+  UsuarioResponse,
+  EmpresaUsuario,
+} from './usuarios.service';
+
+export { empresasService } from './empresas.service';
+export type { CreateEmpresaRequest, EmpresaResponse, EmpresaData } from './empresas.service';

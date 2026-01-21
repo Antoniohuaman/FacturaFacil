@@ -87,18 +87,18 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const reviveCompany = (company: Company): Company => {
   const certificadoDigital = company.certificadoDigital
     ? {
-        ...company.certificadoDigital,
-        fechaVencimientoCertificado: reviveDate(company.certificadoDigital.fechaVencimientoCertificado),
-      }
+      ...company.certificadoDigital,
+      fechaVencimientoCertificado: reviveDate(company.certificadoDigital.fechaVencimientoCertificado),
+    }
     : company.certificadoDigital;
 
   const configuracionSunatEmpresa = company.configuracionSunatEmpresa
     ? {
-        ...company.configuracionSunatEmpresa,
-        fechaUltimaSincronizacionSunat: reviveDate(
-          company.configuracionSunatEmpresa.fechaUltimaSincronizacionSunat,
-        ),
-      }
+      ...company.configuracionSunatEmpresa,
+      fechaUltimaSincronizacionSunat: reviveDate(
+        company.configuracionSunatEmpresa.fechaUltimaSincronizacionSunat,
+      ),
+    }
     : company.configuracionSunatEmpresa;
 
   return {
@@ -116,9 +116,9 @@ const reviveEstablecimiento = (est: Establecimiento): Establecimiento => ({
   actualizadoElEstablecimiento: reviveDate(est.actualizadoElEstablecimiento) ?? new Date(),
   sunatConfiguration: est.sunatConfiguration
     ? {
-        ...est.sunatConfiguration,
-        registrationDate: reviveDate(est.sunatConfiguration.registrationDate),
-      }
+      ...est.sunatConfiguration,
+      registrationDate: reviveDate(est.sunatConfiguration.registrationDate),
+    }
     : est.sunatConfiguration,
 });
 
@@ -183,31 +183,31 @@ const reviveAlmacen = (raw: Almacen | (Partial<Almacen> & Record<string, unknown
     configuracionInventarioAlmacen: {
       permiteStockNegativoAlmacen:
         canonicalInventory?.permiteStockNegativoAlmacen
-          ?? resolvedConfig.permiteStockNegativoAlmacen,
+        ?? resolvedConfig.permiteStockNegativoAlmacen,
       controlEstrictoStock:
         canonicalInventory?.controlEstrictoStock
-          ?? resolvedConfig.controlEstrictoStock,
+        ?? resolvedConfig.controlEstrictoStock,
       requiereAprobacionMovimientos:
         canonicalInventory?.requiereAprobacionMovimientos
-          ?? resolvedConfig.requiereAprobacionMovimientos,
+        ?? resolvedConfig.requiereAprobacionMovimientos,
       capacidadMaxima:
         canonicalInventory?.capacidadMaxima
-          ?? resolvedConfig.capacidadMaxima,
+        ?? resolvedConfig.capacidadMaxima,
       unidadCapacidad:
         canonicalInventory?.unidadCapacidad
-          ?? resolvedConfig.unidadCapacidad,
+        ?? resolvedConfig.unidadCapacidad,
     },
     creadoElAlmacen:
       reviveDate((raw as Almacen).creadoElAlmacen ?? (legacy.createdAt as Date | string | undefined))
-        ?? new Date(),
+      ?? new Date(),
     actualizadoElAlmacen:
       reviveDate((raw as Almacen).actualizadoElAlmacen ?? (legacy.updatedAt as Date | string | undefined))
-        ?? new Date(),
+      ?? new Date(),
     creadoPor: (raw as Almacen).creadoPor ?? (legacy.creadoPor as string | undefined) ?? (legacy.createdBy as string | undefined),
     actualizadoPor:
       (raw as Almacen).actualizadoPor
-        ?? (legacy.actualizadoPor as string | undefined)
-        ?? (legacy.updatedBy as string | undefined),
+      ?? (legacy.actualizadoPor as string | undefined)
+      ?? (legacy.updatedBy as string | undefined),
     tieneMovimientosInventario:
       (raw as Almacen).tieneMovimientosInventario
       ?? (legacy.tieneMovimientosInventario as boolean | undefined)
@@ -233,11 +233,11 @@ const reviveCaja = (caja: PersistedCaja): Caja => {
           : false,
     usuariosAutorizadosCaja:
       (caja.usuariosAutorizadosCaja as string[] | undefined)
-        ?? (legacy.usuariosAutorizados as string[] | undefined)
-        ?? [],
+      ?? (legacy.usuariosAutorizados as string[] | undefined)
+      ?? [],
     dispositivosCaja:
       (caja.dispositivosCaja as Caja['dispositivosCaja'])
-        ?? (legacy.dispositivos as Caja['dispositivosCaja']),
+      ?? (legacy.dispositivos as Caja['dispositivosCaja']),
     observacionesCaja: (caja.observacionesCaja as string | undefined) ?? (legacy.observaciones as string | undefined),
     tieneHistorialMovimientos:
       typeof caja.tieneHistorialMovimientos === 'boolean'
@@ -247,10 +247,10 @@ const reviveCaja = (caja: PersistedCaja): Caja => {
           : false,
     creadoElCaja:
       reviveDate((caja.creadoElCaja as Date | string | undefined) ?? (legacy.createdAt as Date | string | undefined))
-        ?? new Date(),
+      ?? new Date(),
     actualizadoElCaja:
       reviveDate((caja.actualizadoElCaja as Date | string | undefined) ?? (legacy.updatedAt as Date | string | undefined))
-        ?? new Date(),
+      ?? new Date(),
   } as Caja;
 };
 
@@ -289,17 +289,17 @@ const reviveSeries = (series: Series): Series => ({
   updatedAt: series.updatedAt ? new Date(series.updatedAt) : new Date(),
   sunatConfiguration: series.sunatConfiguration
     ? {
-        ...series.sunatConfiguration,
-        authorizationDate: reviveDate(series.sunatConfiguration.authorizationDate),
-        expiryDate: reviveDate(series.sunatConfiguration.expiryDate),
-      }
+      ...series.sunatConfiguration,
+      authorizationDate: reviveDate(series.sunatConfiguration.authorizationDate),
+      expiryDate: reviveDate(series.sunatConfiguration.expiryDate),
+    }
     : series.sunatConfiguration,
   statistics: series.statistics
     ? {
-        ...series.statistics,
-        lastUsedDate: reviveDate(series.statistics.lastUsedDate),
-        estimatedExhaustionDate: reviveDate(series.statistics.estimatedExhaustionDate),
-      }
+      ...series.statistics,
+      lastUsedDate: reviveDate(series.statistics.lastUsedDate),
+      estimatedExhaustionDate: reviveDate(series.statistics.estimatedExhaustionDate),
+    }
     : series.statistics,
 });
 
@@ -475,22 +475,22 @@ function configurationReducer(
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
-    
+
     case 'SET_ERROR':
       return { ...state, error: action.payload, isLoading: false };
-    
+
     case 'SET_COMPANY':
       return { ...state, company: action.payload };
-    
+
     case 'SET_EstablecimientoS':
       return { ...state, Establecimientos: action.payload };
-    
+
     case 'ADD_Establecimiento':
       return {
         ...state,
         Establecimientos: [...state.Establecimientos, action.payload],
       };
-    
+
     case 'UPDATE_Establecimiento':
       return {
         ...state,
@@ -498,7 +498,7 @@ function configurationReducer(
           est.id === action.payload.id ? action.payload : est
         ),
       };
-    
+
     case 'DELETE_Establecimiento':
       return {
         ...state,
@@ -530,13 +530,13 @@ function configurationReducer(
 
     case 'SET_USERS':
       return { ...state, users: action.payload };
-    
+
     case 'ADD_USER':
       return {
         ...state,
         users: [...state.users, action.payload],
       };
-    
+
     case 'UPDATE_USER':
       return {
         ...state,
@@ -544,22 +544,22 @@ function configurationReducer(
           user.id === action.payload.id ? action.payload : user
         ),
       };
-    
+
     case 'DELETE_USER':
       return {
         ...state,
         users: state.users.filter(user => user.id !== action.payload),
       };
-    
+
     case 'SET_SERIES':
       return { ...state, series: action.payload };
-    
+
     case 'ADD_SERIES':
       return {
         ...state,
         series: [...state.series, action.payload],
       };
-    
+
     case 'UPDATE_SERIES':
       return {
         ...state,
@@ -567,22 +567,22 @@ function configurationReducer(
           ser.id === action.payload.id ? action.payload : ser
         ),
       };
-    
+
     case 'DELETE_SERIES':
       return {
         ...state,
         series: state.series.filter(ser => ser.id !== action.payload),
       };
-    
+
     case 'SET_PAYMENT_METHODS':
       return { ...state, paymentMethods: action.payload };
-    
+
     case 'SET_CURRENCIES':
       return { ...state, currencies: action.payload };
-    
+
     case 'SET_UNITS':
       return { ...state, units: action.payload };
-    
+
     case 'SET_TAXES':
       return { ...state, taxes: normalizeTaxes(action.payload) };
 

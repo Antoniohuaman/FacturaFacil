@@ -36,7 +36,7 @@ export interface Company {
   configuracionSunatEmpresa: {
     estaConfiguradoEnSunat: boolean;
     usuarioSunat?: string;
-    entornoSunat: 'TESTING' | 'PRODUCTION';
+    entornoSunat: 'PRUEBA' | 'PRODUCTION';
     fechaUltimaSincronizacionSunat?: Date;
   };
   creadoEl: Date;
@@ -84,6 +84,6 @@ export const DOCUMENT_TYPES = [
 ] as const;
 
 export const SUNAT_ENVIRONMENTS = [
-  { value: 'TESTING', label: 'Ambiente de Pruebas' },
+  { value: 'PRUEBA', label: 'Ambiente de Pruebas' },
   { value: 'PRODUCTION', label: 'Ambiente de Producción' },
 ] as const;

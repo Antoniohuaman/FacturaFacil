@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useUserSession } from './UserSessionContext';
 import { useConfigurationContext } from '../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
+import { useAuthStore } from '../pages/Private/features/autenticacion/store/AuthStore';
 
 /**
  * Componente que sincroniza el UserSessionContext con ConfigurationContext
@@ -28,18 +29,21 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
 
       if (defaultEstablecimiento && state.company) {
         initializedRef.current = true;
-        // Crear sesión inicial con datos mock del usuario
+        // Obtener datos reales del usuario desde AuthStore
+        const { user } = useAuthStore.getState();
+
+        // Crear sesión inicial con datos reales o fallback si no hay usuario (esto no debería pasar en rutas privadas)
         setSession({
-          userId: 'user-001',
-          userName: 'Antonio Huamán',
-          userEmail: 'antonio@sensiyo.com',
+          userId: user?.id || 'unknown-user',
+          userName: user ? `${user.nombre} ${user.apellido}`.trim() : 'Usuario',
+          userEmail: user?.email || '',
           currentCompanyId: state.company.id,
           currentCompany: state.company,
           currentEstablecimientoId: defaultEstablecimiento.id,
           currentEstablecimiento: defaultEstablecimiento,
           availableEstablecimientos: activeEstablecimientos,
           permissions: ['*'], // Permisos completos por defecto
-          role: 'Administrador',
+          role: user?.rol || 'Usuario',
         });
       }
       return;
@@ -65,13 +69,45 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
       }
     }
   }, [
-    session,
-    setSession,
-    setCurrentEstablecimiento,
-    updateAvailableEstablecimientos,
     state.company,
     state.Establecimientos,
   ]);
+
+  // Sincronizar cambios del usuario en tiempo real
+  useEffect(() => {
+    // Función para sincronizar o inicializar sesión basada en AuthStore
+    const syncSession = (user: any) => {
+      if (!user) return;
+
+      // Caso 1: Actualizar sesión existente
+      if (session) {
+        if (user.nombre !== session.userName || user.email !== session.userEmail || user.rol !== session.role) {
+          setSession({
+            ...session,
+            userId: user.id || session.userId,
+            userName: `${user.nombre} ${user.apellido}`.trim(),
+            userEmail: user.email || '',
+            role: user.rol || session.role || 'Usuario',
+          });
+        }
+        return;
+      }
+
+      // Caso 2: Inicializar sesión si no existe pero tenemos datos básicos
+      // Nota: Esto es un fallback, la inicialización principal debería ocurrir en el primer useEffect con establecimientos
+      // Pero si ya tenemos usuario y no hay establecimientos aun, podríamos querer mostrar el usuario al menos
+      // Sin embargo, UserSession requiere establishment... así que mejor esperamos al primer useEffect para la creación completa.
+      // Solo actualizamos si session existe o si podemos reconstruirla parcialmente (lo cual es riesgoso sin establishment).
+    };
+
+    // Suscribirse a cambios
+    const unsubscribe = useAuthStore.subscribe((state) => syncSession(state.user));
+
+    // Ejecutar inmediatamente con el estado actual
+    syncSession(useAuthStore.getState().user);
+
+    return () => unsubscribe();
+  }, [session, setSession]);
 
   return <>{children}</>;
 }

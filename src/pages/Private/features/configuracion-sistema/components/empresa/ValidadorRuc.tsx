@@ -25,30 +25,30 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
   const validateRuc = async (ruc: string): Promise<{ isValid: boolean; message: string; data?: any }> => {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     // Basic RUC validation
     if (ruc.length !== 11) {
       return { isValid: false, message: 'El RUC debe tener 11 dígitos' };
     }
-    
+
     if (!/^\d+$/.test(ruc)) {
       return { isValid: false, message: 'El RUC solo debe contener números' };
     }
 
     // Mock different scenarios based on RUC
     const lastDigit = parseInt(ruc.slice(-1));
-    
+
     if (lastDigit === 0) {
-      return { 
-        isValid: false, 
-        message: 'RUC no encontrado en SUNAT. Verifica que esté correctamente escrito.' 
+      return {
+        isValid: false,
+        message: 'RUC no encontrado en SUNAT. Verifica que esté correctamente escrito.'
       };
     }
-    
+
     if (lastDigit === 1) {
-      return { 
-        isValid: false, 
-        message: 'Error de conexión con SUNAT. Intenta nuevamente en unos momentos.' 
+      return {
+        isValid: false,
+        message: 'Error de conexión con SUNAT. Intenta nuevamente en unos momentos.'
       };
     }
 

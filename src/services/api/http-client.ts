@@ -1,5 +1,5 @@
 import { tokenService } from '../../pages/Private/features/autenticacion/services/TokenService';
-import { API_CONFIG, STORAGE_KEYS, HTTP_STATUS } from './api.config';
+import { API_CONFIG, STORAGE_KEYS } from './api.config';
 import type { RequestConfig, ApiResponse } from './api.types';
 import { ApiError } from './api.types';
 
@@ -49,18 +49,12 @@ class HttpClient {
   }
 
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
-    if (response.status === HTTP_STATUS.UNAUTHORIZED) {
-      tokenService.clearTokens();
-      window.location.href = '/login';
-      throw new ApiError('Sesión expirada', HTTP_STATUS.UNAUTHORIZED);
-    }
-
     const isJson = response.headers.get('content-type')?.includes('application/json');
     const data = isJson ? await response.json() : null;
 
     if (!response.ok) {
       throw new ApiError(
-        data?.message || `Error HTTP ${response.status}`,
+        data?.mensaje || data?.message || `Error HTTP ${response.status}`,
         response.status,
         data?.errors
       );

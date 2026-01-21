@@ -10,7 +10,6 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading, error, isAuthenticated, status, clearError } = useAuth();
 
-  // Redirigir si ya está autenticado
   useEffect(() => {
     if (isAuthenticated && status === 'authenticated') {
       navigate('/', { replace: true });
@@ -21,7 +20,6 @@ export function LoginPage() {
     }
   }, [isAuthenticated, status, navigate]);
 
-  // Limpiar errores al desmontar
   useEffect(() => {
     return () => clearError();
   }, [clearError]);
@@ -29,9 +27,7 @@ export function LoginPage() {
   const handleLogin = async (data: LoginFormData) => {
     try {
       await login(data);
-      // La navegación se maneja en el useEffect anterior
     } catch (err) {
-      // El error ya está manejado en el AuthProvider
       console.error('Error en login:', err);
     }
   };
@@ -39,18 +35,15 @@ export function LoginPage() {
   return (
     <AuthLayout>
       <div className="space-y-5">
-        {/* Header con Logo */}
         <div className="text-center">
-          {/* Logo SenciYO - Arriba */}
           <div className="flex justify-center mb-8">
-            <img 
-              src="/Senciyo_Logo.png" 
-              alt="SenciYO" 
+            <img
+              src="/Senciyo_Logo.png"
+              alt="SenciYO"
               className="h-10 w-auto object-contain"
             />
           </div>
-          
-          {/* Título y subtítulo */}
+
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
             Ingresa a tu cuenta
           </h1>
@@ -59,7 +52,6 @@ export function LoginPage() {
           </p>
         </div>
 
-        {/* Error Alert */}
         {error && (
           <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4 border border-red-200 dark:border-red-800">
             <div className="flex items-start">
@@ -68,11 +60,8 @@ export function LoginPage() {
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800 dark:text-red-400">
-                  Error al iniciar sesión
-                </h3>
-                <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-red-800 dark:text-red-400">
                   {typeof error === 'string' ? error : 'Credenciales inválidas. Verifica tu correo y contraseña.'}
                 </p>
               </div>
@@ -92,10 +81,8 @@ export function LoginPage() {
           </div>
         )}
 
-        {/* Login Form */}
         <LoginForm onSubmit={handleLogin} isLoading={isLoading} />
 
-        {/* Footer */}
         <div className="text-center text-xs text-gray-500 dark:text-gray-400">
           <p>
             Al iniciar sesión, aceptas nuestros{' '}

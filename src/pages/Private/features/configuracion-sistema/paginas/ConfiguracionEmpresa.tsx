@@ -23,7 +23,6 @@ import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Company } from '../modelos/Company';
 import type { Establecimiento } from '../modelos/Establecimiento';
-import type { Almacen } from '../modelos/Almacen';
 import type { Series } from '../modelos/Series';
 import type { Currency } from '../modelos/Currency';
 import type { Tax } from '../modelos/Tax';
@@ -34,6 +33,8 @@ import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
 import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
+import { empresasService, type CreateEmpresaRequest } from '@/services/api/empresas.service';
+import { createDefaultEstablecimiento, createDefaultAlmacen } from '../utilidades/empresaOnboarding';
 
 
 interface CompanyFormData {
@@ -260,7 +261,7 @@ export function CompanyConfiguration() {
         direccionFiscal: company.direccionFiscal,
         ubigeo: company.codigoPostal || '',
         monedaBase: company.monedaBase || 'PEN',
-        entornoSunat: (company.configuracionSunatEmpresa.entornoSunat === 'TESTING' ? 'TEST' : 'PRODUCTION') as 'TEST' | 'PRODUCTION',
+        entornoSunat: (company.configuracionSunatEmpresa.entornoSunat === 'PRUEBA' ? 'TEST' : 'PRODUCTION') as 'TEST' | 'PRODUCTION',
         telefonos: company.telefonos?.length > 0 ? company.telefonos : [''],
         correosElectronicos: company.correosElectronicos?.length > 0 ? company.correosElectronicos : [''],
         actividadEconomica: company.actividadEconomica || ''
@@ -303,7 +304,7 @@ export function CompanyConfiguration() {
             configuracionSunatEmpresa: {
               estaConfiguradoEnSunat: false,
               usuarioSunat: undefined,
-              entornoSunat: 'TESTING',
+              entornoSunat: 'PRUEBA',
               fechaUltimaSincronizacionSunat: undefined
             },
             creadoEl: new Date(),
@@ -419,22 +420,73 @@ export function CompanyConfiguration() {
     setIsLoading(true);
 
     try {
-      const targetWorkspaceId = workspaceIdForSubmit ?? generateWorkspaceId();
-      ensuredWorkspaceIdRef.current = targetWorkspaceId;
-
-      // Filter out empty phones and emails
+      // 1. Prepare base data
       const cleanPhones = formData.telefonos.filter(phone => phone.trim() !== '');
       const cleanEmails = formData.correosElectronicos.filter(email => email.trim() !== '');
+      const location = parseUbigeoCode(formData.ubigeo);
+
+      let companyId = company?.id;
+      let isNewCompany = !companyId;
+
+      // 2. If creating new company, send to Backend
+      if (isNewCompany) {
+        try {
+          const createRequest: CreateEmpresaRequest = {
+            ruc: formData.ruc,
+            razonSocial: formData.razonSocial,
+            nombreComercial: formData.nombreComercial,
+            direccionFiscal: formData.direccionFiscal,
+            codigoDistrito: formData.ubigeo,
+            distrito: location?.district || '',
+            codigoProvincia: formData.ubigeo.substring(0, 4),
+            provincia: location?.province || '',
+            codigoDepartamento: formData.ubigeo.substring(0, 2),
+            departamento: location?.department || '',
+            codigoPostal: formData.ubigeo,
+            telefonos: cleanPhones,
+            correosElectronicos: cleanEmails,
+            sitioWeb: company?.sitioWeb || '',
+            actividadEconomica: formData.actividadEconomica,
+            regimenTributario: company?.regimenTributario || 'GENERAL',
+            monedaBase: formData.monedaBase,
+            representanteLegal: '', // TODO: Add field to form
+            nombreRepresentanteLegal: '', // TODO: Add field to form
+            tipoDocumentoRepresentante: 'DNI',
+            numeroDocumentoRepresentante: '',
+            ambienteSunat: formData.entornoSunat === 'TEST' ? 'PRUEBA' : 'PRODUCTION',
+            facturarEn: 'WEB',
+            esActivo: true
+          };
+
+          const response = await empresasService.create(createRequest);
+          if (response.exito && response.data?.id) {
+            companyId = response.data.id;
+          } else {
+            throw new Error(response.mensaje || 'Error creando empresa');
+          }
+        } catch (err) {
+          console.error('Failed to create company in backend:', err);
+          // If backend fails, stop here? Or continue with local save?
+          // User asked for backend connection. We should probably stop or alert.
+          // For now, rethrow to trigger catch block below
+          throw err;
+        }
+      }
+
+      // 3. Continue with local state updates (Automatic Onboarding)
+      // Use the backend ID if we have it, otherwise fallback (shouldn't happen for new companies if successful)
+      const targetWorkspaceId = companyId || workspaceIdForSubmit || generateWorkspaceId();
+      ensuredWorkspaceIdRef.current = targetWorkspaceId;
 
       const updatedCompany: Company = {
-        id: company?.id || '1',
+        id: targetWorkspaceId, // Use the real ID
         ruc: formData.ruc,
         razonSocial: formData.razonSocial,
         nombreComercial: formData.nombreComercial || undefined,
         direccionFiscal: formData.direccionFiscal,
-        distrito: company?.distrito || '',
-        provincia: company?.provincia || '',
-        departamento: company?.departamento || '',
+        distrito: location?.district || company?.distrito || '',
+        provincia: location?.province || company?.provincia || '',
+        departamento: location?.department || company?.departamento || '',
         codigoPostal: formData.ubigeo,
         telefonos: cleanPhones.length > 0 ? cleanPhones : [],
         correosElectronicos: cleanEmails.length > 0 ? cleanEmails : [],
@@ -451,7 +503,7 @@ export function CompanyConfiguration() {
         configuracionSunatEmpresa: {
           estaConfiguradoEnSunat: company?.configuracionSunatEmpresa?.estaConfiguradoEnSunat || false,
           usuarioSunat: company?.configuracionSunatEmpresa?.usuarioSunat,
-          entornoSunat: formData.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
+          entornoSunat: formData.entornoSunat === 'TEST' ? 'PRUEBA' : 'PRODUCTION',
           fechaUltimaSincronizacionSunat: company?.configuracionSunatEmpresa?.fechaUltimaSincronizacionSunat
         },
         creadoEl: company?.creadoEl || new Date(),
@@ -473,115 +525,35 @@ export function CompanyConfiguration() {
       // ===================================================================
       // ONBOARDING AUTOMÁTICO: Crear configuración inicial si es nueva empresa
       // ===================================================================
-      const isNewCompany = !company?.id;
+      // const isNewCompany = !company?.id; // Usar variable del scope superior
       let defaultEstablecimiento: Establecimiento | null = null;
 
       if (isNewCompany && state.Establecimientos.length === 0) {
         // Parsear ubigeo para obtener Departamento, Provincia y Distrito
-        const location = parseUbigeoCode(formData.ubigeo);
 
         // 1. CREAR ESTABLECIMIENTO POR DEFECTO
-        const createdEstablecimiento: Establecimiento = {
-          id: 'est-main',
-          codigoEstablecimiento: '0001',
-          nombreEstablecimiento: 'Establecimiento',
-          direccionEstablecimiento: formData.direccionFiscal,
-          distritoEstablecimiento: location?.district || 'Lima',
-          provinciaEstablecimiento: location?.province || 'Lima',
-          departamentoEstablecimiento: location?.department || 'Lima',
-          codigoPostalEstablecimiento: formData.ubigeo,
-          phone: cleanPhones[0],
-          email: cleanEmails[0],
-          isMainEstablecimiento: true,
-          businessHours: {
-            monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            wednesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            thursday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            friday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            saturday: { isOpen: true, openTime: '09:00', closeTime: '13:00', is24Hours: false },
-            sunday: { isOpen: false, openTime: '00:00', closeTime: '00:00', is24Hours: false },
-          },
-          sunatConfiguration: {
-            isRegistered: true,
-            registrationDate: new Date(),
-            annexCode: '0000',
-            economicActivity: company?.actividadEconomica || 'Comercio',
-          },
-          posConfiguration: {
-            hasPos: true,
-            terminalCount: 1,
-            printerConfiguration: {
-              hasPrinter: false,
-              printerType: 'THERMAL',
-              paperSize: 'TICKET_80MM',
-              isNetworkPrinter: false,
-            },
-            cashDrawerConfiguration: {
-              hasCashDrawer: false,
-              openMethod: 'MANUAL',
-              currency: 'PEN',
-            },
-            barcodeScanner: {
-              hasScanner: false,
-              scannerType: 'USB',
-            },
-          },
-          inventoryConfiguration: {
-            managesInventory: true,
-            isalmacen: false,
-            allowNegativeStock: false,
-            autoTransferStock: false,
-          },
-          financialConfiguration: {
-            handlesCash: true,
-            defaultCurrencyId: 'PEN',
-            acceptedCurrencies: ['PEN', 'USD'],
-            defaultTaxId: 'IGV',
-            bankAccounts: [],
-          },
-          estadoEstablecimiento: 'ACTIVE',
-          creadoElEstablecimiento: new Date(),
-          actualizadoElEstablecimiento: new Date(),
-          estaActivoEstablecimiento: true,
-        };
+        defaultEstablecimiento = createDefaultEstablecimiento(updatedCompany, {
+          direccionFiscal: formData.direccionFiscal,
+          ubigeo: formData.ubigeo,
+          telefonos: cleanPhones,
+          correosElectronicos: cleanEmails
+        });
 
-        defaultEstablecimiento = createdEstablecimiento;
-        dispatch({ type: 'ADD_Establecimiento', payload: createdEstablecimiento });
+        dispatch({ type: 'ADD_Establecimiento', payload: defaultEstablecimiento });
 
         // 2. CREAR ALMACÉN POR DEFECTO
-        const defaultalmacen: Almacen = {
-          id: 'alm-main',
-          codigoAlmacen: '0001',
-          nombreAlmacen: 'Almacén',
-          establecimientoId: createdEstablecimiento.id,
-          nombreEstablecimientoDesnormalizado: createdEstablecimiento.nombreEstablecimiento,
-          codigoEstablecimientoDesnormalizado: createdEstablecimiento.codigoEstablecimiento,
-          descripcionAlmacen: 'Almacén principal de la empresa',
-          ubicacionAlmacen: createdEstablecimiento.direccionEstablecimiento || undefined,
-          estaActivoAlmacen: true,
-          esAlmacenPrincipal: true,
-          configuracionInventarioAlmacen: {
-            permiteStockNegativoAlmacen: false,
-            controlEstrictoStock: false,
-            requiereAprobacionMovimientos: false,
-          },
-          creadoElAlmacen: new Date(),
-          actualizadoElAlmacen: new Date(),
-          tieneMovimientosInventario: false,
-        };
+        const defaultalmacen = createDefaultAlmacen(defaultEstablecimiento);
 
         dispatch({ type: 'ADD_ALMACEN', payload: defaultalmacen });
-
         // 3. CREAR SERIES POR DEFECTO (FACTURA, BOLETA y documentos internos serieables)
         const environmentType =
-          formData.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION';
+          formData.entornoSunat === 'TEST' ? 'PRUEBA' : 'PRODUCTION';
 
-        const defaultSeries: Series[] = buildMissingDefaultSeries({
-          EstablecimientoId: createdEstablecimiento.id,
+        const defaultSeries: Series[] = defaultEstablecimiento ? buildMissingDefaultSeries({
+          EstablecimientoId: defaultEstablecimiento.id,
           environmentType,
           existingSeries: state.series,
-        });
+        }) : [];
 
         defaultSeries.forEach((seriesItem) => {
           dispatch({ type: 'ADD_SERIES', payload: seriesItem });

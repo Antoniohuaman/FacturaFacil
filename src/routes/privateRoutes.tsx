@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router-dom";
 import { redirect } from "react-router-dom";
 
 import AppShell from "../layouts/PrivateLayout";
+import { ProtectedRoute } from "../pages/Private/features/autenticacion/guards/ProtectedRoute";
 
 // Pages por módulo - Comprobantes
 import ComprobantesTabs from "../pages/Private/features/comprobantes-electronicos/lista-comprobantes/pages/ComprobantesTabs";
@@ -39,9 +40,17 @@ import FormularioNotaVenta from "../pages/Private/features/Documentos-negociacio
 import RouteErrorBoundary from "./RouteErrorBoundary";
 import ClientesTestPage from "../pages/Private/features/gestion-clientes/pages/ClientesTestPage";
 
+function ProtectedAppShell() {
+  return (
+    <ProtectedRoute requireContext={true}>
+      <AppShell />
+    </ProtectedRoute>
+  );
+}
+
 export const privateRoutes: RouteObject[] = [
   {
-    element: <AppShell />,
+    element: <ProtectedAppShell />,
     errorElement: <RouteErrorBoundary />,
     children: [
       { path: "/", element: <ComprobantesTabs /> },

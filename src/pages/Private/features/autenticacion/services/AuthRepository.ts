@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/autenticacion/services/AuthRepository.ts
 import { authClient } from './AuthClient';
 import { tokenService } from './TokenService';
@@ -44,6 +42,13 @@ class AuthRepository {
   }> {
     try {
       const response = await authClient.register(data);
+
+      await this.login({
+        email: data.email,
+        password: data.password,
+        recordarme: true,
+      });
+
       return {
         success: true,
         message: response.message
@@ -123,7 +128,7 @@ class AuthRepository {
     try {
       // Verificar rate limiting
       const userEmail = useAuthStore.getState().user?.email || 'unknown';
-      
+
       if (rateLimitService.isBlocked('otp', userEmail)) {
         const remaining = rateLimitService.getRemainingCooldown('otp', userEmail);
         throw {
@@ -348,9 +353,16 @@ class AuthRepository {
         return;
       }
 
-      // Obtener perfil
-      const user = await authClient.getProfile();
-      
+      // Intentar obtener perfil actualizado, si falla usar el local
+      let user = null;
+      try {
+        user = await authClient.getProfile();
+      } catch (error) {
+        // Si getProfile no está implementado o falla, usar el usuario del store
+        user = useAuthStore.getState().user;
+        if (!user) throw error;
+      }
+
       // Verificar workspace
       const hasWorkspace = contextService.hasContext();
       const contextoActual = contextService.getContext();
@@ -366,10 +378,14 @@ class AuthRepository {
         useTenantStore.setState({ contextoActual });
       }
     } catch (error) {
-      // Si falla, intentar refresh
-      const refreshed = await this.refreshSession();
-      
-      if (!refreshed) {
+      console.warn('Error al restaurar sesión:', error);
+      // Si falla todo, intentar refresh
+      try {
+        const refreshed = await this.refreshSession();
+        if (!refreshed) {
+          useAuthStore.setState({ status: 'unauthenticated' });
+        }
+      } catch {
         useAuthStore.setState({ status: 'unauthenticated' });
       }
     }

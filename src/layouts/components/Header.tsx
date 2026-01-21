@@ -6,6 +6,7 @@ import UserDropdown from './UserDropdown';
 import SelectorEstablecimiento from './EstablishmentSelector';
 import CompanySelector from '@/components/CompanySelector';
 import { useUserSession } from '../../contexts/UserSessionContext';
+import { useAuthStore } from '../../pages/Private/features/autenticacion/store/AuthStore';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
 
@@ -29,6 +30,15 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
   // ✅ Contexts para datos reales
   const { session } = useUserSession();
+  const authUser = useAuthStore((state) => state.user);
+
+  // Utilizar sesión o AuthStore como fallback para información de usuario
+  const activeUser = {
+    name: session?.userName || (authUser ? `${authUser.nombre} ${authUser.apellido}`.trim() : "Usuario"),
+    email: session?.userEmail || authUser?.email || "",
+    role: session?.role || authUser?.rol || "Usuario"
+  };
+
   const { status, aperturaActual, getResumen } = useCaja();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useHeaderNotifications();
 
@@ -39,19 +49,19 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
   // Información de caja actualizada
   const cashInfo = {
-    cashier: aperturaActual?.usuarioNombre || session?.userName || "Usuario",
+    cashier: aperturaActual?.usuarioNombre || activeUser.name,
     openTime: aperturaActual?.fechaHoraApertura ? new Date(aperturaActual.fechaHoraApertura).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : "N/A",
     initialAmount: `S/ ${(aperturaActual?.montoInicialTotal || 0).toFixed(2)}`,
     currentAmount: `S/ ${montoActual.toFixed(2)}`,
     turno: "Mañana" // TODO: Obtener turno real si existe en el modelo
   };
 
-  // Información del usuario
+  // Información del usuario para display
   const userInfo = {
-    userName: session?.userName || "Usuario",
-    userRole: session?.role || "Usuario",
-    userEmail: session?.userEmail || "",
-    userInitials: session?.userName?.split(' ').map(n => n[0]).join('').toUpperCase() || "U"
+    userName: activeUser.name,
+    userRole: activeUser.role,
+    userEmail: activeUser.email,
+    userInitials: activeUser.name.split(' ').map(n => n[0]).join('').toUpperCase() || "U"
   };
 
   // Cerrar menus al hacer click fuera
@@ -163,8 +173,8 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
         <div className="relative" ref={cashMenuRef}>
           <button
             className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${cajaAbierta
-                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30'
-                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30'
+              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'
               }`}
             onClick={() => setShowCashMenu(!showCashMenu)}
           >

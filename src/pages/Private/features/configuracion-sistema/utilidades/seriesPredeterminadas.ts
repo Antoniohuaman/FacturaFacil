@@ -59,7 +59,7 @@ const generateInitialSeriesCode = (documentType: DocumentType): string => {
 
 export interface BuildMissingDefaultSeriesParams {
   EstablecimientoId: string;
-  environmentType: "TESTING" | "PRODUCTION";
+  environmentType: "PRUEBA" | "PRODUCTION";
   existingSeries: Series[];
 }
 
