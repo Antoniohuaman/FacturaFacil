@@ -1,4 +1,4 @@
-// CajaForm component - Create/Edit cash register form with inline validations
+// Componente FormularioCaja - formulario de caja para crear/editar con validaciones en línea
 import { useState, useEffect } from 'react';
 import { Button, Select, Input, Textarea } from '@/contasis';
 import type { CreateCajaInput, UpdateCajaInput, MedioPago } from '../../modelos/Caja';
@@ -30,7 +30,7 @@ interface CajaFormProps {
   isEditing?: boolean;
 }
 
-export function CajaForm({
+export function FormularioCaja({
   initialData,
   currencies,
   Establecimientos,
@@ -58,7 +58,7 @@ export function CajaForm({
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Real-time validation
+  // Validación en tiempo real
   useEffect(() => {
     const newErrors: ValidationError[] = [];
 
@@ -129,7 +129,7 @@ export function CajaForm({
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Mark all fields as touched
+    // Marcar todos los campos como visitados
     setTouched(new Set([
       'establecimientoIdCaja',
       'nombreCaja',
@@ -139,7 +139,7 @@ export function CajaForm({
       'margenDescuadreCaja'
     ]));
 
-    // Validate all fields
+    // Validar todos los campos
     const allErrors: ValidationError[] = [];
 
     const establecimientoError = validateEstablecimiento(datosFormulario.establecimientoIdCaja);
@@ -372,7 +372,7 @@ export function CajaForm({
         />
       </div>
 
-      {/* Actions */}
+      {/* Acciones */}
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
         <Button
           variant="secondary"

@@ -1,4 +1,4 @@
-// CajaCard component - displays a cash register with actions
+// Componente TarjetaCaja - muestra una caja con acciones
 import { Edit2, Power, PowerOff, Trash2, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Caja } from '../../modelos/Caja';
@@ -12,7 +12,7 @@ interface CajaCardProps {
   onDelete: (id: string) => void;
 }
 
-export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: CajaCardProps) {
+export function TarjetaCaja({ caja, currency, onEdit, onToggleEnabled, onDelete }: CajaCardProps) {
   const handleToggleEnabled = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggleEnabled(caja.id);
@@ -105,7 +105,7 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: 
           >
             <Trash2 className="w-4 h-4" />
             
-            {/* Tooltip */}
+            {/* Mensaje de ayuda */}
             <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-64 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg p-3 shadow-lg z-10">
               <div className="font-semibold mb-1">Condiciones para eliminar:</div>
               <ul className="list-disc list-inside space-y-1">
@@ -113,14 +113,14 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: 
                 <li>Sin historial de operaciones</li>
                 <li>Sin sesión abierta</li>
               </ul>
-              {/* Arrow */}
+              {/* Flecha */}
               <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
             </div>
           </button>
         </div>
       </div>
 
-      {/* Payment methods */}
+      {/* Medios de pago */}
       <div className="mb-4">
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
           Medios de Pago
@@ -143,7 +143,7 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: 
         </div>
       </div>
 
-      {/* Footer info */}
+      {/* Información del pie */}
       <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
         <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>
@@ -165,7 +165,7 @@ export function CajaCard({ caja, currency, onEdit, onToggleEnabled, onDelete }: 
         </div>
       )}
 
-      {/* Ver Turnos Link */}
+      {/* Enlace a Ver Turnos */}
       <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
         <Link
           to={`/caja/sesiones?cajaId=${caja.id}&establecimientoId=${caja.establecimientoIdCaja}`}

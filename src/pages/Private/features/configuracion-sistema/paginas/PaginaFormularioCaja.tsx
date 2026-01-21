@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Banknote } from 'lucide-react';
 import { PageHeader } from '../../../../../components/PageHeader';
-import { CajaForm } from '../components/cajas/FormularioCaja';
+import { FormularioCaja } from '../components/cajas/FormularioCaja';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
@@ -140,7 +140,7 @@ export function CajaFormPage() {
             </p>
           </div>
 
-          <CajaForm
+          <FormularioCaja
             initialData={currentCaja ? {
               id: currentCaja.id,
               establecimientoIdCaja: currentCaja.establecimientoIdCaja,

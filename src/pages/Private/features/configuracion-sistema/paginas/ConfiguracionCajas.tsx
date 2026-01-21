@@ -3,8 +3,8 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, AlertCircle, Banknote, ArrowLeft } from 'lucide-react';
 import { PageHeader } from '../../../../../components/PageHeader';
-import { CajaCard } from '../components/cajas/TarjetaCaja';
-import { DeleteCajaModal } from '../components/cajas/ModalEliminarCaja';
+import { TarjetaCaja } from '../components/cajas/TarjetaCaja';
+import { ModalEliminarCaja } from '../components/cajas/ModalEliminarCaja';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
@@ -313,7 +313,7 @@ export function CajasConfiguration() {
             {filteredCajas.map((caja) => {
               const currency = state.currencies.find((currencyItem) => currencyItem.id === caja.monedaIdCaja);
               return (
-                <CajaCard
+                <TarjetaCaja
                   key={caja.id}
                   caja={caja}
                   currency={currency}
@@ -328,7 +328,7 @@ export function CajasConfiguration() {
       </div>
 
       {/* Delete confirmation modal */}
-      <DeleteCajaModal
+      <ModalEliminarCaja
         isOpen={deleteModalOpen}
         caja={cajaToDelete}
         onConfirm={handleConfirmDelete}
