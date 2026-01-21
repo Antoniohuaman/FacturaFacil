@@ -24,7 +24,7 @@ import { StatusIndicator } from '../components/comunes/IndicadorEstado';
 import { ConfirmationModal } from '../components/comunes/ModalConfirmacion';
 import type { Series, DocumentType } from '../modelos/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
-import { Button, Select, Input, Checkbox, RadioButton } from '@/contasis';
+import { Button, Select, Input, Checkbox, RadioButton, PageHeader } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -549,37 +549,32 @@ export function SeriesConfiguration() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            onClick={() => navigate('/configuracion')}
-            variant="tertiary"
-            size="sm"
-            icon={<ArrowLeft className="w-5 h-5" />}
-            iconOnly
-          />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Series de Comprobantes
-            </h1>
-            <p className="text-gray-600">
-              Configura las series para facturas, boletas y otros documentos
-            </p>
+    <div className="flex flex-col h-full">
+      <PageHeader
+        title="Configuración de Series"
+        actions={
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={handleNew}
+              variant="primary"
+              size="md"
+              icon={<Plus className="w-5 h-5" />}
+              iconPosition="left"
+            >
+              Nueva Serie
+            </Button>
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft />}
+              onClick={() => navigate('/configuracion')}
+            >
+              Volver
+            </Button>
           </div>
-        </div>
-
-        <Button
-          onClick={handleNew}
-          variant="primary"
-          size="md"
-          icon={<Plus className="w-5 h-5" />}
-          iconPosition="left"
-        >
-          Nueva Serie
-        </Button>
-      </div>
+        }
+      />
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-6xl mx-auto p-6 space-y-8">
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1037,6 +1032,8 @@ export function SeriesConfiguration() {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

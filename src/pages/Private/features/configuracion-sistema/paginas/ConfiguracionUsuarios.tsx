@@ -16,7 +16,7 @@ import { CredentialsModal } from '../components/usuarios/ModalCredenciales';
 import { SYSTEM_ROLES } from '../modelos/Role';
 import type { User } from '../modelos/User';
 import type { Role } from '../modelos/Role';
-import { Button } from '@/contasis';
+import { Button, PageHeader } from '@/contasis';
 
 // Modal for Role Assignment
 import RoleAssignment from '../components/usuarios/AsignacionRol';
@@ -314,38 +314,34 @@ export function UsersConfiguration() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/configuracion')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Usuarios y Roles
-            </h1>
-            <p className="text-gray-600">
-              Gestiona usuarios del sistema, roles y permisos por establecimiento.
-            </p>
+    <div className="flex flex-col h-full">
+      <PageHeader
+        title="Configuración de Usuarios"
+        actions={
+          <div className="flex items-center gap-4">
+            {activeTab === 'users' && (
+              <Button
+                onClick={() => setShowUserForm(true)}
+                variant="primary"
+                size="md"
+                icon={<Plus className="w-5 h-5" />}
+                iconPosition="left"
+              >
+                Nuevo Usuario
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft />}
+              onClick={() => navigate('/configuracion')}
+            >
+              Volver
+            </Button>
           </div>
-        </div>
-
-        {activeTab === 'users' && (
-          <Button
-            onClick={() => setShowUserForm(true)}
-            variant="primary"
-            size="md"
-            icon={<Plus className="w-5 h-5" />}
-            iconPosition="left"
-          >
-            Nuevo Usuario
-          </Button>
-        )}
-      </div>
+        }
+      />
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-7xl mx-auto p-6 space-y-8">
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
@@ -491,6 +487,8 @@ export function UsersConfiguration() {
         cancelText="Cancelar"
         isLoading={isLoading}
       />
+        </div>
+      </div>
     </div>
   );
 }

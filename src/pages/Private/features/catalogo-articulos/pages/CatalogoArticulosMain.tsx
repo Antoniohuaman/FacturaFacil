@@ -42,11 +42,6 @@ const CatalogoArticulosMain: React.FC = () => {
       {/* Header - Solo título */}
       <PageHeader 
         title="Gestión de Productos y Servicios"
-        icon={
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4-8-4m16 0v10l-8 4-8-4V7" />
-          </svg>
-        }
       />
       
       {/* Toolbar - Navegación por tabs */}

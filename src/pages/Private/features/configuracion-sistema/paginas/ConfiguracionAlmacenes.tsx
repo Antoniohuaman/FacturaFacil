@@ -18,7 +18,7 @@ import {
   Package,
   Boxes as IconoAlmacen
 } from 'lucide-react';
-import { Button, Select, Input, Checkbox } from '@/contasis';
+import { Button, Select, Input, Checkbox, PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { StatusIndicator } from '../components/comunes/IndicadorEstado';
 import type { Almacen } from '../modelos/Almacen';
@@ -521,8 +521,25 @@ export function ConfiguracionAlmacenes() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="fixed top-4 right-4 z-50 space-y-2">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <PageHeader
+        title="Configuración de Almacenes"
+        actions={
+          <Button
+            variant="secondary"
+            icon={<ArrowLeft />}
+            onClick={() => navigate('/configuracion')}
+          >
+            Volver
+          </Button>
+        }
+      />
+
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-6xl mx-auto p-6 space-y-6">
+          {/* Toast Notifications */}
+          <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map(toast => (
           <div
             key={toast.id}
@@ -594,21 +611,6 @@ export function ConfiguracionAlmacenes() {
           </div>
         </div>
       )}
-
-      <div className="flex items-center space-x-4">
-        <button
-          onClick={() => navigate('/configuracion')}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Almacenes</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Gestiona los almacenes donde se almacena y controla el inventario
-          </p>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -693,16 +695,16 @@ export function ConfiguracionAlmacenes() {
           />
         </div>
 
-        <Button
-          onClick={handleNew}
-          variant="primary"
-          size="md"
-          icon={<Plus className="w-5 h-5" />}
-          iconPosition="left"
-        >
-          Nuevo Almacén
-        </Button>
-      </div >
+          <Button
+            onClick={handleNew}
+            variant="primary"
+            size="md"
+            icon={<Plus className="w-5 h-5" />}
+            iconPosition="left"
+          >
+            Nuevo Almacén
+          </Button>
+        </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         {filteredAlmacenes.length === 0 ? (
@@ -731,7 +733,7 @@ export function ConfiguracionAlmacenes() {
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {filteredAlmacenes.map(almacen => (
-              <div key={almacen.id} className="p-6 hover:bg-gray-50 dark:hover.bg-gray-700/50 transition-colors">
+              <div key={almacen.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
@@ -804,15 +806,16 @@ export function ConfiguracionAlmacenes() {
                       size="sm"
                       title="Eliminar"
                     />
-                  </div >
-                </div >
-              </div >
-            ))
-            }
-          </div >
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
-      </div >
-    </div >
+      </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

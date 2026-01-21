@@ -2,7 +2,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, AlertCircle, Banknote, ArrowLeft } from 'lucide-react';
-import { PageHeader } from '../../../../../components/PageHeader';
 import { CajaCard } from '../components/cajas/TarjetaCaja';
 import { DeleteCajaModal } from '../components/cajas/ModalEliminarCaja';
 import { useCajas } from '../hooks/useCajas';
@@ -10,7 +9,7 @@ import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
-import { Button, Select, Input } from '@/contasis';
+import { Button, Select, Input, PageHeader } from '@/contasis';
 import type { Caja } from '../modelos/Caja';
 
 type FilterStatus = 'all' | 'enabled' | 'disabled';
@@ -127,7 +126,15 @@ export function CajasConfiguration() {
       <div className="flex-1 bg-gray-50 dark:bg-gray-900">
         <PageHeader
           title="Cajas"
-          icon={<Banknote className="w-6 h-6 text-white" />}
+          actions={
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft />}
+              onClick={() => navigate('/configuracion')}
+            >
+              Volver
+            </Button>
+          }
         />
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 flex items-start gap-4">
@@ -147,45 +154,33 @@ export function CajasConfiguration() {
   }
 
   return (
-    <div className="flex-1 bg-gray-50 dark:bg-gray-900">
-      <PageHeader
-        title="Cajas"
-        icon={<Banknote className="w-6 h-6 text-white" />}
-      />
-
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Breadcrumb */}
-        <button
-          onClick={() => navigate('/configuracion')}
-          className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a Configuración
-        </button>
-
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Gestión de Cajas
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {filterEstablecimientoId === 'all'
-                  ? 'Mostrando cajas de todos los establecimientos'
-                  : `Establecimiento: ${establecimientoActual?.name || 'N/A'}`}
-              </p>
+    <>
+      <div className="flex flex-col h-full">
+        <PageHeader
+          title="Configuración de Cajas"
+          actions={
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={handleCreate}
+                variant="primary"
+                size="md"
+                icon={<Plus className="w-5 h-5" />}
+                iconPosition="left"
+              >
+                Nueva Caja
+              </Button>
+              <Button
+                variant="secondary"
+                icon={<ArrowLeft />}
+                onClick={() => navigate('/configuracion')}
+              >
+                Volver
+              </Button>
             </div>
-            <Button
-              onClick={handleCreate}
-              variant="primary"
-              size="md"
-              icon={<Plus className="w-5 h-5" />}
-              iconPosition="left"
-            >
-              Nueva Caja
-            </Button>
-          </div>
+          }
+        />
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-7xl mx-auto p-6 space-y-6">
 
           {/* Filters */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -338,5 +333,6 @@ export function CajasConfiguration() {
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
+    </>
   );
 }

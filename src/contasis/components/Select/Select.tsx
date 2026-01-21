@@ -83,11 +83,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(({
 }, ref) => {
   const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
   
-  // Clases para el tamaño (consistente con Input)
+  // Clases para el tamaño - SIN line-height para evitar desalineación
   const sizeClasses = {
-    small: 'h-8 text-ui-sm leading-8',
-    medium: 'h-10 text-ui-base leading-10',
-    large: 'h-12 text-body leading-[3rem]'
+    small: 'h-8 text-ui-sm',
+    medium: 'h-10 text-ui-base',
+    large: 'h-12 text-body'
   };
   
   return (
@@ -108,7 +108,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(({
           ref={ref}
           id={selectId}
           disabled={disabled}
-          className={`w-full ${sizeClasses[size]} px-4 pr-10 font-sans border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary hover:border-strong appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-surface-1 text-primary ${
+          className={`w-full ${sizeClasses[size]} pl-4 pr-11 leading-none font-sans border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary hover:border-strong appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-surface-1 text-primary ${
             error ? 'border-error' : 'border-strong'
           } ${className}`}
           aria-label={label || props['aria-label']}
@@ -134,7 +134,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(({
         {/* Chevron Icon */}
         <ChevronDown 
           size={18} 
-          className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-tertiary"
+          className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-tertiary"
         />
       </div>
       
