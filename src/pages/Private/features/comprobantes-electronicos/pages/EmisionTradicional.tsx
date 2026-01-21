@@ -841,6 +841,7 @@ const EmisionTradicional = () => {
               baseCurrencyCode={baseCurrency.code as Currency}
               formaPago={formaPago}
               setFormaPago={setFormaPago}
+              isCreditMethod={isCreditMethod}
               onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
               onVistaPrevia={sidePreview?.togglePane}
               onClienteChange={setClienteSeleccionadoGlobal}

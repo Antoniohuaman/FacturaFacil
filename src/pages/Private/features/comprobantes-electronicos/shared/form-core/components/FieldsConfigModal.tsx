@@ -38,6 +38,7 @@ const FieldsConfigModal: React.FC<FieldsConfigModalProps> = ({
     guiaRemision: 'N° de Guía de Remisión',
     correo: 'Correo Electrónico',
     centroCosto: 'Centro de Costo',
+    vendedor: 'Vendedor',
   };
 
   const actionButtonsLabels: Record<keyof ComponentVisibility['actionButtons'], string> = {

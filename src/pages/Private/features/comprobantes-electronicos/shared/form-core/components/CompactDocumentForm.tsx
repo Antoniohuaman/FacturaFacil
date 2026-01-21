@@ -135,6 +135,9 @@ interface CompactDocumentFormProps {
   formaPago?: string;
   setFormaPago?: (value: string) => void;
 
+  // Reglas especiales según medio de pago (ej. crédito)
+  isCreditMethod?: boolean;
+
   // Modal de configuración
   onOpenFieldsConfig?: () => void;
   onVistaPrevia?: () => void;
@@ -175,6 +178,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   baseCurrencyCode,
   formaPago = "contado",
   setFormaPago,
+  isCreditMethod,
   onOpenFieldsConfig,
   onVistaPrevia,
   clienteSeleccionado,
@@ -814,7 +818,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               </div>
 
               {/* Fila 3: Fecha Vencimiento + Placeholder */}
-              {config.optionalFields.fechaVencimiento.visible && (
+              {config.optionalFields.fechaVencimiento.visible && (isCreditMethod ?? true) && (
                 <div className="col-span-6">
                   <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="fecha-vencimiento">
                     <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
@@ -841,18 +845,21 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
           <div className="col-span-12 xl:col-span-3 xl:border-s xl:border-slate-200/60 xl:ps-3">
             <div className="space-y-2">
               {/* Vendedor (select simple 1 línea, 36px) */}
-              <div>
-                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="vendedor">
-                  <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Vendedor
-                </label>
-                <select 
-                  id="vendedor" 
-                  className="h-9 w-full rounded-xl border border-slate-300 px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
-                >
-                  <option>Javier Masías Loza — ID: 001</option>
-                </select>
-              </div>
+              {config.optionalFields.vendedor.visible && (
+                <div>
+                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="vendedor">
+                    <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                    Vendedor
+                    {config.optionalFields.vendedor.required && <span className="ml-0.5 text-red-500">*</span>}
+                  </label>
+                  <select 
+                    id="vendedor" 
+                    className="h-9 w-full rounded-xl border border-slate-300 px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                  >
+                    <option>Javier Masías Loza — ID: 001</option>
+                  </select>
+                </div>
+              )}
 
               {/* Orden de Compra (full-width) */}
               {config.optionalFields.ordenCompra.visible && (

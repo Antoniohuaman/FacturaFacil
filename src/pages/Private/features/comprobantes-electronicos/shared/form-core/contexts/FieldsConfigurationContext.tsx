@@ -26,6 +26,7 @@ export interface ComponentVisibility {
     guiaRemision: { visible: boolean; required: boolean };
     correo: { visible: boolean; required: boolean };
     centroCosto: { visible: boolean; required: boolean };
+    vendedor: { visible: boolean; required: boolean };
   };
 }
 
@@ -38,13 +39,14 @@ const DEFAULT_VISIBILITY: ComponentVisibility = {
     crearComprobante: true,
   },
   optionalFields: {
-    direccion: { visible: true, required: false },
-    fechaVencimiento: { visible: true, required: false },
-    direccionEnvio: { visible: true, required: false },
-    ordenCompra: { visible: true, required: false },
-    guiaRemision: { visible: true, required: false },
-    correo: { visible: true, required: false },
-    centroCosto: { visible: true, required: false },
+    direccion: { visible: false, required: false },
+    fechaVencimiento: { visible: false, required: false },
+    direccionEnvio: { visible: false, required: false },
+    ordenCompra: { visible: false, required: false },
+    guiaRemision: { visible: false, required: false },
+    correo: { visible: false, required: false },
+    centroCosto: { visible: false, required: false },
+    vendedor: { visible: false, required: false },
   },
 };
 
@@ -66,7 +68,27 @@ export function FieldsConfigurationProvider({ children }: { children: ReactNode 
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return { ...DEFAULT_VISIBILITY, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          return DEFAULT_VISIBILITY;
+        }
+
+        const partial = parsed as Partial<ComponentVisibility>;
+
+        return {
+          notesSection:
+            typeof partial.notesSection === 'boolean'
+              ? partial.notesSection
+              : DEFAULT_VISIBILITY.notesSection,
+          actionButtons: {
+            ...DEFAULT_VISIBILITY.actionButtons,
+            ...(partial.actionButtons ?? {}),
+          },
+          optionalFields: {
+            ...DEFAULT_VISIBILITY.optionalFields,
+            ...(partial.optionalFields ?? {}),
+          },
+        };
       }
     } catch (error) {
       console.error('Error loading fields configuration:', error);
@@ -127,6 +149,11 @@ export function FieldsConfigurationProvider({ children }: { children: ReactNode 
   };
 
   const resetToDefaults = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error('Error clearing fields configuration:', error);
+    }
     setConfig(DEFAULT_VISIBILITY);
   };
 
