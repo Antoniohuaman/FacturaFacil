@@ -1,2 +1,3 @@
 export { CajaStatus } from './CajaStatus';
-export type { CajaStatusProps, CajaData } from './CajaStatus';
+export { CajaDropdown } from './CajaDropdown';
+export type { CajaData, CajaStatusProps } from './types';

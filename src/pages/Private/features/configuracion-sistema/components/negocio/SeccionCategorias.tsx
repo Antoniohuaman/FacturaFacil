@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Tag, Package, AlertTriangle, Pencil, Trash2, Plus } from 'lucide-react';
-import { Button } from '@/contasis';
+import { Button, Input, Textarea } from '@/contasis';
 
 export interface Category {
   id: string;
@@ -121,11 +121,10 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Nombre <span className="text-blue-600 dark:text-blue-400 font-bold">*</span>
                 </label>
-                <input
+                <Input
                   type="text"
                   value={formData.nombre}
                   onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                   placeholder="Nombre de la categoría"
                   required
                 />
@@ -134,11 +133,10 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Descripción
                 </label>
-                <textarea
+                <Textarea
                   value={formData.descripcion}
                   onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
                   rows={3}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                   placeholder="Descripción opcional"
                 />
               </div>
@@ -166,13 +164,13 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
                 </div>
               </div>
               <div className="flex justify-end space-x-3 pt-4">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={onClose}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancelar
-                </button>
+                </Button>
                 <Button
                   type="submit"
                   variant="primary"

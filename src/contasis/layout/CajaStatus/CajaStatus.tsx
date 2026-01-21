@@ -1,63 +1,90 @@
-import { DollarSign, Clock, User } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { CajaDropdown } from './CajaDropdown';
+import type { CajaStatusProps } from './types';
 
-export interface CajaData {
-  cajero: string;
-  horaApertura: string;
-  montoInicial: number;
-  montoActual: number;
-  moneda: 'PEN' | 'USD';
-  turno?: string;
-}
+export const CajaStatus: React.FC<CajaStatusProps> = ({
+  data,
+  onVerMovimientos,
+  onCerrarCaja
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-export interface CajaStatusProps {
-  data: CajaData;
-  onVerMovimientos?: () => void;
-  onCerrarCaja?: () => void;
-}
+  // Cerrar al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
 
-export const CajaStatus = ({ data, onVerMovimientos, onCerrarCaja }: CajaStatusProps) => {
-  const formatCurrency = (amount: number) => {
-    const symbol = data.moneda === 'PEN' ? 'S/' : '$';
-    return `${symbol} ${amount.toFixed(2)}`;
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsOpen(!isOpen);
   };
 
-  return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-surface-0 border border-[color:var(--border-default)] rounded-lg">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-          <DollarSign className="w-4 h-4 text-green-600" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-xs text-secondary">Caja Abierta</span>
-          <span className="text-sm font-medium text-primary">{formatCurrency(data.montoActual)}</span>
-        </div>
-      </div>
-      
-      <div className="hidden md:flex items-center gap-2 text-xs text-secondary">
-        <User className="w-3 h-3" />
-        <span>{data.cajero}</span>
-        <Clock className="w-3 h-3 ml-2" />
-        <span>{data.horaApertura}</span>
-      </div>
+  const total = data.montos.efectivo + data.montos.tarjetas + data.montos.digital;
 
-      <div className="flex items-center gap-1">
-        {onVerMovimientos && (
-          <button
-            onClick={onVerMovimientos}
-            className="px-2 py-1 text-xs text-brand hover:bg-brand-light rounded transition-colors"
-          >
-            Ver
-          </button>
-        )}
-        {onCerrarCaja && (
-          <button
-            onClick={onCerrarCaja}
-            className="px-2 py-1 text-xs text-error hover:bg-error-light rounded transition-colors"
-          >
-            Cerrar
-          </button>
-        )}
-      </div>
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        className={`
+          flex items-center gap-1.5 px-3 h-9 rounded-lg border transition-all duration-200 cursor-pointer
+          ${data.abierta 
+            ? 'border-success bg-green-50 hover:bg-green-100 dark:bg-green-950/30 dark:hover:bg-green-900/40 dark:border-green-700' 
+            : 'border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 dark:border-red-700'
+          }
+        `}
+        onClick={handleToggle}
+        aria-expanded={isOpen}
+        aria-label="Estado de caja"
+      >
+        <span 
+          className={`
+            w-2 h-2 rounded-full
+            ${data.abierta ? 'bg-success animate-pulse' : 'bg-red-500'}
+          `}
+          style={data.abierta ? {
+            boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.2)'
+          } : undefined}
+        />
+        <span className={`text-sm font-medium whitespace-nowrap ${data.abierta ? 'text-success dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+          Caja
+        </span>
+        <svg 
+          width="14" 
+          height="14" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''} ${data.abierta ? 'text-success dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      <CajaDropdown
+        isOpen={isOpen}
+        data={data}
+        total={total}
+        onVerMovimientos={() => {
+          onVerMovimientos?.();
+          setIsOpen(false);
+        }}
+        onCerrarCaja={() => {
+          onCerrarCaja?.();
+          setIsOpen(false);
+        }}
+      />
     </div>
   );
 };

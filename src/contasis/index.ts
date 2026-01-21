@@ -37,3 +37,7 @@ export type { ToolbarProps } from './layout/Toolbar';
 
 export { TopBar } from './layout/TopBar';
 export type { TopBarProps } from './layout/TopBar';
+
+// SearchBar
+export { SearchBar } from './SearchBar';
+export type { SearchBarProps, SearchDataset, SearchDisplayItem, SearchSection } from './SearchBar';

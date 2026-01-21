@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Search } from '../Search';
-import { CajaStatus } from '../CajaStatus';
-import { CrearMenu } from '../CrearMenu';
-import { UserMenu } from '../UserMenu';
-import { EmpresaSelector } from '../EmpresaSelector';
-import type { CajaData } from '../CajaStatus';
-import type { DocumentoTipo } from '../CrearMenu';
-import type { UserData } from '../UserMenu';
-import type { Empresa, Sede } from '../EmpresaSelector';
+import { SearchBar } from '../../SearchBar';
+import { CajaStatus } from '../CajaStatus/index.ts';
+import { CrearMenu } from '../CrearMenu/index.ts';
+import { UserMenu } from '../UserMenu/index.ts';
+import { EmpresaSelector } from '../EmpresaSelector/index.ts';
+import type { CajaData } from '../CajaStatus/index.ts';
+import type { DocumentoTipo } from '../CrearMenu/index.ts';
+import type { UserData } from '../UserMenu/index.ts';
+import type { Empresa, Sede } from '../EmpresaSelector/index.ts';
+import type { SearchDataset } from '../../SearchBar';
 
 export interface TopBarProps {
   onToggleSidebar: () => void;
@@ -27,6 +28,8 @@ export interface TopBarProps {
   onCrearProducto?: () => void;
   onVerMovimientosCaja?: () => void;
   onCerrarCaja?: () => void;
+  searchDatasets?: SearchDataset[];
+  onSearchSelect?: (type: string, item: any) => void;
 }
 
 export const TopBar = ({ 
@@ -46,7 +49,9 @@ export const TopBar = ({
   onCrearCliente,
   onCrearProducto,
   onVerMovimientosCaja,
-  onCerrarCaja
+  onCerrarCaja,
+  searchDatasets = [],
+  onSearchSelect,
 }: TopBarProps) => {
   const [empresaActualId, setEmpresaActualId] = useState(initialEmpresaId);
   const [sedeActualId, setSedeActualId] = useState(initialSedeId);
@@ -101,7 +106,7 @@ export const TopBar = ({
         
         <div className="flex items-center gap-2">
           <img 
-            src={theme === 'dark' ? '/images/Sensiyo-logo-b.svg' : '/images/Sensiyo-logo.svg'} 
+            src={theme === 'dark' ? '/Sensiyo-logo-b.svg' : '/Sensiyo-logo.svg'} 
             alt="Sensiyo" 
             className="h-8" 
           />
@@ -111,14 +116,11 @@ export const TopBar = ({
       {/* Center Section - Search */}
       <div className="flex items-center gap-3 flex-1 ml-14">
         <div className="w-full max-w-[496px]">
-          <Search 
-            placeholder="Buscar productos..." 
-            value={(window as any).__puntoVentaSearchQuery || ''}
-            onChange={(value) => {
-              if ((window as any).__puntoVentaSetSearchQuery) {
-                (window as any).__puntoVentaSetSearchQuery(value);
-              }
-            }}
+          <SearchBar 
+            placeholder="Buscar productos, clientes..." 
+            datasets={searchDatasets}
+            onSelect={onSearchSelect}
+            className="w-full"
           />
         </div>
         

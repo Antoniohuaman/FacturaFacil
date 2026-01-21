@@ -3,6 +3,7 @@ import { TopBar } from '@/contasis';
 import type { TopBarProps } from '@/contasis';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
+import { useContasisDatasets } from '../../pages/Private/components/AppSearchBar/useContasisDatasets';
 
 interface ConfigurationTopBarProps {
   onToggleSidebar: () => void;
@@ -18,6 +19,7 @@ export default function ConfigurationTopBar({
   const navigate = useNavigate();
   const { session } = useUserSession();
   const { status, aperturaActual, getResumen } = useCaja();
+  const { datasets, handleSearchSelect } = useContasisDatasets();
 
   // Adaptar datos del proyecto al formato esperado por TopBar
   const empresas = [{
@@ -35,34 +37,52 @@ export default function ConfigurationTopBar({
     empresaId: session?.currentCompanyId || '1'
   }];
 
-  // Datos de caja si está abierta
+  // Datos de caja si está abierta o cerrada  
   const cajaData = status === 'abierta' ? {
-    cajero: aperturaActual?.usuarioNombre || session?.userName || 'Usuario',
-    horaApertura: aperturaActual?.fechaHoraApertura ? 
-      new Date(aperturaActual.fechaHoraApertura).toLocaleTimeString('es-PE', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }) : 'N/A',
-    montoInicial: aperturaActual?.montoInicialTotal || 0,
-    montoActual: getResumen().saldo,
-    moneda: 'PEN' as const,
-    turno: 'Mañana' // TODO: obtener turno real
+    numero: '001', // TODO: obtener número real de caja
+    abierta: true,
+    apertura: {
+      fecha: aperturaActual?.fechaHoraApertura ? new Date(aperturaActual.fechaHoraApertura) : new Date(),
+      hora: aperturaActual?.fechaHoraApertura ? 
+        new Date(aperturaActual.fechaHoraApertura).toLocaleTimeString('es-PE', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }) : 'N/A',
+      usuario: aperturaActual?.usuarioNombre || session?.userName || 'Usuario',
+    },
+    montos: {
+      efectivo: getResumen().totalEfectivo || 0,
+      tarjetas: getResumen().totalTarjeta || 0,
+      digital: getResumen().totalYape + getResumen().totalOtros || 0,
+    }
+  } : status === 'cerrada' ? {
+    numero: '001', // TODO: obtener número real de caja
+    abierta: false,
+    apertura: {
+      fecha: new Date(),
+      hora: 'Cerrada',
+      usuario: session?.userName || 'Usuario',
+    },
+    montos: {
+      efectivo: 0,
+      tarjetas: 0,
+      digital: 0,
+    }
   } : undefined;
 
   // Datos de usuario
   const userData = {
-    nombre: session?.userName || 'Usuario',
+    name: session?.userName || 'Usuario',
     email: session?.userEmail || '',
-    rol: session?.role || 'Usuario',
-    avatar: undefined,
-    iniciales: session?.userName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'
+    role: session?.role || 'Usuario',
+    avatar: '/perfil.jpg'
   };
 
   const topBarProps: TopBarProps = {
     onToggleSidebar,
     onToggleTheme,
     theme,
-    showCaja: status === 'abierta',
+    showCaja: status === 'abierta' || status === 'cerrada',
     empresas,
     sedes,
     initialEmpresaId: session?.currentCompanyId || '1',
@@ -106,7 +126,9 @@ export default function ConfigurationTopBar({
     },
     onCerrarCaja: () => {
       navigate('/control-caja?tab=cierre');
-    }
+    },
+    searchDatasets: datasets,
+    onSearchSelect: handleSearchSelect,
   };
 
   return <TopBar {...topBarProps} />;
