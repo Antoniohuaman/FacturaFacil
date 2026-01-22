@@ -2,7 +2,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, AlertCircle, Banknote, ArrowLeft } from 'lucide-react';
-import { PageHeader } from '../../../../../components/PageHeader';
 import { TarjetaCaja } from '../components/cajas/TarjetaCaja';
 import { ModalEliminarCaja } from '../components/cajas/ModalEliminarCaja';
 import { useCajas } from '../hooks/useCajas';
@@ -10,7 +9,7 @@ import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
-import { Button, Select, Input } from '@/contasis';
+import { Button, Select, Input, PageHeader, CajaCard } from '@/contasis';
 import type { Caja } from '../modelos/Caja';
 
 type filtroEstado = 'all' | 'enabled' | 'disabled';
@@ -157,7 +156,6 @@ export function CajasConfiguration() {
     <div className="flex-1 bg-gray-50 dark:bg-gray-900">
       <PageHeader
         title="Cajas"
-        icon={<Banknote className="w-6 h-6 text-white" />}
       />
 
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -316,20 +314,50 @@ export function CajasConfiguration() {
 
         {/* Cajas grid */}
         {!loading && filteredCajas.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCajas.map((caja) => {
-              const currency = state.currencies.find((currencyItem) => currencyItem.id === caja.monedaIdCaja);
-              return (
-                <TarjetaCaja
-                  key={caja.id}
-                  caja={caja}
-                  currency={currency}
-                  onEdit={handleEdit}
-                  onToggleEnabled={handleToggleEnabled}
-                  onDelete={handleDelete}
-                />
-              );
-            })}
+          <div>
+            {/* Sección TarjetaCaja */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Versión Actual (TarjetaCaja)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCajas.map((caja) => {
+                  const currency = state.currencies.find((currencyItem) => currencyItem.id === caja.monedaIdCaja);
+                  return (
+                    <TarjetaCaja
+                      key={`tarjeta-${caja.id}`}
+                      caja={caja}
+                      currency={currency}
+                      onEdit={handleEdit}
+                      onToggleEnabled={handleToggleEnabled}
+                      onDelete={handleDelete}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sección CajaCard (Nueva versión de /contasis) */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Nueva Versión (CajaCard de /contasis) - En evaluación
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCajas.map((caja) => {
+                  const currency = state.currencies.find((currencyItem) => currencyItem.id === caja.monedaIdCaja);
+                  return (
+                    <CajaCard
+                      key={`cajacard-${caja.id}`}
+                      caja={caja}
+                      currency={currency}
+                      onEdit={handleEdit}
+                      onToggleEnabled={handleToggleEnabled}
+                      onDelete={handleDelete}
+                    />
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
