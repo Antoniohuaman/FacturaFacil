@@ -7,6 +7,8 @@ interface NotesSectionProps {
   setObservaciones: (value: string) => void;
   notaInterna: string;
   setNotaInterna: (value: string) => void;
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
 }
 
 const NotesSection: React.FC<NotesSectionProps> = ({
@@ -14,16 +16,18 @@ const NotesSection: React.FC<NotesSectionProps> = ({
   setObservaciones,
   notaInterna,
   setNotaInterna,
+  collapsible = true,
+  defaultExpanded = false,
 }) => {
   const MAX_CHARS = 500;
 
   return (
     <ConfigurationCard
-      title="Notas y Observaciones"
+      title="Observaciones"
       icon={FileText}
       helpText="Las observaciones aparecen en el comprobante impreso"
-      collapsible
-      defaultExpanded={false}
+      collapsible={collapsible}
+      defaultExpanded={defaultExpanded}
       headerPaddingClassName="px-4 py-2"
       titleClassName="text-[15px] font-semibold text-slate-700 leading-tight"
       iconWrapperClassName="w-7 h-7 bg-slate-50 rounded-lg flex items-center justify-center"

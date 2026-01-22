@@ -34,6 +34,9 @@ import { useTenantStore } from '../../autenticacion/store/TenantStore';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
 import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 import { useEmpresas } from '../hooks/useEmpresas';
+import { clientesClient } from '../../gestion-clientes/api';
+import type { CreateClienteDTO } from '../../gestion-clientes/models';
+
 
 
 interface CompanyFormData {
@@ -153,6 +156,71 @@ async function ensureDefaultOperationalSetup({
 
   const nuevaCaja = await cajasDataSource.create(empresaId, establecimientoId, createInput);
   dispatch({ type: 'ADD_CAJA', payload: nuevaCaja });
+}
+
+const DEFAULT_CLIENTES_VARIOS = {
+  tipoDocumento: '1',
+  numeroDocumento: '00000000',
+  nombre: 'Clientes Varios',
+} as const;
+
+const matchesDefaultClientesVarios = (cliente: { tipoDocumento?: string; numeroDocumento?: string; document?: string }) => {
+  const numero = (cliente.numeroDocumento || '').toString().trim();
+  const tipo = (cliente.tipoDocumento || '').toString().trim();
+  if (tipo === DEFAULT_CLIENTES_VARIOS.tipoDocumento && numero === DEFAULT_CLIENTES_VARIOS.numeroDocumento) {
+    return true;
+  }
+
+  // Fallback defensivo (legacy): "DNI 00000000" o variantes en el campo document.
+  const legacy = (cliente.document || '').toString().toUpperCase();
+  return legacy.includes('DNI') && legacy.includes(DEFAULT_CLIENTES_VARIOS.numeroDocumento);
+};
+
+async function ensureDefaultClienteClientesVarios(): Promise<void> {
+  try {
+    const response = await clientesClient.getClientes({
+      search: DEFAULT_CLIENTES_VARIOS.numeroDocumento,
+      limit: 25,
+      page: 1,
+    });
+
+    const exists = response.data.some(matchesDefaultClientesVarios);
+    if (exists) {
+      return;
+    }
+
+    const payload: CreateClienteDTO = {
+      // Campos legacy (retrocompatibilidad)
+      documentType: 'DNI',
+      documentNumber: DEFAULT_CLIENTES_VARIOS.numeroDocumento,
+      name: DEFAULT_CLIENTES_VARIOS.nombre,
+      type: 'Cliente',
+
+      // Campos extendidos (mismo shape del alta manual)
+      tipoDocumento: DEFAULT_CLIENTES_VARIOS.tipoDocumento,
+      numeroDocumento: DEFAULT_CLIENTES_VARIOS.numeroDocumento,
+      tipoPersona: 'Natural',
+      tipoCuenta: 'Cliente',
+      primerNombre: 'Clientes',
+      apellidoPaterno: 'Varios',
+      apellidoMaterno: '-',
+      nombreCompleto: 'Clientes Varios',
+      tipoCliente: 'Natural',
+      estadoCliente: 'Habilitado',
+      emails: [],
+      telefonos: [],
+      pais: 'PE',
+      formaPago: 'Contado',
+      monedaPreferida: 'PEN',
+      esAgentePercepcion: false,
+      exceptuadaPercepcion: false,
+      clientePorDefecto: false,
+    };
+
+    await clientesClient.createCliente(payload);
+  } catch (error) {
+    console.warn('[onboarding] No se pudo crear el cliente default "Clientes Varios"', error);
+  }
 }
 
 export function CompanyConfiguration() {
@@ -679,6 +747,12 @@ export function CompanyConfiguration() {
 
       if (EstablecimientoForContext) {
         setTenantWorkspaceContext(updatedCompany, EstablecimientoForContext);
+      }
+
+      // En create_workspace: primero fijar contexto, luego crear/detectar "Clientes Varios".
+      // Si no hay establecimiento, igual intentamos; el clientesClient hace fallback sin reventar.
+      if (isCreateWorkspaceMode) {
+        await ensureDefaultClienteClientesVarios();
       }
 
       // Show success and redirect

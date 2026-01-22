@@ -71,11 +71,11 @@ const FieldsConfigModal: React.FC<FieldsConfigModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-6">
 
-          {/* Sección: Notas y Observaciones */}
+          {/* Sección: Observaciones */}
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
-              Sección de Notas
+              Sección de Observaciones
             </h3>
             <label className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
               <div className="flex items-center gap-3">
@@ -86,10 +86,10 @@ const FieldsConfigModal: React.FC<FieldsConfigModalProps> = ({
                 )}
                 <div>
                   <span className="text-sm font-medium text-gray-900">
-                    Notas y Observaciones
+                    Observaciones
                   </span>
                   <p className="text-xs text-gray-500">
-                    Incluye observaciones (cliente) y nota interna (solo sistema)
+                    Incluye observaciones (cliente) y observación interna (solo sistema)
                   </p>
                 </div>
               </div>

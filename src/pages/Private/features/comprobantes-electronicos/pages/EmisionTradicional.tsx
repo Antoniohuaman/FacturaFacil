@@ -22,6 +22,7 @@ import { useDuplicateDataLoader } from '../hooks/useDuplicateDataLoader';
 
 // ✅ Importar side-preview (condicional por flag)
 import { SidePreviewPane, useSidePreviewPane } from '../shared/side-preview';
+import { FileText } from 'lucide-react';
 
 // Importar componentes del form-core
 import ProductsSection from '../shared/form-core/components/ProductsSection';
@@ -157,6 +158,12 @@ const EmisionTradicional = () => {
     setOptionalFields
   });
 
+  useEffect(() => {
+    if (!fieldsConfig.notesSection) {
+      setShowObservacionesPanel(false);
+    }
+  }, [fieldsConfig.notesSection]);
+
   // Estado para el modal de éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastComprobante, setLastComprobante] = useState<any>(null);
@@ -165,6 +172,7 @@ const EmisionTradicional = () => {
   const [cobranzaMode, setCobranzaMode] = useState<PaymentCollectionMode>('contado');
   const [lookupClient, setLookupClient] = useState<{ data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' } | null>(null);
   const [showCreditScheduleModal, setShowCreditScheduleModal] = useState(false);
+  const [showObservacionesPanel, setShowObservacionesPanel] = useState(false);
   const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
   const { createCliente } = useClientes();
   const { allProducts: catalogProducts } = useProductStore();
@@ -881,21 +889,21 @@ const EmisionTradicional = () => {
               </div>
             )}
 
-            {/* Notes Section - ✅ Renderizado condicional según configuración */}
-            {fieldsConfig.notesSection && (
-              <NotesSection
-                observaciones={observaciones}
-                setObservaciones={setObservaciones}
-                notaInterna={notaInterna}
-                setNotaInterna={setNotaInterna}
-              />
-            )}
-
             {/* Action Buttons Section - ahora con acciones dinámicas */}
             <ActionButtonsSection
               onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
               onCancelar={goToComprobantes}
               onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
+              secondaryAction={
+                fieldsConfig.notesSection
+                  ? {
+                      label: 'Observaciones',
+                      onClick: () => setShowObservacionesPanel(true),
+                      icon: <FileText className="h-4 w-4" />,
+                      title: 'Agregar observaciones visibles para el cliente u observación interna',
+                    }
+                  : undefined
+              }
               isCartEmpty={cartItems.length === 0}
               primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
                 label: issueButtonLabel,
@@ -1029,6 +1037,50 @@ const EmisionTradicional = () => {
         />
 
         {/* El modal de creación de métodos de pago no se instancia aquí */}
+
+        {fieldsConfig.notesSection && showObservacionesPanel && (
+          <div
+            className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm px-4 py-6 flex items-end sm:items-center justify-center"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setShowObservacionesPanel(false)}
+          >
+            <div
+              className="relative w-full max-w-3xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="relative rounded-2xl bg-white shadow-2xl">
+                <button
+                  type="button"
+                  className="absolute top-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  onClick={() => setShowObservacionesPanel(false)}
+                  aria-label="Cerrar panel de observaciones"
+                >
+                  ×
+                </button>
+                <div className="max-h-[70vh] overflow-y-auto p-4 sm:p-6">
+                  <NotesSection
+                    observaciones={observaciones}
+                    setObservaciones={setObservaciones}
+                    notaInterna={notaInterna}
+                    setNotaInterna={setNotaInterna}
+                    collapsible={false}
+                    defaultExpanded
+                  />
+                </div>
+                <div className="flex justify-end border-t border-slate-100 px-4 py-3">
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    onClick={() => setShowObservacionesPanel(false)}
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ✅ Modal de configuración de campos */}
         <FieldsConfigModal

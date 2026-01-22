@@ -90,7 +90,7 @@ const AperturaCaja: React.FC = () => {
       // Redirigir después de un pequeño delay para que el usuario vea el toast de éxito
       if (returnTo) {
         setTimeout(() => {
-          navigate(returnTo);
+          navigate(returnTo, { replace: true });
         }, 1500);
       }
     } catch (error) {
