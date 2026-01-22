@@ -70,7 +70,7 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
           );
         })}
       </div>
-      <p className="text-[11px] text-gray-500">La familia define qué unidades son compatibles para este producto.</p>
+      {/* Help text removed per UI request - kept markup/logic untouched */}
       {isUsingFallbackUnits && (
         <p className="text-[11px] text-amber-600 mt-1">
           No hay unidades activas para esta familia. Mostramos todas las disponibles hasta que configures más.

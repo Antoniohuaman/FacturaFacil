@@ -228,9 +228,14 @@ export const usePosCartAndTotals = () => {
     }
     const normalizedUnit = getPreferredUnitForSku(sku, unitCode || item.unidadMedida || item.unit);
     const updates: Partial<CartItem> = {};
+    const setIfDifferent = <K extends keyof CartItem>(key: K, value: CartItem[K]) => {
+      if (item[key] !== value) {
+        updates[key] = value;
+      }
+    };
     if (normalizedUnit && normalizedUnit !== item.unidadMedida) {
-      updates.unidadMedida = normalizedUnit;
-      updates.unit = normalizedUnit;
+      setIfDifferent('unidadMedida', normalizedUnit);
+      setIfDifferent('unit', normalizedUnit);
     }
 
     const shouldSkipPricing = item.isManualPrice && !options?.forceReprice;
@@ -253,15 +258,15 @@ export const usePosCartAndTotals = () => {
     if (priceResult.hasPrice) {
       const rounded = roundCurrency(priceResult.price);
       if (rounded !== item.price) {
-        updates.price = rounded;
-        updates.basePrice = rounded;
+        setIfDifferent('price', rounded);
+        setIfDifferent('basePrice', rounded);
         if (item.isManualPrice) {
-          updates.isManualPrice = false;
+          setIfDifferent('isManualPrice', false);
         }
       }
       if (item.priceColumnId !== resolvedColumnId) {
-        updates.priceColumnId = resolvedColumnId;
-        updates.priceColumnLabel = activePriceListLabel;
+        setIfDifferent('priceColumnId', resolvedColumnId);
+        setIfDifferent('priceColumnLabel', activePriceListLabel);
       }
     } else {
       if (resolvedColumnId) {
@@ -274,11 +279,24 @@ export const usePosCartAndTotals = () => {
           missingPriceWarningsRef.current.add(warningKey);
         }
       }
-      updates.price = 0;
-      updates.basePrice = 0;
-      updates.isManualPrice = true;
-      updates.priceColumnId = resolvedColumnId;
-      updates.priceColumnLabel = activePriceListLabel;
+
+      // Importante: no re-escribir 0 / flags si ya están en el estado esperado;
+      // evita bucles de re-render cuando el price book no tiene precio.
+      if (item.price !== 0) {
+        setIfDifferent('price', 0);
+      }
+      if (item.basePrice !== 0) {
+        setIfDifferent('basePrice', 0);
+      }
+      if (!item.isManualPrice) {
+        setIfDifferent('isManualPrice', true);
+      }
+      if (item.priceColumnId !== resolvedColumnId) {
+        setIfDifferent('priceColumnId', resolvedColumnId);
+      }
+      if (item.priceColumnLabel !== activePriceListLabel) {
+        setIfDifferent('priceColumnLabel', activePriceListLabel);
+      }
     }
 
     if (Object.keys(updates).length > 0) {

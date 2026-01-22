@@ -107,7 +107,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'unidad', label: 'Unidad', isFixed: true, isVisible: true, align: 'center', minWidth: '140px', order: 4 },
 
   // Columnas opcionales (configurables)
-  { id: 'imagen', label: 'Imagen', isFixed: false, isVisible: false, align: 'center', width: '80px', order: 10 },
+    { id: 'imagen', label: 'Imagen', isFixed: false, isVisible: true, align: 'center', width: '80px', order: 10 },
   { id: 'alias', label: 'Alias', isFixed: false, isVisible: false, align: 'left', minWidth: '140px', order: 11 },
   { id: 'descripcion', label: 'Descripción', isFixed: false, isVisible: false, align: 'left', minWidth: '200px', order: 12 },
   { id: 'categoria', label: 'Categoría', isFixed: false, isVisible: false, align: 'left', width: '130px', order: 13 },
@@ -118,7 +118,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'codigoBarras', label: 'Cód. Barras', isFixed: false, isVisible: false, align: 'left', width: '130px', order: 18 },
   { id: 'codigoFabrica', label: 'Cód. Fábrica', isFixed: false, isVisible: false, align: 'left', width: '130px', order: 19 },
   { id: 'codigoSunat', label: 'Cód. SUNAT', isFixed: false, isVisible: false, align: 'left', width: '130px', order: 20 },
-  { id: 'stock', label: 'Stock', isFixed: false, isVisible: false, align: 'center', width: '90px', order: 21 },
+    { id: 'stock', label: 'Stock', isFixed: false, isVisible: true, align: 'center', width: '90px', order: 21 },
   { id: 'precioCompra', label: 'P. Compra', isFixed: false, isVisible: false, align: 'right', width: '110px', order: 22 },
   { id: 'descuento', label: 'Descuento %', isFixed: false, isVisible: false, align: 'right', width: '120px', order: 23 },
   { id: 'peso', label: 'Peso (kg)', isFixed: false, isVisible: false, align: 'right', width: '100px', order: 24 },
@@ -1343,10 +1343,13 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               />
 
               <div className="pt-2.5 mt-2.5 border-t-2 border-dashed border-gray-300">
-                <div className="bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg p-3 shadow-md">
-                  <div className="flex justify-between items-center">
-                    <span className="text-violet-100 font-semibold text-sm">TOTAL</span>
-                    <span className="text-white font-bold text-xl">{formatPrice(totals.total ?? 0, totalsCurrencyCode)}</span>
+                <div className="rounded-md border border-gray-200 bg-white px-3 py-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2 w-2 rounded-full bg-violet-600" />
+                      <span className="text-xs font-semibold tracking-[0.16em] text-violet-700 uppercase">TOTAL</span>
+                    </div>
+                    <span className="text-2xl font-semibold text-gray-900">{formatPrice(totals.total ?? 0, totalsCurrencyCode)}</span>
                   </div>
                 </div>
               </div>
