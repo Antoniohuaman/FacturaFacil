@@ -37,8 +37,6 @@ import { useEmpresas } from '../hooks/useEmpresas';
 import { clientesClient } from '../../gestion-clientes/api';
 import type { CreateClienteDTO } from '../../gestion-clientes/models';
 
-
-
 interface CompanyFormData {
   ruc: string;
   razonSocial: string;
