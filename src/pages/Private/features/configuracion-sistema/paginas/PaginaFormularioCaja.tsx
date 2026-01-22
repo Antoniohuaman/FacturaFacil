@@ -1,8 +1,9 @@
 // CajaFormPage - Create or Edit a caja
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Banknote } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { PageHeader } from '../../../../../components/PageHeader';
+import { Button } from '@/contasis';
 import { FormularioCaja } from '../components/cajas/FormularioCaja';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
@@ -67,15 +68,25 @@ export function CajaFormPage() {
 
   if (loading && isEditing) {
     return (
-      <div className="flex-1 bg-gray-50 dark:bg-gray-900">
+      <div className="flex flex-col h-full">
         <PageHeader 
-          title={isEditing ? 'Editar Caja' : 'Nueva Caja'}
-          icon={<Banknote className="w-6 h-6 text-white" />}
+          title="Cargando..."
+          actions={
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft />}
+              onClick={handleCancel}
+            >
+              Volver
+            </Button>
+          }
         />
-        <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando...</p>
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando caja...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -83,43 +94,23 @@ export function CajaFormPage() {
   }
 
   return (
-    <div className="flex-1 bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="flex flex-col h-full">
       <PageHeader 
         title={isEditing ? 'Editar Caja' : 'Nueva Caja'}
-        icon={<Banknote className="w-6 h-6 text-white" />}
+        actions={
+          <Button
+            variant="secondary"
+            icon={<ArrowLeft />}
+            onClick={handleCancel}
+          >
+            Volver
+          </Button>
+        }
       />
 
-      <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-6">
-          <button
-            onClick={() => navigate('/configuracion')}
-            className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            Configuración
-          </button>
-          <span>/</span>
-          <button
-            onClick={handleCancel}
-            className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            Cajas
-          </button>
-          <span>/</span>
-          <span className="text-gray-900 dark:text-gray-100 font-medium">
-            {isEditing ? 'Editar' : 'Nueva'}
-          </span>
-        </div>
-
-        {/* Back button */}
-        <button
-          onClick={handleCancel}
-          className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a Cajas
-        </button>
-
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+        
         {/* Error Banner */}
         {submitError && (
           <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -163,7 +154,8 @@ export function CajaFormPage() {
           />
         </div>
       </div>
-
+      </div>
+      
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>

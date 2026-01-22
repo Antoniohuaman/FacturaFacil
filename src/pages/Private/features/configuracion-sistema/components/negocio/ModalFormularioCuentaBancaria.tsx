@@ -188,7 +188,7 @@ export function BankAccountFormModal({
                   error={errors.bankId}
                   helperText={errors.bankId}
                   required
-                  size="small"
+                  size="medium"
                 />
               </div>
 
@@ -201,7 +201,7 @@ export function BankAccountFormModal({
                   error={errors.accountType}
                   helperText={errors.accountType}
                   required
-                  size="small"
+                  size="medium"
                 />
               </div>
 
@@ -220,7 +220,7 @@ export function BankAccountFormModal({
                   error={errors.currencyCode}
                   helperText={errors.currencyCode}
                   required
-                  size="small"
+                  size="medium"
                 />
               </div>
 
@@ -277,7 +277,7 @@ export function BankAccountFormModal({
                         { value: '', label: 'Sin cuenta contable' },
                         ...accountingAccounts.map((account) => ({ value: account.id, label: account.code }))
                       ]}
-                      size="small"
+                      size="medium"
                     />
                   </div>
                 ) : (

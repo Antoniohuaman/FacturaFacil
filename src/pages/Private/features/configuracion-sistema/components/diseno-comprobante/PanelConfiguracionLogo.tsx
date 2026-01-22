@@ -5,6 +5,7 @@
 import React, { useRef } from 'react';
 import { ImageIcon, Upload, X } from 'lucide-react';
 import type { LogoConfiguration } from '../../modelos/VoucherDesignUnified';
+import { Switch } from '@/contasis';
 
 interface LogoConfigPanelProps {
   config: LogoConfiguration;
@@ -66,18 +67,11 @@ export const LogoConfigPanel: React.FC<LogoConfigPanelProps> = ({ config, onChan
           <p className="text-sm font-medium text-gray-900">Mostrar Logo</p>
           <p className="text-xs text-gray-500">Incluir logo en el comprobante</p>
         </div>
-        <button
-          onClick={() => onChange({ ...config, enabled: !config.enabled })}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            config.enabled ? 'bg-blue-600' : 'bg-gray-300'
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              config.enabled ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </button>
+        <Switch
+          size="md"
+          checked={config.enabled}
+          onChange={(checked) => onChange({ ...config, enabled: checked })}
+        />
       </div>
 
       {config.enabled && (

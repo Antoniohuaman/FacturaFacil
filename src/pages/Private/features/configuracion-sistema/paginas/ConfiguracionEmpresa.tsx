@@ -953,7 +953,7 @@ export function CompanyConfiguration() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Ambiente
                   </label>
-                  <div className="space-y-3">
+                  <div className="flex items-center space-x-6">
                     <div className="flex items-center space-x-2">
                       <RadioButton
                         name="environment"

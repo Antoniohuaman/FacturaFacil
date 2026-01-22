@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/configuration/components/empresa/RucValidator.tsx
 import { useState } from 'react';
-import { CheckCircle2, AlertTriangle, Loader2, Search, Building2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Search, Building2 } from 'lucide-react';
+import { Button } from '@/contasis';
 
 interface RucValidatorProps {
   value: string;
@@ -168,37 +169,18 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
         </div>
 
         {/* Validate Button */}
-        <button
+        <Button
           type="button"
           onClick={handleValidate}
-          disabled={value.length !== 11 || isValidating || disabled || (validation?.isValid && value === lastValidatedRuc)}
-          className={`
-            h-10 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 whitespace-nowrap
-            ${value.length === 11 && !validation?.isValid && !isValidating
-              ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:scale-105'
-              : validation?.isValid && value === lastValidatedRuc
-                ? 'bg-green-600 text-white cursor-not-allowed'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }
-          `}
+          disabled={value.length !== 11 || disabled || (validation?.isValid && value === lastValidatedRuc)}
+          loading={isValidating}
+          loadingText="Consultando SUNAT"
+          variant={validation?.isValid && value === lastValidatedRuc ? "secondary" : "primary"}
+          size="md"
+          icon={validation?.isValid && value === lastValidatedRuc ? <CheckCircle2 /> : <Search />}
         >
-          {isValidating ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Consultando...</span>
-            </>
-          ) : validation?.isValid && value === lastValidatedRuc ? (
-            <>
-              <CheckCircle2 className="w-5 h-5" />
-              <span>Validado</span>
-            </>
-          ) : (
-            <>
-              <Search className="w-5 h-5" />
-              <span>Consultar SUNAT</span>
-            </>
-          )}
-        </button>
+          {validation?.isValid && value === lastValidatedRuc ? "Validado" : "Consultar SUNAT"}
+        </Button>
       </div>
 
       {validation?.isValid === false && (

@@ -34,7 +34,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => {
   return (
     <div 
-      className={`px-6 h-14 bg-surface-0 border-b border-[color:var(--border-default)] shrink-0 flex items-center justify-between ${className}`}
+      className={`px-6 h-14 bg-surface-0 border-b border-[color:var(--border-default)] shrink-0 flex items-center justify-between sticky top-0 z-10 ${className}`}
     >
       {/* Área izquierda: Breadcrumb + Título */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -42,7 +42,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         
         {/* Si title es string, usar h1, sino renderizar como está */}
         {typeof title === 'string' ? (
-          <h1 className="text-h3 font-semibold font-poppins text-primary truncate">
+          <h1 className="text-h3 font-poppins text-primary truncate">
             {title}
           </h1>
         ) : (

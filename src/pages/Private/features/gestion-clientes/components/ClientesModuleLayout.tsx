@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { List, Upload, Users } from 'lucide-react';
+import { List, Upload } from 'lucide-react';
 import { PageHeader } from '../../../../../components/PageHeader';
 
 const CLIENTES_TABS = [
@@ -32,7 +32,6 @@ export function ClientesModuleLayout({ activeTab, children }: ClientesModuleLayo
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       <PageHeader
         title="Gestión de clientes"
-        icon={<Users className="w-6 h-6 text-white" />}
       />
 
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6">

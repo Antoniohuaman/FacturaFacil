@@ -28,6 +28,7 @@ import { ProductFieldsConfigPanel } from '../components/diseno-comprobante/Panel
 import { TicketProductFieldsConfigPanel } from '../components/diseno-comprobante/PanelCamposProductoTicket';
 import { NotificationProvider } from '../components/compartido/SistemaNotificaciones';
 import { useNotifications } from '../components/compartido/SistemaNotificaciones.contexto';
+import { PageHeader, Button } from '@/contasis';
 import type {
   DesignType,
   ProductFieldsConfiguration,
@@ -99,169 +100,161 @@ function VoucherDesignConfigurationContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/configuracion')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
-              </button>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  Diseño de Comprobantes
-                </h1>
-                <p className="text-sm text-gray-500">
-                  Personaliza el aspecto de tus facturas y boletas
-                </p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Exportar
-              </button>
-
-              <label className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
-                <Upload className="w-4 h-4" />
-                Importar
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImport}
-                  className="sr-only"
-                />
-              </label>
-
-              <button
-                onClick={handleReset}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Restaurar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Design Type Selector */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
-          <div className="flex gap-3">
+    <div className="flex flex-col h-full">
+      <PageHeader
+        title="Diseño de Comprobantes"
+        actions={
+          <div className="flex items-center gap-4">
             <button
-              onClick={() => setActiveDesign('A4')}
-              className={`flex items-center gap-3 px-6 py-3 rounded-lg border-2 transition-all ${
-                activeDesign === 'A4'
-                  ? 'border-blue-500 bg-blue-50 shadow-sm'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
             >
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                activeDesign === 'A4' ? 'bg-blue-100' : 'bg-gray-100'
-              }`}>
-                <FileText className={`w-5 h-5 ${activeDesign === 'A4' ? 'text-blue-600' : 'text-gray-600'}`} />
-              </div>
-              <div className="text-left">
-                <div className="font-semibold text-sm text-gray-900">Diseño A4</div>
-                <div className="text-xs text-gray-500">Formato carta o A4</div>
-              </div>
+              <Download className="w-4 h-4" />
+              Exportar
             </button>
 
+            <label className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
+              <Upload className="w-4 h-4" />
+              Importar
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                className="sr-only"
+              />
+            </label>
+
             <button
-              onClick={() => setActiveDesign('TICKET')}
-              className={`flex items-center gap-3 px-6 py-3 rounded-lg border-2 transition-all ${
-                activeDesign === 'TICKET'
-                  ? 'border-blue-500 bg-blue-50 shadow-sm'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
+              onClick={handleReset}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                activeDesign === 'TICKET' ? 'bg-blue-100' : 'bg-gray-100'
-              }`}>
-                <Receipt className={`w-5 h-5 ${activeDesign === 'TICKET' ? 'text-blue-600' : 'text-gray-600'}`} />
-              </div>
-              <div className="text-left">
-                <div className="font-semibold text-sm text-gray-900">Diseño Ticket</div>
-                <div className="text-xs text-gray-500">58mm o 80mm</div>
-              </div>
+              <RotateCcw className="w-4 h-4" />
+              Restaurar
             </button>
+
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft />}
+              onClick={() => navigate('/configuracion')}
+            >
+              Volver
+            </Button>
           </div>
-        </div>
-      </div>
+        }
+      />
+      
+      <div className="flex-1 overflow-auto">
+        <div className="min-h-screen bg-gray-50 p-6">
+          {/* Design Type Selector */}
+          <div className="bg-white border-b border-gray-200">
+            <div className="max-w-[1800px] mx-auto px-6 py-4">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setActiveDesign('A4')}
+                  className={`flex items-center gap-3 px-6 py-3 rounded-lg border-2 transition-all ${
+                    activeDesign === 'A4'
+                      ? 'border-blue-500 bg-blue-50 shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    activeDesign === 'A4' ? 'bg-blue-100' : 'bg-gray-100'
+                  }`}>
+                    <FileText className={`w-5 h-5 ${activeDesign === 'A4' ? 'text-blue-600' : 'text-gray-600'}`} />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold text-sm text-gray-900">Diseño A4</div>
+                    <div className="text-xs text-gray-500">Formato carta o A4</div>
+                  </div>
+                </button>
 
-      {/* Main Content */}
-      <div className="max-w-[1800px] mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Configuration Panel */}
-          <div className="space-y-4">
-            {/* Tabs */}
-            <div className="bg-white rounded-lg border border-gray-200 p-2">
-              <div className="grid grid-cols-5 gap-2">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 transition-all ${
-                        isActive
-                          ? colorClasses[tab.color as keyof typeof colorClasses]
-                          : 'border-transparent hover:bg-gray-50'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span className="text-xs font-medium">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Content Panel */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
-                {activeTab === 'logo' && (
-                  <LogoConfigPanel config={config.logo} onChange={updateLogo} />
-                )}
-                {activeTab === 'watermark' && (
-                  <WatermarkConfigPanel config={config.watermark} onChange={updateWatermark} />
-                )}
-                {activeTab === 'footer' && (
-                  <FooterConfigPanel config={config.footer} onChange={updateFooter} />
-                )}
-                {activeTab === 'documentFields' && (
-                  <DocumentFieldsConfigPanel config={config.documentFields} onChange={updateDocumentFields} />
-                )}
-                {activeTab === 'productFields' && activeDesign === 'A4' && (
-                  <ProductFieldsConfigPanel
-                    config={config.productFields as ProductFieldsConfiguration}
-                    onChange={updateProductFields}
-                  />
-                )}
-                {activeTab === 'productFields' && activeDesign === 'TICKET' && (
-                  <TicketProductFieldsConfigPanel
-                    config={config.productFields as VoucherDesignTicketConfig['productFields']}
-                    onChange={updateProductFields as (value: VoucherDesignTicketConfig['productFields']) => void}
-                  />
-                )}
+                <button
+                  onClick={() => setActiveDesign('TICKET')}
+                  className={`flex items-center gap-3 px-6 py-3 rounded-lg border-2 transition-all ${
+                    activeDesign === 'TICKET'
+                      ? 'border-blue-500 bg-blue-50 shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    activeDesign === 'TICKET' ? 'bg-blue-100' : 'bg-gray-100'
+                  }`}>
+                    <Receipt className={`w-5 h-5 ${activeDesign === 'TICKET' ? 'text-blue-600' : 'text-gray-600'}`} />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold text-sm text-gray-900">Diseño Ticket</div>
+                    <div className="text-xs text-gray-500">58mm o 80mm</div>
+                  </div>
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Preview Panel - Sticky */}
-          <div className="lg:sticky lg:top-24 lg:self-start">
-            <VoucherPreview config={config} designType={activeDesign} />
+          {/* Main Content */}
+          <div className="max-w-[1800px] mx-auto px-6 py-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Configuration Panel */}
+              <div className="space-y-4">
+                {/* Tabs */}
+                <div className="bg-white rounded-lg border border-gray-200 p-2">
+                  <div className="grid grid-cols-5 gap-2">
+                    {tabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 transition-all ${
+                            isActive
+                              ? colorClasses[tab.color as keyof typeof colorClasses]
+                              : 'border-transparent hover:bg-gray-50'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span className="text-xs font-medium">{tab.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Content Panel */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <div className="max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
+                    {activeTab === 'logo' && (
+                      <LogoConfigPanel config={config.logo} onChange={updateLogo} />
+                    )}
+                    {activeTab === 'watermark' && (
+                      <WatermarkConfigPanel config={config.watermark} onChange={updateWatermark} />
+                    )}
+                    {activeTab === 'footer' && (
+                      <FooterConfigPanel config={config.footer} onChange={updateFooter} />
+                    )}
+                    {activeTab === 'documentFields' && (
+                      <DocumentFieldsConfigPanel config={config.documentFields} onChange={updateDocumentFields} />
+                    )}
+                    {activeTab === 'productFields' && activeDesign === 'A4' && (
+                      <ProductFieldsConfigPanel
+                        config={config.productFields as ProductFieldsConfiguration}
+                        onChange={updateProductFields}
+                      />
+                    )}
+                    {activeTab === 'productFields' && activeDesign === 'TICKET' && (
+                      <TicketProductFieldsConfigPanel
+                        config={config.productFields as VoucherDesignTicketConfig['productFields']}
+                        onChange={updateProductFields as (value: VoucherDesignTicketConfig['productFields']) => void}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview Panel - Sticky */}
+              <div className="lg:sticky lg:top-24 lg:self-start">
+                <VoucherPreview config={config} designType={activeDesign} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
