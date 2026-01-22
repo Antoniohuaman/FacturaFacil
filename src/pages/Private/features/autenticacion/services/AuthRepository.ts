@@ -5,9 +5,11 @@ import { authClient } from './AuthClient';
 import { tokenService } from './TokenService';
 import { contextService } from './ContextService';
 import { rateLimitService } from './RateLimitService';
+import { empresasClient } from './EmpresasClient';
 import { useAuthStore } from '../store/AuthStore';
 import { useTenantStore } from '../store/TenantStore';
 import type { LoginCredentials, AuthResponse } from '../types/auth.types';
+import type { LoginResponse } from '../types/api.types';
 
 /**
  * ============================================
@@ -78,29 +80,19 @@ class AuthRepository {
       // Registrar intento
       rateLimitService.recordAttempt('login', credentials.email);
 
-      // Llamar al API
+      // Llamar al API - ahora devuelve LoginResponse
       const response = await authClient.login(credentials);
 
-      // Si requiere 2FA, detener aquí
-      if (response.user.require2FA) {
-        useAuthStore.setState({
-          user: response.user,
-          status: 'requires_2fa',
-          require2FA: true,
-        });
-
-        // Guardar tokens temporales (para el 2FA)
-        tokenService.setTokens(
-          response.tokens.accessToken,
-          response.tokens.refreshToken,
-          response.tokens.expiresIn,
-          credentials.recordarme || false
-        );
-
-        return { success: false, requires2FA: true };
+      // Verificar éxito del login
+      if (!response.exito || !response.data) {
+        throw {
+          code: 'LOGIN_FAILED',
+          message: response.mensaje || 'Error al iniciar sesión',
+        };
       }
 
-      // Login exitoso sin 2FA
+      const { data } = response;
+
       return this.completeAuthentication(response, credentials.recordarme || false);
     } catch (error: any) {
       useAuthStore.setState({
@@ -150,27 +142,112 @@ class AuthRepository {
 
   /**
    * Completar autenticación (después de login o 2FA)
+   * Ahora soporta LoginResponse (estructura nueva del backend)
    */
   private async completeAuthentication(
-    response: AuthResponse,
+    response: LoginResponse | AuthResponse,
     remember: boolean
   ): Promise<{
     success: boolean;
     requiresContext?: boolean;
   }> {
+    // Detectar si es LoginResponse (nueva estructura) o AuthResponse (legacy)
+    const isNewStructure = 'exito' in response && 'data' in response;
+
+    if (isNewStructure) {
+      const loginResponse = response as LoginResponse;
+      const { data } = loginResponse;
+
+      // Guardar token (ahora es un string simple, no objeto)
+      tokenService.setTokens(
+        data.token,
+        data.token, // Por ahora usamos el mismo para refresh (ajustar si backend envía refreshToken)
+        3600, // 1 hora por defecto
+        remember
+      );
+
+      // Crear objeto User compatible
+      const user = {
+        id: data.id,
+        email: data.email,
+        nombre: data.nombre,
+        apellido: data.apellido,
+        avatar: undefined,
+        rol: 'admin' as any, // TODO: obtener del backend
+        estado: 'activo' as any,
+        emailVerificado: true,
+        require2FA: false,
+        fechaCreacion: new Date().toISOString(),
+      };
+
+      // Actualizar estado de auth
+      useAuthStore.setState({
+        user,
+        isAuthenticated: true,
+        hasWorkspace: true, // Siempre hay al menos una empresa demo
+        require2FA: false,
+        status: 'authenticated',
+        error: null,
+      });
+
+      // Configurar empresas y establecimientos en TenantStore
+      // Esto aplica automáticamente la regla empresas[0]
+      useTenantStore.getState().setLoginData(data.empresas, data.establecimientos);
+
+      // Obtener el estado actualizado después de setLoginData
+      const { empresaActiva, establecimientos } = useTenantStore.getState();
+
+      if (empresaActiva) {
+        try {
+          console.log('[AuthRepository] Iniciando carga de empresa completa...');
+          useTenantStore.setState({ isLoading: true });
+
+          const empresaCompleta = await empresasClient.fetchEmpresa(empresaActiva.empresaId);
+
+          useTenantStore.getState().setEmpresaCompleta(empresaCompleta);
+
+          console.log('[AuthRepository] ✅ Empresa completa cargada exitosamente:', empresaCompleta);
+        } catch (error: any) {
+          console.error('[AuthRepository] ❌ Error al cargar empresa completa:', error);
+
+          const establecimientoActivo = establecimientos.find(e => e.id === empresaActiva.establecimientoId);
+
+          const empresaDesdeLogin = {
+            empresaId: empresaActiva.empresaId,
+            ruc: empresaActiva.empresaRuc,
+            razonSocial: empresaActiva.empresaRazonSocial,
+            nombreComercial: empresaActiva.empresaRazonSocial,
+            direccionFiscal: establecimientoActivo?.direccion || '',
+            telefono: establecimientoActivo?.telefono || undefined,
+            email: establecimientoActivo?.correo || undefined,
+            monedaBase: 'PEN',
+            entornoSunat: 'PRUEBA' as const,
+          };
+
+          console.log('[AuthRepository] ⚠️  Usando datos del login como fallback:', empresaDesdeLogin);
+          useTenantStore.getState().setEmpresaCompleta(empresaDesdeLogin);
+        }
+      }
+
+      return { success: true };
+    }
+
+    // Legacy: AuthResponse (estructura vieja)
+    const authResponse = response as AuthResponse;
+
     // Guardar tokens
     tokenService.setTokens(
-      response.tokens.accessToken,
-      response.tokens.refreshToken,
-      response.tokens.expiresIn,
+      authResponse.tokens.accessToken,
+      authResponse.tokens.refreshToken,
+      authResponse.tokens.expiresIn,
       remember
     );
 
     // Actualizar estado de auth
     useAuthStore.setState({
-      user: response.user,
+      user: authResponse.user,
       isAuthenticated: true,
-      hasWorkspace: !response.requiereSeleccionContexto && !!response.contextoActual,
+      hasWorkspace: !authResponse.requiereSeleccionContexto && !!authResponse.contextoActual,
       require2FA: false,
       status: 'authenticated',
       error: null,
@@ -178,21 +255,21 @@ class AuthRepository {
 
     // Actualizar empresas en tenant store
     useTenantStore.setState({
-      empresas: response.empresas || [],
+      empresas: authResponse.empresas || [],
     });
 
     // Si ya tiene contexto, guardarlo
-    if (response.contextoActual) {
-      contextService.saveContext(response.contextoActual);
+    if (authResponse.contextoActual) {
+      contextService.saveContext(authResponse.contextoActual);
       useTenantStore.setState({
-        contextoActual: response.contextoActual,
+        contextoActual: authResponse.contextoActual,
       });
 
       return { success: true };
     }
 
     // Si requiere selección de contexto
-    if (response.requiereSeleccionContexto) {
+    if (authResponse.requiereSeleccionContexto) {
       useAuthStore.setState({ status: 'requires_workspace' });
       return { success: true, requiresContext: true };
     }

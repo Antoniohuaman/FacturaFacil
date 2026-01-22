@@ -2,8 +2,8 @@ import type { RouteObject } from "react-router-dom";
 import { redirect } from "react-router-dom";
 
 import AppShell from "../layouts/PrivateLayout";
+import { ProtectedRoute } from "../pages/Private/features/autenticacion/components/ProtectedRoute";
 
-// Pages por módulo - Comprobantes
 import ComprobantesTabs from "../pages/Private/features/comprobantes-electronicos/lista-comprobantes/pages/ComprobantesTabs";
 import { SelectorModoEmision } from "../pages/Private/features/comprobantes-electronicos/pages/SelectorModoEmision";
 import EmisionTradicional from "../pages/Private/features/comprobantes-electronicos/pages/EmisionTradicional";
@@ -30,18 +30,19 @@ import { ListaPrecios } from "../pages/Private/features/lista-precios/components
 import { InventoryPage } from "../pages/Private/features/gestion-inventario/pages/InventoryPage";
 import CobranzasDashboard from "../pages/Private/features/gestion-cobranzas/pages/CobranzasDashboard";
 import NotificationsCenterPage from "../pages/Private/features/notifications/pages/NotificationsCenterPage";
-
-// Documentos de Negociación
 import DocumentosTabs from "../pages/Private/features/Documentos-negociacion/pages/DocumentosTabs";
 import FormularioCotizacion from "../pages/Private/features/Documentos-negociacion/pages/FormularioCotizacion";
 import FormularioNotaVenta from "../pages/Private/features/Documentos-negociacion/pages/FormularioNotaVenta";
-
 import RouteErrorBoundary from "./RouteErrorBoundary";
 import ClientesTestPage from "../pages/Private/features/gestion-clientes/pages/ClientesTestPage";
 
 export const privateRoutes: RouteObject[] = [
   {
-    element: <AppShell />,
+    element: (
+      <ProtectedRoute>
+        <AppShell />
+      </ProtectedRoute>
+    ),
     errorElement: <RouteErrorBoundary />,
     children: [
       { path: "/", element: <ComprobantesTabs /> },
@@ -49,8 +50,6 @@ export const privateRoutes: RouteObject[] = [
       { path: "/comprobantes/nuevo", element: <SelectorModoEmision /> },
       { path: "/comprobantes/emision", element: <EmisionTradicional /> },
       { path: "/comprobantes/pos", element: <PuntoVenta /> },
-
-      // Rutas del nuevo módulo Punto de Venta
       {
         path: "/punto-venta",
         loader: ({ request }) => {
@@ -67,8 +66,6 @@ export const privateRoutes: RouteObject[] = [
       { path: "/control-caja", element: <ControlCajaHome /> },
       { path: "/caja/sesiones", element: <SesionesCajaPage /> },
       { path: "/cobranzas", element: <CobranzasDashboard /> },
-      
-      // Documentos de Negociación
       { path: "/documentos-negociacion", element: <DocumentosTabs /> },
       { path: "/documentos/cotizacion/nueva", element: <FormularioCotizacion /> },
       { path: "/documentos/nueva-cotizacion", element: <FormularioCotizacion /> },

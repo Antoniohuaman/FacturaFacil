@@ -32,8 +32,11 @@ import type { Caja, CreateCajaInput } from '../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
 import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
+import { useAuthStore } from '../../autenticacion/store/AuthStore';
+import { empresasClient } from '../../autenticacion/services/EmpresasClient';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
 import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
+import type { CreateEmpresaRequest, UpdateEmpresaRequest } from '../../autenticacion/types/api.types';
 
 
 interface CompanyFormData {
@@ -176,6 +179,19 @@ export function CompanyConfiguration() {
   const ensuredWorkspaceIdRef = useRef<string | undefined>(initialWorkspaceId);
   const setTenantContextoActual = useTenantStore((store) => store.setContextoActual);
   const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
+
+  const empresaCompleta = useTenantStore((store) => store.empresaCompleta);
+  const isLoadingEmpresa = useTenantStore((store) => store.isLoading);
+  const setEmpresaCompleta = useTenantStore((store) => store.setEmpresaCompleta);
+  const user = useAuthStore((store) => store.user);
+
+  useEffect(() => {
+    console.log('[ConfiguracionEmpresa] Estado TenantStore:', {
+      empresaCompleta,
+      isLoadingEmpresa,
+      hasEmpresaCompleta: !!empresaCompleta,
+    });
+  }, [empresaCompleta, isLoadingEmpresa]);
   const workspaceIdForSubmit = isCreateWorkspaceMode
     ? ensuredWorkspaceIdRef.current
     : workspaceState?.workspaceId || activeWorkspace?.id;
@@ -245,14 +261,41 @@ export function CompanyConfiguration() {
     setTenantContextoActual(contexto);
   }, [setTenantContextoActual, setTenantEmpresas]);
 
-  // Load existing company data
+  // MODIFICADO: Load company data - prioridad a empresaCompleta del TenantStore
   useEffect(() => {
     if (isCreateWorkspaceMode) {
       return;
     }
 
+    // PRIORIDAD 1: Empresa completa del TenantStore (más actualizada del backend)
+    if (empresaCompleta) {
+      const loadedData = {
+        ruc: empresaCompleta.ruc || '',
+        razonSocial: empresaCompleta.razonSocial || '',
+        nombreComercial: empresaCompleta.nombreComercial || '',
+        direccionFiscal: empresaCompleta.direccionFiscal || '',
+        ubigeo: '',
+        monedaBase: (empresaCompleta.monedaBase || 'PEN') as 'PEN' | 'USD',
+        entornoSunat: (empresaCompleta.entornoSunat === 'PRODUCCION' ? 'PRODUCTION' : 'TEST') as 'TEST' | 'PRODUCTION',
+        telefonos: [empresaCompleta.telefono, empresaCompleta.telefonoSecundario].filter(Boolean) as string[],
+        correosElectronicos: [empresaCompleta.email, empresaCompleta.emailSecundario].filter(Boolean) as string[],
+        actividadEconomica: empresaCompleta.actividadEconomica || ''
+      };
+
+      // Si no hay teléfonos/correos, agregar campo vacío
+      if (loadedData.telefonos.length === 0) loadedData.telefonos = [''];
+      if (loadedData.correosElectronicos.length === 0) loadedData.correosElectronicos = [''];
+
+      setFormData(loadedData);
+      setOriginalData(loadedData);
+      setHasChanges(false);
+
+      console.log('[ConfiguracionEmpresa] Datos cargados desde TenantStore.empresaCompleta');
+      return;
+    }
+
+    // PRIORIDAD 2: Empresa del ConfigurationContext (legacy)
     if (company) {
-      // Empresa ya existe en el contexto, cargar sus datos
       const loadedData = {
         ruc: company.ruc,
         razonSocial: company.razonSocial,
@@ -268,7 +311,13 @@ export function CompanyConfiguration() {
       setFormData(loadedData);
       setOriginalData(loadedData);
       setHasChanges(false);
-    } else {
+
+      console.log('[ConfiguracionEmpresa] Datos cargados desde ConfigurationContext.company');
+      return;
+    }
+
+    // PRIORIDAD 3: localStorage pending_company_data (onboarding)
+    {
       // No hay empresa en el contexto, intentar cargar desde pending_company_data
       const pendingData = localStorage.getItem('pending_company_data');
       if (pendingData) {
@@ -331,7 +380,7 @@ export function CompanyConfiguration() {
         }
       }
     }
-  }, [company, dispatch, isCreateWorkspaceMode]);
+  }, [empresaCompleta, company, dispatch, isCreateWorkspaceMode]);
 
   // Detect if form has changes compared to original data
   useEffect(() => {
@@ -422,9 +471,83 @@ export function CompanyConfiguration() {
       const targetWorkspaceId = workspaceIdForSubmit ?? generateWorkspaceId();
       ensuredWorkspaceIdRef.current = targetWorkspaceId;
 
-      // Filter out empty phones and emails
       const cleanPhones = datosFormulario.telefonos.filter(phone => phone.trim() !== '');
       const cleanEmails = datosFormulario.correosElectronicos.filter(email => email.trim() !== '');
+
+      const location = parseUbigeoCode(datosFormulario.ubigeo);
+
+      const ubigeoCode = datosFormulario.ubigeo || '150101';
+      const codigoDepartamento = ubigeoCode.substring(0, 2);
+      const codigoProvincia = ubigeoCode.substring(0, 4);
+      const codigoDistrito = ubigeoCode;
+
+      const isCreating = !empresaCompleta?.empresaId;
+
+      let empresaGuardada;
+
+      if (isCreating) {
+        if (!user?.id) {
+          throw new Error('No se puede crear empresa sin usuario autenticado');
+        }
+
+        const createRequest: CreateEmpresaRequest = {
+          ruc: datosFormulario.ruc,
+          razonSocial: datosFormulario.razonSocial,
+          nombreComercial: datosFormulario.nombreComercial || datosFormulario.razonSocial,
+          direccionFiscal: datosFormulario.direccionFiscal,
+          codigoDistrito,
+          distrito: location?.district || 'Lima',
+          codigoProvincia,
+          provincia: location?.province || 'Lima',
+          codigoDepartamento,
+          departamento: location?.department || 'Lima',
+          codigoPostal: ubigeoCode,
+          telefonos: cleanPhones,
+          correosElectronicos: cleanEmails,
+          sitioWeb: '',
+          rutaLogo: '',
+          textoPiePagina: '',
+          actividadEconomica: datosFormulario.actividadEconomica || '',
+          regimenTributario: 'GENERAL',
+          monedaBase: datosFormulario.monedaBase,
+          representanteLegal: '',
+          nombreRepresentanteLegal: '',
+          tipoDocumentoRepresentante: 'DNI',
+          numeroDocumentoRepresentante: '',
+          ambienteSunat: datosFormulario.entornoSunat === 'TEST' ? 'PRUEBA' : 'PRODUCCION',
+          facturarEn: 'NUBE',
+          esActivo: true,
+        };
+
+        console.log('[ConfiguracionEmpresa] Creando empresa en backend:', createRequest);
+        empresaGuardada = await empresasClient.createEmpresa(createRequest);
+        console.log('[ConfiguracionEmpresa] ✅ Empresa creada:', empresaGuardada);
+      } else {
+        const updateRequest: UpdateEmpresaRequest = {
+          ruc: datosFormulario.ruc,
+          razonSocial: datosFormulario.razonSocial,
+          nombreComercial: datosFormulario.nombreComercial || datosFormulario.razonSocial,
+          direccionFiscal: datosFormulario.direccionFiscal,
+          codigoDistrito,
+          distrito: location?.district || empresaCompleta.distrito,
+          codigoProvincia,
+          provincia: location?.province || empresaCompleta.provincia,
+          codigoDepartamento,
+          departamento: location?.department || empresaCompleta.departamento,
+          codigoPostal: ubigeoCode,
+          telefonos: cleanPhones,
+          correosElectronicos: cleanEmails,
+          actividadEconomica: datosFormulario.actividadEconomica || '',
+          monedaBase: datosFormulario.monedaBase,
+          ambienteSunat: datosFormulario.entornoSunat === 'TEST' ? 'PRUEBA' : 'PRODUCCION',
+        };
+
+        console.log('[ConfiguracionEmpresa] Actualizando empresa en backend:', updateRequest);
+        empresaGuardada = await empresasClient.updateEmpresa(empresaCompleta.empresaId, updateRequest);
+        console.log('[ConfiguracionEmpresa] ✅ Empresa actualizada:', empresaGuardada);
+      }
+
+      setEmpresaCompleta(empresaGuardada);
 
       const updatedCompany: Company = {
         id: company?.id || '1',
@@ -705,12 +828,25 @@ export function CompanyConfiguration() {
 
       <div className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto p-6 space-y-8">
-          <form onSubmit={manejarEnvio} className="space-y-8">
-            {/* Company Legal Data */}
-            <TarjetaConfiguracion
-              title="Datos Legales y Tributarios"
-              density="compact"
-            >
+          {/* Loading indicator mientras se carga empresa del backend */}
+          {isLoadingEmpresa && (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Cargando datos de la empresa...
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!isLoadingEmpresa && (
+            <form onSubmit={manejarEnvio} className="space-y-8">
+              {/* Company Legal Data */}
+              <TarjetaConfiguracion
+                title="Datos Legales y Tributarios"
+                density="compact"
+              >
               <div className="space-y-2">
                 {/* RUC Validator Component */}
                 <RucValidator
@@ -1003,6 +1139,7 @@ export function CompanyConfiguration() {
               </div>
             </div>
           </form>
+          )}
 
           {/* Production Confirmation Modal */}
           <ModalConfirmacion

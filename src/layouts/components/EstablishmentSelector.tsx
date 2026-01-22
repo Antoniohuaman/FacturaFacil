@@ -2,14 +2,18 @@ import { useState, useRef, useEffect } from 'react';
 import { Building2, ChevronDown, MapPin, CheckCircle2 } from 'lucide-react';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
+import { useTenantStore } from '../../pages/Private/features/autenticacion/store/TenantStore';
 
 export default function SelectorEstablecimiento() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { session, setCurrentEstablecimiento } = useUserSession();
   const { state } = useConfigurationContext();
+  const establecimientos = useTenantStore((state) => state.establecimientos);
+  const establecimientoActivo = useTenantStore((state) => state.establecimientoActivo);
+  const empresaActiva = useTenantStore((state) => state.empresaActiva);
+  const cambiarEstablecimientoActivo = useTenantStore((state) => state.cambiarEstablecimientoActivo);
 
-  // Cerrar dropdown al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -21,14 +25,37 @@ export default function SelectorEstablecimiento() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Obtener establecimiento actual
-  const currentEstablecimiento = session?.currentEstablecimiento;
+  const activeEstablecimientos = establecimientos.filter(est => est.esActivo);
 
-  // Obtener establecimientos disponibles (activos)
-  const availableEstablecimientos = state.Establecimientos.filter(est => est.estaActivoEstablecimiento);
+  const displayedEstablecimientos = activeEstablecimientos.map(est => ({
+    id: est.id,
+    nombreEstablecimiento: est.nombre,
+    direccionEstablecimiento: est.direccion,
+    distritoEstablecimiento: est.distrito,
+    codigoEstablecimiento: est.codigo,
+    isMainEstablecimiento: est.id === empresaActiva?.establecimientoId,
+    estaActivoEstablecimiento: est.esActivo,
+  }));
 
-  // Manejar cambio de establecimiento
+  const currentEstablecimientoFromTenant = establecimientoActivo
+    ? {
+        id: establecimientoActivo.id,
+        nombreEstablecimiento: establecimientoActivo.nombre,
+        direccionEstablecimiento: establecimientoActivo.direccion,
+        codigoEstablecimiento: establecimientoActivo.codigo,
+        isMainEstablecimiento: establecimientoActivo.id === empresaActiva?.establecimientoId,
+      }
+    : null;
+
+  const currentEstablecimiento = currentEstablecimientoFromTenant || session?.currentEstablecimiento;
+
+  const availableEstablecimientos = displayedEstablecimientos.length > 0
+    ? displayedEstablecimientos
+    : state.Establecimientos.filter(est => est.estaActivoEstablecimiento);
+
   const handleEstablecimientoChange = (EstablecimientoId: string) => {
+    cambiarEstablecimientoActivo(EstablecimientoId);
+
     const Establecimiento = state.Establecimientos.find(est => est.id === EstablecimientoId);
     if (Establecimiento) {
       setCurrentEstablecimiento(EstablecimientoId, Establecimiento);
@@ -89,7 +116,7 @@ export default function SelectorEstablecimiento() {
           <div className="py-1">
             {availableEstablecimientos.length > 0 ? (
               availableEstablecimientos.map(Establecimiento => {
-                const isSelected = Establecimiento.id === currentEstablecimiento.id;
+                const isSelected = Establecimiento.id === currentEstablecimiento?.id || Establecimiento.id === establecimientoActivo?.id;
                 const isMain = Establecimiento.isMainEstablecimiento;
 
                 return (

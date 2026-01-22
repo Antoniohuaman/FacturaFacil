@@ -3,12 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, ChevronDown, MapPin } from 'lucide-react';
 import { useUserSession } from '../contexts/UserSessionContext';
 import { useTenant } from '../shared/tenant/TenantContext';
+import { useTenantStore } from '../pages/Private/features/autenticacion/store/TenantStore';
 import { WorkspaceSwitcherModal } from './WorkspaceSwitcherModal';
 import { generateWorkspaceId } from '../shared/tenant';
 
 const CompanySelector = () => {
   const { session, setCurrentEstablecimiento } = useUserSession();
   const { workspaces, tenantId, setTenantId, activeWorkspace } = useTenant();
+  const empresaCompleta = useTenantStore((state) => state.empresaCompleta);
+  const empresaActiva = useTenantStore((state) => state.empresaActiva);
+  const establecimientoActivo = useTenantStore((state) => state.establecimientoActivo);
+  const establecimientos = useTenantStore((state) => state.establecimientos);
+  const cambiarEstablecimientoActivo = useTenantStore((state) => state.cambiarEstablecimientoActivo);
+
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const navigate = useNavigate();
@@ -18,6 +25,8 @@ const CompanySelector = () => {
   const availableEstablecimientos = session?.availableEstablecimientos || [];
 
   const handleSelectEstablecimiento = (EstablecimientoId: string) => {
+    cambiarEstablecimientoActivo(EstablecimientoId);
+
     const Establecimiento = availableEstablecimientos.find(e => e.id === EstablecimientoId);
     if (Establecimiento) {
       setCurrentEstablecimiento(EstablecimientoId, Establecimiento);
@@ -25,9 +34,18 @@ const CompanySelector = () => {
     }
   };
 
-  const workspaceDisplayName = activeWorkspace?.nombreComercial || activeWorkspace?.razonSocial;
-  const displayCompanyName = workspaceDisplayName || selectedCompany?.nombreComercial || selectedCompany?.razonSocial;
-  const displayEstablecimientoName = activeWorkspace?.domicilioFiscal || selectedEstablecimiento?.nombreEstablecimiento || 'Sin establecimiento';
+  const displayCompanyName = empresaCompleta?.nombreComercial
+    || empresaCompleta?.razonSocial
+    || empresaActiva?.empresaRazonSocial
+    || activeWorkspace?.nombreComercial
+    || activeWorkspace?.razonSocial
+    || selectedCompany?.nombreComercial
+    || selectedCompany?.razonSocial;
+
+  const displayEstablecimientoName = establecimientoActivo?.nombre
+    || activeWorkspace?.domicilioFiscal
+    || selectedEstablecimiento?.nombreEstablecimiento
+    || 'Sin establecimiento';
 
   const handleNavigateToWorkspace = (mode: 'create_workspace' | 'edit_workspace', workspaceId?: string) => {
     navigate('/configuracion/empresa', { state: { workspaceMode: mode, workspaceId } });
@@ -59,7 +77,21 @@ const CompanySelector = () => {
     handleNavigateToWorkspace('edit_workspace', workspaceId);
   };
 
-  if (!session || !selectedCompany) {
+  const activeEstablecimientos = establecimientos.filter(est => est.esActivo);
+
+  const displayedEstablecimientos = activeEstablecimientos.length > 0
+    ? activeEstablecimientos.map(est => ({
+        id: est.id,
+        nombreEstablecimiento: est.nombre,
+        direccionEstablecimiento: est.direccion,
+        distritoEstablecimiento: est.distrito,
+        codigoEstablecimiento: est.codigo,
+        isMainEstablecimiento: est.id === empresaActiva?.establecimientoId,
+        estaActivoEstablecimiento: est.esActivo,
+      }))
+    : availableEstablecimientos;
+
+  if (!empresaActiva && !session) {
     return null;
   }
 
@@ -102,23 +134,23 @@ const CompanySelector = () => {
         {showCompanyDropdown && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl z-50 border border-gray-200 dark:border-gray-600">
             <div className="p-2">
-                <div className="text-xs font-medium px-2 py-1.5 text-gray-500 dark:text-gray-400 truncate" 
-                   title={`Establecimientos de ${selectedCompany.nombreComercial || selectedCompany.razonSocial}`}>
-                 Establecimientos de {selectedCompany.nombreComercial || selectedCompany.razonSocial}
+                <div className="text-xs font-medium px-2 py-1.5 text-gray-500 dark:text-gray-400 truncate"
+                   title={`Establecimientos de ${displayCompanyName}`}>
+                 Establecimientos de {displayCompanyName}
               </div>
 
               <div className="space-y-1">
-                {availableEstablecimientos.length === 0 ? (
+                {displayedEstablecimientos.length === 0 ? (
                   <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                     No hay establecimientos disponibles
                   </div>
                 ) : (
-                  availableEstablecimientos.map((Establecimiento) => (
+                  displayedEstablecimientos.map((Establecimiento) => (
                     <button
                       key={Establecimiento.id}
                       onClick={() => handleSelectEstablecimiento(Establecimiento.id)}
                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors duration-150 ${
-                        Establecimiento.id === selectedEstablecimiento?.id
+                        Establecimiento.id === establecimientoActivo?.id || Establecimiento.id === selectedEstablecimiento?.id
                           ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-l-3 border-blue-600 dark:border-blue-400'
                           : 'hover:bg-gray-50 dark:hover:bg-gray-700/70 text-gray-700 dark:text-gray-300 border-l-3 border-transparent'
                       }`}
@@ -135,7 +167,8 @@ const CompanySelector = () => {
                             )}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {Establecimiento.direccionEstablecimiento}, {Establecimiento.distritoEstablecimiento}
+                            {Establecimiento.direccionEstablecimiento}
+                            {Establecimiento.distritoEstablecimiento && `, ${Establecimiento.distritoEstablecimiento}`}
                           </div>
                         </div>
                       </div>

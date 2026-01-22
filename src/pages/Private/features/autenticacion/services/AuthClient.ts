@@ -6,6 +6,7 @@ import type {
   PasswordResetRequest,
   PasswordReset,
 } from '../types/auth.types';
+import type { LoginResponse } from '../types/api.types';
 import { tokenService } from './TokenService';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
@@ -17,8 +18,8 @@ import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
  * NO contiene lógica de negocio (eso va en AuthRepository)
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true' || !import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5242';
+const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
 
 interface ApiError {
   code: string;
@@ -153,8 +154,8 @@ class AuthClient {
       } as T;
     }
 
-    // Simular login
-    if (endpoint === '/auth/login' && options.method === 'POST') {
+    // Simular login - Estructura real del backend
+    if (endpoint === '/api/v1/usuarios/login' && options.method === 'POST') {
       const users = JSON.parse(localStorage.getItem('dev_users') || '[]');
 
       // Normalizar email a lowercase
@@ -177,55 +178,71 @@ class AuthClient {
 
       console.log('[DEV MODE] Login exitoso:', { email: user.email, id: user.id });
 
-      // Generar tokens simulados
+      const empresaId = `empresa_${user.id}`;
+      const establecimientoId = `estab_${user.id}`;
+      const relacionId = `relacion_${user.id}`;
+
+      // Estructura REAL del backend según ayuda2.md
       return {
-        user: {
+        exito: true,
+        mensaje: 'Login exitoso',
+        codigoError: '0',
+        data: {
+          token: `dev_token_${Date.now()}`,
           id: user.id,
+          nombre: user.nombre.toUpperCase(),
+          apellido: user.apellido.toUpperCase(),
           email: user.email,
-          nombre: user.nombre,
-          apellido: user.apellido,
-          celular: user.celular,
-          role: 'admin',
-          require2FA: false,
+          username: user.email.split('@')[0],
+          requiereCambioPassword: false,
+
+          // Empresas como array de relaciones (estructura real del backend)
+          empresas: [
+            {
+              id: relacionId,
+              empresaId: empresaId,
+              usuarioId: user.id,
+              establecimientoId: establecimientoId,
+              empresaRuc: user.ruc || '20000000000',
+              empresaRazonSocial: (user.razonSocial || 'EMPRESA DEMO S.A.C.').toUpperCase(),
+              establecimientoCodigo: '0001',
+              establecimientoNombre: 'Establecimiento',
+              tipoDocumento: null,
+              numeroDocumento: null,
+              esActivo: true,
+              usuarioNombre: null,
+              usuarioEmail: null,
+              createdAt: '0001-01-01T00:00:00',
+              updatedAt: '0001-01-01T00:00:00',
+            },
+          ],
+
+          // Establecimientos como array separado (estructura real del backend)
+          establecimientos: [
+            {
+              id: establecimientoId,
+              empresaId: empresaId,
+              codigo: '0001',
+              nombre: 'Establecimiento',
+              direccion: (user.direccion || 'AV. PRINCIPAL 789, MIRAFLORES, LIMA, LIMA').toUpperCase(),
+              codigoDistrito: '15',
+              distrito: 'LIMA',
+              codigoProvincia: '01',
+              provincia: 'LIMA',
+              codigoDepartamento: '31',
+              departamento: 'LIMA',
+              codigoPostal: '150131',
+              telefono: null,
+              correo: null,
+              esActivo: true,
+              usuarioId: user.id,
+              usuarioNombre: `${user.nombre} ${user.apellido}`.toUpperCase(),
+              createdAt: formatBusinessDateTimeIso(),
+              updatedAt: formatBusinessDateTimeIso(),
+            },
+          ],
         },
-        tokens: {
-          accessToken: `dev_token_${Date.now()}`,
-          refreshToken: `dev_refresh_${Date.now()}`,
-          expiresIn: 3600,
-        },
-        empresas: [
-          {
-            id: `empresa_${user.id}`,
-            ruc: user.ruc,
-            razonSocial: user.razonSocial,
-            nombreComercial: user.nombreComercial || user.razonSocial,
-            establecimientos: [
-              {
-                id: `estab_${user.id}`,
-                codigo: '0001',
-                nombre: 'Principal',
-                direccion: user.direccion,
-              },
-            ],
-          },
-        ],
-        contextoActual: {
-          empresaId: `empresa_${user.id}`,
-          establecimientoId: `estab_${user.id}`,
-          empresa: {
-            id: `empresa_${user.id}`,
-            ruc: user.ruc,
-            razonSocial: user.razonSocial,
-            nombreComercial: user.nombreComercial || user.razonSocial,
-          },
-          establecimiento: {
-            id: `estab_${user.id}`,
-            codigo: '0001',
-            nombre: 'Principal',
-            direccion: user.direccion,
-          },
-        },
-        requiereSeleccionContexto: false,
+        timestamp: formatBusinessDateTimeIso(),
       } as T;
     }
 
@@ -306,9 +323,10 @@ class AuthClient {
 
   /**
    * Login de usuario
+   * Endpoint: POST /api/v1/usuarios/login
    */
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    return this.request<AuthResponse>('/auth/login', {
+  async login(credentials: LoginCredentials): Promise<LoginResponse> {
+    return this.request<LoginResponse>('/api/v1/usuarios/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
