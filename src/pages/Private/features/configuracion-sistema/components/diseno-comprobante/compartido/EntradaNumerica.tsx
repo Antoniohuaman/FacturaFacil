@@ -17,7 +17,7 @@ export function NumberInput({
   disabled,
   placeholder,
 }: NumberInputProps) {
-  const handleChange = (e: { target: { value: string } }) => {
+  const manejarCambio = (e: { target: { value: string } }) => {
     const newValue = parseFloat(e.target.value);
     if (!isNaN(newValue)) {
       onChange(newValue);
@@ -28,7 +28,7 @@ export function NumberInput({
     <input
       type="number"
       value={value}
-      onChange={handleChange}
+      onChange={manejarCambio}
       min={min}
       max={max}
       step={step}
@@ -38,3 +38,4 @@ export function NumberInput({
     />
   );
 }
+

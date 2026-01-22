@@ -127,24 +127,24 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
       return almacen.nombreAlmacen || codigo || almacen.id;
     };
 
-    const formatEstablecimientoLabel = (Establecimiento?: { id?: string; code?: string; name?: string }) => {
+    const formatEstablecimientoLabel = (Establecimiento?: { id?: string; codigoEstablecimiento?: string; nombreEstablecimiento?: string }) => {
       if (!Establecimiento) return '';
       const fromMap = Establecimiento.id ? EstablecimientoMap.get(Establecimiento.id) : undefined;
-      const code = fromMap?.code ?? Establecimiento.code ?? Establecimiento.id;
-      const name = fromMap?.name ?? Establecimiento.name;
-      if (code && name) return `${code} - ${name}`;
-      return name || code || Establecimiento.id || '';
+      const codigo = fromMap?.codigoEstablecimiento ?? Establecimiento.codigoEstablecimiento ?? Establecimiento.id;
+      const nombre = fromMap?.nombreEstablecimiento ?? Establecimiento.nombreEstablecimiento;
+      if (codigo && nombre) return `${codigo} - ${nombre}`;
+      return nombre || codigo || Establecimiento.id || '';
     };
 
-    const derivedEstablecimientos = new Map<string, { id?: string; code?: string; name?: string }>();
+    const derivedEstablecimientos = new Map<string, { id?: string; codigoEstablecimiento?: string; nombreEstablecimiento?: string }>();
     scopealmacenes.forEach(almacen => {
       if (!almacen.establecimientoId) {
         return;
       }
       derivedEstablecimientos.set(almacen.establecimientoId, {
         id: almacen.establecimientoId,
-        code: almacen.codigoEstablecimientoDesnormalizado,
-        name: almacen.nombreEstablecimientoDesnormalizado
+        codigoEstablecimiento: almacen.codigoEstablecimientoDesnormalizado,
+        nombreEstablecimiento: almacen.nombreEstablecimientoDesnormalizado
       });
     });
 

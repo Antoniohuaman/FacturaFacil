@@ -90,7 +90,7 @@ export const useProductForm = ({
   onClose
 }: UseProductFormParams) => {
   const activeEstablecimientoIds = useMemo(
-    () => activeEstablecimientos.filter(est => est.isActive).map(est => est.id),
+    () => activeEstablecimientos.filter(est => est.estaActivoEstablecimiento !== false).map(est => est.id),
     [activeEstablecimientos]
   );
 
@@ -98,7 +98,9 @@ export const useProductForm = ({
     if (defaultEstablecimientoId && activeEstablecimientoIds.includes(defaultEstablecimientoId)) {
       return defaultEstablecimientoId;
     }
-    const main = activeEstablecimientos.find(est => est.isActive && est.isMainEstablecimiento);
+    const main = activeEstablecimientos.find(
+      est => est.estaActivoEstablecimiento !== false && est.isMainEstablecimiento
+    );
     return main?.id ?? activeEstablecimientoIds[0] ?? '';
   }, [activeEstablecimientos, activeEstablecimientoIds, defaultEstablecimientoId]);
 

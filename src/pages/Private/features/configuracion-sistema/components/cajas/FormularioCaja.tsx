@@ -1,4 +1,4 @@
-// CajaForm component - Create/Edit cash register form with inline validations
+// Componente FormularioCaja - formulario de caja para crear/editar con validaciones en línea
 import { useState, useEffect } from 'react';
 import { Button, Select, Input, Textarea } from '@/contasis';
 import type { CreateCajaInput, UpdateCajaInput, MedioPago } from '../../modelos/Caja';
@@ -30,7 +30,7 @@ interface CajaFormProps {
   isEditing?: boolean;
 }
 
-export function CajaForm({
+export function FormularioCaja({
   initialData,
   currencies,
   Establecimientos,
@@ -41,7 +41,7 @@ export function CajaForm({
 }: CajaFormProps) {
   const { state } = useConfigurationContext();
 
-  const [formData, setFormData] = useState<CreateCajaInput>({
+  const [datosFormulario, setFormData] = useState<CreateCajaInput>({
     establecimientoIdCaja: initialData?.establecimientoIdCaja || defaultEstablecimientoId,
     nombreCaja: initialData?.nombreCaja || '',
     monedaIdCaja: initialData?.monedaIdCaja || '',
@@ -58,59 +58,59 @@ export function CajaForm({
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Real-time validation
+  // Validación en tiempo real
   useEffect(() => {
     const newErrors: ValidationError[] = [];
 
     if (touched.has('establecimientoIdCaja')) {
-      const establecimientoError = validateEstablecimiento(formData.establecimientoIdCaja);
+      const establecimientoError = validateEstablecimiento(datosFormulario.establecimientoIdCaja);
       if (establecimientoError) newErrors.push(establecimientoError);
     }
 
     if (touched.has('nombreCaja')) {
-      const nombreError = validateNombre(formData.nombreCaja);
+      const nombreError = validateNombre(datosFormulario.nombreCaja);
       if (nombreError) newErrors.push(nombreError);
 
       const uniquenessError = validateNombreUniqueness(
-        formData.nombreCaja,
+        datosFormulario.nombreCaja,
         state.cajas,
-        formData.establecimientoIdCaja,
+        datosFormulario.establecimientoIdCaja,
         isEditing ? initialData?.id : undefined
       );
       if (uniquenessError) newErrors.push(uniquenessError);
     }
 
     if (touched.has('monedaIdCaja')) {
-      const monedaError = validateMoneda(formData.monedaIdCaja);
+      const monedaError = validateMoneda(datosFormulario.monedaIdCaja);
       if (monedaError) newErrors.push(monedaError);
     }
 
     if (touched.has('mediosPagoPermitidos') || touched.has('habilitadaCaja')) {
-      const mediosError = validateMediosPago(formData.mediosPagoPermitidos, formData.habilitadaCaja);
+      const mediosError = validateMediosPago(datosFormulario.mediosPagoPermitidos, datosFormulario.habilitadaCaja);
       if (mediosError) newErrors.push(mediosError);
     }
 
     if (touched.has('limiteMaximoCaja')) {
-      const limiteError = validateLimiteMaximo(formData.limiteMaximoCaja);
+      const limiteError = validateLimiteMaximo(datosFormulario.limiteMaximoCaja);
       if (limiteError) newErrors.push(limiteError);
     }
 
     if (touched.has('margenDescuadreCaja')) {
-      const margenError = validateMargenDescuadre(formData.margenDescuadreCaja);
+      const margenError = validateMargenDescuadre(datosFormulario.margenDescuadreCaja);
       if (margenError) newErrors.push(margenError);
     }
 
     if (touched.has('usuariosAutorizadosCaja') || touched.has('habilitadaCaja')) {
       const usuariosError = validateUsuariosAutorizados(
-        formData.usuariosAutorizadosCaja,
+        datosFormulario.usuariosAutorizadosCaja,
         state.users,
-        formData.habilitadaCaja
+        datosFormulario.habilitadaCaja
       );
       if (usuariosError) newErrors.push(usuariosError);
     }
 
     setErrors(newErrors);
-  }, [formData, touched, initialData?.id, isEditing, state.cajas, state.users]);
+  }, [datosFormulario, touched, initialData?.id, isEditing, state.cajas, state.users]);
 
   const handleBlur = (field: string) => {
     setTouched(prev => new Set(prev).add(field));
@@ -126,10 +126,10 @@ export function CajaForm({
     setTouched(prev => new Set(prev).add('mediosPagoPermitidos'));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Mark all fields as touched
+    // Marcar todos los campos como visitados
     setTouched(new Set([
       'establecimientoIdCaja',
       'nombreCaja',
@@ -139,33 +139,33 @@ export function CajaForm({
       'margenDescuadreCaja'
     ]));
 
-    // Validate all fields
+    // Validar todos los campos
     const allErrors: ValidationError[] = [];
 
-    const establecimientoError = validateEstablecimiento(formData.establecimientoIdCaja);
+    const establecimientoError = validateEstablecimiento(datosFormulario.establecimientoIdCaja);
     if (establecimientoError) allErrors.push(establecimientoError);
 
-    const nombreError = validateNombre(formData.nombreCaja);
+    const nombreError = validateNombre(datosFormulario.nombreCaja);
     if (nombreError) allErrors.push(nombreError);
 
     const uniquenessError = validateNombreUniqueness(
-      formData.nombreCaja,
+      datosFormulario.nombreCaja,
       state.cajas,
-      formData.establecimientoIdCaja,
+      datosFormulario.establecimientoIdCaja,
       isEditing ? initialData?.id : undefined
     );
     if (uniquenessError) allErrors.push(uniquenessError);
 
-    const monedaError = validateMoneda(formData.monedaIdCaja);
+    const monedaError = validateMoneda(datosFormulario.monedaIdCaja);
     if (monedaError) allErrors.push(monedaError);
 
-    const mediosError = validateMediosPago(formData.mediosPagoPermitidos, formData.habilitadaCaja);
+    const mediosError = validateMediosPago(datosFormulario.mediosPagoPermitidos, datosFormulario.habilitadaCaja);
     if (mediosError) allErrors.push(mediosError);
 
-    const limiteError = validateLimiteMaximo(formData.limiteMaximoCaja);
+    const limiteError = validateLimiteMaximo(datosFormulario.limiteMaximoCaja);
     if (limiteError) allErrors.push(limiteError);
 
-    const margenError = validateMargenDescuadre(formData.margenDescuadreCaja);
+    const margenError = validateMargenDescuadre(datosFormulario.margenDescuadreCaja);
     if (margenError) allErrors.push(margenError);
 
     if (allErrors.length > 0) {
@@ -176,9 +176,9 @@ export function CajaForm({
     setIsSubmitting(true);
     try {
       if (isEditing && initialData?.id) {
-        await onSubmit({ ...formData, id: initialData.id });
+        await onSubmit({ ...datosFormulario, id: initialData.id });
       } else {
-        await onSubmit(formData);
+        await onSubmit(datosFormulario);
       }
     } finally {
       setIsSubmitting(false);
@@ -188,12 +188,12 @@ export function CajaForm({
   const fieldError = (field: string) => getFieldError(errors, field);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={manejarEnvio} className="space-y-6">
       {/* Establecimiento */}
       <div>
         <Select
           label="Establecimiento"
-          value={formData.establecimientoIdCaja}
+          value={datosFormulario.establecimientoIdCaja}
           onChange={(e) => {
             setFormData(prev => ({ ...prev, establecimientoIdCaja: e.target.value }));
             handleBlur('establecimientoIdCaja');
@@ -206,7 +206,7 @@ export function CajaForm({
             { value: '', label: 'Seleccionar establecimiento' },
             ...Establecimientos.map((est) => ({
               value: est.id,
-              label: `${est.name} - ${est.code}`
+              label: `${est.nombreEstablecimiento} - ${est.codigoEstablecimiento}`
             }))
           ]}
         />
@@ -222,7 +222,7 @@ export function CajaForm({
         <Input
           label="Nombre de Caja"
           type="text"
-          value={formData.nombreCaja}
+          value={datosFormulario.nombreCaja}
           onChange={(e) => setFormData(prev => ({ ...prev, nombreCaja: e.target.value }))}
           onBlur={() => handleBlur('nombreCaja')}
           maxLength={CAJA_CONSTRAINTS.maxLongitudNombreCaja}
@@ -232,7 +232,7 @@ export function CajaForm({
         />
         <div className="flex justify-end mt-1">
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            {formData.nombreCaja.length}/{CAJA_CONSTRAINTS.maxLongitudNombreCaja}
+            {datosFormulario.nombreCaja.length}/{CAJA_CONSTRAINTS.maxLongitudNombreCaja}
           </span>
         </div>
       </div>
@@ -241,7 +241,7 @@ export function CajaForm({
       <div>
         <Select
           label="Moneda"
-          value={formData.monedaIdCaja}
+          value={datosFormulario.monedaIdCaja}
           onChange={(e) => {
             setFormData(prev => ({ ...prev, monedaIdCaja: e.target.value }));
             handleBlur('monedaIdCaja');
@@ -262,7 +262,7 @@ export function CajaForm({
       {/* Medios de Pago */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Medios de Pago Permitidos {formData.habilitadaCaja && <span className="text-red-500">*</span>}
+          Medios de Pago Permitidos {datosFormulario.habilitadaCaja && <span className="text-red-500">*</span>}
         </label>
         <div className="flex flex-wrap gap-2">
           {MEDIOS_PAGO_DISPONIBLES.map((medio) => (
@@ -272,11 +272,11 @@ export function CajaForm({
               onClick={() => toggleMedioPago(medio)}
               className={`
                 px-4 py-2 rounded-lg border-2 transition-all
-                ${formData.mediosPagoPermitidos.includes(medio)
+                ${datosFormulario.mediosPagoPermitidos.includes(medio)
                   ? 'bg-blue-600 border-blue-600 text-white'
                   : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300'}
               `}
-              aria-pressed={formData.mediosPagoPermitidos.includes(medio)}
+              aria-pressed={datosFormulario.mediosPagoPermitidos.includes(medio)}
               aria-label={`Medio de pago ${medio}`}
             >
               {medio}
@@ -297,7 +297,7 @@ export function CajaForm({
           type="number"
           min={CAJA_CONSTRAINTS.LIMITE_MIN}
           step="0.01"
-          value={formData.limiteMaximoCaja}
+          value={datosFormulario.limiteMaximoCaja}
           onChange={(e) => setFormData(prev => ({ ...prev, limiteMaximoCaja: parseFloat(e.target.value) || 0 }))}
           onBlur={() => handleBlur('limiteMaximoCaja')}
           required
@@ -310,7 +310,7 @@ export function CajaForm({
           min={CAJA_CONSTRAINTS.MARGEN_MIN}
           max={CAJA_CONSTRAINTS.MARGEN_MAX}
           step="0.1"
-          value={formData.margenDescuadreCaja}
+          value={datosFormulario.margenDescuadreCaja}
           onChange={(e) => setFormData(prev => ({ ...prev, margenDescuadreCaja: parseFloat(e.target.value) || 0 }))}
           onBlur={() => handleBlur('margenDescuadreCaja')}
           required
@@ -324,7 +324,7 @@ export function CajaForm({
         <button
           type="button"
           role="switch"
-          aria-checked={formData.habilitadaCaja}
+          aria-checked={datosFormulario.habilitadaCaja}
           onClick={() => {
             setFormData(prev => ({ ...prev, habilitadaCaja: !prev.habilitadaCaja }));
             setTouched(prev => new Set(prev).add('habilitadaCaja'));
@@ -332,13 +332,13 @@ export function CajaForm({
           className={`
             relative inline-flex h-6 w-11 items-center rounded-full transition-colors
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-            ${formData.habilitadaCaja ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}
+            ${datosFormulario.habilitadaCaja ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}
           `}
         >
           <span
             className={`
               inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-              ${formData.habilitadaCaja ? 'translate-x-6' : 'translate-x-1'}
+              ${datosFormulario.habilitadaCaja ? 'translate-x-6' : 'translate-x-1'}
             `}
           />
         </button>
@@ -351,7 +351,7 @@ export function CajaForm({
       <div>
         <Textarea
           label="Observaciones"
-          value={formData.observacionesCaja}
+          value={datosFormulario.observacionesCaja}
           onChange={(e) => setFormData(prev => ({ ...prev, observacionesCaja: e.target.value }))}
           rows={3}
           placeholder="Notas adicionales sobre esta caja..."
@@ -361,7 +361,7 @@ export function CajaForm({
       {/* Usuarios Autorizados */}
       <div>
         <UsuariosAutorizadosSelector
-          value={formData.usuariosAutorizadosCaja || []}
+          value={datosFormulario.usuariosAutorizadosCaja || []}
           onChange={(selectedIds) => {
             setFormData(prev => ({ ...prev, usuariosAutorizadosCaja: selectedIds }));
             setTouched(prev => new Set(prev).add('usuariosAutorizadosCaja'));
@@ -372,7 +372,7 @@ export function CajaForm({
         />
       </div>
 
-      {/* Actions */}
+      {/* Acciones */}
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
         <Button
           variant="secondary"
@@ -394,3 +394,5 @@ export function CajaForm({
     </form>
   );
 }
+
+

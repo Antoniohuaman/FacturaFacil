@@ -2,7 +2,7 @@
 // src/features/configuration/components/empresa/LogoUploader.tsx
 import { useState, useRef } from 'react';
 import { Upload, X, Image, Eye, EyeOff, Download, RotateCcw } from 'lucide-react';
-import { Switch } from '@/contasis';
+import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
 
 interface LogoData {
   url: string;
@@ -210,18 +210,13 @@ export function LogoUploader({
 
           {/* Show in Print Toggle */}
           <div className="pt-3 border-t border-gray-200">
-            <div className="space-y-3">
-              <Switch
-                checked={logo.showInPrint}
-                onChange={handleToggleShowInPrint}
-                label="Mostrar en Impresión"
-                disabled={disabled}
-                size="md"
-              />
-              <p className="text-sm text-gray-600">
-                Incluir el logo en los comprobantes impresos
-              </p>
-            </div>
+            <SettingsToggle
+              enabled={logo.showInPrint}
+              onToggle={handleToggleShowInPrint}
+              label="Mostrar en Impresión"
+              description="Incluir el logo en los comprobantes impresos"
+              disabled={disabled}
+            />
           </div>
 
           {/* Large Preview Modal */}

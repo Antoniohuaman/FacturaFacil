@@ -168,21 +168,23 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
         </div>
       </div>
 
-      {/* ✅ NUEVA SECCIÓN: Vendedor */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-              <User className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Vendedor</p>
-              <p className="text-base font-bold text-gray-900">Javier Masías Loza</p>
-              <p className="text-xs text-gray-500 font-medium">ID: 001</p>
+      {/* ✅ NUEVA SECCIÓN: Vendedor (opcional) */}
+      {config.optionalFields.vendedor.visible && (
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                <User className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Vendedor</p>
+                <p className="text-base font-bold text-gray-900">Javier Masías Loza</p>
+                <p className="text-xs text-gray-500 font-medium">ID: 001</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ✅ Campos opcionales - Renderizados según configuración */}
       {hasVisibleOptionalFields && (

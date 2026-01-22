@@ -66,7 +66,7 @@ const ProductsPage: React.FC = () => {
 
   // Establecimientos activos
   const Establecimientos = useMemo(
-    () => configState.Establecimientos.filter(e => e.isActive),
+    () => configState.Establecimientos.filter(e => e.estaActivoEstablecimiento !== false),
     [configState.Establecimientos]
   );
 
@@ -291,7 +291,7 @@ const ProductsPage: React.FC = () => {
               <option value="ALL">📍 Todos (sin filtrar)</option>
               {Establecimientos.map(est => (
                 <option key={est.id} value={est.id}>
-                  {est.code} - {est.name}
+                  {est.codigoEstablecimiento} - {est.nombreEstablecimiento}
                 </option>
               ))}
             </select>

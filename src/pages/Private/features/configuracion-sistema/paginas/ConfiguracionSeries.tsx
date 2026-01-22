@@ -19,9 +19,9 @@ import {
   NotebookPen
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
-import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
-import { StatusIndicator } from '../components/comunes/IndicadorEstado';
-import { ConfirmationModal } from '../components/comunes/ModalConfirmacion';
+import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion';
+import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
+import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import type { Series, DocumentType } from '../modelos/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
 import { Button, Select, Input, Checkbox, RadioButton, PageHeader } from '@/contasis';
@@ -223,7 +223,7 @@ export function SeriesConfiguration() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<SeriesFormData>({
+  const [datosFormulario, setFormData] = useState<SeriesFormData>({
     type: 'INVOICE',
     series: '',
     EstablecimientoId: '',
@@ -350,48 +350,48 @@ export function SeriesConfiguration() {
 
   const validateSeries = () => {
     // Rule 1: All series must be exactly 4 characters
-    if (formData.series.length !== 4) {
+    if (datosFormulario.series.length !== 4) {
       return `La serie debe tener exactamente 4 caracteres`;
     }
 
     // Rule 2: Validate format based on type
-    if (formData.type === 'INVOICE') {
-      if (!formData.series.startsWith('F')) {
+    if (datosFormulario.type === 'INVOICE') {
+      if (!datosFormulario.series.startsWith('F')) {
         return `Las facturas deben comenzar con "F" (ej: F001, F123, FABC)`;
       }
       // Rest 3 characters can be letters/numbers
-      const restOfSeries = formData.series.substring(1);
+      const restOfSeries = datosFormulario.series.substring(1);
       if (!/^[A-Z0-9]{3}$/.test(restOfSeries)) {
         return `Los 3 caracteres después de "F" deben ser letras (A-Z) o números (0-9)`;
       }
-    } else if (formData.type === 'RECEIPT') {
-      if (!formData.series.startsWith('B')) {
+    } else if (datosFormulario.type === 'RECEIPT') {
+      if (!datosFormulario.series.startsWith('B')) {
         return `Las boletas deben comenzar con "B" (ej: B001, B123, BABC)`;
       }
       // Rest 3 characters can be letters/numbers
-      const restOfSeries = formData.series.substring(1);
+      const restOfSeries = datosFormulario.series.substring(1);
       if (!/^[A-Z0-9]{3}$/.test(restOfSeries)) {
         return `Los 3 caracteres después de "B" deben ser letras (A-Z) o números (0-9)`;
       }
-    } else if (formData.type === 'COLLECTION') {
-      if (!formData.series.startsWith('C')) {
+    } else if (datosFormulario.type === 'COLLECTION') {
+      if (!datosFormulario.series.startsWith('C')) {
         return 'Los recibos de cobranza deben comenzar con "C"';
       }
-      const restOfSeries = formData.series.substring(1);
+      const restOfSeries = datosFormulario.series.substring(1);
       if (!/^[A-Z0-9]{3}$/.test(restOfSeries)) {
         return 'Los 3 caracteres después de "C" deben ser letras (A-Z) o números (0-9)';
       }
-    } else if (formData.type === 'SALE_NOTE' || formData.type === 'QUOTE') {
+    } else if (datosFormulario.type === 'SALE_NOTE' || datosFormulario.type === 'QUOTE') {
       // Free format: any 4 characters (letters/numbers)
-      if (!/^[A-Z0-9]{4}$/.test(formData.series)) {
+      if (!/^[A-Z0-9]{4}$/.test(datosFormulario.series)) {
         return `La serie debe contener solo letras (A-Z) o números (0-9)`;
       }
     }
 
     // Rule 3: Check for duplicates
     const isDuplicate = series.some(s =>
-      s.series === formData.series &&
-      s.EstablecimientoId === formData.EstablecimientoId &&
+      s.series === datosFormulario.series &&
+      s.EstablecimientoId === datosFormulario.EstablecimientoId &&
       s.id !== editingId
     );
 
@@ -402,7 +402,7 @@ export function SeriesConfiguration() {
     return null;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const validationError = validateSeries();
@@ -422,11 +422,11 @@ export function SeriesConfiguration() {
           s.id === editingId
             ? {
               ...s,
-              series: formData.series,
-              correlativeNumber: formData.currentNumber,
+              series: datosFormulario.series,
+              correlativeNumber: datosFormulario.currentNumber,
               configuration: {
                 ...s.configuration,
-                startNumber: formData.initialNumber,
+                startNumber: datosFormulario.initialNumber,
                 minimumDigits: 8,
                 autoIncrement: true,
                 allowManualNumber: false,
@@ -440,22 +440,22 @@ export function SeriesConfiguration() {
         // Create new
         const newSeries: Series = {
           id: Date.now().toString(),
-          EstablecimientoId: formData.EstablecimientoId,
-          documentType: getDocumentTypeForVoucherType(formData.type),
-          series: formData.series,
-          correlativeNumber: formData.currentNumber,
+          EstablecimientoId: datosFormulario.EstablecimientoId,
+          documentType: getDocumentTypeForVoucherType(datosFormulario.type),
+          series: datosFormulario.series,
+          correlativeNumber: datosFormulario.currentNumber,
           configuration: {
             minimumDigits: 8,
-            startNumber: formData.initialNumber,
+            startNumber: datosFormulario.initialNumber,
             autoIncrement: true,
             allowManualNumber: false,
             requireAuthorization: false
           },
           sunatConfiguration: {
-            isElectronic: formData.type === 'INVOICE' || formData.type === 'RECEIPT',
+            isElectronic: datosFormulario.type === 'INVOICE' || datosFormulario.type === 'RECEIPT',
             environmentType: 'TESTING',
-            certificateRequired: formData.type === 'INVOICE' || formData.type === 'RECEIPT',
-            mustReportToSunat: formData.type === 'INVOICE' || formData.type === 'RECEIPT',
+            certificateRequired: datosFormulario.type === 'INVOICE' || datosFormulario.type === 'RECEIPT',
+            mustReportToSunat: datosFormulario.type === 'INVOICE' || datosFormulario.type === 'RECEIPT',
             maxDaysToReport: 30
           },
           statistics: {
@@ -464,15 +464,15 @@ export function SeriesConfiguration() {
           },
           validation: {
             allowZeroAmount: false,
-            requireCustomer: formData.type === 'INVOICE'
+            requireCustomer: datosFormulario.type === 'INVOICE'
           },
           status: 'ACTIVE',
-          isDefault: formData.isDefault,
+          isDefault: datosFormulario.isDefault,
           notes: '',
           createdAt: new Date(),
           updatedAt: new Date(),
           createdBy: 'system',
-          isActive: formData.isActive
+          isActive: datosFormulario.isActive
         };
 
         updatedSeries = [...rawSeries, newSeries];
@@ -598,11 +598,11 @@ export function SeriesConfiguration() {
 
       {/* Form Modal */}
       {showForm && (
-        <ConfigurationCard
+        <TarjetaConfiguracion
           title={editingId ? "Editar Serie" : "Nueva Serie"}
           description="Configura la serie de comprobantes"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={manejarEnvio} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Voucher Type */}
               <div>
@@ -612,7 +612,7 @@ export function SeriesConfiguration() {
                 <div className="space-y-2">
                   {Object.entries(voucherTypeConfig).map(([type, config]) => {
                     const Icon = config.icon;
-                    const isSelected = formData.type === type;
+                    const isSelected = datosFormulario.type === type;
 
                     return (
                       <div key={type}>
@@ -646,13 +646,13 @@ export function SeriesConfiguration() {
 
               <Select
                 label="Establecimiento"
-                value={formData.EstablecimientoId}
+                value={datosFormulario.EstablecimientoId}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, EstablecimientoId: e.target.value }))}
                 options={[
                   { value: '', label: 'Seleccionar establecimiento' },
                   ...Establecimientos.map(est => ({
                     value: est.id,
-                    label: `${est.code} - ${est.name}`
+                    label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
                   }))
                 ]}
                 required
@@ -663,19 +663,19 @@ export function SeriesConfiguration() {
             <Input
               label="Código de Serie"
               type="text"
-              value={formData.series}
+              value={datosFormulario.series}
               onChange={(e) => setFormData(prev => ({ ...prev, series: e.target.value.toUpperCase() }))}
               placeholder={
-                formData.type === 'INVOICE' ? 'FE01' :
-                  formData.type === 'RECEIPT' ? 'BE01' :
-                    formData.type === 'QUOTE' ? 'CT01' :
+                datosFormulario.type === 'INVOICE' ? 'FE01' :
+                  datosFormulario.type === 'RECEIPT' ? 'BE01' :
+                    datosFormulario.type === 'QUOTE' ? 'CT01' :
                       'NV01'
               }
               maxLength={4}
               helperText={
-                formData.type === 'INVOICE' ? 'Factura: Debe empezar con "F" + 3 caracteres (ej: FE01, FT01, F001)' :
-                  formData.type === 'RECEIPT' ? 'Boleta: Debe empezar con "B" + 3 caracteres (ej: BE01, BL01, B001)' :
-                    formData.type === 'QUOTE' ? 'Cotización: Serie libre de 4 caracteres (ej: CT01, C001, COT1)' :
+                datosFormulario.type === 'INVOICE' ? 'Factura: Debe empezar con "F" + 3 caracteres (ej: FE01, FT01, F001)' :
+                  datosFormulario.type === 'RECEIPT' ? 'Boleta: Debe empezar con "B" + 3 caracteres (ej: BE01, BL01, B001)' :
+                    datosFormulario.type === 'QUOTE' ? 'Cotización: Serie libre de 4 caracteres (ej: CT01, C001, COT1)' :
                       'Nota de Venta: Serie libre de 4 caracteres (ej: NV01, NT01, NOTA)'
               }
               required
@@ -686,7 +686,7 @@ export function SeriesConfiguration() {
               <Input
                 label="Número Inicial"
                 type="number"
-                value={formData.initialNumber}
+                value={datosFormulario.initialNumber}
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   initialNumber: parseInt(e.target.value) || 1,
@@ -700,7 +700,7 @@ export function SeriesConfiguration() {
               <Input
                 label="Número Actual"
                 type="number"
-                value={formData.currentNumber}
+                value={datosFormulario.currentNumber}
                 readOnly
               />
             </div>
@@ -710,7 +710,7 @@ export function SeriesConfiguration() {
               <div className="flex items-center justify-between">
                 <Checkbox
                   label="Serie por Defecto"
-                  checked={formData.isDefault}
+                  checked={datosFormulario.isDefault}
                   onChange={(e) => setFormData(prev => ({ ...prev, isDefault: e.target.checked }))}
                 />
                 <p className="text-sm text-gray-500">
@@ -729,12 +729,12 @@ export function SeriesConfiguration() {
                   <Button
                     variant="tertiary"
                     iconOnly
-                    icon={formData.isActive ? <ToggleRight /> : <ToggleLeft />}
+                    icon={datosFormulario.isActive ? <ToggleRight /> : <ToggleLeft />}
                     onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                    className={formData.isActive ? 'text-green-600' : 'text-gray-400'}
+                    className={datosFormulario.isActive ? 'text-green-600' : 'text-gray-400'}
                   />
-                  <span className={`font-medium ${formData.isActive ? 'text-green-600' : 'text-gray-500'}`}>
-                    {formData.isActive ? 'Activa' : 'Inactiva'}
+                  <span className={`font-medium ${datosFormulario.isActive ? 'text-green-600' : 'text-gray-500'}`}>
+                    {datosFormulario.isActive ? 'Activa' : 'Inactiva'}
                   </span>
                 </div>
               </div>
@@ -759,11 +759,11 @@ export function SeriesConfiguration() {
               </Button>
             </div>
           </form>
-        </ConfigurationCard>
+        </TarjetaConfiguracion>
       )}
 
       {/* List */}
-      <ConfigurationCard
+      <TarjetaConfiguracion
         title="Series por Establecimiento"
         description="Gestiona todas las series de tus establecimientos"
       >
@@ -790,7 +790,7 @@ export function SeriesConfiguration() {
               { value: 'ALL', label: 'Todos los establecimientos' },
               ...Establecimientos.map(est => ({
                 value: est.id,
-                label: `${est.code} - ${est.name}`
+                label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
               }))
             ]}
           />
@@ -803,11 +803,11 @@ export function SeriesConfiguration() {
               <div className="flex items-center space-x-3 pb-2 border-b border-gray-200">
                 <Building2 className="w-5 h-5 text-gray-600" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {Establecimiento.code} - {Establecimiento.name}
+                  {Establecimiento.codigoEstablecimiento} - {Establecimiento.nombreEstablecimiento}
                 </h3>
-                <StatusIndicator
-                  status={Establecimiento.isActive ? 'success' : 'error'}
-                  label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
+                <IndicadorEstado
+                  status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
+                  label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
                   size="sm"
                 />
               </div>
@@ -853,14 +853,14 @@ export function SeriesConfiguration() {
                                   {seriesItem.series}
                                 </span>
                                 {seriesItem.isDefault && (
-                                  <StatusIndicator
+                                  <IndicadorEstado
                                     status="success"
                                     label="Por defecto"
                                     size="sm"
                                   />
                                 )}
                                 {!seriesItem.isActive && (
-                                  <StatusIndicator
+                                  <IndicadorEstado
                                     status="error"
                                     label="Inactiva"
                                     size="sm"
@@ -926,7 +926,7 @@ export function SeriesConfiguration() {
 
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Estado de Uso</p>
-                            <StatusIndicator
+                            <IndicadorEstado
                               status={seriesItem.hasUsage ? 'warning' : 'pending'}
                               label={seriesItem.hasUsage ? 'En uso' : 'Sin uso'}
                               size="sm"
@@ -953,10 +953,10 @@ export function SeriesConfiguration() {
             </p>
           </div>
         )}
-      </ConfigurationCard>
+      </TarjetaConfiguracion>
 
       {/* Delete Modal */}
-      <ConfirmationModal
+      <ModalConfirmacion
         isOpen={deleteModal.show}
         onClose={() => setDeleteModal({ show: false })}
         onConfirm={() => deleteModal.series && handleDelete(deleteModal.series)}
@@ -1037,3 +1037,4 @@ export function SeriesConfiguration() {
     </div>
   );
 }
+

@@ -24,10 +24,15 @@ const ReportsHub: React.FC = () => {
   const [exportingReportId, setExportingReportId] = useState<string | null>(null);
 
   const EstablecimientoOptions = useMemo(() => {
-    const activos = configState.Establecimientos.filter((est) => est.isActive !== false);
+    const activos = configState.Establecimientos.filter(
+      (est) => est.estaActivoEstablecimiento !== false
+    );
     return [
       { value: "Todos", label: "Todos los establecimientos" },
-      ...activos.map((est) => ({ value: est.id, label: `${est.code ?? est.id} - ${est.name}` }))
+      ...activos.map((est) => ({
+        value: est.id,
+        label: `${est.codigoEstablecimiento ?? est.id} - ${est.nombreEstablecimiento}`
+      }))
     ];
   }, [configState.Establecimientos]);
 

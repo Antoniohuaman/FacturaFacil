@@ -14,11 +14,11 @@ import { Select, Input, Button } from '@/contasis';
 import type { User } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { UserCard } from './TarjetaUsuario';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
 
 type UserStatus = User['status'];
 
-type FilterStatus = UserStatus | 'ALL';
+type filtroEstado = UserStatus | 'ALL';
 type ViewMode = 'grid' | 'table';
 type SortField = 'name' | 'email' | 'status' | 'created' | 'roles';
 type SortOrder = 'asc' | 'desc';
@@ -47,7 +47,7 @@ export function UsersList({
   isLoading = false
 }: UsersListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
+  const [filtroEstado, setFilterStatus] = useState<filtroEstado>('ALL');
   const [filterEstablecimiento, setFilterEstablecimiento] = useState('ALL');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortField, setSortField] = useState<SortField>('name');
@@ -61,7 +61,7 @@ export function UsersList({
         user.personalInfo.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (user.personalInfo.documentNumber && user.personalInfo.documentNumber.includes(searchTerm));
 
-      const matchesStatus = filterStatus === 'ALL' || user.status === filterStatus;
+      const matchesStatus = filtroEstado === 'ALL' || user.status === filtroEstado;
 
       const matchesEstablecimiento = filterEstablecimiento === 'ALL' ||
         user.assignment.EstablecimientoIds.includes(filterEstablecimiento);
@@ -134,10 +134,10 @@ export function UsersList({
 
 
   const getEstablecimientoName = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.name || 'Establecimiento no encontrado';
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombreEstablecimiento || 'Establecimiento no encontrado';
   };
 
-  const handleSort = (field: SortField) => {
+  const manejarOrden = (field: SortField) => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -249,8 +249,8 @@ export function UsersList({
 
           {/* Status Filter */}
           <Select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+            value={filtroEstado}
+            onChange={(e) => setFilterStatus(e.target.value as filtroEstado)}
             size="medium"
             options={[
               { value: 'ALL', label: 'Todos los estados' },
@@ -269,7 +269,7 @@ export function UsersList({
               { value: 'ALL', label: 'Todos los establecimientos' },
               ...Establecimientos.map(est => ({
                 value: est.id,
-                label: `${est.code} - ${est.name}`
+                label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
               }))
             ]}
           />
@@ -302,7 +302,7 @@ export function UsersList({
       </div>
 
       {/* Active Filters */}
-      {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL') && (
+      {(searchTerm || filtroEstado !== 'ALL' || filterEstablecimiento !== 'ALL') && (
         <div className="flex items-center space-x-2 text-sm">
           <span className="text-gray-600">Filtros activos:</span>
           {searchTerm && (
@@ -310,9 +310,9 @@ export function UsersList({
               Búsqueda: "{searchTerm}"
             </span>
           )}
-          {filterStatus !== 'ALL' && (
+          {filtroEstado !== 'ALL' && (
             <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
-              Estado: {getStatusConfig(filterStatus).label}
+              Estado: {getStatusConfig(filtroEstado).label}
             </span>
           )}
           {filterEstablecimiento !== 'ALL' && (
@@ -365,18 +365,18 @@ export function UsersList({
         <div className="text-center py-12">
           <div className="text-6xl mb-4">👥</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL')
+            {(searchTerm || filtroEstado !== 'ALL' || filterEstablecimiento !== 'ALL')
               ? 'No se encontraron usuarios'
               : 'No hay usuarios'
             }
           </h3>
           <p className="text-gray-500 mb-6">
-            {(searchTerm || filterStatus !== 'ALL' || filterEstablecimiento !== 'ALL')
+            {(searchTerm || filtroEstado !== 'ALL' || filterEstablecimiento !== 'ALL')
               ? 'Intenta ajustar los filtros de búsqueda'
               : 'Invita a tu primer usuario para comenzar'
             }
           </p>
-          {(!searchTerm && filterStatus === 'ALL' && filterEstablecimiento === 'ALL') && (
+          {(!searchTerm && filtroEstado === 'ALL' && filterEstablecimiento === 'ALL') && (
             <Button
               onClick={onCreate}
               variant="primary"
@@ -410,25 +410,25 @@ export function UsersList({
                 <tr>
                   <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('name')}
+                    onClick={() => manejarOrden('name')}
                   >
                     Usuario {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
                   <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('email')}
+                    onClick={() => manejarOrden('email')}
                   >
                     Email {sortField === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
                   <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('status')}
+                    onClick={() => manejarOrden('status')}
                   >
                     Estado {sortField === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
                   <th
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('roles')}
+                    onClick={() => manejarOrden('roles')}
                   >
                     Roles {sortField === 'roles' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
@@ -437,7 +437,7 @@ export function UsersList({
               </thead>
               <tbody>
                 {filteredUsers.map((user) => {
-                  const statusConfig = getStatusConfig(user.status);
+                  const configEstado = getStatusConfig(user.status);
 
                   return (
                     <tr
@@ -469,9 +469,9 @@ export function UsersList({
                         )}
                       </td>
                       <td className="py-4 px-4">
-                        <StatusIndicator
-                          status={statusConfig.color}
-                          label={statusConfig.label}
+                        <IndicadorEstado
+                          status={configEstado.color}
+                          label={configEstado.label}
                           size="sm"
                         />
                       </td>
@@ -549,3 +549,5 @@ export function UsersList({
     </div>
   );
 }
+
+

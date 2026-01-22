@@ -1,4 +1,4 @@
-// DeleteCajaModal - Confirmation modal for deleting a caja with validation messages
+// Componente ModalEliminarCaja - modal de confirmación para eliminar una caja con mensajes de validación
 import { AlertTriangle, X } from 'lucide-react';
 import type { Caja } from '../../modelos/Caja';
 
@@ -9,10 +9,10 @@ interface DeleteCajaModalProps {
   onCancel: () => void;
 }
 
-export function DeleteCajaModal({ isOpen, caja, onConfirm, onCancel }: DeleteCajaModalProps) {
+export function ModalEliminarCaja({ isOpen, caja, onConfirm, onCancel }: DeleteCajaModalProps) {
   if (!isOpen || !caja) return null;
 
-  // Validation checks
+  // Validaciones previas a la eliminación
   const canDelete = !caja.habilitadaCaja && !caja.tieneHistorialMovimientos && !caja.tieneSesionAbierta;
   const isEnabled = caja.habilitadaCaja;
   const hasHistory = caja.tieneHistorialMovimientos;

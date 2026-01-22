@@ -34,7 +34,7 @@ const AvailabilityCell: React.FC<AvailabilityCellProps> = ({ row, Establecimient
   const closeTimerRef = useRef<number | null>(null);
 
   const enabledActive = useMemo(() => {
-    const active = Establecimientos.filter(est => est.isActive);
+    const active = Establecimientos.filter(est => est.estaActivoEstablecimiento !== false);
     const enabledIds = row.disponibleEnTodos ? active.map(est => est.id) : (row.establecimientoIds ?? []);
     return active.filter(est => enabledIds.includes(est.id));
   }, [Establecimientos, row.disponibleEnTodos, row.establecimientoIds]);
@@ -168,9 +168,9 @@ const AvailabilityCell: React.FC<AvailabilityCellProps> = ({ row, Establecimient
           <ul className="py-2 max-h-64 overflow-auto">
             {enabledActive.map(est => (
               <li key={est.id} className="px-3 py-1.5 text-xs text-gray-700">
-                <span className="font-mono font-semibold text-gray-900">{est.code}</span>
+                <span className="font-mono font-semibold text-gray-900">{est.codigoEstablecimiento}</span>
                 <span className="text-gray-400"> · </span>
-                <span>{est.name}</span>
+                <span>{est.nombreEstablecimiento}</span>
               </li>
             ))}
           </ul>
@@ -200,11 +200,11 @@ const AvailabilityCell: React.FC<AvailabilityCellProps> = ({ row, Establecimient
           <span
             key={est.id}
             className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-medium text-purple-800"
-            title={`${est.code} · ${est.name}`}
+            title={`${est.codigoEstablecimiento} · ${est.nombreEstablecimiento}`}
           >
-            <span className="font-mono font-semibold">{est.code}</span>
+            <span className="font-mono font-semibold">{est.codigoEstablecimiento}</span>
             <span className="text-purple-500">·</span>
-            <span className="truncate">{getEstablecimientoShortName(est.name)}</span>
+            <span className="truncate">{getEstablecimientoShortName(est.nombreEstablecimiento)}</span>
           </span>
         ))}
 

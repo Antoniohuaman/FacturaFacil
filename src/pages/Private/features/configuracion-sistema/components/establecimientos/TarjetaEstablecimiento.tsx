@@ -13,7 +13,7 @@ import {
   Building2
 } from 'lucide-react';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
 
 interface EstablecimientoCardProps {
   Establecimiento: Establecimiento;
@@ -37,13 +37,13 @@ export function EstablecimientoCard({
 
   const handleCopyCode = async () => {
     try {
-      await navigator.clipboard.writeText(Establecimiento.code);
+      await navigator.clipboard.writeText(Establecimiento.codigoEstablecimiento);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       // Fallback for browsers without clipboard API
       const textArea = document.createElement('textarea');
-      textArea.value = Establecimiento.code;
+      textArea.value = Establecimiento.codigoEstablecimiento;
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand('copy');
@@ -69,7 +69,7 @@ export function EstablecimientoCard({
   return (
     <div className={`
       bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200
-      ${!Establecimiento.isActive ? 'opacity-75 bg-gray-50' : 'hover:border-gray-300'}
+      ${!Establecimiento.estaActivoEstablecimiento ? 'opacity-75 bg-gray-50' : 'hover:border-gray-300'}
       ${compact ? 'p-4' : 'p-6'}
     `}>
       {/* Header */}
@@ -77,7 +77,7 @@ export function EstablecimientoCard({
         <div className="flex items-start space-x-3 flex-1 min-w-0">
           <div className={`
             flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
-            ${Establecimiento.isActive 
+            ${Establecimiento.estaActivoEstablecimiento 
               ? 'bg-blue-50 text-blue-600' 
               : 'bg-gray-100 text-gray-400'
             }
@@ -88,11 +88,11 @@ export function EstablecimientoCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2 mb-1">
               <h3 className="font-semibold text-gray-900 truncate">
-                {Establecimiento.name}
+                {Establecimiento.nombreEstablecimiento}
               </h3>
-              <StatusIndicator
-                status={Establecimiento.isActive ? 'success' : 'error'}
-                label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
+              <IndicadorEstado
+                status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
+                label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
                 size="xs"
               />
             </div>
@@ -103,7 +103,7 @@ export function EstablecimientoCard({
                 className="flex items-center space-x-1 text-sm font-mono text-gray-600 hover:text-blue-600 transition-colors group"
                 title="Copiar código"
               >
-                <span>{Establecimiento.code}</span>
+                <span>{Establecimiento.codigoEstablecimiento}</span>
                 {copied ? (
                   <span className="text-green-600 text-xs">✓</span>
                 ) : (
@@ -152,7 +152,7 @@ export function EstablecimientoCard({
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                   >
-                    {Establecimiento.isActive ? (
+                    {Establecimiento.estaActivoEstablecimiento ? (
                       <>
                         <ToggleLeft className="w-4 h-4" />
                         <span>Inhabilitar</span>
@@ -190,11 +190,11 @@ export function EstablecimientoCard({
           <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm text-gray-600 leading-relaxed">
-              {compact ? truncateAddress(Establecimiento.address) : Establecimiento.address}
+              {compact ? truncateAddress(Establecimiento.direccionEstablecimiento) : Establecimiento.direccionEstablecimiento}
             </p>
-            {Establecimiento.postalCode && (
+            {Establecimiento.codigoPostalEstablecimiento && (
               <p className="text-xs text-gray-500 mt-1 font-mono">
-                Código Postal: {Establecimiento.postalCode}
+                Código Postal: {Establecimiento.codigoPostalEstablecimiento}
               </p>
             )}
           </div>
@@ -205,13 +205,13 @@ export function EstablecimientoCard({
       <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
         <div className="flex items-center space-x-1">
           <Calendar className="w-3 h-3" />
-          <span>Creado {formatDate(Establecimiento.createdAt)}</span>
+          <span>Creado {formatDate(Establecimiento.creadoElEstablecimiento)}</span>
         </div>
         
-        {Establecimiento.updatedAt && Establecimiento.updatedAt !== Establecimiento.createdAt && (
+        {Establecimiento.actualizadoElEstablecimiento && Establecimiento.actualizadoElEstablecimiento !== Establecimiento.creadoElEstablecimiento && (
           <div className="flex items-center space-x-1">
             <Edit3 className="w-3 h-3" />
-            <span>Editado {formatDate(Establecimiento.updatedAt)}</span>
+            <span>Editado {formatDate(Establecimiento.actualizadoElEstablecimiento)}</span>
           </div>
         )}
       </div>
@@ -230,12 +230,12 @@ export function EstablecimientoCard({
           <button
             onClick={onToggleStatus}
             className={`flex items-center space-x-1 px-3 py-1.5 text-xs rounded-md transition-colors ${
-              Establecimiento.isActive
+              Establecimiento.estaActivoEstablecimiento
                 ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
                 : 'bg-green-50 text-green-700 hover:bg-green-100'
             }`}
           >
-            {Establecimiento.isActive ? (
+            {Establecimiento.estaActivoEstablecimiento ? (
               <>
                 <ToggleLeft className="w-3 h-3" />
                 <span>Inhabilitar</span>

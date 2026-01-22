@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, AlertCircle, Banknote, ArrowLeft } from 'lucide-react';
+import { PageHeader } from '../../../../../components/PageHeader';
 import { CajaCard } from '../components/cajas/TarjetaCaja';
 import { DeleteCajaModal } from '../components/cajas/ModalEliminarCaja';
 import { useCajas } from '../hooks/useCajas';
@@ -12,7 +13,7 @@ import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/
 import { Button, Select, Input, PageHeader } from '@/contasis';
 import type { Caja } from '../modelos/Caja';
 
-type FilterStatus = 'all' | 'enabled' | 'disabled';
+type filtroEstado = 'all' | 'enabled' | 'disabled';
 
 export function CajasConfiguration() {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ export function CajasConfiguration() {
   } = useCajas(empresaId, establecimientoId);
 
   const [searchText, setSearchText] = useState('');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filtroEstado, setFilterStatus] = useState<filtroEstado>('all');
   const [filterEstablecimientoId, setFilterEstablecimientoId] = useState<string>(establecimientoId);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [cajaToDelete, setCajaToDelete] = useState<Caja | null>(null);
@@ -55,14 +56,14 @@ export function CajasConfiguration() {
     }
 
     // Filter by status
-    if (filterStatus === 'enabled') {
+    if (filtroEstado === 'enabled') {
       result = result.filter(caja => caja.habilitadaCaja);
-    } else if (filterStatus === 'disabled') {
+    } else if (filtroEstado === 'disabled') {
       result = result.filter(caja => !caja.habilitadaCaja);
     }
 
     return result;
-  }, [cajas, filterEstablecimientoId, searchText, filterStatus]);
+  }, [cajas, filterEstablecimientoId, searchText, filtroEstado]);
 
   const handleToggleEnabled = async (id: string) => {
     try {
@@ -153,33 +154,45 @@ export function CajasConfiguration() {
   }
 
   return (
-    <>
-      <div className="flex flex-col h-full">
-        <PageHeader
-          title="Configuración de Cajas"
-          actions={
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={handleCreate}
-                variant="primary"
-                size="md"
-                icon={<Plus className="w-5 h-5" />}
-                iconPosition="left"
-              >
-                Nueva Caja
-              </Button>
-              <Button
-                variant="secondary"
-                icon={<ArrowLeft />}
-                onClick={() => navigate('/configuracion')}
-              >
-                Volver
-              </Button>
+    <div className="flex-1 bg-gray-50 dark:bg-gray-900">
+      <PageHeader
+        title="Cajas"
+        icon={<Banknote className="w-6 h-6 text-white" />}
+      />
+
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        {/* Breadcrumb */}
+        <button
+          onClick={() => navigate('/configuracion')}
+          className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver a Configuración
+        </button>
+
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                Gestión de Cajas
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {filterEstablecimientoId === 'all'
+                  ? 'Mostrando cajas de todos los establecimientos'
+                  : `Establecimiento: ${establecimientoActual?.name || 'N/A'}`}
+              </p>
             </div>
-          }
-        />
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-7xl mx-auto p-6 space-y-6">
+            <Button
+              onClick={handleCreate}
+              variant="primary"
+              size="md"
+              icon={<Plus className="w-5 h-5" />}
+              iconPosition="left"
+            >
+              Nueva Caja
+            </Button>
+          </div>
 
           {/* Filters */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -196,7 +209,7 @@ export function CajasConfiguration() {
                     { value: 'all', label: 'Todos los establecimientos' },
                     ...state.Establecimientos.map((est) => ({
                       value: est.id,
-                      label: est.name
+                      label: est.nombreEstablecimiento
                     }))
                   ]}
                 />
@@ -222,8 +235,8 @@ export function CajasConfiguration() {
                   <Select
                     id="status-filter"
                     label="Estado"
-                    value={filterStatus}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as FilterStatus)}
+                    value={filtroEstado}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as filtroEstado)}
                     size="medium"
                     containerClassName="flex-1"
                     options={[
@@ -282,14 +295,14 @@ export function CajasConfiguration() {
           <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <Banknote className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {searchText || filterStatus !== 'all' ? 'No se encontraron cajas' : 'No hay cajas configuradas'}
+              {searchText || filtroEstado !== 'all' ? 'No se encontraron cajas' : 'No hay cajas configuradas'}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-              {searchText || filterStatus !== 'all'
+              {searchText || filtroEstado !== 'all'
                 ? 'Intenta ajustar los filtros de búsqueda para encontrar lo que buscas.'
                 : 'Comienza creando tu primera caja para gestionar operaciones de efectivo en este establecimiento.'}
             </p>
-            {!searchText && filterStatus === 'all' && (
+            {!searchText && filtroEstado === 'all' && (
               <Button
                 onClick={handleCreate}
                 variant="primary"
@@ -307,7 +320,7 @@ export function CajasConfiguration() {
             {filteredCajas.map((caja) => {
               const currency = state.currencies.find((currencyItem) => currencyItem.id === caja.monedaIdCaja);
               return (
-                <CajaCard
+                <TarjetaCaja
                   key={caja.id}
                   caja={caja}
                   currency={currency}
@@ -322,7 +335,7 @@ export function CajasConfiguration() {
       </div>
 
       {/* Delete confirmation modal */}
-      <DeleteCajaModal
+      <ModalEliminarCaja
         isOpen={deleteModalOpen}
         caja={cajaToDelete}
         onConfirm={handleConfirmDelete}
@@ -335,3 +348,4 @@ export function CajasConfiguration() {
     </>
   );
 }
+

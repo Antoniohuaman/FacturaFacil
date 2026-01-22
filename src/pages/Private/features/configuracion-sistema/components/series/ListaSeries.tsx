@@ -7,10 +7,10 @@ import type { Establecimiento } from '../../modelos/Establecimiento';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 import { SeriesCard } from './TarjetaSerie';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
 
 type FilterType = VoucherType | 'ALL';
-type FilterStatus = 'all' | 'active' | 'inactive';
+type filtroEstado = 'all' | 'active' | 'inactive';
 
 interface SeriesListProps {
   series: Series[];
@@ -106,7 +106,7 @@ export function SeriesList({
 }: SeriesListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('ALL');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filtroEstado, setFilterStatus] = useState<filtroEstado>('all');
   const [filterEstablecimiento, setFilterEstablecimiento] = useState('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
@@ -117,9 +117,9 @@ export function SeriesList({
       voucherTypeConfig[s.documentType.category].label.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesType = filterType === 'ALL' || s.documentType.category === filterType;
-    const matchesStatus = filterStatus === 'all' ||
-      (filterStatus === 'active' && s.isActive) ||
-      (filterStatus === 'inactive' && !s.isActive);
+    const matchesStatus = filtroEstado === 'all' ||
+      (filtroEstado === 'active' && s.isActive) ||
+      (filtroEstado === 'inactive' && !s.isActive);
     const matchesEstablecimiento = filterEstablecimiento === 'ALL' || s.EstablecimientoId === filterEstablecimiento;
 
     return matchesSearch && matchesType && matchesStatus && matchesEstablecimiento;
@@ -132,7 +132,7 @@ export function SeriesList({
   })).filter(group => group.series.length > 0);
 
   const getEstablecimientoName = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.name || 'Desconocido';
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombreEstablecimiento || 'Desconocido';
   };
 
   const getTypeStats = () => {
@@ -229,8 +229,8 @@ export function SeriesList({
 
           {/* Status Filter */}
           <Select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+            value={filtroEstado}
+            onChange={(e) => setFilterStatus(e.target.value as filtroEstado)}
             size="medium"
             options={[
               { value: 'all', label: 'Todos los estados' },
@@ -248,7 +248,7 @@ export function SeriesList({
               { value: 'ALL', label: 'Todos los establecimientos' },
               ...Establecimientos.map(est => ({
                 value: est.id,
-                label: `${est.code} - ${est.name}`
+                label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
               }))
             ]}
           />
@@ -291,7 +291,7 @@ export function SeriesList({
       </div>
 
       {/* Active Filters */}
-      {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablecimiento !== 'ALL') && (
+      {(searchTerm || filterType !== 'ALL' || filtroEstado !== 'all' || filterEstablecimiento !== 'ALL') && (
         <div className="flex items-center space-x-2 text-sm">
           <span className="text-gray-600">Filtros activos:</span>
           {searchTerm && (
@@ -304,9 +304,9 @@ export function SeriesList({
               Tipo: {voucherTypeConfig[filterType].label}
             </span>
           )}
-          {filterStatus !== 'all' && (
+          {filtroEstado !== 'all' && (
             <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
-              Estado: {filterStatus === 'active' ? 'Activas' : 'Inactivas'}
+              Estado: {filtroEstado === 'active' ? 'Activas' : 'Inactivas'}
             </span>
           )}
           {filterEstablecimiento !== 'ALL' && (
@@ -335,18 +335,18 @@ export function SeriesList({
         <div className="text-center py-12">
           <div className="text-6xl mb-4">📄</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablecimiento !== 'ALL')
+            {(searchTerm || filterType !== 'ALL' || filtroEstado !== 'all' || filterEstablecimiento !== 'ALL')
               ? 'No se encontraron series'
               : 'No hay series configuradas'
             }
           </h3>
           <p className="text-gray-500 mb-6">
-            {(searchTerm || filterType !== 'ALL' || filterStatus !== 'all' || filterEstablecimiento !== 'ALL')
+            {(searchTerm || filterType !== 'ALL' || filtroEstado !== 'all' || filterEstablecimiento !== 'ALL')
               ? 'Intenta ajustar los filtros de búsqueda'
               : 'Crea tu primera serie para comenzar a emitir comprobantes'
             }
           </p>
-          {(!searchTerm && filterType === 'ALL' && filterStatus === 'all' && filterEstablecimiento === 'ALL') && (
+          {(!searchTerm && filterType === 'ALL' && filtroEstado === 'all' && filterEstablecimiento === 'ALL') && (
             <Button
               onClick={onCreate}
               variant="primary"
@@ -364,11 +364,11 @@ export function SeriesList({
               <div className="flex items-center space-x-3 pb-2 border-b border-gray-200">
                 <Building2 className="w-5 h-5 text-gray-600" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {Establecimiento.code} - {Establecimiento.name}
+                  {Establecimiento.codigoEstablecimiento} - {Establecimiento.nombreEstablecimiento}
                 </h3>
-                <StatusIndicator
-                  status={Establecimiento.isActive ? 'success' : 'error'}
-                  label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
+                <IndicadorEstado
+                  status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
+                  label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
                   size="sm"
                 />
                 <span className="text-sm text-gray-500">
@@ -435,7 +435,7 @@ export function SeriesList({
                         </div>
                       </td>
                       <td className="py-4 px-4 text-gray-600">
-                        {Establecimiento?.code} - {Establecimiento?.name}
+                        {Establecimiento?.codigoEstablecimiento} - {Establecimiento?.nombreEstablecimiento}
                       </td>
                       <td className="py-4 px-4">
                         <span className="font-mono text-sm">
@@ -443,7 +443,7 @@ export function SeriesList({
                         </span>
                       </td>
                       <td className="py-4 px-4">
-                        <StatusIndicator
+                        <IndicadorEstado
                           status={seriesItem.isActive ? 'success' : 'error'}
                           label={seriesItem.isActive ? 'Activa' : 'Inactiva'}
                           size="sm"

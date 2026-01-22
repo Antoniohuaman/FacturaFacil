@@ -10,7 +10,7 @@ interface DefaultSelectorProps {
   size?: 'sm' | 'md';
 }
 
-export function DefaultSelector({ 
+export function SelectorPredeterminado({ 
   isDefault, 
   onSetDefault, 
   label = 'Por defecto',

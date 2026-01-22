@@ -16,7 +16,7 @@ interface ConfirmationModalProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-export function ConfirmationModal({
+export function ModalConfirmacion({
   isOpen,
   onClose,
   onConfirm,

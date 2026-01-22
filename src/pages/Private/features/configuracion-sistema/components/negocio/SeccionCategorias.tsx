@@ -62,15 +62,15 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
   };
 
   const CategoryModal: React.FC<{ category?: Category; onClose: () => void }> = ({ category, onClose }) => {
-    const [formData, setFormData] = useState({
+    const [datosFormulario, setFormData] = useState({
       nombre: category?.nombre || '',
       descripcion: category?.descripcion || '',
       color: category?.color || '#ef4444'
     });
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const manejarEnvio = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!formData.nombre.trim()) return;
+      if (!datosFormulario.nombre.trim()) return;
 
       let updatedCategories: Category[];
 
@@ -80,9 +80,9 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
           c.id === category.id
             ? {
                 ...c,
-                nombre: formData.nombre,
-                descripcion: formData.descripcion || undefined,
-                color: formData.color
+                nombre: datosFormulario.nombre,
+                descripcion: datosFormulario.descripcion || undefined,
+                color: datosFormulario.color
               }
             : c
         );
@@ -90,9 +90,9 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
         // Create new category
         const newCategory: Category = {
           id: `cat-${Date.now()}`,
-          nombre: formData.nombre,
-          descripcion: formData.descripcion || undefined,
-          color: formData.color,
+          nombre: datosFormulario.nombre,
+          descripcion: datosFormulario.descripcion || undefined,
+          color: datosFormulario.color,
           productCount: 0,
           fechaCreacion: new Date()
         };
@@ -116,14 +116,14 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
                 {category ? 'Editar categoría' : 'Nueva categoría'}
               </h3>
             </div>
-            <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+            <form onSubmit={manejarEnvio} className="px-6 py-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Nombre <span className="text-blue-600 dark:text-blue-400 font-bold">*</span>
                 </label>
                 <Input
                   type="text"
-                  value={formData.nombre}
+                  value={datosFormulario.nombre}
                   onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
                   placeholder="Nombre de la categoría"
                   required
@@ -133,7 +133,7 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Descripción
                 </label>
-                <Textarea
+                <textarea
                   value={formData.descripcion}
                   onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
                   rows={3}
@@ -152,7 +152,7 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
                       onClick={() => setFormData(prev => ({ ...prev, color: color.value }))}
                       className={`
                         w-full h-10 rounded-md border-2 transition-all
-                        ${formData.color === color.value
+                        ${datosFormulario.color === color.value
                           ? 'border-gray-400 dark:border-gray-500 ring-2 ring-gray-300 dark:ring-gray-600'
                           : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                         }
@@ -392,3 +392,5 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
     </div>
   );
 }
+
+

@@ -8,7 +8,7 @@ import {
   Shield
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
-import { ConfirmationModal } from '../components/comunes/ModalConfirmacion';
+import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import { UsersList } from '../components/usuarios/ListaUsuarios';
 import { UserForm } from '../components/usuarios/FormularioUsuario';
 import { RolesList } from '../components/roles/ListaRoles';
@@ -472,7 +472,7 @@ export function UsersConfiguration() {
       )}
 
       {/* Delete Confirmation Modal */}
-      <ConfirmationModal
+      <ModalConfirmacion
         isOpen={deleteModal.show}
         onClose={() => setDeleteModal({ show: false })}
         onConfirm={() => deleteModal.user && handleDeleteUser(deleteModal.user)}

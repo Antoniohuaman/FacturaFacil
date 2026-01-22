@@ -7,7 +7,7 @@ import { useAccountingAccounts } from '../../hooks/useCuentasContables';
 import type { BankAccount } from '../../modelos/BankAccount';
 import { BANK_ACCOUNT_TYPES, BANK_CATALOG } from '../../modelos/BankAccount';
 import { BankAccountFormModal } from './ModalFormularioCuentaBancaria';
-import { ConfirmationModal } from '../comunes/ModalConfirmacion';
+import { ModalConfirmacion } from '../comunes/ModalConfirmacion';
 import { useToast } from '../../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 
@@ -47,7 +47,7 @@ export function BankAccountsSection() {
     setShowModal(true);
   };
 
-  const handleSubmit = async (values: Parameters<typeof createAccount>[0]) => {
+  const manejarEnvio = async (values: Parameters<typeof createAccount>[0]) => {
     try {
       if (editing) {
         await updateAccount(editing.id, values);
@@ -290,10 +290,10 @@ export function BankAccountsSection() {
           setShowModal(false);
           setEditing(null);
         }}
-        onSubmit={handleSubmit}
+        onSubmit={manejarEnvio}
       />
 
-      <ConfirmationModal
+      <ModalConfirmacion
         isOpen={Boolean(deleting)}
         onClose={() => setDeleting(null)}
         onConfirm={handleConfirmDelete}
@@ -308,3 +308,4 @@ export function BankAccountsSection() {
     </div>
   );
 }
+

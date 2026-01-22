@@ -36,7 +36,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
 
   // Establecimientos activos
   const establecimientos = useMemo(
-    () => configState.Establecimientos.filter(e => e.isActive),
+    () => configState.Establecimientos.filter(e => e.estaActivoEstablecimiento !== false),
     [configState.Establecimientos]
   );
 
@@ -95,7 +95,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
             >
               {establecimientoSeleccionado ? (
                 <option value={establecimientoSeleccionado.id}>
-                  {establecimientoSeleccionado.code} - {establecimientoSeleccionado.name}
+                  {establecimientoSeleccionado.codigoEstablecimiento} - {establecimientoSeleccionado.nombreEstablecimiento}
                 </option>
               ) : (
                 <option value={filtros.establecimientoId}>Establecimiento</option>

@@ -27,7 +27,7 @@ interface UseEstablecimientosReturn {
   getEstablecimientoSummaries: () => EstablecimientoSummary[];
   
   // Validation
-  validateEstablecimientoCode: (code: string, excludeId?: string) => Promise<boolean>;
+  validateEstablecimientoCode: (codigoEstablecimiento: string, excludeId?: string) => Promise<boolean>;
   validateEstablecimientoData: (data: CreateEstablecimientoRequest | UpdateEstablecimientoRequest) => Promise<string[]>;
   
   // Statistics
@@ -42,13 +42,13 @@ interface UseEstablecimientosReturn {
 const MOCK_EstablecimientoS: Establecimiento[] = [
   {
     id: 'est-1',
-    code: '0000',
-    name: 'Establecimiento Principal',
-    address: 'AV. PRINCIPAL 123',
-    district: 'LIMA',
-    province: 'LIMA',
-    department: 'LIMA',
-    postalCode: '15001',
+    codigoEstablecimiento: '0000',
+    nombreEstablecimiento: 'Establecimiento Principal',
+    direccionEstablecimiento: 'AV. PRINCIPAL 123',
+    distritoEstablecimiento: 'LIMA',
+    provinciaEstablecimiento: 'LIMA',
+    departamentoEstablecimiento: 'LIMA',
+    codigoPostalEstablecimiento: '15001',
     phone: '(01) 123-4567',
   email: 'principal@empresademo.com',
     isMainEstablecimiento: true,
@@ -109,20 +109,20 @@ const MOCK_EstablecimientoS: Establecimiento[] = [
         },
       ],
     },
-    status: 'ACTIVE',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date(),
-    isActive: true,
+    estadoEstablecimiento: 'ACTIVE',
+    creadoElEstablecimiento: new Date('2025-01-01'),
+    actualizadoElEstablecimiento: new Date(),
+    estaActivoEstablecimiento: true,
   },
   {
     id: 'est-2',
-    code: '0001',
-    name: 'Sucursal San Isidro',
-    address: 'AV. JAVIER PRADO 456',
-    district: 'SAN ISIDRO',
-    province: 'LIMA',
-    department: 'LIMA',
-    postalCode: '15036',
+    codigoEstablecimiento: '0001',
+    nombreEstablecimiento: 'Sucursal San Isidro',
+    direccionEstablecimiento: 'AV. JAVIER PRADO 456',
+    distritoEstablecimiento: 'SAN ISIDRO',
+    provinciaEstablecimiento: 'LIMA',
+    departamentoEstablecimiento: 'LIMA',
+    codigoPostalEstablecimiento: '15036',
     phone: '(01) 234-5678',
   email: 'sanisidro@empresademo.com',
     isMainEstablecimiento: false,
@@ -174,20 +174,20 @@ const MOCK_EstablecimientoS: Establecimiento[] = [
       defaultTaxId: 'IGV',
       bankAccounts: [],
     },
-    status: 'ACTIVE',
-    createdAt: new Date('2025-01-15'),
-    updatedAt: new Date(),
-    isActive: true,
+    estadoEstablecimiento: 'ACTIVE',
+    creadoElEstablecimiento: new Date('2025-01-15'),
+    actualizadoElEstablecimiento: new Date(),
+    estaActivoEstablecimiento: true,
   },
   {
     id: 'est-3',
-    code: '0002',
-    name: 'Almacén Central',
-    address: 'AV. INDUSTRIAL 789',
-    district: 'ATE',
-    province: 'LIMA',
-    department: 'LIMA',
-  postalCode: '15012',
+    codigoEstablecimiento: '0002',
+    nombreEstablecimiento: 'Almacén Central',
+    direccionEstablecimiento: 'AV. INDUSTRIAL 789',
+    distritoEstablecimiento: 'ATE',
+    provinciaEstablecimiento: 'LIMA',
+    departamentoEstablecimiento: 'LIMA',
+  codigoPostalEstablecimiento: '15012',
     isMainEstablecimiento: false,
     businessHours: {
       monday: { isOpen: true, openTime: '08:00', closeTime: '17:00', is24Hours: false },
@@ -213,10 +213,10 @@ const MOCK_EstablecimientoS: Establecimiento[] = [
       defaultTaxId: 'IGV',
       bankAccounts: [],
     },
-    status: 'ACTIVE',
-    createdAt: new Date('2025-01-20'),
-    updatedAt: new Date(),
-    isActive: true,
+    estadoEstablecimiento: 'ACTIVE',
+    creadoElEstablecimiento: new Date('2025-01-20'),
+    actualizadoElEstablecimiento: new Date(),
+    estaActivoEstablecimiento: true,
   },
 ];
 
@@ -258,7 +258,7 @@ export function useEstablecimientos(): UseEstablecimientosReturn {
       }
       
       // Check code uniqueness
-      const isCodeUnique = await validateEstablecimientoCode(data.code);
+      const isCodeUnique = await validateEstablecimientoCode(data.codigoEstablecimiento);
       if (!isCodeUnique) {
         throw new Error('El código del establecimiento ya existe');
       }
@@ -291,10 +291,10 @@ export function useEstablecimientos(): UseEstablecimientosReturn {
         },
         // Si es el primer establecimiento creado, márcalo como principal por defecto
         isMainEstablecimiento: Establecimientos.length === 0,
-        status: 'ACTIVE',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isActive: true,
+        estadoEstablecimiento: 'ACTIVE',
+        creadoElEstablecimiento: new Date(),
+        actualizadoElEstablecimiento: new Date(),
+        estaActivoEstablecimiento: true,
       };
       
       dispatch({ type: 'ADD_Establecimiento', payload: newEstablecimiento });
@@ -327,8 +327,8 @@ export function useEstablecimientos(): UseEstablecimientosReturn {
       }
       
       // Check code uniqueness if changed
-      if (data.code && data.code !== existingEstablecimiento.code) {
-        const isCodeUnique = await validateEstablecimientoCode(data.code, id);
+      if (data.codigoEstablecimiento && data.codigoEstablecimiento !== existingEstablecimiento.codigoEstablecimiento) {
+        const isCodeUnique = await validateEstablecimientoCode(data.codigoEstablecimiento, id);
         if (!isCodeUnique) {
           throw new Error('El código del establecimiento ya existe');
         }
@@ -353,7 +353,7 @@ export function useEstablecimientos(): UseEstablecimientosReturn {
           ...existingEstablecimiento.financialConfiguration,
           ...data.financialConfiguration
         },
-        updatedAt: new Date(),
+        actualizadoElEstablecimiento: new Date(),
       };
       
       dispatch({ type: 'UPDATE_Establecimiento', payload: updatedEstablecimiento });
@@ -414,7 +414,7 @@ export function useEstablecimientos(): UseEstablecimientosReturn {
       const updatedEstablecimientos = Establecimientos.map(est => ({
         ...est,
         isMainEstablecimiento: est.id === id,
-        updatedAt: new Date(),
+        actualizadoElEstablecimiento: new Date(),
       }));
       
       dispatch({ type: 'SET_EstablecimientoS', payload: updatedEstablecimientos });
@@ -438,35 +438,35 @@ export function useEstablecimientos(): UseEstablecimientosReturn {
     const main = Establecimientos.find(est => est.isMainEstablecimiento);
     if (main) return main;
     // Si no existe, devolver el primero activo (heurística)
-    return Establecimientos.find(est => est.isActive) || Establecimientos[0];
+    return Establecimientos.find(est => est.estaActivoEstablecimiento) || Establecimientos[0];
   }, [Establecimientos]);
 
   // Get active Establecimientos
   const getActiveEstablecimientos = useCallback((): Establecimiento[] => {
-    return Establecimientos.filter(est => est.status === 'ACTIVE' && est.isActive);
+    return Establecimientos.filter(est => est.estadoEstablecimiento === 'ACTIVE' && est.estaActivoEstablecimiento);
   }, [Establecimientos]);
 
   // Get Establecimiento summaries
   const getEstablecimientoSummaries = useCallback((): EstablecimientoSummary[] => {
     return Establecimientos.map(est => ({
       id: est.id,
-      code: est.code,
-      name: est.name,
-      address: est.address,
-      district: est.district,
-      status: est.status,
+      codigoEstablecimiento: est.codigoEstablecimiento,
+      nombreEstablecimiento: est.nombreEstablecimiento,
+      direccionEstablecimiento: est.direccionEstablecimiento,
+      distritoEstablecimiento: est.distritoEstablecimiento,
+      estadoEstablecimiento: est.estadoEstablecimiento,
       isMainEstablecimiento: est.isMainEstablecimiento,
       hasPos: est.posConfiguration?.hasPos || false,
     }));
   }, [Establecimientos]);
 
   // Validate Establecimiento code
-  const validateEstablecimientoCode = useCallback(async (code: string, excludeId?: string): Promise<boolean> => {
+  const validateEstablecimientoCode = useCallback(async (codigoEstablecimiento: string, excludeId?: string): Promise<boolean> => {
     // Simulate API validation
     await new Promise(resolve => setTimeout(resolve, 300));
     
     const exists = Establecimientos.some(est => 
-      est.code === code && est.id !== excludeId && est.isActive
+      est.codigoEstablecimiento === codigoEstablecimiento && est.id !== excludeId && est.estaActivoEstablecimiento
     );
     
     return !exists;
@@ -477,31 +477,31 @@ export function useEstablecimientos(): UseEstablecimientosReturn {
     const errors: string[] = [];
     
     // Basic validations
-    if (!data.code?.trim()) {
+    if (!data.codigoEstablecimiento?.trim()) {
       errors.push('El código es requerido');
-    } else if (!/^\d{4}$/.test(data.code)) {
+    } else if (!/^\d{4}$/.test(data.codigoEstablecimiento)) {
       errors.push('El código debe tener 4 dígitos');
     }
     
-    if (!data.name?.trim()) {
+    if (!data.nombreEstablecimiento?.trim()) {
       errors.push('El nombre es requerido');
-    } else if (data.name.length < 3) {
+    } else if (data.nombreEstablecimiento.length < 3) {
       errors.push('El nombre debe tener al menos 3 caracteres');
     }
     
-    if (!data.address?.trim()) {
+    if (!data.direccionEstablecimiento?.trim()) {
       errors.push('La dirección es requerida');
     }
     
-    if (!data.district?.trim()) {
+    if (!data.distritoEstablecimiento?.trim()) {
       errors.push('El distrito es requerido');
     }
     
-    if (!data.province?.trim()) {
+    if (!data.provinciaEstablecimiento?.trim()) {
       errors.push('La provincia es requerida');
     }
     
-    if (!data.department?.trim()) {
+    if (!data.departamentoEstablecimiento?.trim()) {
       errors.push('El departamento es requerido');
     }
     
@@ -538,7 +538,7 @@ export function useEstablecimientos(): UseEstablecimientosReturn {
     };
     
     Establecimientos.forEach(est => {
-      if (est.status === 'ACTIVE' && est.isActive) {
+      if (est.estadoEstablecimiento === 'ACTIVE' && est.estaActivoEstablecimiento) {
         stats.active++;
       } else {
         stats.inactive++;

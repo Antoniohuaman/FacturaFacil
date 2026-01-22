@@ -241,7 +241,7 @@ export const useComprobanteActions = () => {
       const clienteNombre = data.client || 'Cliente General';
       const clienteDocumento = data.clientDoc || '00000000';
       const establecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
-      const sucursalNombre = session?.currentEstablecimiento?.name;
+      const sucursalNombre = session?.currentEstablecimiento?.nombreEstablecimiento;
       const cajeroNombre = session?.userName || 'Usuario';
       const fechaEmisionIso = data.fechaEmision || getBusinessTodayISODate();
       const fechaVencimientoIso = data.creditTerms?.fechaVencimientoGlobal || data.fechaVencimiento;
@@ -517,8 +517,8 @@ export const useComprobanteActions = () => {
             numeroComprobante,
             undefined,
             EstablecimientoId,
-            Establecimiento?.code,
-            Establecimiento?.name,
+            Establecimiento?.codigoEstablecimiento,
+            Establecimiento?.nombreEstablecimiento,
             {
               almacenId: movement.almacenId,
               allowNegativeStock,
@@ -669,8 +669,8 @@ export const useComprobanteActions = () => {
           vendedorNombre: session?.userName || 'Usuario',
           vendedorId: session?.userId,
           establecimientoId: targetEstablecimientoId,
-          establecimientoNombre: Establecimiento?.name,
-          establecimientoCodigo: Establecimiento?.code,
+          establecimientoNombre: Establecimiento?.nombreEstablecimiento,
+          establecimientoCodigo: Establecimiento?.codigoEstablecimiento,
           empresaId: data.companyId || session?.currentCompanyId,
           moneda: data.currency || 'PEN',
           tipoCambio: data.currency && data.currency !== 'PEN' ? data.exchangeRate ?? 1 : 1,

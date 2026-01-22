@@ -5,9 +5,9 @@ import type { User } from '../../modelos/User';
 import type { Role } from '../../modelos/Role';
 
 interface UsuariosAutorizadosSelectorProps {
-  value: string[]; // Array of user IDs
+  value: string[]; // Arreglo de IDs de usuario
   onChange: (selectedIds: string[]) => void;
-  filterByCashPermission?: boolean; // If true, only show usuario with cash.canOpenRegister permission
+  filterByCashPermission?: boolean; // Si es true, solo muestra usuarios con permiso cash.canOpenRegister
   disabled?: boolean;
   error?: string;
 }
@@ -21,13 +21,13 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
 }) => {
   const { state } = useConfigurationContext();
 
-  // Filter users based on cash register permissions
+  // Filtra usuarios según permisos de caja
   const availableUsers = React.useMemo(() => {
     let users = state.users.filter((user: User) => user.status === 'ACTIVE');
 
     if (filterByCashPermission) {
       users = users.filter((user: User) => {
-        // Check if any of the user's roles have canOpenRegister permission
+        // Verifica si algún rol del usuario tiene el permiso canOpenRegister
         return user.systemAccess.roles.some((role: Role) =>
           role.permissions?.cash?.canOpenRegister === true
         );
@@ -139,7 +139,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
         </div>
       )}
 
-      {/* Selected count */}
+      {/* Conteo de seleccionados */}
       <div className="text-xs text-gray-600 dark:text-gray-400">
         {value.length === 0 ? (
           'Ningún usuario seleccionado'

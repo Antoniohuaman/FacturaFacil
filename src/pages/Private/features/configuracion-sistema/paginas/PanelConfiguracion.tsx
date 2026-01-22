@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
-import { StatusIndicator } from '../components/comunes/IndicadorEstado';
+import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 
 interface ConfigurationModule {
   id: string;
@@ -332,7 +332,7 @@ export function ConfigurationDashboard() {
 
                           <div className="flex items-center justify-between mt-4">
                             <div className="flex items-center space-x-4">
-                              <StatusIndicator
+                              <IndicadorEstado
                                 status={module.priority === 'high' ? 'error' : module.priority === 'medium' ? 'warning' : 'pending'}
                                 label={module.priority === 'high' ? 'Prioritario' : module.priority === 'medium' ? 'Importante' : 'Opcional'}
                                 size="sm"

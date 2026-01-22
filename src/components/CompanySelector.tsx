@@ -27,7 +27,7 @@ const CompanySelector = () => {
 
   const workspaceDisplayName = activeWorkspace?.nombreComercial || activeWorkspace?.razonSocial;
   const displayCompanyName = workspaceDisplayName || selectedCompany?.nombreComercial || selectedCompany?.razonSocial;
-  const displayEstablecimientoName = activeWorkspace?.domicilioFiscal || selectedEstablecimiento?.name || 'Sin establecimiento';
+  const displayEstablecimientoName = activeWorkspace?.domicilioFiscal || selectedEstablecimiento?.nombreEstablecimiento || 'Sin establecimiento';
 
   const handleNavigateToWorkspace = (mode: 'create_workspace' | 'edit_workspace', workspaceId?: string) => {
     navigate('/configuracion/empresa', { state: { workspaceMode: mode, workspaceId } });
@@ -127,7 +127,7 @@ const CompanySelector = () => {
                         <MapPin size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
                         <div>
                           <div className="font-medium flex items-center gap-2">
-                            {Establecimiento.name}
+                            {Establecimiento.nombreEstablecimiento}
                             {Establecimiento.isMainEstablecimiento && (
                               <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
                                 Principal
@@ -135,7 +135,7 @@ const CompanySelector = () => {
                             )}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {Establecimiento.address}, {Establecimiento.district}
+                            {Establecimiento.direccionEstablecimiento}, {Establecimiento.distritoEstablecimiento}
                           </div>
                         </div>
                       </div>

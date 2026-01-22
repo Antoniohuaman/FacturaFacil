@@ -42,7 +42,7 @@ export function AccountingAccountModal({
     return null;
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const manejarEnvio = async (event: React.FormEvent) => {
     event.preventDefault();
     const normalized = code.trim();
     const validation = validate(normalized);
@@ -86,7 +86,7 @@ export function AccountingAccountModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
+        <form onSubmit={manejarEnvio} className="space-y-4 px-5 py-4">
           <Input
             id="accounting-code"
             label="Código de cuenta contable"
@@ -123,3 +123,4 @@ export function AccountingAccountModal({
     </div>
   );
 }
+

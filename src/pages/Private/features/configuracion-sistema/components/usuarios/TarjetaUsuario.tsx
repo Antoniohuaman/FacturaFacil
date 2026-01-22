@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import { StatusIndicator } from '../comunes/IndicadorEstado';
+import { IndicadorEstado } from '../comunes/IndicadorEstado';
 
 // Type helper for user status
 type UserStatus = User['status'];
@@ -100,11 +100,11 @@ export function UserCard({
   };
 
   const getEstablecimientoName = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.name || 'Establecimiento no encontrado';
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombreEstablecimiento || 'Establecimiento no encontrado';
   };
 
   const getEstablecimientoCode = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.code || 'N/A';
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.codigoEstablecimiento || 'N/A';
   };
 
   const formatDate = (date: Date) => {
@@ -140,8 +140,8 @@ export function UserCard({
     }
   };
 
-  const statusConfig = getStatusConfig(user.status);
-  const StatusIcon = statusConfig.icon;
+  const configEstado = getStatusConfig(user.status);
+  const StatusIcon = configEstado.icon;
 
   return (
     <>
@@ -173,9 +173,9 @@ export function UserCard({
                 <h3 className="font-semibold text-gray-900 truncate">
                   {user.personalInfo.fullName}
                 </h3>
-                <StatusIndicator
-                  status={statusConfig.color}
-                  label={statusConfig.label}
+                <IndicadorEstado
+                  status={configEstado.color}
+                  label={configEstado.label}
                   size="xs"
                 />
               </div>
@@ -334,15 +334,15 @@ export function UserCard({
         )}
 
         {/* Status Information */}
-        <div className={`mb-4 p-3 border rounded-lg ${statusConfig.bgColor}`}>
+        <div className={`mb-4 p-3 border rounded-lg ${configEstado.bgColor}`}>
           <div className="flex items-center space-x-2 mb-1">
             <StatusIcon className="w-4 h-4" />
-            <span className={`font-medium ${statusConfig.textColor}`}>
-              {statusConfig.label}
+            <span className={`font-medium ${configEstado.textColor}`}>
+              {configEstado.label}
             </span>
           </div>
-          <p className={`text-sm ${statusConfig.textColor}`}>
-            {statusConfig.description}
+          <p className={`text-sm ${configEstado.textColor}`}>
+            {configEstado.description}
           </p>
           
           {/* Additional status info */}

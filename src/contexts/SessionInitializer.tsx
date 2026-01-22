@@ -16,7 +16,7 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
     // Solo proceder si hay establecimientos disponibles
     if (state.Establecimientos.length === 0) return;
 
-    const activeEstablecimientos = state.Establecimientos.filter(est => est.isActive);
+    const activeEstablecimientos = state.Establecimientos.filter(est => est.estaActivoEstablecimiento);
     if (activeEstablecimientos.length === 0) return;
 
     // Si no hay sesión activa y no hemos inicializado, crear una sesión inicial

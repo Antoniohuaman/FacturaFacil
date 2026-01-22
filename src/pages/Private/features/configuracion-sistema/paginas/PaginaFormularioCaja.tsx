@@ -1,8 +1,8 @@
 // CajaFormPage - Create or Edit a caja
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { PageHeader, Button } from '@/contasis';
+import { ArrowLeft, Banknote } from 'lucide-react';
+import { PageHeader } from '../../../../../components/PageHeader';
 import { CajaForm } from '../components/cajas/FormularioCaja';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
@@ -41,7 +41,7 @@ export function CajaFormPage() {
     }
   }, [isEditing, loading, currentCaja, navigate]);
 
-  const handleSubmit = async (data: CreateCajaInput | UpdateCajaInput) => {
+  const manejarEnvio = async (data: CreateCajaInput | UpdateCajaInput) => {
     setSubmitError(null);
 
     try {
@@ -130,7 +130,7 @@ export function CajaFormPage() {
             </p>
           </div>
 
-          <CajaForm
+          <FormularioCaja
             initialData={currentCaja ? {
               id: currentCaja.id,
               establecimientoIdCaja: currentCaja.establecimientoIdCaja,
@@ -147,7 +147,7 @@ export function CajaFormPage() {
             currencies={state.currencies}
             Establecimientos={state.Establecimientos}
             defaultEstablecimientoId={establecimientoId}
-            onSubmit={handleSubmit}
+            onSubmit={manejarEnvio}
             onCancel={handleCancel}
             isEditing={isEditing}
           />
@@ -160,3 +160,4 @@ export function CajaFormPage() {
     </div>
   );
 }
+

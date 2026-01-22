@@ -44,7 +44,7 @@ export function CredentialsModal({ isOpen, onClose, credentials, user, Estableci
 
   const handleCopyAll = async () => {
     const rolesText = userRoles.map(r => `  - ${r.name}`).join('\n');
-    const EstablecimientosText = userEstablecimientos.map(e => `  - ${e.name}`).join('\n');
+    const EstablecimientosText = userEstablecimientos.map(e => `  - ${e.nombreEstablecimiento}`).join('\n');
 
     const allCredentials = `
 ═══════════════════════════════════════
@@ -77,7 +77,7 @@ ${EstablecimientosText || '  - Ninguno'}
 
   const handleSendWhatsApp = () => {
     const rolesText = userRoles.map(r => `  - ${r.name}`).join('\n');
-    const EstablecimientosText = userEstablecimientos.map(e => `  - ${e.name}`).join('\n');
+    const EstablecimientosText = userEstablecimientos.map(e => `  - ${e.nombreEstablecimiento}`).join('\n');
 
     const message = `
 ═══════════════════════════════════════
@@ -247,8 +247,8 @@ ${EstablecimientosText || '  - Ninguno'}
                       key={Establecimiento.id}
                       className="bg-white border border-indigo-200 rounded px-2 py-1.5"
                     >
-                      <div className="text-xs font-medium text-indigo-900">{Establecimiento.name}</div>
-                      <div className="text-[10px] text-indigo-600 line-clamp-1">{Establecimiento.address}</div>
+                      <div className="text-xs font-medium text-indigo-900">{Establecimiento.nombreEstablecimiento}</div>
+                      <div className="text-[10px] text-indigo-600 line-clamp-1">{Establecimiento.direccionEstablecimiento}</div>
                     </div>
                   ))}
                 </div>

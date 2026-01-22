@@ -22,18 +22,18 @@ import {
 import { PageHeader, Button, Select, Input } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 // import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
-import { StatusIndicator } from '../components/comunes/IndicadorEstado';
+import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { ubigeoData } from '../datos/ubigeo';
 
 interface EstablecimientoFormData {
-  code: string;
-  name: string;
-  address: string;
-  district: string;
-  province: string;
-  department: string;
-  postalCode: string;
+  codigoEstablecimiento: string;
+  nombreEstablecimiento: string;
+  direccionEstablecimiento: string;
+  distritoEstablecimiento: string;
+  provinciaEstablecimiento: string;
+  departamentoEstablecimiento: string;
+  codigoPostalEstablecimiento: string;
   phone: string;
   email: string;
 }
@@ -56,7 +56,7 @@ export function EstablecimientosConfiguration() {
   const { Establecimientos } = state;
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filtroEstado, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingEstablecimientoId, setEditingEstablecimientoId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -67,30 +67,30 @@ export function EstablecimientosConfiguration() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const [formData, setFormData] = useState<EstablecimientoFormData>({
-    code: '',
-    name: '',
-    address: '',
-    district: '',
-    province: '',
-    department: '',
-    postalCode: '',
+  const [datosFormulario, setFormData] = useState<EstablecimientoFormData>({
+    codigoEstablecimiento: '',
+    nombreEstablecimiento: '',
+    direccionEstablecimiento: '',
+    distritoEstablecimiento: '',
+    provinciaEstablecimiento: '',
+    departamentoEstablecimiento: '',
+    codigoPostalEstablecimiento: '',
     phone: '',
     email: ''
   });
 
   // Ubigeo cascading logic
   const selectedDepartment = useMemo(() => {
-    return ubigeoData.find(dept => dept.name === formData.department);
-  }, [formData.department]);
+    return ubigeoData.find(dept => dept.name === datosFormulario.departamentoEstablecimiento);
+  }, [datosFormulario.departamentoEstablecimiento]);
 
   const availableProvinces = useMemo(() => {
     return selectedDepartment?.provinces || [];
   }, [selectedDepartment]);
 
   const selectedProvince = useMemo(() => {
-    return availableProvinces.find(prov => prov.name === formData.province);
-  }, [availableProvinces, formData.province]);
+    return availableProvinces.find(prov => prov.name === datosFormulario.provinciaEstablecimiento);
+  }, [availableProvinces, datosFormulario.provinciaEstablecimiento]);
 
   const availableDistricts = useMemo(() => {
     return selectedProvince?.districts || [];
@@ -98,13 +98,13 @@ export function EstablecimientosConfiguration() {
 
   // Filter Establecimientos
   const filteredEstablecimientos = Establecimientos.filter(est => {
-    const matchesSearch = est.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      est.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      est.address.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = est.nombreEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      est.codigoEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      est.direccionEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = filterStatus === 'all' ||
-      (filterStatus === 'active' && est.isActive) ||
-      (filterStatus === 'inactive' && !est.isActive);
+    const matchesStatus = filtroEstado === 'all' ||
+      (filtroEstado === 'active' && est.estaActivoEstablecimiento) ||
+      (filtroEstado === 'inactive' && !est.estaActivoEstablecimiento);
 
     return matchesSearch && matchesStatus;
   });
@@ -130,7 +130,7 @@ export function EstablecimientosConfiguration() {
     // Extract numeric codes only
     const numericCodes = Establecimientos
       .map(e => {
-        const match = e.code.match(/\d+/);
+        const match = e.codigoEstablecimiento.match(/\d+/);
         return match ? parseInt(match[0]) : 0;
       })
       .filter(n => n > 0);
@@ -143,41 +143,41 @@ export function EstablecimientosConfiguration() {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.code.trim()) {
-      errors.code = 'El código es obligatorio';
-    } else if (formData.code.length > 4) {
-      errors.code = 'El código no puede tener más de 4 caracteres';
+    if (!datosFormulario.codigoEstablecimiento.trim()) {
+      errors.codigoEstablecimiento = 'El código es obligatorio';
+    } else if (datosFormulario.codigoEstablecimiento.length > 4) {
+      errors.codigoEstablecimiento = 'El código no puede tener más de 4 caracteres';
     } else {
       // Check for duplicate code
       const isDuplicate = Establecimientos.some(
-        est => est.code === formData.code && est.id !== editingEstablecimientoId
+        est => est.codigoEstablecimiento === datosFormulario.codigoEstablecimiento && est.id !== editingEstablecimientoId
       );
       if (isDuplicate) {
-        errors.code = 'Ya existe un establecimiento con este código';
+        errors.codigoEstablecimiento = 'Ya existe un establecimiento con este código';
       }
     }
 
-    if (!formData.name.trim()) {
-      errors.name = 'El nombre es obligatorio';
+    if (!datosFormulario.nombreEstablecimiento.trim()) {
+      errors.nombreEstablecimiento = 'El nombre es obligatorio';
     }
 
-    if (!formData.address.trim()) {
-      errors.address = 'La dirección es obligatoria';
+    if (!datosFormulario.direccionEstablecimiento.trim()) {
+      errors.direccionEstablecimiento = 'La dirección es obligatoria';
     }
 
-    if (!formData.district.trim()) {
-      errors.district = 'El distrito es obligatorio';
+    if (!datosFormulario.distritoEstablecimiento.trim()) {
+      errors.distritoEstablecimiento = 'El distrito es obligatorio';
     }
 
-    if (!formData.province.trim()) {
-      errors.province = 'La provincia es obligatoria';
+    if (!datosFormulario.provinciaEstablecimiento.trim()) {
+      errors.provinciaEstablecimiento = 'La provincia es obligatoria';
     }
 
-    if (!formData.department.trim()) {
-      errors.department = 'El departamento es obligatorio';
+    if (!datosFormulario.departamentoEstablecimiento.trim()) {
+      errors.departamentoEstablecimiento = 'El departamento es obligatorio';
     }
 
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (datosFormulario.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datosFormulario.email)) {
       errors.email = 'El email no es válido';
     }
 
@@ -187,13 +187,13 @@ export function EstablecimientosConfiguration() {
 
   const handleNew = () => {
     setFormData({
-      code: generateNextCode(),
-      name: '',
-      address: '',
-      district: '',
-      province: '',
-      department: '',
-      postalCode: '',
+      codigoEstablecimiento: generateNextCode(),
+      nombreEstablecimiento: '',
+      direccionEstablecimiento: '',
+      distritoEstablecimiento: '',
+      provinciaEstablecimiento: '',
+      departamentoEstablecimiento: '',
+      codigoPostalEstablecimiento: '',
       phone: '',
       email: ''
     });
@@ -204,13 +204,13 @@ export function EstablecimientosConfiguration() {
 
   const handleEdit = (Establecimiento: Establecimiento) => {
     setFormData({
-      code: Establecimiento.code,
-      name: Establecimiento.name,
-      address: Establecimiento.address,
-      district: Establecimiento.district,
-      province: Establecimiento.province,
-      department: Establecimiento.department,
-      postalCode: Establecimiento.postalCode || '',
+      codigoEstablecimiento: Establecimiento.codigoEstablecimiento,
+      nombreEstablecimiento: Establecimiento.nombreEstablecimiento,
+      direccionEstablecimiento: Establecimiento.direccionEstablecimiento,
+      distritoEstablecimiento: Establecimiento.distritoEstablecimiento,
+      provinciaEstablecimiento: Establecimiento.provinciaEstablecimiento,
+      departamentoEstablecimiento: Establecimiento.departamentoEstablecimiento,
+      codigoPostalEstablecimiento: Establecimiento.codigoPostalEstablecimiento || '',
       phone: Establecimiento.phone || '',
       email: Establecimiento.email || ''
     });
@@ -219,7 +219,7 @@ export function EstablecimientosConfiguration() {
     setShowForm(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const manejarEnvio = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -236,8 +236,8 @@ export function EstablecimientosConfiguration() {
           est.id === editingEstablecimientoId
             ? {
               ...est,
-              ...formData,
-              updatedAt: new Date()
+              ...datosFormulario,
+              actualizadoElEstablecimiento: new Date()
             }
             : est
         );
@@ -246,7 +246,7 @@ export function EstablecimientosConfiguration() {
         // Create new - with unique ID
         const newEstablecimiento: Establecimiento = {
           id: generateUniqueId(),
-          ...formData,
+          ...datosFormulario,
           coordinates: undefined,
           businessHours: {},
           sunatConfiguration: {
@@ -266,11 +266,11 @@ export function EstablecimientosConfiguration() {
             defaultTaxId: '',
             bankAccounts: []
           },
-          status: 'ACTIVE',
-          isActive: true,
+          estadoEstablecimiento: 'ACTIVE',
+          estaActivoEstablecimiento: true,
           isMainEstablecimiento: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          creadoElEstablecimiento: new Date(),
+          actualizadoElEstablecimiento: new Date()
         };
 
         updatedEstablecimientos = [...Establecimientos, newEstablecimiento];
@@ -287,13 +287,13 @@ export function EstablecimientosConfiguration() {
 
   const handleCancel = () => {
     setFormData({
-      code: '',
-      name: '',
-      address: '',
-      district: '',
-      province: '',
-      department: '',
-      postalCode: '',
+      codigoEstablecimiento: '',
+      nombreEstablecimiento: '',
+      direccionEstablecimiento: '',
+      distritoEstablecimiento: '',
+      provinciaEstablecimiento: '',
+      departamentoEstablecimiento: '',
+      codigoPostalEstablecimiento: '',
       phone: '',
       email: ''
     });
@@ -306,7 +306,7 @@ export function EstablecimientosConfiguration() {
     setDeleteConfirmation({
       isOpen: true,
       EstablecimientoId: Establecimiento.id,
-      EstablecimientoName: Establecimiento.name
+      EstablecimientoName: Establecimiento.nombreEstablecimiento
     });
   };
 
@@ -332,11 +332,15 @@ export function EstablecimientosConfiguration() {
     try {
       const updatedEstablecimientos = Establecimientos.map(est =>
         est.id === id
-          ? { ...est, isActive: !est.isActive, updatedAt: new Date() }
+          ? {
+            ...est,
+            estaActivoEstablecimiento: !est.estaActivoEstablecimiento,
+            actualizadoElEstablecimiento: new Date()
+          }
           : est
       );
       dispatch({ type: 'SET_EstablecimientoS', payload: updatedEstablecimientos });
-      showToast('success', Establecimiento?.isActive ? 'Establecimiento desactivado' : 'Establecimiento activado');
+      showToast('success', Establecimiento?.estaActivoEstablecimiento ? 'Establecimiento desactivado' : 'Establecimiento activado');
     } catch (error) {
       console.error('Error toggling status:', error);
       showToast('error', 'Error al cambiar el estado del establecimiento');
@@ -386,12 +390,12 @@ export function EstablecimientosConfiguration() {
           </div>
           <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
             <Building className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-blue-900">Código: {formData.code}</span>
+            <span className="text-sm font-medium text-blue-900">Código: {datosFormulario.codigoEstablecimiento}</span>
           </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={manejarEnvio} className="space-y-6">
           {/* Sección 1: Identificación */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
@@ -410,12 +414,12 @@ export function EstablecimientosConfiguration() {
                 <Input
                   label="Código"
                   type="text"
-                  value={formData.code}
+                  value={datosFormulario.codigoEstablecimiento}
                   onChange={(e) => {
-                    setFormData(prev => ({ ...prev, code: e.target.value }));
-                    if (formErrors.code) setFormErrors(prev => ({ ...prev, code: '' }));
+                    setFormData(prev => ({ ...prev, codigoEstablecimiento: e.target.value }));
+                    if (formErrors.codigoEstablecimiento) setFormErrors(prev => ({ ...prev, codigoEstablecimiento: '' }));
                   }}
-                  error={formErrors.code}
+                  error={formErrors.codigoEstablecimiento}
                   placeholder="Ej: 0001"
                   leftIcon={<Hash />}
                   required
@@ -425,12 +429,12 @@ export function EstablecimientosConfiguration() {
                 <Input
                   label="Nombre del Establecimiento"
                   type="text"
-                  value={formData.name}
+                  value={datosFormulario.nombreEstablecimiento}
                   onChange={(e) => {
-                    setFormData(prev => ({ ...prev, name: e.target.value }));
-                    if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                    setFormData(prev => ({ ...prev, nombreEstablecimiento: e.target.value }));
+                    if (formErrors.nombreEstablecimiento) setFormErrors(prev => ({ ...prev, nombreEstablecimiento: '' }));
                   }}
-                  error={formErrors.name}
+                  error={formErrors.nombreEstablecimiento}
                   placeholder="Ej: Sede Central, Sucursal Norte..."
                   leftIcon={<FileText />}
                   required
@@ -456,12 +460,12 @@ export function EstablecimientosConfiguration() {
               <Input
                 label="Dirección"
                 type="text"
-                value={formData.address}
+                value={datosFormulario.direccionEstablecimiento}
                 onChange={(e) => {
-                  setFormData(prev => ({ ...prev, address: e.target.value }));
-                  if (formErrors.address) setFormErrors(prev => ({ ...prev, address: '' }));
+                  setFormData(prev => ({ ...prev, direccionEstablecimiento: e.target.value }));
+                  if (formErrors.direccionEstablecimiento) setFormErrors(prev => ({ ...prev, direccionEstablecimiento: '' }));
                 }}
-                error={formErrors.address}
+                error={formErrors.direccionEstablecimiento}
                 placeholder="Ej: Av. Los Pinos 123, Urbanización..."
                 leftIcon={<Navigation />}
                 required
@@ -471,16 +475,16 @@ export function EstablecimientosConfiguration() {
                 <div className="group">
                   <Select
                     label="Departamento"
-                    value={formData.department}
+                    value={datosFormulario.departamentoEstablecimiento}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const value = e.target.value;
                       setFormData(prev => ({
                         ...prev,
-                        department: value,
-                        province: '',
-                        district: ''
+                        departamentoEstablecimiento: value,
+                        provinciaEstablecimiento: '',
+                        distritoEstablecimiento: ''
                       }));
-                      if (formErrors.department) setFormErrors(prev => ({ ...prev, department: '' }));
+                      if (formErrors.departamentoEstablecimiento) setFormErrors(prev => ({ ...prev, departamentoEstablecimiento: '' }));
                     }}
                     options={[
                       { value: '', label: 'Seleccionar...' },
@@ -490,7 +494,7 @@ export function EstablecimientosConfiguration() {
                       }))
                     ]}
                     placeholder="Seleccionar..."
-                    error={formErrors.department}
+                    error={formErrors.departamentoEstablecimiento}
                     required
                   />
                 </div>
@@ -498,26 +502,26 @@ export function EstablecimientosConfiguration() {
                 <div className="group">
                   <Select
                     label="Provincia"
-                    value={formData.province}
+                    value={datosFormulario.provinciaEstablecimiento}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const value = e.target.value;
                       setFormData(prev => ({
                         ...prev,
-                        province: value,
-                        district: ''
+                        provinciaEstablecimiento: value,
+                        distritoEstablecimiento: ''
                       }));
-                      if (formErrors.province) setFormErrors(prev => ({ ...prev, province: '' }));
+                      if (formErrors.provinciaEstablecimiento) setFormErrors(prev => ({ ...prev, provinciaEstablecimiento: '' }));
                     }}
                     options={[
-                      { value: '', label: formData.department ? 'Seleccionar...' : 'Selecciona departamento primero' },
+                      { value: '', label: datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero' },
                       ...availableProvinces.map(prov => ({
                         value: prov.name,
                         label: prov.name
                       }))
                     ]}
-                    placeholder={formData.department ? 'Seleccionar...' : 'Selecciona departamento primero'}
-                    disabled={!formData.department}
-                    error={formErrors.province}
+                    placeholder={datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero'}
+                    disabled={!datosFormulario.departamentoEstablecimiento}
+                    error={formErrors.provinciaEstablecimiento}
                     required
                   />
                 </div>
@@ -525,22 +529,22 @@ export function EstablecimientosConfiguration() {
                 <div className="group">
                   <Select
                     label="Distrito"
-                    value={formData.district}
+                    value={datosFormulario.distritoEstablecimiento}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const value = e.target.value;
-                      setFormData(prev => ({ ...prev, district: value }));
-                      if (formErrors.district) setFormErrors(prev => ({ ...prev, district: '' }));
+                      setFormData(prev => ({ ...prev, distritoEstablecimiento: value }));
+                      if (formErrors.distritoEstablecimiento) setFormErrors(prev => ({ ...prev, distritoEstablecimiento: '' }));
                     }}
                     options={[
-                      { value: '', label: formData.province ? 'Seleccionar...' : 'Selecciona provincia primero' },
+                      { value: '', label: datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero' },
                       ...availableDistricts.map(dist => ({
                         value: dist.name,
                         label: dist.name
                       }))
                     ]}
-                    placeholder={formData.province ? 'Seleccionar...' : 'Selecciona provincia primero'}
-                    disabled={!formData.province}
-                    error={formErrors.district}
+                    placeholder={datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero'}
+                    disabled={!datosFormulario.provinciaEstablecimiento}
+                    error={formErrors.distritoEstablecimiento}
                     required
                   />
                 </div>
@@ -549,8 +553,8 @@ export function EstablecimientosConfiguration() {
               <Input
                 label="Código Postal"
                 type="text"
-                value={formData.postalCode}
-                onChange={(e) => setFormData(prev => ({ ...prev, postalCode: e.target.value }))}
+                value={datosFormulario.codigoPostalEstablecimiento}
+                onChange={(e) => setFormData(prev => ({ ...prev, codigoPostalEstablecimiento: e.target.value }))}
                 placeholder="Ej: 15001"
                 leftIcon={<Hash />}
                 helperText="Opcional"
@@ -576,7 +580,7 @@ export function EstablecimientosConfiguration() {
                 <Input
                   label="Teléfono"
                   type="tel"
-                  value={formData.phone}
+                  value={datosFormulario.phone}
                   onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                   placeholder="Ej: +51 999 999 999"
                   leftIcon={<Phone />}
@@ -586,7 +590,7 @@ export function EstablecimientosConfiguration() {
                 <Input
                   label="Correo Electrónico"
                   type="email"
-                  value={formData.email}
+                  value={datosFormulario.email}
                   onChange={(e) => {
                     setFormData(prev => ({ ...prev, email: e.target.value }));
                     if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
@@ -719,7 +723,7 @@ export function EstablecimientosConfiguration() {
             <div>
               <p className="text-sm font-medium text-gray-500">Activos</p>
               <p className="text-2xl font-bold text-gray-900">
-                {Establecimientos.filter(e => e.isActive).length}
+                {Establecimientos.filter(e => e.estaActivoEstablecimiento).length}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
@@ -733,7 +737,7 @@ export function EstablecimientosConfiguration() {
             <div>
               <p className="text-sm font-medium text-gray-500">Inactivos</p>
               <p className="text-2xl font-bold text-gray-900">
-                {Establecimientos.filter(e => !e.isActive).length}
+                {Establecimientos.filter(e => !e.estaActivoEstablecimiento).length}
               </p>
             </div>
             <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
@@ -755,7 +759,7 @@ export function EstablecimientosConfiguration() {
           />
 
           <Select
-            value={filterStatus}
+            value={filtroEstado}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as any)}
             size="medium"
             options={[
@@ -783,18 +787,18 @@ export function EstablecimientosConfiguration() {
           <div className="text-center py-12">
             <Building className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm || filterStatus !== 'all'
+              {searchTerm || filtroEstado !== 'all'
                 ? 'No se encontraron establecimientos'
                 : 'No hay establecimientos registrados'
               }
             </h3>
             <p className="text-gray-500 mb-6">
-              {searchTerm || filterStatus !== 'all'
+              {searchTerm || filtroEstado !== 'all'
                 ? 'Intenta cambiar los filtros de búsqueda'
                 : 'Comienza registrando tu primer establecimiento'
               }
             </p>
-            {(!searchTerm && filterStatus === 'all') && (
+            {(!searchTerm && filtroEstado === 'all') && (
               <button
                 onClick={handleNew}
                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -816,24 +820,24 @@ export function EstablecimientosConfiguration() {
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-3">
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {Establecimiento.name}
+                        {Establecimiento.nombreEstablecimiento}
                       </h3>
                       <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        {Establecimiento.code}
+                        {Establecimiento.codigoEstablecimiento}
                       </span>
-                      <StatusIndicator
-                        status={Establecimiento.isActive ? 'success' : 'error'}
-                        label={Establecimiento.isActive ? 'Activo' : 'Inactivo'}
+                      <IndicadorEstado
+                        status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
+                        label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
                       />
                     </div>
 
                     <p className="text-gray-600 mb-2">
-                      {Establecimiento.address}
+                      {Establecimiento.direccionEstablecimiento}
                     </p>
 
                     <div className="flex items-center space-x-6 text-sm text-gray-500">
-                      <span>{Establecimiento.district}, {Establecimiento.province}</span>
-                      <span>{Establecimiento.department}</span>
+                      <span>{Establecimiento.distritoEstablecimiento}, {Establecimiento.provinciaEstablecimiento}</span>
+                      <span>{Establecimiento.departamentoEstablecimiento}</span>
                     </div>
                   </div>
 
@@ -848,11 +852,11 @@ export function EstablecimientosConfiguration() {
 
                     <button
                       onClick={() => handleToggleStatus(Establecimiento.id)}
-                      className={`p-2 rounded-lg transition-colors ${Establecimiento.isActive
+                      className={`p-2 rounded-lg transition-colors ${Establecimiento.estaActivoEstablecimiento
                         ? 'text-red-400 hover:text-red-600 hover:bg-red-50'
                         : 'text-green-400 hover:text-green-600 hover:bg-green-50'
                         }`}
-                      title={Establecimiento.isActive ? 'Desactivar' : 'Activar'}
+                      title={Establecimiento.estaActivoEstablecimiento ? 'Desactivar' : 'Activar'}
                     >
                       <MapPin className="w-4 h-4" />
                     </button>
@@ -876,3 +880,6 @@ export function EstablecimientosConfiguration() {
     </div>
   );
 }
+
+
+

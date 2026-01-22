@@ -45,7 +45,8 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
   const descriptionMaxLength = productFields.descripcion?.maxLength ?? 30;
 
   const EstablecimientoNameFromData = (data as unknown as { EstablecimientoName?: string }).EstablecimientoName;
-  const rawEstablecimientoName = EstablecimientoNameFromData || currentEstablecimiento?.name || '';
+  const rawEstablecimientoName =
+    EstablecimientoNameFromData || currentEstablecimiento?.nombreEstablecimiento || '';
   const EstablecimientoName = rawEstablecimientoName.trim();
   const shouldShowEstablecimiento = Boolean(config.documentFields.establecimiento.visible && EstablecimientoName);
 

@@ -89,7 +89,7 @@ export function UserForm({
   onCancel,
   isLoading = false
 }: UserFormProps) {
-  const [formData, setFormData] = useState<UserFormData>({
+  const [datosFormulario, setFormData] = useState<UserFormData>({
     fullName: '',
     email: '',
     phone: '',
@@ -158,18 +158,18 @@ export function UserForm({
         break;
 
       case 'documentNumber':
-        if (formData.documentType && value) {
-          const docType = documentTypes.find(dt => dt.value === formData.documentType);
+        if (datosFormulario.documentType && value) {
+          const docType = documentTypes.find(dt => dt.value === datosFormulario.documentType);
           if (docType) {
-            if (formData.documentType === 'DNI') {
+            if (datosFormulario.documentType === 'DNI') {
               if (!/^\d{8}$/.test(value)) {
                 return 'El DNI debe tener 8 dígitos';
               }
-            } else if (formData.documentType === 'CE') {
+            } else if (datosFormulario.documentType === 'CE') {
               if (!/^\d{9}$/.test(value)) {
                 return 'El CE debe tener 9 dígitos';
               }
-            } else if (formData.documentType === 'PASSPORT') {
+            } else if (datosFormulario.documentType === 'PASSPORT') {
               if (value.length < 6 || value.length > 12) {
                 return 'El pasaporte debe tener entre 6 y 12 caracteres';
               }
@@ -217,7 +217,7 @@ export function UserForm({
 
   const handleBlur = (field: string) => {
     setTouchedFields(prev => new Set(prev).add(field));
-    const error = validateField(field, formData[field as keyof UserFormData]);
+    const error = validateField(field, datosFormulario[field as keyof UserFormData]);
     setErrors(prev => ({
       ...prev,
       [field]: error || ''
@@ -231,15 +231,15 @@ export function UserForm({
 
     // Check required fields
     for (const field of requiredFields) {
-      const error = validateField(field, formData[field as keyof UserFormData]);
+      const error = validateField(field, datosFormulario[field as keyof UserFormData]);
       if (error) return false;
     }
 
     // Check optional fields if they have values
     const optionalFields = ['phone', 'documentNumber'];
     for (const field of optionalFields) {
-      if (formData[field as keyof UserFormData]) {
-        const error = validateField(field, formData[field as keyof UserFormData]);
+      if (datosFormulario[field as keyof UserFormData]) {
+        const error = validateField(field, datosFormulario[field as keyof UserFormData]);
         if (error) return false;
       }
     }
@@ -247,7 +247,7 @@ export function UserForm({
     return true;
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate all fields
@@ -257,7 +257,7 @@ export function UserForm({
       : ['fullName', 'email', 'phone', 'documentNumber', 'EstablecimientoIds', 'password'];
 
     fieldsToValidate.forEach(field => {
-      const error = validateField(field, formData[field as keyof UserFormData]);
+      const error = validateField(field, datosFormulario[field as keyof UserFormData]);
       if (error) newErrors[field] = error;
     });
 
@@ -268,15 +268,15 @@ export function UserForm({
       return;
     }
 
-    await onSubmit(formData);
+    await onSubmit(datosFormulario);
   }
 
   const getDocumentTypeConfig = () => {
-    return documentTypes.find(dt => dt.value === formData.documentType);
+    return documentTypes.find(dt => dt.value === datosFormulario.documentType);
   }
 
   const handleEstablecimientoToggle = (EstablecimientoId: string) => {
-    const currentIds = formData.EstablecimientoIds;
+    const currentIds = datosFormulario.EstablecimientoIds;
     const newIds = currentIds.includes(EstablecimientoId)
       ? currentIds.filter(id => id !== EstablecimientoId)
       : [...currentIds, EstablecimientoId];
@@ -292,7 +292,7 @@ export function UserForm({
 
   const handleCopyPassword = async () => {
     try {
-      await navigator.clipboard.writeText(formData.password);
+      await navigator.clipboard.writeText(datosFormulario.password);
       setPasswordCopied(true);
       setTimeout(() => setPasswordCopied(false), 2000);
     } catch (err) {
@@ -300,7 +300,7 @@ export function UserForm({
     }
   }
 
-  const passwordStrength = calculatePasswordStrength(formData.password);
+  const passwordStrength = calculatePasswordStrength(datosFormulario.password);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -332,7 +332,7 @@ export function UserForm({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={manejarEnvio} className="p-6 space-y-6">
           {/* Personal Information */}
           <div className="space-y-4">
             <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
@@ -344,7 +344,7 @@ export function UserForm({
             <Input
               label="Nombre Completo"
               type="text"
-              value={formData.fullName}
+              value={datosFormulario.fullName}
               onChange={(e) => handleFieldChange('fullName', e.target.value)}
               onBlur={() => handleBlur('fullName')}
               error={errors.fullName && touchedFields.has('fullName') ? errors.fullName : undefined}
@@ -357,7 +357,7 @@ export function UserForm({
             <Input
               label="Correo Electrónico"
               type="email"
-              value={formData.email}
+              value={datosFormulario.email}
               onChange={(e) => handleFieldChange('email', e.target.value.toLowerCase())}
               onBlur={() => handleBlur('email')}
               error={errors.email && touchedFields.has('email') ? errors.email : undefined}
@@ -371,7 +371,7 @@ export function UserForm({
             <Input
               label="Teléfono"
               type="tel"
-              value={formData.phone}
+              value={datosFormulario.phone}
               onChange={(e) => handleFieldChange('phone', e.target.value)}
               onBlur={() => handleBlur('phone')}
               error={errors.phone && touchedFields.has('phone') ? errors.phone : undefined}
@@ -393,7 +393,7 @@ export function UserForm({
               {/* Document Type */}
               <Select
                 label="Tipo de Documento"
-                value={formData.documentType}
+                value={datosFormulario.documentType}
                 onChange={(e) => handleFieldChange('documentType', e.target.value)}
                 options={[
                   { value: '', label: 'Seleccionar tipo' },
@@ -409,20 +409,20 @@ export function UserForm({
               <Input
                 label="Número de Documento"
                 type="text"
-                value={formData.documentNumber}
+                value={datosFormulario.documentNumber}
                 onChange={(e) => {
                   let value = e.target.value;
 
                   // Format based on document type
-                  if (formData.documentType === 'DNI') {
+                  if (datosFormulario.documentType === 'DNI') {
                     value = value.replace(/\D/g, '').slice(0, 8);
-                  } else if (formData.documentType === 'CE') {
+                  } else if (datosFormulario.documentType === 'CE') {
                     value = value.replace(/\D/g, '').slice(0, 9);
-                  } else if (formData.documentType === 'PASSPORT') {
+                  } else if (datosFormulario.documentType === 'PASSPORT') {
                     value = value.toUpperCase().slice(0, 12);
                   }
 
-                  setFormData({ ...formData, documentNumber: value });
+                  setFormData({ ...datosFormulario, documentNumber: value });
                 }}
                 placeholder={getDocumentTypeConfig()?.placeholder}
                 error={errors.documentNumber}
@@ -446,22 +446,22 @@ export function UserForm({
                 Establecimientos.map((Establecimiento) => (
                   <label
                     key={Establecimiento.id}
-                    className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.EstablecimientoIds.includes(Establecimiento.id)
+                    className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${datosFormulario.EstablecimientoIds.includes(Establecimiento.id)
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
                       }`}
                   >
                     <Checkbox
-                      checked={formData.EstablecimientoIds.includes(Establecimiento.id)}
+                      checked={datosFormulario.EstablecimientoIds.includes(Establecimiento.id)}
                       onChange={() => handleEstablecimientoToggle(Establecimiento.id)}
                       disabled={isLoading}
                     />
                     <div className="ml-3 flex-1">
                       <div className="font-medium text-gray-900">
-                        {Establecimiento.name}
+                        {Establecimiento.nombreEstablecimiento}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {Establecimiento.address}
+                        {Establecimiento.direccionEstablecimiento}
                       </div>
                     </div>
                   </label>
@@ -502,7 +502,7 @@ export function UserForm({
                   <div className="flex items-center space-x-2 px-4 py-3 bg-white border border-gray-300 rounded-lg">
                     <User className="w-5 h-5 text-gray-400" />
                     <span className="text-gray-900 font-medium">
-                      {formData.email.split('@')[0] || 'usuario'}
+                      {datosFormulario.email.split('@')[0] || 'usuario'}
                     </span>
                     <span className="text-xs text-gray-500 ml-auto">
                       (basado en el email)
@@ -519,7 +519,7 @@ export function UserForm({
                     <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      value={formData.password}
+                      value={datosFormulario.password}
                       onChange={(e) => handleFieldChange('password', e.target.value)}
                       onBlur={() => handleBlur('password')}
                       className={`w-full pl-10 pr-32 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm ${errors.password && touchedFields.has('password')
@@ -559,7 +559,7 @@ export function UserForm({
                   </div>
 
                   {/* Password Strength Indicator */}
-                  {formData.password && (
+                  {datosFormulario.password && (
                     <div className="mt-3 space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Fortaleza de la contraseña:</span>
@@ -586,20 +586,20 @@ export function UserForm({
 
                       {/* Password Requirements */}
                       <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                        <div className={`flex items-center space-x-1 ${formData.password.length >= 8 ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${formData.password.length >= 8 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <div className={`flex items-center space-x-1 ${datosFormulario.password.length >= 8 ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${datosFormulario.password.length >= 8 ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <span>Mín. 8 caracteres</span>
                         </div>
-                        <div className={`flex items-center space-x-1 ${/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(formData.password) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <div className={`flex items-center space-x-1 ${/[A-Z]/.test(datosFormulario.password) ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(datosFormulario.password) ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <span>Mayúsculas</span>
                         </div>
-                        <div className={`flex items-center space-x-1 ${/[a-z]/.test(formData.password) ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${/[a-z]/.test(formData.password) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <div className={`flex items-center space-x-1 ${/[a-z]/.test(datosFormulario.password) ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${/[a-z]/.test(datosFormulario.password) ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <span>Minúsculas</span>
                         </div>
-                        <div className={`flex items-center space-x-1 ${/[0-9]/.test(formData.password) ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${/[0-9]/.test(formData.password) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <div className={`flex items-center space-x-1 ${/[0-9]/.test(datosFormulario.password) ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${/[0-9]/.test(datosFormulario.password) ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <span>Números</span>
                         </div>
                       </div>
@@ -618,7 +618,7 @@ export function UserForm({
                 <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-200">
                   <Checkbox
                     id="requirePasswordChange"
-                    checked={formData.requirePasswordChange}
+                    checked={datosFormulario.requirePasswordChange}
                     onChange={(e) => handleFieldChange('requirePasswordChange', e.target.checked)}
                     disabled={isLoading}
                   />
@@ -674,3 +674,5 @@ export function UserForm({
     </div>
   );
 }
+
+

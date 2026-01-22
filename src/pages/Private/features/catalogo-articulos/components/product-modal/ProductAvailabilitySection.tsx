@@ -14,7 +14,7 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
   Establecimientos
 }) => {
   const activeEstablecimientos = useMemo(
-    () => Establecimientos.filter(est => est.isActive),
+    () => Establecimientos.filter(est => est.estaActivoEstablecimiento !== false),
     [Establecimientos]
   );
   const selectedSet = useMemo(() => new Set(formData.establecimientoIds), [formData.establecimientoIds]);
@@ -59,9 +59,9 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
                 className="w-3.5 h-3.5 text-violet-600 border-gray-300 rounded focus:ring-violet-500 focus:ring-1"
               />
               <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-gray-100 text-gray-700 rounded">
-                {est.code}
+                {est.codigoEstablecimiento}
               </span>
-              <span className="text-xs font-medium text-gray-900 truncate">{est.name}</span>
+              <span className="text-xs font-medium text-gray-900 truncate">{est.nombreEstablecimiento}</span>
             </label>
           );
         })}

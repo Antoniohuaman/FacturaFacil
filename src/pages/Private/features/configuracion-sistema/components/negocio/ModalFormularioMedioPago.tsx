@@ -17,20 +17,20 @@ export function PaymentMethodFormModal({
   paymentMethods,
   onUpdate
 }: PaymentMethodFormModalProps) {
-  const [formData, setFormData] = useState({ code: '', name: '' });
+  const [datosFormulario, setFormData] = useState({ code: '', name: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setFormData({ code: '', name: '' });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.code.trim() || !formData.name.trim()) return;
+    if (!datosFormulario.code.trim() || !datosFormulario.name.trim()) return;
 
     // Validar que el código sea CONTADO o CREDITO
-    if (!['CONTADO', 'CREDITO'].includes(formData.code)) {
+    if (!['CONTADO', 'CREDITO'].includes(datosFormulario.code)) {
       alert('El código debe ser CONTADO o CREDITO');
       return;
     }
@@ -41,11 +41,11 @@ export function PaymentMethodFormModal({
       // Create new
       const newMethod: PaymentMethod = {
         id: Date.now().toString(),
-        code: formData.code, // CONTADO o CREDITO
-        name: formData.name,
-        type: formData.code === 'CONTADO' ? 'CASH' : 'CREDIT',
-        sunatCode: formData.code === 'CONTADO' ? '001' : '002', // Código SUNAT
-        sunatDescription: formData.name,
+        code: datosFormulario.code, // CONTADO o CREDITO
+        name: datosFormulario.name,
+        type: datosFormulario.code === 'CONTADO' ? 'CASH' : 'CREDIT',
+        sunatCode: datosFormulario.code === 'CONTADO' ? '001' : '002', // Código SUNAT
+        sunatDescription: datosFormulario.name,
         configuration: {
           requiresReference: false,
           allowsPartialPayments: true,
@@ -128,13 +128,13 @@ export function PaymentMethodFormModal({
 
           {/* Content */}
           <div className="px-6 py-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={manejarEnvio} className="space-y-4">
               {/* Informational help removed per request */}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Select
                   label="Código Normativo"
-                  value={formData.code}
+                  value={datosFormulario.code}
                   onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
                   required
                   options={[
@@ -147,7 +147,7 @@ export function PaymentMethodFormModal({
                 <Input
                   label="Nombre Personalizado"
                   type="text"
-                  value={formData.name}
+                  value={datosFormulario.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Ej: Efectivo, Yape, Tarjeta Visa, Crédito 30 días..."
                   required
@@ -166,7 +166,7 @@ export function PaymentMethodFormModal({
                 <Button
                   variant="primary"
                   type="submit"
-                  disabled={isSubmitting || !formData.code.trim() || !formData.name.trim()}
+                  disabled={isSubmitting || !datosFormulario.code.trim() || !datosFormulario.name.trim()}
                 >
                   {isSubmitting ? 'Creando...' : 'Crear Forma de Pago'}
                 </Button>
@@ -178,3 +178,5 @@ export function PaymentMethodFormModal({
     </div>
   );
 }
+
+

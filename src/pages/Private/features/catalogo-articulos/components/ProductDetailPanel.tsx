@@ -156,19 +156,19 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
   const subtitleValue = [product.codigo, getUnitLabel(units, product.unidad)].filter(Boolean).join(' • ');
   const additionalUnits = product.unidadesMedidaAdicionales ?? [];
   const enabledEstablecimientoIds = product.disponibleEnTodos
-    ? Establecimientos.filter(est => est.isActive).map(est => est.id)
+    ? Establecimientos.filter(est => est.estaActivoEstablecimiento !== false).map(est => est.id)
     : (product.establecimientoIds ?? []);
 
   const EstablecimientoBadges = enabledEstablecimientoIds
     .map((id) => {
       const est = EstablecimientosById.get(id);
-      return est ? `${est.code} · ${est.name}` : id;
+      return est ? `${est.codigoEstablecimiento} · ${est.nombreEstablecimiento}` : id;
     })
     .filter(Boolean);
 
   const stockByEstablecimientoList = renderRecordList(
     product.stockPorEstablecimiento,
-    (key) => EstablecimientosById.get(key)?.name ?? key,
+    (key) => EstablecimientosById.get(key)?.nombreEstablecimiento ?? key,
     'Stock por establecimiento'
   );
 

@@ -6,6 +6,7 @@ import { X, FileText, Receipt, Clipboard, MessageSquare, Hash, CheckCircle, Info
 import { Input, Button, RadioButton, Select, Switch } from '@/contasis';
 import type { Series } from '../../modelos/Series';
 import type { Establecimiento } from '../../modelos/Establecimiento';
+import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -84,7 +85,7 @@ export function SeriesForm({
   onCancel,
   isLoading = false
 }: SeriesFormProps) {
-  const [formData, setFormData] = useState<SeriesFormData>({
+  const [datosFormulario, setFormData] = useState<SeriesFormData>({
     type: 'INVOICE',
     series: '',
     EstablecimientoId: '',
@@ -168,7 +169,7 @@ export function SeriesForm({
           return 'El código de serie es obligatorio';
         }
 
-        const config = voucherTypeConfig[formData.type];
+        const config = voucherTypeConfig[datosFormulario.type];
 
         // Check prefix for INVOICE/RECEIPT
         if (config.prefix && !value.startsWith(config.prefix)) {
@@ -183,7 +184,7 @@ export function SeriesForm({
         // Check for duplicates
         const isDuplicate = existingSeries.some(s =>
           s.series === value &&
-          s.EstablecimientoId === formData.EstablecimientoId &&
+          s.EstablecimientoId === datosFormulario.EstablecimientoId &&
           s.id !== series?.id
         );
 
@@ -234,7 +235,7 @@ export function SeriesForm({
 
   const handleBlur = (field: string) => {
     setTouchedFields(prev => new Set(prev).add(field));
-    const error = validateField(field, formData[field as keyof SeriesFormData]);
+    const error = validateField(field, datosFormulario[field as keyof SeriesFormData]);
     setErrors(prev => ({
       ...prev,
       [field]: error || ''
@@ -245,14 +246,14 @@ export function SeriesForm({
     const requiredFields = ['series', 'EstablecimientoId', 'initialNumber'];
 
     for (const field of requiredFields) {
-      const error = validateField(field, formData[field as keyof SeriesFormData]);
+      const error = validateField(field, datosFormulario[field as keyof SeriesFormData]);
       if (error) return false;
     }
 
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate all fields
@@ -260,7 +261,7 @@ export function SeriesForm({
     const fieldsToValidate = ['series', 'EstablecimientoId', 'initialNumber'];
 
     fieldsToValidate.forEach(field => {
-      const error = validateField(field, formData[field as keyof SeriesFormData]);
+      const error = validateField(field, datosFormulario[field as keyof SeriesFormData]);
       if (error) newErrors[field] = error;
     });
 
@@ -271,7 +272,7 @@ export function SeriesForm({
       return;
     }
 
-    await onSubmit(formData);
+    await onSubmit(datosFormulario);
   };
 
   const getEstablecimientoName = (EstablecimientoId: string) => {
@@ -280,8 +281,8 @@ export function SeriesForm({
 
   const hasDefaultInEstablecimiento = () => {
     return existingSeries.some(s =>
-      s.documentType.category === formData.type &&
-      s.EstablecimientoId === formData.EstablecimientoId &&
+      s.documentType.category === datosFormulario.type &&
+      s.EstablecimientoId === datosFormulario.EstablecimientoId &&
       s.isDefault &&
       s.id !== series?.id
     );
@@ -311,7 +312,7 @@ export function SeriesForm({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={manejarEnvio} className="p-6 space-y-6">
           {/* Voucher Type Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -320,7 +321,7 @@ export function SeriesForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {Object.entries(voucherTypeConfig).map(([type, config]) => {
                 const Icon = config.icon;
-                const isSelected = formData.type === type;
+                const isSelected = datosFormulario.type === type;
 
                 return (
                   <div key={type}>
@@ -363,11 +364,11 @@ export function SeriesForm({
               <Input
                 label="Código de Serie *"
                 type="text"
-                value={formData.series}
+                value={datosFormulario.series}
                 onChange={(e) => handleFieldChange('series', e.target.value.toUpperCase())}
                 onBlur={() => handleBlur('series')}
                 error={errors.series && touchedFields.has('series') ? errors.series : undefined}
-                placeholder={voucherTypeConfig[formData.type].examples[0]}
+                placeholder={voucherTypeConfig[datosFormulario.type].examples[0]}
                 maxLength={4}
                 disabled={isLoading}
                 leftIcon={<Hash />}
@@ -375,9 +376,9 @@ export function SeriesForm({
               />
 
               <div className="mt-2">
-                <p className="text-xs text-gray-600">{voucherTypeConfig[formData.type].rules}</p>
+                <p className="text-xs text-gray-600">{voucherTypeConfig[datosFormulario.type].rules}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Ejemplos: {voucherTypeConfig[formData.type].examples.join(', ')}
+                  Ejemplos: {voucherTypeConfig[datosFormulario.type].examples.join(', ')}
                 </p>
               </div>
             </div>
@@ -385,7 +386,7 @@ export function SeriesForm({
             {/* Establecimiento */}
             <Select
               label="Establecimiento *"
-              value={formData.EstablecimientoId}
+              value={datosFormulario.EstablecimientoId}
               onChange={(e) => handleFieldChange('EstablecimientoId', e.target.value)}
               onBlur={() => handleBlur('EstablecimientoId')}
               error={errors.EstablecimientoId && touchedFields.has('EstablecimientoId') ? errors.EstablecimientoId : undefined}
@@ -393,10 +394,10 @@ export function SeriesForm({
               options={[
                 { value: '', label: 'Seleccionar establecimiento' },
                 ...Establecimientos
-                  .filter(est => est.isActive)
+                  .filter(est => est.estaActivoEstablecimiento)
                   .map(est => ({
                     value: est.id,
-                    label: `${est.code} - ${est.name}`
+                    label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
                   }))
               ]}
             />
@@ -407,7 +408,7 @@ export function SeriesForm({
             <Input
               label="Número Inicial *"
               type="number"
-              value={formData.initialNumber}
+              value={datosFormulario.initialNumber}
               onChange={(e) => handleFieldChange('initialNumber', parseInt(e.target.value) || 1)}
               onBlur={() => handleBlur('initialNumber')}
               error={errors.initialNumber && touchedFields.has('initialNumber') ? errors.initialNumber : undefined}
@@ -420,7 +421,7 @@ export function SeriesForm({
             <Input
               label="Número Actual"
               type="number"
-              value={formData.currentNumber}
+              value={datosFormulario.currentNumber}
               disabled
               className="font-mono"
               helperText={series ? 'No se puede modificar en series existentes' : 'Se ajusta automáticamente al número inicial'}
@@ -430,20 +431,15 @@ export function SeriesForm({
           {/* Configuration Options */}
           <div className="space-y-4">
             <div className="border border-gray-200 rounded-lg p-4">
-              <div className="space-y-3">
-                <Switch
-                  checked={formData.isDefault}
-                  onChange={(enabled: boolean) => handleFieldChange('isDefault', enabled)}
-                  label="Serie por Defecto"
-                  disabled={isLoading || (!formData.EstablecimientoId)}
-                  size="md"
-                />
-                <p className="text-sm text-gray-600">
-                  Se selecciona automáticamente para {voucherTypeConfig[formData.type].label} en este establecimiento
-                </p>
-              </div>
+              <SettingsToggle
+                enabled={formData.isDefault}
+                onToggle={(enabled: boolean) => handleFieldChange('isDefault', enabled)}
+                label="Serie por Defecto"
+                description={`Se selecciona automáticamente para ${voucherTypeConfig[formData.type].label} en este establecimiento`}
+                disabled={isLoading || (!formData.EstablecimientoId)}
+              />
 
-              {hasDefaultInEstablecimiento() && formData.isDefault && (
+              {hasDefaultInEstablecimiento() && datosFormulario.isDefault && (
                 <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <div className="flex items-start space-x-2">
                     <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -456,23 +452,18 @@ export function SeriesForm({
             </div>
 
             <div className="border border-gray-200 rounded-lg p-4">
-              <div className="space-y-3">
-                <Switch
-                  checked={formData.isActive}
-                  onChange={(checked: boolean) => handleFieldChange('isActive', checked)}
-                  label="Serie Activa"
-                  disabled={isLoading}
-                  size="md"
-                />
-                <p className="text-sm text-gray-600">
-                  Solo las series activas pueden usarse para emitir documentos
-                </p>
-              </div>
+              <SettingsToggle
+                enabled={formData.isActive}
+                onToggle={(enabled: boolean) => handleFieldChange('isActive', enabled)}
+                label="Serie Activa"
+                description="Solo las series activas pueden usarse para emitir documentos"
+                disabled={isLoading}
+              />
             </div>
           </div>
 
           {/* Preview */}
-          {formData.series && formData.EstablecimientoId && (
+          {datosFormulario.series && datosFormulario.EstablecimientoId && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-medium text-blue-900 mb-3 flex items-center space-x-2">
                 <CheckCircle className="w-4 h-4" />
@@ -482,13 +473,13 @@ export function SeriesForm({
                 <div>
                   <p className="text-blue-700"><strong>Serie completa:</strong></p>
                   <p className="font-mono text-lg font-bold text-blue-900">
-                    {formData.series}-{formData.currentNumber.toString().padStart(8, '0')}
+                    {datosFormulario.series}-{datosFormulario.currentNumber.toString().padStart(8, '0')}
                   </p>
                 </div>
                 <div>
                   <p className="text-blue-700"><strong>Establecimiento:</strong></p>
                   <p className="text-blue-900">
-                    {getEstablecimientoName(formData.EstablecimientoId)?.name || 'No seleccionado'}
+                    {getEstablecimientoName(datosFormulario.EstablecimientoId)?.nombreEstablecimiento || 'No seleccionado'}
                   </p>
                 </div>
               </div>
@@ -521,3 +512,4 @@ export function SeriesForm({
     </div>
   );
 }
+
