@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { PageHeader, Button } from '@/contasis';
+import { PageHeader, Button, Breadcrumb } from '@/contasis';
 import { FormularioCaja } from '../components/cajas/FormularioCaja';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
@@ -71,13 +71,13 @@ export function CajaFormPage() {
         <PageHeader 
           title="Cargando..."
           breadcrumb={
-            <button
-              onClick={handleCancel}
-              className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Volver a Cajas
-            </button>
+            <Breadcrumb
+              items={[
+                { label: 'Configuración', href: '#', onClick: () => navigate('/configuracion') },
+                { label: 'Cajas', href: '#', onClick: () => navigate('/configuracion/cajas') },
+                { label: 'Cargando' }
+              ]}
+            />
           }
           actions={
             <Button
@@ -106,13 +106,13 @@ export function CajaFormPage() {
       <PageHeader 
         title={isEditing ? 'Editar Caja' : 'Nueva Caja'}
         breadcrumb={
-          <button
-            onClick={() => navigate('/configuracion/cajas')}
-            className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver a Cajas
-          </button>
+          <Breadcrumb
+            items={[
+              { label: 'Configuración', href: '#', onClick: () => navigate('/configuracion') },
+              { label: 'Cajas', href: '#', onClick: () => navigate('/configuracion/cajas') },
+              { label: isEditing ? 'Editar Caja' : 'Nueva Caja' }
+            ]}
+          />
         }
         actions={
           <Button

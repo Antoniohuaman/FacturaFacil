@@ -9,7 +9,7 @@ import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
-import { Button, Select, Input, PageHeader, CajaCard } from '@/contasis';
+import { Button, Select, Input, PageHeader, CajaCard, Breadcrumb } from '@/contasis';
 import type { Caja } from '../modelos/Caja';
 
 type filtroEstado = 'all' | 'enabled' | 'disabled';
@@ -165,13 +165,12 @@ export function CajasConfiguration() {
       <PageHeader
         title="Gestión de Cajas"
         breadcrumb={
-          <button
-            onClick={() => navigate('/configuracion')}
-            className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver a Configuración
-          </button>
+          <Breadcrumb
+            items={[
+              { label: 'Configuración', href: '#', onClick: () => navigate('/configuracion') },
+              { label: 'Cajas' }
+            ]}
+          />
         }
         actions={
           <Button

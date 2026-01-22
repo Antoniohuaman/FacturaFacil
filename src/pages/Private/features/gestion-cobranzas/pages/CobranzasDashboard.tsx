@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Coins, NotebookPen, Filter, Download } from 'lucide-react';
+import { NotebookPen, Filter, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type {
   Currency,

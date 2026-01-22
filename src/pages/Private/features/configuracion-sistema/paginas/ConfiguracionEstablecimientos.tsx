@@ -19,7 +19,7 @@ import {
   Mail,
   Phone
 } from 'lucide-react';
-import { PageHeader, Button, Select, Input } from '@/contasis';
+import { PageHeader, Button, Select, Input, Breadcrumb } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 // import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
@@ -349,7 +349,30 @@ export function EstablecimientosConfiguration() {
 
   if (showForm) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-col h-full">
+        <PageHeader
+          title={editingEstablecimientoId ? 'Editar Establecimiento' : 'Nuevo Establecimiento'}
+          breadcrumb={
+            <Breadcrumb
+              items={[
+                { label: 'Configuración', href: '#', onClick: () => navigate('/configuracion') },
+                { label: 'Establecimientos', href: '#', onClick: () => setShowForm(false) },
+                { label: editingEstablecimientoId ? 'Editar Establecimiento' : 'Nuevo Establecimiento' }
+              ]}
+            />
+          }
+          actions={
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft />}
+              onClick={handleCancel}
+            >
+              Volver
+            </Button>
+          }
+        />
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Toast Notifications */}
         <div className="fixed top-4 right-4 z-50 space-y-2">
           {toasts.map((toast) => (

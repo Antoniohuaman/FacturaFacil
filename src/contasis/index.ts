@@ -35,6 +35,9 @@ export type { SidebarProps, Module } from './layout/Sidebar';
 export { PageHeader } from './layout/PageHeader';
 export type { PageHeaderProps } from './layout/PageHeader';
 
+export { Breadcrumb } from './layout/Breadcrumb/Breadcrumb';
+export type { BreadcrumbProps, BreadcrumbItem } from './layout/Breadcrumb/Breadcrumb';
+
 export { Toolbar } from './layout/Toolbar';
 export type { ToolbarProps } from './layout/Toolbar';
 
