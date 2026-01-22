@@ -25,6 +25,9 @@ export type { SwitchProps } from './components/Switch';
 export { Textarea } from './components/Textarea';
 export type { TextareaProps } from './components/Textarea';
 
+export { CajaCard } from './components/CajaCard';
+export type { CajaCardProps } from './components/CajaCard';
+
 // Layout
 export { Sidebar } from './layout/Sidebar';
 export type { SidebarProps, Module } from './layout/Sidebar';

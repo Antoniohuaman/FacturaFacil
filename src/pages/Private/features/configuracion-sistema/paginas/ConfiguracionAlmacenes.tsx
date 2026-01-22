@@ -18,7 +18,7 @@ import {
   Package,
   Boxes as IconoAlmacen
 } from 'lucide-react';
-import { Button, Select, Input, Checkbox, PageHeader } from '@/contasis';
+import { Button, Select, Input, Checkbox, PageHeader, Textarea } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Almacen } from '../modelos/Almacen';
@@ -467,20 +467,15 @@ export function ConfiguracionAlmacenes() {
                 helperText="Opcional"
               />
 
-              <div className="group">
-                <label className="flex text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 items-center gap-2">
-                  <FileText className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  Descripción
-                  <span className="text-xs text-gray-500 dark:text-gray-400">(Opcional)</span>
-                </label>
-                <textarea
-                  value={datosFormulario.descripcionAlmacen}
-                  onChange={e => setFormData(prev => ({ ...prev, descripcionAlmacen: e.target.value }))}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all hover:border-gray-400 dark:hover:border-gray-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  placeholder="Descripción adicional del almacén..."
-                />
-              </div>
+              {/* Descripción */}
+              <Textarea
+                label="Descripción"
+                value={datosFormulario.descripcionAlmacen}
+                onChange={e => setFormData(prev => ({ ...prev, descripcionAlmacen: e.target.value }))}
+                rows={3}
+                placeholder="Descripción adicional del almacén..."
+                helperText="Opcional"
+              />
 
               {/* Almacén Principal */}
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
@@ -540,7 +535,7 @@ export function ConfiguracionAlmacenes() {
       />
 
       <div className="flex-1 overflow-auto">
-        <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <div className="max-w-6xl mx-auto p-6 space-y-6 pb-12">
           {/* Toast Notifications */}
           <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map(toast => (
