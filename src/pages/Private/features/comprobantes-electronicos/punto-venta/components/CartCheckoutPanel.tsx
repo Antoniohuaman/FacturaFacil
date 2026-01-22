@@ -4,6 +4,7 @@
 // ===================================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, SlidersHorizontal, ShoppingCart } from 'lucide-react';
 import type { CartSidebarProps, Product, ComprobanteCreditTerms, Currency, DiscountInput, DiscountMode, PaymentTotals } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
@@ -114,6 +115,8 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   onClearDiscount,
   getDiscountPreviewTotals,
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { formatPrice, changeCurrency, availableCurrencies } = useCurrency();
   const [showNotes, setShowNotes] = useState(false);
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
@@ -527,6 +530,16 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
             <div>
               <p className="text-sm font-medium text-yellow-800">Caja cerrada</p>
               <p className="text-xs text-yellow-600">{UI_MESSAGES.CAJA_CLOSED_WARNING}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  const returnTo = `${location.pathname}${location.search}`;
+                  navigate(`/control-caja?tab=apertura&returnTo=${encodeURIComponent(returnTo)}`);
+                }}
+                className="mt-1 inline-flex text-xs font-medium text-yellow-800 underline underline-offset-2 hover:text-yellow-900"
+              >
+                Abrir caja
+              </button>
             </div>
           </div>
         </div>
