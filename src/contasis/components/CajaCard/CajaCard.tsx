@@ -4,11 +4,11 @@ import {
   Trash2,
   Clock,
   MoreVertical,
-  Wallet,
   Banknote,
   CreditCard,
   TrendingDown,
   Users,
+  Computer,
 } from 'lucide-react';
 import type { CajaCardProps } from './CajaCard.types';
 
@@ -169,7 +169,7 @@ export const CajaCard: React.FC<CajaCardProps> = ({
                   : 'bg-slate-200 text-slate-500'
               }`}
             >
-              <Wallet className="w-5 h-5" />
+              <Computer className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-semibold text-lg">{caja.nombreCaja}</h3>

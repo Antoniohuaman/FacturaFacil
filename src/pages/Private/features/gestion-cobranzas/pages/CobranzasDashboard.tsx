@@ -352,42 +352,46 @@ export const CobranzasDashboard = () => {
       <PageHeader
         title="Gestión de Cobranzas"
       />
+      {/* Toolbar - Acciones importantes */}
+      <div className="bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 shadow-sm">
+        <div className="px-6 py-4 flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setFiltersVisible((prev) => !prev)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 text-blue-600 text-sm font-semibold hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-200 dark:hover:bg-blue-900/40"
+            aria-pressed={filtersVisible}
+            aria-expanded={filtersVisible}
+            aria-controls="cobranzas-filters"
+          >
+            <Filter className="w-4 h-4" />
+            {filtersVisible ? 'Ocultar filtros' : 'Filtros'}
+          </button>
+          {columnsManagerButton}
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={!canExport}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors shadow-sm ${
+              canExport
+                ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40'
+                : 'border-slate-200 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            <Download className="w-4 h-4" />
+            Exportar
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenCuentaPicker}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700"
+          >
+            <NotebookPen className="w-4 h-4" />
+            Registrar Cobranza
+          </button>
+        </div>
+      </div>
       <div className="flex-1 overflow-auto">
         <div className="p-6 space-y-6 max-w-7xl mx-auto">
-            <button
-              type="button"
-              onClick={() => setFiltersVisible((prev) => !prev)}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 text-blue-600 text-sm font-semibold hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-200 dark:hover:bg-blue-900/40"
-              aria-pressed={filtersVisible}
-              aria-expanded={filtersVisible}
-              aria-controls="cobranzas-filters"
-            >
-              <Filter className="w-4 h-4" />
-              {filtersVisible ? 'Ocultar filtros' : 'Filtros'}
-            </button>
-            {columnsManagerButton}
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={!canExport}
-              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors shadow-sm ${
-                canExport
-                  ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40'
-                  : 'border-slate-200 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              <Download className="w-4 h-4" />
-              Exportar
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenCuentaPicker}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700"
-            >
-              <NotebookPen className="w-4 h-4" />
-              Registrar Cobranza
-            </button>
-
         <CobranzasTabs activeTab={activeTab} onChange={setActiveTab} />
       {filtersVisible && (
         <div id="cobranzas-filters">

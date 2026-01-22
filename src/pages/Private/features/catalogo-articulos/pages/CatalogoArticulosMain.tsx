@@ -1,8 +1,9 @@
 // src/features/catalogo-articulos/pages/CatalogoArticulosMain.tsx
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { TabKey } from '../models/types';
-import { PageHeader } from '../../../../../components/PageHeader';
+import { PageHeader } from '@/contasis';
 import TabNavigation from '../components/TabNavigation';
 import ProductsPage from './ProductsPage';
 import ImportPage from './ImportPage';
@@ -11,6 +12,7 @@ import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 
 const CatalogoArticulosMain: React.FC = () => {
   useFocusFromQuery();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabKey>('productos');
   const { allProducts } = useProductStore();
 
@@ -39,7 +41,7 @@ const CatalogoArticulosMain: React.FC = () => {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-gray-900">
-      {/* Header - Solo título */}
+      {/* Header */}
       <PageHeader 
         title="Gestión de Productos y Servicios"
       />

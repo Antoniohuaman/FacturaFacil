@@ -18,7 +18,7 @@ import {
   Package,
   Boxes as IconoAlmacen
 } from 'lucide-react';
-import { Button, Select, Input, Checkbox, PageHeader, Textarea } from '@/contasis';
+import { Button, Select, Input, Checkbox, PageHeader, Textarea, Breadcrumb } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Almacen } from '../modelos/Almacen';
@@ -350,14 +350,13 @@ export function ConfiguracionAlmacenes() {
         <PageHeader
           title={editingAlmacenId ? 'Editar Almacén' : 'Nuevo Almacén'}
           breadcrumb={
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Volver a Almacenes
-            </button>
+            <Breadcrumb
+              items={[
+                { label: 'Configuración', href: '#', onClick: () => navigate('/configuracion') },
+                { label: 'Almacenes', href: '#', onClick: () => setShowForm(false) },
+                { label: editingAlmacenId ? 'Editar Almacén' : 'Nuevo Almacén' }
+              ]}
+            />
           }
           actions={
             <Button
